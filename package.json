@@ -10,7 +10,8 @@
     "lint": "eslint --ext .js,.ts,.vue ./",
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
-    "build": "quasar build"
+    "build": "quasar build",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",

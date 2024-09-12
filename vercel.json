@@ -4,5 +4,5 @@
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/" }
   ],
-  "regions": ["us-east-1"]
+  "regions": ["iad1"]
 }
