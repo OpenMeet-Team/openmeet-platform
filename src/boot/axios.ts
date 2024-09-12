@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
+import * as process from 'node:process'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -14,7 +15,7 @@ declare module 'vue' {
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-const api = axios.create({ baseURL: 'https://api.example.com' })
+const api = axios.create({ baseURL: process.env.APP_API_URL })
 
 export default boot(({ app }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api

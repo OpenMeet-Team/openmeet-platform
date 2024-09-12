@@ -5,6 +5,10 @@
 
 import { configure } from 'quasar/wrappers'
 import { fileURLToPath } from 'node:url'
+import dotenv from 'dotenv'
+
+// Specify the path for environment variables
+dotenv.config({ path: ['.env.local', '.env'] })
 
 export default configure((ctx) => {
   return {
@@ -45,7 +49,7 @@ export default configure((ctx) => {
         node: 'node20'
       },
 
-      vueRouterMode: 'hash', // available values: 'hash', 'history'
+      vueRouterMode: 'history', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -91,8 +95,9 @@ export default configure((ctx) => {
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
-      // https: true
-      open: true // opens browser window automatically
+      // https: Boolean(process.env.DEV_SERVER_HTTPS),
+      port: process.env.DEV_SERVER_PORT ? parseInt(process.env.DEV_SERVER_PORT, 10) : 8080,
+      open: Boolean(process.env.DEV_SERVER_OPEN || true) // opens browser window automatically
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
