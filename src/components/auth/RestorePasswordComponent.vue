@@ -88,12 +88,12 @@ import { useRoute } from 'vue-router'
 const $q = useQuasar()
 const route = useRoute()
 
-const email = ref('')
-const password = ref('')
+const email = ref<string>('')
+const password = ref<string>('')
 const token: string = (route.query.token as string | null) ?? ''
-const isPwd = ref(true)
-const loading = ref(false)
-const showSuccessDialog = ref(false)
+const isPwd = ref<boolean>(true)
+const loading = ref<boolean>(false)
+const showSuccessDialog = ref<boolean>(false)
 
 const isValidEmail = (val: string): boolean => {
   const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
