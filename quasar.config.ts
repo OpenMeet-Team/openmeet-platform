@@ -96,7 +96,7 @@ export default configure((ctx) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
-      port: process.env.DEV_SERVER_PORT ? parseInt(process.env.DEV_SERVER_PORT, 10) : 8080,
+      port: process.env.DEV_SERVER_PORT || 8080,
       open: Boolean(process.env.DEV_SERVER_OPEN || true) // opens browser window automatically
     },
 

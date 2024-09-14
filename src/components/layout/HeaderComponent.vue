@@ -25,6 +25,9 @@
         <q-route-tab :to="{name: 'AuthRegisterPage'}">
           Register
         </q-route-tab>
+        <q-route-tab :to="{name: 'AuthForgotPasswordPage'}">
+          Forgot
+        </q-route-tab>
         <q-route-tab :to="{name: 'AuthRestorePasswordPage'}">
           Restore
         </q-route-tab>

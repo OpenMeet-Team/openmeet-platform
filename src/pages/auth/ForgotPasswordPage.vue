@@ -1,10 +1,11 @@
 <script setup lang="ts">
 
+import ForgotPasswordComponent from 'components/auth/ForgotPasswordComponent.vue'
 </script>
 
 <template>
   <q-page class="row items-center justify-evenly">
-    Restore page
+    <ForgotPasswordComponent/>
   </q-page>
 </template>
 
