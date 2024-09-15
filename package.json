@@ -8,10 +8,13 @@
   "private": true,
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
-    "test": "echo \"No test specified\" && exit 0",
+    "test": "echo \"See package.json => scripts for available tests.\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "test:unit:ui": "vitest --ui",
+    "test:unit": "vitest",
+    "test:unit:ci": "vitest run"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
@@ -26,6 +29,7 @@
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^2.0.0",
     "@quasar/app-vite": "^2.0.0-beta.12",
+    "@quasar/quasar-app-extension-testing-unit-vitest": "^1.1.0",
     "@types/node": "^20.5.9",
     "@typescript-eslint/eslint-plugin": "^7.16.0",
     "@typescript-eslint/parser": "^7.16.0",
@@ -38,7 +42,10 @@
     "eslint-plugin-vue": "^9.0.0",
     "typescript": "~5.5.3",
     "vite-plugin-checker": "^0.7.2",
-    "vue-tsc": "2.0.29"
+    "vue-tsc": "2.0.29",
+    "@vue/test-utils": "^2.4.4",
+    "vitest": "^2.0.5",
+    "@vitest/ui": "^2.0.5"
   },
   "engines": {
     "node": "^24 || ^22 || ^20 || ^18",
