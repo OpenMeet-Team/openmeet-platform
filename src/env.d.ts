@@ -8,5 +8,6 @@ declare namespace NodeJS {
     APP_API_URL: string | undefined
     DEV_SERVER_OPEN: boolean | false
     DEV_SERVER_PORT: number | undefined
+    APP_TENANT_ID: string | undefined
   }
 }

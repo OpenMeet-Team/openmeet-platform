@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
+import * as process from 'node:process'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -21,6 +22,14 @@ export default boot(({ app }) => {
   app.config.globalProperties.$axios = axios
   // ^ ^ ^ this will allow you to use this.$axios (for Vue Options API form)
   //       so you won't necessarily have to import axios in each vue file
+
+  api.interceptors.request.use((config) => {
+    if (process.env.APP_TENANT_ID) {
+      config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
+    }
+
+    return config
+  })
 
   api.interceptors.response.use(
     response => response,
