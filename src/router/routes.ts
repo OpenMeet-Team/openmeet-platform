@@ -9,7 +9,19 @@ const routes: RouteRecordRaw[] = [
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       { path: 'events/:eventId', name: 'EventPage', component: () => import('pages/EventPage.vue') }
     ],
-    meta: { auth: false }
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/dashboard',
+    component: () => import('layouts/DashboardLayout.vue'),
+    children: [
+      { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
+      { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/EventsPage.vue') },
+      { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/GroupsPage.vue') },
+      { path: 'tickets', name: 'DashboardTicketsPage', component: () => import('pages/dashboard/TicketsPage.vue') },
+      { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
+    ],
+    meta: { requiresAuth: true }
   },
   {
     path: '/auth',
@@ -21,7 +33,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'forgot-password', name: 'AuthForgotPasswordPage', component: () => import('pages/auth/ForgotPasswordPage.vue') },
       { path: 'restore-password', name: 'AuthRestorePasswordPage', component: () => import('pages/auth/RestorePasswordPage.vue') }
     ],
-    meta: { auth: false }
+    meta: { requiresAuth: false }
   },
   // Always leave this as last one,
   // but you can also remove it
