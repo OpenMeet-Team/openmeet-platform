@@ -5,10 +5,9 @@
 
 import { configure } from 'quasar/wrappers'
 import { fileURLToPath } from 'node:url'
-import dotenv from 'dotenv'
+import 'dotenv/config'
 
-// Specify the path for environment variables
-dotenv.config({ path: ['.env.local', '.env'] })
+// dotenv.config({ path: ['.env.local', '.env'] })
 
 export default configure((ctx) => {
   return {
@@ -59,7 +58,7 @@ export default configure((ctx) => {
       // publicPath: '/',
       // analyze: true,
       // env: {},
-      // rawDefine: {}
+      // rawDefine: {},
       // ignorePublicFolder: true,
       // minify: false,
       // polyfillModulePreload: true,
@@ -97,7 +96,7 @@ export default configure((ctx) => {
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
       port: process.env.DEV_SERVER_PORT || 8080,
-      open: Boolean(process.env.DEV_SERVER_OPEN || true) // opens browser window automatically
+      open: Boolean(process.env.DEV_SERVER_OPEN) // opens browser window automatically
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
@@ -115,7 +114,9 @@ export default configure((ctx) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: []
+      plugins: [
+        'Notify'
+      ]
     },
 
     // animations: 'all', // --- includes all animations

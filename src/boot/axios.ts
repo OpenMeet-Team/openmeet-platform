@@ -1,6 +1,6 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
-import * as process from 'node:process'
+import { useAuthStore } from 'stores/auth-store.ts'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -28,12 +28,31 @@ export default boot(({ app }) => {
       config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
     }
 
+    const authStore = useAuthStore()
+    if (authStore.token) {
+      config.headers.Authorization = `Bearer ${authStore.token}`
+    }
+
     return config
   })
 
   api.interceptors.response.use(
-    response => response,
-    error => {
+    (response) => response,
+    async (error) => {
+      const authStore = useAuthStore()
+
+      if (error.response?.status === 401 && !error.config?._retry) {
+        error.config._retry = true
+        try {
+          const refreshToken = authStore.refreshToken
+          await authStore.actionRefreshToken({ refreshToken })
+          return api(error.config)
+        } catch (error) {
+          await authStore.actionLogout()
+          return Promise.reject(error)
+        }
+      }
+
       console.error('API error:', error)
       return Promise.reject(error)
     }

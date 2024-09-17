@@ -9,7 +9,7 @@
         <q-form @submit="onSubmit" class="q-gutter-md">
           <q-input
             filled
-            v-model="username"
+            v-model="name"
             label="Your name"
           />
 
@@ -79,19 +79,19 @@
 </template>
 
 <script setup lang="ts">
-// import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { ref } from 'vue'
-import { register } from 'src/api/auth.ts'
+import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
 
-const username = ref('')
+const name = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const isPwd = ref(true)
 const isConfirmPwd = ref(true)
+const authStore = useAuthStore()
 
 const isValidEmail = (val: string): boolean => {
   const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
@@ -99,34 +99,28 @@ const isValidEmail = (val: string): boolean => {
 }
 
 const onSubmit = async () => {
-  try {
-    const response = await register({ username: username.value, email: email.value, password: password.value, confirmPassword: confirmPassword.value })
-    console.log('Login success:', response.data)
+  return authStore.actionRegister({
+    name: name.value,
+    email: email.value,
+    password: password.value,
+    confirmPassword: confirmPassword.value
+  }).then(response => {
+    console.log(response.data)
+    // router.push('/login')
 
-    $q.notify({
-      color: 'positive',
-      textColor: 'white',
-      icon: 'cloud_done',
-      message: 'Registration successful'
-    })
-
-    // Reset form fields after successful registration
-    username.value = ''
+    name.value = ''
     email.value = ''
     password.value = ''
     confirmPassword.value = ''
-
-    // Here you might want to redirect to a login page or dashboard
-    // You can use Vue Router for navigation
-    // router.push('/login')
-  } catch (error) {
+  }).catch(error => {
+    console.log(error)
     $q.notify({
       color: 'negative',
       textColor: 'white',
       icon: 'warning',
       message: 'Registration failed. Please try again.'
     })
-  }
+  })
 }
 </script>
 

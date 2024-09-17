@@ -82,11 +82,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { restorePassword } from 'src/api/auth.ts'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const email = ref<string>('')
 const password = ref<string>('')
@@ -104,9 +105,7 @@ const onSubmit = async () => {
   try {
     loading.value = true
     // Here you would typically send a request to your API to initiate the password reset process
-    console.log('Requesting password reset for:', email.value)
-
-    await restorePassword({ email: email.value, password: password.value, token })
+    await authStore.actionRestorePassword({ email: email.value, password: password.value, token })
 
     showSuccessDialog.value = true
 
@@ -117,7 +116,7 @@ const onSubmit = async () => {
       color: 'negative',
       textColor: 'white',
       icon: 'warning',
-      message: 'Failed to send reset instructions. Please try again.'
+      message: 'Failed to reset password. Please try again.'
     })
   } finally {
     loading.value = false

@@ -52,9 +52,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { login } from 'src/api/auth.ts'
+import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 const email = ref<string>('')
 const password = ref<string>('')
@@ -68,27 +69,19 @@ const validateEmail = (email: string): boolean => {
 
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {
-    login({
+    authStore.actionLogin({
       email: email.value,
       password: password.value
     }).then(response => {
       console.log('Login success:', response.data)
-
-      $q.notify({
-        color: 'green-4',
-        textColor: 'white',
-        icon: 'cloud_done',
-        message: 'Login attempt successful'
-      })
     }).catch(error => {
       console.error('Error logging in:', error)
-    })
-  } else {
-    $q.notify({
-      color: 'red-5',
-      textColor: 'white',
-      icon: 'warning',
-      message: 'Please provide a valid email and password'
+      $q.notify({
+        color: 'negative',
+        textColor: 'white',
+        icon: 'warning',
+        message: 'Please provide a valid email and password'
+      })
     })
   }
 }

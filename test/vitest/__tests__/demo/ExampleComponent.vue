@@ -37,7 +37,7 @@ const props = withDefaults(
   }
 )
 
-const clickCount = ref(0)
+const clickCount = ref<number>(0)
 function increment () {
   clickCount.value += 1
   return clickCount.value

@@ -2,7 +2,7 @@
   <q-page class="flex flex-center">
     <q-card class="forgot-password-card">
       <q-card-section>
-        <div class="text-h6">Restore Password</div>
+        <div class="text-h6">Forgot Password</div>
       </q-card-section>
 
       <q-card-section>
@@ -64,13 +64,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { forgotPassword } from 'src/api/auth.ts'
+import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
 
 const email = ref('')
 const loading = ref(false)
 const showSuccessDialog = ref(false)
+const authStore = useAuthStore()
 
 const isValidEmail = (val: string): boolean => {
   const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
@@ -80,10 +81,8 @@ const isValidEmail = (val: string): boolean => {
 const onSubmit = async () => {
   try {
     loading.value = true
-    // Here you would typically send a request to your API to initiate the password reset process
-    console.log('Requesting password reset for:', email.value)
 
-    await forgotPassword({ email: email.value })
+    await authStore.actionForgotPassword({ email: email.value })
 
     showSuccessDialog.value = true
 
