@@ -3,7 +3,6 @@ import { apiForgotPassword, apiLogin, apiLogout, apiRefreshToken, apiRegister, a
 import {
   ForgotPasswordCredentials,
   LoginCredentials,
-  RefreshToken,
   RegisterCredentials,
   RestorePasswordCredentials,
   User
@@ -13,6 +12,7 @@ export const useAuthStore = defineStore('authStore', {
   state: () => ({
     token: localStorage.getItem('token') || '',
     refreshToken: localStorage.getItem('refreshToken') || '',
+    tokenExpires: localStorage.getItem('tokenExpires') || '',
     user: JSON.parse(localStorage.getItem('user') || '{}')
   }),
   getters: {
@@ -25,6 +25,7 @@ export const useAuthStore = defineStore('authStore', {
         const response = await apiLogin(credentials)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
         this.actionSetUser(response.data.user)
         return response
       } catch (error) {
@@ -32,11 +33,13 @@ export const useAuthStore = defineStore('authStore', {
         throw error
       }
     },
-    async actionRefreshToken (refreshToken: RefreshToken) {
+    async actionRefreshToken () {
       try {
-        const response = await apiRefreshToken(refreshToken)
-        this.actionSetToken(response.data.token)
-        return response
+        return await apiRefreshToken().then(response => {
+          this.actionSetToken(response.data.token)
+          this.actionSetRefreshToken(response.data.refreshToken)
+          this.actionSetTokenExpires(response.data.tokenExpires)
+        })
       } catch (error) {
         console.error('Login failed', error)
         throw error
@@ -47,6 +50,7 @@ export const useAuthStore = defineStore('authStore', {
         const response = await apiRegister(credentials)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
         this.actionSetUser(response.data.user)
         return response
       } catch (error) {
@@ -80,6 +84,8 @@ export const useAuthStore = defineStore('authStore', {
       } finally {
         this.actionClearAuth()
       }
+
+      return Promise.resolve()
     },
     actionSetToken (token: string) {
       this.token = token
@@ -88,6 +94,10 @@ export const useAuthStore = defineStore('authStore', {
     actionSetRefreshToken (refreshToken: string) {
       this.refreshToken = refreshToken
       localStorage.setItem('refreshToken', refreshToken)
+    },
+    actionSetTokenExpires (tokenExpires: string) {
+      this.tokenExpires = tokenExpires
+      localStorage.setItem('tokenExpires', tokenExpires)
     },
     actionSetUser (user: User) {
       this.user = user
@@ -99,6 +109,7 @@ export const useAuthStore = defineStore('authStore', {
       this.user = {}
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('tokenExpires')
       localStorage.removeItem('user')
     }
   }

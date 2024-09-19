@@ -1,44 +1,91 @@
-<!--<script setup lang="ts">-->
+<template>
+  <div class="c-search-component row items-center q-mx-md">
+    <q-select
+      class="xs-hide"
+      rounded
+      outlined
+      ref="searchRef"
+      hide-dropdown-icon
+      placeholder="Search"
+      dense
+      v-model="search"
+      clearable
+      use-input
+      name="search"
+      input-debounce="1000"
+      :options="options"
+      @filter="filterFn"
+      style="width: 250px"
+      behavior="dialog"
+    >
+      <template v-slot:prepend>
+        <q-icon name="search"/>
+      </template>
+      <template v-slot:no-option>
+        <q-item>
+          <q-item-section class="text-grey">
+            No results
+          </q-item-section>
+        </q-item>
+      </template>
+    </q-select>
+    <q-icon
+      name="search"
+      class="sm-hide md-hide lg-hide xl-hide cursor-pointer"
+      size="24px"
+      @click="onSearchClick"
+    />
+  </div>
+</template>
 
-<!--import { ref } from 'vue'-->
+<script setup lang="ts">
+import { ref } from 'vue'
+import { QSelect } from 'quasar'
 
-<!--const search = ref<string>('')-->
-<!--const options = ref<never[]>([])-->
+import { searchEvents } from 'src/api/search.ts'
 
-<!--const searchRef = ref<InstanceType<typeof HTMLElement> | null>(null)-->
+interface SearchResult {
+  id: string;
+  title: string;
+}
 
-<!--const onSearchClick = () => {-->
-<!--  console.log(searchRef)-->
-<!--  // searchRef.showPopup()-->
-<!--}-->
+const search = ref<string>('')
+const options = ref<SearchResult[]>([])
+const searchRef = ref<InstanceType<typeof QSelect> | null>(null)
 
-<!--</script>-->
+const onSearchClick = () => {
+  if (searchRef.value) searchRef.value.showPopup()
+}
 
-<!--<template>-->
-<!--  <div class="c-search-component row items-center q-mx-md">-->
-<!--    <q-select-->
-<!--      rounded outlined-->
-<!--      ref="searchRef"-->
-<!--      class="xs-hide sm-hide"-->
-<!--      hide-dropdown-icon-->
-<!--      placeholder="Search"-->
-<!--      dense-->
-<!--      v-model="search"-->
-<!--      clearable-->
-<!--      use-input-->
-<!--      name="search"-->
-<!--      input-debounce="1000"-->
-<!--      :options="options"-->
-<!--      style="width: 250px"-->
-<!--      behavior="dialog" autocomplete="">-->
-<!--      <template v-slot:prepend>-->
-<!--        <q-icon name="search"/>-->
-<!--      </template>-->
-<!--    </q-select>-->
-<!--    <q-icon name="search" class="md-hide lg-hide xl-hide cursor-pointer" size="24px" @click="onSearchClick"/>-->
-<!--  </div>-->
-<!--</template>-->
+const filterFn = async (
+  val: string,
+  update: (callback: () => void) => void
+) => {
+  if (val === '') {
+    update(() => {
+      options.value = []
+    })
+    return
+  }
 
-<!--<style scoped>-->
+  update(() => {
+    options.value = []
+  })
 
-<!--</style>-->
+  try {
+    const response = await searchEvents(val)
+    update(() => {
+      options.value = response.data
+    })
+  } catch (error) {
+    console.error('Error fetching search results:', error)
+    update(() => {
+      options.value = [{ id: 'error', title: 'Error fetching results' }]
+    })
+  }
+}
+</script>
+
+<style scoped>
+/* Add any component-specific styles here */
+</style>

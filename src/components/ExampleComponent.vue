@@ -21,7 +21,7 @@ interface Props {
   todos?: Todo[];
   meta: Meta;
   active: boolean;
-};
+}
 
 const props = withDefaults(defineProps<Props>(), {
   todos: () => []

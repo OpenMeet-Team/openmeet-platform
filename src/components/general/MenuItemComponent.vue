@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { defineEmits, defineProps } from 'vue'
 
+defineOptions({
+  name: 'MenuItemComponent'
+})
+
 const props = defineProps<{
   icon?: string;
   iconColor?: string;

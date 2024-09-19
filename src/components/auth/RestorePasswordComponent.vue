@@ -7,24 +7,9 @@
 
       <q-card-section>
         <p class="text-body2 q-mb-md">
-          Enter your email address and new password.
+          Please enter your new password.
         </p>
         <q-form @submit="onSubmit" class="q-gutter-md">
-          <q-input
-            filled
-            v-model="email"
-            label="Email"
-            type="email"
-            :rules="[
-              val => !!val || 'Email is required',
-              val => isValidEmail(val) || 'Please enter a valid email address'
-            ]"
-          >
-            <template v-slot:prepend>
-              <q-icon name="email"/>
-            </template>
-          </q-input>
-
           <q-input
             filled
             v-model="password"
@@ -89,28 +74,22 @@ const $q = useQuasar()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const email = ref<string>('')
 const password = ref<string>('')
-const token: string = (route.query.token as string | null) ?? ''
+const hash: string = (route.query.hash as string | null) ?? ''
 const isPwd = ref<boolean>(true)
 const loading = ref<boolean>(false)
 const showSuccessDialog = ref<boolean>(false)
-
-const isValidEmail = (val: string): boolean => {
-  const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
-  return emailPattern.test(val)
-}
 
 const onSubmit = async () => {
   try {
     loading.value = true
     // Here you would typically send a request to your API to initiate the password reset process
-    await authStore.actionRestorePassword({ email: email.value, password: password.value, token })
+    await authStore.actionRestorePassword({ password: password.value, hash })
 
     showSuccessDialog.value = true
 
     // Reset form field after successful submission
-    email.value = ''
+    password.value = ''
   } catch (error) {
     $q.notify({
       color: 'negative',

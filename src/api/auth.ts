@@ -6,29 +6,40 @@ import {
   RegisterCredentials,
   ForgotPasswordCredentials,
   RestorePasswordCredentials,
-  RefreshToken
+  PatchMeCredentials
 } from 'src/types/authTypes.ts'
 
 export function apiLogin (credentials: LoginCredentials): Promise<AxiosResponse> {
-  return api.post('/auth/login', credentials)
+  return api.post('/api/v1/auth/email/login', credentials)
 }
 
 export function apiRegister (credentials: RegisterCredentials): Promise<AxiosResponse> {
-  return api.post('/auth/register', credentials)
+  return api.post('/api/v1/auth/email/register', credentials)
 }
 
 export function apiForgotPassword (credentials: ForgotPasswordCredentials): Promise<AxiosResponse> {
-  return api.post('/auth/forgot-password', credentials)
+  return api.post('/api/v1/auth/forgot/password', credentials)
 }
 
 export function apiRestorePassword (credentials: RestorePasswordCredentials): Promise<AxiosResponse> {
-  return api.post('/auth/restore-password', credentials)
+  return api.post('/api/v1/auth/reset/password', credentials)
 }
 
-export function apiRefreshToken (refreshToken: RefreshToken): Promise<AxiosResponse> {
-  return api.post('/auth/refresh-token', refreshToken)
+export function apiGetMe (): Promise<AxiosResponse> {
+  return api('/api/v1/auth/me')
+}
+
+export function apiUpdateMe (credentials: PatchMeCredentials): Promise<AxiosResponse> {
+  return api.patch('/api/v1/auth/me', credentials)
+}
+export function apiDeleteMe (): Promise<AxiosResponse> {
+  return api.delete('/api/v1/auth/me')
+}
+
+export function apiRefreshToken (): Promise<AxiosResponse> {
+  return api.post('/api/v1/auth/refresh')
 }
 
 export function apiLogout (): Promise<AxiosResponse> {
-  return api.post('/auth/logout')
+  return api.post('/api/v1/auth/logout')
 }

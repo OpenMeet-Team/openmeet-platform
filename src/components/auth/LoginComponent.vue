@@ -53,9 +53,12 @@
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { useRoute, useRouter } from 'vue-router'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
 const email = ref<string>('')
 const password = ref<string>('')
@@ -72,8 +75,9 @@ const onSubmit = (): void => {
     authStore.actionLogin({
       email: email.value,
       password: password.value
-    }).then(response => {
-      console.log('Login success:', response.data)
+    }).then(() => {
+      const redirectTo = route.query.redirect || '/'
+      return router.push(redirectTo as string)
     }).catch(error => {
       console.error('Error logging in:', error)
       $q.notify({

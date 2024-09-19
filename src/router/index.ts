@@ -29,6 +29,9 @@ export default route(function (/* { store, ssrContext } */) {
 
   Router.beforeEach((to, from, next) => {
     const authStore = useAuthStore()
+
+    const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
+
     if (to.matched.some(record => record.meta.requiresAuth)) {
       if (!authStore.isAuthenticated) {
         next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
@@ -36,7 +39,11 @@ export default route(function (/* { store, ssrContext } */) {
         next()
       }
     } else {
-      next()
+      if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
+        next({ name: 'HomePage' })
+      } else {
+        next()
+      }
     }
   })
 

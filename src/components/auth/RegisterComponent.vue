@@ -9,8 +9,13 @@
         <q-form @submit="onSubmit" class="q-gutter-md">
           <q-input
             filled
-            v-model="name"
-            label="Your name"
+            v-model="firstName"
+            label="First name"
+          />
+          <q-input
+            filled
+            v-model="lastName"
+            label="Last name"
           />
 
           <q-input
@@ -85,7 +90,8 @@ import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
 
-const name = ref('')
+const firstName = ref('')
+const lastName = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -100,15 +106,16 @@ const isValidEmail = (val: string): boolean => {
 
 const onSubmit = async () => {
   return authStore.actionRegister({
-    name: name.value,
+    firstName: firstName.value,
+    lastName: lastName.value,
     email: email.value,
-    password: password.value,
-    confirmPassword: confirmPassword.value
+    password: password.value
   }).then(response => {
     console.log(response.data)
     // router.push('/login')
 
-    name.value = ''
+    firstName.value = ''
+    lastName.value = ''
     email.value = ''
     password.value = ''
     confirmPassword.value = ''

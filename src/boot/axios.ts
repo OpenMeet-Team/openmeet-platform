@@ -44,8 +44,8 @@ export default boot(({ app }) => {
       if (error.response?.status === 401 && !error.config?._retry) {
         error.config._retry = true
         try {
-          const refreshToken = authStore.refreshToken
-          await authStore.actionRefreshToken({ refreshToken })
+          // await authStore.actionRefreshToken()
+          console.log(error)
           return api(error.config)
         } catch (error) {
           await authStore.actionLogout()

@@ -16,8 +16,8 @@ export interface LoginCredentials {
 export interface RegisterCredentials {
   email: string
   password: string
-  confirmPassword: string
-  name?: string
+  firstName?: string
+  lastName?: string
 }
 
 export interface ForgotPasswordCredentials {
@@ -25,11 +25,23 @@ export interface ForgotPasswordCredentials {
 }
 
 export interface RestorePasswordCredentials {
-  email: string
   password: string
-  token: string
+  hash: string
 }
 
-export interface RefreshToken {
-  refreshToken: string
+export interface RefreshTokenCredentials {
+  token: string,
+  refreshToken: string,
+  tokenExpires: 0
+}
+
+export interface PatchMeCredentials {
+  photo?: {
+    id: string
+  },
+  firstName?: string,
+  lastName?: string,
+  email?: 'new.email@example.com',
+  password?: string,
+  oldPassword?: string
 }
