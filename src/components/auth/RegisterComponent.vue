@@ -12,6 +12,7 @@
             v-model="firstName"
             label="First name"
           />
+
           <q-input
             filled
             v-model="lastName"

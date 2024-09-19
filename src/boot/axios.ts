@@ -28,32 +28,29 @@ export default boot(({ app }) => {
       config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
     }
 
-    const authStore = useAuthStore()
-    if (authStore.token) {
-      config.headers.Authorization = `Bearer ${authStore.token}`
+    if (useAuthStore().token) {
+      config.headers.Authorization = `Bearer ${useAuthStore().token}`
     }
 
     return config
-  })
+  }, (error) => Promise.reject(error))
 
   api.interceptors.response.use(
     (response) => response,
     async (error) => {
-      const authStore = useAuthStore()
-
-      if (error.response?.status === 401 && !error.config?._retry) {
-        error.config._retry = true
+      const originalRequest = error.config
+      console.log('originalRequest', originalRequest)
+      if (error.response.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true
         try {
-          // await authStore.actionRefreshToken()
-          console.log(error)
-          return api(error.config)
-        } catch (error) {
-          await authStore.actionLogout()
-          return Promise.reject(error)
+          // const newToken = await useAuthStore().actionRefreshToken()
+          // originalRequest.headers.Authorization = `Bearer ${newToken}`
+          return api(originalRequest)
+        } catch (refreshError) {
+          // Handle refresh failure
+          return Promise.reject(refreshError)
         }
       }
-
-      console.error('API error:', error)
       return Promise.reject(error)
     }
   )

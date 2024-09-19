@@ -1,10 +1,12 @@
 <script setup lang="ts">
 
+import DashboardProfileForm from 'components/dashboard/DashboardProfileForm.vue'
 </script>
 
 <template>
-  <q-page class="row items-center justify-evenly">
-    Profile page
+  <q-page padding>
+    <h3>Profile settings</h3>
+    <DashboardProfileForm/>
   </q-page>
 </template>
 

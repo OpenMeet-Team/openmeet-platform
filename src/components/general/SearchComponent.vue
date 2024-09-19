@@ -2,7 +2,6 @@
   <div class="c-search-component row items-center q-mx-md">
     <q-select
       class="xs-hide"
-      rounded
       outlined
       ref="searchRef"
       hide-dropdown-icon

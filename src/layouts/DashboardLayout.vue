@@ -1,16 +1,16 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
+  <q-layout view="hHh lpR fFf">
     <HeaderComponent/>
+    <DashboardDrawerComponent/>
     <q-page-container>
       <router-view/>
     </q-page-container>
-    <FooterComponent/>
   </q-layout>
 </template>
 
 <script setup lang="ts">
 import HeaderComponent from 'components/layout/HeaderComponent.vue'
-import FooterComponent from 'components/layout/FooterComponent.vue'
+import DashboardDrawerComponent from 'components/dashboard/DashboardDrawerComponent.vue'
 
 defineOptions({
   name: 'DashboardLayout'

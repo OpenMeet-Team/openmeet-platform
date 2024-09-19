@@ -41,7 +41,7 @@ export interface PatchMeCredentials {
   },
   firstName?: string,
   lastName?: string,
-  email?: 'new.email@example.com',
+  email?: string,
   password?: string,
   oldPassword?: string
 }

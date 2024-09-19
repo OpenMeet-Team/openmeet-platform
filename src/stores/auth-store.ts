@@ -34,16 +34,12 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionRefreshToken () {
-      try {
-        return await apiRefreshToken().then(response => {
-          this.actionSetToken(response.data.token)
-          this.actionSetRefreshToken(response.data.refreshToken)
-          this.actionSetTokenExpires(response.data.tokenExpires)
-        })
-      } catch (error) {
-        console.error('Login failed', error)
-        throw error
-      }
+      return await apiRefreshToken().then(response => {
+        this.actionSetToken(response.data.token)
+        this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
+        return response.data.token
+      })
     },
     async actionRegister (credentials: RegisterCredentials) {
       try {
