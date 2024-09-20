@@ -34,7 +34,7 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionRefreshToken () {
-      return await apiRefreshToken().then(response => {
+      return await apiRefreshToken(this.refreshToken).then(response => {
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -65,8 +65,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionForgotPassword (credentials: ForgotPasswordCredentials) {
       try {
-        const response = await apiForgotPassword(credentials)
-        return response
+        return await apiForgotPassword(credentials)
       } catch (error) {
         console.error('actionForgotPassword failed', error)
         throw error

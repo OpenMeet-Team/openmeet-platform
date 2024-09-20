@@ -17,7 +17,7 @@
             type="email"
             :rules="[
               val => !!val || 'Email is required',
-              val => isValidEmail(val) || 'Please enter a valid email address'
+              val => validateEmail(val) || 'Please enter a valid email address'
             ]"
           >
             <template v-slot:prepend>
@@ -27,7 +27,7 @@
 
           <div class="text-grey-6">
             Remember your password?
-            <q-btn flat color="primary" label="Login" to="/auth/login"/>
+            <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
           </div>
 
           <div>
@@ -65,6 +65,7 @@
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { validateEmail } from 'src/utils/validation.ts'
 
 const $q = useQuasar()
 
@@ -72,11 +73,6 @@ const email = ref('')
 const loading = ref(false)
 const showSuccessDialog = ref(false)
 const authStore = useAuthStore()
-
-const isValidEmail = (val: string): boolean => {
-  const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
-  return emailPattern.test(val)
-}
 
 const onSubmit = async () => {
   try {

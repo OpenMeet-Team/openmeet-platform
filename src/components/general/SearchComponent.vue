@@ -1,7 +1,7 @@
 <template>
   <div class="c-search-component row items-center q-mx-md">
     <q-select
-      class="xs-hide"
+      class="xs-hide bg-white"
       outlined
       ref="searchRef"
       hide-dropdown-icon
@@ -79,7 +79,8 @@ const filterFn = async (
   } catch (error) {
     console.error('Error fetching search results:', error)
     update(() => {
-      options.value = [{ id: 'error', title: 'Error fetching results' }]
+      options.value = []
+      // options.value = [{ id: 'error', title: 'Error fetching results' }]
     })
   }
 }

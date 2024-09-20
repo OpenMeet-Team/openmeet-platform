@@ -31,7 +31,7 @@
 
           <div class="text-grey-6">
             Remember your password?
-            <q-btn flat color="primary" label="Login" to="/auth/login"/>
+            <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
           </div>
 
           <div>
@@ -57,7 +57,7 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="OK" color="primary" to="auth/login" v-close-popup/>
+          <q-btn flat label="OK" color="primary" :to="{name: 'AuthLoginPage'}" v-close-popup/>
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -83,7 +83,6 @@ const showSuccessDialog = ref<boolean>(false)
 const onSubmit = async () => {
   try {
     loading.value = true
-    // Here you would typically send a request to your API to initiate the password reset process
     await authStore.actionRestorePassword({ password: password.value, hash })
 
     showSuccessDialog.value = true

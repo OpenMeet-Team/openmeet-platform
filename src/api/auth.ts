@@ -36,8 +36,8 @@ export function apiDeleteMe (): Promise<AxiosResponse> {
   return api.delete('/api/v1/auth/me')
 }
 
-export function apiRefreshToken (): Promise<AxiosResponse> {
-  return api.post('/api/v1/auth/refresh')
+export function apiRefreshToken (refreshToken: string): Promise<AxiosResponse> {
+  return api.post('/api/v1/auth/refresh', null, { headers: { Authorization: `Bearer ${refreshToken}` } })
 }
 
 export function apiLogout (): Promise<AxiosResponse> {

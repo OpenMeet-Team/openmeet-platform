@@ -11,12 +11,18 @@
             filled
             v-model="firstName"
             label="First name"
+            :rules="[
+              val => !!val || 'First name name is required',
+            ]"
           />
 
           <q-input
             filled
             v-model="lastName"
             label="Last name"
+            :rules="[
+              val => !!val || 'Last name is required',
+            ]"
           />
 
           <q-input
@@ -26,7 +32,7 @@
             type="email"
             :rules="[
               val => !!val || 'Email is required',
-              val => isValidEmail(val) || 'Please enter a valid email address'
+              val => validateEmail(val) || 'Please enter a valid email address'
             ]"
           />
 
@@ -77,7 +83,7 @@
       <q-card-section class="text-center q-pt-none">
         <p class="text-grey-6">
           Already have an account?
-          <q-btn flat color="primary" label="Login" to="/auth/login"/>
+          <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
         </p>
       </q-card-section>
     </q-card>
@@ -99,11 +105,11 @@ const confirmPassword = ref('')
 const isPwd = ref(true)
 const isConfirmPwd = ref(true)
 const authStore = useAuthStore()
+import { validateEmail } from 'src/utils/validation'
+import { useRoute, useRouter } from 'vue-router'
 
-const isValidEmail = (val: string): boolean => {
-  const emailPattern = /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
-  return emailPattern.test(val)
-}
+const router = useRouter()
+const route = useRoute()
 
 const onSubmit = async () => {
   return authStore.actionRegister({
@@ -113,13 +119,14 @@ const onSubmit = async () => {
     password: password.value
   }).then(response => {
     console.log(response.data)
-    // router.push('/login')
 
     firstName.value = ''
     lastName.value = ''
     email.value = ''
     password.value = ''
     confirmPassword.value = ''
+
+    return router.push((route.query.redirect || '/') as string)
   }).catch(error => {
     console.log(error)
     $q.notify({

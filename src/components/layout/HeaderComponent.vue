@@ -16,7 +16,7 @@ import HeaderSignInComponent from 'components/header/HeaderSignInComponent.vue'
 
       <q-space/>
 
-      <HeaderNavComponent/>
+      <HeaderNavComponent class="q-mr-xl"/>
 
       <HeaderSignInComponent/>
 

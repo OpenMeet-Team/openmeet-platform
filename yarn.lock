@@ -4987,6 +4987,11 @@ vue-i18n@^9.2.2:
     "@intlify/shared" "9.14.0"
     "@vue/devtools-api" "^6.5.0"
 
+vue-router-mock@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/vue-router-mock/-/vue-router-mock-1.1.0.tgz#9e31bf261f9c37d2f944a7d441fcc1be51fc5a46"
+  integrity sha512-RhKhxkiZh2zB2eRkzfcCILQQ0ZUc0tk7CE2ZC1PGJYi5GOU+2QQAGHtTCgb8V4B/OPm9ws+X5Q9SQB5vyTXxBQ==
+
 vue-router@^4.0.12:
   version "4.4.5"
   resolved "https://registry.yarnpkg.com/vue-router/-/vue-router-4.4.5.tgz#bdf535e4cf32414ebdea6b4b403593efdb541388"

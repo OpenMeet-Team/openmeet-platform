@@ -43,14 +43,16 @@ export default boot(({ app }) => {
       if (error.response.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
         try {
-          // const newToken = await useAuthStore().actionRefreshToken()
-          // originalRequest.headers.Authorization = `Bearer ${newToken}`
+          const newToken = await useAuthStore().actionRefreshToken()
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
           return api(originalRequest)
         } catch (refreshError) {
           // Handle refresh failure
+          // router.push({ name: 'AuthLoginPage' })
           return Promise.reject(refreshError)
         }
       }
+
       return Promise.reject(error)
     }
   )
