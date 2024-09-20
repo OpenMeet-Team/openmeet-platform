@@ -1,6 +1,7 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { useRouter } from 'vue-router'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -28,7 +29,7 @@ export default boot(({ app }) => {
       config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
     }
 
-    if (useAuthStore().token) {
+    if (useAuthStore().token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${useAuthStore().token}`
     }
 
@@ -39,7 +40,8 @@ export default boot(({ app }) => {
     (response) => response,
     async (error) => {
       const originalRequest = error.config
-      console.log('originalRequest', originalRequest)
+      const router = useRouter()
+
       if (error.response.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
         try {
@@ -48,7 +50,7 @@ export default boot(({ app }) => {
           return api(originalRequest)
         } catch (refreshError) {
           // Handle refresh failure
-          // router.push({ name: 'AuthLoginPage' })
+          await useAuthStore().actionLogout().then(() => router.push({ name: 'AuthLoginPage' }))
           return Promise.reject(refreshError)
         }
       }

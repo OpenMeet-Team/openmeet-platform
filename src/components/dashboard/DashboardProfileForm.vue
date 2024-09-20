@@ -152,7 +152,6 @@ onBeforeMount(() => {
     form.lastName = res.data.lastName
     form.photo = res.data.photo
     // Object.assign(form, res.data)
-    console.log(form)
   })
 })
 

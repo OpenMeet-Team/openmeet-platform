@@ -2,5 +2,5 @@
 import { config } from '@vue/test-utils'
 
 config.global.mocks = {
-  $t: tKey => tKey // just return translation key
+  $t: (tKey: string): string => tKey // returns the translation key as a string
 }
