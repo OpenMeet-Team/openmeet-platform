@@ -92,10 +92,10 @@
 
 <script setup lang="ts">
 import { onBeforeMount, reactive, ref } from 'vue'
-import { Dialog, useQuasar } from 'quasar'
+import { Dialog, Notify, useQuasar } from 'quasar'
 import { apiDeleteMe, apiGetMe, apiUpdateMe } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { apiFilesUpload } from 'src/api/files.ts'
+import { apiUploadFileToS3 } from 'src/api/files.ts'
 
 interface UserPhoto {
   id: string;
@@ -156,13 +156,21 @@ onBeforeMount(() => {
 })
 
 const onProfilePhotoSelect = (file: File) => {
-  const formData = new FormData()
-  formData.append('file', file, file.name)
-
-  return apiFilesUpload(formData).then(e => {
-    console.log(e)
-    form.photo = e.data.file
+  return apiUploadFileToS3(file).then(response => {
+    form.photo = response
+  }).catch(error => {
+    Notify.create({
+      type: 'negative',
+      message: error.message
+    })
   })
+  // const formData = new FormData()
+  // formData.append('file', file, file.name)
+  //
+  // return apiFilesUpload(formData).then(e => {
+  //   console.log(e)
+  //   form.photo = e.data.file
+  // })
 }
 
 const onDeleteAccount = () => {
