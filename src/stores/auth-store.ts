@@ -7,13 +7,14 @@ import {
   RestorePasswordCredentials,
   User
 } from 'src/types/authTypes.ts'
+import { LocalStorage } from 'quasar'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
-    token: localStorage.getItem('token') || '',
-    refreshToken: localStorage.getItem('refreshToken') || '',
-    tokenExpires: localStorage.getItem('tokenExpires') || '',
-    user: JSON.parse(localStorage.getItem('user') || '{}')
+    token: LocalStorage.getItem('token') || '',
+    refreshToken: LocalStorage.getItem('refreshToken') || '',
+    tokenExpires: LocalStorage.getItem('tokenExpires') || '',
+    user: JSON.parse(LocalStorage.getItem('user') || '{}')
   }),
   getters: {
     isAuthenticated: state => !!state.token,
@@ -72,40 +73,36 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionLogout () {
-      try {
-        await apiLogout()
-      } catch (error) {
-        console.error('Logout failed', error)
-      } finally {
+      return apiLogout().finally(() => {
         this.actionClearAuth()
-      }
-
-      return Promise.resolve()
+      }).catch((error) => {
+        console.error('Logout failed', error)
+      })
     },
     actionSetToken (token: string) {
       this.token = token
-      localStorage.setItem('token', token)
+      LocalStorage.setItem('token', token)
     },
     actionSetRefreshToken (refreshToken: string) {
       this.refreshToken = refreshToken
-      localStorage.setItem('refreshToken', refreshToken)
+      LocalStorage.setItem('refreshToken', refreshToken)
     },
     actionSetTokenExpires (tokenExpires: string) {
       this.tokenExpires = tokenExpires
-      localStorage.setItem('tokenExpires', tokenExpires)
+      LocalStorage.setItem('tokenExpires', tokenExpires)
     },
     actionSetUser (user: User) {
       this.user = user
-      localStorage.setItem('user', JSON.stringify(user))
+      LocalStorage.setItem('user', JSON.stringify(user))
     },
     actionClearAuth () {
       this.token = ''
       this.refreshToken = ''
       this.user = {}
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('tokenExpires')
-      localStorage.removeItem('user')
+      LocalStorage.removeItem('token')
+      LocalStorage.removeItem('refreshToken')
+      LocalStorage.removeItem('tokenExpires')
+      LocalStorage.removeItem('user')
     }
   }
 })

@@ -49,9 +49,8 @@ export default boot(({ app }) => {
           originalRequest.headers.Authorization = `Bearer ${newToken}`
           return api(originalRequest)
         } catch (refreshError) {
-          // Handle refresh failure
           await useAuthStore().actionLogout().then(() => router.push({ name: 'AuthLoginPage' }))
-          return Promise.reject(refreshError)
+          // return Promise.reject(refreshError)
         }
       }
 
