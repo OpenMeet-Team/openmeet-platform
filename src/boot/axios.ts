@@ -1,7 +1,6 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { useRouter } from 'vue-router'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -17,7 +16,7 @@ declare module 'vue' {
 // "export default () => {}" function below (which runs individually
 // for each client)
 const api = axios.create({ baseURL: process.env.APP_API_URL })
-export default boot(({ app }) => {
+export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
   app.config.globalProperties.$axios = axios
@@ -26,7 +25,7 @@ export default boot(({ app }) => {
 
   api.interceptors.request.use((config) => {
     if (process.env.APP_TENANT_ID) {
-      config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
+      config.headers['Tenant-ID'] = process.env.APP_TENANT_ID
     }
 
     if (useAuthStore().token && !config.headers.Authorization) {
@@ -40,18 +39,16 @@ export default boot(({ app }) => {
     (response) => response,
     async (error) => {
       const originalRequest = error.config
-      const router = useRouter()
+      const authStore = useAuthStore()
 
-      if (error.response.status === 401 && !originalRequest._retry) {
+      if (error.response.status === 500 && originalRequest.url.includes('api/v1/auth/refresh')) {
+        authStore.actionClearAuth()
+        router.push({ name: 'HomePage' })
+        return Promise.reject(error)
+      } else if (error.response.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
-        try {
-          const newToken = await useAuthStore().actionRefreshToken()
-          originalRequest.headers.Authorization = `Bearer ${newToken}`
-          return api(originalRequest)
-        } catch (refreshError) {
-          await useAuthStore().actionLogout().then(() => router.push({ name: 'AuthLoginPage' }))
-          // return Promise.reject(refreshError)
-        }
+        await authStore.actionRefreshToken()
+        return api(originalRequest)
       }
 
       return Promise.reject(error)
