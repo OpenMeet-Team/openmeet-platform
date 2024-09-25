@@ -1,31 +1,30 @@
-// src/services/event.ts
-
 import { api } from 'boot/axios.ts'
+import { Event } from 'src/types/eventTypes.ts'
 
 export function createEvent (eventData: Event) {
-  return api.post('/events', eventData)
+  return api.post('/api/events', eventData)
 }
 
 export function getEvents () {
-  return api.get('/events')
+  return api.get('/api/events')
 }
 
 export function getEventById (eventId: string) {
-  return api.get(`/events/${eventId}`)
+  return api.get(`/api/events/${eventId}`)
 }
 
 export function updateEvent (eventId: string, eventData: Event) {
-  return api.put(`/events/${eventId}`, eventData)
+  return api.put(`/api/events/${eventId}`, eventData)
 }
 
 export function deleteEvent (eventId: string) {
-  return api.delete(`/events/${eventId}`)
+  return api.delete(`/api/events/${eventId}`)
 }
 
 export function registerForEvent (eventId: string, userId: string) {
-  return api.post(`/events/${eventId}/register`, { userId })
+  return api.post(`/api/events/${eventId}/register`, { userId })
 }
 
 export function cancelRegistration (eventId: string, userId: string) {
-  return api.delete(`/events/${eventId}/register/${userId}`)
+  return api.delete(`/api/events/${eventId}/register/${userId}`)
 }
