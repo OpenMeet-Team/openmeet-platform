@@ -6,14 +6,14 @@ import {
   RegisterCredentials,
   ForgotPasswordCredentials,
   RestorePasswordCredentials,
-  PatchMeCredentials
+  PatchMeCredentials, LoginResponse
 } from 'src/types/authTypes.ts'
 
-export function apiLogin (credentials: LoginCredentials): Promise<AxiosResponse> {
+export function apiLogin (credentials: LoginCredentials): Promise<AxiosResponse<LoginResponse>> {
   return api.post('/api/v1/auth/email/login', credentials)
 }
 
-export function apiRegister (credentials: RegisterCredentials): Promise<AxiosResponse> {
+export function apiRegister (credentials: RegisterCredentials): Promise<AxiosResponse<LoginResponse>> {
   return api.post('/api/v1/auth/email/register', credentials)
 }
 

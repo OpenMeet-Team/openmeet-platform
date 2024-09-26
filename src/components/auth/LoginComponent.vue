@@ -1,52 +1,50 @@
 <template>
-  <q-page class="flex flex-center">
-    <q-card class="login-card">
-      <q-card-section>
-        <div class="text-h6">{{ $t('auth.login') }}</div>
-      </q-card-section>
+  <q-card class="login-card">
+    <q-card-section>
+      <div class="text-h6">{{ $t('auth.login') }}</div>
+    </q-card-section>
 
-      <q-card-section>
-        <q-form @submit.prevent="onSubmit" class="q-gutter-md">
-          <q-input
-            filled
-            v-model="email"
-            :label="$t('auth.email')"
-            type="email"
-            :rules="[val => !!val || $t('auth.emailRequired')]"
-          />
+    <q-card-section>
+      <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+        <q-input
+          filled
+          v-model="email"
+          :label="$t('auth.email')"
+          type="email"
+          :rules="[val => !!val || $t('auth.emailRequired')]"
+        />
 
-          <q-input
-            filled
-            v-model="password"
-            :label="$t('auth.password')"
-            :type="isPwd ? 'password' : 'text'"
-            :rules="[val => !!val || $t('auth.passwordRequired')]"
-          >
-            <template v-slot:append>
-              <q-icon
-                :name="isPwd ? 'visibility_off' : 'visibility'"
-                class="cursor-pointer"
-                @click="isPwd = !isPwd"
-              />
-            </template>
-          </q-input>
+        <q-input
+          filled
+          v-model="password"
+          :label="$t('auth.password')"
+          :type="isPwd ? 'password' : 'text'"
+          :rules="[val => !!val || $t('auth.passwordRequired')]"
+        >
+          <template v-slot:append>
+            <q-icon
+              :name="isPwd ? 'visibility_off' : 'visibility'"
+              class="cursor-pointer"
+              @click="isPwd = !isPwd"
+            />
+          </template>
+        </q-input>
 
-          <div class="text-grey-6">
-            No account yet?
-            <q-btn flat color="primary" label="Registration" :to="{name: 'AuthRegisterPage'}"/>
-          </div>
-          <div class="text-grey-6">
-            Forgot password?
-            <q-btn flat color="primary" label="Restore" :to="{name: 'AuthForgotPasswordPage'}"/>
-          </div>
+        <div class="text-grey-6">
+          No account yet?
+          <q-btn flat color="primary" label="Registration" :to="{name: 'AuthRegisterPage'}"/>
+        </div>
+        <div class="text-grey-6">
+          Forgot password?
+          <q-btn flat color="primary" label="Restore" :to="{name: 'AuthForgotPasswordPage'}"/>
+        </div>
 
-          <div>
-            <q-btn label="Login" type="submit" color="primary"/>
-          </div>
-        </q-form>
-      </q-card-section>
-    </q-card>
-  </q-page>
+        <div>
+          <q-btn label="Login" type="submit" color="primary"/>
+        </div>
+      </q-form>
+    </q-card-section>
+  </q-card>
 </template>
 
 <script setup lang="ts">

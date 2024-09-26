@@ -6,8 +6,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'HomePage', component: () => import('pages/HomePage.vue') },
+      { path: 'chat', name: 'ChatPage', component: () => import('pages/ChatPage.vue') },
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
-      { path: 'events/:eventId', name: 'EventPage', component: () => import('pages/EventPage.vue') }
+      { path: 'events/:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
+      { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
+      { path: 'groups/:id', name: 'GroupPage', component: () => import('pages/GroupPage.vue') }
     ],
     meta: { requiresAuth: false }
   },
@@ -17,7 +20,9 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
       { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/EventsPage.vue') },
+      { path: 'events/create', name: 'DashboardEventsCreate', component: () => import('pages/dashboard/EventsPage.vue') },
       { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/GroupsPage.vue') },
+      { path: 'groups/create', name: 'DashboardGroupsCreate', component: () => import('pages/dashboard/GroupsPage.vue') },
       { path: 'tickets', name: 'DashboardTicketsPage', component: () => import('pages/dashboard/TicketsPage.vue') },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
     ],

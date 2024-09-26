@@ -45,10 +45,10 @@ export const useAuthStore = defineStore('authStore', {
     async actionRegister (credentials: RegisterCredentials) {
       try {
         const response = await apiRegister(credentials)
-        this.actionSetToken(response.data.token)
-        this.actionSetRefreshToken(response.data.refreshToken)
-        this.actionSetTokenExpires(response.data.tokenExpires)
-        this.actionSetUser(response.data.user)
+        if (response.data.token) this.actionSetToken(response.data.token)
+        if (response.data.refreshToken) this.actionSetRefreshToken(response.data.refreshToken)
+        if (response.data.tokenExpires) this.actionSetTokenExpires(response.data.tokenExpires)
+        if (response.data.user) this.actionSetUser(response.data.user)
         return response
       } catch (error) {
         console.error('Registration failed', error)
@@ -87,7 +87,7 @@ export const useAuthStore = defineStore('authStore', {
       this.refreshToken = refreshToken
       LocalStorage.setItem('refreshToken', refreshToken)
     },
-    actionSetTokenExpires (tokenExpires: string) {
+    actionSetTokenExpires (tokenExpires: number) {
       this.tokenExpires = tokenExpires
       LocalStorage.setItem('tokenExpires', tokenExpires)
     },
