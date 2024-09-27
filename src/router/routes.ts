@@ -24,6 +24,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/GroupsPage.vue') },
       { path: 'groups/create', name: 'DashboardGroupsCreate', component: () => import('pages/dashboard/GroupsPage.vue') },
       { path: 'tickets', name: 'DashboardTicketsPage', component: () => import('pages/dashboard/TicketsPage.vue') },
+      { path: 'messages', name: 'DashboardMessagesPage', component: () => import('pages/dashboard/MessagesPage.vue') },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
     ],
     meta: { requiresAuth: true }

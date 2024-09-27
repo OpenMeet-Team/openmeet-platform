@@ -8,6 +8,7 @@
     >
       <q-tab name="created" label="Created Events" />
       <q-tab name="attended" label="Attended Events" />
+      <q-tab name="saved" label="Saved Events" />
     </q-tabs>
 
     <q-tab-panels v-model="tab" animated>
@@ -18,6 +19,11 @@
       </q-tab-panel>
 
       <q-tab-panel name="attended">
+        <div class="row q-gutter-md">
+          <DashboardEventList v-for="event in attendedEvents" :key="event.id" :event="event" @view-event="viewEvent" />
+        </div>
+      </q-tab-panel>
+      <q-tab-panel name="saved">
         <div class="row q-gutter-md">
           <DashboardEventList v-for="event in attendedEvents" :key="event.id" :event="event" @view-event="viewEvent" />
         </div>

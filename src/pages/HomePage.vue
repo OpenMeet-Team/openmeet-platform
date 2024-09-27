@@ -65,6 +65,8 @@
         </div>
       </div>
 
+      <HomeCategoriesComponent/>
+
       <!-- Additional Information Section -->
       <div class="col-12">
         <q-card class="bg-grey-2 q-mt-lg">
@@ -106,6 +108,7 @@
 import { ref } from 'vue'
 import { date } from 'quasar'
 import { useRouter } from 'vue-router'
+import HomeCategoriesComponent from 'components/home/HomeCategoriesComponent.vue'
 
 const router = useRouter()
 interface Group {

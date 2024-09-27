@@ -69,21 +69,9 @@ const signUp = () => {
 
   <q-drawer class="text-black" v-model="rightDrawerOpen" side="right" overlay bordered>
     <q-list>
-      <q-item clickable :to="{name: 'HomePage'}">
-        <q-item-section>
-          Home
-        </q-item-section>
-      </q-item>
-      <q-item clickable :to="{name: 'EventsPage'}">
-        <q-item-section>
-          Events
-        </q-item-section>
-      </q-item>
-      <q-item clickable :to="{name: 'GroupsPage'}">
-        <q-item-section>
-          Groups
-        </q-item-section>
-      </q-item>
+      <MenuItemComponent label="Home" :to="{name: 'HomePage'}"/>
+      <MenuItemComponent label="Events" :to="{name: 'EventsPage'}"/>
+      <MenuItemComponent label="Groups" :to="{name: 'GroupsPage'}"/>
       <q-item>
         <q-item-section>
           <q-btn @click="openCreateGroupForm" label="Add group"/>
