@@ -1,10 +1,8 @@
 <script setup lang="ts">
-
-import HeaderProfile from 'components/header/HeaderProfileComponent.vue'
-import HeaderNavComponent from 'components/header/HeaderNavComponent.vue'
 import SearchComponent from 'components/general/SearchComponent.vue'
 import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
-import HeaderSignInComponent from 'components/header/HeaderSignInComponent.vue'
+import HeaderMobileMenu from 'components/header/HeaderMobileMenu.vue'
+import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
 </script>
 
 <template>
@@ -16,12 +14,8 @@ import HeaderSignInComponent from 'components/header/HeaderSignInComponent.vue'
 
       <q-space/>
 
-      <HeaderNavComponent class="q-mr-xl"/>
-
-      <HeaderSignInComponent/>
-
-      <HeaderProfile/>
-
+      <HeaderDesktopMenu/>
+      <HeaderMobileMenu/>
     </q-toolbar>
   </q-header>
 </template>
