@@ -20,7 +20,7 @@
           class="full-width"
         >
           <template v-slot:append>
-            <q-icon name="search" />
+            <q-icon name="sym_r_search" />
           </template>
         </q-input>
       </div>
@@ -42,7 +42,7 @@
 
           <q-card-section class="q-pt-none">
             <div class="text-body2">
-              <q-icon name="people" /> {{ group.memberCount }} members
+              <q-icon name="sym_r_people" /> {{ group.memberCount }} members
             </div>
           </q-card-section>
 
@@ -55,7 +55,7 @@
     </div>
 
     <div v-if="filteredGroups.length === 0" class="text-center q-mt-xl">
-      <q-icon name="search_off" size="4em" color="grey-5" />
+      <q-icon name="sym_r_search_off" size="4em" color="grey-5" />
       <p class="text-h6 text-grey-6">No groups found matching your criteria</p>
     </div>
   </q-page>

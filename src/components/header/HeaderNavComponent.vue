@@ -27,10 +27,10 @@ const openCreateEventForm = () => {
 
 <template>
   <q-tabs class="q-mr-md">
-    <q-route-tab :to="{name: 'EventsPage'}">Events</q-route-tab>
-    <q-route-tab class="a-mr-sm" :to="{name: 'GroupsPage'}">Groups</q-route-tab>
-    <q-btn class="q-mx-sm" @click="openCreateGroupForm" icon="add" label="Add group"/>
-    <q-btn @click="openCreateEventForm" icon="add" label="Add event"/>
+    <q-route-tab no-caps :to="{name: 'EventsPage'}">Events</q-route-tab>
+    <q-route-tab no-caps class="a-mr-sm" :to="{name: 'GroupsPage'}">Groups</q-route-tab>
+    <q-btn size="md" no-caps class="q-mx-sm" @click="openCreateGroupForm" icon="sym_r_add" label="Add group"/>
+    <q-btn size="md" no-caps @click="openCreateEventForm" icon="sym_r_add" label="Add event"/>
   </q-tabs>
 </template>
 

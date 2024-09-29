@@ -7,7 +7,7 @@
     </div>
     <q-input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Type a message..." class="q-mt-md">
       <template v-slot:after>
-        <q-btn round dense flat icon="send" @click="sendMessage" />
+        <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
       </template>
     </q-input>
   </q-page>

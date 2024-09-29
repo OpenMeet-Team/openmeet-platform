@@ -1,6 +1,6 @@
 <template>
   <q-layout view="hHh lpR fFf">
-    <HeaderComponent/>
+    <AppHeaderComponent/>
     <DashboardDrawerComponent/>
     <q-page-container>
       <router-view/>
@@ -9,8 +9,8 @@
 </template>
 
 <script setup lang="ts">
-import HeaderComponent from 'components/layout/HeaderComponent.vue'
 import DashboardDrawerComponent from 'components/dashboard/DashboardDrawerComponent.vue'
+import AppHeaderComponent from 'components/layout/AppHeaderComponent.vue'
 
 defineOptions({
   name: 'DashboardLayout'

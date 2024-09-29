@@ -47,7 +47,7 @@
         <q-list bordered separator>
           <q-item v-for="event in upcomingEvents" :key="event.id" clickable v-ripple @click="viewEvent(event.id)">
             <q-item-section avatar>
-              <q-icon name="event" color="primary" size="md" />
+              <q-icon name="sym_r_event" color="primary" size="md" />
             </q-item-section>
             <q-item-section>
               <q-item-label>{{ event.title }}</q-item-label>
@@ -69,7 +69,7 @@
 
       <!-- Additional Information Section -->
       <div class="col-12">
-        <q-card class="bg-grey-2 q-mt-lg">
+        <q-card class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white': 'bg-grey-2']">
           <q-card-section>
             <div class="row q-col-gutter-md">
               <div class="col-12 col-md-4">
@@ -106,7 +106,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { date } from 'quasar'
+import { Dark, date } from 'quasar'
 import { useRouter } from 'vue-router'
 import HomeCategoriesComponent from 'components/home/HomeCategoriesComponent.vue'
 
@@ -166,17 +166,17 @@ const upcomingEvents = ref<Event[]>([
 ])
 
 const reasons = [
-  { icon: 'people', text: 'Connect with like-minded individuals' },
-  { icon: 'event', text: 'Attend exciting events and meetups' },
-  { icon: 'school', text: 'Learn and grow through shared experiences' },
-  { icon: 'public', text: 'Expand your social and professional network' }
+  { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
+  { icon: 'sym_r_event', text: 'Attend exciting events and meetups' },
+  { icon: 'sym_r_school', text: 'Learn and grow through shared experiences' },
+  { icon: 'sym_r_public', text: 'Expand your social and professional network' }
 ]
 
 const howItWorks = [
-  { title: 'Create an Account', subtitle: 'Sign up and set up your profile', icon: 'person_add' },
-  { title: 'Join Groups', subtitle: 'Find groups that match your interests', icon: 'group_add' },
-  { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'event_available' },
-  { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'chat' }
+  { title: 'Create an Account', subtitle: 'Sign up and set up your profile', icon: 'sym_r_person_add' },
+  { title: 'Join Groups', subtitle: 'Find groups that match your interests', icon: 'sym_r_group_add' },
+  { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
+  { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
 
 const truncateDescription = (description: string, length: number = 100) => {

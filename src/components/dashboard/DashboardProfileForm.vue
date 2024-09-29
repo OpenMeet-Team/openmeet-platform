@@ -31,7 +31,7 @@
       @update:model-value="onProfilePhotoSelect"
     >
       <template v-slot:prepend>
-        <q-icon name="attach_file"/>
+        <q-icon name="sym_r_attach_file"/>
       </template>
     </q-file>
 
@@ -44,7 +44,7 @@
 
     <q-expansion-item
       expand-separator
-      icon="vpn_key"
+      icon="sym_r_vpn_key"
       label="Change Password"
     >
       <q-card>
@@ -57,7 +57,7 @@
           >
             <template v-slot:append>
               <q-icon
-                :name="isPwd ? 'visibility_off' : 'visibility'"
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
                 class="cursor-pointer"
                 @click="isPwd = !isPwd"
               />
@@ -73,7 +73,7 @@
           >
             <template v-slot:append>
               <q-icon
-                :name="isPwd ? 'visibility_off' : 'visibility'"
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
                 class="cursor-pointer"
                 @click="isPwd = !isPwd"
               />

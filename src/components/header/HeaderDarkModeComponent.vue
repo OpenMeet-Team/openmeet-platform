@@ -1,10 +1,10 @@
 <template>
   <q-btn
-    :icon="isDark ? 'dark_mode' : 'light_mode'"
+    size="md"
+    :icon="isDark ? 'sym_r_light_mode' : 'sym_r_dark_mode'"
     @click="toggleDarkMode"
     flat
     round
-    color="white"
   />
 </template>
 

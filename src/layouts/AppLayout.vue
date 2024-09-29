@@ -1,18 +1,18 @@
 <template>
   <q-layout view="lHh Lpr lff">
-    <HeaderComponent/>
+    <AppHeaderComponent/>
     <q-page-container>
       <router-view/>
     </q-page-container>
-    <FooterComponent/>
+    <AppFooterComponent/>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import HeaderComponent from 'components/layout/HeaderComponent.vue'
-import FooterComponent from 'components/layout/FooterComponent.vue'
+import AppHeaderComponent from 'components/layout/AppHeaderComponent.vue'
+import AppFooterComponent from 'components/layout/AppFooterComponent.vue'
 
 defineOptions({
-  name: 'MainLayout'
+  name: 'AppLayout'
 })
 </script>

@@ -9,10 +9,10 @@
     <q-card-section>
       <div class="text-h6">{{ event.title }}</div>
       <div class="text-subtitle2">
-        <q-icon name="event" size="xs" /> {{ formatDate(event.date) }} at {{ event.time }}
+        <q-icon name="sym_r_event" size="xs" /> {{ formatDate(event.date) }} at {{ event.time }}
       </div>
       <div class="text-subtitle2">
-        <q-icon name="location_on" size="xs" /> {{ event.location }}
+        <q-icon name="sym_r_location_on" size="xs" /> {{ event.location }}
       </div>
     </q-card-section>
 
@@ -22,10 +22,10 @@
 
     <q-card-section class="q-pt-none">
       <div class="text-caption">
-        <q-icon name="people" size="xs" /> {{ event.attendees }} / {{ event.maxAttendees }} attendees
+        <q-icon name="sym_r_people" size="xs" /> {{ event.attendees }} / {{ event.maxAttendees }} attendees
       </div>
       <div class="text-caption">
-        <q-icon name="groups" size="xs" /> Hosted by {{ event.hostingGroup }}
+        <q-icon name="sym_r_groups" size="xs" /> Hosted by {{ event.hostingGroup }}
       </div>
     </q-card-section>
 

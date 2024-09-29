@@ -7,7 +7,7 @@
         :key="category.id"
         :label="category.name"
         :caption="category.description"
-        icon="category"
+        icon="sym_r_category"
         expand-separator
         class="category-item"
       >

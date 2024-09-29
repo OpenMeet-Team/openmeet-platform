@@ -12,11 +12,11 @@ import DashboardDrawerCalendarComponent from 'components/dashboard/DashboardDraw
   >
     <q-scroll-area class="fit">
       <q-list padding>
-        <MenuItemComponent label="My events" icon="event_note" :to="{name: 'DashboardEventsPage'}"/>
-        <MenuItemComponent label="My groups" icon="group" :to="{name: 'DashboardGroupsPage'}"/>
-        <MenuItemComponent label="My tickets" icon="local_activity" :to="{name: 'DashboardTicketsPage'}"/>
-        <MenuItemComponent label="Messages" icon="local_activity" :to="{name: 'DashboardMessagesPage'}"/>
-        <MenuItemComponent label="Account settings" icon="settings" :to="{name: 'DashboardProfilePage'}"/>
+        <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
+        <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
+        <MenuItemComponent label="My tickets" icon="sym_r_local_activity" :to="{name: 'DashboardTicketsPage'}"/>
+        <MenuItemComponent label="Messages" icon="sym_r_local_activity" :to="{name: 'DashboardMessagesPage'}"/>
+        <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
         <q-separator/>
       </q-list>
       <DashboardDrawerCalendarComponent/>

@@ -48,7 +48,7 @@
           >
             <template v-slot:append>
               <q-icon
-                :name="isPwd ? 'visibility_off' : 'visibility'"
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
                 class="cursor-pointer"
                 @click="isPwd = !isPwd"
               />
@@ -67,7 +67,7 @@
           >
             <template v-slot:append>
               <q-icon
-                :name="isConfirmPwd ? 'visibility_off' : 'visibility'"
+                :name="isConfirmPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
                 class="cursor-pointer"
                 @click="isConfirmPwd = !isConfirmPwd"
               />
@@ -75,7 +75,7 @@
           </q-input>
 
           <div>
-            <q-btn label="Register" type="submit" color="primary"/>
+            <q-btn no-caps label="Register" type="submit" color="primary"/>
           </div>
         </q-form>
       </q-card-section>
@@ -83,7 +83,7 @@
       <q-card-section class="text-center q-pt-none">
         <p class="text-grey-6">
           Already have an account?
-          <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
+          <q-btn padding="none" no-caps flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
         </p>
       </q-card-section>
     </q-card>

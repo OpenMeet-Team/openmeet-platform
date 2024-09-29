@@ -6,9 +6,9 @@
       v-model="tab"
       class="text-primary q-mb-md"
     >
-      <q-tab name="created" label="Created Events" />
-      <q-tab name="attended" label="Attended Events" />
-      <q-tab name="saved" label="Saved Events" />
+      <q-tab name="sym_r_created" label="Created Events" />
+      <q-tab name="sym_r_attended" label="Attended Events" />
+      <q-tab name="sym_r_saved" label="Saved Events" />
     </q-tabs>
 
     <q-tab-panels v-model="tab" animated>

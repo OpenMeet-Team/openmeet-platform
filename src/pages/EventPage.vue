@@ -15,10 +15,10 @@
           <q-card-section>
             <div class="text-h4">{{ event.title }}</div>
             <div class="text-subtitle1 q-mt-sm">
-              <q-icon name="event" /> {{ formatDate(event.date) }} at {{ event.time }}
+              <q-icon name="sym_r_event" /> {{ formatDate(event.date) }} at {{ event.time }}
             </div>
             <div class="text-subtitle1">
-              <q-icon name="place" /> {{ event.location }}
+              <q-icon name="sym_r_place" /> {{ event.location }}
             </div>
           </q-card-section>
 

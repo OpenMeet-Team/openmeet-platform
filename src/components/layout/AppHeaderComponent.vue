@@ -3,10 +3,11 @@ import SearchComponent from 'components/general/SearchComponent.vue'
 import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
 import HeaderMobileMenu from 'components/header/HeaderMobileMenu.vue'
 import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
+import HeaderWrapperComponent from 'components/layout/HeaderWrapperComponent.vue'
 </script>
 
 <template>
-  <q-header elevated>
+  <HeaderWrapperComponent>
     <q-toolbar>
       <HeaderLogoComponent/>
 
@@ -17,7 +18,7 @@ import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
       <HeaderDesktopMenu/>
       <HeaderMobileMenu/>
     </q-toolbar>
-  </q-header>
+  </HeaderWrapperComponent>
 </template>
 
 <style scoped lang="scss">

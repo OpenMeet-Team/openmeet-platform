@@ -15,10 +15,10 @@
           <q-card-section>
             <div class="text-h4">{{ group.name }}</div>
             <div class="text-subtitle1 q-mt-sm">
-              <q-icon name="category" /> {{ group.category }}
+              <q-icon name="sym_r_category" /> {{ group.category }}
             </div>
             <div class="text-subtitle1">
-              <q-icon name="people" /> {{ group.memberCount }} members
+              <q-icon name="sym_r_people" /> {{ group.memberCount }} members
             </div>
             <div class="text-body1 q-mt-md">{{ group.description }}</div>
           </q-card-section>
@@ -41,7 +41,7 @@
           <q-list>
             <q-item v-for="event in group.events" :key="event.id" clickable v-ripple>
               <q-item-section avatar>
-                <q-icon name="event" color="primary" size="md" />
+                <q-icon name="sym_r_event" color="primary" size="md" />
               </q-item-section>
               <q-item-section>
                 <q-item-label>{{ event.title }}</q-item-label>
@@ -100,7 +100,7 @@
               @keyup.enter="sendMessage"
             >
               <template v-slot:after>
-                <q-btn round dense flat icon="send" @click="sendMessage" />
+                <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
               </template>
             </q-input>
           </q-card-section>

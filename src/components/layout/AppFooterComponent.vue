@@ -1,5 +1,5 @@
 <template>
-  <q-footer class="bg-primary text-white">
+  <q-footer :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']">
     <q-toolbar>
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md">
@@ -23,7 +23,7 @@
           <q-form @submit="onSubmit" class="q-gutter-md">
             <q-input v-model="email" filled type="email" label="Your email" :rules="[val => validateEmail(val) || 'Please enter a valid email']">
               <template v-slot:append>
-                <q-btn round dense flat icon="send" type="submit" />
+                <q-btn round dense flat icon="sym_r_send" type="submit" />
               </template>
             </q-input>
           </q-form>
@@ -35,8 +35,8 @@
       <div class="col row items-center justify-between q-py-sm">
         <div class="text-caption">© {{ currentYear }} OpenMeet. All rights reserved.</div>
         <div>
-          <q-btn flat dense no-caps label="Privacy Policy" @click="navigateTo('/privacy')" />
-          <q-btn flat dense no-caps label="Terms of Service" @click="navigateTo('/terms')" />
+          <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Privacy Policy" @click="navigateTo('/privacy')" />
+          <q-btn size="md" padding="none" flat dense no-caps label="Terms of Service" @click="navigateTo('/terms')" />
         </div>
       </div>
     </q-toolbar>
@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useQuasar } from 'quasar'
+import { Dark, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 
 const $q = useQuasar()
@@ -65,8 +65,7 @@ const quickLinks = [
   { name: 'Home', route: '/' },
   { name: 'About Us', route: '/about' },
   { name: 'Find Groups', route: '/groups' },
-  { name: 'Events', route: '/events' },
-  { name: 'Contact', route: '/contact' }
+  { name: 'Events', route: '/events' }
 ]
 
 const currentYear = computed(() => new Date().getFullYear())

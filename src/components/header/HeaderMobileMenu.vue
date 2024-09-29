@@ -62,7 +62,7 @@ const signUp = () => {
     flat
     dense
     round
-    icon="menu"
+    icon="sym_r_menu"
     aria-label="Menu"
     @click="toggleRightDrawer"
     class="lt-md"
@@ -92,21 +92,21 @@ const signUp = () => {
       <q-item-label header>Account</q-item-label>
 
       <template v-if="useAuthStore().isAuthenticated">
-        <MenuItemComponent label="My events" icon="event_note" :to="{name: 'DashboardEventsPage'}"/>
-        <MenuItemComponent label="My groups" icon="group" :to="{name: 'DashboardGroupsPage'}"/>
-        <MenuItemComponent label="My tickets" icon="local_activity" :to="{name: 'DashboardTicketsPage'}"/>
-        <MenuItemComponent label="Account settings" icon="settings" :to="{name: 'DashboardProfilePage'}"/>
+        <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
+        <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
+        <MenuItemComponent label="My tickets" icon="sym_r_local_activity" :to="{name: 'DashboardTicketsPage'}"/>
+        <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
       </template>
       <template v-else>
         <q-item clickable v-ripple @click="login">
           <q-item-section avatar>
-            <q-icon name="login"/>
+            <q-icon name="sym_r_login"/>
           </q-item-section>
           <q-item-section>Login</q-item-section>
         </q-item>
         <q-item clickable v-ripple @click="signUp">
           <q-item-section avatar>
-            <q-icon name="person_add"/>
+            <q-icon name="sym_r_person_add"/>
           </q-item-section>
           <q-item-section>Sign Up</q-item-section>
         </q-item>

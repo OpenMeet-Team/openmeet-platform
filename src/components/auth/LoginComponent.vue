@@ -23,7 +23,7 @@
         >
           <template v-slot:append>
             <q-icon
-              :name="isPwd ? 'visibility_off' : 'visibility'"
+              :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
               class="cursor-pointer"
               @click="isPwd = !isPwd"
             />
@@ -32,15 +32,15 @@
 
         <div class="text-grey-6">
           No account yet?
-          <q-btn flat color="primary" label="Registration" :to="{name: 'AuthRegisterPage'}"/>
+          <q-btn padding="none" no-caps flat color="primary" label="Registration" :to="{name: 'AuthRegisterPage'}"/>
         </div>
         <div class="text-grey-6">
           Forgot password?
-          <q-btn flat color="primary" label="Restore" :to="{name: 'AuthForgotPasswordPage'}"/>
+          <q-btn padding="none" no-caps flat color="primary" label="Restore" :to="{name: 'AuthForgotPasswordPage'}"/>
         </div>
 
         <div>
-          <q-btn label="Login" type="submit" color="primary"/>
+          <q-btn no-caps label="Login" type="submit" color="primary"/>
         </div>
       </q-form>
     </q-card-section>

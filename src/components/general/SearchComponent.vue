@@ -1,7 +1,7 @@
 <template>
   <div class="c-search-component row items-center q-mx-md">
     <q-select
-      class="xs-hide bg-white"
+      class="xs-hide"
       outlined
       ref="searchRef"
       hide-dropdown-icon
@@ -10,7 +10,7 @@
       v-model="search"
       clearable
       use-input
-      name="search"
+      name="sym_r_search"
       input-debounce="1000"
       :options="options"
       @filter="filterFn"
@@ -18,7 +18,7 @@
       behavior="dialog"
     >
       <template v-slot:prepend>
-        <q-icon name="search"/>
+        <q-icon name="sym_r_search"/>
       </template>
       <template v-slot:no-option>
         <q-item>
@@ -29,7 +29,7 @@
       </template>
     </q-select>
     <q-icon
-      name="search"
+      name="sym_r_search"
       class="sm-hide md-hide lg-hide xl-hide cursor-pointer"
       size="24px"
       @click="onSearchClick"

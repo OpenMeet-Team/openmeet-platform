@@ -1,39 +1,109 @@
-// Quasar SCSS (& Sass) Variables
-// --------------------------------------------------
-// To customize the look and feel of this app, you can override
-// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
 
-// Check documentation for full list of Quasar variables
+// Import the fonts
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Montserrat:wght@300;600&display=swap');
 
-// Your own variables (that are declared here) and Quasar's own
-// ones will be available out of the box in your .vue/.scss/.sass files
+// Primary Colors
+$open-blue: #0066CC;
+$community-green: #00CC99;
 
-// It's highly recommended to change the default colors
-// to match your app's branding.
-// Tip: Use the "Theme Builder" on Quasar's documentation website.
+// Secondary Colors
+$privacy-gray: #333333;
+$support-yellow: #FFD700;
 
-//$primary   : #1976D2;
-//$secondary : #26A69A;
-//$accent    : #9C27B0;
-//
-//$dark      : #1D1D1D;
-//$dark-page : #121212;
-//
-//$positive  : #21BA45;
-//$negative  : #C10015;
-//$info      : #31CCEC;
-//$warning   : #F2C037;
+// Neutral Colors
+$light-gray: #F2F2F2;
+$dark-gray: #444444;
 
-// src/css/quasar.variables.sass
+// Quasar Color Configuration
+$primary: $open-blue;
+$secondary: $community-green;
+$accent: $support-yellow;
 
-$primary   : #6a84d2;
-$secondary : #d2846a;
-$accent    : #84d26a;
+$dark: #000000;
+$dark-page: $privacy-gray;
 
-$dark      : #2c3e50;
-$dark-page : #1a2633;
+$positive: $community-green;
+$negative: #C10015;
+$info: $open-blue;
+$warning: $support-yellow;
 
-$positive  : #6ad284;
-$negative  : #d26a84;
-$info      : #6aabd2;
-$warning   : #d2b66a;
+// Define the font variables
+$typography-font-family: 'Lato', sans-serif;
+$body-font-family: 'Lato', sans-serif;
+$heading-font-family: 'Lato', sans-serif;
+
+// Typography
+h1 {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+}
+
+h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 24px;
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+}
+
+.q-btn {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+// Custom classes for additional typography styles
+.secondary-text {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+}
+
+.emphasis-text {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+}
+
+// Custom color classes
+.text-privacy-gray {
+  color: $privacy-gray;
+}
+
+.bg-privacy-gray {
+  background-color: $privacy-gray;
+}
+
+.text-support-yellow {
+  color: $support-yellow;
+}
+
+.bg-support-yellow {
+  background-color: $support-yellow;
+}
+
+.text-light-gray {
+  color: $light-gray;
+}
+
+.bg-light-gray {
+  background-color: $light-gray;
+}
+
+.text-dark-gray {
+  color: $dark-gray;
+}
+
+.bg-dark-gray {
+  background-color: $dark-gray;
+}
+
+.router-link-inherit {
+  color: inherit;
+  text-decoration: none;
+}
+
+

@@ -21,17 +21,17 @@
             ]"
           >
             <template v-slot:prepend>
-              <q-icon name="email"/>
+              <q-icon name="sym_r_email"/>
             </template>
           </q-input>
 
           <div class="text-grey-6">
             Remember your password?
-            <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
+            <q-btn no-caps padding="none" flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
           </div>
 
           <div>
-            <q-btn
+            <q-btn no-caps
               label="Send Reset Instructions"
               type="submit"
               color="primary"

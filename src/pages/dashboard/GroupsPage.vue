@@ -8,7 +8,7 @@
     </div>
 
     <div v-else-if="userGroups.length === 0" class="text-center q-pa-md">
-      <q-icon name="groups" size="4em" color="grey-5" />
+      <q-icon name="sym_r_groups" size="4em" color="grey-5" />
       <p class="text-h6 text-grey-6 q-mt-sm">You haven't joined any groups yet.</p>
       <q-btn color="primary" label="Explore Groups" @click="exploreGroups" class="q-mt-md" />
     </div>
@@ -32,7 +32,7 @@
             <q-chip
               :color="getRoleColor(group.userRole)"
               text-color="white"
-              icon="person"
+              icon="sym_r_person"
             >
               {{ group.userRole }}
             </q-chip>
@@ -49,7 +49,7 @@
     <q-dialog v-model="leaveGroupDialog" persistent>
       <q-card>
         <q-card-section class="row items-center">
-          <q-avatar icon="warning" color="warning" text-color="white" />
+          <q-avatar icon="sym_r_warning" color="warning" text-color="white" />
           <span class="q-ml-sm">Are you sure you want to leave this group?</span>
         </q-card-section>
         <q-card-actions align="right">

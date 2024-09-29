@@ -23,7 +23,7 @@
           </q-card-section>
 
           <q-card-section class="text-subtitle2">
-            <q-icon name="people" /> {{ event.attendees }} / {{ event.maxAttendees }} attendees
+            <q-icon name="sym_r_people" /> {{ event.attendees }} / {{ event.maxAttendees }} attendees
           </q-card-section>
 
           <q-separator />
