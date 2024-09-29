@@ -3,7 +3,7 @@
     flat
     dense
     icon="notifications"
-    class="notifications-dropdown"
+    class="notifications-dropdown q-mr-md"
   >
     <template v-slot:label>
       <q-badge
@@ -25,7 +25,7 @@
           :key="notification.id"
           clickable
           v-ripple
-          :class="{ 'bg-grey-2': !notification.read }"
+          :class="{ 'bg-grey-2 text-black': !notification.read }"
           @click="markAsRead(notification.id)"
         >
           <q-item-section avatar>

@@ -4,12 +4,13 @@ import { useQuasar } from 'quasar'
 import { useCreateGroupDialog } from 'src/composables/useCreateGroupDialog.ts'
 import { useCreateEventDialog } from 'src/composables/useCreateEventDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { useLoginDialog } from 'src/composables/useLoginDialog.ts'
+import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import MenuItemComponent from 'components/general/MenuItemComponent.vue'
+import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
 
 const { openCreateGroupDialog } = useCreateGroupDialog()
 const { openCreateEventDialog } = useCreateEventDialog()
-const { openLoginDialog } = useLoginDialog()
+const { openLoginDialog } = useAuthDialog()
 
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
@@ -72,6 +73,11 @@ const signUp = () => {
       <MenuItemComponent label="Home" :to="{name: 'HomePage'}"/>
       <MenuItemComponent label="Events" :to="{name: 'EventsPage'}"/>
       <MenuItemComponent label="Groups" :to="{name: 'GroupsPage'}"/>
+      <q-item>
+        <q-item-section>
+          <HeaderDarkModeComponent/>
+        </q-item-section>
+      </q-item>
       <q-item>
         <q-item-section>
           <q-btn @click="openCreateGroupForm" label="Add group"/>

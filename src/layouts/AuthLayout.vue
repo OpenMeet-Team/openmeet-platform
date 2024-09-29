@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <HeaderComponent/>
+    <AuthHeaderComponent/>
     <q-page-container>
       <router-view/>
     </q-page-container>
@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import HeaderComponent from 'components/layout/HeaderComponent.vue'
+import AuthHeaderComponent from 'components/auth/AuthHeaderComponent.vue'
 
 defineOptions({
   name: 'AuthLayout'

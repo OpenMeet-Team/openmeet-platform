@@ -94,7 +94,7 @@
               <div class="col-12 col-md-4">
                 <h3 class="text-h5">Get Started Now</h3>
                 <p>Join our community today and start connecting with people who share your interests!</p>
-                <q-btn :to="{ name: 'RegisterPage'}" color="primary" label="Create an Account" class="q-mt-md" />
+                <q-btn :to="{ name: 'AuthRegisterPage'}" color="primary" label="Create an Account" class="q-mt-md" />
               </div>
             </div>
           </q-card-section>
