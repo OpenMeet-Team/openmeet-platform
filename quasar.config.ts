@@ -4,6 +4,7 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from 'quasar/wrappers'
+
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
 
@@ -96,7 +97,7 @@ export default configure((ctx) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
-      port: process.env.DEV_SERVER_PORT || 8080,
+      port: Number(process.env.DEV_SERVER_PORT) || 8080,
       open: Boolean(process.env.DEV_SERVER_OPEN) // opens browser window automatically
     },
 

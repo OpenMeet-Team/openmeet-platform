@@ -132,7 +132,6 @@ const rsvpToEvent = () => {
 }
 
 onMounted(async () => {
-  console.log(route)
   const eventId = parseInt(route.params.id as string)
 
   // Simulating an API call to fetch event details
