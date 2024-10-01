@@ -82,21 +82,17 @@
         </q-card>
       </div>
     </div>
-
-    <div v-else class="text-center q-mt-xl">
-      <q-spinner-dots color="primary" size="3em" />
-      <div class="text-h6 q-mt-md">Loading event details...</div>
-    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { date, useQuasar } from 'quasar'
+import { date, LoadingBar, useQuasar } from 'quasar'
+import { apiGetEvent } from 'src/api/events.ts'
 
 interface Event {
-  id: number;
+  id: string;
   title: string;
   description: string;
   date: string;
@@ -125,21 +121,18 @@ const rsvpToEvent = () => {
     $q.notify({
       color: 'positive',
       textColor: 'white',
-      icon: 'check_circle',
+      icon: 'sym_r_check_circle',
       message: 'You have successfully RSVP\'d to this event!'
     })
   }
 }
 
-onMounted(async () => {
-  const eventId = parseInt(route.params.id as string)
+onMounted(() => {
+  LoadingBar.start()
+  apiGetEvent(route.params.id as string).finally(LoadingBar.stop)
 
-  // Simulating an API call to fetch event details
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
-  // Mock event data (in a real app, this would come from an API)
   event.value = {
-    id: eventId,
+    id: route.params.id as string,
     title: 'Tech Meetup 2024',
     description: 'Join us for an exciting tech meetup where we\'ll discuss the latest trends in web development and AI. This event will feature keynote speakers from leading tech companies, interactive workshops, and networking opportunities. Whether you\'re a seasoned developer or just starting out, this meetup offers valuable insights and connections in the ever-evolving world of technology.',
     date: '2024-12-15',

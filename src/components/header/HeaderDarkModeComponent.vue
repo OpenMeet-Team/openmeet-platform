@@ -1,6 +1,7 @@
 <template>
   <q-btn
     size="md"
+    dense
     :icon="isDark ? 'sym_r_light_mode' : 'sym_r_dark_mode'"
     @click="toggleDarkMode"
     flat

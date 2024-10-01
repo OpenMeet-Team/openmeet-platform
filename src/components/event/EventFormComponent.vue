@@ -6,6 +6,52 @@
       filled
       :rules="[val => !!val || 'Title is required']"
     />
+
+    <div class="row">
+      <div class="row q-gutter-md">
+        <q-input
+          v-model="eventData.startDate"
+          filled
+          label="Start Date"
+          :rules="[val => !!val || 'Date is required']"
+          type="date"
+        />
+        <q-input
+          v-model="eventData.startTime"
+          filled
+          label="Start Time"
+          :rules="[val => !!val || 'Time is required']"
+          type="time"
+        />
+      </div>
+      <q-space/>
+      <div class="row q-gutter-md">
+        <q-input
+          v-model="eventData.endDate"
+          filled
+          label="End Date"
+          type="date"
+        />
+        <q-input
+          v-model="eventData.endTime"
+          filled
+          label="End Time"
+          type="time"
+        />
+      </div>
+    </div>
+
+    <q-file
+      v-model="eventData.image"
+      filled
+      label="Event Image"
+      accept="image/*"
+    >
+      <template v-slot:prepend>
+        <q-icon name="sym_r_attach_file"/>
+      </template>
+    </q-file>
+
     <q-input
       v-model="eventData.description"
       label="Event Description"
@@ -13,26 +59,19 @@
       filled
       :rules="[val => !!val || 'Description is required']"
     />
-    <q-input
-      v-model="eventData.date"
-      label="Event Date"
-      filled
-      type="date"
-      :rules="[val => !!val || 'Date is required']"
-    />
-    <q-input
-      v-model="eventData.time"
-      label="Event Time"
-      filled
-      type="time"
-      :rules="[val => !!val || 'Time is required']"
-    />
-    <q-input
+
+    <EventFormLocationComponent
       v-model="eventData.location"
-      label="Event Location"
-      filled
-      :rules="[val => !!val || 'Location is required']"
+      @update:model-value="handleLocationChange"
     />
+
+    <q-select
+      v-model="eventData.category"
+      :options="categoryOptions"
+      filled
+      label="Event Category"
+    />
+
     <q-input
       v-model.number="eventData.maxAttendees"
       label="Maximum Attendees"
@@ -50,26 +89,71 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
+import EventFormLocationComponent from 'components/event/EventFormLocationComponent.vue'
 
 const $q = useQuasar()
 
 interface EventData {
   title: string;
-  description: string;
+  startDate: string;
+  startTime: string
+  endDate: string;
+  endTime: string
+  location?: {
+    type?: 'online' | 'in-person' | 'hybrid'
+    physicalLocation?: string
+    onlineLink?: string
+  }
+  category: string
+  image?: File | null
+  description?: string;
   date: string;
   time: string;
-  location: string;
   maxAttendees: number;
+}
+
+const handleLocationChange = (newLocation: EventData['location']) => {
+  console.log('Location changed:', newLocation)
+
+  // You can perform additional actions here based on the new location
+  // if (newLocation.type === 'online') {
+  //   $q.notify({
+  //     message: 'Remember to provide a valid online meeting link!',
+  //     color: 'info'
+  //   })
+  // } else if (newLocation.type === 'in-person') {
+  //   $q.notify({
+  //     message: 'Make sure to specify the exact physical location.',
+  //     color: 'info'
+  //   })
+  // } else if (newLocation.type === 'hybrid') {
+  //   $q.notify({
+  //     message: 'Please provide both physical and online meeting details.',
+  //     color: 'info'
+  //   })
+  // }
 }
 
 const eventData = ref<EventData>({
   title: '',
   description: '',
+  startDate: '',
+  startTime: '',
+  endDate: '',
+  endTime: '',
   date: '',
   time: '',
-  location: '',
-  maxAttendees: 50
+  location: {
+    type: 'in-person'
+  },
+  maxAttendees: 50,
+  image: null,
+  category: ''
 })
+
+const categoryOptions = [
+  'Conference', 'Seminar', 'Workshop', 'Networking', 'Social', 'Other'
+]
 
 const onSubmit = async () => {
   try {
@@ -85,14 +169,13 @@ const onSubmit = async () => {
     })
 
     // Reset form after successful submission
-    eventData.value = {
-      title: '',
-      description: '',
-      date: '',
-      time: '',
-      location: '',
-      maxAttendees: 50
-    }
+    // eventData.value = {
+    //   title: '',
+    //   description: '',
+    //   date: '',
+    //   time: '',
+    //   maxAttendees: 50
+    // }
   } catch (error) {
     $q.notify({
       color: 'negative',

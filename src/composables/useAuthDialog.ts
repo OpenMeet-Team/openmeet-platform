@@ -7,22 +7,12 @@ export function useAuthDialog () {
 
   const openLoginDialog = () => {
     $q.dialog({
-      component: LoginDialogComponent,
-      componentProps: {
-        onSubmit: (loginData: never) => {
-          console.log('Logged in:', loginData)
-        }
-      }
+      component: LoginDialogComponent
     })
   }
   const openRegisterDialog = () => {
     $q.dialog({
-      component: RegisterDialogComponent,
-      componentProps: {
-        onSubmit: (loginData: never) => {
-          console.log('Register in:', loginData)
-        }
-      }
+      component: RegisterDialogComponent
     })
   }
 

@@ -1,13 +1,12 @@
 import { defineStore } from 'pinia'
 import { apiForgotPassword, apiLogin, apiLogout, apiRefreshToken, apiRegister, apiRestorePassword } from 'src/api/auth.ts'
-import {
-  ForgotPasswordCredentials,
-  LoginCredentials,
-  RegisterCredentials,
-  RestorePasswordCredentials,
-  User
-} from 'src/types/authTypes.ts'
 import { LocalStorage } from 'quasar'
+import {
+  StoreAuthForgotPasswordRequest,
+  StoreAuthLoginRequest,
+  StoreAuthRegisterRequest,
+  StoreAuthRestorePasswordRequest, StoreAuthUserRequest
+} from 'src/types'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
@@ -21,7 +20,7 @@ export const useAuthStore = defineStore('authStore', {
     getUser: state => state.user
   },
   actions: {
-    async actionLogin (credentials: LoginCredentials) {
+    async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
         const response = await apiLogin(credentials)
         this.actionSetToken(response.data.token)
@@ -42,7 +41,7 @@ export const useAuthStore = defineStore('authStore', {
         return response.data.token
       })
     },
-    async actionRegister (credentials: RegisterCredentials) {
+    async actionRegister (credentials: StoreAuthRegisterRequest) {
       try {
         const response = await apiRegister(credentials)
         if (response.data.token) this.actionSetToken(response.data.token)
@@ -55,16 +54,15 @@ export const useAuthStore = defineStore('authStore', {
         throw error
       }
     },
-    async actionRestorePassword (credentials: RestorePasswordCredentials) {
+    async actionRestorePassword (credentials: StoreAuthRestorePasswordRequest) {
       try {
-        const response = await apiRestorePassword(credentials)
-        return response
+        return await apiRestorePassword(credentials)
       } catch (error) {
         console.error('actionRestorePassword failed', error)
         throw error
       }
     },
-    async actionForgotPassword (credentials: ForgotPasswordCredentials) {
+    async actionForgotPassword (credentials: StoreAuthForgotPasswordRequest) {
       try {
         return await apiForgotPassword(credentials)
       } catch (error) {
@@ -91,7 +89,7 @@ export const useAuthStore = defineStore('authStore', {
       this.tokenExpires = tokenExpires
       LocalStorage.setItem('tokenExpires', tokenExpires)
     },
-    actionSetUser (user: User) {
+    actionSetUser (user: StoreAuthUserRequest) {
       this.user = user
       LocalStorage.setItem('user', JSON.stringify(user))
     },

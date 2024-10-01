@@ -2,12 +2,12 @@
   <q-page class="q-pa-md">
     <div class="row q-col-gutter-md">
       <!-- Hero Section -->
-      <div class="col-12">
+      <div class="col-12" v-if="!useAuthStore().isAuthenticated">
         <q-card class="bg-primary text-white">
           <q-card-section class="text-center q-pa-lg">
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
             <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
-            <q-btn color="white" text-color="primary" label="Join Now" class="q-mt-md" size="lg" />
+            <q-btn color="white" text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md" size="lg" />
           </q-card-section>
         </q-card>
       </div>
@@ -68,7 +68,7 @@
       <HomeCategoriesComponent/>
 
       <!-- Additional Information Section -->
-      <div class="col-12">
+      <div class="col-12" v-if="!useAuthStore().isAuthenticated">
         <q-card class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white': 'bg-grey-2']">
           <q-card-section>
             <div class="row q-col-gutter-md">
@@ -94,7 +94,7 @@
               <div class="col-12 col-md-4">
                 <h3 class="text-h5">Get Started Now</h3>
                 <p>Join our community today and start connecting with people who share your interests!</p>
-                <q-btn :to="{ name: 'AuthRegisterPage'}" color="primary" label="Create an Account" class="q-mt-md" />
+                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md" />
               </div>
             </div>
           </q-card-section>
@@ -105,10 +105,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Dark, date } from 'quasar'
+import { onMounted, ref } from 'vue'
+import { Dark, date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
 import HomeCategoriesComponent from 'components/home/HomeCategoriesComponent.vue'
+import { apiHome } from 'src/api/home.ts'
+import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
+import { useAuthStore } from 'stores/auth-store.ts'
+
+const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
 const router = useRouter()
 interface Group {
@@ -125,6 +130,10 @@ interface Event {
   date: string;
   time: string;
   groupName: string;
+}
+
+const onJoinNowClick = () => {
+  openLoginDialog()
 }
 
 const featuredGroups = ref<Group[]>([
@@ -212,6 +221,11 @@ const viewAllEvents = () => {
   // In a real app, you'd navigate to the events listing page
   router.push({ name: 'EventsPage' })
 }
+
+onMounted(() => {
+  LoadingBar.start()
+  apiHome().finally(LoadingBar.stop)
+})
 </script>
 
 <style scoped>

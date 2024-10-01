@@ -1,5 +1,5 @@
 <template>
-  <q-footer :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']">
+  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']">
     <q-toolbar>
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md">
@@ -90,7 +90,7 @@ const onSubmit = () => {
     $q.notify({
       color: 'positive',
       textColor: 'white',
-      icon: 'check_circle',
+      icon: 'sym_r_check_circle',
       message: 'Thank you for subscribing to our newsletter!'
     })
     email.value = '' // Clear the input after successful submission

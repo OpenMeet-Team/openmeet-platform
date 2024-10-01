@@ -29,8 +29,8 @@ const openCreateEventForm = () => {
   <q-tabs class="q-mr-md">
     <q-route-tab no-caps :to="{name: 'EventsPage'}">Events</q-route-tab>
     <q-route-tab no-caps class="a-mr-sm" :to="{name: 'GroupsPage'}">Groups</q-route-tab>
-    <q-btn size="md" no-caps class="q-mx-sm" @click="openCreateGroupForm" icon="sym_r_add" label="Add group"/>
-    <q-btn size="md" no-caps @click="openCreateEventForm" icon="sym_r_add" label="Add event"/>
+    <q-btn size="md" color="primary" dense no-caps class="q-mx-sm" @click="openCreateGroupForm" icon="sym_r_add" label="Add group"/>
+    <q-btn size="md" color="primary" dense no-caps @click="openCreateEventForm" icon="sym_r_add" label="Add event"/>
   </q-tabs>
 </template>
 

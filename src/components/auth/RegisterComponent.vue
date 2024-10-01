@@ -1,6 +1,5 @@
 <template>
-  <q-page class="flex flex-center">
-    <q-card class="register-card">
+  <q-card class="register-card">
       <q-card-section>
         <div class="text-h6">Register</div>
       </q-card-section>
@@ -87,7 +86,6 @@
         </p>
       </q-card-section>
     </q-card>
-  </q-page>
 </template>
 
 <script setup lang="ts">
@@ -97,6 +95,7 @@ import { useAuthStore } from 'stores/auth-store.ts'
 
 const $q = useQuasar()
 
+const emits = defineEmits(['register'])
 const firstName = ref('')
 const lastName = ref('')
 const email = ref('')
@@ -126,6 +125,7 @@ const onSubmit = async () => {
     password.value = ''
     confirmPassword.value = ''
 
+    emits('register')
     return router.push((route.query.redirect || '/') as string)
   }).catch(error => {
     console.log(error)

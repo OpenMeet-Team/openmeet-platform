@@ -62,12 +62,17 @@ const email = ref<string>('')
 const password = ref<string>('')
 const isPwd = ref<boolean>(true)
 
+const emits = defineEmits(['login', 'to'])
+
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {
     authStore.actionLogin({
       email: email.value,
       password: password.value
     }).then(() => {
+      email.value = ''
+      password.value = ''
+      emits('login')
       return router.push((route.query.redirect || '/') as string)
     }).catch(error => {
       console.error('Error logging in:', error)

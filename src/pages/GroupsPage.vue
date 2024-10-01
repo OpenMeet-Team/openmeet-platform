@@ -151,7 +151,7 @@ const joinGroup = (groupId: number) => {
     $q.notify({
       color: 'positive',
       textColor: 'white',
-      icon: 'check_circle',
+      icon: 'sym_r_check_circle',
       message: `You've joined ${group.name}!`
     })
   }

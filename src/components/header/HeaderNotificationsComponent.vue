@@ -10,6 +10,7 @@
     <q-badge
       v-if="unreadCount > 0"
       color="accent"
+      class="text-small text-bold"
       text-color="black"
       floating
       transparent

@@ -1,12 +1,11 @@
 <template>
   <div class="q-pa-md">
-    <div class="q-gutter-md">
-      <q-date
-        v-model="date"
-        :events="events"
-        :event-color="(date) => (date[9] as any % 2 === 0) ? 'teal' : 'orange'"
-      />
-    </div>
+    <q-date
+      class="full-width"
+      v-model="date"
+      :events="events"
+      :event-color="(date) => (date[9] as any % 2 === 0) ? 'teal' : 'orange'"
+    />
   </div>
 </template>
 

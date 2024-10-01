@@ -1,16 +1,20 @@
 <template>
   <q-page class="q-pa-md">
-    <h1 class="text-h4 q-mb-md">My Groups</h1>
-
-    <div v-if="loading" class="text-center q-pa-md">
-      <q-spinner color="primary" size="3em" />
-      <p class="text-body1 q-mt-sm">Loading your groups...</p>
+    <div class="row items-center justify-between q-mb-lg">
+      <h1 class="text-h4 q-my-none">My Groups</h1>
+      <q-btn
+        no-caps
+        color="primary"
+        icon="sym_r_add"
+        label="Create Group"
+        @click="onAddNewGroup"
+      />
     </div>
 
-    <div v-else-if="userGroups.length === 0" class="text-center q-pa-md">
-      <q-icon name="sym_r_groups" size="4em" color="grey-5" />
+    <div v-if="userGroups.length === 0" class="text-center q-pa-md">
+      <q-icon name="sym_r_groups" size="4em" color="grey-5"/>
       <p class="text-h6 text-grey-6 q-mt-sm">You haven't joined any groups yet.</p>
-      <q-btn color="primary" label="Explore Groups" @click="exploreGroups" class="q-mt-md" />
+      <q-btn color="primary" label="Explore Groups" @click="exploreGroups" class="q-mt-md"/>
     </div>
 
     <div v-else class="row q-col-gutter-md">
@@ -26,9 +30,6 @@
             <div class="text-subtitle2">{{ group.category }}</div>
           </q-card-section>
           <q-card-section class="q-pt-none">
-            <div class="text-body2">{{ truncateDescription(group.description) }}</div>
-          </q-card-section>
-          <q-card-section class="q-pt-none">
             <q-chip
               :color="getRoleColor(group.userRole)"
               text-color="white"
@@ -37,10 +38,11 @@
               {{ group.userRole }}
             </q-chip>
           </q-card-section>
-          <q-separator />
+          <q-separator/>
           <q-card-actions align="right">
-            <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)" />
-            <q-btn flat color="secondary" label="Leave Group" @click="confirmLeaveGroup(group)" />
+            <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)"/>
+            <q-btn flat color="primary" label="Edit Group" @click="editGroup(group.id)"/>
+            <q-btn flat color="secondary" label="Leave Group" @click="confirmLeaveGroup(group)"/>
           </q-card-actions>
         </q-card>
       </div>
@@ -49,12 +51,12 @@
     <q-dialog v-model="leaveGroupDialog" persistent>
       <q-card>
         <q-card-section class="row items-center">
-          <q-avatar icon="sym_r_warning" color="warning" text-color="white" />
+          <q-avatar icon="sym_r_warning" color="warning" text-color="white"/>
           <span class="q-ml-sm">Are you sure you want to leave this group?</span>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="primary" v-close-popup />
-          <q-btn flat label="Leave Group" color="negative" @click="leaveGroup" v-close-popup />
+          <q-btn flat label="Cancel" color="primary" v-close-popup/>
+          <q-btn flat label="Leave Group" color="negative" @click="leaveGroup" v-close-popup/>
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -62,66 +64,66 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useQuasar } from 'quasar'
+import { onMounted, ref } from 'vue'
+import { LoadingBar, useQuasar } from 'quasar'
+import { useRouter } from 'vue-router'
+import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
 
 const $q = useQuasar()
 
 interface Group {
-  id: number;
+  id: string;
   name: string;
   category: string;
-  description: string;
   imageUrl: string;
   userRole: 'Member' | 'Moderator' | 'Admin';
 }
 
 const userGroups = ref<Group[]>([])
-const loading = ref(true)
 const leaveGroupDialog = ref(false)
 const groupToLeave = ref<Group | null>(null)
+const router = useRouter()
 
 const fetchUserGroups = async () => {
-  // Simulating API call
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
   userGroups.value = [
     {
-      id: 1,
+      id: '1',
       name: 'Tech Enthusiasts',
       category: 'Technology',
-      description: 'A group for tech lovers to discuss the latest trends and innovations in technology.',
       imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg',
       userRole: 'Admin'
     },
     {
-      id: 2,
+      id: '2',
       name: 'Outdoor Adventures',
       category: 'Sports & Fitness',
-      description: 'Join us for exciting hiking trips and outdoor adventures!',
       imageUrl: 'https://cdn.quasar.dev/img/parallax1.jpg',
       userRole: 'Member'
     },
     {
-      id: 3,
+      id: '3',
       name: 'Book Lovers Club',
       category: 'Arts & Culture',
-      description: 'Monthly meetups to discuss great books and share our love for literature.',
       imageUrl: 'https://cdn.quasar.dev/img/parallax2.jpg',
+      userRole: 'Moderator'
+    },
+    {
+      id: '4',
+      name: 'Test group',
+      category: 'Arts & Culture',
+      imageUrl: '',
       userRole: 'Moderator'
     }
   ]
-
-  loading.value = false
 }
 
-onMounted(fetchUserGroups)
-
-const truncateDescription = (description: string, length: number = 100) => {
-  return description.length > length
-    ? description.substring(0, length) + '...'
-    : description
-}
+onMounted(() => {
+  LoadingBar.start()
+  fetchUserGroups()
+  apiGetDashboardGroups().then(() => {
+    // TODO set groups
+  }).finally(LoadingBar.stop)
+})
 
 const getRoleColor = (role: string) => {
   switch (role) {
@@ -134,19 +136,25 @@ const getRoleColor = (role: string) => {
   }
 }
 
-const viewGroup = (groupId: number) => {
-  console.log('View group:', groupId)
-  // In a real app, you'd navigate to the group details page
+const viewGroup = (groupId: string) => {
+  router.push({ name: 'GroupPage', params: { id: groupId } })
+}
+
+const editGroup = (groupId: string) => {
+  router.push({ name: 'DashboardGroup', params: { id: groupId } })
 }
 
 const exploreGroups = () => {
-  console.log('Explore groups')
-  // In a real app, you'd navigate to the groups exploration page
+  router.push({ name: 'GroupsPage' })
 }
 
 const confirmLeaveGroup = (group: Group) => {
   groupToLeave.value = group
   leaveGroupDialog.value = true
+}
+
+const onAddNewGroup = () => {
+  router.push({ name: 'DashboardGroupsCreate' })
 }
 
 const leaveGroup = () => {

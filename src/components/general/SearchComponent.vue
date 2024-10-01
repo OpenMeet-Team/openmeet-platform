@@ -1,33 +1,56 @@
 <template>
   <div class="c-search-component row items-center q-mx-md">
-    <q-select
-      class="xs-hide"
-      outlined
-      ref="searchRef"
-      hide-dropdown-icon
-      placeholder="Search"
-      dense
-      v-model="search"
-      clearable
-      use-input
-      name="sym_r_search"
-      input-debounce="1000"
-      :options="options"
-      @filter="filterFn"
-      style="width: 250px"
-      behavior="dialog"
-    >
-      <template v-slot:prepend>
-        <q-icon name="sym_r_search"/>
-      </template>
-      <template v-slot:no-option>
-        <q-item>
-          <q-item-section class="text-grey">
-            No results
-          </q-item-section>
-        </q-item>
-      </template>
-    </q-select>
+    <div class="row">
+      <q-select
+        class="xs-hide"
+        outlined
+        ref="searchRef"
+        hide-dropdown-icon
+        placeholder="Search"
+        dense
+        v-model="search"
+        clearable
+        use-input
+        name="search"
+        input-debounce="1000"
+        :options="options"
+        @filter="filterFn"
+        style="width: 250px"
+        behavior="dialog"
+      >
+        <template v-slot:prepend>
+          <q-icon name="sym_r_search"/>
+        </template>
+        <template v-slot:no-option>
+          <q-item>
+            <q-item-section class="text-grey">
+              No results
+            </q-item-section>
+          </q-item>
+        </template>
+<!--        <template v-slot:after>-->
+<!--          <q-select-->
+<!--            borderless-->
+<!--            class="xs-hide"-->
+<!--            ref="locationRef"-->
+<!--            hide-dropdown-icon-->
+<!--            placeholder="Location"-->
+<!--            dense-->
+<!--            v-model="search"-->
+<!--            use-input-->
+<!--            name="location"-->
+<!--            input-debounce="1000"-->
+<!--            :options="options"-->
+<!--            @filter="filterFn"-->
+<!--            style="width: 150px"-->
+<!--          >-->
+<!--            <template v-slot:append>-->
+<!--              <q-icon name="sym_r_near_me"/>-->
+<!--            </template>-->
+<!--          </q-select>-->
+<!--        </template>-->
+      </q-select>
+    </div>
     <q-icon
       name="sym_r_search"
       class="sm-hide md-hide lg-hide xl-hide cursor-pointer"

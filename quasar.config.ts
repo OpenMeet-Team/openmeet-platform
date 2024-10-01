@@ -120,7 +120,8 @@ export default configure((ctx) => {
       // Quasar plugins
       plugins: [
         'Notify',
-        'Dialog'
+        'Dialog',
+        'LoadingBar'
       ]
     },
 

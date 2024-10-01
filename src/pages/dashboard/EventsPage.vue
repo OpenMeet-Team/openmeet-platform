@@ -1,14 +1,20 @@
 <template>
   <q-page padding>
-    <h1 class="text-h4 q-mb-md">My Events</h1>
+    <div class="row items-center justify-between q-mb-lg">
+      <h1 class="text-h4 q-my-none">My Events</h1>
+      <q-btn
+        no-caps
+        color="primary"
+        icon="sym_r_add"
+        label="Add New Event"
+        @click="onAddNewEvent"
+      />
+    </div>
 
-    <q-tabs
-      v-model="tab"
-      class="text-primary q-mb-md"
-    >
-      <q-tab name="sym_r_created" label="Created Events" />
-      <q-tab name="sym_r_attended" label="Attended Events" />
-      <q-tab name="sym_r_saved" label="Saved Events" />
+    <q-tabs v-model="tab" class="text-primary q-mb-md">
+      <q-tab name="created" label="Created Events" />
+      <q-tab name="attended" label="Attended Events" />
+      <q-tab name="saved" label="Saved Events" />
     </q-tabs>
 
     <q-tab-panels v-model="tab" animated>
@@ -23,6 +29,7 @@
           <DashboardEventList v-for="event in attendedEvents" :key="event.id" :event="event" @view-event="viewEvent" />
         </div>
       </q-tab-panel>
+
       <q-tab-panel name="saved">
         <div class="row q-gutter-md">
           <DashboardEventList v-for="event in attendedEvents" :key="event.id" :event="event" @view-event="viewEvent" />
@@ -52,15 +59,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { onMounted, ref } from 'vue'
+import { LoadingBar, useQuasar } from 'quasar'
 import DashboardEventList from 'src/components/dashboard/DashboardEventList.vue'
 import { Event } from 'components/models.ts'
+import { useRouter } from 'vue-router'
+import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 
 const $q = useQuasar()
 const tab = ref<'created' | 'attended'>('created')
 const eventDialog = ref(false)
 const selectedEvent = ref<Event>({} as Event)
+const router = useRouter()
 
 // Mock data - replace with actual API calls
 const createdEvents = ref<Event[]>([
@@ -84,5 +94,16 @@ const editEvent = () => {
     message: 'Edit functionality to be implemented',
     color: 'info'
   })
+}
+
+onMounted(() => {
+  LoadingBar.start()
+  apiGetDashboardEvents().then(() => {
+    // TODO set events
+  }).finally(LoadingBar.stop)
+})
+
+const onAddNewEvent = () => {
+  router.push({ name: 'DashboardEventsCreate' })
 }
 </script>

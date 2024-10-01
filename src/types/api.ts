@@ -1,6 +1,4 @@
-// types/authTypes.ts
-
-export interface User {
+export interface ApiAuthUser {
   id: string
   email: string
   name?: string
@@ -8,41 +6,35 @@ export interface User {
   refreshToken: string
 }
 
-export interface LoginCredentials {
+export interface ApiAuthLoginRequest {
   email: string
   password: string
 }
 
-export interface LoginResponse {
+export interface ApiAuthLoginResponse {
   token: string
   refreshToken: string
   tokenExpires: number
-  user: User
+  user: ApiAuthUser
 }
 
-export interface RegisterCredentials {
+export interface ApiAuthRegisterRequest {
   email: string
   password: string
   firstName?: string
   lastName?: string
 }
 
-export interface ForgotPasswordCredentials {
+export interface ApiAuthForgotPasswordRequest {
   email: string
 }
 
-export interface RestorePasswordCredentials {
+export interface ApiAuthRestorePasswordRequest {
   password: string
   hash: string
 }
 
-export interface RefreshTokenCredentials {
-  token: string,
-  refreshToken: string,
-  tokenExpires: 0
-}
-
-export interface PatchMeCredentials {
+export interface ApiAuthPatchMeRequest {
   photo?: {
     id: string
   },
@@ -51,4 +43,10 @@ export interface PatchMeCredentials {
   email?: string,
   password?: string,
   oldPassword?: string
+}
+
+export interface ApiAuthRefreshTokenResponse {
+  token: string,
+  refreshToken: string,
+  tokenExpires: number
 }

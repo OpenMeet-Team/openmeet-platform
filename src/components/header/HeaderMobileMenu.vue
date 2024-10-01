@@ -7,11 +7,13 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import MenuItemComponent from 'components/general/MenuItemComponent.vue'
 import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
+import { useRouter } from 'vue-router'
 
 const { openCreateGroupDialog } = useCreateGroupDialog()
 const { openCreateEventDialog } = useCreateEventDialog()
 const { openLoginDialog } = useAuthDialog()
 
+const router = useRouter()
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
     openCreateGroupDialog()
@@ -43,6 +45,13 @@ const login = () => {
     color: 'info',
     message: 'Login functionality to be implemented',
     icon: 'info'
+  })
+}
+
+const onClickLogout = () => {
+  useAuthStore().actionLogout().then(() => {
+    rightDrawerOpen.value = false
+    router.push('/')
   })
 }
 
@@ -89,13 +98,15 @@ const signUp = () => {
         </q-item-section>
       </q-item>
 
-      <q-item-label header>Account</q-item-label>
-
       <template v-if="useAuthStore().isAuthenticated">
+        <q-item-label header>Account</q-item-label>
+
         <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
         <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
         <MenuItemComponent label="My tickets" icon="sym_r_local_activity" :to="{name: 'DashboardTicketsPage'}"/>
         <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
+        <q-separator/>
+        <MenuItemComponent label="Logout" icon="sym_r_logout" @click="onClickLogout"/>
       </template>
       <template v-else>
         <q-item clickable v-ripple @click="login">

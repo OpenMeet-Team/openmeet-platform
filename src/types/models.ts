@@ -9,3 +9,11 @@ export interface Event {
   lon: number;
   is_public: boolean;
 }
+
+export interface User {
+  id: string
+  email: string
+  name?: string
+  token: string
+  refreshToken: string
+}

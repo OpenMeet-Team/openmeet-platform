@@ -39,14 +39,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { date } from 'quasar'
+import { onMounted, ref } from 'vue'
+import { date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
+import { apiGetEvents } from 'src/api/events.ts'
 
 const router = useRouter()
 
 interface Event {
-  id: number;
+  id: string;
   title: string;
   description: string;
   date: string;
@@ -60,7 +61,7 @@ interface Event {
 // Sample events data
 const events = ref<Event[]>([
   {
-    id: 1,
+    id: '1',
     title: 'Tech Meetup 2023',
     description: 'Join us for an exciting tech meetup where we\'ll discuss the latest trends in web development and AI.',
     date: '2023-07-15',
@@ -71,7 +72,7 @@ const events = ref<Event[]>([
     imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg'
   },
   {
-    id: 2,
+    id: '2',
     title: 'Startup Networking Event',
     description: 'Connect with fellow entrepreneurs and investors in this networking event for startups.',
     date: '2023-07-22',
@@ -93,16 +94,21 @@ const truncateDescription = (description: string, length: number = 100) => {
     : description
 }
 
-const viewEventDetails = (eventId: number) => {
+const viewEventDetails = (eventId: string) => {
   // Implement navigation to event details page
   console.log('View details for event:', eventId)
   router.push({ name: 'EventPage', params: { id: 'some-event-id' } })
 }
 
-const rsvpToEvent = (eventId: number) => {
+const rsvpToEvent = (eventId: string) => {
   // Implement RSVP functionality
   console.log('RSVP to event:', eventId)
 }
+
+onMounted(() => {
+  LoadingBar.start()
+  apiGetEvents().finally(LoadingBar.stop)
+})
 </script>
 
 <style scoped>

@@ -1,7 +1,6 @@
 <template>
   <q-page class="q-pa-md">
     <div v-if="group" class="row q-col-gutter-md">
-      <!-- Group Info Section -->
       <div class="col-12 col-lg-8">
         <q-card>
           <q-img
@@ -107,18 +106,14 @@
         </q-card>
       </div>
     </div>
-
-    <div v-else class="text-center q-mt-xl">
-      <q-spinner-dots color="primary" size="3em" />
-      <div class="text-h6 q-mt-md">Loading group details...</div>
-    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { date } from 'quasar'
+import { date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
+import { apiGroups } from 'src/api/groups.ts'
 
 interface Member {
   id: number;
@@ -180,10 +175,11 @@ const sendMessage = () => {
 }
 
 onMounted(async () => {
-  // Simulating an API call to fetch group details
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  LoadingBar.start()
+  apiGroups().then(() => {
+    // Add
+  }).finally(LoadingBar.stop)
 
-  // Mock group data (in a real app, this would come from an API)
   group.value = {
     id: 1,
     name: 'Tech Enthusiasts',

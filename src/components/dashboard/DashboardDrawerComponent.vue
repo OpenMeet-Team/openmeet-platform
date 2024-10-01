@@ -8,7 +8,7 @@ import DashboardDrawerCalendarComponent from 'components/dashboard/DashboardDraw
   <q-drawer
     show-if-above
     bordered
-    :width="300"
+    :width="350"
   >
     <q-scroll-area class="fit">
       <q-list padding>
