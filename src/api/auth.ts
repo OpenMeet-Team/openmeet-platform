@@ -1,43 +1,49 @@
 import { AxiosResponse } from 'axios'
-import { api } from 'boot/axios'
+import { api } from 'src/boot/axios'
 import {
   ApiAuthForgotPasswordRequest,
   ApiAuthLoginRequest,
-  ApiAuthLoginResponse, ApiAuthPatchMeRequest, ApiAuthRefreshTokenResponse,
-  ApiAuthRegisterRequest, ApiAuthRestorePasswordRequest
+  ApiAuthLoginResponse,
+  ApiAuthPatchMeRequest,
+  ApiAuthRefreshTokenResponse,
+  ApiAuthRegisterRequest,
+  ApiAuthRestorePasswordRequest,
+  ApiAuthUser,
+  ApiUserRightsResponse
 } from 'src/types'
 
-export function apiLogin (credentials: ApiAuthLoginRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> {
-  return api.post('/api/v1/auth/email/login', credentials)
-}
+const BASE_URL = '/api/v1/auth'
 
-export function apiRegister (credentials: ApiAuthRegisterRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> {
-  return api.post('/api/v1/auth/email/register', credentials)
-}
+export const authApi = {
+  login: (credentials: ApiAuthLoginRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/email/login`, credentials),
 
-export function apiForgotPassword (credentials: ApiAuthForgotPasswordRequest): Promise<AxiosResponse> {
-  return api.post('/api/v1/auth/forgot/password', credentials)
-}
+  register: (credentials: ApiAuthRegisterRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/email/register`, credentials),
 
-export function apiRestorePassword (credentials: ApiAuthRestorePasswordRequest): Promise<AxiosResponse> {
-  return api.post('/api/v1/auth/reset/password', credentials)
-}
+  forgotPassword: (data: ApiAuthForgotPasswordRequest): Promise<AxiosResponse<void>> =>
+    api.post(`${BASE_URL}/forgot/password`, data),
 
-export function apiGetMe (): Promise<AxiosResponse> {
-  return api('/api/v1/auth/me')
-}
+  restorePassword: (data: ApiAuthRestorePasswordRequest): Promise<AxiosResponse<void>> =>
+    api.post(`${BASE_URL}/reset/password`, data),
 
-export function apiUpdateMe (credentials: ApiAuthPatchMeRequest): Promise<AxiosResponse> {
-  return api.patch('/api/v1/auth/me', credentials)
-}
-export function apiDeleteMe (): Promise<AxiosResponse> {
-  return api.delete('/api/v1/auth/me')
-}
+  getMe: (): Promise<AxiosResponse<ApiAuthUser>> =>
+    api.get(`${BASE_URL}/me`),
 
-export function apiRefreshToken (refreshToken: string): Promise<AxiosResponse<ApiAuthRefreshTokenResponse>> {
-  return api.post('/api/v1/auth/refresh', null, { headers: { Authorization: `Bearer ${refreshToken}` } })
-}
+  updateMe: (data: ApiAuthPatchMeRequest): Promise<AxiosResponse<ApiAuthUser>> =>
+    api.patch(`${BASE_URL}/me`, data),
 
-export function apiLogout (): Promise<AxiosResponse> {
-  return api.post('/api/v1/auth/logout')
+  deleteMe: (): Promise<AxiosResponse<void>> =>
+    api.delete(`${BASE_URL}/me`),
+
+  refreshToken: (refreshToken: string): Promise<AxiosResponse<ApiAuthRefreshTokenResponse>> =>
+    api.post(`${BASE_URL}/refresh`, null, {
+      headers: { Authorization: `Bearer ${refreshToken}` }
+    }),
+
+  logout: (): Promise<AxiosResponse<void>> =>
+    api.post(`${BASE_URL}/logout`),
+
+  getRights: (): Promise<AxiosResponse<ApiUserRightsResponse>> =>
+    api.get(`${BASE_URL}/rights`)
 }

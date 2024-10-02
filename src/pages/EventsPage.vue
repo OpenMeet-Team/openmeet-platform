@@ -42,7 +42,7 @@
 import { onMounted, ref } from 'vue'
 import { date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
-import { apiGetEvents } from 'src/api/events.ts'
+import { eventsApi } from 'src/api/events.ts'
 
 const router = useRouter()
 
@@ -107,7 +107,7 @@ const rsvpToEvent = (eventId: string) => {
 
 onMounted(() => {
   LoadingBar.start()
-  apiGetEvents().finally(LoadingBar.stop)
+  eventsApi.getAll().finally(LoadingBar.stop)
 })
 </script>
 

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-export const useCounterStore = defineStore('counter', {
+export const useDashboardStore = defineStore('dashboard', {
   state: () => ({
     events: null,
     event: null,

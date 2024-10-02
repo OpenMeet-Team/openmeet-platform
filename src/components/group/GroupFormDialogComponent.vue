@@ -1,16 +1,22 @@
 <script setup lang="ts">
+import GroupFormBasicComponent from 'components/group/GroupFormBasicComponent.vue'
+import { useRouter } from 'vue-router'
 
-import GroupFormComponent from 'components/group/GroupFormComponent.vue'
+const router = useRouter()
+const onSubmit = () => {
+  router.push({ name: 'GroupPage' })
+}
 </script>
 
 <template>
 <q-dialog>
   <q-card class="full-width q-pa-md" style="max-width: 600px">
-    <q-card-section>
-      <div class="text-h6">Create new Group</div>
-    </q-card-section>
 
-    <GroupFormComponent/>
+    <div class="row q-mb-xl">
+      <h1 class="text-h4 q-my-none">Create New Group</h1>
+    </div>
+
+    <GroupFormBasicComponent @submit="onSubmit"/>
   </q-card>
 </q-dialog>
 </template>

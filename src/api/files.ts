@@ -1,10 +1,6 @@
 import axios, { AxiosResponse } from 'axios'
 import { api } from 'src/boot/axios.ts'
-
-interface UploadedFile {
-  path: string
-  id: string
-}
+import { UploadedFile } from 'src/types'
 
 interface FileUploadResponse {
   file: UploadedFile;

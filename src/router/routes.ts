@@ -19,12 +19,21 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/DashboardLayout.vue'),
     children: [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
-      { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/EventsPage.vue') },
-      { path: 'events/create', name: 'DashboardEventsCreate', component: () => import('pages/dashboard/EventPage.vue') },
-      { path: 'events/:id', name: 'DashboardEvent', component: () => import('pages/dashboard/EventPage.vue') },
-      { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/GroupsPage.vue') },
-      { path: 'groups/create', name: 'DashboardGroupsCreate', component: () => import('pages/dashboard/GroupPage.vue') },
-      { path: 'groups/:id', name: 'DashboardGroup', component: () => import('pages/dashboard/GroupPage.vue') },
+      { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
+      { path: 'events/create', name: 'DashboardEventsCreate', component: () => import('pages/dashboard/DashboardEventPage.vue') },
+      { path: 'events/:id', name: 'DashboardEvent', component: () => import('pages/dashboard/DashboardEventPage.vue') },
+      { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/group/DashboardGroupsPage.vue') },
+      { path: 'groups/create', name: 'DashboardGroupsCreate', component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue') },
+      {
+        path: 'groups/:id',
+        name: 'DashboardGroup',
+        component: () => import('pages/dashboard/group/DashboardGroupPage.vue'),
+        children: [
+          { path: 'basic', name: 'DashboardGroupBasic', component: () => import('pages/dashboard/group/DashboardGroupBasicPage.vue') },
+          { path: 'members', name: 'DashboardGroupMembers', component: () => import('pages/dashboard/group/DashboardGroupMembersPage.vue') },
+          { path: 'privacy', name: 'DashboardGroupPrivacy', component: () => import('pages/dashboard/group/DashboardGroupPrivacyPage.vue') }
+        ]
+      },
       { path: 'tickets', name: 'DashboardTicketsPage', component: () => import('pages/dashboard/TicketsPage.vue') },
       { path: 'messages', name: 'DashboardMessagesPage', component: () => import('pages/dashboard/MessagesPage.vue') },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }

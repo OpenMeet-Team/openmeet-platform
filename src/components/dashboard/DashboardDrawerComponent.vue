@@ -2,12 +2,18 @@
 
 import MenuItemComponent from 'components/general/MenuItemComponent.vue'
 import DashboardDrawerCalendarComponent from 'components/dashboard/DashboardDrawerCalendarComponent.vue'
+import { useRoute } from 'vue-router'
+import { Screen } from 'quasar'
+
+const route = useRoute()
 </script>
 
 <template>
   <q-drawer
     show-if-above
     bordered
+    :mini="Screen.sm"
+    :breakpoint="600"
     :width="350"
   >
     <q-scroll-area class="fit">
@@ -19,7 +25,7 @@ import DashboardDrawerCalendarComponent from 'components/dashboard/DashboardDraw
         <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
         <q-separator/>
       </q-list>
-      <DashboardDrawerCalendarComponent/>
+      <DashboardDrawerCalendarComponent v-if="route.name === 'DashboardEventsPage'"/>
     </q-scroll-area>
   </q-drawer>
 </template>

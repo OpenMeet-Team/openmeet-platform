@@ -62,9 +62,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useQuasar } from 'quasar'
+import { ref, computed, onMounted } from 'vue'
+import { LoadingBar, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
+import { groupsApi } from 'src/api/groups.ts'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -76,6 +77,11 @@ interface Group {
   interests: string[];
   memberCount: number;
 }
+
+onMounted(() => {
+  LoadingBar.start()
+  groupsApi.getAll().then().finally(LoadingBar.stop)
+})
 
 const groups = ref<Group[]>([
   {

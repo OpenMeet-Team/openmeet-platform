@@ -1,30 +1,12 @@
-import { api } from 'boot/axios.ts'
-import { Event } from 'src/types'
+import { api } from 'boot/axios'
+import { EventData } from 'src/types'
 
-export function createEvent (eventData: Event) {
-  return api.post('/api/v1/events', eventData)
-}
-
-export function apiGetEvents () {
-  return api.get('/api/v1/events')
-}
-
-export function apiGetEvent (eventId: string) {
-  return api.get(`/api/v1/events/${eventId}`)
-}
-
-export function updateEvent (eventId: string, eventData: Event) {
-  return api.put(`/api/v1/events/${eventId}`, eventData)
-}
-
-export function deleteEvent (eventId: string) {
-  return api.delete(`/api/v1/events/${eventId}`)
-}
-
-export function registerForEvent (eventId: string, userId: string) {
-  return api.post(`/api/v1/events/${eventId}/register`, { userId })
-}
-
-export function cancelRegistration (eventId: string, userId: string) {
-  return api.delete(`/api/v1/events/${eventId}/register/${userId}`)
+export const eventsApi = {
+  getAll: () => api.get<EventData[]>('/api/v1/events'),
+  getById: (id: string) => api.get<EventData>(`/api/v1/events/${id}`),
+  create: (eventData: Partial<EventData>) => api.post<EventData>('/api/v1/events', eventData),
+  update: (id: string, eventData: Partial<EventData>) => api.put<EventData>(`/api/v1/events/${id}`, eventData),
+  delete: (id: string) => api.delete(`/api/v1/events/${id}`),
+  attend: (id: string) => api.post(`/api/v1/events/${id}/attend`),
+  leave: (id: string) => api.post(`/api/v1/events/${id}/leave`)
 }

@@ -91,22 +91,18 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { Dialog, Notify, useQuasar } from 'quasar'
-import { apiDeleteMe, apiGetMe, apiUpdateMe } from 'src/api/auth.ts'
+import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { apiUploadFileToS3 } from 'src/api/files.ts'
-
-interface UserPhoto {
-  id: string;
-  path?: string;
-}
+import { UploadedFile } from 'src/types'
 
 interface UserForm {
   email: string;
-  firstName: string;
-  lastName: string;
-  photo: UserPhoto;
+  firstName?: string;
+  lastName?: string;
+  photo?: UploadedFile;
   password?: string;
   oldPassword?: string;
 }
@@ -127,12 +123,12 @@ const form = reactive<UserForm>({
 const isPwd = ref(true)
 
 const onSubmit = async () => {
-  apiUpdateMe(form).then(res => {
+  authApi.updateMe(form).then(res => {
     useAuthStore().actionSetUser(res.data)
     $q.notify({
       color: 'positive',
       message: 'Profile updated successfully',
-      icon: 'check'
+      icon: 'sym_r_check'
     })
   }).catch(error => {
     console.log(error)
@@ -140,13 +136,13 @@ const onSubmit = async () => {
     $q.notify({
       color: 'negative',
       message: 'Failed to update profile',
-      icon: 'error'
+      icon: 'sym_r_error'
     })
   })
 }
 
-onBeforeMount(() => {
-  apiGetMe().then(res => {
+onMounted(() => {
+  authApi.getMe().then(res => {
     form.email = res.data.email
     form.firstName = res.data.firstName
     form.lastName = res.data.lastName
@@ -186,7 +182,7 @@ const onDeleteAccount = () => {
       color: 'negative'
     }
   }).onOk(() => {
-    apiDeleteMe().then(() => useAuthStore().actionLogout())
+    authApi.deleteMe().then(() => useAuthStore().actionLogout())
   })
 }
 </script>

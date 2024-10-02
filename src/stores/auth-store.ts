@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
-import { apiForgotPassword, apiLogin, apiLogout, apiRefreshToken, apiRegister, apiRestorePassword } from 'src/api/auth.ts'
+import { authApi } from 'src/api/auth.ts'
 import { LocalStorage } from 'quasar'
 import {
   StoreAuthForgotPasswordRequest,
   StoreAuthLoginRequest,
   StoreAuthRegisterRequest,
-  StoreAuthRestorePasswordRequest, StoreAuthUserRequest
+  StoreAuthRestorePasswordRequest,
+  StoreAuthUserRequest,
+  UserRole
 } from 'src/types'
 
 export const useAuthStore = defineStore('authStore', {
@@ -13,16 +15,26 @@ export const useAuthStore = defineStore('authStore', {
     token: LocalStorage.getItem('token') || '',
     refreshToken: LocalStorage.getItem('refreshToken') || '',
     tokenExpires: LocalStorage.getItem('tokenExpires') || '',
-    user: JSON.parse(LocalStorage.getItem('user') || '{}')
+    user: JSON.parse(LocalStorage.getItem('user') || '{}'),
+    role: UserRole.USER,
+    permissions: [] as string[]
   }),
   getters: {
     isAuthenticated: state => !!state.token,
-    getUser: state => state.user
+    getUser: state => state.user,
+    hasRole: (state) => (role: string) => state.role === role || state.role === UserRole.ADMIN,
+    hasPermission: (state) => (permission: string) => state.permissions.includes(permission)
   },
   actions: {
+    actionGetRights () {
+      return authApi.getRights().then(res => {
+        this.actionSetRole(res.data.role)
+        this.actionSetPermissions(res.data.permissions)
+      })
+    },
     async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
-        const response = await apiLogin(credentials)
+        const response = await authApi.login(credentials)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -34,7 +46,7 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionRefreshToken () {
-      return await apiRefreshToken(this.refreshToken).then(response => {
+      return await authApi.refreshToken(this.refreshToken).then(response => {
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -43,7 +55,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionRegister (credentials: StoreAuthRegisterRequest) {
       try {
-        const response = await apiRegister(credentials)
+        const response = await authApi.register(credentials)
         if (response.data.token) this.actionSetToken(response.data.token)
         if (response.data.refreshToken) this.actionSetRefreshToken(response.data.refreshToken)
         if (response.data.tokenExpires) this.actionSetTokenExpires(response.data.tokenExpires)
@@ -56,7 +68,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionRestorePassword (credentials: StoreAuthRestorePasswordRequest) {
       try {
-        return await apiRestorePassword(credentials)
+        return await authApi.restorePassword(credentials)
       } catch (error) {
         console.error('actionRestorePassword failed', error)
         throw error
@@ -64,14 +76,14 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionForgotPassword (credentials: StoreAuthForgotPasswordRequest) {
       try {
-        return await apiForgotPassword(credentials)
+        return await authApi.forgotPassword(credentials)
       } catch (error) {
         console.error('actionForgotPassword failed', error)
         throw error
       }
     },
     async actionLogout () {
-      return apiLogout().finally(() => {
+      return authApi.logout().finally(() => {
         this.actionClearAuth()
       }).catch((error) => {
         console.error('Logout failed', error)
@@ -101,6 +113,12 @@ export const useAuthStore = defineStore('authStore', {
       LocalStorage.removeItem('refreshToken')
       LocalStorage.removeItem('tokenExpires')
       LocalStorage.removeItem('user')
+    },
+    actionSetRole (role: UserRole) {
+      this.role = role
+    },
+    actionSetPermissions (permissions: string[]) {
+      this.permissions = permissions
     }
   }
 })

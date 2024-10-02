@@ -1,6 +1,6 @@
 <template>
-  <q-page class="q-pa-md">
-    <div class="row items-center justify-between q-mb-lg">
+  <q-page padding>
+    <div class="row items-center justify-between q-mb-xl">
       <h1 class="text-h4 q-my-none">My Groups</h1>
       <q-btn
         no-caps
@@ -19,33 +19,12 @@
 
     <div v-else class="row q-col-gutter-md">
       <div v-for="group in userGroups" :key="group.id" class="col-12 col-sm-6 col-md-4">
-        <q-card class="group-card">
-          <q-img :src="group.imageUrl" :ratio="16/9">
-            <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">
-              {{ group.name }}
-            </div>
-          </q-img>
-          <q-card-section>
-            <div class="text-h6">{{ group.name }}</div>
-            <div class="text-subtitle2">{{ group.category }}</div>
-          </q-card-section>
-          <q-card-section class="q-pt-none">
-            <q-chip
-              :color="getRoleColor(group.userRole)"
-              text-color="white"
-              icon="sym_r_person"
-            >
-              {{ group.userRole }}
-            </q-chip>
-          </q-card-section>
-          <q-separator/>
-          <q-card-actions align="right">
-            <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)"/>
-            <q-btn flat color="primary" label="Edit Group" @click="editGroup(group.id)"/>
-            <q-btn flat color="secondary" label="Leave Group" @click="confirmLeaveGroup(group)"/>
-          </q-card-actions>
-        </q-card>
+        <DashboardGroupItem :group="group" @view="viewGroup" @edit="editGroup" @leave="confirmLeaveGroup" />
       </div>
+    </div>
+
+    <div class="row items-center justify-between q-my-xl">
+      <h1 class="text-h4 q-my-none">Member Groups</h1>
     </div>
 
     <q-dialog v-model="leaveGroupDialog" persistent>
@@ -68,6 +47,7 @@ import { onMounted, ref } from 'vue'
 import { LoadingBar, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
+import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 
 const $q = useQuasar()
 
@@ -125,15 +105,8 @@ onMounted(() => {
   }).finally(LoadingBar.stop)
 })
 
-const getRoleColor = (role: string) => {
-  switch (role) {
-    case 'Admin':
-      return 'red'
-    case 'Moderator':
-      return 'orange'
-    default:
-      return 'green'
-  }
+const exploreGroups = () => {
+  router.push({ name: 'GroupsPage' })
 }
 
 const viewGroup = (groupId: string) => {
@@ -142,10 +115,6 @@ const viewGroup = (groupId: string) => {
 
 const editGroup = (groupId: string) => {
   router.push({ name: 'DashboardGroup', params: { id: groupId } })
-}
-
-const exploreGroups = () => {
-  router.push({ name: 'GroupsPage' })
 }
 
 const confirmLeaveGroup = (group: Group) => {

@@ -32,6 +32,7 @@
     <q-separator />
 
     <q-card-actions align="right">
+      <q-btn flat color="primary" label="Edit" @click="onEditEvent" />
       <q-btn flat color="primary" label="View Details" @click="viewEventDetails" />
       <q-btn flat :color="isAttending ? 'negative' : 'secondary'" :label="isAttending ? 'Cancel RSVP' : 'RSVP'" @click="toggleRSVP" />
     </q-card-actions>
@@ -49,7 +50,8 @@ const props = defineProps<{
 
 // eslint-disable-next-line func-call-spacing
 const emit = defineEmits<{
-  (e: 'view-details', id: number): void;
+  (e: 'view', id: number): void;
+  (e: 'edit', id: number): void;
   (e: 'toggle-rsvp', id: number, attending: boolean): void;
 }>()
 
@@ -66,7 +68,11 @@ const truncateDescription = (description: string, length: number = 100): string 
 }
 
 const viewEventDetails = () => {
-  emit('view-details', props.event.id)
+  emit('view', props.event.id)
+}
+
+const onEditEvent = () => {
+  emit('edit', props.event.id)
 }
 
 const toggleRSVP = () => {

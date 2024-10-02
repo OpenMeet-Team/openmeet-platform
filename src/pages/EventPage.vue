@@ -89,7 +89,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { date, LoadingBar, useQuasar } from 'quasar'
-import { apiGetEvent } from 'src/api/events.ts'
+import { eventsApi } from 'src/api/events.ts'
 
 interface Event {
   id: string;
@@ -129,7 +129,7 @@ const rsvpToEvent = () => {
 
 onMounted(() => {
   LoadingBar.start()
-  apiGetEvent(route.params.id as string).finally(LoadingBar.stop)
+  eventsApi.getById(route.params.id as string).finally(LoadingBar.stop)
 
   event.value = {
     id: route.params.id as string,

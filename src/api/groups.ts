@@ -1,17 +1,13 @@
-import { api } from 'boot/axios.ts'
+import { api } from 'boot/axios'
+import { Group } from 'src/types'
 
-export function apiGroups () {
-  return api.get('/api/v1/groups')
-}
-
-export function getGroupById (groupId: string) {
-  return api.get(`/api/v1/groups/${groupId}`)
-}
-
-export function registerForGroup (groupId: string, userId: string) {
-  return api.post(`/api/v1/groups/${groupId}/register`, { userId })
-}
-
-export function cancelRegistration (groupId: string, userId: string) {
-  return api.delete(`/api/v1/events/${groupId}/register/${userId}`)
+export const groupsApi = {
+  getAll: () => api.get<Group[]>('/api/v1/groups'),
+  getById: (id: string) => api.get<Group>(`/api/v1/groups/${id}`),
+  create: (groupData: Partial<Group>) => api.post<Group>('/api/v1/groups', groupData),
+  update: (id: string, groupData: Partial<Group>) => api.put<Group>(`/api/v1/groups/${id}`, groupData),
+  delete: (id: string) => api.delete(`/api/v1/groups/${id}`),
+  join: (id: string) => api.post(`/api/v1/groups/${id}/join`),
+  leave: (id: string) => api.post(`/api/v1/groups/${id}/leave`),
+  roles: (id: string) => api.get(`/api/v1/groups/${id}/roles`)
 }

@@ -112,8 +112,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { date, LoadingBar } from 'quasar'
-import { useRouter } from 'vue-router'
-import { apiGroups } from 'src/api/groups.ts'
+import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from 'stores/user-store.ts'
+import { useGroupStore } from 'stores/group-store.ts'
 
 interface Member {
   id: number;
@@ -151,6 +152,7 @@ const group = ref<Group | null>(null)
 const chatMessages = ref<ChatMessage[]>([])
 const newMessage = ref('')
 const router = useRouter()
+const route = useRoute()
 
 const formatDate = (dateString: string) => {
   return date.formatDate(dateString, 'MMMM D, YYYY')
@@ -176,9 +178,11 @@ const sendMessage = () => {
 
 onMounted(async () => {
   LoadingBar.start()
-  apiGroups().then(() => {
-    // Add
-  }).finally(LoadingBar.stop)
+
+  Promise.all([
+    useGroupStore().actionGetGroupById(route.params.id as string),
+    useUserStore().actionGetGroupRights(route.params.id as string)
+  ]).finally(LoadingBar.stop)
 
   group.value = {
     id: 1,
