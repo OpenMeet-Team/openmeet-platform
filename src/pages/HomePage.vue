@@ -7,7 +7,8 @@
           <q-card-section class="text-center q-pa-lg">
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
             <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
-            <q-btn color="white" text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md" size="lg" />
+            <q-btn color="white" text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
+                   size="lg"/>
           </q-card-section>
         </q-card>
       </div>
@@ -31,13 +32,13 @@
                 {{ truncateDescription(group.description) }}
               </q-card-section>
               <q-card-actions align="right">
-                <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)" />
+                <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)"/>
               </q-card-actions>
             </q-card>
           </div>
         </div>
         <div class="text-center q-mt-md">
-          <q-btn color="primary" label="Explore All Groups" @click="exploreGroups" />
+          <q-btn color="primary" label="Explore All Groups" @click="exploreGroups"/>
         </div>
       </div>
 
@@ -47,7 +48,7 @@
         <q-list bordered separator>
           <q-item v-for="event in upcomingEvents" :key="event.id" clickable v-ripple @click="viewEvent(event.id)">
             <q-item-section avatar>
-              <q-icon name="sym_r_event" color="primary" size="md" />
+              <q-icon name="sym_r_event" color="primary" size="md"/>
             </q-item-section>
             <q-item-section>
               <q-item-label>{{ event.title }}</q-item-label>
@@ -61,11 +62,25 @@
           </q-item>
         </q-list>
         <div class="text-center q-mt-md">
-          <q-btn color="secondary" label="View All Events" @click="viewAllEvents" />
+          <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
         </div>
       </div>
 
-      <HomeCategoriesComponent/>
+      <div class="col-12">
+        <h2 class="text-h4 q-mb-md">Categories</h2>
+        <div class="row q-gutter-md">
+            <HomeCategoryComponent
+              v-for="category in categories"
+              :key="category.name"
+              :category="category"
+            />
+        </div>
+      </div>
+
+      <div class="col-12">
+        <h2 class="text-h4 q-mb-md">Interests</h2>
+        <HomeInterestsComponent :interests="interests"/>
+      </div>
 
       <!-- Additional Information Section -->
       <div class="col-12" v-if="!useAuthStore().isAuthenticated">
@@ -77,7 +92,7 @@
                 <q-list>
                   <q-item v-for="(reason, index) in reasons" :key="index">
                     <q-item-section avatar>
-                      <q-icon :name="reason.icon" color="primary" />
+                      <q-icon :name="reason.icon" color="primary"/>
                     </q-item-section>
                     <q-item-section>
                       <q-item-label>{{ reason.text }}</q-item-label>
@@ -88,13 +103,14 @@
               <div class="col-12 col-md-4">
                 <h3 class="text-h5">How It Works</h3>
                 <q-timeline color="secondary">
-                  <q-timeline-entry v-for="(step, index) in howItWorks" :key="index" :title="step.title" :subtitle="step.subtitle" :icon="step.icon" />
+                  <q-timeline-entry v-for="(step, index) in howItWorks" :key="index" :title="step.title"
+                                    :subtitle="step.subtitle" :icon="step.icon"/>
                 </q-timeline>
               </div>
               <div class="col-12 col-md-4">
                 <h3 class="text-h5">Get Started Now</h3>
                 <p>Join our community today and start connecting with people who share your interests!</p>
-                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md" />
+                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md"/>
               </div>
             </div>
           </q-card-section>
@@ -108,14 +124,16 @@
 import { onMounted, ref } from 'vue'
 import { Dark, date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
-import HomeCategoriesComponent from 'components/home/HomeCategoriesComponent.vue'
 import { apiHome } from 'src/api/home.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
+import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
+import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
 const router = useRouter()
+
 interface Group {
   id: number;
   name: string;
@@ -131,6 +149,27 @@ interface Event {
   time: string;
   groupName: string;
 }
+
+interface Category {
+  name: string;
+}
+
+interface Interest {
+  name: string;
+  description: string;
+}
+
+const categories: Category[] = [
+  { name: 'Technology' },
+  { name: 'Art' },
+  { name: 'Sports' }
+]
+
+const interests: Interest[] = [
+  { name: 'Programming', description: 'Learn how to code and create apps.' },
+  { name: 'Painting', description: 'Express yourself through art and colors.' },
+  { name: 'Soccer', description: 'Play the most popular sport in the world.' }
+]
 
 const onJoinNowClick = () => {
   openLoginDialog()

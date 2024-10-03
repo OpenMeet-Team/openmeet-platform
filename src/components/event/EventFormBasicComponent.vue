@@ -1,34 +1,15 @@
 <template>
   <q-form @submit="onSubmit" class="q-gutter-md">
+
     <q-input
-      v-model="eventData.title"
+      v-model="eventData.name"
       label="Event Title"
       filled
       :rules="[val => !!val || 'Title is required']"
     />
 
-    <div class="row">
-      <div class="row q-gutter-md items-center">
-        <q-input
-          v-model="eventData.startDate"
-          filled
-          label="Start Date"
-          :rules="[val => !!val || 'Date is required']"
-          type="date"
-        />
-        <q-input
-          v-model="eventData.startTime"
-          filled
-          label="Start Time"
-          :rules="[val => !!val || 'Time is required']"
-          type="time"
-        >
-          <template v-slot:after>
-            {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
-          </template>
-        </q-input>
-      </div>
-      <q-space/>
+    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" :rules="[val => !!val || 'Date is required']"/>
+<!--    <div class="row">-->
       <!--      <div class="row q-gutter-md">-->
       <!--        <q-input-->
       <!--          v-model="eventData.endDate"-->
@@ -43,28 +24,16 @@
       <!--          type="time"-->
       <!--        />-->
       <!--      </div>-->
-    </div>
+<!--    </div>-->
 
-    <div class="row q-gutter-md">
-      <q-file
-        filled
-        :model-value="null"
-        label="Event image"
-        accept="image/*"
-        @update:model-value="onEventImageSelect"
-      >
-        <template v-slot:prepend>
-          <q-icon name="sym_r_attach_file"/>
-        </template>
-      </q-file>
+    <UploadComponent label="Event image" @upload="onEventImageSelect"/>
 
-      <q-img
-        v-if="eventData && eventData.image && eventData.image.path"
-        :src="eventData.image.path"
-        spinner-color="white"
-        style="height: 140px; max-width: 150px"
-      />
-    </div>
+    <q-img
+      v-if="eventData && eventData.image && eventData.image.path"
+      :src="eventData.image.path"
+      spinner-color="white"
+      style="height: 140px; max-width: 150px"
+    />
 
     <q-input
       v-model="eventData.description"
@@ -90,9 +59,11 @@
       />
 
       <q-input v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
-               v-model="eventData.onlineLocation" label="Link to the event"/>
-      <LocationComponent v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
-                        v-model="eventData.location" label="Address or location"/>
+               v-model="eventData.onlineLocation" type="url" label="Link to the event"/>
+      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
+                         v-model="eventData.location" label="Address or location"/>
+      <LocationComponent2 v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
+                         v-model="eventData.location" label="Address or location"/>
     </div>
 
     <q-select
@@ -102,14 +73,16 @@
       label="Event Category"
     />
 
+    <q-checkbox :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
+                label="Limit number of members?"/>
     <q-input
+      v-if="eventData.maxAttendees"
       v-model.number="eventData.maxAttendees"
       label="Maximum Attendees"
       filled
       type="number"
       :rules="[
           val => val > 0 || 'Maximum attendees must be greater than 0',
-          val => val <= 1000 || 'Maximum attendees cannot exceed 1000'
         ]"
     />
     <slot></slot>
@@ -118,41 +91,34 @@
 
 <script setup lang="ts">
 import { reactive } from 'vue'
-import { Notify, useQuasar } from 'quasar'
-import { apiUploadFileToS3 } from 'src/api/files.ts'
-import { EventData } from 'src/types'
+import { EventData, UploadedFile } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
+import { useNotification } from 'src/composables/useNotification.ts'
+import UploadComponent from 'components/common/UploadComponent.vue'
+import { eventsApi } from 'src/api/events.ts'
+import DatetimeComponent from 'components/common/DatetimeComponent.vue'
+import LocationComponent2 from 'components/common/LocationComponent2.vue'
 
-const $q = useQuasar()
-
-const onEventImageSelect = (file: File) => {
-  return apiUploadFileToS3(file).then(response => {
-    eventData.image = response
-  }).catch(error => {
-    Notify.create({
-      type: 'negative',
-      message: error.message
-    })
-  })
+const { error, success } = useNotification()
+const onEventImageSelect = (file: UploadedFile) => {
+  eventData.image = file
 }
 
 const eventData = reactive<Partial<EventData>>({
-  title: '',
+  name: '',
   description: '',
   startDate: '',
-  startTime: '',
-  endDate: '',
-  endTime: '',
-  location: {
-    name: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    latitude: undefined,
-    longitude: undefined
-  } as Location,
-  maxAttendees: 50,
+  // endDate: '',
+  // location: {
+  //   name: '',
+  //   address: '',
+  //   city: '',
+  //   state: '',
+  //   country: '',
+  //   latitude: undefined,
+  //   longitude: undefined
+  // } as Location,
+  maxAttendees: 0,
   categories: []
 })
 
@@ -162,16 +128,9 @@ const categoryOptions = [
 
 const onSubmit = async () => {
   try {
-    // Here you would typically make an API call to save the event
-    // For this example, we'll just simulate an API call with a timeout
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const event = await eventsApi.create(eventData)
 
-    $q.notify({
-      color: 'positive',
-      textColor: 'white',
-      icon: 'cloud_done',
-      message: 'Event created successfully'
-    })
+    success('Event created!', event)
 
     // Reset form after successful submission
     // eventData.value = {
@@ -179,15 +138,11 @@ const onSubmit = async () => {
     //   description: '',
     //   date: '',
     //   time: '',
-    //   maxAttendees: 50
+    //   maxAttendees: 0
     // }
-  } catch (error) {
-    $q.notify({
-      color: 'negative',
-      textColor: 'white',
-      icon: 'warning',
-      message: 'Failed to create event'
-    })
+  } catch (err) {
+    console.log(err)
+    error('Failed to create an event')
   }
 }
 </script>

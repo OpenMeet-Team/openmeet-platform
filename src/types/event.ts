@@ -4,11 +4,9 @@ export type EventType = 'online' | 'in-person' | 'hybrid';
 
 export interface EventData {
   id: string
-  title: string
+  name: string
   startDate: string
-  startTime: string
   endDate?: string
-  endTime?: string
   type: EventType
   location: Location
   onlineLocation: string

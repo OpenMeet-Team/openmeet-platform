@@ -3,12 +3,15 @@ export interface UploadedFile {
   id: string
 }
 
+export interface Address {
+}
+
 export interface Location {
-  name: string
-  address: string
+  name?: string
+  address: Address
   city?: string
   state?: string
   country?: string
-  latitude?: number
-  longitude?: number
+  lat?: number
+  lon?: number
 }

@@ -1,6 +1,6 @@
 <template>
   <q-input
-    v-model="location.name"
+    model-value=""
     :label="label"
     filled
   >
@@ -23,19 +23,11 @@
       <q-card-section>
         <div>
           <h4 class="q-my-none">Fill in the Location Details</h4>
-          <q-input v-model="location.address" label="Address" required />
-          <q-input v-model="location.city" label="City" required />
-          <q-input v-model="location.country" label="Country" required />
-          <q-input
-            v-model.number="location.latitude"
-            label="Latitude"
-            type="number"
-          />
-          <q-input
-            v-model.number="location.longitude"
-            label="Longitude"
-            type="number"
-          />
+<!--          <q-input v-model="location.address" label="Address" required />-->
+<!--          <q-input v-model="location.city" label="City" required />-->
+<!--          <q-input v-model="location.country" label="Country" required />-->
+<!--          <q-input v-model.number="location.latitude" label="Latitude" type="number"/>-->
+<!--          <q-input v-model.number="location.longitude" label="Longitude" type="number"/>-->
         </div>
       </q-card-section>
       <q-card-actions>
@@ -47,7 +39,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, defineProps, watch, defineEmits } from 'vue'
+import { ref, defineProps, watch } from 'vue'
 import { Location } from 'src/types'
 
 const props = defineProps<{
@@ -56,18 +48,19 @@ const props = defineProps<{
 }>()
 
 // eslint-disable-next-line func-call-spacing
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: Location): void;
-}>()
+// const emit = defineEmits<{
+//   (e: 'update:modelValue', value: Location): void;
+// }>()
 
 const dialog = ref<boolean>(false)
-const location = ref<Location | undefined>(props.modelValue)
+// const location = ref<Location | undefined>(props.modelValue)
 
 // Watch for changes in the prop and update the internal state
 watch(
   () => props.modelValue,
   (newValue) => {
-    location.value = { ...newValue }
+    console.log(newValue)
+    // location.value = { ...newValue }
   }
 )
 
@@ -77,11 +70,10 @@ const openPopup = () => {
 
 const closePopup = () => {
   dialog.value = false
-  console.log(dialog.value)
 }
 
 const saveLocation = () => {
-  emit('update:modelValue', location.value) // Emit the updated location
+  // emit('update:modelValue', location.value) // Emit the updated location
   closePopup()
 }
 
@@ -89,8 +81,9 @@ const getCurrentLocation = () => {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        location.value.latitude = position.coords.latitude
-        location.value.longitude = position.coords.longitude
+        console.log(position)
+        // location.value.latitude = position.coords.latitude
+        // location.value.longitude = position.coords.longitude
         // Optionally, you can implement reverse geocoding here
       },
       (error) => {

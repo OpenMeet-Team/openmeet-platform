@@ -49,10 +49,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Notify } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from 'src/utils/validation'
+import { useNotification } from 'src/composables/useNotification.ts'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -63,6 +63,7 @@ const password = ref<string>('')
 const isPwd = ref<boolean>(true)
 
 const emits = defineEmits(['login', 'to'])
+const { warning } = useNotification()
 
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {
@@ -76,12 +77,7 @@ const onSubmit = (): void => {
       return router.push((route.query.redirect || '/') as string)
     }).catch(error => {
       console.error('Error logging in:', error)
-      Notify.create({
-        color: 'negative',
-        textColor: 'white',
-        icon: 'warning',
-        message: 'Please provide a valid email and password'
-      })
+      warning('Please provide a valid email and password')
     })
   }
 }

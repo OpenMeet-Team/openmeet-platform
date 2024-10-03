@@ -23,17 +23,18 @@
       :rules="[val => !!val || 'Last name is required']"
     />
 
-    <q-file
-      filled
-      :model-value="null"
-      label="Profile Photo"
-      accept="image/*"
-      @update:model-value="onProfilePhotoSelect"
-    >
-      <template v-slot:prepend>
-        <q-icon name="sym_r_attach_file"/>
-      </template>
-    </q-file>
+    <UploadComponent label="Profile picture" @upload="onProfilePhotoSelect"/>
+<!--    <q-file-->
+<!--      filled-->
+<!--      :model-value="null"-->
+<!--      label="Profile Photo"-->
+<!--      accept="image/*"-->
+<!--      @update:model-value="onProfilePhotoSelect"-->
+<!--    >-->
+<!--      <template v-slot:prepend>-->
+<!--        <q-icon name="sym_r_attach_file"/>-->
+<!--      </template>-->
+<!--    </q-file>-->
 
     <q-img
       v-if="form && form.photo && form.photo.path"
@@ -41,6 +42,8 @@
       spinner-color="white"
       style="height: 140px; max-width: 150px"
     />
+
+    <LocationComponent2 label="Location" v-model="form.location"/>
 
     <q-expansion-item
       expand-separator
@@ -92,22 +95,26 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { Dialog, Notify, useQuasar } from 'quasar'
+import { Dialog, useQuasar } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { apiUploadFileToS3 } from 'src/api/files.ts'
-import { UploadedFile } from 'src/types'
+import { UploadedFile, Location } from 'src/types'
+import { useNotification } from 'src/composables/useNotification.ts'
+import LocationComponent2 from 'components/common/LocationComponent2.vue'
+import UploadComponent from 'components/common/UploadComponent.vue'
 
 interface UserForm {
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  photo?: UploadedFile;
-  password?: string;
-  oldPassword?: string;
+  email: string
+  firstName?: string
+  lastName?: string
+  photo?: UploadedFile
+  location?: Location
+  password?: string
+  oldPassword?: string
 }
 
 const $q = useQuasar()
+const { error } = useNotification()
 
 const form = reactive<UserForm>({
   email: '',
@@ -130,14 +137,9 @@ const onSubmit = async () => {
       message: 'Profile updated successfully',
       icon: 'sym_r_check'
     })
-  }).catch(error => {
-    console.log(error)
-
-    $q.notify({
-      color: 'negative',
-      message: 'Failed to update profile',
-      icon: 'sym_r_error'
-    })
+  }).catch(err => {
+    console.log(err)
+    error('Failed to update profile')
   })
 }
 
@@ -151,15 +153,13 @@ onMounted(() => {
   })
 })
 
-const onProfilePhotoSelect = (file: File) => {
-  return apiUploadFileToS3(file).then(response => {
-    form.photo = response
-  }).catch(error => {
-    Notify.create({
-      type: 'negative',
-      message: error.message
-    })
-  })
+const onProfilePhotoSelect = (file: UploadedFile) => {
+  form.photo = file
+  // return apiUploadFileToS3(file).then(response => {
+  //   form.photo = response
+  // }).catch(error => {
+  //   error(error.message)
+  // })
   // const formData = new FormData()
   // formData.append('file', file, file.name)
   //

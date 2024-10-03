@@ -55,28 +55,28 @@
 import { onMounted, ref } from 'vue'
 import { LoadingBar, useQuasar } from 'quasar'
 import DashboardEventItem from 'components/dashboard/DashboardEventItem.vue'
-import { Event } from 'components/models.ts'
+import { EventData } from 'src/types'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 
 const $q = useQuasar()
 const tab = ref<'created' | 'attended'>('created')
 const eventDialog = ref(false)
-const selectedEvent = ref<Event>({} as Event)
+const selectedEvent = ref<EventData>({} as EventData)
 const router = useRouter()
 
 // Mock data - replace with actual API calls
-const createdEvents = ref<Event[]>([
+const createdEvents = ref<EventData[]>([
   { id: 1, title: 'Team Building Workshop', date: '2024-10-15', location: 'Conference Room A', description: 'A workshop to improve team collaboration.' },
   { id: 2, title: 'Product Launch', date: '2024-11-20', location: 'Main Auditorium', description: 'Launching our new product line.' }
 ])
 
-const attendedEvents = ref<Event[]>([
+const attendedEvents = ref<EventData[]>([
   { id: 3, title: 'Annual Conference', date: '2024-09-05', location: 'Convention Center', description: 'Our company\'s annual gathering.' },
   { id: 4, title: 'Charity Fundraiser', date: '2024-12-01', location: 'City Park', description: 'Raising funds for local charities.' }
 ])
 
-const viewEvent = (event: Event) => {
+const viewEvent = (event: EventData) => {
   selectedEvent.value = event
   eventDialog.value = true
 }
