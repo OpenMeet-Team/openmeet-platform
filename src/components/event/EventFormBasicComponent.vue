@@ -8,7 +8,7 @@
       :rules="[val => !!val || 'Title is required']"
     />
 
-    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" :rules="[val => !!val || 'Date is required']"/>
+    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" :rules="[(val: string) => !!val || 'Date is required']"/>
 <!--    <div class="row">-->
       <!--      <div class="row q-gutter-md">-->
       <!--        <q-input-->
@@ -60,8 +60,8 @@
 
       <q-input v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
                v-model="eventData.onlineLocation" type="url" label="Link to the event"/>
-      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
-                         v-model="eventData.location" label="Address or location"/>
+<!--      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"-->
+<!--                         v-model="eventData.location" label="Address or location"/>-->
       <LocationComponent2 v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
                          v-model="eventData.location" label="Address or location"/>
     </div>
@@ -92,7 +92,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { EventData, UploadedFile } from 'src/types'
-import LocationComponent from 'components/common/LocationComponent.vue'
+// import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import { eventsApi } from 'src/api/events.ts'
@@ -104,10 +104,12 @@ const onEventImageSelect = (file: UploadedFile) => {
   eventData.image = file
 }
 
-const eventData = reactive<Partial<EventData>>({
+const eventData = reactive<EventData>({
   name: '',
   description: '',
   startDate: '',
+  id: '',
+  type: 'online',
   // endDate: '',
   // location: {
   //   name: '',
@@ -130,7 +132,8 @@ const onSubmit = async () => {
   try {
     const event = await eventsApi.create(eventData)
 
-    success('Event created!', event)
+    console.log(event)
+    success('Event created!')
 
     // Reset form after successful submission
     // eventData.value = {

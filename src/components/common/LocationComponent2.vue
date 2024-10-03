@@ -31,7 +31,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import { useNotification } from 'src/composables/useNotification.ts'
-import { Address } from 'src/types'
+import { Address, Location } from 'src/types'
 
 const { error } = useNotification()
 
@@ -62,8 +62,8 @@ const fetchLocationSuggestions = async () => {
     )
     locationSuggestions.value = response.data
   } catch (err) {
-    console.error('Error fetching location suggestions:', err)
-    error(err.message)
+    console.log('Error fetching location suggestions:', err)
+    error('Error fetching location')
   }
 }
 

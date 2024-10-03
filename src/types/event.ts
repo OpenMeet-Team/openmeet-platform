@@ -8,14 +8,14 @@ export interface EventData {
   startDate: string
   endDate?: string
   type: EventType
-  location: Location
-  onlineLocation: string
+  location?: Location
+  onlineLocation?: string
   image?: UploadedFile
   description?: string
   maxAttendees?: number
-  categories: string[]
+  categories?: string[]
   groupId?: string
-  userId: string
+  userId?: string
 }
 
 // export interface Event {

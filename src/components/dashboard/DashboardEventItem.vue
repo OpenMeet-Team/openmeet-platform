@@ -42,7 +42,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { date } from 'quasar'
-import { Event } from 'components/models.ts'
+
+interface Event {
+  id: number
+  title?: string,
+  date: string
+  location?: string
+  description: string
+  hostingGroup?: string
+  attendees?: string[]
+  maxAttendees?: number
+  time?: number
+  imageUrl?: string
+}
 
 const props = defineProps<{
   event: Event;

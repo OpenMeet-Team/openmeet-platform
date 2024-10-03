@@ -49,8 +49,8 @@ const props = defineProps({
 const emit = defineEmits(['update:model-value'])
 
 // State variables for the component
-const tempDate = ref<string | null>(null)
-const tempTime = ref<string | null>(null)
+const tempDate = ref<string>('')
+const tempTime = ref<string>('')
 const date = ref<string>(props.modelValue)
 
 // Watch the parent modelValue and update date and time
@@ -83,9 +83,9 @@ const onDateUpdate = (newDate: string) => {
 }
 
 // Update the time portion when a new time is selected
-const onTimeUpdate = (newTime: string) => {
+const onTimeUpdate = (newTime: string | null) => {
   // console.log('newTime', newTime)
-  tempTime.value = newTime
+  if (newTime) tempTime.value = newTime
   updateDateTime()
 }
 
