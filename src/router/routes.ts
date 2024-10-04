@@ -20,8 +20,8 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
       { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
-      { path: 'events/create', name: 'DashboardEventsCreate', component: () => import('pages/dashboard/DashboardEventPage.vue') },
-      { path: 'events/:id', name: 'DashboardEvent', component: () => import('pages/dashboard/DashboardEventPage.vue') },
+      { path: 'events/create', name: 'DashboardEventCreatePage', component: () => import('pages/dashboard/DashboardEventCreatePage.vue') },
+      { path: 'events/:id', name: 'DashboardEventPage', component: () => import('pages/dashboard/DashboardEventPage.vue') },
       { path: 'groups', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/group/DashboardGroupsPage.vue') },
       { path: 'groups/create', name: 'DashboardGroupsCreate', component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue') },
       {

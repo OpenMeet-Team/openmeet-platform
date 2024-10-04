@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { onMounted, ref } from 'vue'
 import { EventData, OSMLocationSuggestion, UploadedFile } from 'src/types'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
@@ -85,10 +85,12 @@ import LocationComponent2 from 'components/common/LocationComponent2.vue'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFile) => {
-  eventData.image = file
+  eventData.value.image = file
 }
 
-const eventData = reactive<EventData>({
+const emit = defineEmits(['created', 'updated'])
+
+const eventData = ref<EventData>({
   name: '',
   description: '',
   startDate: '',
@@ -103,19 +105,33 @@ const categoryOptions = [
 ]
 
 const onUpdateLocation = (location: OSMLocationSuggestion) => {
-  eventData.lat = location.lat
-  eventData.lon = location.lon
-  eventData.location = location.display_name
+  eventData.value.lat = location.lat
+  eventData.value.lon = location.lon
+  eventData.value.location = location.display_name
 }
+
+onMounted(() => {
+  // TODO fetch categories
+  if (props.editEventId) {
+    eventsApi.getById(props.editEventId).then(res => {
+      eventData.value = res.data
+    })
+  }
+})
+
+const props = withDefaults(defineProps<{ editEventId?: string }>(), {
+  editEventId: undefined
+})
 
 const onSubmit = async () => {
   try {
-    const event = await eventsApi.create(eventData)
-
-    console.log(event)
-    // success('Event created!')
-
-    // router.push({ name: 'EventPage', params: { id: event.data.id } })
+    if (eventData.value.id) {
+      const event = await eventsApi.update(eventData.value.id, eventData.value)
+      emit('updated', event.data)
+    } else {
+      const event = await eventsApi.create(eventData.value)
+      emit('created', event.data)
+    }
   } catch (err) {
     console.log(err)
     error('Failed to create an event')

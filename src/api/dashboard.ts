@@ -2,8 +2,8 @@ import { AxiosResponse } from 'axios'
 import { api } from 'boot/axios'
 import { EventData, Group, Message } from 'src/types'
 
-export function apiGetDashboardEvents (): Promise<AxiosResponse> {
-  return api.get('/api/v1/dashboard/events')
+export function apiGetDashboardEvents (): Promise<AxiosResponse<EventData[]>> {
+  return api.get('/api/events')
 }
 
 export function apiGetDashboardGroups (): Promise<AxiosResponse> {
