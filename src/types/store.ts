@@ -18,11 +18,3 @@ export interface StoreAuthRestorePasswordRequest {
 export interface StoreAuthForgotPasswordRequest {
   email: string
 }
-
-export interface StoreAuthUserRequest {
-  id: string
-  email: string
-  name?: string
-  token: string
-  refreshToken: string
-}

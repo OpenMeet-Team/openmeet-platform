@@ -28,30 +28,23 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { defineEmits, ref } from 'vue'
 import axios from 'axios'
 import { useNotification } from 'src/composables/useNotification.ts'
-import { Address, Location } from 'src/types'
+import { OSMLocationSuggestion } from 'src/types'
 
 const { error } = useNotification()
 
 interface Props {
-  modelValue: Location | undefined
+  modelValue: string | undefined
   label?: string
 }
 
 defineProps<Props>()
-
-interface LocationSuggestion {
-  display_name: string
-  name: string
-  address: Address
-  lat: string;
-  lon: string;
-}
+const emit = defineEmits(['update:model-value'])
 
 const searchQuery = ref<string>('')
-const locationSuggestions = ref<LocationSuggestion[]>([])
+const locationSuggestions = ref<OSMLocationSuggestion[]>([])
 
 const fetchLocationSuggestions = async () => {
   if (searchQuery.value.length < 3) return
@@ -67,9 +60,11 @@ const fetchLocationSuggestions = async () => {
   }
 }
 
-const selectLocation = (suggestion: LocationSuggestion) => {
-  searchQuery.value = suggestion.display_name
+const selectLocation = (suggestion: OSMLocationSuggestion) => {
+  searchQuery.value = suggestion.display_name || ''
   locationSuggestions.value = [] // clear suggestions after selection
+  emit('update:model-value', suggestion)
+
   console.log('Selected Location:', suggestion)
 }
 </script>

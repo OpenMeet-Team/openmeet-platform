@@ -1,6 +1,7 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { useNotification } from 'src/composables/useNotification.ts'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -16,6 +17,7 @@ declare module 'vue' {
 // "export default () => {}" function below (which runs individually
 // for each client)
 const api = axios.create({ baseURL: process.env.APP_API_URL })
+const { error } = useNotification()
 export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
@@ -33,25 +35,27 @@ export default boot(({ app, router }) => {
     }
 
     return config
-  }, (error) => Promise.reject(error))
+  }, (err) => Promise.reject(err))
 
   api.interceptors.response.use(
     (response) => response,
-    async (error) => {
-      const originalRequest = error.config
+    async (err) => {
+      const originalRequest = err.config
       const authStore = useAuthStore()
 
-      if (error.response.status === 500 && originalRequest.url.includes('api/v1/auth/refresh')) {
+      if (err.response && err.response.status === 422) {
+        Object.values(err.response.data.errors).forEach(message => error(message as string))
+      } else if (err.response.status === 401 && originalRequest.url.includes('api/v1/auth/refresh')) {
         authStore.actionClearAuth()
         router.push({ name: 'HomePage' })
-        return Promise.reject(error)
-      } else if (error.response.status === 401 && !originalRequest._retry) {
+        return Promise.reject(err)
+      } else if (err.response.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
         await authStore.actionRefreshToken()
         return api(originalRequest)
       }
 
-      return Promise.reject(error)
+      return Promise.reject(err)
     }
   )
 

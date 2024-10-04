@@ -89,11 +89,8 @@
 </template>
 
 <script setup lang="ts">
-import { useQuasar } from 'quasar'
 import { ref } from 'vue'
 import { useAuthStore } from 'stores/auth-store.ts'
-
-const $q = useQuasar()
 
 const emits = defineEmits(['register'])
 const firstName = ref('')
@@ -106,9 +103,11 @@ const isConfirmPwd = ref(true)
 const authStore = useAuthStore()
 import { validateEmail } from 'src/utils/validation'
 import { useRoute, useRouter } from 'vue-router'
+import { useNotification } from 'src/composables/useNotification.ts'
 
 const router = useRouter()
 const route = useRoute()
+const { error } = useNotification()
 
 const onSubmit = async () => {
   return authStore.actionRegister({
@@ -127,14 +126,8 @@ const onSubmit = async () => {
 
     emits('register')
     return router.push((route.query.redirect || '/') as string)
-  }).catch(error => {
-    console.log(error)
-    $q.notify({
-      color: 'negative',
-      textColor: 'white',
-      icon: 'warning',
-      message: 'Registration failed. Please try again.'
-    })
+  }).catch(() => {
+    error('Registration failed. Please try again.')
   })
 }
 </script>

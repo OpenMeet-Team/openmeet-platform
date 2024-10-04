@@ -2,11 +2,11 @@ import { defineStore } from 'pinia'
 import { authApi } from 'src/api/auth.ts'
 import { LocalStorage } from 'quasar'
 import {
+  ApiAuthUser,
   StoreAuthForgotPasswordRequest,
   StoreAuthLoginRequest,
   StoreAuthRegisterRequest,
   StoreAuthRestorePasswordRequest,
-  StoreAuthUserRequest,
   UserRole
 } from 'src/types'
 
@@ -27,10 +27,10 @@ export const useAuthStore = defineStore('authStore', {
   },
   actions: {
     actionGetRights () {
-      return authApi.getRights().then(res => {
-        this.actionSetRole(res.data.role)
-        this.actionSetPermissions(res.data.permissions)
-      })
+      // return authApi.getRights().then(res => {
+      //   this.actionSetRole(res.data.role)
+      //   this.actionSetPermissions(res.data.permissions)
+      // })
     },
     async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
@@ -101,7 +101,7 @@ export const useAuthStore = defineStore('authStore', {
       this.tokenExpires = tokenExpires
       LocalStorage.setItem('tokenExpires', tokenExpires)
     },
-    actionSetUser (user: StoreAuthUserRequest) {
+    actionSetUser (user: ApiAuthUser) {
       this.user = user
       LocalStorage.setItem('user', JSON.stringify(user))
     },

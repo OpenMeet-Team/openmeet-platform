@@ -4,18 +4,18 @@
       <div class="col-12 col-md-8">
         <q-card>
           <q-img
-            :src="event.imageUrl || 'https://cdn.quasar.dev/img/parallax2.jpg'"
+            :src="event.image as string || 'https://cdn.quasar.dev/img/parallax2.jpg'"
             :ratio="16/9"
           >
             <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
-              {{ event.title }}
+              {{ event.name }}
             </div>
           </q-img>
 
           <q-card-section>
-            <div class="text-h4">{{ event.title }}</div>
+            <div class="text-h4">{{ event.name }}</div>
             <div class="text-subtitle1 q-mt-sm">
-              <q-icon name="sym_r_event" /> {{ formatDate(event.date) }} at {{ event.time }}
+              <q-icon name="sym_r_event" /> {{ formatDate(event.startDate) }}
             </div>
             <div class="text-subtitle1">
               <q-icon name="sym_r_place" /> {{ event.location }}
@@ -28,13 +28,13 @@
 
           <q-card-section>
             <div class="text-h6">Attendees</div>
-            <q-linear-progress
-              :value="event.attendees / event.maxAttendees"
+            <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
+              :value="event.attendeesCount / event.maxAttendees"
               color="secondary"
               class="q-mt-sm"
             />
             <div class="text-caption q-mt-sm">
-              {{ event.attendees }} / {{ event.maxAttendees }} spots filled
+              {{ event.attendeesCount }} / {{ event.maxAttendees }} spots filled
             </div>
           </q-card-section>
 
@@ -43,7 +43,7 @@
               color="primary"
               label="RSVP"
               @click="rsvpToEvent"
-              :disable="event.attendees >= event.maxAttendees"
+              :disable="event.maxAttendees ? event.maxAttendees >= event.maxAttendees : false"
             />
           </q-card-actions>
         </q-card>
@@ -88,59 +88,45 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { date, LoadingBar, useQuasar } from 'quasar'
+import { date, LoadingBar } from 'quasar'
 import { eventsApi } from 'src/api/events.ts'
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  maxAttendees: number;
-  attendees: number;
-  imageUrl?: string;
-}
+import { EventData } from 'src/types'
+import { useNotification } from 'src/composables/useNotification.ts'
 
 const route = useRoute()
-const $q = useQuasar()
+const { success } = useNotification()
 
-const event = ref<Event | null>(null)
+const event = ref<EventData | null>(null)
 
 const formatDate = (dateString: string) => {
-  return date.formatDate(dateString, 'MMMM D, YYYY')
+  return date.formatDate(dateString, 'MMMM D, YYYY HH:mm')
 }
 
 const rsvpToEvent = () => {
   if (event.value) {
     // Here you would typically make an API call to RSVP
     // For this example, we'll just update the local state
-    event.value.attendees++
-
-    $q.notify({
-      color: 'positive',
-      textColor: 'white',
-      icon: 'sym_r_check_circle',
-      message: 'You have successfully RSVP\'d to this event!'
-    })
+    event.value.attendeesCount = event.value.attendeesCount ? event.value.attendeesCount++ : 1
+    success('You have successfully RSVP\'d to this event!')
   }
 }
 
 onMounted(() => {
   LoadingBar.start()
-  eventsApi.getById(route.params.id as string).finally(LoadingBar.stop)
+  eventsApi.getById(route.params.id as string).finally(LoadingBar.stop).then(res => {
+    event.value = res.data
+  })
 
-  event.value = {
-    id: route.params.id as string,
-    title: 'Tech Meetup 2024',
-    description: 'Join us for an exciting tech meetup where we\'ll discuss the latest trends in web development and AI. This event will feature keynote speakers from leading tech companies, interactive workshops, and networking opportunities. Whether you\'re a seasoned developer or just starting out, this meetup offers valuable insights and connections in the ever-evolving world of technology.',
-    date: '2024-12-15',
-    time: '18:00',
-    location: 'Tech Hub, 123 Innovation Street, Silicon Valley, CA',
-    maxAttendees: 100,
-    attendees: 75,
-    imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg'
-  }
+  // event.value = {
+  //   id: route.params.id as string,
+  //   title: 'Tech Meetup 2024',
+  //   description: 'Join us for an exciting tech meetup where we\'ll discuss the latest trends in web development and AI. This event will feature keynote speakers from leading tech companies, interactive workshops, and networking opportunities. Whether you\'re a seasoned developer or just starting out, this meetup offers valuable insights and connections in the ever-evolving world of technology.',
+  //   date: '2024-12-15',
+  //   time: '18:00',
+  //   location: 'Tech Hub, 123 Innovation Street, Silicon Valley, CA',
+  //   maxAttendees: 100,
+  //   attendees: 75,
+  //   imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg'
+  // }
 })
 </script>

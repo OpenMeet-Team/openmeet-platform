@@ -27,7 +27,7 @@ export function useNotification () {
     Notify.create({
       type: 'warning',
       message,
-      icon: 'sys_r_warning',
+      icon: 'sym_r_warning',
       caption: title || 'Warning',
       timeout: 3000
     })

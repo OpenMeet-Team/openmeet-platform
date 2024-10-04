@@ -8,8 +8,7 @@ import {
   ApiAuthRefreshTokenResponse,
   ApiAuthRegisterRequest,
   ApiAuthRestorePasswordRequest,
-  ApiAuthUser,
-  ApiUserRightsResponse
+  ApiAuthUser
 } from 'src/types'
 
 const BASE_URL = '/api/v1/auth'
@@ -42,8 +41,5 @@ export const authApi = {
     }),
 
   logout: (): Promise<AxiosResponse<void>> =>
-    api.post(`${BASE_URL}/logout`),
-
-  getRights: (): Promise<AxiosResponse<ApiUserRightsResponse>> =>
-    api.get(`${BASE_URL}/rights`)
+    api.post(`${BASE_URL}/logout`)
 }

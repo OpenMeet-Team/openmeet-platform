@@ -1,14 +1,16 @@
-import { UserPermission, UserRole, UploadedFile } from 'src/types'
+import { UploadedFile, UserPermission, UserRole } from 'src/types'
 
 export interface ApiAuthUser {
-  id: string
+  id: number
   email: string
   name?: string,
   firstName?: string
   lastName?: string
   photo?: UploadedFile
-  token: string
-  refreshToken: string
+  role?: UserRole;
+  permissions?: UserPermission[];
+  token?: string
+  refreshToken?: string
 }
 
 export interface ApiAuthLoginRequest {
@@ -54,9 +56,4 @@ export interface ApiAuthRefreshTokenResponse {
   token: string,
   refreshToken: string,
   tokenExpires: number
-}
-
-export interface ApiUserRightsResponse {
-  role: UserRole;
-  permissions: UserPermission[];
 }

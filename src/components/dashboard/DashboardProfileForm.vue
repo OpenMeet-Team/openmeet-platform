@@ -43,7 +43,7 @@
       style="height: 140px; max-width: 150px"
     />
 
-    <LocationComponent2 label="Location" v-model="form.location"/>
+    <LocationComponent2 label="Location" :model-value="form.location?.address" @update:model-value="onLocationSet"/>
 
     <q-expansion-item
       expand-separator
@@ -94,49 +94,44 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { Dialog, useQuasar } from 'quasar'
+import { onMounted, ref } from 'vue'
+import { Dialog } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { UploadedFile, Location } from 'src/types'
+import { UploadedFile, ApiAuthUser, OSMLocationSuggestion } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import LocationComponent2 from 'components/common/LocationComponent2.vue'
 import UploadComponent from 'components/common/UploadComponent.vue'
 
-interface UserForm {
-  email: string
-  firstName?: string
-  lastName?: string
-  photo?: UploadedFile
-  location?: Location
-  password?: string
-  oldPassword?: string
+interface UserLocation {
+  lat: number
+  lon: number
+  address: string
 }
 
-const $q = useQuasar()
-const { error } = useNotification()
+interface Profile extends ApiAuthUser {
+  oldPassword?: string
+  password?: string
+  location?: UserLocation
+}
 
-const form = reactive<UserForm>({
-  email: '',
-  firstName: '',
-  lastName: '',
-  photo: {
-    id: '',
-    path: ''
-  }
-  // password: '',
-  // oldPassword: ''
+const { error, success } = useNotification()
+
+const form = ref<Profile>({
+  id: 0,
+  email: ''
 })
 const isPwd = ref(true)
 
+const onLocationSet = (location: OSMLocationSuggestion) => {
+  console.log(location)
+  // form.value.
+}
+
 const onSubmit = async () => {
-  authApi.updateMe(form).then(res => {
+  authApi.updateMe(form.value).then(res => {
     useAuthStore().actionSetUser(res.data)
-    $q.notify({
-      color: 'positive',
-      message: 'Profile updated successfully',
-      icon: 'sym_r_check'
-    })
+    success('Profile updated successfully')
   }).catch(err => {
     console.log(err)
     error('Failed to update profile')
@@ -145,16 +140,17 @@ const onSubmit = async () => {
 
 onMounted(() => {
   authApi.getMe().then(res => {
-    form.email = res.data.email
-    form.firstName = res.data.firstName
-    form.lastName = res.data.lastName
-    form.photo = res.data.photo
+    // form.email = res.data.email
+    // form.firstName = res.data.firstName
+    // form.lastName = res.data.lastName
+    // form.photo = res.data.photo
+    form.value = res.data
     // Object.assign(form, res.data)
   })
 })
 
 const onProfilePhotoSelect = (file: UploadedFile) => {
-  form.photo = file
+  form.value.photo = file
   // return apiUploadFileToS3(file).then(response => {
   //   form.photo = response
   // }).catch(error => {
