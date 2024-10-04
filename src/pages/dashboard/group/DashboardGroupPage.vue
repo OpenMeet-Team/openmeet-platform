@@ -4,20 +4,18 @@
       <h1 class="text-h4 q-my-none">Edit Group</h1>
     </div>
 
-    <q-tabs no-caps class="text-primary q-mb-md">
-      <q-route-tab :to="{ name: 'DashboardGroupBasic', params: { id: route.params.id }}" name="basic" label="Basic settings" />
-      <q-route-tab :to="{ name: 'DashboardGroupMembers', params: { id: route.params.id }}" name="members" label="Members settings" />
-      <q-route-tab :to="{ name: 'DashboardGroupPrivacy', params: { id: route.params.id }}" name="privacy" label="Privacy settings" />
+    <q-tabs align="left" model-value="" no-caps class="text-primary q-mb-md">
+      <q-route-tab :to="{ name: 'DashboardGroupBasicPage', params: { id: route.params.id }}" name="basic" label="Basic settings" />
+      <q-route-tab :to="{ name: 'DashboardGroupMembersPage', params: { id: route.params.id }}" name="members" label="Members settings" />
+      <q-route-tab :to="{ name: 'DashboardGroupPrivacyPage', params: { id: route.params.id }}" name="privacy" label="Privacy settings" />
     </q-tabs>
 
     <router-view/>
-<!--    <GroupFormComponent/>-->
 
   </q-page>
 </template>
 
 <script setup lang="ts">
-// import GroupFormComponent from 'components/group/GroupFormComponent.vue'
 import { onMounted } from 'vue'
 import { groupsApi } from 'src/api/dashboard.ts'
 import { LoadingBar } from 'quasar'

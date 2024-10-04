@@ -11,7 +11,7 @@
       />
     </div>
 
-    <q-tabs no-caps v-model="tab" class="text-primary q-mb-md">
+    <q-tabs align="left" no-caps v-model="tab" class="text-primary q-mb-md">
       <q-tab name="created" label="Created Events" />
       <q-tab name="attended" label="Attended Events" />
     </q-tabs>

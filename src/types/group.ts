@@ -1,12 +1,15 @@
+import { Category, UploadedFile } from 'src/types/model.ts'
+
 export interface Group {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  category: string;
+  categories: Category[];
   location: string;
-  organizerId: string;
-  members: string[]; // Array of user IDs
-  createdAt: Date;
+  image?: UploadedFile
+  organizerId?: string;
+  members?: string[]; // Array of user IDs
+  createdAt?: Date;
 }
 
 export const GroupRoles = {

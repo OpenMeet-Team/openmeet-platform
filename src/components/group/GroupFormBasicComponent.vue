@@ -29,17 +29,7 @@
       :rules="[val => !!val || 'Location is required']"
     />
 
-    <q-file
-      filled
-      :model-value="null"
-      label="Group image"
-      accept="image/*"
-      @update:model-value="onGroupImageSelect"
-    >
-      <template v-slot:prepend>
-        <q-icon name="sym_r_attach_file"/>
-      </template>
-    </q-file>
+    <UploadComponent label="Group image" @upload="onGroupImageSelect"/>
 
     <q-img
       v-if="group && group.image && group.image.path"
@@ -48,57 +38,29 @@
       style="height: 140px; max-width: 150px"
     />
 
-    <div class="row justify-end q-gutter-sm">
-      <q-btn label="Cancel" color="negative" v-close-popup/>
-      <q-btn label="Create Group" type="submit" color="primary"/>
-    </div>
+   <slot></slot>
   </q-form>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
-import { Notify, useQuasar } from 'quasar'
-import { UploadedFile } from 'src/types'
-import { apiUploadFileToS3 } from 'src/api/files.ts'
+import { onMounted, ref } from 'vue'
+import { Group, UploadedFile } from 'src/types'
+import { useNotification } from 'src/composables/useNotification.ts'
+import { categoriesApi } from 'src/api/categories.ts'
+import { groupsApi } from 'src/api/groups.ts'
+import UploadComponent from 'components/common/UploadComponent.vue'
 
-const $q = useQuasar()
-
-interface BasicGroup {
-  name: string
-  description: string
-  categories: []
-  location: ''
-  image?: UploadedFile
-}
-
-const group = reactive<BasicGroup>({
+const group = ref<Group>({
+  id: 0,
   name: '',
   description: '',
   categories: [],
   location: ''
 })
 
-const onGroupImageSelect = (file: File) => {
-  return apiUploadFileToS3(file).then(response => {
-    group.image = response
-  }).catch(error => {
-    Notify.create({
-      type: 'negative',
-      message: error.message
-    })
-  })
-  // const formData = new FormData()
-  // formData.append('file', file, file.name)
-  //
-  // return apiFilesUpload(formData).then(e => {
-  //   console.log(e)
-  //   form.photo = e.data.file
-  // })
+const onGroupImageSelect = (file: UploadedFile) => {
+  group.value.image = file
 }
-
-onMounted(() => {
-  console.log('mounted basic')
-})
 
 const categoryOptions = [
   'Technology', 'Sports & Fitness', 'Arts & Culture',
@@ -107,20 +69,41 @@ const categoryOptions = [
   'Outdoor & Adventure', 'Language & Ethnic Identity'
 ]
 
-const emit = defineEmits(['submit'])
+const { error } = useNotification()
 
-const onSubmit = () => {
-  // Here you would typically make an API call to create the group
-  // For this example, we'll just emit the form data
-  emit('submit', { ...group })
+const emit = defineEmits(['created', 'updated'])
 
-  $q.notify({
-    color: 'positive',
-    textColor: 'white',
-    icon: 'cloud_done',
-    message: 'Group created successfully'
+onMounted(() => {
+  // TODO fetch categories
+  categoriesApi.getAll().then(res => {
+    console.log(res.data)
   })
+  if (props.editGroupId) {
+    groupsApi.getById(props.editGroupId).then(res => {
+      group.value = res.data
+    })
+  }
+})
+
+const props = withDefaults(defineProps<{ editGroupId?: string }>(), {
+  editGroupId: undefined
+})
+
+const onSubmit = async () => {
+  try {
+    if (group.value.id) {
+      const res = await groupsApi.update(group.value.id, group.value)
+      emit('updated', res.data)
+    } else {
+      const res = await groupsApi.create(group.value)
+      emit('created', res.data)
+    }
+  } catch (err) {
+    console.log(err)
+    error('Failed to create an event')
+  }
 }
+
 </script>
 
 <style scoped lang="scss">

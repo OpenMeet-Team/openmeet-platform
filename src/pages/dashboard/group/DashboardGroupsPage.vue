@@ -114,7 +114,7 @@ const viewGroup = (groupId: string) => {
 }
 
 const editGroup = (groupId: string) => {
-  router.push({ name: 'DashboardGroup', params: { id: groupId } })
+  router.push({ name: 'DashboardGroupBasicPage', params: { id: groupId } })
 }
 
 const confirmLeaveGroup = (group: Group) => {
@@ -123,7 +123,7 @@ const confirmLeaveGroup = (group: Group) => {
 }
 
 const onAddNewGroup = () => {
-  router.push({ name: 'DashboardGroupsCreate' })
+  router.push({ name: 'DashboardGroupsCreatePage' })
 }
 
 const leaveGroup = () => {

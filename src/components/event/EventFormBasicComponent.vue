@@ -82,6 +82,7 @@ import UploadComponent from 'components/common/UploadComponent.vue'
 import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import LocationComponent2 from 'components/common/LocationComponent2.vue'
+import { categoriesApi } from 'src/api/categories.ts'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFile) => {
@@ -112,6 +113,9 @@ const onUpdateLocation = (location: OSMLocationSuggestion) => {
 
 onMounted(() => {
   // TODO fetch categories
+  categoriesApi.getAll().then(res => {
+    console.log(res.data)
+  })
   if (props.editEventId) {
     eventsApi.getById(props.editEventId).then(res => {
       eventData.value = res.data

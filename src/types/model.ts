@@ -45,3 +45,15 @@ export interface OSMLocationSuggestion {
   address?: OSMAddress;
   boundingbox?: string[];
 }
+
+export interface Category {
+  id: number,
+  slug?: string,
+  name: string
+}
+
+export interface SubCategory {
+  id: number,
+  title: string,
+  description: string
+}
