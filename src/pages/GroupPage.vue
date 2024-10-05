@@ -113,7 +113,7 @@
 import { ref, onMounted } from 'vue'
 import { date, LoadingBar } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from 'stores/user-store.ts'
+// import { useUserStore } from 'stores/user-store.ts'
 import { useGroupStore } from 'stores/group-store.ts'
 
 interface Member {
@@ -180,8 +180,8 @@ onMounted(async () => {
   LoadingBar.start()
 
   Promise.all([
-    useGroupStore().actionGetGroupById(route.params.id as string),
-    useUserStore().actionGetGroupRights(route.params.id as string)
+    useGroupStore().actionGetGroupById(route.params.id as string)
+    // useUserStore().actionGetGroupRights(route.params.id as string)
   ]).finally(LoadingBar.stop)
 
   group.value = {
