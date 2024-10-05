@@ -26,12 +26,16 @@ export default boot(({ app, router }) => {
   //       so you won't necessarily have to import axios in each vue file
 
   api.interceptors.request.use((config) => {
-    if (process.env.APP_TENANT_ID) {
-      config.headers['Tenant-ID'] = process.env.APP_TENANT_ID
+    const { APP_TENANT_ID } = process.env
+    const authStore = useAuthStore()
+    const token = authStore?.token
+
+    if (APP_TENANT_ID) {
+      config.headers['Tenant-ID'] = APP_TENANT_ID
     }
 
-    if (useAuthStore().token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${useAuthStore().token}`
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`
     }
 
     return config

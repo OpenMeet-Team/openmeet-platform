@@ -73,6 +73,10 @@
             </template>
           </q-input>
 
+          <q-toggle v-model="accept" :rules="[(val: boolean) => val || 'To continue, please check the box to accept the terms and conditions.']">
+              I accept the <a href="https://biz.openmeet.net/terms" target="_blank" class="text-primary">terms</a>.
+          </q-toggle>
+
           <div>
             <q-btn no-caps label="Register" type="submit" color="primary"/>
           </div>
@@ -93,13 +97,14 @@ import { ref } from 'vue'
 import { useAuthStore } from 'stores/auth-store.ts'
 
 const emits = defineEmits(['register'])
-const firstName = ref('')
-const lastName = ref('')
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const isPwd = ref(true)
-const isConfirmPwd = ref(true)
+const firstName = ref<string>('')
+const lastName = ref<string>('')
+const email = ref<string>('')
+const password = ref<string>('')
+const confirmPassword = ref<string>('')
+const isPwd = ref<boolean>(true)
+const isConfirmPwd = ref<boolean>(true)
+const accept = ref<boolean>(false)
 const authStore = useAuthStore()
 import { validateEmail } from 'src/utils/validation'
 import { useRoute, useRouter } from 'vue-router'
@@ -123,6 +128,7 @@ const onSubmit = async () => {
     email.value = ''
     password.value = ''
     confirmPassword.value = ''
+    accept.value = false
 
     emits('register')
     return router.push((route.query.redirect || '/') as string)

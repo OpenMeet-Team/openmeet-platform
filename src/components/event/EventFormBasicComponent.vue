@@ -8,7 +8,34 @@
       :rules="[val => !!val || 'Title is required']"
     />
 
-    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" :rules="[(val: string) => !!val || 'Date is required']"/>
+<!--    <div>-->
+<!--      {{ eventData.startDate }} - {{ new Date(eventData.startDate) }} - {{ new Date(eventData.startDate) > new Date() }} <br>-->
+<!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
+<!--    </div>-->
+
+    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" reactive-rules
+                       :rules="[(val: string) => !!val || 'Date is required']"> <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
+      <!-- Display Timezone -->
+      <template v-slot:after>
+        <div class="text-overline text-bold">
+          {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
+        </div>
+      </template>
+    </DatetimeComponent>
+    <template v-if="eventData.startDate">
+      <q-checkbox :model-value="!!eventData.endDate"
+                  @update:model-value="eventData.endDate = $event ? eventData.startDate : ''"
+                  label="Set en end time..."/>
+      <DatetimeComponent v-if="eventData.endDate" label="Ending date and time" v-model="eventData.endDate"
+                         reactive-rules
+                         :rules="[(val: string) => !!val || 'Date is required']"> <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
+        <template v-slot:hint>
+          <div class=" text-bold">
+            {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+          </div>
+        </template>
+      </DatetimeComponent>
+    </template>
 
     <UploadComponent label="Event image" @upload="onEventImageSelect"/>
 
@@ -19,12 +46,26 @@
       style="height: 140px; max-width: 150px"
     />
 
-    <q-input
-      v-model="eventData.description"
-      label="Event Description"
-      type="textarea"
+<!--    <q-input-->
+<!--      v-model="eventData.description"-->
+<!--      label="Event Description"-->
+<!--      type="textarea"-->
+<!--      filled-->
+<!--      :rules="[val => !!val || 'Description is required']"-->
+<!--    />-->
+
+    <div class="text-h6 q-mt-lg">Event Description</div>
+    <q-editor
       filled
-      :rules="[val => !!val || 'Description is required']"
+      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
+      v-model="eventData.description as string"
+      :dense="Screen.lt.md"
+      :toolbar="[
+        ['bold', 'italic'],
+        ['link', 'custom_btn'],
+        ['unordered', 'ordered'],
+        ['undo', 'redo'],
+      ]"
     />
 
     <div class="column q-my-xl">
@@ -44,10 +85,11 @@
 
       <q-input v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
                v-model="eventData.locationOnline" type="url" label="Link to the event"/>
-<!--      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"-->
-<!--                         v-model="eventData.location" label="Address or location"/>-->
+      <!--      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"-->
+      <!--                         v-model="eventData.location" label="Address or location"/>-->
       <LocationComponent2 v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
-                         :model-value="eventData.location" @update:model-value="onUpdateLocation" label="Address or location"/>
+                          :model-value="eventData.location" @update:model-value="onUpdateLocation"
+                          label="Address or location"/>
     </div>
 
     <q-select
@@ -83,6 +125,8 @@ import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import LocationComponent2 from 'components/common/LocationComponent2.vue'
 import { categoriesApi } from 'src/api/categories.ts'
+import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
+import { Dark, Screen } from 'quasar'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFile) => {
@@ -95,6 +139,7 @@ const eventData = ref<EventData>({
   name: '',
   description: '',
   startDate: '',
+  endDate: '',
   id: 0,
   type: 'online',
   maxAttendees: 0,
