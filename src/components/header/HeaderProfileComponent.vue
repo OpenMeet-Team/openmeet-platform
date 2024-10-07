@@ -13,7 +13,7 @@
   </q-avatar>
 </template>
 <script setup lang="ts">
-import MenuItemComponent from 'components/general/MenuItemComponent.vue'
+import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useRouter } from 'vue-router'
 

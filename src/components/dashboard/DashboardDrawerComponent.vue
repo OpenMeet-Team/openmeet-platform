@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import MenuItemComponent from 'components/general/MenuItemComponent.vue'
+import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import DashboardDrawerCalendarComponent from 'components/dashboard/DashboardDrawerCalendarComponent.vue'
 import { useRoute } from 'vue-router'
 import { Screen } from 'quasar'

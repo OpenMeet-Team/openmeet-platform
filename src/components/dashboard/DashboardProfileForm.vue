@@ -43,7 +43,7 @@
       style="height: 140px; max-width: 150px"
     />
 
-    <LocationComponent2 label="Location" :model-value="form.location?.address" @update:model-value="onLocationSet"/>
+<!--    <LocationComponent label="Location" v-model:location="form.location.address" v-model:latitude="form.location.lat" v-model:longitude="form.location.lon"/>-->
 
     <q-expansion-item
       expand-separator
@@ -98,9 +98,9 @@ import { onMounted, ref } from 'vue'
 import { Dialog } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { UploadedFile, ApiAuthUser, OSMLocationSuggestion } from 'src/types'
+import { UploadedFile, ApiAuthUser } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
-import LocationComponent2 from 'components/common/LocationComponent2.vue'
+// import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from 'components/common/UploadComponent.vue'
 
 interface UserLocation {
@@ -122,11 +122,6 @@ const form = ref<Profile>({
   email: ''
 })
 const isPwd = ref(true)
-
-const onLocationSet = (location: OSMLocationSuggestion) => {
-  console.log(location)
-  // form.value.
-}
 
 const onSubmit = async () => {
   authApi.updateMe(form.value).then(res => {

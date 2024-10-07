@@ -33,8 +33,8 @@ export interface OSMLocationSuggestion {
   licence?: string;
   osm_type?: string;
   osm_id?: number;
-  lat?: number;
-  lon?: number;
+  lat?: string;
+  lon?: string;
   class?: string;
   type?: string;
   place_rank?: number;

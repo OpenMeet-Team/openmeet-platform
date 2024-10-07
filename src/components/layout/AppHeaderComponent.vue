@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SearchComponent from 'components/general/SearchComponent.vue'
+import HeaderSearchComponent from 'components/header/HeaderSearchComponent.vue'
 import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
 import HeaderMobileMenu from 'components/header/HeaderMobileMenu.vue'
 import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
@@ -11,7 +11,7 @@ import HeaderWrapperComponent from 'components/layout/HeaderWrapperComponent.vue
     <q-toolbar>
       <HeaderLogoComponent/>
 
-      <SearchComponent/>
+      <HeaderSearchComponent/>
 
       <q-space/>
 

@@ -45,7 +45,7 @@ import { computed } from 'vue'
 import { Dark } from 'quasar'
 import { useRouter } from 'vue-router'
 import FooterHubspotComponent from 'components/footer/FooterHubspotComponent.vue'
-import MenuItemComponent from 'components/general/MenuItemComponent.vue'
+import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 
 const router = useRouter()
 

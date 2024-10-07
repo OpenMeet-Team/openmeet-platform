@@ -8,13 +8,14 @@
       :rules="[val => !!val || 'Title is required']"
     />
 
-<!--    <div>-->
-<!--      {{ eventData.startDate }} - {{ new Date(eventData.startDate) }} - {{ new Date(eventData.startDate) > new Date() }} <br>-->
-<!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
-<!--    </div>-->
+    <!--    <div>-->
+    <!--      {{ eventData.startDate }} - {{ new Date(eventData.startDate) }} - {{ new Date(eventData.startDate) > new Date() }} <br>-->
+    <!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
+    <!--    </div>-->
 
     <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" reactive-rules
-                       :rules="[(val: string) => !!val || 'Date is required']"> <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
+                       :rules="[(val: string) => !!val || 'Date is required']">
+      <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
       <!-- Display Timezone -->
       <template v-slot:after>
         <div class="text-overline text-bold">
@@ -28,7 +29,8 @@
                   label="Set en end time..."/>
       <DatetimeComponent v-if="eventData.endDate" label="Ending date and time" v-model="eventData.endDate"
                          reactive-rules
-                         :rules="[(val: string) => !!val || 'Date is required']"> <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
+                         :rules="[(val: string) => !!val || 'Date is required']">
+        <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
         <template v-slot:hint>
           <div class=" text-bold">
             {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
@@ -46,51 +48,38 @@
       style="height: 140px; max-width: 150px"
     />
 
-<!--    <q-input-->
-<!--      v-model="eventData.description"-->
-<!--      label="Event Description"-->
-<!--      type="textarea"-->
-<!--      filled-->
-<!--      :rules="[val => !!val || 'Description is required']"-->
-<!--    />-->
-
-    <div class="text-h6 q-mt-lg">Event Description</div>
-    <q-editor
+    <q-input
+      v-model="eventData.description"
+      label="Event Description"
+      type="textarea"
       filled
-      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
-      v-model="eventData.description as string"
-      :dense="Screen.lt.md"
-      :toolbar="[
-        ['bold', 'italic'],
-        ['link', 'custom_btn'],
-        ['unordered', 'ordered'],
-        ['undo', 'redo'],
-      ]"
+      :rules="[(val: string) => !!val || 'Description is required']"
     />
 
-    <div class="column q-my-xl">
-      <q-select
-        filled
-        :rules="[val => !!val || 'Event type is required']"
-        v-model="eventData.type"
-        :options="[
-      { label: 'Online', value: 'online' },
-      { label: 'In-Person', value: 'in-person' },
-      { label: 'Hybrid', value: 'hybrid' }
-      ]"
-        label="Event Type"
-        outlined
-        emit-value
-      />
+    <!--    <div class="text-h6 q-mt-lg">Event Description</div>-->
+    <!--    <q-editor-->
+    <!--      :rules="[(val: string) => !!val || 'Description is required']"-->
+    <!--      filled-->
+    <!--      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"-->
+    <!--      v-model="eventData.description as string"-->
+    <!--      :dense="Screen.lt.md"-->
+    <!--      :toolbar="[-->
+    <!--        ['bold', 'italic'],-->
+    <!--        ['link', 'custom_btn'],-->
+    <!--        ['unordered', 'ordered'],-->
+    <!--        ['undo', 'redo'],-->
+    <!--      ]"-->
+    <!--    />-->
 
+      <q-tabs v-model="eventData.type" align="left" indicator-color="primary">
+        <q-tab label="In person" icon="sym_r_person_pin_circle" name="in-person"/>
+        <q-tab label="Online" name="online" icon="sym_r_videocam"/>
+        <q-tab label="Hybrid" name="hybrid" icon="sym_r_diversity_2"/>
+      </q-tabs>
       <q-input v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
                v-model="eventData.locationOnline" type="url" label="Link to the event"/>
-      <!--      <LocationComponent v-if="false && eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"-->
-      <!--                         v-model="eventData.location" label="Address or location"/>-->
-      <LocationComponent2 v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
-                          :model-value="eventData.location" @update:model-value="onUpdateLocation"
-                          label="Address or location"/>
-    </div>
+      <LocationComponent :location="eventData.location as string" :lat="eventData.lat as number" :lon="eventData.lon as number" v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)" @update:model-value="onUpdateLocation"
+                         label="Address or location"/>
 
     <q-select
       v-model="eventData.categories"
@@ -117,16 +106,15 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { EventData, OSMLocationSuggestion, UploadedFile } from 'src/types'
-// import LocationComponent from 'components/common/LocationComponent.vue'
+import { EventData, UploadedFile } from 'src/types'
+import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
-import LocationComponent2 from 'components/common/LocationComponent2.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
-import { Dark, Screen } from 'quasar'
+// import { Dark, Screen } from 'quasar'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFile) => {
@@ -139,9 +127,8 @@ const eventData = ref<EventData>({
   name: '',
   description: '',
   startDate: '',
-  endDate: '',
   id: 0,
-  type: 'online',
+  type: 'in-person',
   maxAttendees: 0,
   categories: []
 })
@@ -150,10 +137,10 @@ const categoryOptions = [
   'Conference', 'Seminar', 'Workshop', 'Networking', 'Social', 'Other'
 ]
 
-const onUpdateLocation = (location: OSMLocationSuggestion) => {
-  eventData.value.lat = location.lat
-  eventData.value.lon = location.lon
-  eventData.value.location = location.display_name
+const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
+  eventData.value.lat = parseFloat(address.lat as string)
+  eventData.value.lon = parseFloat(address.lon as string)
+  eventData.value.location = address.location
 }
 
 onMounted(() => {

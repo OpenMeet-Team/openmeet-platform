@@ -5,7 +5,7 @@ import { useCreateGroupDialog } from 'src/composables/useCreateGroupDialog.ts'
 import { useCreateEventDialog } from 'src/composables/useCreateEventDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
-import MenuItemComponent from 'components/general/MenuItemComponent.vue'
+import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
 import { useRouter } from 'vue-router'
 
