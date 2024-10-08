@@ -12,33 +12,48 @@ export function useGroupDialog () {
   const { success } = useNotification()
 
   const openCreateGroupDialog = () => {
-    $q.dialog({
-      component: GroupFormDialogComponent,
-      componentProps: {
-        onSubmit: (formData: never) => {
-          // Here you can handle the form submission
-          console.log('Group created:', formData)
-          // You might want to update your app state or make an API call here
-        }
-      }
+    return $q.dialog({
+      component: GroupFormDialogComponent
     })
   }
 
   const openDeleteGroupDialog = (group: GroupEntity) => {
-    $q.dialog({
+    return $q.dialog({
       title: 'Delete Group',
       message: `Are you sure you want to delete the group '${group.name}'? This action cannot be undone.`,
       cancel: true,
+      ok: {
+        label: 'Delete Group',
+        color: 'negative'
+      },
       persistent: true
     }).onOk(() => {
       return groupsApi.delete(group.id).then(() => {
-        success('Group deleted')
+        return success('Group deleted')
+      })
+    })
+  }
+
+  const openLeaveGroupDialog = (group: GroupEntity) => {
+    return $q.dialog({
+      title: 'Leave Group',
+      message: 'Are you sure you want to leave this group?',
+      cancel: true,
+      ok: {
+        label: 'Leave Group',
+        color: 'primary'
+      },
+      persistent: true
+    }).onOk(() => {
+      return groupsApi.leave(group.id).then(() => {
+        return success(`You have left the group: ${group.name}`)
       })
     })
   }
 
   return {
     openCreateGroupDialog,
-    openDeleteGroupDialog
+    openDeleteGroupDialog,
+    openLeaveGroupDialog
   }
 }

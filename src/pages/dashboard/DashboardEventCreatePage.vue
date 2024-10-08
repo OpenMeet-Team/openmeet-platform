@@ -1,8 +1,6 @@
 <template>
   <q-page padding>
-    <div class="row q-mb-xl">
-      <h1 class="text-h4 q-my-none">Create New Event</h1>
-    </div>
+    <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event"/>
 
     <EventFormComponent @created="onEventCreated" style="max-width: 500px">
       <div class="row justify-end q-gutter-md">
@@ -17,6 +15,7 @@
 import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
 import { useRouter } from 'vue-router'
 import { EventEntity } from 'src/types'
+import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 const router = useRouter()
 const onEventCreated = (event: EventEntity) => {

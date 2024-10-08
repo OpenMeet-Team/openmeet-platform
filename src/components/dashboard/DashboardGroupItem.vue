@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { GroupEntity } from 'src/types'
 
 const emits = defineEmits(['edit', 'view', 'leave', 'delete'])
-// Define the types for the group data
 
-// Example group data (replace this with actual data fetching)
-const group = ref<GroupEntity>({
-  id: 0,
-  name: ''
-  // userRole: 'owner'
-})
+interface Props {
+  group: GroupEntity
+}
+
+defineProps<Props>()
 
 // Type declaration for the role color function
 const getRoleColor = (role: string): string => {
@@ -41,16 +38,15 @@ const onDeleteEvent = (group: GroupEntity) => {
 
 <template>
   <q-card class="group-card">
-    <!-- 'https://via.placeholder.com/350' -->
-    <q-img :src="typeof group.image === 'object' ? group.image.path : group.image"
+    <q-img :src="(typeof group.image === 'object' ? group.image.path : group.image) || 'https://via.placeholder.com/350'"
            :ratio="16/9">
-      <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">
-        {{ group.name }}
-      </div>
+      <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">{{ group.name }}</div>
     </q-img>
     <q-card-section>
       <div class="text-h6">{{ group.name }}</div>
-<!--      <div class="text-subtitle2" v-if="group.categories">{{ group.categories.map(c => c.name) }}</div>-->
+      <div class="text-subtitle2" v-if="group.categories">
+        {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
+      </div>
     </q-card-section>
     <q-card-section class="q-pt-none">
       <q-chip

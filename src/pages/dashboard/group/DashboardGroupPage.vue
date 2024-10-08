@@ -1,8 +1,6 @@
 <template>
   <q-page padding>
-    <div class="row items-center justify-between q-mb-xl">
-      <h1 class="text-h4 q-my-none">Edit Group</h1>
-    </div>
+    <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group"/>
 
     <q-tabs align="left" model-value="" no-caps class="text-primary q-mb-md">
       <q-route-tab :to="{ name: 'DashboardGroupBasicPage', params: { id: route.params.id }}" name="basic" label="Basic settings" />
@@ -20,6 +18,7 @@ import { onMounted } from 'vue'
 import { groupsApi } from 'src/api/groups.ts'
 import { LoadingBar } from 'quasar'
 import { useRoute } from 'vue-router'
+import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 const route = useRoute()
 

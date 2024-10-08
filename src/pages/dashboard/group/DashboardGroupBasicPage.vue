@@ -13,7 +13,7 @@ const onGroupUpdated = (group: GroupEntity) => {
 <template>
   <GroupFormBasicComponent @updated="onGroupUpdated" :edit-group-id="$route.params.id as string" style="max-width: 500px">
     <div class="row justify-end q-gutter-sm">
-      <q-btn label="Cancel" color="negative" :to="{ name: 'DashboardGroupsPage'}"/>
+      <q-btn flat label="Cancel" :to="{ name: 'DashboardGroupsPage'}"/>
       <q-btn label="Create Group" type="submit" color="primary"/>
     </div>
   </GroupFormBasicComponent>

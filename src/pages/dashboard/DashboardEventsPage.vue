@@ -1,7 +1,7 @@
 <template>
   <q-page padding>
-    <div class="row items-center justify-between q-mb-lg">
-      <h1 class="text-h4 q-my-none">My Events</h1>
+
+    <DashboardTitle label="My Events">
       <q-btn
         no-caps
         color="primary"
@@ -9,7 +9,7 @@
         label="Add New Event"
         @click="onAddNewEvent"
       />
-    </div>
+    </DashboardTitle>
 
     <q-tabs align="left" no-caps v-model="tab" class="text-primary q-mb-md">
       <q-tab name="created" label="Created Events" />
@@ -40,6 +40,7 @@ import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
+import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 const tab = ref<'created' | 'attended'>('created')
 const router = useRouter()

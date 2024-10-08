@@ -1,7 +1,7 @@
 <template>
   <q-page padding>
-    <div class="row items-center justify-between q-mb-xl">
-      <h1 class="text-h4 q-my-none">My Groups</h1>
+
+    <DashboardTitle label="My Groups">
       <q-btn
         no-caps
         color="primary"
@@ -9,7 +9,7 @@
         label="Create Group"
         @click="onAddNewGroup"
       />
-    </div>
+    </DashboardTitle>
 
     <div v-if="userGroups.length === 0" class="text-center q-pa-md">
       <q-icon name="sym_r_groups" size="4em" color="grey-5"/>
@@ -26,84 +26,26 @@
     <div class="row items-center justify-between q-my-xl">
       <h1 class="text-h4 q-my-none">Member Groups</h1>
     </div>
-
-    <q-dialog v-model="leaveGroupDialog" persistent>
-      <q-card>
-        <q-card-section class="row items-center">
-          <q-avatar icon="sym_r_warning" color="warning" text-color="white"/>
-          <span class="q-ml-sm">Are you sure you want to leave this group?</span>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="primary" v-close-popup/>
-          <q-btn flat label="Leave Group" color="negative" @click="leaveGroup" v-close-popup/>
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { LoadingBar, useQuasar } from 'quasar'
+import { LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
 import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity } from 'src/types'
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
+import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
-const $q = useQuasar()
-
-interface Group {
-  id: string;
-  name: string;
-  category: string;
-  imageUrl: string;
-  userRole: 'Member' | 'Moderator' | 'Admin';
-}
-
-const userGroups = ref<Group[]>([])
-const leaveGroupDialog = ref(false)
-const groupToLeave = ref<Group | null>(null)
+const userGroups = ref<GroupEntity[]>([])
 const router = useRouter()
-
-const fetchUserGroups = async () => {
-  userGroups.value = [
-    {
-      id: '1',
-      name: 'Tech Enthusiasts',
-      category: 'Technology',
-      imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg',
-      userRole: 'Admin'
-    },
-    {
-      id: '2',
-      name: 'Outdoor Adventures',
-      category: 'Sports & Fitness',
-      imageUrl: 'https://cdn.quasar.dev/img/parallax1.jpg',
-      userRole: 'Member'
-    },
-    {
-      id: '3',
-      name: 'Book Lovers Club',
-      category: 'Arts & Culture',
-      imageUrl: 'https://cdn.quasar.dev/img/parallax2.jpg',
-      userRole: 'Moderator'
-    },
-    {
-      id: '4',
-      name: 'Test group',
-      category: 'Arts & Culture',
-      imageUrl: '',
-      userRole: 'Moderator'
-    }
-  ]
-}
 
 onMounted(() => {
   LoadingBar.start()
-  fetchUserGroups()
-  apiGetDashboardGroups().then(() => {
-    // TODO set groups
+  apiGetDashboardGroups().then(res => {
+    userGroups.value = res.data
   }).finally(LoadingBar.stop)
 })
 
@@ -119,12 +61,13 @@ const editGroup = (groupId: string) => {
   router.push({ name: 'DashboardGroupBasicPage', params: { id: groupId } })
 }
 
-const confirmLeaveGroup = (group: Group) => {
-  groupToLeave.value = group
-  leaveGroupDialog.value = true
+const confirmLeaveGroup = (group: GroupEntity) => {
+  openLeaveGroupDialog(group).onOk(() => {
+    userGroups.value = userGroups.value.filter(g => g.id !== group.id)
+  })
 }
 
-const { openDeleteGroupDialog } = useGroupDialog()
+const { openDeleteGroupDialog, openLeaveGroupDialog } = useGroupDialog()
 
 const onDeleteGroup = (group: GroupEntity) => {
   openDeleteGroupDialog(group)
@@ -134,22 +77,6 @@ const onAddNewGroup = () => {
   router.push({ name: 'DashboardGroupsCreatePage' })
 }
 
-const leaveGroup = () => {
-  if (groupToLeave.value) {
-    console.log('Leaving group:', groupToLeave.value.id)
-    // In a real app, you'd make an API call to leave the group
-    userGroups.value = userGroups.value.filter(g => g.id !== groupToLeave.value?.id)
-
-    $q.notify({
-      color: 'info',
-      textColor: 'white',
-      icon: 'info',
-      message: `You have left the group: ${groupToLeave.value.name}`
-    })
-
-    groupToLeave.value = null
-  }
-}
 </script>
 
 <style scoped>

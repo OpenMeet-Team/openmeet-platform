@@ -1,6 +1,6 @@
 <template>
   <q-page class="q-pa-md">
-    <h1 class="text-h3 q-mb-md">Messages</h1>
+    <DashboardTitle label="My Messages"/>
 
     <div class="row q-col-gutter-md">
       <div class="col-12 col-md-4" v-for="category in categories" :key="category.id">
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { date } from 'quasar'
+import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 interface Message {
   id: number;

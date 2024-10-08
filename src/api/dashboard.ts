@@ -7,7 +7,7 @@ export function apiGetDashboardEvents (): Promise<AxiosResponse<EventEntity[]>> 
 }
 
 export function apiGetDashboardGroups (): Promise<AxiosResponse> {
-  return api.get('/api/v1/dashboard/groups')
+  return api.get('/api/groups')
 }
 
 export function apiGetDashboardMessages (): Promise<AxiosResponse> {
