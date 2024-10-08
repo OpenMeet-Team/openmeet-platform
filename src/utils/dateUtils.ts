@@ -1,3 +1,5 @@
+import { date } from 'quasar'
+
 export function getHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {
   const start = new Date(startDate)
   const end = new Date(endDate)
@@ -20,4 +22,8 @@ export function getHumanReadableDateDifference (startDate: string | Date, endDat
   if (seconds % 60 > 0) formatted.push(`${seconds % 60} second${(seconds % 60) > 1 ? 's' : ''}`)
 
   return formatted.join(', ')
+}
+
+export function formatDate (dateString: string, format?: string) {
+  return date.formatDate(dateString, format || 'MMMM D, YYYY')
 }

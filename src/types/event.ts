@@ -1,8 +1,8 @@
-import { Category, UploadedFile } from 'src/types/model.ts'
+import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
 import { GroupEntity } from 'src/types/group.ts'
 
 export type EventType = 'online' | 'in-person' | 'hybrid';
-interface EventCategory extends Category {}
+interface EventCategory extends CategoryEntity {}
 export interface EventEntity {
   id: number
   name: string
@@ -13,7 +13,7 @@ export interface EventEntity {
   locationOnline?: string
   lat?: number
   lon?: number
-  image?: string | UploadedFile
+  image?: string | UploadedFileEntity
   description?: string
   maxAttendees?: number
   attendees?: never[]

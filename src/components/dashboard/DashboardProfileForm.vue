@@ -87,7 +87,7 @@ import { onMounted, ref } from 'vue'
 import { Dialog } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { UploadedFile, ApiAuthUser } from 'src/types'
+import { UploadedFileEntity, ApiAuthUser } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -140,7 +140,7 @@ onMounted(() => {
   })
 })
 
-const onProfilePhotoSelect = (file: UploadedFile) => {
+const onProfilePhotoSelect = (file: UploadedFileEntity) => {
   form.value.photo = file
   // return apiUploadFileToS3(file).then(response => {
   //   form.photo = response

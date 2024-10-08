@@ -1,12 +1,12 @@
-import { Category, UploadedFile } from 'src/types/model.ts'
+import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
 
 export interface GroupEntity {
   id: number
   name: string
   description?: string
-  categories?: Category[] | number[]
+  categories?: CategoryEntity[] | number[]
   location?: string
-  image?: UploadedFile
+  image?: UploadedFileEntity
   organizerId?: string
   members?: string[]
 }

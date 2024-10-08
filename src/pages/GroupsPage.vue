@@ -144,13 +144,10 @@ const filteredGroups = computed(() => {
 })
 
 const viewGroup = (groupId: number) => {
-  // In a real app, you'd navigate to the group details page
-  console.log('View group:', groupId)
   router.push({ name: 'GroupPage', params: { id: groupId } })
 }
 
 const joinGroup = (groupId: number) => {
-  // In a real app, you'd make an API call to join the group
   const group = groups.value.find(g => g.id === groupId)
   if (group) {
     group.memberCount++

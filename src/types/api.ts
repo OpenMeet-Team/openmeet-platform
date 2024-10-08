@@ -1,4 +1,4 @@
-import { UploadedFile, UserPermission, UserRole } from 'src/types'
+import { UploadedFileEntity, UserPermission, UserRole } from 'src/types'
 
 export interface ApiAuthUser {
   id: number
@@ -6,7 +6,7 @@ export interface ApiAuthUser {
   name?: string,
   firstName?: string
   lastName?: string
-  photo?: UploadedFile
+  photo?: UploadedFileEntity
   role?: UserRole;
   permissions?: UserPermission[];
   token?: string

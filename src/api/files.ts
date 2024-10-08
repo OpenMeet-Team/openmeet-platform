@@ -1,10 +1,10 @@
 import axios, { AxiosResponse } from 'axios'
 import { api } from 'src/boot/axios.ts'
-import { UploadedFile } from 'src/types'
+import { UploadedFileEntity } from 'src/types'
 
 interface FileUploadResponse {
-  file: UploadedFile;
-  uploadSignedUrl: string;
+  file: UploadedFileEntity
+  uploadSignedUrl: string
 }
 
 export async function apiFilesGetPreSigned (fileUpload: {
@@ -23,7 +23,7 @@ export function apiFilesUpload (formData: FormData): Promise<AxiosResponse> {
 }
 
 // Function to handle the entire file upload process
-export async function apiUploadFileToS3 (file: File): Promise<UploadedFile> {
+export async function apiUploadFileToS3 (file: File): Promise<UploadedFileEntity> {
   try {
     const response = await apiFilesGetPreSigned({
       fileName: file.name,
@@ -58,7 +58,7 @@ function base64ToBlob (base64: string, mimeType: string): Blob {
 }
 
 // Function to handle the entire file upload process for base64
-export async function apiUploadBase64ToS3 (base64Image: string, fileName: string, mimeType: string): Promise<UploadedFile> {
+export async function apiUploadBase64ToS3 (base64Image: string, fileName: string, mimeType: string): Promise<UploadedFileEntity> {
   try {
     // Convert base64 to Blob
     const fileBlob = base64ToBlob(base64Image, mimeType)

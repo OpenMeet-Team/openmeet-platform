@@ -3,7 +3,7 @@ export enum SubCategoryType {
   GROUP = 'GROUP',
 }
 
-export interface UploadedFile {
+export interface UploadedFileEntity {
   path?: string
   id: string
 }
@@ -51,16 +51,16 @@ export interface OSMLocationSuggestion {
   boundingbox?: string[];
 }
 
-export interface SubCategory {
+export interface SubCategoryEntity {
   id: number,
   title: string,
   description?: string
   type: SubCategoryType
 }
 
-export interface Category {
+export interface CategoryEntity {
   id: number,
   slug?: string,
   name: string,
-  subCategories: SubCategory[]
+  subCategories: SubCategoryEntity[]
 }

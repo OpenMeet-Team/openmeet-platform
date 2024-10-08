@@ -110,7 +110,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Category, EventEntity, UploadedFile } from 'src/types'
+import { CategoryEntity, EventEntity, UploadedFileEntity } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -118,14 +118,13 @@ import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
-// import { Dark, Screen } from 'quasar'
 
 const { error } = useNotification()
-const onEventImageSelect = (file: UploadedFile) => {
+const onEventImageSelect = (file: UploadedFileEntity) => {
   eventData.value.image = file
 }
 
-const categoryOptions = ref<Category[]>([])
+const categoryOptions = ref<CategoryEntity[]>([])
 
 const emit = defineEmits(['created', 'updated'])
 

@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Category, GroupEntity, UploadedFile } from 'src/types'
+import { CategoryEntity, GroupEntity, UploadedFileEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
@@ -62,11 +62,11 @@ const group = ref<GroupEntity>({
   location: ''
 })
 
-const onGroupImageSelect = (file: UploadedFile) => {
+const onGroupImageSelect = (file: UploadedFileEntity) => {
   group.value.image = file
 }
 
-const categoryOptions = ref<Category[]>([])
+const categoryOptions = ref<CategoryEntity[]>([])
 
 const { error } = useNotification()
 
