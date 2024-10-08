@@ -1,8 +1,9 @@
-import { UploadedFile } from 'src/types/model.ts'
+import { Category, UploadedFile } from 'src/types/model.ts'
+import { GroupEntity } from 'src/types/group.ts'
 
 export type EventType = 'online' | 'in-person' | 'hybrid';
-
-export interface EventData {
+interface EventCategory extends Category {}
+export interface EventEntity {
   id: number
   name: string
   startDate: string
@@ -17,20 +18,9 @@ export interface EventData {
   maxAttendees?: number
   attendees?: never[]
   attendeesCount?: number
-  categories?: string[]
-  groupId?: string
+  categories?: EventCategory[] | number[]
+  groupId?: number
+  group?: GroupEntity
   is_public?: boolean
-  userId?: string
+  userId?: number
 }
-
-// export interface Event {
-//   name: string;
-//   image: string;
-//   description: string;
-//   startDate: string;
-//   endDate: string;
-//   location: string;
-//   lat: number;
-//   lon: number;
-//   is_public: boolean;
-// }

@@ -112,17 +112,17 @@ import { useNotification } from 'src/composables/useNotification.ts'
 
 const router = useRouter()
 const route = useRoute()
-const { error } = useNotification()
+const { error, warning } = useNotification()
 
 const onSubmit = async () => {
+  if (!accept.value) return warning('Please accept our terms')
+
   return authStore.actionRegister({
     firstName: firstName.value,
     lastName: lastName.value,
     email: email.value,
     password: password.value
-  }).then(response => {
-    console.log(response.data)
-
+  }).then(() => {
     firstName.value = ''
     lastName.value = ''
     email.value = ''

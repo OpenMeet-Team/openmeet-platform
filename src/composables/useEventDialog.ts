@@ -1,0 +1,41 @@
+import { useQuasar } from 'quasar'
+import EventFormDialogComponent from 'src/components/event/EventFormDialogComponent.vue'
+import { EventEntity } from 'src/types'
+import { groupsApi } from 'src/api/groups.ts'
+import { useNotification } from 'src/composables/useNotification.ts'
+
+export function useEventDialog () {
+  const $q = useQuasar()
+  const { success } = useNotification()
+
+  const openCreateEventDialog = () => {
+    $q.dialog({
+      component: EventFormDialogComponent,
+      componentProps: {
+        onSubmit: (formData: never) => {
+          // Here you can handle the form submission
+          console.log('Event created:', formData)
+          // You might want to update your app state or make an API call here
+        }
+      }
+    })
+  }
+
+  const openDeleteEventDialog = (event: EventEntity) => {
+    $q.dialog({
+      title: 'Delete Event',
+      message: `Are you sure you want to delete the event '${event.name}'? This action cannot be undone.`,
+      cancel: true,
+      persistent: true
+    }).onOk(() => {
+      return groupsApi.delete(event.id).then(() => {
+        success('Event deleted')
+      })
+    })
+  }
+
+  return {
+    openCreateEventDialog,
+    openDeleteEventDialog
+  }
+}

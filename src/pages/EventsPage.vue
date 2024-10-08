@@ -41,11 +41,11 @@ import { onMounted, ref } from 'vue'
 import { date, LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { eventsApi } from 'src/api/events.ts'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
 
 const router = useRouter()
 
-const events = ref<EventData[]>([])
+const events = ref<EventEntity[]>([])
 const formatDate = (dateString: string) => {
   return date.formatDate(dateString, 'MMMM D, YYYY')
 }

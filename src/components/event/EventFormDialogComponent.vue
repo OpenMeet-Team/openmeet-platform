@@ -4,12 +4,12 @@ import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
 import { ref } from 'vue'
 import { QDialog } from 'quasar'
 import { useRouter } from 'vue-router'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
 
 const dialogRef = ref<QDialog | null>(null)
 const router = useRouter()
 
-const onEventCreated = (event: EventData) => {
+const onEventCreated = (event: EventEntity) => {
   if (dialogRef.value) {
     dialogRef.value.hide()
     router.push({ name: 'DashboardEventPage', params: { id: event.id } })

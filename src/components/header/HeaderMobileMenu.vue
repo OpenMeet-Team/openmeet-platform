@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { useCreateGroupDialog } from 'src/composables/useCreateGroupDialog.ts'
-import { useCreateEventDialog } from 'src/composables/useCreateEventDialog.ts'
+import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
+import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
 import { useRouter } from 'vue-router'
 
-const { openCreateGroupDialog } = useCreateGroupDialog()
-const { openCreateEventDialog } = useCreateEventDialog()
+const { openCreateGroupDialog } = useGroupDialog()
+const { openCreateEventDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
 
 const router = useRouter()

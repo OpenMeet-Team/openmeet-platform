@@ -1,11 +1,11 @@
 <script setup type="ts">
-import { useCreateGroupDialog } from 'src/composables/useCreateGroupDialog.ts'
-import { useCreateEventDialog } from 'src/composables/useCreateEventDialog.ts'
+import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
+import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 
-const { openCreateGroupDialog } = useCreateGroupDialog()
-const { openCreateEventDialog } = useCreateEventDialog()
+const { openCreateGroupDialog } = useGroupDialog()
+const { openCreateEventDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
 
 const openCreateGroupForm = () => {

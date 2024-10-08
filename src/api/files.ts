@@ -43,3 +43,44 @@ export async function apiUploadFileToS3 (file: File): Promise<UploadedFile> {
     throw error
   }
 }
+
+// Helper function to convert base64 string to Blob
+function base64ToBlob (base64: string, mimeType: string): Blob {
+  const byteCharacters = atob(base64.split(',')[1])
+  const byteNumbers = new Array(byteCharacters.length)
+
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+
+  const byteArray = new Uint8Array(byteNumbers)
+  return new Blob([byteArray], { type: mimeType })
+}
+
+// Function to handle the entire file upload process for base64
+export async function apiUploadBase64ToS3 (base64Image: string, fileName: string, mimeType: string): Promise<UploadedFile> {
+  try {
+    // Convert base64 to Blob
+    const fileBlob = base64ToBlob(base64Image, mimeType)
+
+    // Get pre-signed URL
+    const response = await apiFilesGetPreSigned({
+      fileName,
+      fileSize: fileBlob.size
+    })
+
+    const { file: uploadedFile, uploadSignedUrl } = response.data
+
+    // Upload file to S3 using pre-signed URL
+    await axios.put(uploadSignedUrl, fileBlob, {
+      headers: {
+        'Content-Type': mimeType
+      }
+    })
+
+    return uploadedFile
+  } catch (error) {
+    console.error('Error during file upload:', error)
+    throw error
+  }
+}

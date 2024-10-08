@@ -23,18 +23,7 @@
       :rules="[val => !!val || 'Last name is required']"
     />
 
-    <UploadComponent label="Profile picture" @upload="onProfilePhotoSelect"/>
-<!--    <q-file-->
-<!--      filled-->
-<!--      :model-value="null"-->
-<!--      label="Profile Photo"-->
-<!--      accept="image/*"-->
-<!--      @update:model-value="onProfilePhotoSelect"-->
-<!--    >-->
-<!--      <template v-slot:prepend>-->
-<!--        <q-icon name="sym_r_attach_file"/>-->
-<!--      </template>-->
-<!--    </q-file>-->
+    <UploadComponent label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>
 
     <q-img
       v-if="form && form.photo && form.photo.path"
@@ -124,7 +113,14 @@ const form = ref<Profile>({
 const isPwd = ref(true)
 
 const onSubmit = async () => {
-  authApi.updateMe(form.value).then(res => {
+  const user = {
+    ...form.value
+  }
+
+  if (form.value.photo && form.value.photo.id) {
+    user.photo = Object.assign({}, { id: form.value.photo.id })
+  }
+  authApi.updateMe(user).then(res => {
     useAuthStore().actionSetUser(res.data)
     success('Profile updated successfully')
   }).catch(err => {

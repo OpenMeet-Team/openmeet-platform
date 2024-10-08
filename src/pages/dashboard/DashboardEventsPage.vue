@@ -19,7 +19,7 @@
     <q-tab-panels v-model="tab" animated>
       <q-tab-panel name="created">
         <div class="row q-gutter-md">
-          <DashboardEventItem v-for="event in createdEvents" :key="event.id" :event="event" @view="viewEvent" @edit="editEvent" />
+          <DashboardEventItem v-for="event in createdEvents" :key="event.id" :event="event" @view="viewEvent" @delete="onDeleteEvent" @edit="editEvent" />
         </div>
       </q-tab-panel>
 
@@ -29,25 +29,6 @@
         </div>
       </q-tab-panel>
     </q-tab-panels>
-
-    <q-dialog v-model="eventDialog" persistent>
-      <q-card style="min-width: 350px">
-        <q-card-section>
-          <div class="text-h6">{{ selectedEvent.name }}</div>
-        </q-card-section>
-
-        <q-card-section class="q-pt-none">
-          Date: {{ selectedEvent.startDate }}<br>
-          Location: {{ selectedEvent.location }}<br>
-          Description: {{ selectedEvent.description }}
-        </q-card-section>
-
-        <q-card-actions align="right" class="text-primary">
-          <q-btn flat label="Close" v-close-popup />
-          <q-btn flat label="Edit" v-if="tab === 'created'" @click="editEvent(selectedEvent.id)" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </q-page>
 </template>
 
@@ -57,26 +38,29 @@ import { LoadingBar } from 'quasar'
 import DashboardEventItem from 'components/dashboard/DashboardEventItem.vue'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
+import { useEventDialog } from 'src/composables/useEventDialog.ts'
 
 const tab = ref<'created' | 'attended'>('created')
-const eventDialog = ref(false)
-const selectedEvent = ref<EventData>({} as EventData)
 const router = useRouter()
+const { openDeleteEventDialog } = useEventDialog()
 
 // Mock data - replace with actual API calls
 const createdEvents = computed(() => events.value)
 const attendedEvents = computed(() => events.value)
 
-const events = ref<EventData[]>([])
+const events = ref<EventEntity[]>([])
 
-const viewEvent = (event: EventData) => {
-  selectedEvent.value = event
-  eventDialog.value = true
+const viewEvent = (event: EventEntity) => {
+  router.push({ name: 'EventPage', params: { id: event.id } })
 }
 
 const editEvent = (eventId: number) => {
   router.push({ name: 'DashboardEventPage', params: { id: eventId } })
+}
+
+const onDeleteEvent = (event: EventEntity) => {
+  openDeleteEventDialog(event)
 }
 
 onMounted(() => {

@@ -1,13 +1,14 @@
 import { api } from 'boot/axios'
-import { Group } from 'src/types'
+import { GroupEntity } from 'src/types'
 
 export const groupsApi = {
-  getAll: () => api.get<Group[]>('/api/v1/groups'),
-  getById: (id: string) => api.get<Group>(`/api/v1/groups/${id}`),
-  create: (groupData: Partial<Group>) => api.post<Group>('/api/v1/groups', groupData),
-  update: (id: number, groupData: Partial<Group>) => api.put<Group>(`/api/v1/groups/${id}`, groupData),
-  delete: (id: string) => api.delete(`/api/v1/groups/${id}`),
-  join: (id: string) => api.post(`/api/v1/groups/${id}/join`),
-  leave: (id: string) => api.post(`/api/v1/groups/${id}/leave`),
-  roles: (id: string) => api.get(`/api/v1/groups/${id}/roles`)
+  getAll: () => api.get<GroupEntity[]>('/api/groups'),
+  getCatalog: () => api.get<GroupEntity[]>('/api/groups/catalog'),
+  getById: (id: string) => api.get<GroupEntity>(`/api/groups/${id}`),
+  create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/groups', groupData),
+  update: (id: number, groupData: Partial<GroupEntity>) => api.put<GroupEntity>(`/api/groups/${id}`, groupData),
+  delete: (id: number) => api.delete(`/api/groups/${id}`),
+  join: (id: string) => api.post(`/api/groups/${id}/join`),
+  leave: (id: string) => api.post(`/api/groups/${id}/leave`),
+  roles: (id: string) => api.get(`/api/groups/${id}/roles`)
 }

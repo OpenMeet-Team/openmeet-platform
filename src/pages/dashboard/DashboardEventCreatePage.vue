@@ -16,10 +16,10 @@
 <script setup lang="ts">
 import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
 import { useRouter } from 'vue-router'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
 
 const router = useRouter()
-const onEventCreated = (event: EventData) => {
+const onEventCreated = (event: EventEntity) => {
   router.push({ name: 'DashboardEventPage', params: { id: event.id } })
 }
 

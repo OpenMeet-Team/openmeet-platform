@@ -1,18 +1,16 @@
 <template>
   <q-card class="event-card">
     <q-img :src="event.image as string || 'https://cdn.quasar.dev/img/parallax2.jpg'" :ratio="16/9">
-      <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">
-        {{ event.name }}
-      </div>
+      <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">{{ event.name }}</div>
     </q-img>
 
     <q-card-section>
       <div class="text-h6">{{ event.name }}</div>
-      <div class="text-subtitle2">
-        <q-icon name="sym_r_event" size="xs" /> {{ formatDate(event.startDate) }}
+      <div class="text-subtitle2" v-if="event.startDate">
+        <q-icon name="sym_r_event" size="xs" /> {{ formatDate(event.startDate) }} <span v-if="event.endDate">- {{ formatDate(event.endDate) }}</span>
       </div>
-      <div class="text-subtitle2">
-        <q-icon name="sym_r_location_on" size="xs" /> {{ event.location }}
+      <div class="text-subtitle2" v-if="event.location">
+        <q-icon name="sym_r_location_on" size="xs" />{{ event.location }}
       </div>
     </q-card-section>
 
@@ -22,10 +20,10 @@
 
     <q-card-section class="q-pt-none">
       <div class="text-caption">
-        <q-icon name="sym_r_people" size="xs" /> {{ event.attendeesCount }} / {{ event.maxAttendees }} attendees
+        <q-icon name="sym_r_people" size="xs" /> {{ event.attendeesCount }} <span v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> attendees
       </div>
-      <div class="text-caption">
-        <q-icon name="sym_r_groups" size="xs" /> Hosted by { hosting group }
+      <div class="text-caption" v-if="event.group">
+        <q-icon name="sym_r_groups" size="xs" /> Hosted by {{ event.group.name }}
       </div>
     </q-card-section>
 
@@ -35,6 +33,7 @@
       <q-btn flat color="primary" label="Edit" @click="onEditEvent" />
       <q-btn flat color="primary" label="View Details" @click="viewEventDetails" />
       <q-btn flat :color="isAttending ? 'negative' : 'secondary'" :label="isAttending ? 'Cancel RSVP' : 'RSVP'" @click="toggleRSVP" />
+      <q-btn flat color="negative" label="Delete" @click="onDeleteEvent" />
     </q-card-actions>
   </q-card>
 </template>
@@ -42,16 +41,17 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { date } from 'quasar'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
 
 const props = defineProps<{
-  event: EventData;
+  event: EventEntity;
 }>()
 
 // eslint-disable-next-line func-call-spacing
 const emit = defineEmits<{
-  (e: 'view', event: EventData): void;
+  (e: 'view', event: EventEntity): void;
   (e: 'edit', id: number): void;
+  (e: 'delete', id: EventEntity): void;
   (e: 'toggle-rsvp', id: number, attending: boolean): void;
 }>()
 
@@ -73,6 +73,10 @@ const viewEventDetails = () => {
 
 const onEditEvent = () => {
   emit('edit', props.event.id)
+}
+
+const onDeleteEvent = () => {
+  emit('delete', props.event)
 }
 
 const toggleRSVP = () => {

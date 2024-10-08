@@ -2,10 +2,10 @@
 
 import GroupFormBasicComponent from 'components/group/GroupFormBasicComponent.vue'
 import { useRouter } from 'vue-router'
-import { Group } from 'src/types'
+import { GroupEntity } from 'src/types'
 
 const router = useRouter()
-const onGroupUpdated = (group: Group) => {
+const onGroupUpdated = (group: GroupEntity) => {
   router.push({ name: 'DashboardGroupsPage', params: { id: group.id } })
 }
 </script>

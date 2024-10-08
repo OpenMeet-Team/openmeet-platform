@@ -85,6 +85,10 @@
       v-model="eventData.categories"
       :options="categoryOptions"
       filled
+      multiple
+      use-chips
+      option-value="id"
+      option-label="name"
       label="Event Category"
     />
 
@@ -106,7 +110,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { EventData, UploadedFile } from 'src/types'
+import { Category, EventEntity, UploadedFile } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -121,9 +125,11 @@ const onEventImageSelect = (file: UploadedFile) => {
   eventData.value.image = file
 }
 
+const categoryOptions = ref<Category[]>([])
+
 const emit = defineEmits(['created', 'updated'])
 
-const eventData = ref<EventData>({
+const eventData = ref<EventEntity>({
   name: '',
   description: '',
   startDate: '',
@@ -133,10 +139,6 @@ const eventData = ref<EventData>({
   categories: []
 })
 
-const categoryOptions = [
-  'Conference', 'Seminar', 'Workshop', 'Networking', 'Social', 'Other'
-]
-
 const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
   eventData.value.lat = parseFloat(address.lat as string)
   eventData.value.lon = parseFloat(address.lon as string)
@@ -144,9 +146,8 @@ const onUpdateLocation = (address: {lat: string, lon: string, location: string})
 }
 
 onMounted(() => {
-  // TODO fetch categories
   categoriesApi.getAll().then(res => {
-    console.log(res.data)
+    categoryOptions.value = res.data
   })
   if (props.editEventId) {
     eventsApi.getById(props.editEventId).then(res => {
@@ -160,13 +161,23 @@ const props = withDefaults(defineProps<{ editEventId?: string }>(), {
 })
 
 const onSubmit = async () => {
+  const event = {
+    ...eventData.value
+  }
+
+  if (eventData.value.categories) {
+    event.categories = eventData.value.categories.map(category => {
+      return typeof category === 'object' ? category.id : category
+    }) as number[]
+  }
+
   try {
-    if (eventData.value.id) {
-      const event = await eventsApi.update(eventData.value.id, eventData.value)
-      emit('updated', event.data)
+    if (event.id) {
+      const res = await eventsApi.update(event.id, event)
+      emit('updated', res.data)
     } else {
-      const event = await eventsApi.create(eventData.value)
-      emit('created', event.data)
+      const res = await eventsApi.create(event)
+      emit('created', res.data)
     }
   } catch (err) {
     console.log(err)

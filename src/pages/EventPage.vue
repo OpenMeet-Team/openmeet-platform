@@ -90,13 +90,13 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { date, LoadingBar } from 'quasar'
 import { eventsApi } from 'src/api/events.ts'
-import { EventData } from 'src/types'
+import { EventEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 
 const route = useRoute()
 const { success } = useNotification()
 
-const event = ref<EventData | null>(null)
+const event = ref<EventEntity | null>(null)
 
 const formatDate = (dateString: string) => {
   return date.formatDate(dateString, 'MMMM D, YYYY HH:mm')

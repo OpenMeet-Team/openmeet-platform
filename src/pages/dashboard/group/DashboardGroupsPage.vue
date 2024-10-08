@@ -19,7 +19,7 @@
 
     <div v-else class="row q-col-gutter-md">
       <div v-for="group in userGroups" :key="group.id" class="col-12 col-sm-6 col-md-4">
-        <DashboardGroupItem :group="group" @view="viewGroup" @edit="editGroup" @leave="confirmLeaveGroup" />
+        <DashboardGroupItem :group="group" @view="viewGroup" @edit="editGroup" @leave="confirmLeaveGroup" @delete="onDeleteGroup"/>
       </div>
     </div>
 
@@ -48,6 +48,8 @@ import { LoadingBar, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
 import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
+import { GroupEntity } from 'src/types'
+import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 
 const $q = useQuasar()
 
@@ -120,6 +122,12 @@ const editGroup = (groupId: string) => {
 const confirmLeaveGroup = (group: Group) => {
   groupToLeave.value = group
   leaveGroupDialog.value = true
+}
+
+const { openDeleteGroupDialog } = useGroupDialog()
+
+const onDeleteGroup = (group: GroupEntity) => {
+  openDeleteGroupDialog(group)
 }
 
 const onAddNewGroup = () => {

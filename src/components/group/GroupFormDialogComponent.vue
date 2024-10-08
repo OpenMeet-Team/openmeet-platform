@@ -24,7 +24,7 @@ const onSubmit = () => {
 
     <GroupFormBasicComponent @created="onSubmit">
       <div class="row justify-end q-gutter-sm">
-        <q-btn label="Cancel" color="negative" v-close-popup/>
+        <q-btn flat label="Cancel" v-close-popup/>
         <q-btn label="Create Group" type="submit" color="primary"/>
       </div>
     </GroupFormBasicComponent>

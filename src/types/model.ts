@@ -1,5 +1,10 @@
+export enum SubCategoryType {
+  EVENT = 'EVENT',
+  GROUP = 'GROUP',
+}
+
 export interface UploadedFile {
-  path: string
+  path?: string
   id: string
 }
 
@@ -46,14 +51,16 @@ export interface OSMLocationSuggestion {
   boundingbox?: string[];
 }
 
-export interface Category {
-  id: number,
-  slug?: string,
-  name: string
-}
-
 export interface SubCategory {
   id: number,
   title: string,
-  description: string
+  description?: string
+  type: SubCategoryType
+}
+
+export interface Category {
+  id: number,
+  slug?: string,
+  name: string,
+  subCategories: SubCategory[]
 }
