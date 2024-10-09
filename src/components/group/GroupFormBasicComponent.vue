@@ -84,7 +84,11 @@ onMounted(() => {
   }
 })
 
-const props = withDefaults(defineProps<{ editGroupId?: string }>(), {
+interface Props {
+  editGroupId?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
   editGroupId: undefined
 })
 
@@ -94,9 +98,9 @@ const onSubmit = async () => {
   }
 
   if (group.value.categories) {
-    groupPayload.categories = group.value.categories.map(category => {
-      return typeof category === 'object' ? category.id : category
-    }) as number[]
+    // groupPayload.categories = group.value.categories.map(category => {
+    //   return typeof category === 'object' ? category.id : category
+    // }) as number[]
   }
 
   try {

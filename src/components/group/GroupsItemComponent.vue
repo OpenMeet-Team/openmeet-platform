@@ -1,0 +1,37 @@
+<script setup lang="ts">
+
+import { GroupEntity } from 'src/types'
+
+interface Props {
+  group: GroupEntity
+}
+
+defineProps<Props>()
+
+</script>
+
+<template>
+  <q-card class="group-card">
+    <q-card-section>
+      <div class="text-h6">{{ group.name }}</div>
+      <div class="text-subtitle2" v-if="group.categories">
+        {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
+      </div>
+    </q-card-section>
+
+<!--    <q-card-section class="q-pt-none" v-if="group.membersCount">-->
+<!--      <div class="text-body2">-->
+<!--        <q-icon name="sym_r_people" /> {{ group.membersCount }} members-->
+<!--      </div>-->
+<!--    </q-card-section>-->
+
+    <q-card-actions align="right">
+      <q-btn flat color="primary" label="View Group" @click="$emit('view', group.id)" />
+      <q-btn flat color="secondary" label="Join" @click="$emit('join', group.id)" />
+    </q-card-actions>
+  </q-card>
+</template>
+
+<style scoped lang="scss">
+
+</style>

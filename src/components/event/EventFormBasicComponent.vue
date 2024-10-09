@@ -92,6 +92,21 @@
       label="Event Category"
     />
 
+    <q-select
+      v-model="eventData.visibility"
+      label="Event Viewable By"
+      option-value="value"
+      option-label="label"
+      emit-value
+      map-options
+      :options="[
+          { label: 'The World', value: 'public' },
+          { label: 'Authenticated Users', value: 'authenticated' },
+          { label: 'People You Invite', value: 'private' }
+      ]"
+      filled
+    />
+
     <q-checkbox :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
                 label="Limit number of members?"/>
     <q-input
@@ -135,6 +150,7 @@ const eventData = ref<EventEntity>({
   id: 0,
   type: 'in-person',
   maxAttendees: 0,
+  visibility: 'public',
   categories: []
 })
 

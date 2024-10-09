@@ -1,14 +1,29 @@
 import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
 
+interface GroupMemberEntity {
+  id: number;
+  name: string;
+  role: string;
+  avatar: string;
+}
+interface GroupEventEntity {
+  id: number;
+  name: string;
+  startDate: string;
+  type: string
+}
+
 export interface GroupEntity {
   id: number
   name: string
   description?: string
-  categories?: CategoryEntity[] | number[]
+  categories?: CategoryEntity[]
   location?: string
   image?: UploadedFileEntity
   organizerId?: string
-  members?: string[]
+  membersCount?: number
+  members?: GroupMemberEntity[]
+  events?: GroupEventEntity[]
 }
 
 export const GroupRoles = {

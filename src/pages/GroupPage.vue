@@ -4,7 +4,7 @@
       <div class="col-12 col-lg-8">
         <q-card>
           <q-img
-            :src="group.imageUrl || 'https://cdn.quasar.dev/img/parallax2.jpg'"
+            :src="getImageSrc(group.image, 'https://cdn.quasar.dev/img/parallax2.jpg')"
             :ratio="16/9"
           >
             <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
@@ -13,19 +13,19 @@
           </q-img>
           <q-card-section>
             <div class="text-h4">{{ group.name }}</div>
-            <div class="text-subtitle1 q-mt-sm">
-              <q-icon name="sym_r_category" /> {{ group.category }}
+            <div class="text-subtitle1 q-mt-sm" v-if="group.categories">
+              <q-icon name="sym_r_category" /> {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
             </div>
             <div class="text-subtitle1">
-              <q-icon name="sym_r_people" /> {{ group.memberCount }} members
+              <q-icon name="sym_r_people" /> {{ group.membersCount }} members
             </div>
             <div class="text-body1 q-mt-md">{{ group.description }}</div>
           </q-card-section>
-          <q-card-section>
-            <div class="text-h6">Interests</div>
+          <q-card-section v-if="group.categories">
+            <div class="text-h6">Categories</div>
             <div class="q-gutter-sm">
-              <q-chip v-for="interest in group.interests" :key="interest">
-                {{ interest }}
+              <q-chip v-for="category in group.categories" :key="category.id">
+                {{ category.name }}
               </q-chip>
             </div>
           </q-card-section>
@@ -43,9 +43,9 @@
                 <q-icon name="sym_r_event" color="primary" size="md" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>{{ event.title }}</q-item-label>
+                <q-item-label>{{ event.name }}</q-item-label>
                 <q-item-label caption>
-                  {{ formatDate(event.date) }} at {{ event.time }}
+                  {{ formatDate(event.startDate) }}
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
@@ -115,20 +115,7 @@ import { date, LoadingBar } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 // import { useUserStore } from 'stores/user-store.ts'
 import { useGroupStore } from 'stores/group-store.ts'
-
-interface Member {
-  id: number;
-  name: string;
-  role: string;
-  avatar: string;
-}
-
-interface Event {
-  id: number;
-  title: string;
-  date: string;
-  time: string;
-}
+import { getImageSrc } from 'src/utils/imageUtils.ts'
 
 interface ChatMessage {
   id: number;
@@ -136,19 +123,6 @@ interface ChatMessage {
   text: string;
 }
 
-interface Group {
-  id: number;
-  name: string;
-  category: string;
-  description: string;
-  interests: string[];
-  memberCount: number;
-  imageUrl?: string;
-  members: Member[];
-  events: Event[];
-}
-
-const group = ref<Group | null>(null)
 const chatMessages = ref<ChatMessage[]>([])
 const newMessage = ref('')
 const router = useRouter()
@@ -159,8 +133,6 @@ const formatDate = (dateString: string) => {
 }
 
 const viewEventDetails = (eventId: number) => {
-  // In a real app, you'd navigate to the event details page
-  console.log('View event details:', eventId)
   router.push({ name: 'EventPage', params: { id: eventId } })
 }
 
@@ -176,6 +148,8 @@ const sendMessage = () => {
   }
 }
 
+const group = useGroupStore().group
+
 onMounted(async () => {
   LoadingBar.start()
 
@@ -183,27 +157,6 @@ onMounted(async () => {
     useGroupStore().actionGetGroupById(route.params.id as string)
     // useUserStore().actionGetGroupRights(route.params.id as string)
   ]).finally(LoadingBar.stop)
-
-  group.value = {
-    id: 1,
-    name: 'Tech Enthusiasts',
-    category: 'Technology',
-    description: 'A group for tech lovers to discuss the latest trends and innovations in technology. We organize regular meetups, workshops, and online discussions on various tech topics.',
-    interests: ['Programming', 'AI', 'Web Development', 'Data Science', 'Cybersecurity'],
-    memberCount: 1250,
-    imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg',
-    members: [
-      { id: 1, name: 'John Doe', role: 'Organizer', avatar: 'https://cdn.quasar.dev/img/boy-avatar.png' },
-      { id: 2, name: 'Jane Smith', role: 'Co-organizer', avatar: 'https://cdn.quasar.dev/img/avatar.png' },
-      { id: 3, name: 'Bob Johnson', role: 'Member', avatar: 'https://cdn.quasar.dev/img/avatar3.jpg' },
-      { id: 4, name: 'Alice Brown', role: 'Member', avatar: 'https://cdn.quasar.dev/img/avatar2.jpg' }
-    ],
-    events: [
-      { id: 1, title: 'AI in Healthcare Workshop', date: '2023-07-15', time: '14:00' },
-      { id: 2, title: 'Web Dev Meetup', date: '2023-07-22', time: '18:30' },
-      { id: 3, title: 'Cybersecurity Panel Discussion', date: '2023-07-29', time: '19:00' }
-    ]
-  }
 
   // Mock chat messages
   chatMessages.value = [

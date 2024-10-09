@@ -9,6 +9,9 @@
           outlined
           emit-value
           map-options
+          clearable
+          option-value="id"
+          option-label="name"
           class="full-width"
         />
       </div>
@@ -28,29 +31,7 @@
 
     <div class="row q-col-gutter-md">
       <div v-for="group in filteredGroups" :key="group.id" class="col-12 col-md-6 col-lg-4">
-        <q-card class="group-card">
-          <q-card-section>
-            <div class="text-h6">{{ group.name }}</div>
-            <div class="text-subtitle2">{{ group.category }}</div>
-          </q-card-section>
-
-          <q-card-section>
-            <div class="text-body2">
-              <strong>Interests:</strong> {{ group.interests.join(', ') }}
-            </div>
-          </q-card-section>
-
-          <q-card-section class="q-pt-none">
-            <div class="text-body2">
-              <q-icon name="sym_r_people" /> {{ group.memberCount }} members
-            </div>
-          </q-card-section>
-
-          <q-card-actions align="right">
-            <q-btn flat color="primary" label="View Group" @click="viewGroup(group.id)" />
-            <q-btn flat color="secondary" label="Join" @click="joinGroup(group.id)" />
-          </q-card-actions>
-        </q-card>
+        <GroupsItemComponent :group="group" @view="viewGroup" @join="joinGroup"/>
       </div>
     </div>
 
@@ -63,82 +44,40 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { LoadingBar, useQuasar } from 'quasar'
+import { LoadingBar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { groupsApi } from 'src/api/groups.ts'
+import { categoriesApi } from 'src/api/categories.ts'
+import { CategoryEntity, GroupEntity } from 'src/types'
+import GroupsItemComponent from 'components/group/GroupsItemComponent.vue'
+import { useNotification } from 'src/composables/useNotification.ts'
 
-const $q = useQuasar()
 const router = useRouter()
-
-interface Group {
-  id: number;
-  name: string;
-  category: string;
-  interests: string[];
-  memberCount: number;
-}
 
 onMounted(() => {
   LoadingBar.start()
-  groupsApi.getAll().then().finally(LoadingBar.stop)
+  Promise.all([
+    groupsApi.getAll().then(res => {
+      groups.value = res.data
+    }),
+    categoriesApi.getAll().then(res => {
+      categories.value = res.data
+    })
+  ]).finally(LoadingBar.stop)
 })
 
-const groups = ref<Group[]>([
-  {
-    id: 1,
-    name: 'Tech Enthusiasts',
-    category: 'Technology',
-    interests: ['Programming', 'AI', 'Web Development'],
-    memberCount: 1250
-  },
-  {
-    id: 2,
-    name: 'Outdoor Adventures',
-    category: 'Sports & Fitness',
-    interests: ['Hiking', 'Camping', 'Rock Climbing'],
-    memberCount: 850
-  },
-  {
-    id: 3,
-    name: 'Book Lovers Club',
-    category: 'Arts & Culture',
-    interests: ['Fiction', 'Non-fiction', 'Poetry'],
-    memberCount: 500
-  },
-  {
-    id: 4,
-    name: 'Foodies Unite',
-    category: 'Food & Drink',
-    interests: ['Cooking', 'Restaurant Hopping', 'Wine Tasting'],
-    memberCount: 750
-  },
-  {
-    id: 5,
-    name: 'Green Earth Initiative',
-    category: 'Environment',
-    interests: ['Sustainability', 'Conservation', 'Recycling'],
-    memberCount: 600
-  }
-])
+const categories = ref<CategoryEntity[]>([])
 
-const categories = [
-  { label: 'All Categories', value: '' },
-  { label: 'Technology', value: 'Technology' },
-  { label: 'Sports & Fitness', value: 'Sports & Fitness' },
-  { label: 'Arts & Culture', value: 'Arts & Culture' },
-  { label: 'Food & Drink', value: 'Food & Drink' },
-  { label: 'Environment', value: 'Environment' }
-]
+const groups = ref<GroupEntity[]>([])
 
 const selectedCategory = ref('')
 const searchQuery = ref('')
 
 const filteredGroups = computed(() => {
   return groups.value.filter(group => {
-    const categoryMatch = !selectedCategory.value || group.category === selectedCategory.value
+    const categoryMatch = !selectedCategory.value
     const searchMatch = !searchQuery.value ||
-      group.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      group.interests.some(interest => interest.toLowerCase().includes(searchQuery.value.toLowerCase()))
+      group.name.toLowerCase().includes(searchQuery.value.toLowerCase())
     return categoryMatch && searchMatch
   })
 })
@@ -149,14 +88,10 @@ const viewGroup = (groupId: number) => {
 
 const joinGroup = (groupId: number) => {
   const group = groups.value.find(g => g.id === groupId)
+  const { success } = useNotification()
   if (group) {
-    group.memberCount++
-    $q.notify({
-      color: 'positive',
-      textColor: 'white',
-      icon: 'sym_r_check_circle',
-      message: `You've joined ${group.name}!`
-    })
+    // group.membersCount++
+    success(`You've joined ${group.name}!`)
   }
 }
 </script>

@@ -64,3 +64,10 @@ export interface CategoryEntity {
   name: string,
   subCategories: SubCategoryEntity[]
 }
+
+export interface OneTrustGeoLocationResponse {
+  country: string
+  state: string
+  stateName: string
+  continent: string
+}

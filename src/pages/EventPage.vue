@@ -82,6 +82,22 @@
         </q-card>
       </div>
     </div>
+    <q-page-sticky v-if="event" expand position="bottom" class="bg-red">
+      <div class="bg-grey-1 q-pa-md">
+        <p><strong>{{ formatDate(event.startDate) }}</strong></p>
+        <p><strong>{{ event.name }}</strong></p>
+        <p>Places Left: 123</p>
+<!--        <p>Price: ${{ event.price.toFixed(2) }}</p>-->
+        <p>Price: $234</p>
+
+        <div class="q-mt-md">
+          <q-btn label="Share" color="secondary"/>
+        </div>
+        <div class="q-mt-md">
+          <q-btn label="Attend" color="primary"/>
+        </div>
+      </div>
+    </q-page-sticky>
   </q-page>
 </template>
 
