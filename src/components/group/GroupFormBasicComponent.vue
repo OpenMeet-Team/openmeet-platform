@@ -21,17 +21,14 @@
       filled
       multiple
       use-chips
+      emit-value
+      map-options
       option-value="id"
       option-label="name"
       label="Categories (press Enter after each)"
     />
 
-    <q-input
-      filled
-      v-model="group.location"
-      label="Location"
-      :rules="[val => !!val || 'Location is required']"
-    />
+    <LocationComponent :location="group.location as string" :lat="group.lat as number" :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location" placeholder="Neighborhood, city or zip"/>
 
     <UploadComponent label="Group image" :crop-options="{autoZoom: true, aspectRatio: 16/9}" @upload="onGroupImageSelect"/>
 
@@ -42,7 +39,10 @@
       style="height: 140px; max-width: 150px"
     />
 
-   <slot></slot>
+    <div class="row justify-end q-gutter-sm">
+      <q-btn flat label="Cancel" @click="$emit('close')"/>
+      <q-btn label="Create a Group" type="submit" color="primary"/>
+    </div>
   </q-form>
 </template>
 
@@ -53,6 +53,7 @@ import { useNotification } from 'src/composables/useNotification.ts'
 import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
+import LocationComponent from 'components/common/LocationComponent.vue'
 
 const group = ref<GroupEntity>({
   id: 0,
@@ -62,6 +63,12 @@ const group = ref<GroupEntity>({
   location: ''
 })
 
+const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
+  group.value.lat = parseFloat(address.lat as string)
+  group.value.lon = parseFloat(address.lon as string)
+  group.value.location = address.location
+}
+
 const onGroupImageSelect = (file: UploadedFileEntity) => {
   group.value.image = file
 }
@@ -70,7 +77,7 @@ const categoryOptions = ref<CategoryEntity[]>([])
 
 const { error } = useNotification()
 
-const emit = defineEmits(['created', 'updated'])
+const emit = defineEmits(['created', 'updated', 'close'])
 
 onMounted(() => {
   // TODO fetch categories
@@ -95,12 +102,6 @@ const props = withDefaults(defineProps<Props>(), {
 const onSubmit = async () => {
   const groupPayload = {
     ...group.value
-  }
-
-  if (group.value.categories) {
-    // groupPayload.categories = group.value.categories.map(category => {
-    //   return typeof category === 'object' ? category.id : category
-    // }) as number[]
   }
 
   try {

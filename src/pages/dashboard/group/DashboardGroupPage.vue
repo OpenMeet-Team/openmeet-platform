@@ -14,16 +14,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { groupsApi } from 'src/api/groups.ts'
-import { LoadingBar } from 'quasar'
 import { useRoute } from 'vue-router'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 const route = useRoute()
 
-onMounted(() => {
-  LoadingBar.start()
-  groupsApi.getAll().finally(LoadingBar.stop)
-})
 </script>

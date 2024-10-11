@@ -2,7 +2,9 @@ import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
 import { GroupEntity } from 'src/types/group.ts'
 
 export type EventType = 'online' | 'in-person' | 'hybrid'
-export type VisibilityType = 'public' | 'authenticated' | 'private'
+export type EventVisibilityType = 'public' | 'authenticated' | 'private'
+export type EventStatusType = 'draft' | 'pending' | 'published'
+
 interface EventCategory extends CategoryEntity {}
 export interface EventEntity {
   id: number
@@ -23,6 +25,7 @@ export interface EventEntity {
   groupId?: number
   group?: GroupEntity
   is_public?: boolean
-  visibility?: VisibilityType
+  visibility?: EventVisibilityType
   userId?: number
+  status?: EventStatusType
 }

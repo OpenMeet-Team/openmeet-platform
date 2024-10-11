@@ -1,5 +1,5 @@
 <template>
-  <q-input filled v-model="formattedDate" readonly :required="required">
+  <q-input filled v-model="formattedDate" :required="required">
     <!-- Date picker -->
     <template v-slot:prepend>
       <q-icon name="sym_r_event" class="cursor-pointer">

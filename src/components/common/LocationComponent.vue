@@ -1,9 +1,11 @@
 <template>
   <q-input
     :label="label"
+    :placeholder="placeholder"
     :model-value="location"
     filled
     debounce="500"
+    :rules="rules"
     @update:model-value="fetchLocationSuggestions"
   >
     <template v-slot:append>
@@ -50,14 +52,17 @@ import { useNotification } from 'src/composables/useNotification.ts'
 import { OSMLocationSuggestion } from 'src/types'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
+import { ValidationRule } from 'quasar'
 
 const { error } = useNotification()
 
 interface Props {
   label?: string
   location?: string
+  placeholder?: string
   lat?: number
   lon?: number
+  rules?: ValidationRule[]
 }
 
 interface NewLocation {

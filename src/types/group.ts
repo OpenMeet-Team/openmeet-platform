@@ -1,4 +1,4 @@
-import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
+import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 
 interface GroupMemberEntity {
   id: number;
@@ -19,6 +19,8 @@ export interface GroupEntity {
   description?: string
   categories?: CategoryEntity[]
   location?: string
+  lat?: number
+  lon?: number
   image?: UploadedFileEntity
   organizerId?: string
   membersCount?: number
@@ -36,3 +38,5 @@ export const GroupPermissions = {
   CAN_CHAT: 'can_chat',
   CAN_POST_FILES: 'can_post_files'
 }
+
+export interface GroupPaginationEntity extends Pagination<GroupEntity> {}

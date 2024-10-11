@@ -4,7 +4,7 @@ import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
 import HeaderMobileMenu from 'components/header/HeaderMobileMenu.vue'
 import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
 import HeaderWrapperComponent from 'components/layout/HeaderWrapperComponent.vue'
-import HeaderLocationComponent from 'components/header/HeaderLocationComponent.vue'
+// import HeaderLocationComponent from 'components/header/HeaderLocationComponent.vue'
 </script>
 
 <template>
@@ -13,7 +13,7 @@ import HeaderLocationComponent from 'components/header/HeaderLocationComponent.v
       <HeaderLogoComponent/>
 
       <HeaderSearchComponent/>
-      <HeaderLocationComponent/>
+<!--      <HeaderLocationComponent/>-->
 
       <q-space/>
 

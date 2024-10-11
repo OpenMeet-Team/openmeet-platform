@@ -1,6 +1,6 @@
 <template>
   <q-card class="event-card">
-    <q-img :src="event.image as string || 'https://cdn.quasar.dev/img/parallax2.jpg'" :ratio="16/9">
+    <q-img :src="getImageSrc(event.image)" :ratio="16/9">
       <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">{{ event.name }}</div>
     </q-img>
 
@@ -42,6 +42,7 @@
 import { ref } from 'vue'
 import { date } from 'quasar'
 import { EventEntity } from 'src/types'
+import { getImageSrc } from 'src/utils/imageUtils.ts'
 
 const props = defineProps<{
   event: EventEntity;

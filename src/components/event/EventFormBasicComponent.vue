@@ -1,5 +1,5 @@
 <template>
-  <q-form @submit="onSubmit" class="q-gutter-md">
+  <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md">
 
     <q-input
       v-model="eventData.name"
@@ -119,7 +119,12 @@
           val => val > 0 || 'Maximum attendees must be greater than 0',
         ]"
     />
-    <slot></slot>
+
+    <div class="row justify-end q-gutter-md">
+      <q-btn flat label="Cancel" @click="$emit('close')"/>
+      <q-btn label="Save as draft" color="secondary" @click="onSaveDraft"/>
+      <q-btn label="Publish" color="primary" @click="onPublish"/>
+    </div>
   </q-form>
 </template>
 
@@ -133,6 +138,7 @@ import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
+import { QForm } from 'quasar'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFileEntity) => {
@@ -141,7 +147,8 @@ const onEventImageSelect = (file: UploadedFileEntity) => {
 
 const categoryOptions = ref<CategoryEntity[]>([])
 
-const emit = defineEmits(['created', 'updated'])
+const emit = defineEmits(['created', 'updated', 'close'])
+const formRef = ref<QForm | null>(null)
 
 const eventData = ref<EventEntity>({
   name: '',
@@ -153,6 +160,16 @@ const eventData = ref<EventEntity>({
   visibility: 'public',
   categories: []
 })
+
+const onSaveDraft = () => {
+  eventData.value.status = 'draft'
+  formRef.value?.submit()
+}
+
+const onPublish = () => {
+  eventData.value.status = 'published'
+  formRef.value?.submit()
+}
 
 const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
   eventData.value.lat = parseFloat(address.lat as string)

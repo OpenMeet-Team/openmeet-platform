@@ -2,12 +2,7 @@
   <q-page padding>
     <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event"/>
 
-    <EventFormComponent @created="onEventCreated" style="max-width: 500px">
-      <div class="row justify-end q-gutter-md">
-        <q-btn flat label="Cancel" :to="{ name: 'DashboardEventsPage' }"/>
-        <q-btn label="Create Event" type="submit" color="primary"/>
-      </div>
-    </EventFormComponent>
+    <EventFormComponent @created="onEventCreated" style="max-width: 500px" @close="onClose"/>
   </q-page>
 </template>
 
@@ -20,6 +15,10 @@ import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 const router = useRouter()
 const onEventCreated = (event: EventEntity) => {
   router.push({ name: 'DashboardEventPage', params: { id: event.id } })
+}
+
+const onClose = () => {
+  router.push({ name: 'DashboardEventsPage' })
 }
 
 </script>

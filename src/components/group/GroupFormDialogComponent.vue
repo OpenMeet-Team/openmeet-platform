@@ -12,6 +12,12 @@ const onSubmit = () => {
     router.push({ name: 'DashboardGroupsPage' })
   }
 }
+
+const onClose = () => {
+  if (dialogRef.value) {
+    dialogRef.value.hide()
+  }
+}
 </script>
 
 <template>
@@ -22,12 +28,7 @@ const onSubmit = () => {
       <h1 class="text-h4 q-my-none">Create New Group</h1>
     </div>
 
-    <GroupFormBasicComponent @created="onSubmit">
-      <div class="row justify-end q-gutter-sm">
-        <q-btn flat label="Cancel" v-close-popup/>
-        <q-btn label="Create Group" type="submit" color="primary"/>
-      </div>
-    </GroupFormBasicComponent>
+    <GroupFormBasicComponent @created="onSubmit" @close="onClose"/>
   </q-card>
 </q-dialog>
 </template>
