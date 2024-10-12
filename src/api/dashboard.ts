@@ -21,7 +21,8 @@ export const eventsApi = {
   update: (id: string, eventData: Partial<EventEntity>) => api.put<EventEntity>(`/api/v1/dashboard/events/${id}`, eventData),
   delete: (id: string) => api.delete(`/api/v1/dashboard/events/${id}`),
   attend: (id: string) => api.post(`/api/v1/dashboard/events/${id}/attend`),
-  leave: (id: string) => api.post(`/api/v1/dashboard/events/${id}/leave`)
+  leave: (id: string) => api.post(`/api/v1/dashboard/events/${id}/leave`),
+  getAttendees: (id: string) => api.post(`/api/v1/dashboard/events/${id}/attendees`)
 }
 
 export const groupsApi = {

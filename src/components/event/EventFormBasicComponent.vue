@@ -1,5 +1,5 @@
 <template>
-  <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md">
+  <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="loaded">
 
     <q-input
       v-model="eventData.name"
@@ -8,12 +8,24 @@
       :rules="[(val: string) => !!val || 'Title is required']"
     />
 
+    <q-select
+      v-if="groupsOptions && groupsOptions.length"
+      v-model="eventData.group"
+      :options="groupsOptions"
+      filled
+      option-value="id"
+      option-label="name"
+      map-options
+      emit-value
+      label="Group"
+    />
+
     <!--    <div>-->
     <!--      {{ eventData.startDate }} - {{ new Date(eventData.startDate) }} - {{ new Date(eventData.startDate) > new Date() }} <br>-->
     <!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
     <!--    </div>-->
 
-    <DatetimeComponent required label="Starting date and time" v-model="eventData.startDate" reactive-rules
+    <DatetimeComponent class="q-mt-lg" required label="Starting date and time" v-model="eventData.startDate" reactive-rules
                        :rules="[(val: string) => !!val || 'Date is required']">
       <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
       <!-- Display Timezone -->
@@ -123,14 +135,15 @@
     <div class="row justify-end q-gutter-md">
       <q-btn flat label="Cancel" @click="$emit('close')"/>
       <q-btn label="Save as draft" v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft"/>
-      <q-btn label="Publish" color="primary" @click="onPublish"/>
+      <q-btn v-if="!eventData.status || eventData.status !== 'published'" label="Publish" color="primary" @click="onPublish"/>
+      <q-btn v-else label="Update" color="primary" @click="onPublish"/>
     </div>
   </q-form>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, UploadedFileEntity } from 'src/types'
+import { CategoryEntity, EventEntity, GroupEntity, UploadedFileEntity } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -139,6 +152,7 @@ import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
 import { QForm } from 'quasar'
+import { groupsApi } from 'src/api/groups.ts'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: UploadedFileEntity) => {
@@ -146,9 +160,11 @@ const onEventImageSelect = (file: UploadedFileEntity) => {
 }
 
 const categoryOptions = ref<CategoryEntity[]>([])
+const groupsOptions = ref<GroupEntity[]>([])
 
 const emit = defineEmits(['created', 'updated', 'close'])
 const formRef = ref<QForm | null>(null)
+const loaded = ref<boolean>(false)
 
 const eventData = ref<EventEntity>({
   name: '',
@@ -178,14 +194,27 @@ const onUpdateLocation = (address: {lat: string, lon: string, location: string})
 }
 
 onMounted(() => {
-  categoriesApi.getAll().then(res => {
-    categoryOptions.value = res.data
-  })
-  if (props.editEventId) {
-    eventsApi.getById(props.editEventId).then(res => {
-      eventData.value = res.data
+  const promises = [
+    categoriesApi.getAll().then(res => {
+      categoryOptions.value = res.data
+    }),
+    groupsApi.getAllMe({ query: { limit: 1000, page: 1 } }).then(res => {
+      groupsOptions.value = res.data.data
     })
+  ]
+
+  if (props.editEventId) {
+    promises.push(
+      eventsApi.getById(props.editEventId).then(res => {
+        eventData.value = res.data
+      })
+    )
   }
+
+  // Wait for all promises to resolve and then set loaded to true
+  Promise.all(promises).finally(() => {
+    loaded.value = true
+  })
 })
 
 const props = withDefaults(defineProps<{ editEventId?: string }>(), {

@@ -31,7 +31,7 @@
 
     <q-card-actions align="right">
       <q-btn flat color="primary" label="Edit" @click="onEditEvent" />
-      <q-btn flat color="primary" label="View Details" @click="viewEventDetails" />
+      <q-btn flat color="primary" label="View" @click="viewEventDetails" />
       <q-btn flat :color="isAttending ? 'negative' : 'secondary'" :label="isAttending ? 'Cancel RSVP' : 'RSVP'" @click="toggleRSVP" />
       <q-btn flat color="negative" label="Delete" @click="onDeleteEvent" />
     </q-card-actions>

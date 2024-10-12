@@ -47,6 +47,18 @@
       </div>
 
       <div class="col-12 col-md-4">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <q-btn-dropdown align="center" no-caps label="Organiser tools">
+              <q-list>
+                <MenuItemComponent label="Manage Event" icon="sym_r_edit_note" @click="$router.push({ name: 'DashboardEventGeneralPage', params: { id: $route.params.id }})"/>
+                <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="$router.push({ name: 'DashboardEventAttendeesPage', params: { id: $route.params.id }})"/>
+                <q-separator/>
+                <MenuItemComponent label="Delete event" icon="sym_r_delete"/>
+              </q-list>
+            </q-btn-dropdown>
+          </q-card-section>
+        </q-card>
         <q-card>
           <q-card-section>
             <div class="text-h6">Organizer</div>
@@ -86,6 +98,7 @@ import { getImageSrc } from 'src/utils/imageUtils.ts'
 import EventStickyComponent from 'components/event/EventStickyComponent.vue'
 import { formatDate } from '../utils/dateUtils.ts'
 import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
+import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 
 const route = useRoute()
 const { success } = useNotification()
