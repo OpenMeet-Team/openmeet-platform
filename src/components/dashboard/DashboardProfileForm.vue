@@ -6,21 +6,21 @@
       v-model="form.email"
       label="Email"
       type="email"
-      :rules="[val => !!val || 'Email is required']"
+      :rules="[(val: string) => !!val || 'Email is required']"
     />
 
     <q-input
       filled
       v-model="form.firstName"
       label="First Name"
-      :rules="[val => !!val || 'First name is required']"
+      :rules="[(val: string) => !!val || 'First name is required']"
     />
 
     <q-input
       filled
       v-model="form.lastName"
       label="Last Name"
-      :rules="[val => !!val || 'Last name is required']"
+      :rules="[(val: string) => !!val || 'Last name is required']"
     />
 
     <UploadComponent label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>

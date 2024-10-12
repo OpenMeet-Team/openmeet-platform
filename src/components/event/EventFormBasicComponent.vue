@@ -5,7 +5,7 @@
       v-model="eventData.name"
       label="Event Title"
       filled
-      :rules="[val => !!val || 'Title is required']"
+      :rules="[(val: string) => !!val || 'Title is required']"
     />
 
     <!--    <div>-->
@@ -116,13 +116,13 @@
       filled
       type="number"
       :rules="[
-          val => val > 0 || 'Maximum attendees must be greater than 0',
+          (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
         ]"
     />
 
     <div class="row justify-end q-gutter-md">
       <q-btn flat label="Cancel" @click="$emit('close')"/>
-      <q-btn label="Save as draft" color="secondary" @click="onSaveDraft"/>
+      <q-btn label="Save as draft" v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft"/>
       <q-btn label="Publish" color="primary" @click="onPublish"/>
     </div>
   </q-form>

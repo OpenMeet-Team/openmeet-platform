@@ -1,8 +1,8 @@
 import { AxiosResponse } from 'axios'
 import { api } from 'boot/axios'
-import { EventEntity, GroupEntity, Message } from 'src/types'
+import { EventEntity, EventPaginationEntity, GroupEntity, Message } from 'src/types'
 
-export function apiGetDashboardEvents (): Promise<AxiosResponse<EventEntity[]>> {
+export function apiGetDashboardEvents (): Promise<AxiosResponse<EventPaginationEntity>> {
   return api.get('/api/events')
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GroupEntity } from 'src/types'
+import { CategoryEntity, GroupEntity } from 'src/types'
 
 defineEmits(['edit', 'view', 'leave', 'delete'])
 
@@ -30,7 +30,7 @@ const getRoleColor = (role: string): string => {
     <q-card-section>
       <div class="text-h6">{{ group.name }}</div>
       <div class="text-subtitle2" v-if="group.categories">
-        {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
+        {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
       </div>
     </q-card-section>
     <q-card-section class="q-pt-none">

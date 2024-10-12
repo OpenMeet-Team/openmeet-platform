@@ -121,7 +121,8 @@ export default configure((ctx) => {
       plugins: [
         'Notify',
         'Dialog',
-        'LoadingBar'
+        'LoadingBar',
+        'Loading'
       ]
     },
 

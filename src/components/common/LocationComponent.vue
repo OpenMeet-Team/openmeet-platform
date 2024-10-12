@@ -28,7 +28,7 @@
           <div class="text-h6">Add a new Address</div>
         </q-card-section>
         <q-card-section>
-          <q-input v-model="newLocation.location" :rules="[(val) => !!val || 'Please enter address']" label="Enter new location" filled />
+          <q-input v-model="newLocation.location" :rules="[(val: string) => !!val || 'Please enter address']" label="Enter new location" filled />
         </q-card-section>
         <q-card-section>
           <div style="height: 300px">

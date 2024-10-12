@@ -4,18 +4,18 @@
       filled
       v-model="group.name"
       label="Group Name"
-      :rules="[val => !!val || 'Group name is required']"
+      :rules="[(val: string) => !!val || 'Group name is required']"
     />
     <q-input
       filled
       v-model="group.description"
       type="textarea"
       label="Description"
-      :rules="[val => !!val || 'Description is required']"
+      :rules="[(val: []) => !!val || 'Description is required']"
     />
 
     <q-select
-      :rules="[val => !!val.length || 'Categories is required']"
+      :rules="[(val: []) => !!val.length || 'Categories is required']"
       v-model="group.categories"
       :options="categoryOptions"
       filled
@@ -39,6 +39,21 @@
       style="height: 140px; max-width: 150px"
     />
 
+    <q-select
+      v-model="group.visibility"
+      label="Group Viewable By"
+      option-value="value"
+      option-label="label"
+      emit-value
+      map-options
+      :options="[
+          { label: 'The World', value: 'public' },
+          { label: 'Authenticated Users', value: 'authenticated' },
+          { label: 'People You Invite', value: 'private' }
+      ]"
+      filled
+    />
+
     <div class="row justify-end q-gutter-sm">
       <q-btn flat label="Cancel" @click="$emit('close')"/>
       <q-btn label="Create a Group" type="submit" color="primary"/>
@@ -54,13 +69,15 @@ import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import LocationComponent from 'components/common/LocationComponent.vue'
+import { Loading } from 'quasar'
 
 const group = ref<GroupEntity>({
   id: 0,
   name: '',
   description: '',
   categories: [],
-  location: ''
+  location: '',
+  visibility: 'public'
 })
 
 const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
@@ -100,10 +117,12 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
+  group.value.status = 'published'
   const groupPayload = {
     ...group.value
   }
 
+  Loading.show()
   try {
     if (groupPayload.id) {
       const res = await groupsApi.update(groupPayload.id, groupPayload)
@@ -115,6 +134,8 @@ const onSubmit = async () => {
   } catch (err) {
     console.log(err)
     error('Failed to create an event')
+  } finally {
+    Loading.hide()
   }
 }
 

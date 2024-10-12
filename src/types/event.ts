@@ -1,4 +1,4 @@
-import { CategoryEntity, UploadedFileEntity } from 'src/types/model.ts'
+import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 import { GroupEntity } from 'src/types/group.ts'
 
 export type EventType = 'online' | 'in-person' | 'hybrid'
@@ -24,8 +24,9 @@ export interface EventEntity {
   categories?: EventCategory[] | number[]
   groupId?: number
   group?: GroupEntity
-  is_public?: boolean
   visibility?: EventVisibilityType
   userId?: number
   status?: EventStatusType
 }
+
+export interface EventPaginationEntity extends Pagination<EventEntity> {}

@@ -83,20 +83,16 @@ const signUp = () => {
       <MenuItemComponent label="Events" :to="{name: 'EventsPage'}"/>
       <MenuItemComponent label="Groups" :to="{name: 'GroupsPage'}"/>
       <q-item>
-        <q-item-section>
+        <q-item-section side>
           <HeaderDarkModeComponent/>
         </q-item-section>
-      </q-item>
-      <q-item>
         <q-item-section>
-          <q-btn @click="openCreateGroupForm" label="Add group"/>
+          Toggle dark/light theme
         </q-item-section>
       </q-item>
-      <q-item>
-        <q-item-section>
-          <q-btn @click="openCreateEventForm" label="Add event"/>
-        </q-item-section>
-      </q-item>
+
+      <MenuItemComponent label="Add group" @click="openCreateGroupForm"/>
+      <MenuItemComponent label="Add new event" @click="openCreateEventForm"/>
 
       <template v-if="useAuthStore().isAuthenticated">
         <q-item-label header>Account</q-item-label>
@@ -109,18 +105,8 @@ const signUp = () => {
         <MenuItemComponent label="Logout" icon="sym_r_logout" @click="onClickLogout"/>
       </template>
       <template v-else>
-        <q-item clickable v-ripple @click="login">
-          <q-item-section avatar>
-            <q-icon name="sym_r_login"/>
-          </q-item-section>
-          <q-item-section>Login</q-item-section>
-        </q-item>
-        <q-item clickable v-ripple @click="signUp">
-          <q-item-section avatar>
-            <q-icon name="sym_r_person_add"/>
-          </q-item-section>
-          <q-item-section>Sign Up</q-item-section>
-        </q-item>
+        <MenuItemComponent @click="login" icon="sym_r_login" label="Login"/>
+        <MenuItemComponent @click="signUp" icon="sym_r_person_add" label="Sign Up"/>
       </template>
     </q-list>
   </q-drawer>

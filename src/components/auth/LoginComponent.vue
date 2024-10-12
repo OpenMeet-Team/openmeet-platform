@@ -11,7 +11,7 @@
           v-model="email"
           :label="$t('auth.email')"
           type="email"
-          :rules="[val => !!val || $t('auth.emailRequired')]"
+          :rules="[(val: string) => !!val || $t('auth.emailRequired')]"
         />
 
         <q-input
@@ -19,7 +19,7 @@
           v-model="password"
           :label="$t('auth.password')"
           :type="isPwd ? 'password' : 'text'"
-          :rules="[val => !!val || $t('auth.passwordRequired')]"
+          :rules="[(val: string) => !!val || $t('auth.passwordRequired')]"
         >
           <template v-slot:append>
             <q-icon

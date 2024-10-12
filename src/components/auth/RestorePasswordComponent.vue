@@ -16,8 +16,8 @@
             label="New Password"
             :type="isPwd ? 'password' : 'text'"
             :rules="[
-              val => !!val || 'Password is required',
-              val => val.length >= 8 || 'Password must be at least 8 characters'
+              (val: string) => !!val || 'Password is required',
+              (val: string) => val.length >= 8 || 'Password must be at least 8 characters'
             ]"
           >
             <template v-slot:append>

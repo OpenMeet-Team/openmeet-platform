@@ -14,7 +14,7 @@
           <q-card-section>
             <div class="text-h4">{{ group.name }}</div>
             <div class="text-subtitle1 q-mt-sm" v-if="group.categories">
-              <q-icon name="sym_r_category" /> {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
+              <q-icon name="sym_r_category" /> {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
             </div>
             <div class="text-subtitle1">
               <q-icon name="sym_r_people" /> {{ group.membersCount }} members
@@ -116,6 +116,7 @@ import { useRoute, useRouter } from 'vue-router'
 // import { useUserStore } from 'stores/user-store.ts'
 import { useGroupStore } from 'stores/group-store.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { CategoryEntity } from '../types'
 
 interface ChatMessage {
   id: number;

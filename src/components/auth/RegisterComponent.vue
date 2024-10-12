@@ -11,7 +11,7 @@
             v-model="firstName"
             label="First name"
             :rules="[
-              val => !!val || 'First name name is required',
+              (val: string) => !!val || 'First name name is required',
             ]"
           />
 
@@ -20,7 +20,7 @@
             v-model="lastName"
             label="Last name"
             :rules="[
-              val => !!val || 'Last name is required',
+              (val: string) => !!val || 'Last name is required',
             ]"
           />
 
@@ -30,8 +30,8 @@
             label="Your Email"
             type="email"
             :rules="[
-              val => !!val || 'Email is required',
-              val => validateEmail(val) || 'Please enter a valid email address'
+              (val: string) => !!val || 'Email is required',
+              (val: string) => validateEmail(val) || 'Please enter a valid email address'
             ]"
           />
 
@@ -41,8 +41,8 @@
             label="Password"
             :type="isPwd ? 'password' : 'text'"
             :rules="[
-              val => !!val || 'Password is required',
-              val => val.length >= 8 || 'Password must be at least 8 characters'
+              (val: string) => !!val || 'Password is required',
+              (val: string) => val.length >= 8 || 'Password must be at least 8 characters'
             ]"
           >
             <template v-slot:append>
@@ -60,8 +60,8 @@
             label="Confirm Password"
             :type="isConfirmPwd ? 'password' : 'text'"
             :rules="[
-              val => !!val || 'Please confirm your password',
-              val => val === password || 'Passwords do not match'
+              (val: string) => !!val || 'Please confirm your password',
+              (val: string) => val === password || 'Passwords do not match'
             ]"
           >
             <template v-slot:append>

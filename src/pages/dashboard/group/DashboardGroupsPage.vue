@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding v-if="loaded">
 
     <DashboardTitle label="My Groups">
       <q-btn v-if="userGroups && userGroups.data.length"
@@ -11,12 +11,7 @@
       />
     </DashboardTitle>
 
-    <div v-if="userGroups && userGroups.data.length === 0" class="text-center q-pa-md">
-      <q-icon name="sym_r_groups" size="4em" color="grey-5"/>
-      <p class="text-h6 text-grey-6 q-mt-sm">You haven't created any groups yet.</p>
-      <q-btn color="primary" no-caps label="Add new Group" @click="onAddNewGroup" class="q-mt-md"/>
-    </div>
-
+    <NoContentComponent v-if="userGroups && !userGroups.data.length" @click="onAddNewGroup" buttonLabel="Add new Group" label="You haven't created any groups yet." icon="sym_r_groups"/>
     <div v-else class="row q-col-gutter-md">
       <template v-if="userGroups">
         <div v-for="group in userGroups.data" :key="group.id" class="col-12 col-sm-6 col-md-4">
@@ -29,11 +24,7 @@
       <h1 class="text-h4 q-my-none">Member Groups</h1>
     </div>
 
-    <div v-if="userGroups && userGroups.data.length === 0" class="text-center q-pa-md">
-      <q-icon name="sym_r_group" size="4em" color="grey-5"/>
-      <p class="text-h6 text-grey-6 q-mt-sm">You haven't joined any groups yet.</p>
-      <q-btn color="primary" no-caps label="Explore Groups" @click="exploreGroups" class="q-mt-md"/>
-    </div>
+    <NoContentComponent v-if="userGroups && userGroups.data.length === 0" @click="exploreGroups" buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group"/>
 
     <div v-else class="row q-col-gutter-md">
       <template v-if="userGroups">
@@ -41,13 +32,13 @@
           <DashboardGroupItem :group="group" @view="viewGroup" @edit="editGroup" @leave="confirmLeaveGroup" @delete="onDeleteGroup"/>
         </div>
       </template>
-
-      <q-pagination v-if="userGroups"
-        v-model="currentPage"
-        :max="userGroups.totalPages"
-        @input="onPageChange"
-      />
     </div>
+    <q-pagination class="q-mt-xl"
+                  v-if="userGroups && userGroups.totalPages && userGroups.totalPages > 1"
+                  v-model="currentPage"
+                  :max="userGroups.totalPages"
+                  @input="onPageChange"
+    />
 
   </q-page>
 </template>
@@ -61,10 +52,12 @@ import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity, GroupPaginationEntity } from 'src/types'
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
+import NoContentComponent from 'components/common/NoContentComponent.vue'
 
 const router = useRouter()
 const route = useRoute()
 
+const loaded = ref<boolean>(false)
 const userGroups = ref<GroupPaginationEntity>({
   data: [],
   total: 0,
@@ -84,7 +77,7 @@ watch(
 
 const fetchData = async () => {
   LoadingBar.start()
-  apiGetDashboardGroups().then(res => {
+  return apiGetDashboardGroups().then(res => {
     userGroups.value = res.data
   }).finally(LoadingBar.stop)
 }
@@ -94,7 +87,9 @@ const onPageChange = (page: number) => {
   router.push({ query: { ...route.query, page } })
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  fetchData().finally(() => (loaded.value = true))
+})
 
 const exploreGroups = () => {
   router.push({ name: 'GroupsPage' })

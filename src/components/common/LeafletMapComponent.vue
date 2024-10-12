@@ -20,7 +20,12 @@ const markers = ref<Marker[]>([])
 
 const emit = defineEmits(['markerLocation'])
 
-const props = defineProps<{lat?: number, lon?: number}>()
+interface Props {
+  lat?: number
+  lon?: number
+  disabled?: boolean
+}
+const props = defineProps<Props>()
 
 interface MapOptions {
   center: [number, number]
@@ -78,7 +83,6 @@ const initializeMap = async () => {
 
   // Add tile layer
   if (map.value) {
-    console.log(map.value)
     tileLayer.value = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value as LMap)
   }
 
@@ -90,23 +94,25 @@ const initializeMap = async () => {
   let marker: L.Marker | null = null
 
   // Add click event to the map
-  map.value.on('click', (e: L.LeafletMouseEvent) => {
-    const { lat, lng } = e.latlng
+  if (!props.disabled) {
+    map.value.on('click', (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng
 
-    // If there's an existing marker, remove it
-    if (marker) {
-      map.value?.removeLayer(marker)
-    }
+      // If there's an existing marker, remove it
+      if (marker) {
+        map.value?.removeLayer(marker)
+      }
 
-    if (initialMarker) map.value?.removeLayer(initialMarker)
+      if (initialMarker) map.value?.removeLayer(initialMarker)
 
-    // addMarker([lat, lng], '')
-    // Add a new marker at the clicked position
-    marker = L.marker([lat, lng]).addTo(map.value as LMap)
+      // addMarker([lat, lng], '')
+      // Add a new marker at the clicked position
+      marker = L.marker([lat, lng]).addTo(map.value as LMap)
 
-    // Emit the clicked location
-    emit('markerLocation', { lat, lng })
-  })
+      // Emit the clicked location
+      emit('markerLocation', { lat, lng })
+    })
+  }
 
   window.addEventListener('resize', () => {
     map.value?.invalidateSize()

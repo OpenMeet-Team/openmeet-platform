@@ -16,8 +16,8 @@
             label="Email"
             type="email"
             :rules="[
-              val => !!val || 'Email is required',
-              val => validateEmail(val) || 'Please enter a valid email address'
+              (val: string) => !!val || 'Email is required',
+              (val: string) => validateEmail(val) || 'Please enter a valid email address'
             ]"
           >
             <template v-slot:prepend>

@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding v-if="loaded">
 
     <DashboardTitle label="My Events">
       <q-btn
@@ -18,12 +18,14 @@
 
     <q-tab-panels v-model="tab" animated>
       <q-tab-panel name="created">
-        <div class="row q-gutter-md">
+        <NoContentComponent v-if="createdEvents && !createdEvents.length" @click="onAddNewEvent" buttonLabel="Add new Event" label="You haven't created any events yet." icon="sym_r_event"/>
+        <div v-else class="row q-gutter-md">
           <DashboardEventItem v-for="event in createdEvents" :key="event.id" :event="event" @view="viewEvent" @delete="onDeleteEvent" @edit="editEvent" />
         </div>
       </q-tab-panel>
 
       <q-tab-panel name="attended">
+        <NoContentComponent v-if="attendedEvents && !attendedEvents.length" @click="$router.push({ name: 'EventsPage' })" buttonLabel="Explore Events" label="You haven't attended any events yet." icon="sym_r_event"/>
         <div class="row q-gutter-md">
           <DashboardEventItem v-for="event in attendedEvents" :key="event.id" :event="event" @view="viewEvent" />
         </div>
@@ -41,8 +43,10 @@ import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
+import NoContentComponent from 'components/common/NoContentComponent.vue'
 
 const tab = ref<'created' | 'attended'>('created')
+const loaded = ref<boolean>(false)
 const router = useRouter()
 const { openDeleteEventDialog } = useEventDialog()
 
@@ -57,7 +61,7 @@ const viewEvent = (event: EventEntity) => {
 }
 
 const editEvent = (eventId: number) => {
-  router.push({ name: 'DashboardEventPage', params: { id: eventId } })
+  router.push({ name: 'DashboardEventGeneralPage', params: { id: eventId } })
 }
 
 const onDeleteEvent = (event: EventEntity) => {
@@ -67,8 +71,11 @@ const onDeleteEvent = (event: EventEntity) => {
 onMounted(() => {
   LoadingBar.start()
   apiGetDashboardEvents().then(res => {
-    events.value = res.data
-  }).finally(LoadingBar.stop)
+    events.value = res.data.data
+  }).finally(() => {
+    LoadingBar.stop()
+    loaded.value = true
+  })
 })
 
 const onAddNewEvent = () => {

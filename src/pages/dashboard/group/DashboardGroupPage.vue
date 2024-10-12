@@ -8,7 +8,9 @@
       <q-route-tab :to="{ name: 'DashboardGroupPrivacyPage', params: { id: route.params.id }}" name="privacy" label="Privacy settings" />
     </q-tabs>
 
-    <router-view/>
+    <q-tab-panel name="basic">
+      <router-view/>
+    </q-tab-panel>
 
   </q-page>
 </template>

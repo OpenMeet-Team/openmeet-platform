@@ -28,7 +28,7 @@ const viewEventDetails = (eventId: number) => {
 onMounted(() => {
   LoadingBar.start()
   eventsApi.getAll().finally(LoadingBar.stop).then(res => {
-    events.value = res.data
+    events.value = res.data.data
   })
 })
 </script>

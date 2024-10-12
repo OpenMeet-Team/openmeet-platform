@@ -1,5 +1,8 @@
 import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 
+export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
+export type GroupStatusType = 'draft' | 'pending' | 'published'
+
 interface GroupMemberEntity {
   id: number;
   name: string;
@@ -26,6 +29,8 @@ export interface GroupEntity {
   membersCount?: number
   members?: GroupMemberEntity[]
   events?: GroupEventEntity[]
+  visibility?: GroupVisibilityType
+  status?: GroupStatusType
 }
 
 export const GroupRoles = {

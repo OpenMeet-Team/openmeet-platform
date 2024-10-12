@@ -16,25 +16,32 @@
       <!-- Featured Groups Section -->
       <div class="col-12 col-md-8">
         <h2 class="text-h4 q-mb-md">Featured Groups</h2>
-        <div class="row q-col-gutter-md">
-          <div v-for="group in featuredGroups" :key="group.id" class="col-12 col-sm-6">
-            <HomeGroupItem :group="group" @view="onViewGroup"/>
+        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" @click="onAddNewGroup" buttonLabel="Add new Group" label="There are no created groups yet." icon="sym_r_groups"/>
+        <template v-else>
+          <div class="row q-col-gutter-md">
+            <div v-for="group in featuredGroups" :key="group.id" class="col-12 col-sm-6">
+              <HomeGroupItem :group="group" @view="onViewGroup"/>
+            </div>
           </div>
-        </div>
-        <div class="text-center q-mt-md">
-          <q-btn color="primary" label="Explore All Groups" @click="exploreGroups"/>
-        </div>
+          <div class="text-center q-mt-md">
+            <q-btn color="primary" label="Explore All Groups" @click="exploreGroups"/>
+          </div>
+        </template>
       </div>
 
       <!-- Upcoming Events Section -->
       <div class="col-12 col-md-4">
         <h2 class="text-h4 q-mb-md">Upcoming Events</h2>
-        <q-list bordered separator>
-          <HomeEventItem :events="upcomingEvents" @view="viewEvent"/>
-        </q-list>
-        <div class="text-center q-mt-md">
-          <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
-        </div>
+        <NoContentComponent v-if="upcomingEvents && !upcomingEvents.length" label="No events found" icon="sym_r_event"/>
+        <template>
+          <q-list bordered separator>
+            <HomeEventItem :events="upcomingEvents" @view="viewEvent"/>
+          </q-list>
+          <div class="text-center q-mt-md">
+            <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
+          </div>
+        </template>
+
       </div>
 
       <div class="col-12">
@@ -103,6 +110,7 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
 import { EventEntity, GroupEntity } from 'src/types'
 import HomeEventItem from 'components/home/HomeEventItemComponent.vue'
+import NoContentComponent from 'components/common/NoContentComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
@@ -150,6 +158,10 @@ const howItWorks = [
   { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
   { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
+
+const onAddNewGroup = () => {
+  router.push({ name: 'DashboardGroupsCreatePage' })
+}
 
 const onViewGroup = (groupId: number) => {
   router.push({ name: 'GroupPage', params: { id: groupId } })

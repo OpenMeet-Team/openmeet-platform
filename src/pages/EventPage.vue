@@ -3,10 +3,7 @@
     <div v-if="event" class="row q-col-gutter-md">
       <div class="col-12 col-md-8">
         <q-card>
-          <q-img
-            :src="event.image as string || 'https://cdn.quasar.dev/img/parallax2.jpg'"
-            :ratio="16/9"
-          >
+          <q-img :src="getImageSrc(event.image)" :ratio="16/9">
             <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
               {{ event.name }}
             </div>
@@ -14,15 +11,15 @@
 
           <q-card-section>
             <div class="text-h4">{{ event.name }}</div>
-            <div class="text-subtitle1 q-mt-sm">
+            <div class="text-subtitle1 q-mt-sm" v-if="event.startDate">
               <q-icon name="sym_r_event" /> {{ formatDate(event.startDate) }}
             </div>
-            <div class="text-subtitle1">
+            <div class="text-subtitle1" v-if="event.location">
               <q-icon name="sym_r_place" /> {{ event.location }}
             </div>
           </q-card-section>
 
-          <q-card-section>
+          <q-card-section v-if="event.description">
             <div class="text-body1">{{ event.description }}</div>
           </q-card-section>
 
@@ -34,7 +31,7 @@
               class="q-mt-sm"
             />
             <div class="text-caption q-mt-sm">
-              {{ event.attendeesCount }} / {{ event.maxAttendees }} spots filled
+              {{ event.attendeesCount }} <span v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> spots filled
             </div>
           </q-card-section>
 
@@ -69,54 +66,31 @@
           </q-card-section>
         </q-card>
 
-        <q-card class="q-mt-md">
-          <q-card-section>
-            <div class="text-h6">Location</div>
-            <div class="q-mt-md">
-              <q-img
-                src="https://cdn.quasar.dev/img/map.png"
-                :ratio="16/9"
-              />
-            </div>
-          </q-card-section>
+        <q-card class="q-mt-md" style="height: 500px">
+          <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>
         </q-card>
       </div>
     </div>
-    <q-page-sticky v-if="event" expand position="bottom" class="bg-red">
-      <div class="bg-grey-1 q-pa-md">
-        <p><strong>{{ formatDate(event.startDate) }}</strong></p>
-        <p><strong>{{ event.name }}</strong></p>
-        <p>Places Left: 123</p>
-<!--        <p>Price: ${{ event.price.toFixed(2) }}</p>-->
-        <p>Price: $234</p>
-
-        <div class="q-mt-md">
-          <q-btn label="Share" color="secondary"/>
-        </div>
-        <div class="q-mt-md">
-          <q-btn label="Attend" color="primary"/>
-        </div>
-      </div>
-    </q-page-sticky>
+    <EventStickyComponent v-if="event" :event="event"/>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { date, LoadingBar } from 'quasar'
+import { LoadingBar } from 'quasar'
 import { eventsApi } from 'src/api/events.ts'
 import { EventEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { getImageSrc } from 'src/utils/imageUtils.ts'
+import EventStickyComponent from 'components/event/EventStickyComponent.vue'
+import { formatDate } from '../utils/dateUtils.ts'
+import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
 
 const route = useRoute()
 const { success } = useNotification()
 
 const event = ref<EventEntity | null>(null)
-
-const formatDate = (dateString: string) => {
-  return date.formatDate(dateString, 'MMMM D, YYYY HH:mm')
-}
 
 const rsvpToEvent = () => {
   if (event.value) {
@@ -132,17 +106,5 @@ onMounted(() => {
   eventsApi.getById(route.params.id as string).finally(LoadingBar.stop).then(res => {
     event.value = res.data
   })
-
-  // event.value = {
-  //   id: route.params.id as string,
-  //   title: 'Tech Meetup 2024',
-  //   description: 'Join us for an exciting tech meetup where we\'ll discuss the latest trends in web development and AI. This event will feature keynote speakers from leading tech companies, interactive workshops, and networking opportunities. Whether you\'re a seasoned developer or just starting out, this meetup offers valuable insights and connections in the ever-evolving world of technology.',
-  //   date: '2024-12-15',
-  //   time: '18:00',
-  //   location: 'Tech Hub, 123 Innovation Street, Silicon Valley, CA',
-  //   maxAttendees: 100,
-  //   attendees: 75,
-  //   imageUrl: 'https://cdn.quasar.dev/img/mountains.jpg'
-  // }
 })
 </script>
