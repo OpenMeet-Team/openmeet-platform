@@ -82,9 +82,24 @@ const group = computed(() => useGroupStore().group)
     <div class="col-12 col-md-6 col-lg-4">
       <q-card style="position: sticky; top: 70px;">
         <q-card-section>
+          <div class="text-h5">Organisers</div>
+        </q-card-section>
+        <q-list v-if="group.members && group.members.length" style="max-height: 300px" class="scroll">
+          <q-item v-for="member in group.members" :key="member.id">
+            <q-item-section avatar>
+              <q-avatar>
+                <img :src="member.avatar">
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ member.name }}</q-item-label>
+              <q-item-label caption>{{ member.role }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+        <q-card-section>
           <div class="text-h5 row justify-between">Members <q-btn no-caps flat label="See all" :to="{ name: 'GroupMembersPage', params: { id: $route.params.id }}"/></div>
         </q-card-section>
-        <q-separator/>
         <q-list v-if="group.members && group.members.length" style="max-height: 300px" class="scroll">
           <q-item v-for="member in group.members" :key="member.id">
             <q-item-section avatar>
