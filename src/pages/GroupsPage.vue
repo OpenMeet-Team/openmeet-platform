@@ -20,9 +20,9 @@
       <div class="col-12 col-md-6">
         <LocationComponent
           :filled="false"
-          :location="selectedLocation"
-          :lat="selectedLat"
-          :long="selectedLon"
+          :location="selectedLocation as string"
+          :lat="selectedLat as number"
+          :long="selectedLon as number"
           label="Filter by address"
           class="full-width"
           clearable
