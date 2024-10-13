@@ -45,7 +45,7 @@ export function useGroupDialog () {
       },
       persistent: true
     }).onOk(() => {
-      return groupsApi.leave(group.id).then(() => {
+      return groupsApi.leave(String(group.id)).then(() => {
         return success(`You have left the group: ${group.name}`)
       })
     })

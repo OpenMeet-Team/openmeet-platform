@@ -10,7 +10,22 @@ const routes: RouteRecordRaw[] = [
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       { path: 'events/:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
       { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
-      { path: 'groups/:id', name: 'GroupPage', component: () => import('pages/GroupPage.vue') }
+      {
+        path: 'groups/:id',
+        name: 'GroupPage',
+        redirect: { name: 'GroupAboutPage' },
+        component: () => import('pages/GroupPage.vue'),
+        children: [
+          { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
+          { path: 'events', name: 'GroupEventsPage', component: () => import('pages/group/GroupEventsPage.vue') },
+          { path: 'members', name: 'GroupMembersPage', component: () => import('pages/group/GroupMembersPage.vue') },
+          {
+            path: 'discussions',
+            name: 'GroupDiscussionsPage',
+            component: () => import('pages/group/GroupDiscussionsPage.vue')
+          }
+        ]
+      }
     ],
     meta: { requiresAuth: false }
   },

@@ -153,7 +153,7 @@ const viewGroup = (groupId: number) => {
 const joinGroup = (groupId: number) => {
   const group = groups.value.data.find(g => g.id === groupId)
   if (group) {
-    groupsApi.join(groupId).then(() => {
+    groupsApi.join(String(groupId)).then(() => {
       success(`You've joined ${group.name}!`)
     }).catch(err => {
       console.error(err.message)

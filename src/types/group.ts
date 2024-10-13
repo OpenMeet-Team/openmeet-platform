@@ -33,6 +33,7 @@ export interface GroupEntity {
   visibility?: GroupVisibilityType
   status?: GroupStatusType,
   user?: UserEntity
+  userGroupRole?: never
 }
 
 export const GroupRoles = {
