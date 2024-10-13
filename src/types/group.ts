@@ -1,4 +1,4 @@
-import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
+import { CategoryEntity, DiscussionEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 import { UserEntity } from 'src/types/user.ts'
 
 export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
@@ -30,6 +30,7 @@ export interface GroupEntity {
   membersCount?: number
   members?: GroupMemberEntity[]
   events?: GroupEventEntity[]
+  discussions?: DiscussionEntity[]
   visibility?: GroupVisibilityType
   status?: GroupStatusType,
   user?: UserEntity

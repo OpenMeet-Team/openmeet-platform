@@ -8,6 +8,8 @@
 
     <!-- Secondary blocks -->
     <router-view/>
+
+    <GroupSimilarEventsComponent/>
   </q-page>
 </template>
 
@@ -18,6 +20,7 @@ import { useRoute } from 'vue-router'
 import { useGroupStore } from 'stores/group-store.ts'
 import GroupStickyComponent from 'components/group/GroupStickyComponent.vue'
 import GroupLeadComponent from 'components/group/GroupLeadComponent.vue'
+import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
 
 const route = useRoute()
 

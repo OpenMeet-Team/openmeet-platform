@@ -1,3 +1,5 @@
+import { UserEntity } from 'src/types/user.ts'
+
 export enum SubCategoryType {
   EVENT = 'EVENT',
   GROUP = 'GROUP',
@@ -73,4 +75,20 @@ export interface Pagination<T> {
   total: number
   page: number
   totalPages: number
+}
+
+export interface DiscussionReplyEntity {
+  id: string
+  author: UserEntity
+  text: string
+  datePosted: Date
+}
+
+// Represents a discussion topic in the group
+export interface DiscussionEntity {
+  id: string;
+  topic: string;
+  author: UserEntity;
+  createdAt: Date;
+  replies: DiscussionReplyEntity[];
 }

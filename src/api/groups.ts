@@ -11,6 +11,7 @@ export const groupsApi = {
   delete: (id: number) => api.delete(`/api/groups/${id}`),
   join: (id: string) => api.post('/api/group-members/join', { groupId: id }),
   leave: (id: string) => api.post('/api/group-members/leave', { groupId: id }),
+  similarEvents: (id: string) => api.get(`/api/groups/${id}/similar-events`),
   // join: (id: number) => api.post(`/api/groups/${id}/join`),
   // leave: (id: number) => api.post(`/api/groups/${id}/leave`),
   roles: (id: string) => api.get(`/api/groups/${id}/roles`)

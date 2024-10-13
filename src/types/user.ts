@@ -1,3 +1,5 @@
+import { UploadedFileEntity } from 'src/types/model.ts'
+
 export enum UserRole {
   ADMIN = 'admin',
   USER = 'user',
@@ -25,6 +27,11 @@ export interface UserEntity {
   id: string
   email: string
   name?: string
+  firstName?: string
+  lastName?: string
   token: string
   refreshToken: string
+  photo?: UploadedFileEntity
+  role?: UserRole;
+  permissions?: UserPermission[];
 }
