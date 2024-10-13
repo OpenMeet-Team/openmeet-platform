@@ -33,6 +33,7 @@
         </div>
       </template>
     </div>
+
     <q-pagination class="q-mt-xl"
                   v-if="userGroups && userGroups.totalPages && userGroups.totalPages > 1"
                   v-model="currentPage"

@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page class="q-pa-md" style="padding-bottom: 90px">
     <div v-if="event" class="row q-col-gutter-md">
       <div class="col-12 col-md-8">
         <q-card>
@@ -51,10 +51,11 @@
           <q-card-section>
             <q-btn-dropdown align="center" no-caps label="Organiser tools">
               <q-list>
-                <MenuItemComponent label="Manage Event" icon="sym_r_edit_note" @click="$router.push({ name: 'DashboardEventGeneralPage', params: { id: $route.params.id }})"/>
+                <MenuItemComponent label="Edit event" icon="sym_r_edit_note" @click="$router.push({ name: 'DashboardEventGeneralPage', params: { id: $route.params.id }})"/>
                 <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="$router.push({ name: 'DashboardEventAttendeesPage', params: { id: $route.params.id }})"/>
+                <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
                 <q-separator/>
-                <MenuItemComponent label="Delete event" icon="sym_r_delete"/>
+                <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
               </q-list>
             </q-btn-dropdown>
           </q-card-section>
@@ -83,7 +84,7 @@
         </q-card>
       </div>
     </div>
-    <EventStickyComponent v-if="event" :event="event"/>
+    <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
   </q-page>
 </template>
 
@@ -99,11 +100,20 @@ import EventStickyComponent from 'components/event/EventStickyComponent.vue'
 import { formatDate } from '../utils/dateUtils.ts'
 import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
+import { useEventDialog } from 'src/composables/useEventDialog.ts'
 
 const route = useRoute()
 const { success } = useNotification()
+const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 
 const event = ref<EventEntity | null>(null)
+const onDeleteEvent = () => {
+  if (event.value) openDeleteEventDialog(event.value)
+}
+
+const onCancelEvent = () => {
+  if (event.value) openCancelEventDialog(event.value)
+}
 
 const rsvpToEvent = () => {
   if (event.value) {

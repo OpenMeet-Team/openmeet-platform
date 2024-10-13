@@ -29,13 +29,27 @@ export function useEventDialog () {
       persistent: true
     }).onOk(() => {
       return groupsApi.delete(event.id).then(() => {
-        success('Event deleted')
+        success('Event deleted!')
+      })
+    })
+  }
+
+  const openCancelEventDialog = (event: EventEntity) => {
+    $q.dialog({
+      title: 'Cancel Event',
+      message: `Are you sure you want to cancel the event '${event.name}'? You can publish it later with updated information`,
+      cancel: true,
+      persistent: true
+    }).onOk(() => {
+      return groupsApi.update(event.id, { status: 'draft' }).then(() => {
+        success('Event cancelled!')
       })
     })
   }
 
   return {
     openCreateEventDialog,
-    openDeleteEventDialog
+    openDeleteEventDialog,
+    openCancelEventDialog
   }
 }

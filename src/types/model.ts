@@ -8,14 +8,10 @@ export interface UploadedFileEntity {
   id: string
 }
 
-export interface Location {
-  // name?: string
-  // address: Address
-  // city?: string
-  // state?: string
-  // country?: string
-  // lat?: number
-  // lon?: number
+export interface AddressLocation {
+  location?: string
+  lat?: number
+  lon?: number
 }
 
 export interface OSMAddress {
