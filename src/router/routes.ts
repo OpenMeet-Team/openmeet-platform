@@ -56,6 +56,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'groups/:id',
         name: 'DashboardGroupPage',
+        redirect: { name: 'DashboardGroupBasicPage' },
         component: () => import('pages/dashboard/group/DashboardGroupPage.vue'),
         children: [
           {

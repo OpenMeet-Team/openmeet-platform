@@ -1,26 +1,30 @@
 <template>
-  <q-page class="q-pa-md">
-    <div v-if="group" class="row q-col-gutter-md">
-      <div class="col-12 col-lg-8">
+  <q-page v-if="group" class="q-pa-md">
+    <div class="row q-col-gutter-md">
+      <div class="col-12 col-md-6">
         <q-card>
-          <q-img
-            :src="getImageSrc(group.image, 'https://cdn.quasar.dev/img/parallax2.jpg')"
-            :ratio="16/9"
-          >
-            <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
-              {{ group.name }}
-            </div>
-          </q-img>
+          <q-img :src="getImageSrc(group.image)" :ratio="16/9"/>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-6">
+        <q-card class="full-height">
           <q-card-section>
             <div class="text-h4">{{ group.name }}</div>
-            <div class="text-subtitle1 q-mt-sm" v-if="group.categories">
-              <q-icon name="sym_r_category" /> {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
+            <div class="text-subtitle2 row items-center">
+              <q-icon size="xs" left name="sym_r_location_on"/>
+              {{ group.location }}
             </div>
-            <div class="text-subtitle1">
-              <q-icon name="sym_r_people" /> {{ group.membersCount }} members
+            <div class="q-mt-md">
+              <q-badge class="q-mr-md" color="primary" v-if="group.membersCount"
+                       :label="`${group.membersCount} members`"/>
+              <q-badge color="secondary" label="Public group"/>
             </div>
-            <div class="text-body1 q-mt-md">{{ group.description }}</div>
+            <div class="q-mt-md text-caption" v-if="group.user && group.user.name">Organized by {{
+                group.user.name
+              }}
+            </div>
           </q-card-section>
+
           <q-card-section v-if="group.categories">
             <div class="text-h6">Categories</div>
             <div class="q-gutter-sm">
@@ -29,18 +33,39 @@
               </q-chip>
             </div>
           </q-card-section>
-        </q-card>
 
+          <q-card-section>
+            <q-btn icon="sym_r_edit" size="md" padding="none" no-caps flat label="Edit group info" @click="$router.push({ name: 'DashboardGroupPage', params: {id: $route.params.id }})"/>
+          </q-card-section>
+          <q-space/>
+          <q-card-section>
+            <ShareComponent size="md"/>
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
+
+    <div class="row q-col-gutter-md q-mt-md">
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <q-card>
+          <q-card-section>
+            <div class="text-body1 q-mt-md">{{ group.description }}</div>
+          </q-card-section>
+        </q-card>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
         <!-- Events List Section -->
-        <q-card class="q-mt-md">
+        <q-card>
           <q-card-section>
             <div class="text-h5">Upcoming Events</div>
           </q-card-section>
-          <q-separator />
+          <q-separator/>
           <q-list>
             <q-item v-for="event in group.events" :key="event.id" clickable v-ripple>
               <q-item-section avatar>
-                <q-icon name="sym_r_event" color="primary" size="md" />
+                <q-icon name="sym_r_event" color="primary" size="md"/>
               </q-item-section>
               <q-item-section>
                 <q-item-label>{{ event.name }}</q-item-label>
@@ -49,21 +74,46 @@
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
-                <q-btn flat color="primary" label="Details" @click="viewEventDetails(event.id)" />
+                <q-btn flat color="primary" label="Details" @click="viewEventDetails(event.id)"/>
               </q-item-section>
             </q-item>
           </q-list>
         </q-card>
       </div>
-
-      <!-- Members and Chat Section -->
-      <div class="col-12 col-lg-4">
+      <div class="col-12 col-md-6 col-lg-4">
+        <!-- Chat Section -->
+        <q-card class="q-mt-md">
+          <q-card-section>
+            <div class="text-h5">Group Chat</div>
+          </q-card-section>
+          <q-separator/>
+          <q-card-section class="chat-messages scroll" style="max-height: 300px">
+            <div v-for="message in chatMessages" :key="message.id" class="q-mb-sm">
+              <strong>{{ message.sender }}:</strong> {{ message.text }}
+            </div>
+          </q-card-section>
+          <q-separator/>
+          <q-card-section>
+            <q-input
+              v-model="newMessage"
+              label="Type a message"
+              dense
+              @keyup.enter="sendMessage"
+            >
+              <template v-slot:after>
+                <q-btn round dense flat icon="sym_r_send" @click="sendMessage"/>
+              </template>
+            </q-input>
+          </q-card-section>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
         <!-- Members List -->
         <q-card>
           <q-card-section>
             <div class="text-h5">Members</div>
           </q-card-section>
-          <q-separator />
+          <q-separator/>
           <q-list style="max-height: 300px" class="scroll">
             <q-item v-for="member in group.members" :key="member.id">
               <q-item-section avatar>
@@ -78,45 +128,19 @@
             </q-item>
           </q-list>
         </q-card>
-
-        <!-- Chat Section -->
-        <q-card class="q-mt-md">
-          <q-card-section>
-            <div class="text-h5">Group Chat</div>
-          </q-card-section>
-          <q-separator />
-          <q-card-section class="chat-messages scroll" style="max-height: 300px">
-            <div v-for="message in chatMessages" :key="message.id" class="q-mb-sm">
-              <strong>{{ message.sender }}:</strong> {{ message.text }}
-            </div>
-          </q-card-section>
-          <q-separator />
-          <q-card-section>
-            <q-input
-              v-model="newMessage"
-              label="Type a message"
-              dense
-              @keyup.enter="sendMessage"
-            >
-              <template v-slot:after>
-                <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
-              </template>
-            </q-input>
-          </q-card-section>
-        </q-card>
       </div>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { date, LoadingBar } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 // import { useUserStore } from 'stores/user-store.ts'
 import { useGroupStore } from 'stores/group-store.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { CategoryEntity } from '../types'
+import ShareComponent from 'components/common/ShareComponent.vue'
 
 interface ChatMessage {
   id: number;
@@ -149,7 +173,9 @@ const sendMessage = () => {
   }
 }
 
-const group = useGroupStore().group
+const group = computed(() => {
+  return useGroupStore().group
+})
 
 onMounted(async () => {
   LoadingBar.start()

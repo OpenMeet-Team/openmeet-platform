@@ -11,7 +11,7 @@ export const useGroupStore = defineStore('group', {
 
   actions: {
     actionGetGroupById (id: string) {
-      groupsApi.getById(id).then(res => {
+      return groupsApi.getById(id).then(res => {
         this.group = res.data
       })
     }

@@ -21,7 +21,7 @@ export enum UserPermission {
 //   joinedAt: Date;
 // }
 
-export interface User {
+export interface UserEntity {
   id: string
   email: string
   name?: string
