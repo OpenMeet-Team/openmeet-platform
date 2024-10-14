@@ -7,7 +7,7 @@ services:
   platform:
     build:
       context: .
-      dockerfile: ./docker/Dockerfile.dev
+      dockerfile: Dockerfile.dev
     container_name: platform
     hostname: platform
     env_file:
