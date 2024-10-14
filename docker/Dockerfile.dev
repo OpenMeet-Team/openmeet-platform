@@ -1,0 +1,18 @@
+FROM node:20.18.0-alpine3.20
+WORKDIR /app
+
+# copy both 'package.json' and 'package-lock.json' (if available)
+COPY package*.json ./
+
+# install project dependencies
+RUN npm install
+RUN npm install -g @quasar/cli
+
+# copy project files and folders to the current working directory (i.e. 'app' folder)
+COPY . .
+
+# build app for production with minification
+RUN quasar build
+
+EXPOSE 9005
+CMD [ "quasar", "serve", "--history", "--port", "9005", "./dist/spa" ]
