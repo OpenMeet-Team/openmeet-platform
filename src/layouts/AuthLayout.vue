@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import AuthHeaderComponent from 'components/layout/AuthHeaderComponent.vue'
+import AuthHeaderComponent from 'components/header/AuthHeaderComponent.vue'
 
 defineOptions({
   name: 'AuthLayout'

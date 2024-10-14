@@ -8,13 +8,17 @@
   "private": true,
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
-    "test": "echo \"See package.json => scripts for available tests.\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
     "deploy": "vercel --prod",
+    "test": "yarn test:unit:ci && yarn test:e2e:ci",
     "test:unit:ui": "vitest --ui",
     "test:unit": "vitest",
-    "test:unit:ci": "vitest run"
+    "test:unit:ci": "vitest run",
+    "test:e2e": "cross-env NODE_ENV=test start-test \"quasar dev\" http-get://127.0.0.1:8080 \"cypress open --e2e\"",
+    "test:e2e:ci": "cross-env NODE_ENV=test start-test \"quasar dev\" http-get://127.0.0.1:8080 \"cypress run --e2e\"",
+    "test:component": "cross-env NODE_ENV=test cypress open --component",
+    "test:component:ci": "cross-env NODE_ENV=test cypress run --component"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
@@ -32,6 +36,7 @@
     "@intlify/unplugin-vue-i18n": "^2.0.0",
     "@pinia/testing": "^0.1.5",
     "@quasar/app-vite": "^2.0.0-beta.12",
+    "@quasar/quasar-app-extension-testing-e2e-cypress": "^6.1.0",
     "@quasar/quasar-app-extension-testing-unit-vitest": "^1.1.0",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^20.5.9",
@@ -50,7 +55,9 @@
     "vite-plugin-checker": "^0.7.2",
     "vitest": "^2.0.5",
     "vue-router-mock": "^1.1.0",
-    "vue-tsc": "2.0.29"
+    "vue-tsc": "2.0.29",
+    "cypress": "^13.6.6",
+    "eslint-plugin-cypress": "^2.15.1"
   },
   "engines": {
     "node": "^24 || ^22 || ^20 || ^18",

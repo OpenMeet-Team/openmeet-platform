@@ -3,5 +3,11 @@
     "options": [
       "ui"
     ]
+  },
+  "@quasar/testing-e2e-cypress": {
+    "port": "8080",
+    "options": [
+      "code-coverage"
+    ]
   }
 }

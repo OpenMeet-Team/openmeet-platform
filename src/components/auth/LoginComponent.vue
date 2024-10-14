@@ -1,7 +1,7 @@
 <template>
   <q-card class="login-card">
     <q-card-section>
-      <div class="text-h6">{{ $t('auth.login') }}</div>
+      <div class="text-h6">Login</div>
     </q-card-section>
 
     <q-card-section>
@@ -9,17 +9,17 @@
         <q-input
           filled
           v-model="email"
-          :label="$t('auth.email')"
+          label="Email"
           type="email"
-          :rules="[(val: string) => !!val || $t('auth.emailRequired')]"
+          :rules="[(val: string) => !!val || 'Email is required']"
         />
 
         <q-input
           filled
           v-model="password"
-          :label="$t('auth.password')"
+          label="Password"
           :type="isPwd ? 'password' : 'text'"
-          :rules="[(val: string) => !!val || $t('auth.passwordRequired')]"
+          :rules="[(val: string) => !!val || 'Password is required']"
         >
           <template v-slot:append>
             <q-icon

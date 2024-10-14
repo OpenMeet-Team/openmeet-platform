@@ -33,3 +33,7 @@ yarn-error.log*
 .env
 .vercel
 .env
+
+.nyc_output
+coverage/
+local

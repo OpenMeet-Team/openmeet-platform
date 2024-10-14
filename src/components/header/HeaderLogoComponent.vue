@@ -4,7 +4,7 @@
 
 <template>
   <q-toolbar-title shrink>
-    <router-link style="color: inherit; text-decoration: none" to="/">OpenMeet</router-link>
+    <router-link data-cy="header-logo" style="color: inherit; text-decoration: none" to="/">OpenMeet</router-link>
   </q-toolbar-title>
 </template>
 

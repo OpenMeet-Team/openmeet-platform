@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
-import HeaderWrapperComponent from 'components/layout/HeaderWrapperComponent.vue'
+import HeaderWrapperComponent from 'components/header/HeaderWrapperComponent.vue'
 import HeaderProfileComponent from 'components/header/HeaderProfileComponent.vue'
 </script>
 

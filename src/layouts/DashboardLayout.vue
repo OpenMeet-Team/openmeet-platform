@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import DashboardDrawerComponent from 'components/dashboard/DashboardDrawerComponent.vue'
-import DashboardHeaderComponent from 'components/layout/DashboardHeaderComponent.vue'
+import DashboardHeaderComponent from 'components/header/DashboardHeaderComponent.vue'
 
 defineOptions({
   name: 'DashboardLayout'
