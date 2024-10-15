@@ -5,7 +5,8 @@ import { useNotification } from 'src/composables/useNotification.ts'
 const { error } = useNotification()
 export const useGroupStore = defineStore('group', {
   state: () => ({
-    group: null as GroupEntity | null
+    group: null as GroupEntity | null,
+    groupMembers: null as GroupMemberEntity[] | null
   }),
 
   getters: {
@@ -27,6 +28,15 @@ export const useGroupStore = defineStore('group', {
       try {
         const res = await groupsApi.getById(id)
         this.group = res.data
+      } catch (err) {
+        console.log(err)
+        error('Failed to fetch group data')
+      }
+    },
+    async actionGetGroupMembersById (id: string) {
+      try {
+        const res = await groupsApi.getMembers(id)
+        this.groupMembers = res.data
       } catch (err) {
         console.log(err)
         error('Failed to fetch group data')

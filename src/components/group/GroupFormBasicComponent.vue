@@ -74,6 +74,7 @@ import { Loading } from 'quasar'
 const group = ref<GroupEntity>({
   id: 0,
   name: '',
+  slug: '',
   description: '',
   categories: [],
   location: '',

@@ -24,6 +24,7 @@ export interface GroupEventEntity {
 
 export interface GroupEntity {
   id: number
+  slug: string
   name: string
   description?: string
   categories?: CategoryEntity[]

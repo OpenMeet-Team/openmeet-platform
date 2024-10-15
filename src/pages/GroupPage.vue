@@ -21,6 +21,7 @@ import { useGroupStore } from 'stores/group-store.ts'
 import GroupStickyComponent from 'components/group/GroupStickyComponent.vue'
 import GroupLeadComponent from 'components/group/GroupLeadComponent.vue'
 import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
+import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 
 const route = useRoute()
 
@@ -30,7 +31,8 @@ const group = computed(() => {
 
 onMounted(async () => {
   LoadingBar.start()
-  useGroupStore().actionGetGroupById(route.params.id as string).finally(LoadingBar.stop)
+  const groupId = decodeLowercaseStringToNumber(route.params.id as string)
+  useGroupStore().actionGetGroupById(String(groupId)).finally(LoadingBar.stop)
 })
 </script>
 

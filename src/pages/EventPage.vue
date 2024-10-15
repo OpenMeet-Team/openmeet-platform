@@ -107,6 +107,7 @@ import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import EventLeadComponent from 'components/event/EventLeadComponent.vue'
 import { useEventStore } from 'stores/event-store.ts'
+import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 
 const route = useRoute()
 const router = useRouter()
@@ -133,6 +134,8 @@ const rsvpToEvent = () => {
 
 onMounted(() => {
   LoadingBar.start()
-  useEventStore().actionGetEventById(route.params.id as string).finally(LoadingBar.stop)
+  const eventId = decodeLowercaseStringToNumber(route.params.id as string)
+  console.log(route.params)
+  useEventStore().actionGetEventById(String(eventId)).finally(LoadingBar.stop)
 })
 </script>

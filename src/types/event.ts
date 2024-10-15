@@ -11,6 +11,7 @@ export interface EventAttendeeEntity {
 }
 export interface EventEntity {
   id: number
+  slug: string
   name: string
   startDate: string
   endDate?: string

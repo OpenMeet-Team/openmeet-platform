@@ -34,7 +34,7 @@
 
     <div class="row q-col-gutter-md">
       <div v-for="group in groups.data" :key="group.id" class="col-12 col-md-6 col-lg-4">
-        <GroupsItemComponent :group="group" @view="viewGroup" @join="joinGroup"/>
+        <GroupsItemComponent :group="group" @join="joinGroup"/>
       </div>
     </div>
 
@@ -142,11 +142,6 @@ const onFilterByLocation = (addressLocation: AddressLocation) => {
       }
     })
   }
-}
-
-// Handle viewing a group
-const viewGroup = (groupId: number) => {
-  router.push({ name: 'GroupPage', params: { id: groupId } })
 }
 
 // Handle joining a group

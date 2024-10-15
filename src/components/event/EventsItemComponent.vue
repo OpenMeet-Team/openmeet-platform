@@ -3,12 +3,15 @@ import { EventEntity } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { truncateDescription } from '../../utils/stringUtils.ts'
+import { useNavigation } from 'src/composables/useNavigation.ts'
 
 interface Props {
   event: EventEntity
 }
 defineEmits(['view'])
 defineProps<Props>()
+
+const { navigateToEvent } = useNavigation()
 </script>
 
 <template>
@@ -36,7 +39,8 @@ defineProps<Props>()
     <q-separator />
 
     <q-card-actions align="right">
-      <q-btn flat color="primary" label="View Details" @click="$emit('view', event.id)" />
+<!--      <q-btn flat color="primary" label="View Details" @click="$emit('view', event.id)" />-->
+      <q-btn flat color="primary" label="View Details" @click="navigateToEvent(event.slug, event.id)" />
     </q-card-actions>
   </q-card>
 </template>

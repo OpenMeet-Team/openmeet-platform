@@ -169,6 +169,7 @@ const loaded = ref<boolean>(false)
 const eventData = ref<EventEntity>({
   name: '',
   description: '',
+  slug: '',
   startDate: '',
   id: 0,
   type: 'in-person',

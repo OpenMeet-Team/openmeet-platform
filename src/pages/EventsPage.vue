@@ -1,46 +1,46 @@
 <template>
   <q-page class="q-pa-md">
     <h1 class="text-h4 q-mb-md">Upcoming Events</h1>
-    <div class="row q-col-gutter-md">
+    <!-- Show loader if loading, else show content -->
+    <q-spinner v-if="!loaded" color="primary" size="50px" class="q-my-md" />
+
+    <!-- Event List -->
+    <div class="row q-col-gutter-md" v-if="loaded && events?.length">
       <div v-for="event in events" :key="event.id" class="col-12 col-sm-6 col-md-4">
-        <EventsItemComponent :event="event" @view="viewEventDetails"/>
+        <EventsItemComponent :event="event"/>
       </div>
     </div>
+
+    <!-- No content if no events and not loading -->
+    <NoContentComponent v-else-if="loaded && !events.length" label="No Events" icon="sym_r_event_busy"/>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { LoadingBar } from 'quasar'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import { eventsApi } from 'src/api/events.ts'
 import { EventEntity } from 'src/types'
 import EventsItemComponent from 'components/event/EventsItemComponent.vue'
-
-const router = useRouter()
+import { QSpinner } from 'quasar'
 
 const events = ref<EventEntity[]>([])
-
-const viewEventDetails = (eventId: number) => {
-  router.push({ name: 'EventPage', params: { id: eventId } })
-}
+const loaded = ref(false) // Add loading state
 
 onMounted(() => {
-  LoadingBar.start()
-  eventsApi.getAll().finally(LoadingBar.stop).then(res => {
+  // Fetch events with loading state
+  eventsApi.getAll().then(res => {
     events.value = res.data.data
+  }).finally(() => {
+    loaded.value = true
   })
 })
 </script>
 
 <style scoped>
-.event-card {
-  height: 100%;
+/* Styles for loading spinner */
+.q-my-md {
   display: flex;
-  flex-direction: column;
-}
-
-.event-card .q-card__section:nth-last-child(2) {
-  flex-grow: 1;
+  justify-content: center;
+  align-items: center;
 }
 </style>

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 
 import { CategoryEntity, GroupEntity } from 'src/types'
+import { useNavigation } from 'src/composables/useNavigation.ts'
 
 interface Props {
   group: GroupEntity
 }
 
 defineProps<Props>()
+
+const { navigateToGroup } = useNavigation()
 
 </script>
 
@@ -26,7 +29,7 @@ defineProps<Props>()
 <!--    </q-card-section>-->
 
     <q-card-actions align="right">
-      <q-btn flat color="primary" label="View Group" @click="$emit('view', group.id)" />
+      <q-btn flat color="primary" label="View Group" @click="navigateToGroup(group.slug, group.id)" />
       <q-btn flat color="secondary" label="Join" @click="$emit('join', group.id)" />
     </q-card-actions>
   </q-card>

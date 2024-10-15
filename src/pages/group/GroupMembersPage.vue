@@ -40,10 +40,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useGroupStore } from 'stores/group-store.ts'
+import { LoadingBar } from 'quasar'
+import { useRoute } from 'vue-router'
 
 const group = computed(() => useGroupStore().group)
+const route = useRoute()
 
 interface User {
   id: number
@@ -75,6 +78,11 @@ const filteredUsers = computed(() => {
     user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
     (roleFilter.value === 'all' || user.role === roleFilter.value)
   )
+})
+
+onMounted(() => {
+  LoadingBar.start()
+  useGroupStore().actionGetGroupMembersById(route.params.id as string).finally(LoadingBar.stop)
 })
 
 const capitalizeFirstLetter = (string: string) => {
