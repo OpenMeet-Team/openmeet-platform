@@ -1,13 +1,13 @@
 import { AxiosResponse } from 'axios'
 import { api } from 'boot/axios'
-import { EventEntity, EventPaginationEntity, GroupEntity, Message } from 'src/types'
+import { EventEntity, GroupEntity, Message } from 'src/types'
 
-export function apiGetDashboardEvents (): Promise<AxiosResponse<EventPaginationEntity>> {
-  return api.get('/api/events')
+export function apiGetDashboardEvents (): Promise<AxiosResponse<EventEntity[]>> {
+  return api.get('/api/dashboard/my-events')
 }
 
-export function apiGetDashboardGroups (): Promise<AxiosResponse> {
-  return api.get('/api/groups')
+export function apiGetDashboardGroups (): Promise<AxiosResponse<GroupEntity[]>> {
+  return api.get('/api/dashboard/my-groups')
 }
 
 export function apiGetDashboardMessages (): Promise<AxiosResponse> {

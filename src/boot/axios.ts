@@ -22,8 +22,6 @@ export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
   app.config.globalProperties.$axios = axios
-  // ^ ^ ^ this will allow you to use this.$axios (for Vue Options API form)
-  //       so you won't necessarily have to import axios in each vue file
 
   api.interceptors.request.use((config) => {
     const APP_TENANT_ID = process.env.APP_TENANT_ID
@@ -56,6 +54,7 @@ export default boot(({ app, router }) => {
       } else if (err.response.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
         await authStore.actionRefreshToken()
+        originalRequest.headers.Authorization = `Bearer ${authStore?.token}`
         return api(originalRequest)
       }
 
@@ -64,8 +63,6 @@ export default boot(({ app, router }) => {
   )
 
   app.config.globalProperties.$api = api
-  // ^ ^ ^ this will allow you to use this.$api (for Vue Options API form)
-  //       so you can easily perform requests against your app's API
 })
 
 export { api }

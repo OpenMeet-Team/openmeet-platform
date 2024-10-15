@@ -89,7 +89,7 @@ const onDeleteEvent = (event: EventEntity) => {
 onMounted(() => {
   LoadingBar.start()
   apiGetDashboardEvents().then(res => {
-    events.value = res.data.data
+    events.value = res.data
   }).finally(() => {
     LoadingBar.stop()
     loaded.value = true
