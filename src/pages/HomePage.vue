@@ -16,7 +16,7 @@
       <!-- Featured Groups Section -->
       <div class="col-12 col-md-8">
         <h2 class="text-h4 q-mb-md">Featured Groups</h2>
-        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" @click="onAddNewGroup" buttonLabel="Add new Group" label="There are no created groups yet." icon="sym_r_groups"/>
+        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
           <div class="row q-col-gutter-md">
             <div v-for="group in featuredGroups" :key="group.id" class="col-12 col-sm-6">
@@ -157,10 +157,6 @@ const howItWorks = [
   { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
   { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
-
-const onAddNewGroup = () => {
-  router.push({ name: 'DashboardGroupsCreatePage' })
-}
 
 const onViewGroup = (groupId: number) => {
   router.push({ name: 'GroupPage', params: { id: groupId } })

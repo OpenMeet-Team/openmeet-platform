@@ -1,87 +1,93 @@
 <template>
-  <q-page class="q-pa-md" style="padding-bottom: 90px">
-    <div v-if="event" class="row q-col-gutter-md">
-      <div class="col-12 col-md-8">
-        <q-card>
-          <q-img :src="getImageSrc(event.image)" :ratio="16/9">
-            <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
-              {{ event.name }}
-            </div>
-          </q-img>
+  <q-page class="q-pa-md q-pb-xl">
+    <div v-if="event" class="">
+      <div class="text-h4 bg-inherit full-width q-pa-md" style="position: sticky; top: 50px; z-index: 1001">{{ event.name }}</div>
 
-          <q-card-section>
-            <div class="text-h4">{{ event.name }}</div>
-            <div class="text-subtitle1 q-mt-sm" v-if="event.startDate">
-              <q-icon name="sym_r_event" /> {{ formatDate(event.startDate) }}
-            </div>
-            <div class="text-subtitle1" v-if="event.location">
-              <q-icon name="sym_r_place" /> {{ event.location }}
-            </div>
-          </q-card-section>
+      <EventLeadComponent/>
 
-          <q-card-section v-if="event.description">
-            <div class="text-body1">{{ event.description }}</div>
-          </q-card-section>
+      <div class="row q-col-gutter-md">
+        <div class="col-12 col-md-8">
+          <q-card>
+            <q-img :src="getImageSrc(event.image)" :ratio="16/9">
+              <div class="absolute-bottom text-subtitle1 text-center bg-black-4 full-width">
+                {{ event.name }}
+              </div>
+            </q-img>
 
-          <q-card-section>
-            <div class="text-h6">Attendees</div>
-            <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
-              :value="event.attendeesCount / event.maxAttendees"
-              color="secondary"
-              class="q-mt-sm"
-            />
-            <div class="text-caption q-mt-sm">
-              {{ event.attendeesCount }} <span v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> spots filled
-            </div>
-          </q-card-section>
+            <q-card-section>
+              <div class="text-h4">{{ event.name }}</div>
+              <div class="text-subtitle1 q-mt-sm" v-if="event.startDate">
+                <q-icon name="sym_r_event" /> {{ formatDate(event.startDate) }}
+              </div>
+              <div class="text-subtitle1" v-if="event.location">
+                <q-icon name="sym_r_place" /> {{ event.location }}
+              </div>
+            </q-card-section>
 
-          <q-card-actions align="right">
-            <q-btn
-              color="primary"
-              label="RSVP"
-              @click="rsvpToEvent"
-              :disable="event.maxAttendees ? event.maxAttendees >= event.maxAttendees : false"
-            />
-          </q-card-actions>
-        </q-card>
-      </div>
+            <q-card-section v-if="event.description">
+              <div class="text-body1">{{ event.description }}</div>
+            </q-card-section>
 
-      <div class="col-12 col-md-4">
-        <q-card class="q-mb-md">
-          <q-card-section>
-            <q-btn-dropdown align="center" no-caps label="Organiser tools">
-              <q-list>
-                <MenuItemComponent label="Edit event" icon="sym_r_edit_note" @click="router.push({ name: 'DashboardEventGeneralPage', params: { id: route.params.id }})"/>
-                <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="router.push({ name: 'DashboardEventAttendeesPage', params: { id: route.params.id }})"/>
-                <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
-                <q-separator/>
-                <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
-              </q-list>
-            </q-btn-dropdown>
-          </q-card-section>
-        </q-card>
-        <q-card>
-          <q-card-section>
-            <div class="text-h6">Organizer</div>
-            <div class="q-mt-md">
-              <q-item>
-                <q-item-section avatar>
-                  <q-avatar>
-                    <img src="https://cdn.quasar.dev/img/boy-avatar.png">
-                  </q-avatar>
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>John Doe</q-item-label>
-                  <q-item-label caption>Event Organizer</q-item-label>
-                </q-item-section>
-              </q-item>
-            </div>
-          </q-card-section>
-        </q-card>
+            <q-card-section>
+              <div class="text-h6">Attendees</div>
+              <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
+                                 :value="event.attendeesCount / event.maxAttendees"
+                                 color="secondary"
+                                 class="q-mt-sm"
+              />
+              <div class="text-caption q-mt-sm">
+                {{ event.attendeesCount }} <span v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> spots filled
+              </div>
+            </q-card-section>
 
-        <q-card class="q-mt-md" style="height: 500px">
-          <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>
-        </q-card>
+            <q-card-actions align="right">
+              <q-btn
+                color="primary"
+                label="RSVP"
+                @click="rsvpToEvent"
+                :disable="event.maxAttendees ? event.maxAttendees >= event.maxAttendees : false"
+              />
+            </q-card-actions>
+          </q-card>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <q-card class="q-mb-md">
+            <q-card-section>
+              <q-btn-dropdown align="center" no-caps label="Organiser tools">
+                <q-list>
+                  <MenuItemComponent label="Edit event" icon="sym_r_edit_note" @click="router.push({ name: 'DashboardEventGeneralPage', params: { id: route.params.id }})"/>
+                  <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="router.push({ name: 'DashboardEventAttendeesPage', params: { id: route.params.id }})"/>
+                  <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
+                  <q-separator/>
+                  <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
+                </q-list>
+              </q-btn-dropdown>
+            </q-card-section>
+          </q-card>
+          <q-card>
+            <q-card-section>
+              <div class="text-h6">Organizer</div>
+              <div class="q-mt-md">
+                <q-item>
+                  <q-item-section avatar>
+                    <q-avatar>
+                      <img src="https://cdn.quasar.dev/img/boy-avatar.png">
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>John Doe</q-item-label>
+                    <q-item-label caption>Event Organizer</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <q-card class="q-mt-md" style="height: 500px">
+            <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>
+          </q-card>
+        </div>
       </div>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
@@ -89,11 +95,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LoadingBar } from 'quasar'
-import { eventsApi } from 'src/api/events.ts'
-import { EventEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import EventStickyComponent from 'components/event/EventStickyComponent.vue'
@@ -101,13 +105,15 @@ import { formatDate } from '../utils/dateUtils.ts'
 import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
+import EventLeadComponent from 'components/event/EventLeadComponent.vue'
+import { useEventStore } from 'stores/event-store.ts'
 
 const route = useRoute()
 const router = useRouter()
 const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
+const event = computed(() => useEventStore().event)
 
-const event = ref<EventEntity | null>(null)
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
 }
@@ -127,8 +133,6 @@ const rsvpToEvent = () => {
 
 onMounted(() => {
   LoadingBar.start()
-  eventsApi.getById(route.params.id as string).finally(LoadingBar.stop).then(res => {
-    event.value = res.data
-  })
+  useEventStore().actionGetEventById(route.params.id as string).finally(LoadingBar.stop)
 })
 </script>

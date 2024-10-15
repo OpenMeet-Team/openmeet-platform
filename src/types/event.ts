@@ -6,6 +6,9 @@ export type EventVisibilityType = 'public' | 'authenticated' | 'private'
 export type EventStatusType = 'draft' | 'pending' | 'published'
 
 interface EventCategory extends CategoryEntity {}
+export interface EventAttendeeEntity {
+
+}
 export interface EventEntity {
   id: number
   name: string
@@ -19,7 +22,7 @@ export interface EventEntity {
   image?: string | UploadedFileEntity
   description?: string
   maxAttendees?: number
-  attendees?: never[]
+  attendees?: EventAttendeeEntity[]
   attendeesCount?: number
   categories?: EventCategory[] | number[]
   groupId?: number
