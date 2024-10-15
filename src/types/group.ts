@@ -1,16 +1,21 @@
 import { CategoryEntity, DiscussionEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 import { UserEntity } from 'src/types/user.ts'
+import { EventEntity } from 'src/types/event.ts'
 
 export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
 export type GroupStatusType = 'draft' | 'pending' | 'published'
+export type GroupRoleType = 'owner' | 'manager' | 'member'
 
-interface GroupMemberEntity {
-  id: number;
-  name: string;
-  role: string;
-  avatar: string;
+export interface GroupRoleEntity {
+  id: number
+  name: GroupRoleType,
 }
-interface GroupEventEntity {
+export interface GroupMemberEntity {
+  id: number
+  user: UserEntity
+  groupRole: GroupRoleEntity
+}
+export interface GroupEventEntity {
   id: number;
   name: string;
   startDate: string;
@@ -28,8 +33,8 @@ export interface GroupEntity {
   image?: UploadedFileEntity
   organizerId?: string
   membersCount?: number
-  members?: GroupMemberEntity[]
-  events?: GroupEventEntity[]
+  groupMembers?: GroupMemberEntity[]
+  events?: EventEntity[]
   discussions?: DiscussionEntity[]
   visibility?: GroupVisibilityType
   status?: GroupStatusType,

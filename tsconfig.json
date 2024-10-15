@@ -5,6 +5,7 @@
   },
   "esModuleInterop": true,
   "exclude": [
+    "./local",
     "./dist",
     "./.quasar",
     "./node_modules",

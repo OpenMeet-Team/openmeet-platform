@@ -27,17 +27,17 @@ const onLeaveGroup = () => {
 <template>
   <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'window-width q-mt-lg']">
     <div class="row">
-      <div class="col-12 col-md-6 q-pa-sm">
+      <div class="col-12 col-sm-6 q-pa-sm">
         <q-tabs align="left" no-caps narrow-indicator>
-          <q-route-tab :to="{name: 'GroupPage', params: { id: $route.params.id }}" label="About"/>
-          <q-route-tab :to="{name: 'GroupEventsPage', params: { id: $route.params.id }}" name="events" label="Events"/>
-          <q-route-tab :to="{name: 'GroupMembersPage', params: { id: $route.params.id }}" name="members"
+          <q-route-tab :to="{name: 'GroupPage', params: { id: route.params.id }}" label="About"/>
+          <q-route-tab :to="{name: 'GroupEventsPage', params: { id: route.params.id }}" name="events" label="Events"/>
+          <q-route-tab :to="{name: 'GroupMembersPage', params: { id: route.params.id }}" name="members"
                        label="Members"/>
-          <q-route-tab :to="{name: 'GroupDiscussionsPage', params: { id: $route.params.id }}" name="discussions"
+          <q-route-tab :to="{name: 'GroupDiscussionsPage', params: { id: route.params.id }}" name="discussions"
                        label="Discussions"/>
         </q-tabs>
       </div>
-      <div class="col-12 col-md-6 q-pa-sm row items-center">
+      <div class="col-12 col-sm-6 q-pa-sm row items-center">
         <q-btn @click="onJoinGroup" v-if="!useGroupStore().getterHasUserGroupRole()" no-caps size="md"
                label="Join this group" color="primary"/>
         <q-btn-dropdown v-else align="center" no-caps label="You're a member">

@@ -110,7 +110,6 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
 import { EventEntity, GroupEntity } from 'src/types'
 import HomeEventItem from 'components/home/HomeEventItemComponent.vue'
-import NoContentComponent from 'components/common/NoContentComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 

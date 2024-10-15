@@ -4,8 +4,11 @@ import { getImageSrc } from 'src/utils/imageUtils.ts'
 import { useGroupStore } from 'stores/group-store.ts'
 import ShareComponent from 'components/common/ShareComponent.vue'
 import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const group = computed(() => useGroupStore().group)
+const route = useRoute()
+const router = useRouter()
 
 </script>
 
@@ -45,7 +48,7 @@ const group = computed(() => useGroupStore().group)
         </q-card-section>
 
         <q-card-section v-if="useGroupStore().getterUserGroupRole('owner')">
-          <q-btn icon="sym_r_edit" size="md" padding="none" no-caps flat label="Edit group info" @click="$router.push({ name: 'DashboardGroupPage', params: {id: $route.params.id }})"/>
+          <q-btn icon="sym_r_edit" size="md" padding="none" no-caps flat label="Edit group info" @click="router.push({ name: 'DashboardGroupPage', params: {id: route.params.id }})"/>
         </q-card-section>
 
         <q-card-section class="q-mt-auto">

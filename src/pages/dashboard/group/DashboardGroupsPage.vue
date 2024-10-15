@@ -53,7 +53,6 @@ import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity, GroupPaginationEntity } from 'src/types'
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
-import NoContentComponent from 'components/common/NoContentComponent.vue'
 
 const router = useRouter()
 const route = useRoute()

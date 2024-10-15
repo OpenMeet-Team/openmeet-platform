@@ -51,8 +51,8 @@
           <q-card-section>
             <q-btn-dropdown align="center" no-caps label="Organiser tools">
               <q-list>
-                <MenuItemComponent label="Edit event" icon="sym_r_edit_note" @click="$router.push({ name: 'DashboardEventGeneralPage', params: { id: $route.params.id }})"/>
-                <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="$router.push({ name: 'DashboardEventAttendeesPage', params: { id: $route.params.id }})"/>
+                <MenuItemComponent label="Edit event" icon="sym_r_edit_note" @click="router.push({ name: 'DashboardEventGeneralPage', params: { id: route.params.id }})"/>
+                <MenuItemComponent label="Manage attendees" icon="sym_r_people" @click="router.push({ name: 'DashboardEventAttendeesPage', params: { id: route.params.id }})"/>
                 <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
                 <q-separator/>
                 <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
@@ -90,7 +90,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { LoadingBar } from 'quasar'
 import { eventsApi } from 'src/api/events.ts'
 import { EventEntity } from 'src/types'
@@ -103,6 +103,7 @@ import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 
 const route = useRoute()
+const router = useRouter()
 const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 

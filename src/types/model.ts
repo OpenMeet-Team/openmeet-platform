@@ -8,6 +8,8 @@ export enum SubCategoryType {
 export interface UploadedFileEntity {
   path?: string
   id: string
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export interface AddressLocation {

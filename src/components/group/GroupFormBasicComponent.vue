@@ -133,7 +133,7 @@ const onSubmit = async () => {
     }
   } catch (err) {
     console.log(err)
-    error('Failed to create an event')
+    error('Failed to create a group')
   } finally {
     Loading.hide()
   }

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useGroupStore } from 'stores/group-store.ts'
 
+const group = computed(() => useGroupStore().group)
 interface ChatMessage {
   id: number;
   sender: string;
@@ -32,18 +34,17 @@ const sendMessage = () => {
 
 <template>
   <!-- Chat Section -->
-  <q-card class="q-mt-md">
+  <q-card v-if="group" class="shadow-0 q-mt-md">
     <q-card-section>
-      <div class="text-h5">Group Chat</div>
+      <div class="text-h5">Discussions <span v-if="group.discussions">{{ group.discussions.length }}</span></div>
     </q-card-section>
-    <q-separator/>
     <q-card-section class="chat-messages scroll" style="max-height: 300px">
       <div v-for="message in chatMessages" :key="message.id" class="q-mb-sm">
         <strong>{{ message.sender }}:</strong> {{ message.text }}
       </div>
     </q-card-section>
-    <q-separator/>
-    <q-card-section>
+
+    <q-card-section v-if="useGroupStore().getterHasUserGroupRole()">
       <q-input
         v-model="newMessage"
         label="Type a message"

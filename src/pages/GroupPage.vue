@@ -1,5 +1,5 @@
 <template>
-  <q-page v-if="group" class="q-pa-md">
+  <q-page v-if="group" class="q-pa-md q-pb-xl">
     <!-- Lead block -->
     <GroupLeadComponent/>
 
@@ -30,11 +30,7 @@ const group = computed(() => {
 
 onMounted(async () => {
   LoadingBar.start()
-
-  Promise.all([
-    useGroupStore().actionGetGroupById(route.params.id as string)
-    // useUserStore().actionGetGroupRights(route.params.id as string)
-  ]).finally(LoadingBar.stop)
+  useGroupStore().actionGetGroupById(route.params.id as string).finally(LoadingBar.stop)
 })
 </script>
 

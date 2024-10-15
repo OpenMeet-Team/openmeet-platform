@@ -2,15 +2,13 @@
 import { EventEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils.ts'
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import { groupsApi } from 'src/api/groups.ts'
 
 const events = ref<EventEntity[]>([])
 const loaded = ref<boolean>(false)
-const route = useRoute()
 
 onMounted(() => {
-  groupsApi.similarEvents(route.params.id as string).then(res => {
+  groupsApi.similarEvents().then(res => {
     events.value = res.data
   })
 })
