@@ -63,16 +63,15 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useQuasar } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { validateEmail } from 'src/utils/validation.ts'
-
-const $q = useQuasar()
+import { useNotification } from 'src/composables/useNotification.ts'
 
 const email = ref('')
 const loading = ref(false)
 const showSuccessDialog = ref(false)
 const authStore = useAuthStore()
+const { error } = useNotification()
 
 const onSubmit = async () => {
   try {
@@ -84,13 +83,9 @@ const onSubmit = async () => {
 
     // Reset form field after successful submission
     email.value = ''
-  } catch (error) {
-    $q.notify({
-      color: 'negative',
-      textColor: 'white',
-      icon: 'warning',
-      message: 'Failed to send reset instructions. Please try again.'
-    })
+  } catch (err) {
+    console.log(err)
+    error('Failed to send reset instructions. Please try again.')
   } finally {
     loading.value = false
   }

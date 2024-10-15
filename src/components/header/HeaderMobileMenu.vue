@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useQuasar } from 'quasar'
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -11,7 +10,7 @@ import { useRouter } from 'vue-router'
 
 const { openCreateGroupDialog } = useGroupDialog()
 const { openCreateEventDialog } = useEventDialog()
-const { openLoginDialog } = useAuthDialog()
+const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
 const router = useRouter()
 const openCreateGroupForm = () => {
@@ -30,8 +29,6 @@ const openCreateEventForm = () => {
   }
 }
 
-const $q = useQuasar()
-
 const rightDrawerOpen = ref<boolean>(false)
 
 const toggleRightDrawer = () => {
@@ -39,13 +36,7 @@ const toggleRightDrawer = () => {
 }
 
 const login = () => {
-  // Implement login logic here
-  console.log('Login clicked')
-  $q.notify({
-    color: 'info',
-    message: 'Login functionality to be implemented',
-    icon: 'info'
-  })
+  openLoginDialog()
 }
 
 const onClickLogout = () => {
@@ -56,13 +47,7 @@ const onClickLogout = () => {
 }
 
 const signUp = () => {
-  // Implement sign up logic here
-  console.log('Sign Up clicked')
-  $q.notify({
-    color: 'info',
-    message: 'Sign Up functionality to be implemented',
-    icon: 'info'
-  })
+  openRegisterDialog()
 }
 </script>
 

@@ -66,11 +66,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useQuasar } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { useNotification } from 'src/composables/useNotification.ts'
 
-const $q = useQuasar()
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -80,6 +79,7 @@ const isPwd = ref<boolean>(true)
 const loading = ref<boolean>(false)
 const showSuccessDialog = ref<boolean>(false)
 
+const { error } = useNotification()
 const onSubmit = async () => {
   try {
     loading.value = true
@@ -89,13 +89,8 @@ const onSubmit = async () => {
 
     // Reset form field after successful submission
     password.value = ''
-  } catch (error) {
-    $q.notify({
-      color: 'negative',
-      textColor: 'white',
-      icon: 'warning',
-      message: 'Failed to reset password. Please try again.'
-    })
+  } catch (err) {
+    error('Failed to reset password. Please try again.')
   } finally {
     loading.value = false
   }
