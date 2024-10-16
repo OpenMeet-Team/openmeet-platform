@@ -63,7 +63,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, GroupEntity, UploadedFileEntity } from 'src/types'
+import { CategoryEntity, FileEntity, GroupEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
@@ -87,7 +87,7 @@ const onUpdateLocation = (address: {lat: string, lon: string, location: string})
   group.value.location = address.location
 }
 
-const onGroupImageSelect = (file: UploadedFileEntity) => {
+const onGroupImageSelect = (file: FileEntity) => {
   group.value.image = file
 }
 

@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import DashboardProfileForm from 'components/dashboard/DashboardProfileForm.vue'
+import { useMeta } from 'quasar'
+useMeta({
+  title: 'Profile'
+})
 </script>
 
 <template>

@@ -58,7 +58,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { LoadingBar } from 'quasar'
+import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { groupsApi } from 'src/api/groups.ts'
 import { categoriesApi } from 'src/api/categories.ts'
@@ -70,6 +70,10 @@ import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 
 const router = useRouter()
 const route = useRoute()
+
+useMeta({
+  title: 'Groups'
+})
 
 // Pagination
 const currentPage = ref(parseInt(route.query.page as string) || 1)

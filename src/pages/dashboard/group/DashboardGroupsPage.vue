@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { LoadingBar } from 'quasar'
+import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
 import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
@@ -55,6 +55,9 @@ const userGroups = ref<GroupEntity[]>([])
 const hostedGroups = computed(() => userGroups.value?.filter(group => group.groupMembers?.some(member => member.user?.id === useAuthStore().getUserId && member.groupRole?.name !== 'member')))
 const memberedGroups = computed(() => userGroups.value?.filter(group => group.groupMembers?.some(member => member.user?.id === useAuthStore().getUserId && member.groupRole?.name === 'member')))
 
+useMeta({
+  title: 'My groups'
+})
 const fetchData = async () => {
   LoadingBar.start()
   return apiGetDashboardGroups().then(res => {

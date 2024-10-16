@@ -109,6 +109,7 @@ const authStore = useAuthStore()
 import { validateEmail } from 'src/utils/validation'
 import { useRoute, useRouter } from 'vue-router'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { useMeta } from 'quasar'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,6 +137,10 @@ const onSubmit = async () => {
     error('Registration failed. Please try again.')
   })
 }
+
+useMeta({
+  title: 'Registration'
+})
 </script>
 
 <style scoped>

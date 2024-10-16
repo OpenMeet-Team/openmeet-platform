@@ -100,7 +100,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Dark, LoadingBar } from 'quasar'
+import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
 import { apiHome } from 'src/api/home.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
@@ -173,6 +173,10 @@ const viewEvent = (eventId: number) => {
 const viewAllEvents = () => {
   router.push({ name: 'EventsPage' })
 }
+
+useMeta({
+  title: 'Home'
+})
 
 onMounted(() => {
   LoadingBar.start()

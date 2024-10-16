@@ -12,6 +12,11 @@ export interface UploadedFileEntity {
   updatedAt?: Date
 }
 
+export interface FileEntity {
+  path?: string
+  id: number
+}
+
 export interface AddressLocation {
   location?: string
   lat?: number

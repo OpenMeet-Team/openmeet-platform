@@ -53,6 +53,7 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from 'src/utils/validation'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { useMeta } from 'quasar'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -81,6 +82,10 @@ const onSubmit = (): void => {
     })
   }
 }
+
+useMeta({
+  title: 'Login'
+})
 </script>
 
 <style scoped>

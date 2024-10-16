@@ -3,11 +3,20 @@
 </template>
 
 <script setup lang="ts">
-import { Dark } from 'quasar'
+import { Dark, useMeta } from 'quasar'
 import { onBeforeMount } from 'vue'
 
 defineOptions({
   name: 'App'
+})
+
+useMeta({
+  title: '',
+  titleTemplate: title => `${title} | ${process.env.APP_TENANT_NAME || 'OpenMeet'}`,
+  meta: {
+    description: { content: process.env.APP_TENANT_DESCRIPTION || 'Building communities' },
+    'og:image': { content: process.env.APP_TENANT_IMAGE || '/default-image.jpg' }
+  }
 })
 
 onBeforeMount(() => {

@@ -143,7 +143,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, GroupEntity, UploadedFileEntity } from 'src/types'
+import { CategoryEntity, EventEntity, FileEntity, GroupEntity } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -155,7 +155,7 @@ import { QForm } from 'quasar'
 import { groupsApi } from 'src/api/groups.ts'
 
 const { error } = useNotification()
-const onEventImageSelect = (file: UploadedFileEntity) => {
+const onEventImageSelect = (file: FileEntity) => {
   eventData.value.image = file
 }
 

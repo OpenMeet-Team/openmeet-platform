@@ -122,7 +122,8 @@ export default configure((ctx) => {
         'Notify',
         'Dialog',
         'LoadingBar',
-        'Loading'
+        'Loading',
+        'Meta'
       ]
     },
 

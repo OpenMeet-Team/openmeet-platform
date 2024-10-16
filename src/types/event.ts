@@ -1,4 +1,4 @@
-import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
+import { CategoryEntity, FileEntity, Pagination } from 'src/types/model.ts'
 import { GroupEntity } from 'src/types/group.ts'
 import { UserEntity } from 'src/types/user.ts'
 
@@ -21,7 +21,7 @@ export interface EventEntity {
   locationOnline?: string
   lat?: number
   lon?: number
-  image?: string | UploadedFileEntity
+  image?: FileEntity | string
   description?: string
   maxAttendees?: number
   attendees?: EventAttendeeEntity[]

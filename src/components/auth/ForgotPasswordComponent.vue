@@ -66,6 +66,7 @@ import { ref } from 'vue'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { validateEmail } from 'src/utils/validation.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { useMeta } from 'quasar'
 
 const email = ref('')
 const loading = ref(false)
@@ -90,6 +91,11 @@ const onSubmit = async () => {
     loading.value = false
   }
 }
+
+useMeta({
+  title: 'Forgot Password'
+})
+
 </script>
 
 <style scoped>

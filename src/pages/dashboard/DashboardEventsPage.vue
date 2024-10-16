@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { LoadingBar } from 'quasar'
+import { LoadingBar, useMeta } from 'quasar'
 import DashboardEventItem from 'components/dashboard/DashboardEventItem.vue'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
@@ -85,6 +85,10 @@ const editEvent = (eventId: number) => {
 const onDeleteEvent = (event: EventEntity) => {
   openDeleteEventDialog(event)
 }
+
+useMeta({
+  title: 'My events'
+})
 
 onMounted(() => {
   LoadingBar.start()

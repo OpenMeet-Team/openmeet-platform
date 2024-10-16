@@ -44,12 +44,15 @@ export const useEventStore = defineStore('event', {
       this.isLoading = true
       this.errorMessage = null
 
-      // if (error.response?.status === 404) {
-      //   errorMessage.value = 'Event not found'
-      // } else {
-      //   errorMessage.value = 'Failed to fetch event details'
-      // }
-      // isLoading.value = false
+      try {
+        const res = await eventsApi.getById(id)
+        this.event = res.data
+      } catch (err) {
+        this.handleAxiosError(err as AxiosError)
+      }
+    },
+
+    async actionGetEventAttendeesById (id: string) {
       try {
         const res = await eventsApi.getById(id)
         this.event = res.data

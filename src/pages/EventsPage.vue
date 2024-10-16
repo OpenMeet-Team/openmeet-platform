@@ -22,9 +22,14 @@ import { eventsApi } from 'src/api/events.ts'
 import { EventEntity } from 'src/types'
 import EventsItemComponent from 'components/event/EventsItemComponent.vue'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import { useMeta } from 'quasar'
 
 const events = ref<EventEntity[]>([])
 const loaded = ref(false) // Add loading state
+
+useMeta({
+  title: 'Events'
+})
 
 onMounted(() => {
   // Fetch events with loading state

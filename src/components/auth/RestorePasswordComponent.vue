@@ -31,11 +31,12 @@
 
           <div class="text-grey-6">
             Remember your password?
-            <q-btn flat color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
+            <q-btn no-caps flat padding="none" color="primary" label="Login" :to="{name: 'AuthLoginPage'}"/>
           </div>
 
           <div>
             <q-btn
+              no-caps
               label="Reset password"
               type="submit"
               color="primary"
@@ -69,6 +70,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { useMeta } from 'quasar'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -95,6 +97,10 @@ const onSubmit = async () => {
     loading.value = false
   }
 }
+
+useMeta({
+  title: 'Restore Password'
+})
 </script>
 
 <style scoped>

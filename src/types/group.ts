@@ -1,4 +1,4 @@
-import { CategoryEntity, DiscussionEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
+import { CategoryEntity, DiscussionEntity, FileEntity, Pagination } from 'src/types/model.ts'
 import { UserEntity } from 'src/types/user.ts'
 import { EventEntity } from 'src/types/event.ts'
 
@@ -31,7 +31,7 @@ export interface GroupEntity {
   location?: string
   lat?: number
   lon?: number
-  image?: UploadedFileEntity
+  image?: FileEntity
   organizerId?: string
   membersCount?: number
   groupMembers?: GroupMemberEntity[]

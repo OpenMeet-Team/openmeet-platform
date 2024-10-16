@@ -22,6 +22,16 @@
 
           <q-card class="q-mt-lg">
             <q-card-section>
+              <div class="text-h5 row justify-between">Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span> <q-btn v-if="event.attendees?.length" no-caps flat label="See all">
+                <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
+                  <h2>Attendees here</h2>
+                  TODO
+
+                  {{ event.attendees }}
+                </q-popup-proxy>
+              </q-btn></div>
+            </q-card-section>
+            <q-card-section>
               <div class="text-h5 q-mb-md">Attendees <span v-if="event.attendees?.length">{{ event.attendees.length }}</span></div>
 
               <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
@@ -34,15 +44,6 @@
                 filled
               </div>
             </q-card-section>
-
-            <q-card-actions align="right">
-              <q-btn
-                color="primary"
-                label="RSVP"
-                @click="rsvpToEvent"
-                :disable="event.maxAttendees ? event.maxAttendees >= event.maxAttendees : false"
-              />
-            </q-card-actions>
           </q-card>
         </div>
         <div class="col-12 col-md-4">
@@ -130,8 +131,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Dark, LoadingBar } from 'quasar'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { Dark, LoadingBar, useMeta } from 'quasar'
+// import { useNotification } from 'src/composables/useNotification.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import EventStickyComponent from 'components/event/EventStickyComponent.vue'
 import { formatDate } from '../utils/dateUtils.ts'
@@ -146,7 +147,7 @@ import NoContentComponent from 'components/global/NoContentComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { success } = useNotification()
+// const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
@@ -159,14 +160,14 @@ const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
 }
 
-const rsvpToEvent = () => {
-  if (event.value) {
-    // Here you would typically make an API call to RSVP
-    // For this example, we'll just update the local state
-    event.value.attendeesCount = event.value.attendeesCount ? event.value.attendeesCount++ : 1
-    success('You have successfully RSVP\'d to this event!')
-  }
-}
+// const rsvpToEvent = () => {
+//   if (event.value) {
+//     // Here you would typically make an API call to RSVP
+//     // For this example, we'll just update the local state
+//     event.value.attendeesCount = event.value.attendeesCount ? event.value.attendeesCount++ : 1
+//     success('You have successfully RSVP\'d to this event!')
+//   }
+// }
 
 onMounted(() => {
   LoadingBar.start()
@@ -174,6 +175,14 @@ onMounted(() => {
   useEventStore().actionGetEventById(String(eventId)).finally(() => {
     loaded.value = true
     LoadingBar.stop()
+  }).then(() => {
+    useMeta({
+      title: event.value?.name,
+      meta: {
+        description: { content: event.value?.description },
+        'og:image': { content: getImageSrc(event.value?.image) }
+      }
+    })
   })
 })
 </script>
