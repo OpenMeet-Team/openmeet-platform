@@ -32,8 +32,8 @@ const router = useRouter()
                      :label="`${group.membersCount} members`"/>
             <q-badge color="secondary" label="Public group"/>
           </div>
-          <div class="q-mt-md text-caption" v-if="group.user && group.user.name">Organized by {{
-              group.user.name
+          <div class="q-mt-md text-caption" v-if="group.createdBy && group.createdBy.name">Organized by {{
+              group.createdBy.name
             }}
           </div>
         </q-card-section>

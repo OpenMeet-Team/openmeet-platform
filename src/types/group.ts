@@ -39,7 +39,7 @@ export interface GroupEntity {
   discussions?: DiscussionEntity[]
   visibility?: GroupVisibilityType
   status?: GroupStatusType,
-  user?: UserEntity
+  createdBy?: UserEntity
   userGroupRole?: never
 }
 

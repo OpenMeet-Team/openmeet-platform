@@ -51,8 +51,8 @@ const props = defineProps<{
 // eslint-disable-next-line func-call-spacing
 const emit = defineEmits<{
   (e: 'view', event: EventEntity): void;
-  (e: 'edit', id: number): void;
-  (e: 'delete', id: EventEntity): void;
+  (e: 'edit', event: EventEntity): void;
+  (e: 'delete', event: EventEntity): void;
   (e: 'toggle-rsvp', id: number, attending: boolean): void;
 }>()
 
@@ -73,7 +73,7 @@ const viewEventDetails = () => {
 }
 
 const onEditEvent = () => {
-  emit('edit', props.event.id)
+  emit('edit', props.event)
 }
 
 const onDeleteEvent = () => {

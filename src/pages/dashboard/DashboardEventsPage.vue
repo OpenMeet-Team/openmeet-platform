@@ -61,6 +61,7 @@ import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
+import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)
@@ -75,11 +76,13 @@ const savedEvents = computed(() => events.value)
 const events = ref<EventEntity[]>([])
 
 const viewEvent = (event: EventEntity) => {
-  router.push({ name: 'EventPage', params: { id: event.id } })
+  console.log(event)
+  router.push({ name: 'EventPage', params: { slug: event.slug, id: encodeNumberToLowercaseString(event.id) } })
 }
 
-const editEvent = (eventId: number) => {
-  router.push({ name: 'DashboardEventGeneralPage', params: { id: eventId } })
+const editEvent = (event: EventEntity) => {
+  console.log(event)
+  router.push({ name: 'DashboardEventGeneralPage', params: { id: event.id } })
 }
 
 const onDeleteEvent = (event: EventEntity) => {

@@ -1,19 +1,23 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventEntity } from 'src/types'
+import { CategoryEntity, EventPaginationEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
+import { RouteQueryAndHash } from 'vue-router'
+import { categoriesApi } from 'src/api/categories.ts'
+
 const { error } = useNotification()
-export const useEventStore = defineStore('event', {
+
+export const useEventsStore = defineStore('events', {
   state: () => ({
-    event: null as EventEntity | null,
+    events: null as EventPaginationEntity | null,
+    categories: null as CategoryEntity[] | null,
     errorMessage: null as string | null,
     isLoading: false
   }),
 
-  getters: {},
-
   actions: {
+    // Centralized Axios error handler
     handleAxiosError (err: AxiosError) {
       if (err.response) {
         // Server-side errors
@@ -37,51 +41,46 @@ export const useEventStore = defineStore('event', {
         // Other errors (e.g., Axios configuration)
         this.errorMessage = 'An unexpected error occurred. Please try again.'
       }
-      // Optionally, log the error details for debugging
+
+      // Log the error details for debugging
       console.error('Error details:', err)
     },
-    async actionGetEventById (id: string) {
+
+    // Fetch both events and categories with proper error handling
+    async actionGetEventsState (query: RouteQueryAndHash) {
       this.isLoading = true
       this.errorMessage = null
 
       try {
-        const res = await eventsApi.getById(id)
-        this.event = res.data
+        // Run both actions concurrently
+        await Promise.all([this.actionGetEvents(query), this.actionGetEventsCategories()])
+      } catch (err) {
+        this.handleAxiosError(err as AxiosError)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    // Fetch events based on the query
+    async actionGetEvents (query: RouteQueryAndHash) {
+      this.errorMessage = null
+
+      try {
+        const response = await eventsApi.getAll(query)
+        this.events = response.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       }
     },
 
-    async actionGetEventAttendeesById (id: string) {
+    // Fetch event categories
+    async actionGetEventsCategories () {
       try {
-        const res = await eventsApi.getAttendeesById(id)
-        this.event = res.data
+        const response = await categoriesApi.getAll()
+        this.categories = response.data
       } catch (err) {
-        this.handleAxiosError(err as AxiosError)
-      }
-    },
-
-    async actionAttendEvent (eventId: number, rsvpStatus: string, isHost: boolean) {
-      try {
-        const res = await eventsApi.attend({ eventId, rsvpStatus, isHost })
-        if (this.event) {
-          this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to join event')
-      }
-    },
-
-    async actionLeaveEvent (userId: number, eventId: number) {
-      try {
-        await eventsApi.leave(userId, eventId)
-        if (this.event) {
-          this.event.attendees = this.event.attendees?.filter((member: EventAttendeeEntity) => member)
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to leave event')
+        console.error('Error fetching categories:', err)
+        error('Failed to fetch categories') // Use notification system
       }
     }
   }

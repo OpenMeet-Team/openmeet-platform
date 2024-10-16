@@ -23,16 +23,18 @@ const members = computed(() => props.groupMembers?.filter(m => m?.groupRole?.nam
         </q-card-section>
         <q-list style="max-height: 300px" class="scroll">
           <q-item v-for="member in organisers" :key="member.id">
-            <q-item-section avatar>
-              <q-avatar>
-                <img :src="getImageSrc(member.user.photo, 'https://placehold.co/100')" :alt="member.user.name">
-              </q-avatar>
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ member.user.name }}</q-item-label>
-              <q-item-label caption>{{ member.groupRole.name }}</q-item-label>
-              <router-link :to="{ name: 'DashboardMessagesPage', query: { user: member.user.id }}"><q-icon name="sym_r_mail" left/>Message</router-link>
-            </q-item-section>
+            <template v-if="member.user">
+              <q-item-section avatar>
+                <q-avatar>
+                  <img :src="getImageSrc(member.user?.photo, 'https://placehold.co/100')" :alt="member.user?.name">
+                </q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ member.user?.name }}</q-item-label>
+                <q-item-label caption>{{ member.groupRole.name }}</q-item-label>
+                <router-link :to="{ name: 'DashboardMessagesPage', query: { user: member.user?.id }}"><q-icon name="sym_r_mail" left/>Message</router-link>
+              </q-item-section>
+            </template>
           </q-item>
         </q-list>
       </template>

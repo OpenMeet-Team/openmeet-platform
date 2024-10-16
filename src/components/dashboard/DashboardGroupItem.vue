@@ -44,8 +44,8 @@ const getRoleColor = (role: string): string => {
     </q-card-section>
     <q-separator/>
     <q-card-actions align="right">
-      <q-btn flat color="primary" label="View Group" @click="$emit('view', group.id)"/>
-      <q-btn flat color="primary" label="Edit Group" @click="$emit('edit', group.id)"/>
+      <q-btn flat color="primary" label="View Group" @click="$emit('view', group)"/>
+      <q-btn flat color="primary" label="Edit Group" @click="$emit('edit', group)"/>
       <q-btn flat color="secondary" label="Leave Group" @click="$emit('leave', group)"/>
       <q-btn flat color="negative" label="Delete" @click="$emit('delete', group)" />
     </q-card-actions>

@@ -1,6 +1,7 @@
 <template>
   <div :class="$attrs.class" class="relative relative-position">
     <q-select
+      class="location-select"
       ref="selectRef"
       :label="label"
       :placeholder="placeholder"
@@ -23,7 +24,7 @@
       <template v-slot:selected>
         <span class="text-no-wrap overflow-hidden ellipsis" style="max-width: 70%">{{ location }}</span>
       </template>
-      <template v-slot:append>
+      <template v-slot:append v-if="!hideSearchIcon">
         <q-icon name="sym_r_search"/>
       </template>
       <template v-slot:prepend>
@@ -103,10 +104,12 @@ interface Props {
   filled?: boolean
   outlined?: boolean
   clearable?: boolean
+  hideSearchIcon?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  filled: true
+  filled: true,
+  hideSearchIcon: false
 })
 
 const emit = defineEmits(['update:model-value'])
@@ -174,5 +177,8 @@ const selectLocation = (suggestion: OSMLocationSuggestion | null) => {
 </script>
 
 <style scoped>
+.location-select :deep(.q-field__native)  {
+  flex-wrap: nowrap;
+}
 /* Optional styles for the component */
 </style>

@@ -17,6 +17,7 @@
       option-label="name"
       map-options
       emit-value
+      clearable
       label="Group"
     />
 

@@ -47,6 +47,7 @@ import { GroupEntity } from 'src/types'
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 import { useAuthStore } from 'stores/auth-store.ts'
+import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
 
 const router = useRouter()
 
@@ -73,13 +74,12 @@ const exploreGroups = () => {
   router.push({ name: 'GroupsPage' })
 }
 
-const viewGroup = (groupId: string) => {
-  console.log(groupId)
-  router.push({ name: 'GroupPage', params: { id: groupId } })
+const viewGroup = (group: GroupEntity) => {
+  router.push({ name: 'GroupPage', params: { slug: group.slug, id: encodeNumberToLowercaseString(group.id) } })
 }
 
-const editGroup = (groupId: string) => {
-  router.push({ name: 'DashboardGroupBasicPage', params: { id: groupId } })
+const editGroup = (group: GroupEntity) => {
+  router.push({ name: 'DashboardGroupBasicPage', params: { id: group.id } })
 }
 
 const confirmLeaveGroup = (group: GroupEntity) => {

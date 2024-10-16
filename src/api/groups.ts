@@ -14,6 +14,5 @@ export const groupsApi = {
   leave: (id: string) => api.post(`/api/group-members/leave/${id}`),
   getMembers: (id: string) => api.get(`/api/group-members/${id}`),
   updateMemberRole: (data: { userId: number, name: string, groupId: number }) => api.post('/api/group-members/update-role', data),
-  // similarEvents: (id: string) => api.get(`/api/groups/${id}/similar-events`),
-  similarEvents: () => api.get('/api/events')
+  similarEvents: () => api.get('/api/groups/similar-events')
 }

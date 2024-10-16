@@ -2,7 +2,10 @@
 import { GroupEntity } from 'src/types'
 import { truncateDescription } from 'src/utils/stringUtils'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 interface Props {
   group: GroupEntity
 }
@@ -26,7 +29,7 @@ defineEmits(['view'])
       {{ truncateDescription(group.description) }}
     </q-card-section>
     <q-card-actions align="right">
-      <q-btn flat color="primary" label="View Group" @click="$emit('view', group.id)"/>
+      <q-btn flat color="primary" label="View Group" @click="router.push({ name: 'GroupPage', params: { slug: group.slug, id: encodeNumberToLowercaseString(group.id) } })"/>
     </q-card-actions>
   </q-card>
 </template>

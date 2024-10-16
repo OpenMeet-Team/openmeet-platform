@@ -122,6 +122,8 @@
           </div>
         </div>
       </div>
+
+      <GroupSimilarEventsComponent/>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
     <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning" @click="router.push({ name: 'EventsPage' })" button-label="Back to events"/>
@@ -144,6 +146,7 @@ import { useEventStore } from 'stores/event-store.ts'
 import { decodeLowercaseStringToNumber, encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
+import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

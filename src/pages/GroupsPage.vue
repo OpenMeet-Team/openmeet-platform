@@ -2,8 +2,10 @@
   <q-page class="q-pa-md">
     <SpinnerComponent v-if="!loaded"/>
 
-    <div class="row q-col-gutter-md q-mb-md">
-      <div class="col-12 col-md-6">
+    <h2 class="text-h4 q-mb-md">Groups list</h2>
+
+    <div class="row q-col-gutter-md q-mb-lg">
+      <div class="col-6 col-sm-3">
         <q-select
           :model-value="selectedCategories"
           :options="categories"
@@ -19,7 +21,7 @@
           @update:model-value="onFilterByCategories"
         />
       </div>
-      <div class="col-12 col-md-6">
+      <div class="col-6 col-sm-3">
         <LocationComponent
           :filled="false"
           :location="selectedLocation as string"
@@ -41,10 +43,7 @@
         </div>
       </div>
 
-      <div v-if="groups.data.length === 0" class="text-center q-mt-xl">
-        <q-icon name="sym_r_search_off" size="4em" color="grey-5" />
-        <p class="text-h6 text-grey-6">No groups found matching your criteria</p>
-      </div>
+      <NoContentComponent v-if="!groups.data?.length" label="No groups found matching your criteria" icon="sym_r_search_off"/>
 
       <q-pagination v-if="groups && groups.totalPages && groups.totalPages > 1"
                     v-model="currentPage"
@@ -67,6 +66,7 @@ import GroupsItemComponent from 'components/group/GroupsItemComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import NoContentComponent from 'components/global/NoContentComponent.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -78,6 +78,18 @@ useMeta({
 // Pagination
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 const loaded = ref<boolean>(false)
+// Data and state
+const categories = ref<CategoryEntity[]>([])
+const groups = ref<GroupPaginationEntity>({
+  data: [],
+  total: 0,
+  page: 1,
+  totalPages: 0
+})
+const selectedCategories = ref<number[]>(Array.isArray(route.query.categories) ? route.query.categories.map(Number) : route.query.categories ? [Number(route.query.categories)] : [])
+const selectedLocation = ref<string | null>(route.query.location as string || null)
+const selectedLat = ref<number | null>(Number(route.query.lat) || null)
+const selectedLon = ref<number | null>(Number(route.query.lon) || null)
 
 // Fetch categories and groups when the component is mounted
 onMounted(() => {
@@ -167,18 +179,6 @@ const joinGroup = (groupId: number) => {
   }
 }
 
-// Data and state
-const categories = ref<CategoryEntity[]>([])
-const groups = ref<GroupPaginationEntity>({
-  data: [],
-  total: 0,
-  page: 1,
-  totalPages: 0
-})
-const selectedCategories = ref<number[]>(Array.isArray(route.query.categories) ? route.query.categories.map(Number) : route.query.categories ? [Number(route.query.categories)] : [])
-const selectedLocation = ref<string | null>(route.query.location as string || null)
-const selectedLat = ref<number | null>(Number(route.query.lat) || null)
-const selectedLon = ref<number | null>(Number(route.query.lon) || null)
 const { success, error } = useNotification()
 
 </script>
