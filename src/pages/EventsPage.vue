@@ -14,7 +14,7 @@
 
     <template v-if="events">
       <!-- Event List -->
-      <div class="" v-if="!useEventsStore().isLoading && events?.data?.length">
+      <div v-if="!useEventsStore().isLoading && events?.data?.length">
         <div v-for="event in events.data" :key="event.id" class="col-12 col-sm-6 col-md-4">
           <EventsItemComponent :event="event"/>
         </div>
@@ -42,9 +42,9 @@ import { useRoute, useRouter } from 'vue-router'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import EventsDateFilterComponent from 'components/events/EventsDateFilterComponent.vue'
 import EventsTypeFilterComponent from 'components/events/EventsTypeFilterComponent.vue'
-import EventsCategoriesFilterComponent from 'components/events/EventsCategoriesFilterComponent.vue'
+import EventsCategoriesFilterComponent from 'components/common/CategoriesFilterComponent.vue'
 import { useEventsStore } from 'stores/events-store.ts'
-import EventsLocationFilterComponent from 'components/events/EventsLocationFilterComponent.vue'
+import EventsLocationFilterComponent from 'components/common/LocationFilterComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

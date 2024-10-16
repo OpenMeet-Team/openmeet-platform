@@ -1,12 +1,14 @@
 <script setup lang="ts">
 
-import { computed, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useEventsStore } from 'stores/events-store.ts'
+import { LoadingBar } from 'quasar'
+import { categoriesApi } from 'src/api/categories.ts'
+import { CategoryEntity } from 'src/types'
 
 const route = useRoute()
 const router = useRouter()
-const categories = computed(() => useEventsStore().categories || [])
+const categories = ref<CategoryEntity[]>([])
 const selectedCategories = ref<number[] | []>(Array.isArray(route.query.categories) ? route.query.categories.map(Number) : route.query.categories ? [Number(route.query.categories)] : [])
 
 // Handle filtering by categories (multiple) and update the URL
@@ -22,6 +24,13 @@ const onFilterByCategories = (categoryIds: number[]) => {
     }
   })
 }
+
+onMounted(() => {
+  LoadingBar.start()
+  categoriesApi.getAll().then(e => {
+    categories.value = e.data
+  }).finally(LoadingBar.stop)
+})
 
 </script>
 

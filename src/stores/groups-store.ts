@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
-import { EventPaginationEntity } from 'src/types'
-import { eventsApi } from 'src/api/events.ts'
+import { GroupPaginationEntity } from 'src/types'
 import { AxiosError } from 'axios'
 import { RouteQueryAndHash } from 'vue-router'
+import { groupsApi } from 'src/api/groups.ts'
 
-export const useEventsStore = defineStore('events', {
+export const useGroupsStore = defineStore('groups', {
   state: () => ({
-    events: null as EventPaginationEntity | null,
+    groups: null as GroupPaginationEntity | null,
     errorMessage: null as string | null,
     isLoading: false
   }),
@@ -18,10 +18,10 @@ export const useEventsStore = defineStore('events', {
         // Server-side errors
         switch (err.response.status) {
           case 404:
-            this.errorMessage = 'Event not found.'
+            this.errorMessage = 'Group not found.'
             break
           case 403:
-            this.errorMessage = 'Access denied. You may not have permission to view this event.'
+            this.errorMessage = 'Access denied. You may not have permission to view this group.'
             break
           case 500:
             this.errorMessage = 'Server error. Please try again later.'
@@ -41,13 +41,14 @@ export const useEventsStore = defineStore('events', {
       console.error('Error details:', err)
     },
 
-    async actionGetEventsState (query: RouteQueryAndHash) {
+    // Fetch both groups and categories with proper error handling
+    async actionGetGroupsState (query: RouteQueryAndHash) {
       this.isLoading = true
       this.errorMessage = null
 
       try {
         // Run both actions concurrently
-        await Promise.all([this.actionGetEvents(query)])
+        await Promise.all([this.actionGetGroups(query)])
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       } finally {
@@ -55,13 +56,13 @@ export const useEventsStore = defineStore('events', {
       }
     },
 
-    // Fetch events based on the query
-    async actionGetEvents (query: RouteQueryAndHash) {
+    // Fetch groups based on the query
+    async actionGetGroups (query: RouteQueryAndHash) {
       this.errorMessage = null
 
       try {
-        const response = await eventsApi.getAll(query)
-        this.events = response.data
+        const response = await groupsApi.getAll(query)
+        this.groups = response.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       }
