@@ -123,6 +123,7 @@
       </div>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
+    <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning" @click="router.push({ name: 'EventsPage' })" button-label="Back to events"/>
   </q-page>
 </template>
 
@@ -141,12 +142,14 @@ import EventLeadComponent from 'components/event/EventLeadComponent.vue'
 import { useEventStore } from 'stores/event-store.ts'
 import { decodeLowercaseStringToNumber, encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import NoContentComponent from 'components/global/NoContentComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)
+const errorMessage = computed(() => useEventStore().errorMessage)
 const loaded = ref<boolean>(false)
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
