@@ -2,6 +2,7 @@
   <div class="c-search-component row items-center q-mx-md">
     <div class="row">
       <q-select
+        rounded
         class="xs-hide"
         outlined
         ref="searchRef"

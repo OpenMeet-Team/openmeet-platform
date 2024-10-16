@@ -1,5 +1,6 @@
 import { CategoryEntity, Pagination, UploadedFileEntity } from 'src/types/model.ts'
 import { GroupEntity } from 'src/types/group.ts'
+import { UserEntity } from 'src/types/user.ts'
 
 export type EventType = 'online' | 'in-person' | 'hybrid'
 export type EventVisibilityType = 'public' | 'authenticated' | 'private'
@@ -30,6 +31,7 @@ export interface EventEntity {
   group?: GroupEntity
   visibility?: EventVisibilityType
   userId?: number
+  user?: UserEntity
   status?: EventStatusType
 }
 

@@ -1,5 +1,7 @@
 <template>
-  <q-page class="q-pa-md" v-if="loaded">
+  <q-page class="q-pa-md">
+    <SpinnerComponent v-if="!loaded"/>
+
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-12 col-md-6">
         <q-select
@@ -32,22 +34,25 @@
       </div>
     </div>
 
-    <div class="row q-col-gutter-md">
-      <div v-for="group in groups.data" :key="group.id" class="col-12 col-md-6 col-lg-4">
-        <GroupsItemComponent :group="group" @join="joinGroup"/>
+    <template v-if="loaded">
+      <div class="row q-col-gutter-md">
+        <div v-for="group in groups.data" :key="group.id" class="col-12 col-md-6 col-lg-4">
+          <GroupsItemComponent :group="group" @join="joinGroup"/>
+        </div>
       </div>
-    </div>
 
-    <div v-if="groups.data.length === 0" class="text-center q-mt-xl">
-      <q-icon name="sym_r_search_off" size="4em" color="grey-5" />
-      <p class="text-h6 text-grey-6">No groups found matching your criteria</p>
-    </div>
+      <div v-if="groups.data.length === 0" class="text-center q-mt-xl">
+        <q-icon name="sym_r_search_off" size="4em" color="grey-5" />
+        <p class="text-h6 text-grey-6">No groups found matching your criteria</p>
+      </div>
 
-    <q-pagination v-if="groups && groups.totalPages && groups.totalPages > 1"
-                  v-model="currentPage"
-                  :max="groups.totalPages"
-                  @input="onPageChange"
-    />
+      <q-pagination v-if="groups && groups.totalPages && groups.totalPages > 1"
+                    v-model="currentPage"
+                    :max="groups.totalPages"
+                    @input="onPageChange"
+      />
+    </template>
+
   </q-page>
 </template>
 
@@ -61,6 +66,7 @@ import { AddressLocation, CategoryEntity, GroupPaginationEntity } from 'src/type
 import GroupsItemComponent from 'components/group/GroupsItemComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import LocationComponent from 'components/common/LocationComponent.vue'
+import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 
 const router = useRouter()
 const route = useRoute()

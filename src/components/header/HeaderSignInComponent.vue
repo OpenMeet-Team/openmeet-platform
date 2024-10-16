@@ -15,9 +15,9 @@ const onRegister = () => {
 <template>
   <div class="row q-gutter-md no-wrap" v-if="!useAuthStore().isAuthenticated">
 <!--    <q-btn size="md" no-caps outline :to="{name: 'AuthLoginPage'}" label="Sign in"/>-->
-    <q-btn no-wrap size="md" no-caps outline @click="onLogin" label="Sign in"/>
+    <q-btn rounded no-wrap size="md" no-caps outline @click="onLogin" label="Sign in"/>
 <!--    <q-btn size="md" no-caps color="secondary"  :to="{name: 'AuthRegisterPage'}" label="Register"/>-->
-    <q-btn size="md" no-caps color="secondary"  @click="onRegister" label="Register"/>
+    <q-btn rounded size="md" no-caps color="secondary"  @click="onRegister" label="Register"/>
   </div>
 </template>
 

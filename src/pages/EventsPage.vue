@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <h1 class="text-h4 q-mb-md">Upcoming Events</h1>
     <!-- Show loader if loading, else show content -->
-    <q-spinner v-if="!loaded" color="primary" size="50px" class="q-my-md" />
+    <SpinnerComponent v-if="!loaded"/>
 
     <!-- Event List -->
     <div class="row q-col-gutter-md" v-if="loaded && events?.length">
@@ -21,7 +21,7 @@ import { ref, onMounted } from 'vue'
 import { eventsApi } from 'src/api/events.ts'
 import { EventEntity } from 'src/types'
 import EventsItemComponent from 'components/event/EventsItemComponent.vue'
-import { QSpinner } from 'quasar'
+import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 
 const events = ref<EventEntity[]>([])
 const loaded = ref(false) // Add loading state

@@ -1,8 +1,6 @@
 <template>
   <div class="relative full-height full-width">
-    <q-spinner v-if="!loaded" size="50px" color="primary" class="absolute-center">
-      Loading map...
-    </q-spinner>
+    <SpinnerComponent v-if="!loaded"/>
     <div ref="mapContainer" class="full-height full-width"></div>
   </div>
 </template>
@@ -12,6 +10,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Map as LMap, Marker, TileLayer } from 'leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 
 // Refs and interfaces
 const mapContainer = ref<HTMLElement | null>(null)
