@@ -44,7 +44,7 @@ const sendMessage = () => {
       </div>
     </q-card-section>
 
-    <q-card-section v-if="useGroupStore().getterHasUserGroupRole()">
+    <q-card-section v-if="useGroupStore().getterGroupHasGroupMember()">
       <q-input
         v-model="newMessage"
         label="Type a message"

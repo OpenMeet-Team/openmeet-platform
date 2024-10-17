@@ -1,11 +1,9 @@
 import { useQuasar } from 'quasar'
-// import { defineAsyncComponent } from 'vue'
 import GroupFormDialogComponent from 'src/components/group/GroupFormDialogComponent.vue'
 import { GroupEntity } from 'src/types'
 import { groupsApi } from 'src/api/groups.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
-// const CreateGroupForm = defineAsyncComponent(() => import('./../components/group/GroupFormComponent.vue'))
-// const GroupFormComponent = defineAsyncComponent(() => import('./../components/group/GroupFormComponent.vue'))
+import GroupWelcomeDialogComponent from 'components/group/GroupWelcomeDialogComponent.vue'
 
 export function useGroupDialog () {
   const $q = useQuasar()
@@ -14,6 +12,15 @@ export function useGroupDialog () {
   const openCreateGroupDialog = () => {
     return $q.dialog({
       component: GroupFormDialogComponent
+    })
+  }
+
+  const openWelcomeGroupDialog = (group: GroupEntity) => {
+    return $q.dialog({
+      component: GroupWelcomeDialogComponent,
+      componentProps: {
+        group
+      }
     })
   }
 
@@ -34,7 +41,7 @@ export function useGroupDialog () {
     })
   }
 
-  const openLeaveGroupDialog = (group: GroupEntity) => {
+  const openLeaveGroupDialog = () => {
     return $q.dialog({
       title: 'Leave Group',
       message: 'Are you sure you want to leave this group?',
@@ -44,16 +51,13 @@ export function useGroupDialog () {
         color: 'primary'
       },
       persistent: true
-    }).onOk(() => {
-      return groupsApi.leave(String(group.id)).then(() => {
-        return success(`You have left the group: ${group.name}`)
-      })
     })
   }
 
   return {
     openCreateGroupDialog,
     openDeleteGroupDialog,
-    openLeaveGroupDialog
+    openLeaveGroupDialog,
+    openWelcomeGroupDialog
   }
 }

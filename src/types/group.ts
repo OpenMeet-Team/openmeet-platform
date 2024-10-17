@@ -43,6 +43,7 @@ export interface GroupEntity {
   userGroupRole?: never
   groupMembersCount?: number
   requireApproval?: boolean
+  groupMember?: GroupMemberEntity
 }
 
 export const GroupRoles = {

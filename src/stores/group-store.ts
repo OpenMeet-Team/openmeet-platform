@@ -10,8 +10,8 @@ export const useGroupStore = defineStore('group', {
   }),
 
   getters: {
-    getterHasUserGroupRole: (state) => () => {
-      return state.group?.userGroupRole
+    getterGroupHasGroupMember: (state) => (): GroupMemberEntity | undefined => {
+      return state.group?.groupMember
     },
     getterUserGroupRole: (state) => (role: string) => {
       return state.group && role
@@ -48,6 +48,7 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.join(id)
         if (this.group) {
           this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
+          this.group.groupMember = res.data
         }
       } catch (err) {
         console.log(err)
@@ -55,13 +56,11 @@ export const useGroupStore = defineStore('group', {
       }
     },
 
-    async actionLeaveGroup (userId: string) {
+    async actionLeaveGroup (groupId: string) {
       try {
-        await groupsApi.leave(userId)
+        await groupsApi.leave(groupId)
         if (this.group) {
-          this.group.groupMembers = this.group.groupMembers?.filter(
-            (member: GroupMemberEntity) => member.user.id !== userId
-          )
+          this.group.groupMember = undefined
         }
       } catch (err) {
         console.log(err)

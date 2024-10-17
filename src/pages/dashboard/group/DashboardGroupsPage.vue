@@ -48,6 +48,7 @@ import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
+import { groupsApi } from 'src/api/groups.ts'
 
 const router = useRouter()
 
@@ -83,8 +84,10 @@ const editGroup = (group: GroupEntity) => {
 }
 
 const confirmLeaveGroup = (group: GroupEntity) => {
-  openLeaveGroupDialog(group).onOk(() => {
-    userGroups.value = userGroups.value.filter(g => g.id !== group.id)
+  openLeaveGroupDialog().onOk(() => {
+    groupsApi.leave(String(group.id)).then(() => {
+      userGroups.value = userGroups.value.filter(g => g.id !== group.id)
+    })
   })
 }
 

@@ -1,26 +1,39 @@
 <script setup lang="ts">
-import { Dark, Loading } from 'quasar'
+import { Dark } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useGroupStore } from 'stores/group-store.ts'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
+import { useNotification } from 'src/composables/useNotification.ts'
+import { useRouter } from 'vue-router'
 
 const { openLoginDialog } = useAuthDialog()
-const route = useRoute()
-
+const groupStore = useGroupStore()
+const group = computed(() => groupStore.group)
+const isJoining = ref<boolean>(false)
+const { openWelcomeGroupDialog, openLeaveGroupDialog } = useGroupDialog()
+const router = useRouter()
+const { success } = useNotification()
 const onJoinGroup = () => {
-  if (useAuthStore().isAuthenticated) {
-    Loading.show()
-    useGroupStore().actionJoinGroup(route.params.id as string).finally(Loading.hide)
+  if (useAuthStore().isAuthenticated && group.value) {
+    isJoining.value = true
+    useGroupStore().actionJoinGroup(String(group.value.id)).finally(() => (isJoining.value = false)).then(() => {
+      if (group.value) openWelcomeGroupDialog(group.value)
+    })
   } else {
     openLoginDialog()
   }
 }
 
 const onLeaveGroup = () => {
-  Loading.show()
-  useGroupStore().actionLeaveGroup(route.params.id as string).finally(Loading.hide)
+  openLeaveGroupDialog().onOk(() => {
+    useGroupStore().actionLeaveGroup(String(group.value?.id)).then(() => {
+      success(`You have left the group: ${group.value?.name}`)
+      router.push({ name: 'GroupsPage' })
+    })
+  })
 }
 </script>
 
@@ -29,21 +42,20 @@ const onLeaveGroup = () => {
     <div class="row">
       <div class="col-12 col-sm-6 q-pa-sm">
         <q-tabs align="justify" no-caps narrow-indicator>
-          <q-route-tab :to="{name: 'GroupPage', params: { id: route.params.id }}" label="About"/>
-          <q-route-tab :to="{name: 'GroupEventsPage', params: { id: route.params.id }}" name="events" label="Events"/>
-          <q-route-tab :to="{name: 'GroupMembersPage', params: { id: route.params.id }}" name="members"
+          <q-route-tab :to="{name: 'GroupPage'}" label="About"/>
+          <q-route-tab :to="{name: 'GroupEventsPage'}" name="events" label="Events"/>
+          <q-route-tab :to="{name: 'GroupMembersPage'}" name="members"
                        label="Members"/>
-          <q-route-tab :to="{name: 'GroupDiscussionsPage', params: { id: route.params.id }}" name="discussions"
+          <q-route-tab :to="{name: 'GroupDiscussionsPage'}" name="discussions"
                        label="Discussions"/>
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center">
-        <q-btn @click="onJoinGroup" v-if="!useGroupStore().getterHasUserGroupRole()" no-caps size="md"
+        <q-btn :loading="isJoining" @click="onJoinGroup" v-if="!useGroupStore().getterGroupHasGroupMember()" no-caps size="md"
                label="Join this group" color="primary"/>
-        <q-btn-dropdown v-else align="center" no-caps label="You're a member">
+        <q-btn-dropdown outline size="md" v-else-if="useGroupStore().getterGroupHasGroupMember()" align="center" no-caps label="You're a member">
           <q-list>
-            <q-separator/>
-            <MenuItemComponent label="Leave this group" icon="sym_r_delete" @click="onLeaveGroup"/>
+            <MenuItemComponent label="Leave this group" icon="sym_r_report" @click="onLeaveGroup"/>
           </q-list>
         </q-btn-dropdown>
       </div>
