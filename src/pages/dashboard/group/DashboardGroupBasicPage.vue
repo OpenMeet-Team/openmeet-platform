@@ -9,15 +9,13 @@ const route = useRoute()
 const onGroupUpdated = (group: GroupEntity) => {
   router.push({ name: 'DashboardGroupsPage', params: { id: group.id } })
 }
+const onClose = () => {
+  router.push({ name: 'DashboardGroupsPage' })
+}
 </script>
 
 <template>
-  <GroupFormBasicComponent @updated="onGroupUpdated" :edit-group-id="route.params.id as string" style="max-width: 500px">
-    <div class="row justify-end q-gutter-sm">
-      <q-btn flat label="Cancel" :to="{ name: 'DashboardGroupsPage'}"/>
-      <q-btn label="Create Group" type="submit" color="primary"/>
-    </div>
-  </GroupFormBasicComponent>
+  <GroupFormBasicComponent @updated="onGroupUpdated" :edit-group-id="route.params.id as string" style="max-width: 500px" @close="onClose"/>
 </template>
 
 <style scoped lang="scss">
