@@ -15,8 +15,8 @@ const event = computed(() => useEventStore().event)
         </q-avatar>
       </q-btn>
       <div>
-        <q-item-label>{{ event.user.name || event.user.firstName + ' ' + event.user.lastName }}</q-item-label>
-        <q-item-label caption>2 new messages</q-item-label>
+        <q-item-label>Hosted by</q-item-label>
+        <q-item-label class="text-bold">{{ event.user.name || event.user.firstName + ' ' + event.user.lastName }}</q-item-label>
       </div>
     </div>
 

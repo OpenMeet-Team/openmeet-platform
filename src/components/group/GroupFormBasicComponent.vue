@@ -15,7 +15,7 @@
     />
 
     <q-select
-      :rules="[(val: []) => !!val.length || 'Categories is required']"
+      :rules="[(val: []) => !!(val && val.length) || 'Category is required']"
       v-model="group.categories"
       :options="categoryOptions"
       filled
@@ -54,6 +54,8 @@
       filled
     />
 
+    <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
+
     <div class="row justify-end q-gutter-sm">
       <q-btn flat label="Cancel" @click="$emit('close')"/>
       <q-btn label="Create a Group" type="submit" color="primary"/>
@@ -78,6 +80,7 @@ const group = ref<GroupEntity>({
   description: '',
   categories: [],
   location: '',
+  requireApproval: false,
   visibility: 'public'
 })
 

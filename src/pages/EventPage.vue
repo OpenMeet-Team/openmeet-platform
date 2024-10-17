@@ -3,7 +3,7 @@
     <SpinnerComponent v-if="!loaded"/>
     <div v-else-if="event">
       <!-- Title -->
-      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 bg-inherit q-py-sm"
+      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm"
            style="position: sticky; top: 50px; z-index: 1001">{{ event.name }}
       </div>
 
@@ -22,7 +22,7 @@
 
           <q-card class="q-mt-lg">
             <q-card-section>
-              <div class="text-h5 row items-center justify-between"><span>Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" no-caps flat label="See all">
+              <div class="text-h5 row items-center justify-between"><span>Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
                 <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
                   <h2>Attendees here</h2>
                   TODO
@@ -63,6 +63,7 @@
                 </q-btn-dropdown>
               </q-card-section>
             </q-card>
+
             <!-- Organiser section -->
             <q-card v-if="event?.group">
               <q-card-section>
@@ -114,10 +115,10 @@
                         </q-card>
                       </q-popup-proxy>
                     </q-item-label>
-
                   </q-item-section>
                 </q-item>
               </q-card-section>
+<!--              <LeafletMapComponent v-if="event" disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>-->
             </q-card>
           </div>
         </div>

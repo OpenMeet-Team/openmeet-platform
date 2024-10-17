@@ -4,12 +4,23 @@ import ShareComponent from 'components/common/ShareComponent.vue'
 import { EventEntity } from 'src/types'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { Dark } from 'quasar'
+import { useAuthStore } from 'stores/auth-store.ts'
+import { useEventStore } from 'stores/event-store.ts'
+import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 
 interface Props {
   event: EventEntity
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const onAttendClick = () => {
+  if (useAuthStore().isAuthenticated) {
+    useEventStore().actionAttendEvent(props.event.id, 'test', false)
+  } else {
+    useAuthDialog().openLoginDialog()
+  }
+}
 </script>
 
 <template>
@@ -21,14 +32,14 @@ defineProps<Props>()
       </div>
       <div class="row q-gutter-md">
         <div>
-          <div class="text-body2 text-bold">Places Left: 123</div>
+<!--          <div class="text-body2 text-bold">Places Left: 123</div>-->
           <!--        <p>Price: ${{ event.price.toFixed(2) }}</p>-->
-          <div class="text-h6">Price: $234</div>
+<!--          <div class="text-h6">Price: $234</div>-->
         </div>
 
         <div class="row items-start">
           <ShareComponent class="q-mr-md"/>
-          <q-btn label="Attend" color="primary"/>
+          <q-btn label="Attend" color="primary" @click="onAttendClick"/>
         </div>
       </div>
     </div>

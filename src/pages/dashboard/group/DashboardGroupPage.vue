@@ -4,7 +4,6 @@
 
     <q-tabs align="left" model-value="" no-caps class="text-primary q-mb-md">
       <q-route-tab :to="{ name: 'DashboardGroupBasicPage', params: { id: route.params.id }}" name="basic" label="Basic settings" />
-      <q-route-tab :to="{ name: 'DashboardGroupMembersPage', params: { id: route.params.id }}" name="members" label="Members settings" />
       <q-route-tab :to="{ name: 'DashboardGroupPrivacyPage', params: { id: route.params.id }}" name="privacy" label="Privacy settings" />
     </q-tabs>
 

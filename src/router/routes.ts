@@ -82,11 +82,6 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/dashboard/group/DashboardGroupBasicPage.vue')
           },
           {
-            path: 'members',
-            name: 'DashboardGroupMembersPage',
-            component: () => import('pages/dashboard/group/DashboardGroupMembersPage.vue')
-          },
-          {
             path: 'privacy',
             name: 'DashboardGroupPrivacyPage',
             component: () => import('pages/dashboard/group/DashboardGroupPrivacyPage.vue')
