@@ -1,5 +1,6 @@
 <template>
   <div class="q-pa-md">
+    <SpinnerComponent v-if="isLoading"/>
     <div class="row q-mb-md">
       <q-btn-toggle
         v-model="viewMode"
@@ -30,17 +31,17 @@
       <q-list bordered separator v-if="filteredEvents.length">
         <q-item v-for="event in filteredEvents" :key="event.id" class="q-my-sm">
           <q-item-section>
-            <q-item-label class="text-primary">{{ formatDate(event.date) }}</q-item-label>
-            <q-item-label class="text-h6">{{ event.title }}</q-item-label>
+            <q-item-label class="text-primary">{{ formatDate(event.startDate) }}</q-item-label>
+            <q-item-label class="text-h6">{{ event.name }}</q-item-label>
             <q-item-label caption>{{ event.type }}</q-item-label>
             <q-item-label caption>{{ event.description }}</q-item-label>
             <div class="row items-center q-gutter-sm">
-              <q-icon name="sym_r_people" size="xs" />
-              <span>{{ event.attendees }} {{ event.attendees === 1 ? 'attendee' : 'attendees' }}</span>
+              <q-icon name="sym_r_people" size="sm" />
+              <span>{{ event.attendeesCount }} {{ event.attendeesCount === 1 ? 'attendee' : 'attendees' }}</span>
             </div>
           </q-item-section>
           <q-item-section side>
-            <q-btn color="primary" label="Attend" @click="attendEvent(event.id)" />
+            <q-btn color="primary" label="Attend" @click="navigateToEvent(event.slug, event.id)" />
           </q-item-section>
         </q-item>
       </q-list>
@@ -60,55 +61,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { date } from 'quasar'
 import CalendarComponent from 'components/common/CalendarComponent.vue'
+import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
+import { useRoute } from 'vue-router'
+import { groupsApi } from 'src/api/groups.ts'
+import { EventEntity } from 'src/types'
+import { useNavigation } from 'src/composables/useNavigation.ts'
 
-interface Event {
-  id: number
-  title: string
-  date: string
-  type: string
-  description: string
-  attendees: number
-}
+const { navigateToEvent } = useNavigation()
 
-const events = ref<Event[]>([
-  {
-    id: 1,
-    title: 'Real Estate Investing Overview',
-    date: '2024-10-17T18:00:00',
-    type: 'Zoom',
-    description: 'Are you interested getting involved in Real Estate Investing but don\'t know where to start?',
-    attendees: 1
-  },
-  {
-    id: 2,
-    title: 'REI Flip/Hold/STR Property Tour',
-    date: '2024-10-19T10:00:00',
-    type: 'Zoom',
-    description: 'Join us Saturday from 10:00 AM to 11:00 AM where you can learn projects in different states, each unique',
-    attendees: 1
-  }
-  // Add more events as needed
-])
+const route = useRoute()
+const isLoading = ref<boolean>(false)
+const events = ref<EventEntity[]>([])
 
 const viewMode = ref<'list' | 'calendar'>('list')
 const timeFilter = ref<'upcoming' | 'past'>('upcoming')
 const selectedDate = ref(null)
 
+onMounted(() => {
+  isLoading.value = true
+  const groupId = decodeLowercaseStringToNumber(route.params.id as string)
+
+  groupsApi.getEvents(String(groupId)).finally(() => (isLoading.value = false)).then(res => {
+    events.value = res.data
+  })
+  // events.value = useGroupStore().group?.events as EventEntity[]
+})
+
 const filteredEvents = computed(() => {
   const now = new Date()
   return events.value.filter(event => {
-    const eventDate = new Date(event.date)
+    const eventDate = new Date(event.startDate)
+    console.log(eventDate)
     return timeFilter.value === 'upcoming' ? eventDate >= now : eventDate < now
   })
 })
 
 const calendarEvents = computed(() => {
   return events.value.map(event => ({
-    title: event.title,
-    date: event.date,
+    title: event.name,
+    date: event.startDate,
     bgcolor: 'primary'
   }))
 })
@@ -117,8 +112,4 @@ const formatDate = (dateString: string) => {
   return date.formatDate(dateString, 'ddd, MMM D, YYYY, h:mm A')
 }
 
-const attendEvent = (eventId: number) => {
-  console.log(`Attending event with id: ${eventId}`)
-  // Implement attendance logic here
-}
 </script>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { date } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -18,28 +18,14 @@ const selectedRange = ref<DateRange | null>(route.query.range as DateRange || nu
 const customDateRange = ref({ start: '', end: '' })
 const isDateRangeDialogOpen = ref<boolean>(false)
 
-// const onFilterByDateRange = (range: string) => {
-//   selectedRange.value = range as DateRange
-//
-//   if (range) {
-//     router.push({
-//       path: '',
-//       query: {
-//         ...route.query,
-//         range: selectedRange.value,
-//         page: 1
-//       }
-//     })
-//   } else {
-//     router.push({
-//       path: '',
-//       query: {
-//         ...route.query,
-//         page: 1
-//       }
-//     })
-//   }
-// }
+// Watch for changes in the query and update selectedRange and customDateRange accordingly
+watch(() => route.query, (newQuery) => {
+  selectedRange.value = newQuery.range as DateRange || null
+  if (newQuery.range === 'custom') {
+    customDateRange.value.start = newQuery.start as string || ''
+    customDateRange.value.end = newQuery.end as string || ''
+  }
+})
 
 // Function to handle date filtering
 const filterBy = (filter: DateRange) => {
@@ -120,12 +106,12 @@ const applyCustomDateRange = () => {
   <q-dialog v-model="isDateRangeDialogOpen">
     <q-card>
       <q-card-section>
-        <q-input v-model="customDateRange.start" label="Start Date" type="date" />
-        <q-input v-model="customDateRange.end" label="End Date" type="date" />
+        <q-input v-model="customDateRange.start" label="Start Date" type="date"/>
+        <q-input v-model="customDateRange.end" label="End Date" type="date"/>
       </q-card-section>
       <q-card-actions>
-        <q-btn flat label="Cancel" @click="isDateRangeDialogOpen = false" />
-        <q-btn color="primary" label="Apply" @click="applyCustomDateRange()" />
+        <q-btn flat label="Cancel" @click="isDateRangeDialogOpen = false"/>
+        <q-btn color="primary" label="Apply" @click="applyCustomDateRange()"/>
       </q-card-actions>
     </q-card>
   </q-dialog>

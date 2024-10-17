@@ -5,8 +5,11 @@
     <h2 class="text-h4 q-mb-md">Groups list</h2>
 
     <div class="row q-col-gutter-md q-mb-lg">
-        <CategoriesFilterComponent/>
-        <LocationFilterComponent/>
+      <CategoriesFilterComponent/>
+      <LocationFilterComponent/>
+      <div class="row items-center" v-if="route.query.categories || route.query.location">
+        <q-btn no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
+      </div>
     </div>
 
     <template v-if="groups">
@@ -16,7 +19,8 @@
         </div>
       </div>
 
-      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups.data?.length" label="No groups found matching your criteria" icon="sym_r_search_off"/>
+      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups.data?.length"
+                          label="No groups found matching your criteria" icon="sym_r_search_off"/>
 
       <q-pagination v-if="!useGroupsStore().isLoading && groups && groups.totalPages && groups.totalPages > 1"
                     v-model="currentPage"
@@ -29,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import GroupsItemComponent from 'components/group/GroupsItemComponent.vue'

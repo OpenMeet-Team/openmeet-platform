@@ -15,14 +15,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { LoadingBar } from 'quasar'
+import { LoadingBar, useMeta } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useGroupStore } from 'stores/group-store.ts'
 import GroupStickyComponent from 'components/group/GroupStickyComponent.vue'
 import GroupLeadComponent from 'components/group/GroupLeadComponent.vue'
 import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
 import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
-// import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { getImageSrc } from 'src/utils/imageUtils.ts'
 
 const route = useRoute()
 
@@ -34,13 +34,17 @@ onMounted(async () => {
   LoadingBar.start()
   const groupId = decodeLowercaseStringToNumber(route.params.id as string)
   useGroupStore().actionGetGroupById(String(groupId)).finally(LoadingBar.stop).then(() => {
-    // useMeta({
-    //   title: group.value?.name,
-    //   meta: {
-    //     description: { content: group.value?.description },
-    //     'og:image': { content: getImageSrc(group.value?.image) }
-    //   }
-    // })
+    const group = useGroupStore().group
+
+    if (group) {
+      useMeta({
+        title: group.name,
+        meta: {
+          description: { content: group.description },
+          'og:image': { content: getImageSrc(group.image) }
+        }
+      })
+    }
   })
 })
 </script>

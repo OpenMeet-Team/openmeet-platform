@@ -14,9 +14,9 @@ defineProps<Props>()
 </script>
 
 <template>
-  <q-card class="shadow-0 q-mt-lg">
+  <q-card class="shadow-0 q-mt-lg" v-if="discussions?.length">
     <q-card-section>
-      <div class="text-h5 row justify-between">Discussions <span v-if="discussions?.length">({{ discussions.length }})</span> <q-btn v-if="discussions?.length" no-caps flat label="See all" :to="{ name: 'GroupDiscussionsPage', params: { id: route.params.id }}"/></div>
+      <div class="text-h5 row items-center justify-between"><span>Discussions <span v-if="discussions?.length">({{ discussions.length }})</span></span> <q-btn v-if="discussions?.length" no-caps padding="xs" flat label="See all" :to="{ name: 'GroupDiscussionsPage', params: { id: route.params.id }}"/></div>
     </q-card-section>
     <q-card-section v-if="discussions?.length">
       <q-list bordered>

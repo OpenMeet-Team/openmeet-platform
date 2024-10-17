@@ -25,10 +25,10 @@ const onLeaveGroup = () => {
 </script>
 
 <template>
-  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'window-width q-mt-lg']">
+  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg']" style="position: sticky; top: 54px; z-index: 1001">
     <div class="row">
       <div class="col-12 col-sm-6 q-pa-sm">
-        <q-tabs align="left" no-caps narrow-indicator>
+        <q-tabs align="justify" no-caps narrow-indicator>
           <q-route-tab :to="{name: 'GroupPage', params: { id: route.params.id }}" label="About"/>
           <q-route-tab :to="{name: 'GroupEventsPage', params: { id: route.params.id }}" name="events" label="Events"/>
           <q-route-tab :to="{name: 'GroupMembersPage', params: { id: route.params.id }}" name="members"
@@ -37,7 +37,7 @@ const onLeaveGroup = () => {
                        label="Discussions"/>
         </q-tabs>
       </div>
-      <div class="col-12 col-sm-6 q-pa-sm row items-center">
+      <div class="col-12 col-sm-6 q-px-lg row items-center">
         <q-btn @click="onJoinGroup" v-if="!useGroupStore().getterHasUserGroupRole()" no-caps size="md"
                label="Join this group" color="primary"/>
         <q-btn-dropdown v-else align="center" no-caps label="You're a member">

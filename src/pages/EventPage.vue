@@ -22,7 +22,7 @@
 
           <q-card class="q-mt-lg">
             <q-card-section>
-              <div class="text-h5 row justify-between">Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span> <q-btn v-if="event.attendees?.length" no-caps flat label="See all">
+              <div class="text-h5 row items-center justify-between"><span>Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" no-caps flat label="See all">
                 <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
                   <h2>Attendees here</h2>
                   TODO
@@ -32,7 +32,7 @@
               </q-btn></div>
             </q-card-section>
             <q-card-section>
-              <div class="text-h5 q-mb-md">Attendees <span v-if="event.attendees?.length">{{ event.attendees.length }}</span></div>
+              <div class="text-h5 q-mb-md"><span>Attendees <span v-if="event.attendees?.length">{{ event.attendees.length }}</span></span></div>
 
               <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
                                  :value="event.attendeesCount / event.maxAttendees"
@@ -69,7 +69,7 @@
                 <div class="text-h6">Organizer</div>
                 <div class="q-mt-md">
                   <q-item clickable
-                          @click="router.push({ name: 'GroupPage', params: {slug: event.group.slug, id: encodeNumberToLowercaseString(event.group.id) } })">
+                          @click="router.push({ name: 'GroupPage', params: { slug: event.group.slug, id: encodeNumberToLowercaseString(event.group.id) } })">
                     <q-item-section avatar>
                       <q-avatar>
                         <img :src="getImageSrc(event.group.image)">

@@ -10,6 +10,9 @@
       <EventsTypeFilterComponent/>
       <EventsCategoriesFilterComponent/>
       <EventsLocationFilterComponent/>
+      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.range || route.query.type">
+        <q-btn no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
+      </div>
     </div>
 
     <template v-if="events">

@@ -21,19 +21,19 @@ const router = useRouter()
     <div class="col-12 col-md-6 column">
       <q-card class="col column shadow-0">
         <q-card-section>
-          <div class="text-h4">{{ group.name }}</div>
-          <div class="text-subtitle2 row items-center no-wrap" v-if="group.location">
-            <q-icon size="xs" left name="sym_r_location_on"/>
-            <div style="max-width: 80%" :title="group.location" class="ellipsis overflow-hidden">{{ group.location }}</div>
+          <div class="text-h4 text-bold q-py-none q-mb-md">{{ group.name }}</div>
+          <div class="row items-start no-wrap" v-if="group.location">
+            <q-icon size="sm" left name="sym_r_location_on"/>
+            <div class="text-body1">{{ group.location }}</div>
           </div>
-          <div class="q-mt-md">
-            <q-badge class="q-mr-md" color="primary" v-if="group.membersCount"
-                     :label="`${group.membersCount} members`"/>
-            <q-badge color="secondary" label="Public group"/>
+          <div class="row items-start no-wrap q-mt-xs">
+            <q-icon size="sm" left name="sym_r_people"/>
+            <div class="text-body1 q-mr-sm">{{ `${group.membersCount || 0 } members` }}</div>|
+            <div class="text-body1 q-ml-sm">{{ group.visibility }} group</div>
           </div>
-          <div class="q-mt-md text-caption" v-if="group.createdBy && group.createdBy.name">Organized by {{
-              group.createdBy.name
-            }}
+          <div class="row items-start q-mt-xs" v-if="group.createdBy">
+            <q-icon size="sm" left name="sym_r_person"/>
+            <div class="text-body1">Organised by {{ group.createdBy.name }}</div>
           </div>
         </q-card-section>
 
@@ -46,11 +46,13 @@ const router = useRouter()
           </div>
         </q-card-section>
 
-        <q-card-section v-if="useGroupStore().getterUserGroupRole('owner')">
+        <q-card-section class="q-py-none" v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupRole('manager')">
           <q-btn icon="sym_r_edit" size="md" padding="none" no-caps flat label="Edit group info" @click="router.push({ name: 'DashboardGroupPage', params: {id: group.id }})"/>
         </q-card-section>
 
-        <q-card-section class="q-mt-auto">
+        <q-space/>
+
+        <q-card-section class="q-pb-none">
           <ShareComponent size="md"/>
         </q-card-section>
       </q-card>

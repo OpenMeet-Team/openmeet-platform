@@ -1,5 +1,5 @@
 import { api } from 'boot/axios'
-import { GroupEntity, GroupMemberEntity, GroupPaginationEntity } from 'src/types'
+import { EventEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from 'src/types'
 import { RouteQueryAndHash } from 'vue-router'
 import { AxiosResponse } from 'axios'
 
@@ -7,6 +7,7 @@ export const groupsApi = {
   getAll: (query: RouteQueryAndHash) => api.get<GroupPaginationEntity>('/api/groups', { params: query }),
   getAllMe: (query: RouteQueryAndHash) => api.get<GroupPaginationEntity>('/api/groups/me', { params: query }),
   getById: (id: string) => api.get<GroupEntity>(`/api/groups/${id}`),
+  getEvents: (id: string) => api.get<EventEntity[]>(`/api/groups/${id}/events`),
   create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/groups', groupData),
   update: (id: number, groupData: Partial<GroupEntity>) => api.patch<GroupEntity>(`/api/groups/${id}`, groupData),
   delete: (id: number) => api.delete(`/api/groups/${id}`),

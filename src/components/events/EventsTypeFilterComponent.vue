@@ -1,18 +1,23 @@
 <script setup lang="ts">
 
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { EventType } from 'src/types'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const selectedType = ref<EventType | null>(route.query.type as EventType || null)
-
 const types = ref([
   { label: 'Online', value: 'online' },
   { label: 'In Person', value: 'in-person' },
   { label: 'Hybrid', value: 'hybrid' }
 ])
+
+// Watch for changes in query and update selectedType accordingly
+watch(() => route.query.type, (newType) => {
+  selectedType.value = newType as EventType || null
+})
+
 const onFilterByType = (type: string) => {
   selectedType.value = type as EventType
 

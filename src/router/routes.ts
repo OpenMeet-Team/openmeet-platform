@@ -9,11 +9,11 @@ const routes: RouteRecordRaw[] = [
       { path: 'chat', name: 'ChatPage', component: () => import('pages/ChatPage.vue') },
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       // { path: 'events/:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
-      { path: 'events/:slug--:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
+      { path: 'events/:slug?--:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
       { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
       {
         // path: 'groups/:id',
-        path: 'groups/:slug--:id',
+        path: 'groups/:slug?--:id',
         name: 'GroupPage',
         redirect: { name: 'GroupAboutPage' },
         component: () => import('pages/GroupPage.vue'),

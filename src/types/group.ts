@@ -41,6 +41,7 @@ export interface GroupEntity {
   status?: GroupStatusType,
   createdBy?: UserEntity
   userGroupRole?: never
+  groupMembersCount?: number
 }
 
 export const GroupRoles = {
