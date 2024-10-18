@@ -4,7 +4,13 @@ import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
 import { ref } from 'vue'
 import { QDialog } from 'quasar'
 import { useRouter } from 'vue-router'
-import { EventEntity } from 'src/types'
+import { EventEntity, GroupEntity } from 'src/types'
+
+interface Props {
+  group?: GroupEntity
+}
+
+defineProps<Props>()
 
 const dialogRef = ref<QDialog | null>(null)
 const router = useRouter()
@@ -28,7 +34,7 @@ const onClose = () => {
         <h1 class="text-h4 q-my-none">Create an event</h1>
       </div>
 
-      <EventFormComponent @created="onEventCreated" @close="onClose"/>
+      <EventFormComponent :group="group" @created="onEventCreated" @close="onClose"/>
     </q-card>
   </q-dialog>
 </template>

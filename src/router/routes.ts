@@ -10,6 +10,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       // { path: 'events/:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
       { path: 'events/:slug?--:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
+      { path: 'members/:id', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
+      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue') },
       { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
       {
         // path: 'groups/:id',
@@ -88,8 +90,6 @@ const routes: RouteRecordRaw[] = [
           }
         ]
       },
-      { path: 'tickets', name: 'DashboardTicketsPage', component: () => import('pages/dashboard/TicketsPage.vue') },
-      { path: 'messages', name: 'DashboardMessagesPage', component: () => import('pages/dashboard/MessagesPage.vue') },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
     ],
     meta: { requiresAuth: true }

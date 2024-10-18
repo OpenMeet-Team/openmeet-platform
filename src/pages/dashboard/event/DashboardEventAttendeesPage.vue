@@ -21,6 +21,7 @@
               :key="attendee.id"
               clickable
               v-ripple
+              @click="router.push({ name: 'UserPage', params: { id: attendee.id }})"
             >
               <q-item-section>{{ attendee.name }}</q-item-section>
               <q-item-section side>
@@ -48,6 +49,7 @@
               :key="attendee.id"
               clickable
               v-ripple
+              @click="router.push({ name: 'UserPage', params: { id: attendee.id }})"
             >
               <q-item-section>{{ attendee.name }}</q-item-section>
               <q-item-section side>
@@ -70,7 +72,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { eventsApi } from 'src/api/dashboard.ts'
 import { LoadingBar } from 'quasar'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 // Define attendee structure
 interface Attendee {
@@ -78,6 +80,8 @@ interface Attendee {
   name: string;
   going: boolean;
 }
+
+const router = useRouter()
 
 // Mock data
 const attendees = ref<Attendee[]>([

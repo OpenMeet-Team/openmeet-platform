@@ -219,7 +219,7 @@ onMounted(() => {
   })
 })
 
-const props = withDefaults(defineProps<{ editEventId?: string }>(), {
+const props = withDefaults(defineProps<{ editEventId?: string, group?: GroupEntity }>(), {
   editEventId: undefined
 })
 

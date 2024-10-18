@@ -42,6 +42,7 @@
                   :key="attendee.id"
                   clickable
                   class="q-px-sm"
+                  @click="router.push({ name: 'UserPage', params: { id: attendee.id }})"
                 >
                   <q-avatar avatar rounded>
                     <q-img
@@ -156,10 +157,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Dark, LoadingBar, useMeta } from 'quasar'
-// import { useNotification } from 'src/composables/useNotification.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import EventStickyComponent from 'components/event/EventStickyComponent.vue'
 import { formatDate } from '../utils/dateUtils.ts'
@@ -190,14 +190,9 @@ const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
 }
 
-// const rsvpToEvent = () => {
-//   if (event.value) {
-//     // Here you would typically make an API call to RSVP
-//     // For this example, we'll just update the local state
-//     event.value.attendeesCount = event.value.attendeesCount ? event.value.attendeesCount++ : 1
-//     success('You have successfully RSVP\'d to this event!')
-//   }
-// }
+onBeforeUnmount(() => {
+  useEventStore().$reset()
+})
 
 onMounted(() => {
   LoadingBar.start()

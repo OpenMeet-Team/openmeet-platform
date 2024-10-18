@@ -14,12 +14,12 @@ const router = useRouter()
 <template>
   <div v-if="group" class="row q-col-gutter-md">
     <div class="col-12 col-md-6">
-      <q-card class="shadow-0">
+      <q-card flat>
         <q-img :src="getImageSrc(group.image)" :ratio="16/9"/>
       </q-card>
     </div>
     <div class="col-12 col-md-6 column">
-      <q-card class="col column shadow-0">
+      <q-card flat class="col column">
         <q-card-section>
           <div class="text-h4 text-bold q-py-none q-mb-md">{{ group.name }}</div>
           <div class="row items-start no-wrap" v-if="group.location">

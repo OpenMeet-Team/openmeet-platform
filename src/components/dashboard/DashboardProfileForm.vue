@@ -75,10 +75,10 @@
       </q-card>
     </q-expansion-item>
 
-    <div>
-      <q-btn label="Submit" type="submit" color="primary"/>
-      <q-btn label="Delete account" color="negative" flat class="q-ml-sm" @click="onDeleteAccount"/>
-    </div>
+    <q-card-actions align="right">
+      <q-btn no-caps label="Delete account" color="negative" flat class="q-ml-sm" @click="onDeleteAccount"/>
+      <q-btn no-caps label="Update" type="submit" color="primary"/>
+    </q-card-actions>
   </q-form>
 </template>
 

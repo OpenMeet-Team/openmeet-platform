@@ -1,6 +1,6 @@
 import { useQuasar } from 'quasar'
 import EventFormDialogComponent from 'src/components/event/EventFormDialogComponent.vue'
-import { EventEntity } from 'src/types'
+import { EventEntity, GroupEntity } from 'src/types'
 import { groupsApi } from 'src/api/groups.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
@@ -9,9 +9,10 @@ export function useEventDialog () {
   const $q = useQuasar()
   const { success } = useNotification()
 
-  const openCreateEventDialog = () => {
+  const openCreateEventDialog = (group?: GroupEntity) => {
     return $q.dialog({
-      component: EventFormDialogComponent
+      component: EventFormDialogComponent,
+      componentProps: { group }
     })
   }
 

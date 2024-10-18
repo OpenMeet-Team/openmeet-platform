@@ -34,7 +34,7 @@ const members = computed(() => props.groupMembers?.filter(m => m?.groupRole?.nam
                 <q-item-label>{{ group.createdBy?.name }}dsfsdf</q-item-label>
 <!--                <q-item-label caption>{{ member.groupRole.name }}</q-item-label>-->
                 <div>
-                  <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" :to="{ name: 'DashboardMessagesPage', query: { user: group.createdBy?.id }}" label="Message"/>
+                  <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" :to="{ name: 'MessagesPage', query: { user: group.createdBy?.id }}" label="Message"/>
                 </div>
               </q-item-section>
             </template>

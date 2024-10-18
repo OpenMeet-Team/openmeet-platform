@@ -10,10 +10,6 @@ export function apiGetDashboardGroups (): Promise<AxiosResponse<GroupEntity[]>> 
   return api.get('/api/dashboard/my-groups')
 }
 
-export function apiGetDashboardMessages (): Promise<AxiosResponse> {
-  return api.get('/api/v1/dashboard/messages')
-}
-
 export const eventsApi = {
   getAll: () => api.get<EventEntity[]>('/api/v1/dashboard/events'),
   getById: (id: string) => api.get<EventEntity>(`/api/v1/dashboard/events/${id}`),
