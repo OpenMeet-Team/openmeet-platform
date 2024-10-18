@@ -4,7 +4,10 @@
     <div v-else-if="event">
 
       <!-- Title -->
-      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm">{{ event.name }}</div>
+      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm">{{
+          event.name
+        }}
+      </div>
 
       <EventLeadComponent/>
 
@@ -15,29 +18,52 @@
           </q-card>
 
           <q-card class="shadow-0 q-mt-lg">
-              <div class="text-h5">Details</div>
-              <div class="text-body1">{{ event.description }}</div>
+            <div class="text-h5">Details</div>
+            <div class="text-body1">{{ event.description }}</div>
           </q-card>
 
-          <div v-if="event?.attendees?.length" class="q-mt-lg text-h5 row items-center justify-between"><span>Attendees <span v-if="event?.attendees?.length">({{ event?.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
-            <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
-              <h2>Attendees here</h2>
-              TODO
+          <div v-if="event?.attendees?.length" class="q-mt-lg text-h5 row items-center justify-between"><span>Attendees <span
+            v-if="event?.attendees?.length">({{ event?.attendees?.length }})</span></span>
+            <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
+              <q-popup-proxy
+                @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
+                <h2>Attendees here</h2>
+                TODO
 
-              {{ event.attendees }}
-            </q-popup-proxy>
-          </q-btn></div>
+                {{ event.attendees }}
+              </q-popup-proxy>
+            </q-btn>
+          </div>
           <q-card>
-            <q-card class="shadow-1">
+            <q-card-section>
               <div class="row q-gutter-md">
-                <q-item v-for="attendee of event.attendees" :key="attendee.id">
-                  <q-avatar avatar>
-                    <q-img v-if="attendee.user?.photo" :src="getImageSrc(attendee.user.photo)" :ratio="1"/>
+                <q-item
+                  v-for="attendee in event.attendees"
+                  :key="attendee.id"
+                  clickable
+                  class="q-px-sm"
+                >
+                  <q-avatar avatar rounded>
+                    <q-img
+                      v-if="attendee.user?.photo"
+                      :src="getImageSrc(attendee.user.photo)"
+                      :ratio="1"
+                    />
                     <q-icon v-else name="sym_r_person"/>
                   </q-avatar>
+                  <div class="q-gutter-xs">
+                    <div class="q-ml-sm">{{ attendee.user?.name }}</div>
+                    <q-badge
+                      class="q-ml-sm"
+                      color="primary"
+                      v-if="attendee.role && ['host', 'speaker', 'moderator'].includes(attendee.role)"
+                      :label="attendee.role"
+                      align="top"
+                    />
+                  </div>
                 </q-item>
               </div>
-            </q-card>
+            </q-card-section>
           </q-card>
         </div>
         <div class="col-12 col-md-4">
@@ -100,19 +126,22 @@
                   </q-item-section>
                   <q-item-section>
                     <q-item-label>{{ event.type }} event</q-item-label>
-                    <q-btn no-caps size="md" align="left" flat padding="none" target="_blank" :href="event.locationOnline">Online link</q-btn>
+                    <q-btn no-caps size="md" align="left" flat padding="none" target="_blank"
+                           :href="event.locationOnline">Online link
+                    </q-btn>
                     <q-item-label class="cursor-pointer">
                       {{ event.location }}
                       <q-popup-proxy>
                         <q-card class="q-pa-md" style="height: 500px; width: 500px">
-                          <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>
+                          <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat"
+                                               :lon="event.lon"/>
                         </q-card>
                       </q-popup-proxy>
                     </q-item-label>
                   </q-item-section>
                 </q-item>
               </q-card-section>
-<!--              <LeafletMapComponent v-if="event" disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>-->
+              <!--              <LeafletMapComponent v-if="event" disabled style="height: 300px; width: 300px" :lat="event.lat" :lon="event.lon"/>-->
             </q-card>
           </div>
         </div>
@@ -121,7 +150,8 @@
       <GroupSimilarEventsComponent/>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
-    <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning" @click="router.push({ name: 'EventsPage' })" button-label="Back to events"/>
+    <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning"
+                        @click="router.push({ name: 'EventsPage' })" button-label="Back to events"/>
   </q-page>
 </template>
 

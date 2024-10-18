@@ -3,20 +3,36 @@ import EventFormDialogComponent from 'src/components/event/EventFormDialogCompon
 import { EventEntity } from 'src/types'
 import { groupsApi } from 'src/api/groups.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
 
 export function useEventDialog () {
   const $q = useQuasar()
   const { success } = useNotification()
 
   const openCreateEventDialog = () => {
-    $q.dialog({
-      component: EventFormDialogComponent,
-      componentProps: {
-        onSubmit: (formData: never) => {
-          // Here you can handle the form submission
-          console.log('Event created:', formData)
-          // You might want to update your app state or make an API call here
-        }
+    return $q.dialog({
+      component: EventFormDialogComponent
+    })
+  }
+
+  const openAttendEventDialog = (event: EventEntity) => {
+    return $q.dialog({
+      component: EventAttendDialogComponent,
+      componentProps: { event }
+    })
+  }
+
+  const openCancelAttendingEventDialog = () => {
+    return $q.dialog({
+      title: 'Cancel Attendance',
+      message: 'Are you sure you want to cancel your attendance for this event?',
+      persistent: true,
+      ok: {
+        label: 'Yes',
+        color: 'negative'
+      },
+      cancel: {
+        label: 'No'
       }
     })
   }
@@ -50,6 +66,8 @@ export function useEventDialog () {
   return {
     openCreateEventDialog,
     openDeleteEventDialog,
-    openCancelEventDialog
+    openCancelEventDialog,
+    openAttendEventDialog,
+    openCancelAttendingEventDialog
   }
 }

@@ -11,18 +11,7 @@ interface Props {
 }
 
 defineProps<Props>()
-// const onSubmit = () => {
-//   if (dialogRef.value) {
-//     dialogRef.value.hide()
-//     router.push({ name: 'DashboardGroupsPage' })
-//   }
-// }
 
-// const onClose = () => {
-//   if (dialogRef.value) {
-//     dialogRef.value.hide()
-//   }
-// }
 </script>
 
 <template>

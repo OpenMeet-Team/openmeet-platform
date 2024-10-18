@@ -1,4 +1,5 @@
 import { date } from 'quasar'
+import { EventEntity } from 'src/types'
 
 export function getHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {
   const start = new Date(startDate)
@@ -26,4 +27,34 @@ export function getHumanReadableDateDifference (startDate: string | Date, endDat
 
 export function formatDate (dateString: string, format?: string) {
   return date.formatDate(dateString, format || 'MMMM D, YYYY')
+}
+
+export function addToGoogleCalendar (event: EventEntity) {
+  // Prepare the event details
+  const title = encodeURIComponent(event.name)
+  const description = encodeURIComponent(event.description || '')
+  const location = encodeURIComponent(event.location || '')
+  const startTime = encodeURIComponent(formatDate(event.startDate, 'YYYYMMDDTHHMMSS')) // Format your date to YYYYMMDDTHHMMSS
+  const endTime = event.endDate && encodeURIComponent(formatDate(event.endDate, 'YYYYMMDDTHHMMSS')) // Format your date to YYYYMMDDTHHMMSS
+
+  // Create the Google Calendar URL
+  const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startTime}/${endTime}&details=${description}&location=${location}&sf=true&output=xml`
+
+  // Open the URL in a new tab
+  window.open(url, '_blank')
+}
+
+export function addToOutlookCalendar (event: EventEntity) {
+  // Prepare the event details
+  const title = encodeURIComponent(event.name)
+  const description = encodeURIComponent(event.description || '')
+  const location = encodeURIComponent(event.location || '')
+  const startTime = formatDate(event.startDate, 'YYYYMMDDTHHMMSS') // Format your date to YYYYMMDDTHHMMSS
+  const endTime = event.endDate && formatDate(event.endDate, 'YYYYMMDDTHHMMSS') // Format your date to YYYYMMDDTHHMMSS
+
+  // Create the Outlook Calendar URL
+  const url = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${title}&body=${description}&location=${location}&startdt=${startTime}&enddt=${endTime}`
+
+  // Open the URL in a new tab
+  window.open(url, '_blank')
 }

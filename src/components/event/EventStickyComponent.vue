@@ -1,25 +1,52 @@
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
-import { EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventEntity } from 'src/types'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { Dark } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useEventStore } from 'stores/event-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
+import { useEventDialog } from 'src/composables/useEventDialog.ts'
+import { useNotification } from 'src/composables/useNotification.ts'
 
 interface Props {
   event: EventEntity
 }
 
+const { success } = useNotification()
 const props = defineProps<Props>()
+const { openAttendEventDialog, openCancelAttendingEventDialog } = useEventDialog()
 
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
-    useEventStore().actionAttendEvent(props.event.id, 'test', false)
+    openAttendEventDialog(props.event).onOk(() => {
+      useEventStore().actionAttendEvent({
+        eventId: props.event.id,
+        rsvpStatus: 'test',
+        isHost: false,
+        role: 'participant',
+        status: 'confirmed'
+      } as Partial<EventAttendeeEntity>).then(() => {
+        success('You are now attending this event!')
+      })
+    })
   } else {
     useAuthDialog().openLoginDialog()
   }
+}
+
+const onEditAttendenceClick = () => {
+  openCancelAttendingEventDialog().onOk(() => {
+    if (props.event.attendee) {
+      useEventStore().actionUpdateAttendee({
+        id: props.event.attendee?.id,
+        status: 'cancelled'
+      } as Partial<EventAttendeeEntity>).then(() => {
+        success('Event attendance cancelled!')
+      })
+    }
+  })
 }
 </script>
 
@@ -31,15 +58,14 @@ const onAttendClick = () => {
         <div class="text-h6 text-bold">{{ event.name }}</div>
       </div>
       <div class="row q-gutter-md">
-        <div>
-<!--          <div class="text-body2 text-bold">Places Left: 123</div>-->
-          <!--        <p>Price: ${{ event.price.toFixed(2) }}</p>-->
-<!--          <div class="text-h6">Price: $234</div>-->
+        <div class="column" v-if="useEventStore().getterUserIsAttendee()">
+          <div class="text-subtitle1 text-bold">You're going!</div>
+          <div><q-btn @click="onEditAttendenceClick" no-caps size="md" padding="none" flat color="primary" label="Edit RSVP"/></div>
         </div>
 
         <div class="row items-start">
           <ShareComponent class="q-mr-md"/>
-          <q-btn no-caps label="Attend" color="primary" @click="onAttendClick"/>
+          <q-btn v-if="!useEventStore().getterUserIsAttendee()" no-caps label="Attend" color="primary" @click="onAttendClick"/>
         </div>
       </div>
     </div>

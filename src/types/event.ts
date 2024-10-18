@@ -6,18 +6,14 @@ export type EventType = 'online' | 'in-person' | 'hybrid'
 export type EventVisibilityType = 'public' | 'authenticated' | 'private'
 export type EventStatusType = 'draft' | 'pending' | 'published'
 export type EventAttendeeRole = 'participant' | 'host' | 'speaker' | 'moderator' | 'guest'
-export enum EventAttendeeStatus {
-  Invited = 'invited',
-  Confirmed = 'confirmed',
-  Attended = 'attended',
-  Cancelled = 'cancelled',
-  Rejected = 'rejected',
-}
+export type EventAttendeeStatus = 'invited' | 'confirmed' | 'attended' | 'cancelled' | 'rejected';
 
 interface EventCategory extends CategoryEntity {}
 export interface EventAttendeeEntity {
   id: number
   user: UserEntity
+  rsvpStatus: string
+  isHost: boolean
   role: EventAttendeeRole
   status: EventAttendeeStatus
 }
@@ -45,6 +41,7 @@ export interface EventEntity {
   user?: UserEntity
   status?: EventStatusType,
   groupMember?: GroupMemberEntity
+  attendee?: EventAttendeeEntity
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}

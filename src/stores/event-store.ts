@@ -14,6 +14,9 @@ export const useEventStore = defineStore('event', {
   getters: {
     getterEventHasHostRole: (state) => (): boolean => {
       return ['owner', 'manager'].includes(state.event?.groupMember?.groupRole?.name ?? '')
+    },
+    getterUserIsAttendee: (state) => (): boolean => {
+      return !!state.event?.attendee
     }
   },
 
@@ -65,11 +68,14 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionAttendEvent (eventId: number, rsvpStatus: string, isHost: boolean) {
+    async actionAttendEvent (data: Partial<EventAttendeeEntity>) {
       try {
-        const res = await eventsApi.attend({ eventId, rsvpStatus, isHost })
+        const res = await eventsApi.attend(data)
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
+          this.event.attendee = res.data
+
+          console.log(this.event)
         }
       } catch (err) {
         console.log(err)
@@ -77,15 +83,18 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionLeaveEvent (userId: number, eventId: number) {
+    async actionUpdateAttendee (data: Partial<EventAttendeeEntity>) {
       try {
-        await eventsApi.leave(userId, eventId)
+        const res = await eventsApi.updateAteendee(data.id as number, data)
         if (this.event) {
-          this.event.attendees = this.event.attendees?.filter((member: EventAttendeeEntity) => member)
+          this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
+          this.event.attendee = res.data
+
+          console.log(this.event)
         }
       } catch (err) {
         console.log(err)
-        error('Failed to leave event')
+        error('Failed to update attendee')
       }
     }
   }
