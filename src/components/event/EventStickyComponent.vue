@@ -39,7 +39,7 @@ const onAttendClick = () => {
 
         <div class="row items-start">
           <ShareComponent class="q-mr-md"/>
-          <q-btn label="Attend" color="primary" @click="onAttendClick"/>
+          <q-btn no-caps label="Attend" color="primary" @click="onAttendClick"/>
         </div>
       </div>
     </div>

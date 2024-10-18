@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
-    <h2 class="text-h4 q-mb-md">Groups list</h2>
+    <h2 data-cy="groups-page-title" class="text-h4 q-mb-md">Groups list</h2>
 
     <div class="row q-col-gutter-md q-mb-lg">
       <CategoriesFilterComponent/>

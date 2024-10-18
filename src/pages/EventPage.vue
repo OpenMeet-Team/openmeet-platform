@@ -2,10 +2,9 @@
   <q-page class="q-pa-md q-pb-xl" style="padding-bottom: 110px">
     <SpinnerComponent v-if="!loaded"/>
     <div v-else-if="event">
+
       <!-- Title -->
-      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm"
-           style="position: sticky; top: 50px; z-index: 1001">{{ event.name }}
-      </div>
+      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm">{{ event.name }}</div>
 
       <EventLeadComponent/>
 
@@ -20,35 +19,30 @@
               <div class="text-body1">{{ event.description }}</div>
           </q-card>
 
-          <q-card class="q-mt-lg">
-            <q-card-section>
-              <div class="text-h5 row items-center justify-between"><span>Attendees <span v-if="event.attendees?.length">({{ event.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
-                <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
-                  <h2>Attendees here</h2>
-                  TODO
+          <div v-if="event?.attendees?.length" class="q-mt-lg text-h5 row items-center justify-between"><span>Attendees <span v-if="event?.attendees?.length">({{ event?.attendees?.length }})</span></span> <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
+            <q-popup-proxy @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
+              <h2>Attendees here</h2>
+              TODO
 
-                  {{ event.attendees }}
-                </q-popup-proxy>
-              </q-btn></div>
-            </q-card-section>
-            <q-card-section>
-              <div class="text-h5 q-mb-md"><span>Attendees <span v-if="event.attendees?.length">{{ event.attendees.length }}</span></span></div>
-
-              <q-linear-progress v-if="event.attendeesCount && event.maxAttendees"
-                                 :value="event.attendeesCount / event.maxAttendees"
-                                 color="secondary"
-                                 class="q-mt-sm"
-              />
-              <div class="text-caption q-mt-sm">
-                {{ event.attendeesCount }} <span v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> spots
-                filled
+              {{ event.attendees }}
+            </q-popup-proxy>
+          </q-btn></div>
+          <q-card>
+            <q-card class="shadow-1">
+              <div class="row q-gutter-md">
+                <q-item v-for="attendee of event.attendees" :key="attendee.id">
+                  <q-avatar avatar>
+                    <q-img v-if="attendee.user?.photo" :src="getImageSrc(attendee.user.photo)" :ratio="1"/>
+                    <q-icon v-else name="sym_r_person"/>
+                  </q-avatar>
+                </q-item>
               </div>
-            </q-card-section>
+            </q-card>
           </q-card>
         </div>
         <div class="col-12 col-md-4">
-          <div style="position: sticky; top: 100px">
-            <q-card class="q-mb-md shadow-0">
+          <div style="position: sticky; top: 70px">
+            <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterEventHasHostRole()">
               <q-card-section>
                 <q-btn-dropdown align="center" no-caps label="Organiser tools">
                   <q-list>
@@ -65,28 +59,28 @@
             </q-card>
 
             <!-- Organiser section -->
-            <q-card v-if="event?.group">
+            <q-card class="q-mb-md" v-if="event?.group">
               <q-card-section>
                 <div class="text-h6">Organizer</div>
                 <div class="q-mt-md">
-                  <q-item clickable
-                          @click="router.push({ name: 'GroupPage', params: { slug: event.group.slug, id: encodeNumberToLowercaseString(event.group.id) } })">
+                  <q-item clickable @click="navigateToGroup(event.group.slug, event.group.id)">
                     <q-item-section avatar>
-                      <q-avatar>
-                        <img :src="getImageSrc(event.group.image)">
+                      <q-avatar size="48px">
+                        <img v-if="event.group.image" :src="getImageSrc(event.group.image)" :alt="event.group.name">
+                        <q-icon v-else name="sym_r_group"/>
                       </q-avatar>
                     </q-item-section>
                     <q-item-section>
                       <q-item-label>{{ event.group.name }}</q-item-label>
-                      <q-item-label caption>Event Organizer</q-item-label>
-                      <q-item-label overline>{{ event.group.visibility }}</q-item-label>
+                      <q-item-label caption>{{ event.group.visibility }} group</q-item-label>
                     </q-item-section>
                   </q-item>
                 </div>
               </q-card-section>
             </q-card>
+
             <!-- Details section -->
-            <q-card class="q-mt-lg">
+            <q-card class="q-mb-lg">
               <q-card-section>
                 <q-item>
                   <q-item-section side>
@@ -144,13 +138,15 @@ import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import EventLeadComponent from 'components/event/EventLeadComponent.vue'
 import { useEventStore } from 'stores/event-store.ts'
-import { decodeLowercaseStringToNumber, encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
+import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
+import { useNavigation } from 'src/composables/useNavigation.ts'
 
 const route = useRoute()
 const router = useRouter()
+const { navigateToGroup } = useNavigation()
 // const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)

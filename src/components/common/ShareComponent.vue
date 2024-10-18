@@ -1,5 +1,6 @@
 <template>
   <q-btn-dropdown
+    no-caps
     color="secondary"
     icon="sym_r_share"
     spread

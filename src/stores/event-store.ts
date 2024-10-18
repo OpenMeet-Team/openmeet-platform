@@ -11,7 +11,11 @@ export const useEventStore = defineStore('event', {
     isLoading: false
   }),
 
-  getters: {},
+  getters: {
+    getterEventHasHostRole: (state) => (): boolean => {
+      return ['owner', 'manager'].includes(state.event?.groupMember?.groupRole?.name ?? '')
+    }
+  },
 
   actions: {
     handleAxiosError (err: AxiosError) {

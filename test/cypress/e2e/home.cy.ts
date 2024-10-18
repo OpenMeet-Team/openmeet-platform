@@ -6,15 +6,19 @@
 // This test will pass when run against a clean Quasar project
 describe('HomePage', () => {
   beforeEach(() => {
-    // cy.intercept('GET', '/api/your-endpoint', { fixture: 'mockedData.json' }).as('getData')
+    cy.intercept('GET', '/api/home', {
+      statusCode: 200
+    }).as('getHome')
     cy.visit('/')
   })
-  it('--- Should display correct <title>', () => {
+
+  it('--- Should display correct page title', () => {
     cy.title().should('include', 'OpenMeet')
   })
-  it.skip('--- Header has logo', () => {
-    // cy.wait('@getData')
-    cy.dataCy('header-logo').should('be.visible')
+
+  it('--- header has logo', () => {
+    // cy.wait('@getHome')
+    cy.dataCy('header-logo-component').should('be.visible')
   })
 })
 

@@ -52,7 +52,7 @@
       </DatetimeComponent>
     </template>
 
-    <UploadComponent label="Event image" @upload="onEventImageSelect"/>
+    <UploadComponent label="Event image" :crop-options="{autoZoom: true, aspectRatio: 16/9}" @upload="onEventImageSelect"/>
 
     <q-img
       v-if="eventData && eventData.image"
