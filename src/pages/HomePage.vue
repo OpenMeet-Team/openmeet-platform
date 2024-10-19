@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page padding>
     <HomeAuthorizedComponent v-if="useAuthStore().isAuthenticated"/>
     <HomeNonAuthorizedComponent v-else/>
   </q-page>

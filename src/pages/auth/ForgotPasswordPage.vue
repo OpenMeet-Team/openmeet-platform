@@ -4,8 +4,10 @@ import ForgotPasswordComponent from 'components/auth/ForgotPasswordComponent.vue
 </script>
 
 <template>
-  <q-page class="row items-center justify-evenly">
+  <q-page padding>
+    <div class="row items-center justify-evenly q-py-lg">
     <ForgotPasswordComponent/>
+    </div>
   </q-page>
 </template>
 

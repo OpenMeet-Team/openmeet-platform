@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { getImageSrc } from 'src/utils/imageUtils.ts'
 
 interface User {
   id: number;
   name: string;
   avatar: string;
   bio: string;
+  photo?: string;
 }
 
 interface Interest {
@@ -111,11 +113,11 @@ async function fetchGroupMemberships () {
       <div class="row q-col-gutter-md">
         <!-- User Info -->
         <div class="col-12 col-md-4">
-          <q-card>
+          <q-card flat bordered>
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="user.avatar" />
+                  <img :src="getImageSrc(user.photo, 'https://placehold.co/100')" :alt="user.name" />
                 </q-avatar>
                 <h4 class="q-mt-md q-mb-xs">{{ user.name }}</h4>
                 <p>{{ user.bio }}</p>
@@ -126,9 +128,9 @@ async function fetchGroupMemberships () {
 
         <!-- Interests -->
         <div class="col-12 col-md-8">
-          <q-card>
+          <q-card flat bordered>
             <q-card-section>
-              <div class="text-h6">Interests</div>
+              <div class="text-h5 text-bold">My Interests</div>
               <q-chip v-for="interest in interests" :key="interest.id" color="primary" text-color="white">
                 {{ interest.name }}
               </q-chip>

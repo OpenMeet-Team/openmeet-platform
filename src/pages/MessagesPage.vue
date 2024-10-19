@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import NoContentComponent from 'components/global/NoContentComponent.vue'
 
-const test = ref(false)
 interface User {
   id: number;
   name: string;
@@ -62,105 +62,100 @@ function sendMessage () {
 </script>
 
 <template>
-  <q-page class="row">
+  <q-page padding>
+    <div class="row text-h4">
+      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'MessagesPage' }">Messages</router-link>
+    </div>
+
     <!-- Chat list sidebar -->
-    <q-drawer
-      v-model="test"
-      :width="300"
-      :breakpoint="700"
-      bordered
-      class="bg-grey-3"
-    >
-      <q-toolbar class="bg-primary text-white">
-        <q-toolbar-title>Messages</q-toolbar-title>
-      </q-toolbar>
+    <div class="messages-page row q-mt-md q-gutter-md">
+      <div class="col-4">
+        <q-card flat bordered class="bg-grey-2" style="min-height: 98%">
+          <q-input
+            v-model="searchQuery"
+            filled
+            type="search"
+            label="Search people"
+            class="q-ma-md"
+          >
+            <template v-slot:append>
+              <q-icon name="sym_r_search" />
+            </template>
+          </q-input>
 
-      <q-input
-        v-model="searchQuery"
-        filled
-        type="search"
-        label="Search people"
-        class="q-ma-md"
-      >
-        <template v-slot:append>
-          <q-icon name="search" />
-        </template>
-      </q-input>
-
-      <q-list separator>
-        <q-item
-          v-for="chat in filteredChatList"
-          :key="chat.id"
-          clickable
-          v-ripple
-          @click="selectChat(chat)"
-          :active="selectedChat && selectedChat.id === chat.id"
-        >
-          <q-item-section avatar>
-            <q-avatar>
-              <img :src="chat.avatar" />
-            </q-avatar>
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>{{ chat.name }}</q-item-label>
-            <q-item-label caption>{{ chat.lastMessage }}</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-item-label caption>{{ chat.lastMessageTime }}</q-item-label>
-            <q-badge v-if="chat.unreadCount" color="red" floating>{{ chat.unreadCount }}</q-badge>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-drawer>
-
-    <!-- Chat area -->
-    <div class="col q-pa-md">
-      <div v-if="selectedChat" class="full-height column">
-        <!-- Chat header -->
-        <div class="row items-center q-mb-md">
-          <q-avatar size="48px" class="q-mr-md">
-            <img :src="selectedChat.avatar" />
-          </q-avatar>
-          <div class="text-h6">{{ selectedChat.name }}</div>
-        </div>
-
-        <!-- Messages -->
-        <q-scroll-area class="col q-mb-md">
-          <div v-for="message in messages" :key="message.id" class="q-mb-md">
-            <div :class="['flex', message.senderId === 0 ? 'justify-end' : 'justify-start']">
-              <q-chat-message
-                :name="message.senderId === 0 ? 'Me' : selectedChat.name"
-                :text="[message.text]"
-                :sent="message.senderId === 0"
-                :stamp="message.timestamp"
-              />
-            </div>
-          </div>
-        </q-scroll-area>
-
-        <!-- Message input -->
-        <q-input
-          v-model="newMessage"
-          filled
-          type="textarea"
-          label="Type a message"
-          @keyup.enter="sendMessage"
-        >
-          <template v-slot:after>
-            <q-btn round dense flat icon="send" @click="sendMessage" />
-          </template>
-        </q-input>
+          <q-list separator>
+            <q-item
+              v-for="chat in filteredChatList"
+              :key="chat.id"
+              clickable
+              v-ripple
+              @click="selectChat(chat)"
+              :active="selectedChat && selectedChat.id === chat.id"
+            >
+              <q-item-section avatar>
+                <q-avatar>
+                  <img :src="chat.avatar" />
+                </q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ chat.name }}</q-item-label>
+                <q-item-label caption>{{ chat.lastMessage }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-item-label caption>{{ chat.lastMessageTime }}</q-item-label>
+                <q-badge v-if="chat.unreadCount" color="red">{{ chat.unreadCount }}</q-badge>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card>
       </div>
-      <div v-else class="full-height column justify-center items-center">
-        <q-icon name="chat" size="100px" color="grey-4" />
-        <div class="text-h5 text-grey-6 q-mt-md">Select a chat to start messaging</div>
+
+      <!-- Chat area -->
+      <div class="col q-pa-md">
+        <div v-if="selectedChat" class="full-height column">
+          <!-- Chat header -->
+          <div class="row items-center q-mb-md">
+            <q-avatar size="48px" class="q-mr-md">
+              <img :src="selectedChat.avatar" />
+            </q-avatar>
+            <div class="text-h6">{{ selectedChat.name }}</div>
+          </div>
+
+          <!-- Messages -->
+          <q-scroll-area class="col q-mb-md">
+            <div v-for="message in messages" :key="message.id" class="q-mb-md">
+              <div :class="['flex', message.senderId === 0 ? 'justify-end' : 'justify-start']">
+                <q-chat-message
+                  :name="message.senderId === 0 ? 'Me' : selectedChat.name"
+                  :text="[message.text]"
+                  :sent="message.senderId === 0"
+                  :stamp="message.timestamp"
+                />
+              </div>
+            </div>
+          </q-scroll-area>
+
+          <!-- Message input -->
+          <q-input
+            v-model="newMessage"
+            filled
+            type="textarea"
+            label="Type a message"
+            @keyup.enter="sendMessage"
+          >
+            <template v-slot:after>
+              <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
+            </template>
+          </q-input>
+        </div>
+        <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging"/>
       </div>
     </div>
   </q-page>
 </template>
 
 <style scoped>
-.q-page {
-  height: calc(100vh - 50px); /* Adjust based on your layout */
+.messages-page {
+  height: calc(100vh - 120px); /* Adjust based on your layout */
 }
 </style>

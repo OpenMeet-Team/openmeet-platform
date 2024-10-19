@@ -1,11 +1,14 @@
 <template>
-  <q-page class="q-pa-md">
-    <h2 class="text-h4 q-mb-md">Events list</h2>
+  <q-page padding>
 
     <!-- Show loader if loading, else show content -->
     <SpinnerComponent v-if="useEventsStore().isLoading"/>
 
-    <div class="row q-col-gutter-md q-mb-lg">
+    <div class="row text-h4">
+      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link> / <router-link class="router-link-inherit" :to="{ name: 'GroupsPage' }">Groups list</router-link>
+    </div>
+
+    <div class="row q-col-gutter-md q-mb-lg q-mt-md">
       <EventsDateFilterComponent/>
       <EventsTypeFilterComponent/>
       <EventsCategoriesFilterComponent/>

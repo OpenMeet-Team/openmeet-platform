@@ -8,10 +8,10 @@ useMeta({
 
 <template>
   <q-page padding>
-    <div class="row items-center justify-between q-mb-xl">
-      <h1 class="text-h4 q-my-none">Profile settings</h1>
+    <div class="row text-h4">
+      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'DashboardProfilePage' }">Profile settings</router-link>
     </div>
-    <DashboardProfileForm/>
+    <DashboardProfileForm class="q-mt-md"/>
   </q-page>
 </template>
 

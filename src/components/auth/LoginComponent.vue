@@ -1,11 +1,12 @@
 <template>
   <q-card class="login-card">
-    <q-card-section>
-      <div class="text-h6">Login</div>
-    </q-card-section>
+    <q-form @submit.prevent="onSubmit" class="q-gutter-md">
 
-    <q-card-section>
-      <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+      <q-card-section>
+        <div class="text-h5 text-bold">Login</div>
+      </q-card-section>
+
+      <q-card-section>
         <q-input
           filled
           v-model="email"
@@ -32,18 +33,21 @@
 
         <div class="text-grey-6">
           No account yet?
-          <q-btn padding="none" no-caps flat color="primary" label="Registration" :to="{name: 'AuthRegisterPage'}"/>
+          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthRegisterPage'}">
+            Registration
+          </router-link>
         </div>
         <div class="text-grey-6">
           Forgot password?
-          <q-btn padding="none" no-caps flat color="primary" label="Restore" :to="{name: 'AuthForgotPasswordPage'}"/>
+          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthForgotPasswordPage'}">
+            Restore
+          </router-link>
         </div>
-
-        <div>
+        <div class="q-mt-md">
           <q-btn no-caps label="Login" type="submit" color="primary"/>
         </div>
-      </q-form>
-    </q-card-section>
+      </q-card-section>
+    </q-form>
   </q-card>
 </template>
 

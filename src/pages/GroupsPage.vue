@@ -1,10 +1,12 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page padding>
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
-    <h2 data-cy="groups-page-title" class="text-h4 q-mb-md">Groups list</h2>
+    <div class="row text-h4">
+      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link> / <router-link active-class="text-bold" class="router-link-inherit" :to="{ name: 'GroupsPage' }">Groups list</router-link>
+    </div>
 
-    <div class="row q-col-gutter-md q-mb-lg">
+    <div class="row q-col-gutter-md q-mb-lg q-mt-md">
       <CategoriesFilterComponent/>
       <LocationFilterComponent/>
       <div class="row items-center" v-if="route.query.categories || route.query.location">

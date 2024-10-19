@@ -4,7 +4,7 @@ import RestorePasswordComponent from 'components/auth/RestorePasswordComponent.v
 </script>
 
 <template>
-  <q-page class="row items-center justify-evenly">
+  <q-page padding>
     <RestorePasswordComponent/>
   </q-page>
 </template>

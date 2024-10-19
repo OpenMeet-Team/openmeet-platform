@@ -4,8 +4,10 @@ import LoginComponent from 'components/auth/LoginComponent.vue'
 </script>
 
 <template>
-  <q-page class="row items-center justify-evenly">
+  <q-page padding>
+    <div class="row items-center justify-evenly q-py-lg">
     <LoginComponent/>
+    </div>
   </q-page>
 </template>
 

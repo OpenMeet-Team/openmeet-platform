@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md">
+  <div>
     <div class="row q-col-gutter-md">
       <!-- Hero Section -->
       <div class="col-12" v-if="!useAuthStore().isAuthenticated">
@@ -95,7 +95,7 @@
         </q-card>
       </div>
     </div>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -28,7 +28,7 @@
             clickable
             v-ripple
             :class="[!notification.read ? (Dark.isActive ? 'bg-dark-gray' : 'bg-light-gray') : '']"
-            @click="markAsRead(notification.id)"
+            @click="navigateToObject(notification)"
           >
             <q-item-section avatar>
               <q-avatar :icon="notification.icon" :color="notification.color" text-color="white" />
@@ -66,6 +66,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { date, Dark } from 'quasar'
+import { useRouter } from 'vue-router'
 
 interface Notification {
   id: number;
@@ -111,15 +112,22 @@ const unreadCount = computed(() => {
   return notifications.value.filter(notification => !notification.read).length
 })
 
+const router = useRouter()
+
 const formatTimestamp = (timestamp: Date) => {
   return date.formatDate(timestamp, 'MMM D, h:mm A')
 }
 
-const markAsRead = (id: number) => {
-  const notification = notifications.value.find(n => n.id === id)
-  if (notification) {
-    notification.read = true
-  }
+// const markAsRead = (id: number) => {
+//   const notification = notifications.value.find(n => n.id === id)
+//   if (notification) {
+//     notification.read = true
+//   }
+// }
+
+const navigateToObject = (obj: object) => {
+  console.log(obj)
+  router.push({ name: 'MessagesPage' })
 }
 
 const markAllAsRead = () => {

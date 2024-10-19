@@ -6,7 +6,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'HomePage', component: () => import('pages/HomePage.vue') },
-      { path: 'chat', name: 'ChatPage', component: () => import('pages/ChatPage.vue') },
       { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       // { path: 'events/:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
       { path: 'events/:slug?--:id', name: 'EventPage', component: () => import('pages/EventPage.vue') },
@@ -35,7 +34,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/dashboard',
-    component: () => import('layouts/DashboardLayout.vue'),
+    component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
       { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
