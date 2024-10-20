@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { EventEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils.ts'
+
 interface Props {
   events: EventEntity[]
 }
+
 defineProps<Props>()
 defineEmits(['view'])
 </script>

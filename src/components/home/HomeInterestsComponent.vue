@@ -1,9 +1,9 @@
 <template>
   <div class="row">
-    <div class="q-pa-md" v-for="interest in interests" :key="interest.name">
+    <div class="q-pa-md" v-for="interest in interests" :key="interest.id">
       <q-card flat bordered>
         <q-card-section>
-          <h5 class="q-mb-none">{{ interest.name }}</h5>
+          <h5 class="q-mb-none">{{ interest.title }}</h5>
                     <p>{{ interest.description }}</p>
         </q-card-section>
       </q-card>
@@ -13,13 +13,10 @@
 </template>
 
 <script lang="ts" setup>
-interface Interest {
-  name: string
-  description: string
-}
+import { SubCategoryEntity } from 'src/types'
 
 defineProps<{
-  interests: Interest[];
+  interests: SubCategoryEntity[]
 }>()
 </script>
 

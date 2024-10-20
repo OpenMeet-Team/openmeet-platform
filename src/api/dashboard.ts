@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 import { api } from 'boot/axios'
-import { EventEntity, GroupEntity, Message } from 'src/types'
+import { EventEntity, GroupEntity } from 'src/types'
 
 export function apiGetDashboardEvents (): Promise<AxiosResponse<EventEntity[]>> {
   return api.get('/api/dashboard/my-events')
@@ -10,7 +10,7 @@ export function apiGetDashboardGroups (): Promise<AxiosResponse<GroupEntity[]>> 
   return api.get('/api/dashboard/my-groups')
 }
 
-export const eventsApi = {
+export const dashboardEventsApi = {
   getAll: () => api.get<EventEntity[]>('/api/v1/dashboard/events'),
   getById: (id: string) => api.get<EventEntity>(`/api/v1/dashboard/events/${id}`),
   create: (eventData: Partial<EventEntity>) => api.post<EventEntity>('/api/v1/dashboard/events', eventData),
@@ -21,7 +21,7 @@ export const eventsApi = {
   getAttendees: (id: string) => api.post(`/api/v1/dashboard/events/${id}/attendees`)
 }
 
-export const groupsApi = {
+export const dashboardGroupsApi = {
   getAll: () => api.get<GroupEntity[]>('/api/v1/dashboard/groups'),
   getById: (id: string) => api.get<GroupEntity>(`/api/v1/dashboard/groups/${id}`),
   create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/v1/dashboard/groups', groupData),
@@ -29,13 +29,4 @@ export const groupsApi = {
   delete: (id: string) => api.delete(`/api/v1/dashboard/groups/${id}`),
   join: (id: string) => api.post(`/api/v1/dashboard/groups/${id}/join`),
   leave: (id: string) => api.post(`/api/v1/dashboard/groups/${id}/leave`)
-}
-
-export const messagesApi = {
-  getAllByGroupId: (groupId: string) => api.get<Message[]>(`/api/v1/dashboard/groups/${groupId}/messages`),
-  getAllByEventId: (eventId: string) => api.get<Message[]>(`/api/v1/dashboard/events/${eventId}/messages`),
-  getById: (id: string) => api.get<Message>(`/api/v1/dashboard/messages/${id}`),
-  create: (messageData: Partial<Message>) => api.post<Message>('/api/v1/dashboard/messages', messageData),
-  update: (id: string, messageData: Partial<Message>) => api.put<Message>(`/api/v1/dashboard/messages/${id}`, messageData),
-  delete: (id: string) => api.delete(`/api/v1/dashboard/messages/${id}`)
 }

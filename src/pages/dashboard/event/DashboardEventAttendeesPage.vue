@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { eventsApi } from 'src/api/dashboard.ts'
+import { dashboardEventsApi } from 'src/api/dashboard.ts'
 import { LoadingBar } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -123,7 +123,7 @@ const route = useRoute()
 
 onMounted(() => {
   LoadingBar.start()
-  eventsApi.getAttendees(route.params.id as string).then(() => {
+  dashboardEventsApi.getAttendees(route.params.id as string).then(() => {
     console.log('todo')
   }).finally(() => {
     LoadingBar.stop()

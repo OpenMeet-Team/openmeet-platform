@@ -11,6 +11,6 @@ interface HomeResponse {
 }
 
 // Define the function that returns a typed AxiosResponse
-export function apiHome (): Promise<AxiosResponse<HomeResponse>> {
-  return api.get<HomeResponse>('/')
+export function homeApi (): Promise<AxiosResponse<HomeResponse>> {
+  return api.get<HomeResponse>('/api/home')
 }

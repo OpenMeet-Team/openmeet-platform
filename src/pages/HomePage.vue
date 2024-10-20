@@ -10,8 +10,8 @@ import { useMeta } from 'quasar'
 
 import { useAuthStore } from 'stores/auth-store.ts'
 
-import HomeAuthorizedComponent from 'components/home/HomeAuthorizedComponent.vue'
-import HomeNonAuthorizedComponent from 'components/home/HomeNonAuthorizedComponent.vue'
+import HomeAuthorizedComponent from 'src/pages/home/HomeUserPage.vue'
+import HomeNonAuthorizedComponent from 'src/pages/home/HomeGuestPage.vue'
 
 useMeta({
   title: 'Home'

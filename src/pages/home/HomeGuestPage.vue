@@ -1,8 +1,8 @@
 <template>
-  <div>
+  <q-page padding>
     <div class="row q-col-gutter-md">
       <!-- Hero Section -->
-      <div class="col-12" v-if="!useAuthStore().isAuthenticated">
+      <div class="col-12">
         <q-card class="bg-primary text-white">
           <q-card-section class="text-center q-pa-lg">
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
@@ -35,7 +35,7 @@
         <NoContentComponent v-if="upcomingEvents && !upcomingEvents.length" label="No events found" icon="sym_r_event"/>
         <template>
           <q-list bordered separator>
-            <HomeEventItem :events="upcomingEvents" @view="viewEvent"/>
+            <HomeEventItem v-if="upcomingEvents" :events="upcomingEvents" @view="viewEvent"/>
           </q-list>
           <div class="text-center q-mt-md">
             <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
@@ -57,7 +57,7 @@
 
       <div class="col-12">
         <h2 class="text-h4 q-mb-md">Interests</h2>
-        <HomeInterestsComponent :interests="interests"/>
+        <HomeInterestsComponent v-if="interests" :interests="interests"/>
       </div>
 
       <!-- Additional Information Section -->
@@ -95,54 +95,33 @@
         </q-card>
       </div>
     </div>
-  </div>
+  </q-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { apiHome } from 'src/api/home.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
 import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
-import { EventEntity, GroupEntity } from 'src/types'
 import HomeEventItem from 'components/home/HomeEventItemComponent.vue'
+import { useHomeStore } from 'stores/home-store.ts'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
 const router = useRouter()
 
-interface Category {
-  name: string;
-}
-
-interface Interest {
-  name: string;
-  description: string;
-}
-
-const categories: Category[] = [
-  { name: 'Technology' },
-  { name: 'Art' },
-  { name: 'Sports' }
-]
-
-const interests: Interest[] = [
-  { name: 'Programming', description: 'Learn how to code and create apps.' },
-  { name: 'Painting', description: 'Express yourself through art and colors.' },
-  { name: 'Soccer', description: 'Play the most popular sport in the world.' }
-]
+const categories = computed(() => useHomeStore().guestCategories)
+const interests = computed(() => useHomeStore().guestInterests)
+const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
+const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
 
 const onJoinNowClick = () => {
   openLoginDialog()
 }
-
-const featuredGroups = ref<GroupEntity[]>([])
-
-const upcomingEvents = ref<EventEntity[]>([])
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
@@ -180,10 +159,7 @@ useMeta({
 
 onMounted(() => {
   LoadingBar.start()
-  apiHome().finally(LoadingBar.stop).then(res => {
-    featuredGroups.value = res.data.groups
-    upcomingEvents.value = res.data.events
-  })
+  useHomeStore().actionGetGuestHomeState().finally(LoadingBar.stop)
 })
 </script>
 
