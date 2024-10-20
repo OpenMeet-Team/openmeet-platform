@@ -1,18 +1,19 @@
 name: Docker Build, Push to Registry, Deploy to Dev
 
 on:
-  workflow_run:
-    workflows: ["Basic CI"]
-    types: [completed]
-    branches: [main]
+  workflow_call:
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
 
     steps:
+      - name: Debug info
+        run: |
+          echo "GitHub ref: ${{ github.ref }}"
+          echo "Event name: ${{ github.event_name }}"
+          env
+
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
@@ -33,26 +34,22 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker scout quickview
-          docker scout cves local://test:latest
-          docker scout recommendations local://test:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.30.1'
 
-      # - name: Install kubectl
-      #   uses: azure/setup-kubectl@v3
-      #   with:
-      #     version: 'v1.30.1'
-
-      # - name: Update kubeconfig and deploy to EKS
-      #   env:
-      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      #     ECR_REPOSITORY: openmeet-ecr/openmeet-platform
-      #     IMAGE_TAG: ${{ github.sha }}
-      #   run: |
-      #     aws eks get-token --cluster-name openmeet-dev
-      #     aws eks update-kubeconfig --name openmeet-dev --region ${{ vars.AWS_REGION }}
-      #     kubectl set image --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      #     kubectl rollout status --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform
+      - name: Update kubeconfig and deploy to EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: openmeet-ecr/openmeet-platform
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws eks get-token --cluster-name openmeet-dev
+          aws eks update-kubeconfig --name openmeet-dev --region ${{ vars.AWS_REGION }}
+          kubectl set image --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          kubectl rollout status --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform

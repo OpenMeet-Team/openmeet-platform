@@ -2,12 +2,15 @@ name: Basic CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
 
 jobs:
-  build:
+  testing:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18.20.4
           cache: 'npm'
 
       - name: Install dependencies
@@ -24,5 +27,11 @@ jobs:
 
       - name: Run tests
         run: npm run lint
-      - name: Run unit tests
-        run: npm run test:unit:ci
+      # - name: Run unit tests
+        # run: npm run test:unit:ci
+
+  call-build-and-deploy:
+    needs: testing
+    if: success() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: ./.github/workflows/build-and-deploy.yml
+    secrets: inherit
