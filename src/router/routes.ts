@@ -46,20 +46,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'events/:id',
         name: 'DashboardEventPage',
-        redirect: { name: 'DashboardEventGeneralPage' },
-        component: () => import('pages/dashboard/DashboardEventPage.vue'),
-        children: [
-          {
-            path: 'general',
-            name: 'DashboardEventGeneralPage',
-            component: () => import('pages/dashboard/event/DashboardEventGeneralPage.vue')
-          },
-          {
-            path: 'attendees',
-            name: 'DashboardEventAttendeesPage',
-            component: () => import('pages/dashboard/event/DashboardEventAttendeesPage.vue')
-          }
-        ]
+        component: () => import('pages/dashboard/DashboardEventPage.vue')
       },
       {
         path: 'groups',
@@ -74,20 +61,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'groups/:id',
         name: 'DashboardGroupPage',
-        redirect: { name: 'DashboardGroupBasicPage' },
-        component: () => import('pages/dashboard/group/DashboardGroupPage.vue'),
-        children: [
-          {
-            path: 'basic',
-            name: 'DashboardGroupBasicPage',
-            component: () => import('pages/dashboard/group/DashboardGroupBasicPage.vue')
-          },
-          {
-            path: 'privacy',
-            name: 'DashboardGroupPrivacyPage',
-            component: () => import('pages/dashboard/group/DashboardGroupPrivacyPage.vue')
-          }
-        ]
+        component: () => import('pages/dashboard/group/DashboardGroupPage.vue')
       },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
     ],

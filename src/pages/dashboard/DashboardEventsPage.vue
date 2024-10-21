@@ -2,9 +2,7 @@
   <q-page padding v-if="loaded">
 
     <div class="row text-h4 justify-between">
-      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'DashboardEventsPage' }">Your
-        events
-      </router-link>
+      <span class="text-bold">Your events</span>
       <q-btn
         no-caps
         color="primary"
@@ -22,23 +20,21 @@
     </q-tabs>
 
     <q-tab-panels v-model="tab" animated>
+      <q-tab-panel name="attending">
+        <NoContentComponent v-if="attendedEvents && !attendedEvents.length" @click="router.push({ name: 'EventsPage' })"
+                            buttonLabel="Discover new events" label="You have not registered for any events"
+                            icon="sym_r_event"/>
+        <div>
+          <EventsItemComponent v-for="event in attendedEvents" :key="event.id" :event="event"/>
+        </div>
+      </q-tab-panel>
       <q-tab-panel name="hosting">
         <template v-if="createdEvents && !createdEvents.length">
           <NoContentComponent @click="onAddNewEvent" buttonLabel="Add new Event and select a group to get started."
                               label="You are not hosting any upcoming events" icon="sym_r_app_registration"/>
         </template>
-        <div v-else class="row q-gutter-md">
-          <DashboardEventItem v-for="event in createdEvents" :key="event.id" :event="event" @view="viewEvent"
-                              @delete="onDeleteEvent" @edit="editEvent"/>
-        </div>
-      </q-tab-panel>
-
-      <q-tab-panel name="attending">
-        <NoContentComponent v-if="attendedEvents && !attendedEvents.length" @click="router.push({ name: 'EventsPage' })"
-                            buttonLabel="Discover new events" label="You have not registered for any events"
-                            icon="sym_r_event"/>
-        <div class="row q-gutter-md">
-          <DashboardEventItem v-for="event in attendedEvents" :key="event.id" :event="event" @view="viewEvent"/>
+        <div v-else>
+          <EventsItemComponent v-for="event in createdEvents" :key="event.id" :event="event"/>
         </div>
       </q-tab-panel>
 
@@ -46,18 +42,19 @@
         <NoContentComponent v-if="savedEvents && !savedEvents.length" @click="router.push({ name: 'EventsPage' })"
                             buttonLabel="Discover new events" label="You have not saved any events"
                             icon="sym_r_bookmarks"/>
-        <div class="row q-gutter-md">
-          <DashboardEventItem v-for="event in savedEvents" :key="event.id" :event="event" @view="viewEvent"/>
+        <div>
+          <EventsItemComponent v-for="event in savedEvents" :key="event.id" :event="event"/>
         </div>
       </q-tab-panel>
 
       <q-tab-panel name="past">
-        <NoContentComponent v-if="savedEvents && !savedEvents.length" @click="router.push({ name: 'EventsPage' })"
+
+        <div v-if="pastEvents?.length">
+          <EventsItemComponent v-for="event in pastEvents" :key="event.id" :event="event"/>
+        </div>
+        <NoContentComponent v-if="savedEvents && !pastEvents.length" @click="router.push({ name: 'EventsPage' })"
                             buttonLabel="Discover new events" label="You have not attended any events"
                             icon="sym_r_timeline"/>
-        <div class="row q-gutter-md">
-          <DashboardEventItem v-for="event in savedEvents" :key="event.id" :event="event" @view="viewEvent"/>
-        </div>
       </q-tab-panel>
     </q-tab-panels>
   </q-page>
@@ -66,41 +63,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
-import DashboardEventItem from 'components/dashboard/DashboardEventItem.vue'
 import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
-import { useEventDialog } from 'src/composables/useEventDialog.ts'
-import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
+import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)
 const router = useRouter()
-const { openDeleteEventDialog } = useEventDialog()
 
 // Mock data - replace with actual API calls
 const createdEvents = computed(() => events.value)
 const attendedEvents = computed(() => events.value)
 const savedEvents = computed(() => events.value)
+const pastEvents = computed(() => events.value)
 
 const events = ref<EventEntity[]>([])
 
-const viewEvent = (event: EventEntity) => {
-  console.log(event)
-  router.push({ name: 'EventPage', params: { slug: event.slug, id: encodeNumberToLowercaseString(event.id) } })
-}
-
-const editEvent = (event: EventEntity) => {
-  console.log(event)
-  router.push({ name: 'DashboardEventGeneralPage', params: { id: event.id } })
-}
-
-const onDeleteEvent = (event: EventEntity) => {
-  openDeleteEventDialog(event)
-}
-
 useMeta({
-  title: 'My events'
+  title: 'Your events'
 })
 
 onMounted(() => {

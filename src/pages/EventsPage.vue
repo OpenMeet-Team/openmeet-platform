@@ -1,11 +1,9 @@
 <template>
   <q-page padding>
 
-    <!-- Show loader if loading, else show content -->
-    <SpinnerComponent v-if="useEventsStore().isLoading"/>
-
     <div class="row text-h4">
-      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link> / <router-link class="router-link-inherit" :to="{ name: 'GroupsPage' }">Groups list</router-link>
+      <span class="text-bold q-mr-xs">Events list</span>/
+      <router-link class="q-ml-xs router-link-inherit" active-class="text-bold" :to="{ name: 'GroupsPage' }">Groups list</router-link>
     </div>
 
     <div class="row q-col-gutter-md q-mb-lg q-mt-md">
@@ -19,15 +17,21 @@
     </div>
 
     <template v-if="events">
-      <!-- Event List -->
-      <div v-if="!useEventsStore().isLoading && events?.data?.length">
-        <div v-for="event in events.data" :key="event.id" class="col-12 col-sm-6 col-md-4">
-          <EventsItemComponent :event="event"/>
-        </div>
-      </div>
 
-      <!-- No content if no events and not loading -->
-      <NoContentComponent v-else-if="!useEventsStore().isLoading && !events.data?.length" label="No Events" icon="sym_r_event_busy"/>
+        <!-- Show loader if loading, else show content -->
+        <SpinnerComponent v-if="useEventsStore().isLoading"/>
+
+        <!-- Event List -->
+        <div v-else-if="events">
+          <div v-if="events.data?.length">
+            <div  v-for="event in events.data" :key="event.id" class="col-12 col-sm-6 col-md-4">
+            <EventsItemComponent :event="event"/>
+          </div>
+          </div>
+
+          <!-- No content if no events and not loading -->
+          <NoContentComponent v-else label="No events found matching your criteria" icon="sym_r_search_off"/>
+      </div>
 
       <!-- Pagination -->
       <q-pagination v-if="!useEventsStore().isLoading && events && events.totalPages && events.totalPages > 1"

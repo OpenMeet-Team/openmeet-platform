@@ -1,18 +1,14 @@
 <template>
   <div class="row items-center justify-between q-mb-xl">
-    <div class="columns items-center">
-      <q-btn
+    <div class="columns items-center row">
+      <router-link
         v-if="backTo"
-        flat
-        no-caps
-        padding="none"
-        icon="sym_r_arrow_back"
         :to="backTo"
-        label="Back"
-        class="q-mr-md"
-        color="primary"
-      />
-      <h1 class="text-h4 q-my-none" v-if="label">{{ label }}</h1>
+        class="text-primary text-h6 router-link-inherit q-mr-md"
+      >
+        <q-icon size="md" name="sym_r_arrow_back" left/> Back
+      </router-link>
+      <h4 class="text-h4 text-bold q-my-none" v-if="label">{{ label }}</h4>
     </div>
     <slot></slot>
   </div>

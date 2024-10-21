@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { CategoryEntity, GroupEntity } from 'src/types'
-
-defineEmits(['edit', 'view', 'leave', 'delete'])
+import { GroupEntity } from 'src/types'
+import { encodeNumberToLowercaseString } from 'src/utils/encoder'
+import { getImageSrc } from 'src/utils/imageUtils'
 
 interface Props {
   group: GroupEntity
@@ -9,47 +9,23 @@ interface Props {
 
 defineProps<Props>()
 
-// Type declaration for the role color function
-const getRoleColor = (role: string): string => {
-  switch (role) {
-    case 'owner': return 'primary'
-    case 'manager': return 'secondary'
-    case 'participant': return 'tertiary'
-    default: return 'grey'
-  }
-}
-
 </script>
 
 <template>
-  <q-card class="group-card">
-    <q-img :src="(typeof group.image === 'object' ? group.image.path : group.image) || 'https://via.placeholder.com/350'"
-           :ratio="16/9">
-      <div class="absolute-bottom text-subtitle2 text-center bg-black-4 full-width">{{ group.name }}</div>
-    </q-img>
-    <q-card-section>
-      <div class="text-h6">{{ group.name }}</div>
-      <div class="text-subtitle2" v-if="group.categories">
-        {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
-      </div>
-    </q-card-section>
-    <q-card-section class="q-pt-none">
-      <q-chip
-          :color="getRoleColor('admin')"
-          text-color="white"
-          icon="sym_r_person"
-      >
-        group.userRole
-      </q-chip>
-    </q-card-section>
-    <q-separator/>
-    <q-card-actions align="right">
-      <q-btn flat color="primary" label="View Group" @click="$emit('view', group)"/>
-      <q-btn flat color="primary" label="Edit Group" @click="$emit('edit', group)"/>
-      <q-btn flat color="secondary" label="Leave Group" @click="$emit('leave', group)"/>
-      <q-btn flat color="negative" label="Delete" @click="$emit('delete', group)" />
-    </q-card-actions>
-  </q-card>
+  <router-link class="router-link-inherit" :to="{ name: 'GroupPage', params: { slug: group.slug, id: encodeNumberToLowercaseString(group.id) } }">
+    <q-card flat class="group-card">
+      <q-img :src="getImageSrc(group.image)"
+             :ratio="16/9"
+             spinner-color="primary"
+             class="rounded-borders"
+             spinner-size="40px"
+      />
+      <q-item-section>
+        <q-item-label lines="2" class="elipsys">{{ group.name }}</q-item-label>
+      </q-item-section>
+    </q-card>
+  </router-link>
+
 </template>
 
 <style scoped lang="scss">

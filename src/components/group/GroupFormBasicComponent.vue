@@ -4,15 +4,33 @@
       filled
       v-model="group.name"
       label="Group Name"
+      counter
+      maxlength="60"
       :rules="[(val: string) => !!val || 'Group name is required']"
     />
-    <q-input
+    <!-- <q-input
       filled
       v-model="group.description"
       type="textarea"
       label="Description"
       :rules="[(val: []) => !!val || 'Description is required']"
-    />
+    /> -->
+
+    <div class="text-h6 q-mt-lg">Group Description</div>
+       <q-editor
+          :rules="[(val: string) => !!val || 'Description is required']"
+         filled
+         :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
+         :model-value="group.description as string"
+         @update:model-value="onDescriptionInput"
+         :dense="Screen.lt.md"
+         :toolbar="[
+           ['bold', 'italic'],
+           ['link', 'custom_btn'],
+           ['unordered', 'ordered'],
+           ['undo', 'redo'],
+          ]"
+      />
 
     <q-select
       :rules="[(val: []) => !!(val && val.length) || 'Category is required']"
@@ -72,7 +90,8 @@ import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import LocationComponent from 'components/common/LocationComponent.vue'
-import { Loading } from 'quasar'
+import { Dark, Loading, Screen } from 'quasar'
+import DOMPurify from 'dompurify'
 
 const group = ref<GroupEntity>({
   id: 0,
@@ -93,6 +112,10 @@ const onUpdateLocation = (address: {lat: string, lon: string, location: string})
 
 const onGroupImageSelect = (file: FileEntity) => {
   group.value.image = file
+}
+
+const onDescriptionInput = (val: string) => {
+  group.value.description = DOMPurify.sanitize(val)
 }
 
 const categoryOptions = ref<CategoryEntity[]>([])

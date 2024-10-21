@@ -3,8 +3,8 @@
 import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
 import { ref } from 'vue'
 import { QDialog } from 'quasar'
-import { useRouter } from 'vue-router'
 import { EventEntity, GroupEntity } from 'src/types'
+import { useNavigation } from 'src/composables/useNavigation'
 
 interface Props {
   group?: GroupEntity
@@ -13,12 +13,12 @@ interface Props {
 defineProps<Props>()
 
 const dialogRef = ref<QDialog | null>(null)
-const router = useRouter()
+const { navigateToEvent } = useNavigation()
 
 const onEventCreated = (event: EventEntity) => {
   if (dialogRef.value) {
     dialogRef.value.hide()
-    router.push({ name: 'DashboardEventPage', params: { id: event.id } })
+    navigateToEvent(event.slug, event.id)
   }
 }
 

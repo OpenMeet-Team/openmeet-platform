@@ -2,22 +2,18 @@
   <q-page padding>
     <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group"/>
 
-    <q-tabs align="left" model-value="" no-caps class="text-primary q-mb-md">
-      <q-route-tab :to="{ name: 'DashboardGroupBasicPage', params: { id: route.params.id }}" name="basic" label="Basic settings" />
-      <q-route-tab :to="{ name: 'DashboardGroupPrivacyPage', params: { id: route.params.id }}" name="privacy" label="Privacy settings" />
-    </q-tabs>
-
-    <q-tab-panel name="basic">
-      <router-view/>
-    </q-tab-panel>
+    <div class="row justify-center">
+      <GroupFormBasicComponent @updated="router.push({ name: 'DashboardGroupsPage' })" :edit-group-id="route.params.id as string" style="max-width: 500px" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+    </div>
 
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 </script>

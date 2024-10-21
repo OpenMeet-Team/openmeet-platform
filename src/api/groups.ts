@@ -15,5 +15,5 @@ export const groupsApi = {
   leave: (id: string) => api.delete(`/api/group-members/leave/${id}`),
   getMembers: (id: string) => api.get(`/api/groups/${id}/members`),
   updateMemberRole: (data: { userId: number, name: string, groupId: number }) => api.post('/api/group-members/update-role', data),
-  similarEvents: () => api.get('/api/groups/similar-events')
+  similarEvents: (id: string) => api.get<EventEntity[]>(`/api/groups/${id}/recomemded-events`)
 }

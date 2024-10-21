@@ -6,6 +6,8 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { useHomeStore } from 'src/stores/home-store'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
+import NoContentComponent from 'components/global/NoContentComponent.vue'
+import { useRouter } from 'vue-router'
 
 const userOrganizedGroups = computed(() => useHomeStore().userOrganizedGroups)
 const userNextHostedEvent = computed(() => useHomeStore().userNextHostedEvent)
@@ -15,6 +17,7 @@ const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
 const userInterests = computed(() => useHomeStore().userInterests)
 
 const loading = ref(false)
+const router = useRouter()
 
 onMounted(() => {
   LoadingBar.start()
@@ -35,9 +38,9 @@ onMounted(() => {
         <div class="row q-col-gutter-xl">
           <div class="col-12 col-sm-7">
             <!-- Groups you organize -->
-            <SubtitleComponent v-if="userOrganizedGroups" label="Groups you organize" :count="userOrganizedGroups.length" :to="{ name: 'DashboardGroupsPage' }"/>
-            <q-card v-if="userOrganizedGroups" flat bordered class="col column q-mb-md">
-              <q-card-section>
+            <SubtitleComponent label="Groups you organize" :count="userOrganizedGroups?.length" :to="{ name: 'DashboardGroupsPage' }"/>
+            <q-card flat bordered class="col column q-mb-md">
+              <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
                   <q-item v-for="group in userOrganizedGroups" :key="group.id">
                     <q-item-section>
@@ -47,13 +50,14 @@ onMounted(() => {
                   </q-item>
                 </q-list>
               </q-card-section>
+              <NoContentComponent v-else icon="sym_r_group" button-label="Create your own group" :to="{ name: 'DashboardGroupsPage' }" label="You have no groups yet"/>
             </q-card>
           </div>
           <div class="col-12 col-sm-5">
             <!-- Next event you're hosting -->
             <SubtitleComponent label="Next events you're hosting" :to="{ name: 'DashboardEventsPage' }"/>
-            <q-card v-if="userNextHostedEvent" flat bordered class="q-mb-md">
-              <q-card-section>
+            <q-card flat bordered class="q-mb-md">
+              <q-card-section v-if="userNextHostedEvent">
                 <q-item>
                   <q-item-section>
                     <q-item-label>{{ userNextHostedEvent.name }}</q-item-label>
@@ -61,22 +65,26 @@ onMounted(() => {
                   </q-item-section>
                 </q-item>
               </q-card-section>
+              <NoContentComponent v-if="!userNextHostedEvent" icon="sym_r_event" button-label="Create your own event" :to="{ name: 'DashboardEventsPage' }" label="You have no upcoming events"/>
             </q-card>
 
             <!-- Recent event drafts -->
-            <SubtitleComponent v-if="userRecentEventDrafts" label="Recent event drafts" :count="userRecentEventDrafts.length" :to="{ name: 'DashboardEventsPage' }"/>
-            <q-card v-if="userRecentEventDrafts && userRecentEventDrafts.length" flat bordered class="q-mb-md">
-              <q-card-section>
+            <template v-if="userRecentEventDrafts?.length">
+              <SubtitleComponent label="Recent event drafts" :count="userRecentEventDrafts?.length" :to="{ name: 'DashboardEventsPage' }"/>
+              <q-card flat bordered class="q-mb-md">
+                <q-card-section v-if="userRecentEventDrafts?.length">
                 <q-list>
-                  <q-item v-for="event in userRecentEventDrafts" :key="event.id">
+                  <q-item v-for="event in userRecentEventDrafts" :key="event.id" @click="router.push({ name: 'DashboardEventPage', params: { id: event.id } })">
                     <q-item-section>
                       <q-item-label>{{ event.name }}</q-item-label>
-                      <q-item-label caption>{{ event.startDate }} | {{ event.location }}</q-item-label>
+                      <q-item-label caption>{{ event.group?.name }}</q-item-label>
                     </q-item-section>
                   </q-item>
                 </q-list>
-              </q-card-section>
-            </q-card>
+                </q-card-section>
+                <NoContentComponent v-if="!userRecentEventDrafts?.length" icon="sym_r_event" button-label="Create your own event" :to="{ name: 'DashboardEventsPage' }" label="You have no recent event drafts"/>
+              </q-card>
+            </template>
           </div>
         </div>
 
@@ -95,9 +103,9 @@ onMounted(() => {
             </q-card>
 
             <!-- Groups you're part of -->
-            <SubtitleComponent v-if="userMemberGroups" label="Groups you're part of" :count="userMemberGroups.length" :to="{ name: 'DashboardGroupsPage' }"/>
-            <q-card v-if="userMemberGroups && userMemberGroups.length" flat bordered class="q-mb-xl">
-              <q-card-section>
+            <SubtitleComponent label="Groups you're part of" :count="userMemberGroups?.length" :to="{ name: 'DashboardGroupsPage' }"/>
+            <q-card flat bordered class="q-mb-xl">
+              <q-card-section v-if="userMemberGroups?.length">
                 <q-list>
                   <q-item v-for="group in userMemberGroups" :key="group.id">
                     <q-item-section>
@@ -107,18 +115,20 @@ onMounted(() => {
                   </q-item>
                 </q-list>
               </q-card-section>
+              <NoContentComponent v-else button-label="Browse groups" icon="sym_r_group" label="You are not a member of any groups" :to="{ name: 'GroupsPage' }"/>
             </q-card>
 
             <!-- Your interests -->
-            <SubtitleComponent v-if="userInterests" label="Your interests"/>
-            <q-card v-if="userInterests && userInterests.length" class="q-mb-md">
-              <q-card-section>
+            <SubtitleComponent label="Your interests"/>
+            <q-card class="q-mb-md">
+              <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
                   <q-chip v-for="interest in userInterests" :key="interest.id" color="primary" text-color="white">
                     {{ interest.title }}
                   </q-chip>
                 </div>
               </q-card-section>
+              <NoContentComponent v-else icon="sym_r_interests" label="You have no interests"/>
             </q-card>
           </div>
           <div class="col-12 col-sm-8">
@@ -126,6 +136,7 @@ onMounted(() => {
             <div v-for="event in userUpcomingEvents" :key="event.id" class="col-12 col-sm-6 col-md-4">
               <EventsItemComponent :event="event"/>
             </div>
+            <NoContentComponent v-if="!userUpcomingEvents?.length" icon="sym_r_event" label="You have no upcoming events"/>
           </div>
         </div>
       </div>

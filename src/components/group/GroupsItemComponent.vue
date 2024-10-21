@@ -16,9 +16,9 @@ const { navigateToGroup } = useNavigation()
 <template>
   <q-card class="event-card shadow-0 q-my-xl">
     <q-card-section horizontal>
-      <q-img class="cursor-pointer" @click="navigateToGroup(group.slug, group.id)" style="max-width: 150px" :src="getImageSrc(group.image)"/>
+      <q-img class="cursor-pointer rounded-borders" @click="navigateToGroup(group.slug, group.id)" ratio="16/9" style="min-width: 150px; width: 150px" :src="getImageSrc(group.image)"/>
       <q-card-actions vertical class="justify-around q-px-md">
-        <div class="text-h5 q-pa-none cursor-pointer" @click="navigateToGroup(group.slug, group.id)">{{ group.name }}</div>
+        <q-item-label lines="2" class="text-h5 q-pa-none cursor-pointer" style="max-width: 100%;" @click="navigateToGroup(group.slug, group.id)">{{ group.name }}</q-item-label>
         <div class="text-subtitle2" v-if="group.categories">
           {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
         </div>

@@ -22,35 +22,38 @@ export const useHomeStore = defineStore('home', {
   actions: {
     async actionGetUserHomeState () {
       // Fetch data and update state
-      groupsApi.getAll({}).then(res => {
-        this.userOrganizedGroups = res.data.data
-        this.userOrganizedGroups = res.data.data
-        this.userMemberGroups = res.data.data
-      })
-
-      eventsApi.getAll({}).then(res => {
-        this.userNextHostedEvent = res.data.data[0]
-        this.userRecentEventDrafts = res.data.data
-        this.userUpcomingEvents = res.data.data
-      })
+      return Promise.all([
+        groupsApi.getAll({}).then(res => {
+          this.userOrganizedGroups = res.data.data
+          this.userOrganizedGroups = res.data.data
+          this.userMemberGroups = res.data.data
+        }),
+        eventsApi.getAll({}).then(res => {
+          this.userNextHostedEvent = res.data.data[0]
+          this.userRecentEventDrafts = res.data.data
+          this.userUpcomingEvents = res.data.data
+        })
+      ])
     },
     async actionGetGuestHomeState () {
+      return Promise.all([
       // Fetch data and update state
-      groupsApi.getAll({}).then(res => {
-        this.guestFeaturedGroups = res.data.data
-      })
+        groupsApi.getAll({}).then(res => {
+          this.guestFeaturedGroups = res.data.data
+        }),
 
-      eventsApi.getAll({}).then(res => {
-        this.guestUpcomingEvents = res.data.data
-      })
+        eventsApi.getAll({}).then(res => {
+          this.guestUpcomingEvents = res.data.data
+        }),
 
-      categoriesApi.getAll().then(res => {
-        this.guestCategories = res.data
-      })
+        categoriesApi.getAll().then(res => {
+          this.guestCategories = res.data
+        }),
 
-      subcategoriesApi.getAll().then(res => {
-        this.guestInterests = res.data
-      })
+        subcategoriesApi.getAll().then(res => {
+          this.guestInterests = res.data
+        })
+      ])
     }
     // Add other actions as needed
   }

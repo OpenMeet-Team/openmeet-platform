@@ -9,7 +9,7 @@
     <!-- Secondary blocks -->
     <router-view/>
 
-    <GroupSimilarEventsComponent/>
+    <GroupSimilarEventsComponent v-if="group" :group="group"/>
   </q-page>
 </template>
 

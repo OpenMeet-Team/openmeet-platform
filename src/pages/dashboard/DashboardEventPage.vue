@@ -1,22 +1,21 @@
 <template>
   <q-page padding>
-    <div class="row q-mb-xl">
-      <h1 class="text-h4 q-my-none">Edit Event</h1>
+    <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event"/>
+
+    <div class="row justify-center">
+        <EventFormBasicComponent @updated="navigateToEvent($event.slug, $event.id)" :edit-event-id="route.params.id as string" style="max-width: 500px" @close="router.push({ name: 'DashboardEventsPage' })"/>
     </div>
 
-    <q-tabs align="left" model-value="" no-caps class="text-primary q-mb-md">
-      <q-route-tab :to="{ name: 'DashboardEventGeneralPage', params: { id: route.params.id }}" name="general"
-                   label="General information"/>
-      <q-route-tab :to="{ name: 'DashboardEventAttendeesPage', params: { id: route.params.id }}" name="members"
-                   label="Attendees"/>
-    </q-tabs>
-
-    <router-view class="q-mt-lg"/>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useNavigation } from 'src/composables/useNavigation'
+import EventFormBasicComponent from 'src/components/event/EventFormBasicComponent.vue'
+
+const { navigateToEvent } = useNavigation()
+const router = useRouter()
 
 const route = useRoute()
 

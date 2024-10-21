@@ -5,6 +5,8 @@
       v-model="eventData.name"
       label="Event Title"
       filled
+      maxlength="80"
+      counter
       :rules="[(val: string) => !!val || 'Title is required']"
     />
 
@@ -61,28 +63,29 @@
       style="height: 140px; max-width: 150px"
     />
 
-    <q-input
+    <!-- <q-input
       v-model="eventData.description"
       label="Event Description"
       type="textarea"
       filled
       :rules="[(val: string) => !!val || 'Description is required']"
-    />
+    /> -->
 
-    <!--    <div class="text-h6 q-mt-lg">Event Description</div>-->
-    <!--    <q-editor-->
-    <!--      :rules="[(val: string) => !!val || 'Description is required']"-->
-    <!--      filled-->
-    <!--      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"-->
-    <!--      v-model="eventData.description as string"-->
-    <!--      :dense="Screen.lt.md"-->
-    <!--      :toolbar="[-->
-    <!--        ['bold', 'italic'],-->
-    <!--        ['link', 'custom_btn'],-->
-    <!--        ['unordered', 'ordered'],-->
-    <!--        ['undo', 'redo'],-->
-    <!--      ]"-->
-    <!--    />-->
+       <div class="text-h6 q-mt-lg">Event Description</div>
+       <q-editor
+          :rules="[(val: string) => !!val || 'Description is required']"
+         filled
+         :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
+         :model-value="eventData.description as string"
+         @update:model-value="onDescriptionInput"
+         :dense="Screen.lt.md"
+         :toolbar="[
+           ['bold', 'italic'],
+           ['link', 'custom_btn'],
+           ['unordered', 'ordered'],
+           ['undo', 'redo'],
+          ]"
+      />
 
       <q-tabs v-model="eventData.type" align="left" indicator-color="primary">
         <q-tab label="In person" icon="sym_r_person_pin_circle" name="in-person"/>
@@ -95,6 +98,7 @@
                          label="Address or location"/>
 
     <q-select
+      class="q-mt-xl"
       v-model="eventData.categories"
       :options="categoryOptions"
       filled
@@ -152,8 +156,9 @@ import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
-import { QForm } from 'quasar'
+import { Dark, QForm, Screen } from 'quasar'
 import { groupsApi } from 'src/api/groups.ts'
+import DOMPurify from 'dompurify'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -178,6 +183,10 @@ const eventData = ref<EventEntity>({
   visibility: 'public',
   categories: []
 })
+
+const onDescriptionInput = (val: string) => {
+  eventData.value.description = DOMPurify.sanitize(val)
+}
 
 const onSaveDraft = () => {
   eventData.value.status = 'draft'

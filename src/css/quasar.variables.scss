@@ -101,9 +101,17 @@ body {
   background-color: $dark-gray;
 }
 
+// ... existing code ...
+
 .router-link-inherit {
   color: inherit;
   text-decoration: none;
+  text-decoration: underline;
+  transition: color 0.3s ease, opacity 0.3s ease;
+  position: relative;
+  
+  &:hover {
+    opacity: 0.8;
+    text-decoration: none;
+  }
 }
-
-

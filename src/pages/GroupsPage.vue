@@ -3,7 +3,8 @@
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
     <div class="row text-h4">
-      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link> / <router-link active-class="text-bold" class="router-link-inherit" :to="{ name: 'GroupsPage' }">Groups list</router-link>
+      <router-link class="q-mr-xs router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link>/
+      <span class="text-bold q-ml-xs">Groups list</span>
     </div>
 
     <div class="row q-col-gutter-md q-mb-lg q-mt-md">
@@ -21,8 +22,7 @@
         </div>
       </div>
 
-      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups.data?.length"
-                          label="No groups found matching your criteria" icon="sym_r_search_off"/>
+      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups.data?.length" label="No groups found matching your criteria" icon="sym_r_search_off"/>
 
       <q-pagination v-if="!useGroupsStore().isLoading && groups && groups.totalPages && groups.totalPages > 1"
                     v-model="currentPage"

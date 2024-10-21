@@ -19,7 +19,7 @@
 
           <q-card class="shadow-0 q-mt-lg">
             <div class="text-h5">Details</div>
-            <div class="text-body1">{{ event.description }}</div>
+            <div class="text-body1 q-mt-md" v-html="event.description"></div>
           </q-card>
 
           <div v-if="event?.attendees?.length" class="q-mt-lg text-h5 row items-center justify-between"><span>Attendees <span
@@ -34,7 +34,7 @@
               </q-popup-proxy>
             </q-btn>
           </div>
-          <q-card>
+          <q-card v-if="event.attendees?.length">
             <q-card-section>
               <div class="row q-gutter-md">
                 <q-item
@@ -74,9 +74,9 @@
                 <q-btn-dropdown align="center" no-caps label="Organiser tools">
                   <q-list>
                     <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
-                                       @click="router.push({ name: 'DashboardEventGeneralPage', params: { id: route.params.id }})"/>
+                                       @click="router.push({ name: 'DashboardEventPage', params: { id: route.params.id }})"/>
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
-                                       @click="router.push({ name: 'DashboardEventAttendeesPage', params: { id: route.params.id }})"/>
+                                       @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id }})"/>
                     <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
                     <q-separator/>
                     <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
@@ -148,7 +148,7 @@
         </div>
       </div>
 
-      <GroupSimilarEventsComponent/>
+      <GroupSimilarEventsComponent v-if="event?.group" :group="event.group"/>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
     <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning"

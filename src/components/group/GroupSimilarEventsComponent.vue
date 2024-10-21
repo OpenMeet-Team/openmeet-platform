@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { EventEntity } from 'src/types'
+import { EventEntity, GroupEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils.ts'
 import { onMounted, ref } from 'vue'
 import { groupsApi } from 'src/api/groups.ts'
 
+interface Props {
+  group: GroupEntity
+}
+
+const props = defineProps<Props>()
 const events = ref<EventEntity[]>([])
 const loaded = ref<boolean>(false)
 
 onMounted(() => {
-  groupsApi.similarEvents().then(res => {
+  groupsApi.similarEvents(String(props.group.id)).then(res => {
     events.value = res.data
   })
 })
