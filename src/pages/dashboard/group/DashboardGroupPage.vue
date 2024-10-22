@@ -12,6 +12,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
+import GroupFormBasicComponent from 'src/components/group/GroupFormBasicComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

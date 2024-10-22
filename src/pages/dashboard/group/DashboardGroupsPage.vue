@@ -3,8 +3,8 @@
 
     <SpinnerComponent v-if="!loaded"/>
 
-    <div class="row text-h4 justify-between">
-      <span class="text-bold">Your groups</span>
+    <div class="row justify-between items-start">
+      <DashboardTitle defaultBack label="Your groups"/>
       <q-btn v-if="hostedGroups?.length"
              no-caps
              color="primary"
@@ -47,6 +47,7 @@ import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity } from 'src/types'
 import { useAuthStore } from 'stores/auth-store.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 
 const router = useRouter()
 

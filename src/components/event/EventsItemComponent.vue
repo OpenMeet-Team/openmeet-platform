@@ -13,7 +13,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <q-card flat class="event-card q-my-xl">
+  <q-card flat class="event-card q-my-xl overflow-hidden">
     <q-card-section horizontal>
       <q-img class="cursor-pointer" style="width: 150px;" @click="navigateToEvent(event.slug, event.id)" :src="getImageSrc(event.image)">
         <div class="q-pa-none absolute q-ml-sm no-padding bg-transparent"><q-badge>{{ event.type }}</q-badge></div>

@@ -6,6 +6,7 @@ import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from 'src
 
 export const useHomeStore = defineStore('home', {
   state: () => ({
+    loading: false,
     // Non authorized store
     guestFeaturedGroups: <null | GroupEntity[]>(null),
     guestUpcomingEvents: <null | EventEntity[]>(null),
@@ -21,6 +22,7 @@ export const useHomeStore = defineStore('home', {
   }),
   actions: {
     async actionGetUserHomeState () {
+      this.loading = true
       // Fetch data and update state
       return Promise.all([
         groupsApi.getAll({}).then(res => {
@@ -33,9 +35,12 @@ export const useHomeStore = defineStore('home', {
           this.userRecentEventDrafts = res.data.data
           this.userUpcomingEvents = res.data.data
         })
-      ])
+      ]).finally(() => {
+        this.loading = false
+      })
     },
     async actionGetGuestHomeState () {
+      this.loading = true
       return Promise.all([
       // Fetch data and update state
         groupsApi.getAll({}).then(res => {
@@ -53,7 +58,9 @@ export const useHomeStore = defineStore('home', {
         subcategoriesApi.getAll().then(res => {
           this.guestInterests = res.data
         })
-      ])
+      ]).finally(() => {
+        this.loading = false
+      })
     }
     // Add other actions as needed
   }

@@ -5,16 +5,12 @@ export enum SubCategoryType {
   GROUP = 'GROUP',
 }
 
-export interface UploadedFileEntity {
-  path?: string
-  id: string
-  createdAt?: Date
-  updatedAt?: Date
-}
-
 export interface FileEntity {
+  id: string
   path?: string
-  id: number
+  fileSize?: number
+  fileName?: string
+  fileType?: string
 }
 
 export interface AddressLocation {

@@ -24,14 +24,15 @@ export enum UserPermission {
 // }
 
 export interface UserEntity {
-  id: string
+  id: number
   email: string
   name?: string
   firstName?: string
   lastName?: string
-  token: string
-  refreshToken: string
+  // token: string
+  // refreshToken: string
   photo?: FileEntity
-  role?: UserRole;
-  permissions?: UserPermission[];
+  bio?: string
+  role?: UserRole
+  permissions?: UserPermission[]
 }

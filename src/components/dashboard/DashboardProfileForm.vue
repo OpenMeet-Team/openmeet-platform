@@ -23,6 +23,13 @@
       :rules="[(val: string) => !!val || 'Last name is required']"
     />
 
+    <q-input
+      filled
+      type="textarea"
+      v-model="form.bio"
+      label="Your bio"
+    />
+
     <UploadComponent label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>
 
     <q-img
@@ -84,10 +91,10 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Dialog } from 'quasar'
+import { Dialog, LoadingBar } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { UploadedFileEntity, ApiAuthUser } from 'src/types'
+import { FileEntity, UserEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -98,7 +105,7 @@ interface UserLocation {
   address: string
 }
 
-interface Profile extends ApiAuthUser {
+interface Profile extends UserEntity {
   oldPassword?: string
   password?: string
   location?: UserLocation
@@ -110,6 +117,7 @@ const form = ref<Profile>({
   id: 0,
   email: ''
 })
+
 const isPwd = ref(true)
 
 const onSubmit = async () => {
@@ -130,30 +138,15 @@ const onSubmit = async () => {
 }
 
 onMounted(() => {
+  LoadingBar.start()
   authApi.getMe().then(res => {
-    // form.email = res.data.email
-    // form.firstName = res.data.firstName
-    // form.lastName = res.data.lastName
-    // form.photo = res.data.photo
     form.value = res.data
     // Object.assign(form, res.data)
-  })
+  }).finally(() => LoadingBar.stop())
 })
 
-const onProfilePhotoSelect = (file: UploadedFileEntity) => {
+const onProfilePhotoSelect = (file: FileEntity) => {
   form.value.photo = file
-  // return apiUploadFileToS3(file).then(response => {
-  //   form.photo = response
-  // }).catch(error => {
-  //   error(error.message)
-  // })
-  // const formData = new FormData()
-  // formData.append('file', file, file.name)
-  //
-  // return apiFilesUpload(formData).then(e => {
-  //   console.log(e)
-  //   form.photo = e.data.file
-  // })
 }
 
 const onDeleteAccount = () => {

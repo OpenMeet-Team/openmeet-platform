@@ -2,11 +2,8 @@ import { AxiosResponse } from 'axios'
 import { api } from 'src/boot/axios'
 import {
   ApiAuthForgotPasswordRequest,
-  ApiAuthLoginRequest,
   ApiAuthLoginResponse,
-  ApiAuthPatchMeRequest,
   ApiAuthRefreshTokenResponse,
-  ApiAuthRegisterRequest,
   ApiAuthRestorePasswordRequest,
   ApiAuthUser
 } from 'src/types'
@@ -14,10 +11,18 @@ import {
 const BASE_URL = '/api/v1/auth'
 
 export const authApi = {
-  login: (credentials: ApiAuthLoginRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+  login: (credentials: {
+    email: string
+    password: string
+  }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/email/login`, credentials),
 
-  register: (credentials: ApiAuthRegisterRequest): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+  register: (credentials: {
+    email: string
+    password: string
+    firstName?: string
+    lastName?: string
+  }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/email/register`, credentials),
 
   forgotPassword: (data: ApiAuthForgotPasswordRequest): Promise<AxiosResponse<void>> =>
@@ -29,7 +34,16 @@ export const authApi = {
   getMe: (): Promise<AxiosResponse<ApiAuthUser>> =>
     api.get(`${BASE_URL}/me`),
 
-  updateMe: (data: ApiAuthPatchMeRequest): Promise<AxiosResponse<ApiAuthUser>> =>
+  updateMe: (data: {
+    photo?: {
+      id: string
+    },
+    firstName?: string,
+    lastName?: string,
+    email?: string,
+    password?: string,
+    oldPassword?: string
+  }): Promise<AxiosResponse<ApiAuthUser>> =>
     api.patch(`${BASE_URL}/me`, data),
 
   deleteMe: (): Promise<AxiosResponse<void>> =>

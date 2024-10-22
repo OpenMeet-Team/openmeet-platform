@@ -1,5 +1,5 @@
 <template>
-  <q-layout view="lhh Lpr lff">
+  <q-layout view="lhr lpr lfr">
     <AuthHeaderComponent/>
     <q-page-container>
       <router-view/>

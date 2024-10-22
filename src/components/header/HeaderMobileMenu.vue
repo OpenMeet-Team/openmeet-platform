@@ -62,7 +62,7 @@ const signUp = () => {
     class="lt-md"
   />
 
-  <q-drawer class="text-black" v-model="rightDrawerOpen" side="right" overlay bordered>
+  <q-drawer v-model="rightDrawerOpen" side="right" bordered>
     <q-list>
       <MenuItemComponent label="Home" :to="{name: 'HomePage'}"/>
       <MenuItemComponent label="Events" :to="{name: 'EventsPage'}"/>
@@ -84,6 +84,7 @@ const signUp = () => {
 
         <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
         <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
+        <MenuItemComponent label="Profile" icon="sym_r_person" :to="{name: 'MemberPage', params: {id: useAuthStore().user?.id}}"/>
         <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
         <q-separator/>
         <MenuItemComponent label="Logout" icon="sym_r_logout" @click="onClickLogout"/>

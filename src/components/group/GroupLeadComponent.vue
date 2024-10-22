@@ -5,6 +5,7 @@ import { useGroupStore } from 'stores/group-store.ts'
 import ShareComponent from 'components/common/ShareComponent.vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { GroupCategoryEntity } from 'src/types'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
@@ -40,7 +41,7 @@ const router = useRouter()
         <q-card-section v-if="group.categories">
           <div class="text-h6">Categories</div>
           <div class="q-gutter-sm">
-            <q-chip v-for="category in group.categories" :key="category.id">
+            <q-chip v-for="category in group.categories as GroupCategoryEntity[]" :key="category.id">
               {{ category.name }}
             </q-chip>
           </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DashboardProfileForm from 'components/dashboard/DashboardProfileForm.vue'
 import { useMeta } from 'quasar'
+import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 useMeta({
   title: 'Profile'
 })
@@ -8,10 +9,11 @@ useMeta({
 
 <template>
   <q-page padding>
-    <div class="row text-h4">
-      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'DashboardProfilePage' }">Profile settings</router-link>
+    <DashboardTitle defaultBack label="Profile settings"/>
+
+    <div class="row justify-center">
+      <DashboardProfileForm class="q-mt-md col"/>
     </div>
-    <DashboardProfileForm class="q-mt-md"/>
   </q-page>
 </template>
 

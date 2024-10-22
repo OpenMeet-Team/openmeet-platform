@@ -1,8 +1,8 @@
 <template>
   <q-page padding v-if="loaded">
 
-    <div class="row text-h4 justify-between">
-      <span class="text-bold">Your events</span>
+    <div class="row justify-between items-start">
+      <DashboardTitle defaultBack label="Your events"/>
       <q-btn
         no-caps
         color="primary"
@@ -67,6 +67,7 @@ import { useRouter } from 'vue-router'
 import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
+import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)

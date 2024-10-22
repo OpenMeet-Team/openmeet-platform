@@ -8,13 +8,6 @@
       maxlength="60"
       :rules="[(val: string) => !!val || 'Group name is required']"
     />
-    <!-- <q-input
-      filled
-      v-model="group.description"
-      type="textarea"
-      label="Description"
-      :rules="[(val: []) => !!val || 'Description is required']"
-    /> -->
 
     <div class="text-h6 q-mt-lg">Group Description</div>
        <q-editor
@@ -75,9 +68,9 @@
     <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
 
     <div class="row justify-end q-gutter-sm">
-      <q-btn flat label="Cancel" @click="$emit('close')"/>
-      <q-btn v-if="group.id" label="Update" type="submit" color="primary"/>
-      <q-btn v-else label="Create" type="submit" color="primary"/>
+      <q-btn flat label="Cancel" no-caps @click="$emit('close')"/>
+      <q-btn v-if="group.id" no-caps label="Update" type="submit" color="primary"/>
+      <q-btn v-else no-caps label="Create" type="submit" color="primary"/>
     </div>
   </q-form>
 </template>
@@ -130,7 +123,7 @@ onMounted(() => {
     categoryOptions.value = res.data
   })
   if (props.editGroupId) {
-    groupsApi.getById(props.editGroupId).then(res => {
+    groupsApi.getMeById(props.editGroupId).then(res => {
       group.value = res.data
     })
   }
@@ -148,6 +141,12 @@ const onSubmit = async () => {
   group.value.status = 'published'
   const groupPayload = {
     ...group.value
+  }
+
+  if (groupPayload.categories) {
+    groupPayload.categories = groupPayload.categories.map(category => {
+      return typeof category === 'object' ? category.id : category
+    }) as number[]
   }
 
   Loading.show()

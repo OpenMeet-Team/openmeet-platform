@@ -1,6 +1,7 @@
 <template>
   <q-page padding>
-    <div class="row q-col-gutter-md">
+    <SpinnerComponent v-if="useHomeStore().loading"/>
+    <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
       <!-- Hero Section -->
       <div class="col-12">
         <q-card class="bg-primary text-white">

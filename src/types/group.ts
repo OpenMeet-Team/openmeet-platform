@@ -6,6 +6,8 @@ export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
 export type GroupStatusType = 'draft' | 'pending' | 'published'
 export type GroupRoleType = 'owner' | 'manager' | 'member'
 
+export interface GroupCategoryEntity extends CategoryEntity {}
+
 export interface GroupRoleEntity {
   id: number
   name: GroupRoleType,
@@ -27,7 +29,7 @@ export interface GroupEntity {
   slug: string
   name: string
   description?: string
-  categories?: CategoryEntity[]
+  categories?: GroupCategoryEntity[] | number[]
   location?: string
   lat?: number
   lon?: number

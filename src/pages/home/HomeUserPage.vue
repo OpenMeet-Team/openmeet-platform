@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, computed } from 'vue'
 import { LoadingBar } from 'quasar'
 import SubtitleComponent from 'components/common/SubtitleComponent.vue'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -15,8 +15,6 @@ const userRecentEventDrafts = computed(() => useHomeStore().userRecentEventDraft
 const userUpcomingEvents = computed(() => useHomeStore().userUpcomingEvents)
 const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
 const userInterests = computed(() => useHomeStore().userInterests)
-
-const loading = ref(false)
 const router = useRouter()
 
 onMounted(() => {
@@ -28,12 +26,12 @@ onMounted(() => {
 
 <template>
   <q-page padding>
-    <SpinnerComponent v-if="loading"/>
+    <SpinnerComponent v-if="useHomeStore().loading"/>
 
-    <div v-if="!loading">
+    <div v-if="!useHomeStore().loading">
       <!-- Content for authorized users -->
       <div>
-        <h2>{{ `Welcome back, ${useAuthStore().getUser.name}!` }}</h2>
+        <h2>{{ useAuthStore().getUser.name ? `Welcome back, ${useAuthStore().getUser.name}!` : 'Welcome!' }}</h2>
 
         <div class="row q-col-gutter-xl">
           <div class="col-12 col-sm-7">
@@ -120,7 +118,7 @@ onMounted(() => {
 
             <!-- Your interests -->
             <SubtitleComponent label="Your interests"/>
-            <q-card class="q-mb-md">
+            <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
                   <q-chip v-for="interest in userInterests" :key="interest.id" color="primary" text-color="white">
