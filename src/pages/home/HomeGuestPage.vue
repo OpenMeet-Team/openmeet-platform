@@ -110,6 +110,7 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
 import HomeEventItem from 'components/home/HomeEventItemComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
+import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 

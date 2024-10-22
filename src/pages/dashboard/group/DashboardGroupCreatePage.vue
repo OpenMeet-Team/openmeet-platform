@@ -2,7 +2,9 @@
   <q-page padding>
     <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Create New Group"/>
 
-    <GroupFormComponent style="max-width: 500px" @created="router.push({ name: 'DashboardGroupPage', params: { id: $event.id }})" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+    <div class="row justify-center">
+      <GroupFormComponent class="col" style="max-width: 500px" @created="router.push({ name: 'DashboardGroupPage', params: { id: $event.id }})" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+    </div>
   </q-page>
 </template>
 

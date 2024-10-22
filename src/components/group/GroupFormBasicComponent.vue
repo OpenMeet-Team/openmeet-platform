@@ -1,5 +1,6 @@
 <template>
-  <q-form @submit="onSubmit" class="q-gutter-md">
+  <SpinnerComponent v-if="loading"/>
+  <q-form v-else @submit="onSubmit" class="q-gutter-md">
     <q-input
       filled
       v-model="group.name"
@@ -83,8 +84,9 @@ import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import LocationComponent from 'components/common/LocationComponent.vue'
-import { Dark, Loading, Screen } from 'quasar'
+import { Dark, Loading, LoadingBar, Screen } from 'quasar'
 import DOMPurify from 'dompurify'
+import SpinnerComponent from '../common/SpinnerComponent.vue'
 
 const group = ref<GroupEntity>({
   id: 0,
@@ -96,6 +98,8 @@ const group = ref<GroupEntity>({
   requireApproval: false,
   visibility: 'public'
 })
+
+const loading = ref(false)
 
 const onUpdateLocation = (address: {lat: string, lon: string, location: string}) => {
   group.value.lat = parseFloat(address.lat as string)
@@ -117,15 +121,33 @@ const { error } = useNotification()
 
 const emit = defineEmits(['created', 'updated', 'close'])
 
-onMounted(() => {
-  // TODO fetch categories
-  categoriesApi.getAll().then(res => {
-    categoryOptions.value = res.data
-  })
-  if (props.editGroupId) {
-    groupsApi.getMeById(props.editGroupId).then(res => {
-      group.value = res.data
+onMounted(async () => {
+  try {
+    LoadingBar.start()
+    loading.value = true
+
+    // Fetch categories
+    const categoryPromise = categoriesApi.getAll().then(res => {
+      categoryOptions.value = res.data
     })
+
+    // Fetch group data conditionally if `editGroupId` exists
+    let groupPromise
+    if (props.editGroupId) {
+      groupPromise = groupsApi.getMeById(props.editGroupId).then(res => {
+        group.value = res.data
+      })
+    }
+
+    // Wait for all promises to resolve, including the optional group fetch
+    await Promise.all([categoryPromise, groupPromise])
+  } catch (error) {
+    // Handle error (optional)
+    console.error('An error occurred:', error)
+  } finally {
+    // Stop the loading bar and reset loading state
+    LoadingBar.stop()
+    loading.value = false
   }
 })
 

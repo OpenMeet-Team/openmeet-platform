@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
+import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
+import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 
 interface User {
   id: number;
@@ -32,6 +34,7 @@ const messages = ref<Message[]>([
   { id: 3, senderId: 1, text: 'Great! It starts at 2 PM. See you at the meetup!', timestamp: '10:30 AM' }
 ])
 
+const loading = ref(false)
 const searchQuery = ref('')
 const selectedChat = ref<User | null>(null)
 const newMessage = ref('')
@@ -63,12 +66,11 @@ function sendMessage () {
 
 <template>
   <q-page padding>
-    <div class="row text-h4">
-      <router-link class="router-link-inherit" active-class="text-bold" :to="{ name: 'MessagesPage' }">Messages</router-link>
-    </div>
+    <DashboardTitle defaultBack label="Messages"/>
 
-    <!-- Chat list sidebar -->
-    <div class="messages-page row q-mt-md q-gutter-md">
+    <SpinnerComponent v-if="loading"/>
+
+    <div v-else class="messages-page row q-mt-md q-gutter-md">
       <div class="col-4">
         <q-card flat bordered class="bg-grey-2" style="min-height: 98%">
           <q-input
