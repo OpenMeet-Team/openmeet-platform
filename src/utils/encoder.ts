@@ -14,6 +14,7 @@ export function encodeNumberToLowercaseString (num: number): string {
 }
 
 export function decodeLowercaseStringToNumber (str: string): number {
+  if (!str) return 0
   const base = 26
   let num = 0
 
