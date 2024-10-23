@@ -1,26 +1,11 @@
 <template>
   <div class="c-search-component row items-center q-mx-md">
     <div class="row">
-      <q-select
-        rounded
-        class="xs-hide"
-        outlined
-        ref="searchRef"
-        hide-dropdown-icon
-        placeholder="Search"
-        dense
-        v-model="search"
-        clearable
-        use-input
-        name="search"
-        input-debounce="1000"
-        :options="options"
-        @filter="filterFn"
-        style="width: 250px"
-        behavior="dialog"
-      >
+      <q-select rounded class="xs-hide" outlined ref="searchRef" hide-dropdown-icon placeholder="Search" dense
+        v-model="search" clearable use-input name="search" input-debounce="1000" :options="options" @filter="filterFn"
+        style="width: 250px" behavior="dialog">
         <template v-slot:prepend>
-          <q-icon name="sym_r_search"/>
+          <q-icon name="sym_r_search" />
         </template>
         <template v-slot:no-option>
           <q-item>
@@ -29,35 +14,31 @@
             </q-item-section>
           </q-item>
         </template>
-<!--        <template v-slot:after>-->
-<!--          <q-select-->
-<!--            borderless-->
-<!--            class="xs-hide"-->
-<!--            ref="locationRef"-->
-<!--            hide-dropdown-icon-->
-<!--            placeholder="Location"-->
-<!--            dense-->
-<!--            v-model="search"-->
-<!--            use-input-->
-<!--            name="location"-->
-<!--            input-debounce="1000"-->
-<!--            :options="options"-->
-<!--            @filter="filterFn"-->
-<!--            style="width: 150px"-->
-<!--          >-->
-<!--            <template v-slot:append>-->
-<!--              <q-icon name="sym_r_near_me"/>-->
-<!--            </template>-->
-<!--          </q-select>-->
-<!--        </template>-->
+        <!--        <template v-slot:after>-->
+        <!--          <q-select-->
+        <!--            borderless-->
+        <!--            class="xs-hide"-->
+        <!--            ref="locationRef"-->
+        <!--            hide-dropdown-icon-->
+        <!--            placeholder="Location"-->
+        <!--            dense-->
+        <!--            v-model="search"-->
+        <!--            use-input-->
+        <!--            name="location"-->
+        <!--            input-debounce="1000"-->
+        <!--            :options="options"-->
+        <!--            @filter="filterFn"-->
+        <!--            style="width: 150px"-->
+        <!--          >-->
+        <!--            <template v-slot:append>-->
+        <!--              <q-icon name="sym_r_near_me"/>-->
+        <!--            </template>-->
+        <!--          </q-select>-->
+        <!--        </template>-->
       </q-select>
     </div>
-    <q-icon
-      name="sym_r_search"
-      class="sm-hide md-hide lg-hide xl-hide cursor-pointer"
-      size="24px"
-      @click="onSearchClick"
-    />
+    <q-icon name="sym_r_search" class="sm-hide md-hide lg-hide xl-hide cursor-pointer" size="24px"
+      @click="onSearchClick" />
   </div>
 </template>
 
@@ -65,11 +46,12 @@
 import { ref } from 'vue'
 import { QSelect } from 'quasar'
 
-import { searchEvents } from 'src/api/search.ts'
+import { searchApi } from 'src/api/search.ts'
 
 interface SearchResult {
-  id: string;
-  title: string;
+  id: number
+  name: string
+  type: 'event' | 'group'
 }
 
 const search = ref<string>('')
@@ -96,9 +78,9 @@ const filterFn = async (
   })
 
   try {
-    const response = await searchEvents(val)
+    const response = await searchApi.searchAll({ q: val })
     update(() => {
-      options.value = response.data
+      options.value = response.data.events.map(event => ({ id: event.id, name: event.name, type: 'event' }))
     })
   } catch (error) {
     console.error('Error fetching search results:', error)

@@ -6,6 +6,7 @@ import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 import { useProfileStore } from 'src/stores/profile-store'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
+import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 
 const route = useRoute()
 
@@ -22,23 +23,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <q-page padding>
-    <SpinnerComponent v-if="useProfileStore().isLoading"/>
+  <q-page padding class="q-pb-xl">
+    <SpinnerComponent v-if="useProfileStore().isLoading" />
 
     <div v-if="!useProfileStore().isLoading && user">
-      <DashboardTitle defaultBack/>
+      <DashboardTitle defaultBack />
 
       <div class="row q-col-gutter-md">
 
         <div class="col-12 col-sm-4">
-            <!-- User Info -->
+          <!-- User Info -->
           <q-card flat bordered>
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
                   <img :src="getImageSrc(user.photo)" :alt="user.name" />
                 </q-avatar>
-                <h4 class="q-mt-md q-mb-xs">{{ user.name }}</h4>
+                <h4 class="q-mt-md text-h5 text-bold q-mb-xs">{{ user.name }}</h4>
                 <p>{{ user.bio }}</p>
               </div>
             </q-card-section>
@@ -46,33 +47,33 @@ onMounted(async () => {
 
           <q-card flat bordered class="q-mt-xl" v-if="user.id === useProfileStore().user?.id">
             <q-card-section horizontal>
-                <q-avatar size="50px" class="q-mr-md">
-                  <img :src="getImageSrc(user.photo)" :alt="user.name" />
-                </q-avatar>
-                <h4 class="q-mt-md q-mb-xs">{{ user.name }}</h4>
-                <router-link :to="{ name: 'DashboardProfilePage'  }" class="router-link-inherit">Edit Profile</router-link>
+              <q-avatar size="50px" class="q-mr-md">
+                <img :src="getImageSrc(user.photo)" :alt="user.name" />
+              </q-avatar>
+              <div class="column">
+                <div class="text-bold">{{ user.name }}</div>
+                <router-link :to="{ name: 'DashboardProfilePage' }" class="router-link-inherit">Edit
+                  Profile</router-link>
+              </div>
             </q-card-section>
           </q-card>
         </div>
 
         <div class="col-12 col-sm-8">
-       <!-- Interests -->
-       <div class="col-12 col-md-8">
+          <!-- Interests -->
           <q-card flat bordered>
             <q-card-section>
-              <div class="text-h5 text-bold">My Interests</div>
+              <SubtitleComponent hide-link label="My Interests" />
               <q-chip v-for="interest in interests" :key="interest.id" color="primary" text-color="white">
                 {{ interest.title }}
               </q-chip>
             </q-card-section>
           </q-card>
-        </div>
 
-        <!-- Owned Groups -->
-        <div class="col-12 col-md-6">
-          <q-card flat bordered>
+          <!-- Owned Groups -->
+          <q-card flat bordered class="q-mt-lg">
             <q-card-section>
-              <div class="text-h6">Owned Groups</div>
+              <SubtitleComponent hide-link label="Owned Groups" />
               <q-list>
                 <q-item v-for="group in ownedGroups" :key="group.id">
                   <q-item-section>
@@ -83,13 +84,11 @@ onMounted(async () => {
               </q-list>
             </q-card-section>
           </q-card>
-        </div>
 
-        <!-- Organized Events -->
-        <div class="col-12 col-md-6">
-          <q-card flat bordered>
+          <!-- Organized Events -->
+          <q-card flat bordered class="q-mt-md">
             <q-card-section>
-              <div class="text-h6">Organized Events</div>
+              <SubtitleComponent hide-link label="Organized Events" />
               <q-list>
                 <q-item v-for="event in organizedEvents" :key="event.id">
                   <q-item-section>
@@ -100,13 +99,11 @@ onMounted(async () => {
               </q-list>
             </q-card-section>
           </q-card>
-        </div>
 
-        <!-- Group Memberships -->
-        <div class="col-12">
-          <q-card flat bordered>
+          <!-- Group Memberships -->
+          <q-card flat bordered class="q-mt-lg">
             <q-card-section>
-              <div class="text-h6">Group Memberships</div>
+              <SubtitleComponent hide-link label="Group Memberships" />
               <q-list>
                 <q-item v-for="group in groupMemberships" :key="group.id">
                   <q-item-section>
@@ -117,7 +114,6 @@ onMounted(async () => {
               </q-list>
             </q-card-section>
           </q-card>
-        </div>
         </div>
       </div>
     </div>

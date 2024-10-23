@@ -51,6 +51,10 @@ onMounted(async () => {
     }
   })
 })
+
+onBeforeUnmount(() => {
+  useGroupStore().$reset()
+})
 </script>
 
 <style scoped>

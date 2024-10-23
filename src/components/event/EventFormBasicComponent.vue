@@ -12,7 +12,7 @@
     <!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
     <!--    </div>-->
 
-    <DatetimeComponent class="q-mt-lg" required label="Starting date and time" v-model="eventData.startDate"
+    <DatetimeComponent class="q-mt-xl" required label="Starting date and time" v-model="eventData.startDate"
       reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
       <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
       <!-- Display Timezone -->
@@ -23,13 +23,15 @@
       </template>
     </DatetimeComponent>
     <template v-if="eventData.startDate">
-      <q-checkbox :model-value="!!eventData.endDate"
+
+      <q-checkbox class="q-mt-none" :model-value="!!eventData.endDate"
         @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set en end time..." />
+
       <DatetimeComponent v-if="eventData.endDate" label="Ending date and time" v-model="eventData.endDate"
         reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
         <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
         <template v-slot:hint>
-          <div class=" text-bold">
+          <div class="text-bold">
             {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
           </div>
         </template>
@@ -54,7 +56,7 @@
         ['undo', 'redo'],
       ]" />
 
-    <q-tabs v-model="eventData.type" align="left" indicator-color="primary">
+    <q-tabs no-caps v-model="eventData.type" align="left" indicator-color="primary">
       <q-tab label="In person" icon="sym_r_person_pin_circle" name="in-person" />
       <q-tab label="Online" name="online" icon="sym_r_videocam" />
       <q-tab label="Hybrid" name="hybrid" icon="sym_r_diversity_2" />
@@ -78,7 +80,7 @@
       ]" filled />
 
     <q-checkbox :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
-      label="Limit number of members?" />
+      label="Limit number of attendees?" />
 
     <q-input v-if="eventData.maxAttendees" v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled
       type="number" :rules="[
@@ -91,7 +93,7 @@
         color="secondary" @click="onSaveDraft" />
       <q-btn no-caps v-if="!eventData.status || eventData.status !== 'published'" label="Publish" color="primary"
         @click="onPublish" />
-      <q-btn no-caps v-else label="Update" color="primary" @click="onPublish" />
+      <q-btn no-caps v-else :label="eventData.id ? 'Update' : 'Publish'" color="primary" @click="onPublish" />
     </div>
   </q-form>
 </template>
@@ -161,6 +163,9 @@ onMounted(() => {
     }),
     groupsApi.getAllMe({}).then(res => {
       groupsOptions.value = res.data.data
+      if (props.group) {
+        eventData.value.group = res.data.data.find(group => group.id === props.group?.id)
+      }
     })
   ]
 

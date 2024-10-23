@@ -28,6 +28,7 @@ const onJoinGroup = () => {
     openLoginDialog()
   }
 }
+const { openCreateEventDialog } = useEventDialog()
 
 const onLeaveGroup = () => {
   openLeaveGroupDialog().onOk(() => {
@@ -53,7 +54,7 @@ const onLeaveGroup = () => {
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center" v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupRole('manager')">
-        <q-btn @click="useEventDialog().openCreateEventDialog(group as GroupEntity)" no-caps size="md"
+        <q-btn @click="openCreateEventDialog(group as GroupEntity)" no-caps size="md"
                label="Create event" color="primary"/>
         <q-btn-dropdown outline size="md" v-if="useGroupStore().getterGroupHasGroupMember()" align="center" no-caps label="Manage group">
           <q-list>
