@@ -14,8 +14,13 @@ export function useNavigation () {
     router.push({ name: 'EventPage', params: { slug, id: eventId } })
   }
 
+  const navigateToUser = (userId: number) => {
+    router.push({ name: 'MemberPage', params: { id: userId } })
+  }
+
   return {
     navigateToGroup,
-    navigateToEvent
+    navigateToEvent,
+    navigateToUser
   }
 }

@@ -148,7 +148,7 @@
         </div>
       </div>
 
-      <GroupSimilarEventsComponent v-if="event?.group" :group="event.group"/>
+      <EventSimilarEventsComponent v-if="event" :event="event"/>
     </div>
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
     <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning"
@@ -171,8 +171,8 @@ import { useEventStore } from 'stores/event-store.ts'
 import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
-import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
+import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

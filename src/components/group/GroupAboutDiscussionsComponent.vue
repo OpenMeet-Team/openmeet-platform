@@ -3,6 +3,7 @@
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import { DiscussionEntity } from 'src/types'
 import { useRouter, useRoute } from 'vue-router'
+import SubtitleComponent from '../common/SubtitleComponent.vue'
 interface Props {
   discussions?: DiscussionEntity[]
 }
@@ -15,9 +16,7 @@ defineProps<Props>()
 
 <template>
   <q-card class="shadow-0 q-mt-lg" v-if="discussions?.length">
-    <q-card-section>
-      <div class="text-h5 row items-center justify-between"><span>Discussions <span v-if="discussions?.length">({{ discussions.length }})</span></span> <q-btn v-if="discussions?.length" no-caps padding="xs" flat label="See all" :to="{ name: 'GroupDiscussionsPage', params: { id: route.params.id }}"/></div>
-    </q-card-section>
+    <SubtitleComponent label="Discussions" :to="{ name: 'GroupDiscussionsPage', params: { id: route.params.id }}" />
     <q-card-section v-if="discussions?.length">
       <q-list bordered>
         <q-item v-for="discussion in discussions" :key="discussion.id" clickable>

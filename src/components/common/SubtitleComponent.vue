@@ -4,6 +4,7 @@ interface SubtitleProps {
   label: string
   count?: number
   to?: object
+  hideLink?: boolean
 }
 
 defineProps<SubtitleProps>()
@@ -13,7 +14,7 @@ const emit = defineEmits(['click'])
 <template>
   <div class="text-h6 text-bold row justify-between items-center q-mb-sm">
     <div>{{ label }}<span class="q-ml-sm" v-if="count">({{ count }})</span></div>
-    <router-link class="router-link-inherit" :to="to || {}" @click="!to && emit('click')">
+    <router-link v-if="!hideLink" class="router-link-inherit" :to="to || {}" @click="!to && emit('click')">
       <slot>See all</slot>
     </router-link>
   </div>

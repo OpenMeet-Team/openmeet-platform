@@ -26,7 +26,7 @@ export function getHumanReadableDateDifference (startDate: string | Date, endDat
 }
 
 export function formatDate (dateString: string, format?: string) {
-  return date.formatDate(dateString, format || 'MMMM D, YYYY')
+  return date.formatDate(dateString, format || 'ddd, MMM D, YYYY, HH:mm')
 }
 
 export function addToGoogleCalendar (event: EventEntity) {

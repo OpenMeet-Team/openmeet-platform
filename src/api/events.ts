@@ -12,5 +12,5 @@ export const eventsApi = {
   delete: (id: number) => api.delete(`/api/events/${id}`),
   attend: (data: Partial<EventAttendeeEntity>) => api.post('/api/event-attendees/attend', data),
   updateAteendee: (id: number, data: Partial<EventAttendeeEntity>) => api.post(`/api/event-attendees/${id}`, data),
-  similarEvents: () => api.get('/api/events/similar-events')
+  similarEvents: (id: string) => api.get<EventEntity[]>(`/api/events/${id}/recommended-events`)
 }
