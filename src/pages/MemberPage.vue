@@ -7,6 +7,7 @@ import { useProfileStore } from 'src/stores/profile-store'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const route = useRoute()
 
@@ -45,7 +46,7 @@ onMounted(async () => {
             </q-card-section>
           </q-card>
 
-          <q-card flat bordered class="q-mt-xl" v-if="user.id === useProfileStore().user?.id">
+          <q-card flat bordered class="q-mt-xl" v-if="user.id === useAuthStore().user?.id">
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
                 <img :src="getImageSrc(user.photo)" :alt="user.name" />

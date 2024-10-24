@@ -14,7 +14,7 @@ export const useGroupStore = defineStore('group', {
       return state.group?.groupMember
     },
     getterUserGroupRole: (state) => (role: string) => {
-      return state.group && role
+      return state.group?.groupMember?.groupRole?.name === role
       // return state.group?.userGroupRole?.name === role
     },
     getterUserGroupPermission: (state) => (permission: string) => {

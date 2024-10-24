@@ -19,12 +19,10 @@
         <SubtitleComponent hide-link label="Featured Groups"/>
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
-          <div class="row q-col-gutter-md">
-            <div v-for="group in featuredGroups" :key="group.id" class="col-12 col-sm-6">
-              <HomeGroupItem :group="group" @view="onViewGroup"/>
+            <div v-for="group in featuredGroups" :key="group.id">
+              <GroupsItemComponent :group="group"/>
             </div>
-          </div>
-          <div class="text-center q-mt-md">
+          <div class="text-center q-mt-lg">
             <q-btn color="primary" label="Explore All Groups" @click="exploreGroups"/>
           </div>
         </template>
@@ -106,11 +104,11 @@ import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
 import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
-import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import HomeEventItemComponent from 'src/components/home/HomeEventItemComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
@@ -138,10 +136,6 @@ const howItWorks = [
   { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
   { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
-
-const onViewGroup = (groupId: number) => {
-  router.push({ name: 'GroupPage', params: { id: groupId } })
-}
 
 const exploreGroups = () => {
   router.push({ name: 'GroupsPage' })

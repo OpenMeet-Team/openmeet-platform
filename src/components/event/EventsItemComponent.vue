@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { EventEntity } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { formatDate } from '../../utils/dateUtils.ts'
+import { formatDate } from 'src/utils/dateUtils.ts'
 import { useNavigation } from 'src/composables/useNavigation.ts'
+import { pluralize } from 'src/utils/stringUtils.ts'
 
 interface Props {
   event: EventEntity
@@ -30,7 +31,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 
       <q-space />
       <div class="q-mt-sm text-body2"><q-icon name="sym_r_people" size="sm" /> {{ event.attendeesCount }} <span
-          v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> attendees</div>
+          v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> {{ pluralize(event.attendeesCount as number, 'attendee', 'attendees') }}</div>
     </div>
   </div>
 </template>

@@ -24,16 +24,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <SpinnerComponent v-if="!loaded"/>
+  <SpinnerComponent v-if="!loaded" />
   <template v-if="loaded">
-    <q-separator class="q-my-lg"/>
-    <SubtitleComponent class="q-mt-md" label="Similar Events" :to="{ name: 'EventsPage' }"/>
-    <div class="column">
-      <div v-for="e in events" :key="e.id"><EventsItemComponent :event="e"/></div>
+    <q-separator class="q-my-lg" />
+    <SubtitleComponent class="q-mt-md" label="Similar Events" :to="{ name: 'EventsPage' }" />
+    <div class="row">
+      <EventsItemComponent class="col-12 col-lg-6" :event="e" v-for="e in events" :key="e.id" />
     </div>
   </template>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>

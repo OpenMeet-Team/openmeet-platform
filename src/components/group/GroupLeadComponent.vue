@@ -6,10 +6,11 @@ import ShareComponent from 'components/common/ShareComponent.vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { GroupCategoryEntity } from 'src/types'
+import { useNavigation } from 'src/composables/useNavigation.ts'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
-
+const { navigateToUser } = useNavigation()
 </script>
 
 <template>
@@ -34,7 +35,7 @@ const router = useRouter()
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
             <q-icon size="sm" left name="sym_r_person"/>
-            <div class="text-body1">Organised by {{ group.createdBy.name }}</div>
+            <div class="text-body1 cursor-pointer" @click="navigateToUser(group.createdBy.id)">Organised by {{ group.createdBy.name }}</div>
           </div>
         </q-card-section>
 
