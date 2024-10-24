@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md">
-    <q-card flat bordered>
+    <q-card class="cursor-pointer hover-shadow-1" flat bordered @click="onCategoryClick">
       <q-card-section>
         <h6 class="q-my-none">{{ category.name }}</h6>
       </q-card-section>
@@ -9,13 +9,18 @@
 </template>
 
 <script lang="ts" setup>
-interface Category {
-  name: string;
-}
+import { CategoryEntity } from 'src/types'
+import { useRouter } from 'vue-router'
 
-defineProps<{
-  category: Category;
+const props = defineProps<{
+  category: CategoryEntity;
 }>()
+
+const router = useRouter()
+
+const onCategoryClick = () => {
+  router.push({ name: 'EventsPage', query: { category: [props.category.id] } })
+}
 </script>
 
 <style scoped>

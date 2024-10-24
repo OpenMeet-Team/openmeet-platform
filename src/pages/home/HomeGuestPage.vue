@@ -3,7 +3,7 @@
     <SpinnerComponent v-if="useHomeStore().loading"/>
     <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
       <!-- Hero Section -->
-      <div class="col-12">
+      <div class="col-12 q-mb-xl">
         <q-card class="bg-primary text-white">
           <q-card-section class="text-center q-pa-lg">
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
@@ -16,7 +16,7 @@
 
       <!-- Featured Groups Section -->
       <div class="col-12 col-md-8">
-        <h2 class="text-h4 q-mb-md">Featured Groups</h2>
+        <SubtitleComponent hide-link label="Featured Groups"/>
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
           <div class="row q-col-gutter-md">
@@ -32,32 +32,31 @@
 
       <!-- Upcoming Events Section -->
       <div class="col-12 col-md-4">
-        <h2 class="text-h4 q-mb-md">Upcoming Events</h2>
-        <NoContentComponent v-if="upcomingEvents && !upcomingEvents.length" label="No events found" icon="sym_r_event"/>
-        <template>
+        <SubtitleComponent hide-link label="Upcoming Events" :to="{name: 'EventsPage'}"/>
+        <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event"/>
+        <template v-if="upcomingEvents?.length">
           <q-list bordered separator>
-            <HomeEventItem v-if="upcomingEvents" :events="upcomingEvents" @view="viewEvent"/>
+            <HomeEventItemComponent v-if="upcomingEvents?.length" :events="upcomingEvents"/>
           </q-list>
           <div class="text-center q-mt-md">
             <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
           </div>
         </template>
-
       </div>
 
-      <div class="col-12">
-        <h2 class="text-h4 q-mb-md">Categories</h2>
+      <div class="col-12 q-mt-xl">
+        <SubtitleComponent hide-link label="Categories"/>
         <div class="row q-gutter-md">
           <HomeCategoryComponent
             v-for="category in categories"
-            :key="category.name"
+            :key="category.id"
             :category="category"
           />
         </div>
       </div>
 
       <div class="col-12">
-        <h2 class="text-h4 q-mb-md">Interests</h2>
+        <SubtitleComponent hide-link label="Interests"/>
         <HomeInterestsComponent v-if="interests" :interests="interests"/>
       </div>
 
@@ -108,9 +107,10 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
 import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import HomeGroupItem from 'components/home/HomeGroupItemComponent.vue'
-import HomeEventItem from 'components/home/HomeEventItemComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
+import HomeEventItemComponent from 'src/components/home/HomeEventItemComponent.vue'
+import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
@@ -145,10 +145,6 @@ const onViewGroup = (groupId: number) => {
 
 const exploreGroups = () => {
   router.push({ name: 'GroupsPage' })
-}
-
-const viewEvent = (eventId: number) => {
-  router.push({ name: 'EventPage', params: { id: eventId } })
 }
 
 const viewAllEvents = () => {

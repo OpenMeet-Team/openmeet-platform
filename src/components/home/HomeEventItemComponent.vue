@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useNavigation } from 'src/composables/useNavigation'
 import { EventEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils.ts'
 
@@ -7,11 +8,12 @@ interface Props {
 }
 
 defineProps<Props>()
-defineEmits(['view'])
+
+const { navigateToEvent } = useNavigation()
 </script>
 
 <template>
-  <q-item v-for="event in events" :key="event.id" clickable v-ripple @click="$emit('view', event.id)">
+  <q-item v-for="event in events" :key="event.id" clickable v-ripple @click="navigateToEvent(event.slug, event.id)">
     <q-item-section avatar>
       <q-icon name="sym_r_event" color="primary" size="md"/>
     </q-item-section>

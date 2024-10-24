@@ -8,9 +8,11 @@ import '../../mocks/axios.ts'
 installQuasarPlugin()
 installPinia({ stubActions: false, createSpy: vi.fn })
 vi.mock('src/api/home.ts', () => ({
-  apiHome: vi.fn().mockResolvedValue(Promise.resolve({
-    // Mock response data
-    data: { id: 1, name: 'Home Data' }
+  apiGuestHome: vi.fn().mockResolvedValue(Promise.resolve({
+    data: { id: 1, name: 'Home guest Data' }
+  })),
+  apiUserHome: vi.fn().mockResolvedValue(Promise.resolve({
+    data: { id: 1, name: 'Home userData' }
   }))
 }))
 

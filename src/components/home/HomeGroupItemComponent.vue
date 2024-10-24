@@ -23,7 +23,7 @@ defineEmits(['view'])
     </q-img>
     <q-card-section>
       <div class="text-h6">{{ group.name }}</div>
-      <div class="text-subtitle2">{{ (group.categories as CategoryEntity[]).map((category: CategoryEntity) => category.name).join(', ') }}</div>
+      <div class="text-subtitle2" v-if="group.categories">{{ (group.categories as CategoryEntity[]).map((category: CategoryEntity) => category.name).join(', ') }}</div>
     </q-card-section>
     <q-card-section class="q-pt-none" v-if="group.description">
       {{ truncateDescription(group.description) }}

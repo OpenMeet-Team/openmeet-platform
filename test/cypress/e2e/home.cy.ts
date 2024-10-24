@@ -6,9 +6,10 @@
 // This test will pass when run against a clean Quasar project
 describe('HomePage', () => {
   beforeEach(() => {
-    cy.intercept('GET', '/api/home', {
+    cy.intercept('GET', '/api/home/guest', {
       statusCode: 200
-    }).as('getHome')
+    }).as('getGuestHome')
+
     cy.visit('/')
   })
 
@@ -20,8 +21,12 @@ describe('HomePage', () => {
     // cy.wait('@getHome')
     cy.dataCy('header-logo-component').should('be.visible')
   })
+
+  it('--- fetches the guest home data', () => {
+    cy.wait('@getGuestHome')
+  })
 })
 
 // Workaround for Cypress AE + TS + Vite
 // See: https://github.com/quasarframework/quasar-testing/issues/262#issuecomment-1154127497
-export {}
+export { }

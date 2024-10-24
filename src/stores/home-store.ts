@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
-import { groupsApi, eventsApi } from 'src/api'
-import { categoriesApi } from 'src/api/categories'
-import { subcategoriesApi } from 'src/api/subcategories'
+import { homeApi } from 'src/api'
 import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from 'src/types'
 
 export const useHomeStore = defineStore('home', {
@@ -24,44 +22,29 @@ export const useHomeStore = defineStore('home', {
     async actionGetUserHomeState () {
       this.loading = true
       // Fetch data and update state
-      return Promise.all([
-        groupsApi.getAll({}).then(res => {
-          this.userOrganizedGroups = res.data.data
-          this.userOrganizedGroups = res.data.data
-          this.userMemberGroups = res.data.data
-        }),
-        eventsApi.getAll({}).then(res => {
-          this.userNextHostedEvent = res.data.data[0]
-          this.userRecentEventDrafts = res.data.data
-          this.userUpcomingEvents = res.data.data
-        })
-      ]).finally(() => {
+      return homeApi.getUserHome().then(res => {
+        this.userOrganizedGroups = res.data.organizedGroups
+        this.userNextHostedEvent = res.data.nextHostedEvent
+        this.userRecentEventDrafts = res.data.recentEventDrafts
+        this.userUpcomingEvents = res.data.upcomingEvents
+        this.userMemberGroups = res.data.memberGroups
+        this.userInterests = res.data.interests
+      }).finally(() => {
+        console.log(this.userMemberGroups)
         this.loading = false
       })
     },
     async actionGetGuestHomeState () {
       this.loading = true
-      return Promise.all([
-      // Fetch data and update state
-        groupsApi.getAll({}).then(res => {
-          this.guestFeaturedGroups = res.data.data
-        }),
 
-        eventsApi.getAll({}).then(res => {
-          this.guestUpcomingEvents = res.data.data
-        }),
-
-        categoriesApi.getAll().then(res => {
-          this.guestCategories = res.data
-        }),
-
-        subcategoriesApi.getAll().then(res => {
-          this.guestInterests = res.data
-        })
-      ]).finally(() => {
+      return homeApi.getGuestHome().then(res => {
+        this.guestFeaturedGroups = res.data.groups
+        this.guestUpcomingEvents = res.data.events
+        this.guestCategories = res.data.categories
+        this.guestInterests = res.data.interests
+      }).finally(() => {
         this.loading = false
       })
     }
-    // Add other actions as needed
   }
 })
