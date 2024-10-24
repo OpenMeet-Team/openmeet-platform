@@ -1,0 +1,26 @@
+# to run in development use this command
+# `` sudo docker-compose -f docker-compose-dev.yml up --build ``
+
+version: '3.8'
+
+services:
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: platform
+    hostname: platform
+    env_file:
+      - .env
+    ports:
+      - 9005:9005
+    volumes:
+      - ./src/:/app/src/
+    networks:
+      - platform-network
+
+networks:
+  platform-network:
+    driver: bridge
+
+
