@@ -30,7 +30,6 @@ export const useHomeStore = defineStore('home', {
         this.userMemberGroups = res.data.memberGroups
         this.userInterests = res.data.interests
       }).finally(() => {
-        console.log(this.userMemberGroups)
         this.loading = false
       })
     },
