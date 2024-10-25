@@ -21,7 +21,8 @@ export default configure((ctx) => {
     boot: [
       'axios',
       'analytics',
-      'global-components'
+      'global-components',
+      'config'
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
