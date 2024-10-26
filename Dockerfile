@@ -18,18 +18,26 @@ FROM dependencies AS build
 # Copy app files
 COPY . .
 
-# Build app
+# Use build args for build-time variables
+ARG APP_TENANT_ID
+ARG APP_HUBSPOT_PORTAL_ID
+ARG APP_HUBSPOT_FORM_ID
+
+# Set the QENV_ variables for the build
+ENV QENV_TENANT_ID=${APP_TENANT_ID}
+ENV QENV_HUBSPOT_PORTAL_ID=${APP_HUBSPOT_PORTAL_ID}
+ENV QENV_HUBSPOT_FORM_ID=${APP_HUBSPOT_FORM_ID}
+
 RUN quasar build
 
-# # Remove devDependencies
-RUN npm prune --production
+# Remove devDependencies
+RUN npm prune --omit=dev
 
 # ---- Release ----
 FROM base AS release
 COPY --from=dependencies /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/dist ./dist
 
-# Install envsubst utility
 RUN apk add --no-cache gettext
 
 # Create template from the built index.html
@@ -38,13 +46,9 @@ RUN cp ./dist/spa/index.html ./dist/spa/index.html.template
 # Modify the template to include our config script
 RUN sed -i 's/<head>/<head><script>window.APP_CONFIG = {\
   APP_API_URL: "${APP_API_URL}",\
-  APP_TENANT_ID: "${APP_TENANT_ID}",\
-  APP_HUBSPOT_PORTAL_ID: "${APP_HUBSPOT_PORTAL_ID}",\
-  APP_HUBSPOT_FORM_ID: "${APP_HUBSPOT_FORM_ID}",\
   NODE_ENV: "${NODE_ENV}"\
 };<\/script>/' ./dist/spa/index.html.template
 
-# Add entrypoint script
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 
