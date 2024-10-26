@@ -52,9 +52,9 @@ export default configure((ctx) => {
       },
       env: {
         // Build time variables
-        APP_TENANT_ID: process.env.QENV_TENANT_ID,
-        APP_HUBSPOT_PORTAL_ID: process.env.QENV_HUBSPOT_PORTAL_ID,
-        APP_HUBSPOT_FORM_ID: process.env.QENV_HUBSPOT_FORM_ID
+        APP_TENANT_ID: process.env.APP_TENANT_ID,
+        APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
+        APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
