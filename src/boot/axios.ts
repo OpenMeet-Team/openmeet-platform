@@ -9,15 +9,24 @@ declare module 'vue' {
     $api: AxiosInstance;
   }
 }
+declare global {
+  interface Window {
+    APP_CONFIG?: {
+      APP_API_URL?: string;
+    }
+  }
+}
 
 console.log('process-env in axios', process.env)
+console.log('window-env in axios', window.APP_CONFIG)
+
 // Be careful when using SSR for cross-request state pollution
 // due to creating a Singleton instance here;
 // If any client changes this (global) instance, it might be a
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-const api = axios.create({ baseURL: process.env.APP_API_URL })
+const api = axios.create({ baseURL: process.env.APP_API_URL || window.APP_CONFIG?.APP_API_URL })
 const { error } = useNotification()
 export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api

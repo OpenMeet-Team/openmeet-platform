@@ -20,7 +20,7 @@ COPY . .
 
 # Use build args for build-time variables
 ARG APP_TENANT_ID
-ARG APP_HUBSPOT_PORTAL_IDs
+ARG APP_HUBSPOT_PORTAL_ID
 ARG APP_HUBSPOT_FORM_ID
 
 # Set the APP_ variables for the build
@@ -42,6 +42,12 @@ RUN apk add --no-cache gettext
 
 # Create template from the built index.html
 RUN cp ./dist/spa/index.html ./dist/spa/index.html.template
+
+# Modify the template to include our config script
+RUN sed -i 's/<head>/<head><script>window.APP_CONFIG = {\
+  APP_API_URL: "${APP_API_URL}",\
+  NODE_ENV: "${NODE_ENV}"\
+};<\/script>/' ./dist/spa/index.html.template
 
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
