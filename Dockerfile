@@ -18,16 +18,20 @@ FROM dependencies AS build
 # Copy app files
 COPY . .
 
-ENV QENV_API_URL=$APP_API_URL
-ENV QENV_NODE_ENV=$NODE_ENV
-ENV QENV_TENANT_ID=$APP_TENANT_ID
-ENV QENV_HUBSPOT_PORTAL_ID=$APP_HUBSPOT_PORTAL_ID
-ENV QENV_HUBSPOT_FORM_ID=$APP_HUBSPOT_FORM_ID
+# Use build args for build-time variables
+ARG APP_TENANT_ID
+ARG APP_HUBSPOT_PORTAL_ID
+ARG APP_HUBSPOT_FORM_ID
+
+# Set the QENV_ variables for the build
+ENV QENV_TENANT_ID=${APP_TENANT_ID}
+ENV QENV_HUBSPOT_PORTAL_ID=${APP_HUBSPOT_PORTAL_ID}
+ENV QENV_HUBSPOT_FORM_ID=${APP_HUBSPOT_FORM_ID}
 
 RUN quasar build
 
 # Remove devDependencies
-RUN npm prune --production
+RUN npm prune --omit=dev
 
 # ---- Release ----
 FROM base AS release
