@@ -37,14 +37,25 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
           IMAGE_TAG: ${{ github.sha }}
-        run: |
+        run: |-
+          set -e
           env | sort
           echo "Building image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          docker build \
-            --build-arg APP_TENANT_ID=1 \
-            --build-arg APP_HUBSPOT_PORTAL_ID=47380304 \
-            --build-arg APP_HUBSPOT_FORM_ID=7aa8f331-96a9-48ec-a787-0c894dc5f85e \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          echo "APP_TENANT_ID=${{ vars.APP_TENANT_ID }}"
+          echo "APP_HUBSPOT_PORTAL_ID=${{ vars.APP_HUBSPOT_PORTAL_ID }}"
+          echo "APP_HUBSPOT_FORM_ID=${{ vars.APP_HUBSPOT_FORM_ID }}"
+
+          docker --version
+          docker buildx build --load \
+            --build-arg "APP_TENANT_ID=${{ vars.APP_TENANT_ID }}" \
+            --build-arg "APP_HUBSPOT_PORTAL_ID=${{ vars.APP_HUBSPOT_PORTAL_ID }}" \
+            --build-arg "APP_HUBSPOT_FORM_ID=${{ vars.APP_HUBSPOT_FORM_ID }}" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+
+          echo "Testing that runtime args are set and match the expected values"
+          docker run -e APP_API_URL=test --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG cat dist/spa/index.html | grep -E "APP_API_URL: \"test\""
+
+          echo "Pushing image to ECR as $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG and :latest"
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
