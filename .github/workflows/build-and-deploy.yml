@@ -2,17 +2,22 @@ name: Docker Build, Push to Registry, Deploy to Dev
 
 on:
   workflow_call:
+  push:
+    branches:
+      - tom/*
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: dev
 
     steps:
       - name: Debug info
         run: |
           echo "GitHub ref: ${{ github.ref }}"
           echo "Event name: ${{ github.event_name }}"
-          env
+          env | sort
 
       - uses: actions/checkout@v4
 
@@ -33,7 +38,13 @@ jobs:
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          env | sort
+          echo "Building image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build \
+            --build-arg APP_TENANT_ID=1 \
+            --build-arg APP_HUBSPOT_PORTAL_ID=47380304 \
+            --build-arg APP_HUBSPOT_FORM_ID=7aa8f331-96a9-48ec-a787-0c894dc5f85e \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
