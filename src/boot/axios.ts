@@ -23,7 +23,7 @@ declare global {
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-console.log('got process.env.APP_API_URL', window.APP_CONFIG?.APP_API_URL || process.env.APP_API_URL)
+const api = axios.create({ baseURL: window.APP_CONFIG?.APP_API_URL || process.env.APP_API_URL })
 const { error } = useNotification()
 export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
