@@ -11,4 +11,5 @@ export default async ({ app }) => {
   }
 
   app.config.globalProperties.$config = config
+  app.provide('config', config)
 }
