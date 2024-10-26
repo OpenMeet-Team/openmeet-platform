@@ -2,9 +2,6 @@ name: Docker Build, Push to Registry, Deploy to Dev
 
 on:
   workflow_call:
-  push:
-    branches:
-      - tom/*
 
 jobs:
   build-push-deploy:
