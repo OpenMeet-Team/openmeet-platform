@@ -9,7 +9,6 @@ export default async ({ app }) => {
     APP_API_URL: window.APP_CONFIG?.APP_API_URL || process.env.APP_API_URL,
     NODE_ENV: window.APP_CONFIG?.NODE_ENV || process.env.NODE_ENV
   }
-
   app.config.globalProperties.$config = config
   app.provide('config', config)
 }
