@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { GroupCategoryEntity } from 'src/types'
 import { useNavigation } from 'src/composables/useNavigation.ts'
+import { pluralize } from 'src/utils/stringUtils'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
@@ -30,7 +31,7 @@ const { navigateToUser } = useNavigation()
           </div>
           <div class="row items-start no-wrap q-mt-xs">
             <q-icon size="sm" left name="sym_r_people"/>
-            <div class="text-body1 q-mr-sm">{{ `${group.membersCount || 0 } members` }}</div>|
+            <div class="text-body1 q-mr-sm">{{ group.groupMembersCount }} {{ pluralize(group.groupMembersCount as number, 'member') }}</div>|
             <div class="text-body1 q-ml-sm">{{ group.visibility }} group</div>
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
