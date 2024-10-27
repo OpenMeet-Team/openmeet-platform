@@ -53,8 +53,6 @@ export default configure((ctx) => {
       },
       env: {
         // Build time variables
-        APP_API_URL: process.env.APP_API_URL,
-        APP_TENANT_ID: process.env.APP_TENANT_ID,
         APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
         APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
         APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY
