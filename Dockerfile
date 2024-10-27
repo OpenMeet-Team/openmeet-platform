@@ -21,7 +21,6 @@ COPY . .
 # Use build args for build-time variables
 ARG APP_HUBSPOT_PORTAL_ID
 ARG APP_HUBSPOT_FORM_ID
-
 # Set the APP_ variables for the build
 ENV APP_HUBSPOT_PORTAL_ID=${APP_HUBSPOT_PORTAL_ID}
 ENV APP_HUBSPOT_FORM_ID=${APP_HUBSPOT_FORM_ID}

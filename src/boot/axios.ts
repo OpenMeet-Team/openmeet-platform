@@ -13,6 +13,8 @@ declare global {
   interface Window {
     APP_CONFIG?: {
       APP_API_URL?: string;
+      APP_TENANT_ID?: string;
+      NODE_ENV?: string;
     }
   }
 }
@@ -31,7 +33,7 @@ export default boot(({ app, router }) => {
   app.config.globalProperties.$axios = axios
 
   api.interceptors.request.use((config) => {
-    const APP_TENANT_ID = process.env.APP_TENANT_ID
+    const APP_TENANT_ID = process.env.APP_TENANT_ID || window.APP_CONFIG?.APP_TENANT_ID
     const authStore = useAuthStore()
     const token = authStore?.token
 
