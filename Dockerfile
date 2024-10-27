@@ -45,6 +45,7 @@ RUN cp ./dist/spa/index.html ./dist/spa/index.html.template
 RUN sed -i 's/<head>/<head><script>window.APP_CONFIG = {\
   APP_API_URL: "${APP_API_URL}",\
   APP_TENANT_ID: "${APP_TENANT_ID}",\
+  APP_POSTHOG_KEY: "${APP_POSTHOG_KEY}",\
   NODE_ENV: "${NODE_ENV}"\
 };<\/script>/' ./dist/spa/index.html.template
 

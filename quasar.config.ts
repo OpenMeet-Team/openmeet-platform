@@ -22,7 +22,8 @@ export default configure((ctx) => {
       'axios',
       'analytics',
       'global-components',
-      'config'
+      'config',
+      'posthog'
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
@@ -55,7 +56,8 @@ export default configure((ctx) => {
         APP_API_URL: process.env.APP_API_URL,
         APP_TENANT_ID: process.env.APP_TENANT_ID,
         APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
-        APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID
+        APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
+        APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
@@ -112,7 +114,10 @@ export default configure((ctx) => {
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
     framework: {
       config: {
-        dark: 'auto'
+        dark: 'auto',
+        loadingBar: {
+          skipHijack: true
+        }
       },
 
       iconSet: 'material-symbols-rounded', // Quasar icon set
