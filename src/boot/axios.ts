@@ -25,7 +25,6 @@ declare global {
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-console.log('Axios got process.env.APP_API_URL (env, window)', process.env.APP_API_URL, window.APP_CONFIG?.APP_API_URL)
 const api = axios.create({ baseURL: process.env.APP_API_URL || window.APP_CONFIG?.APP_API_URL })
 const { error } = useNotification()
 export default boot(({ app, router }) => {

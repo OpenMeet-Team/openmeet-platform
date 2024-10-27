@@ -9,7 +9,6 @@ export default async ({ app }) => {
     NODE_ENV: window.APP_CONFIG?.NODE_ENV || process.env.NODE_ENV,
     APP_TENANT_ID: window.APP_CONFIG?.APP_TENANT_ID || process.env.APP_TENANT_ID
   }
-  console.log('Config got APP_CONFIG', window.APP_CONFIG)
   app.config.globalProperties.$config = config
   app.provide('config', config)
 }
