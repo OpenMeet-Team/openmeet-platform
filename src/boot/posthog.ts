@@ -4,7 +4,7 @@ import { Router } from 'vue-router'
 let posthog: PostHog
 
 // Check for the PostHog key before importing
-const POSTHOG_KEY = process.env.APP_POSTHOG_KEY // Replace with environment variable if needed
+const POSTHOG_KEY = process.env.APP_POSTHOG_KEY || window.APP_CONFIG?.APP_POSTHOG_KEY
 
 if (POSTHOG_KEY) {
   import('posthog-js').then((module) => {
