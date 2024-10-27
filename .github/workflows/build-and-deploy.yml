@@ -38,13 +38,11 @@ jobs:
           set -e
           env | sort
           echo "Building image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "APP_TENANT_ID=${{ vars.APP_TENANT_ID }}"
           echo "APP_HUBSPOT_PORTAL_ID=${{ vars.APP_HUBSPOT_PORTAL_ID }}"
           echo "APP_HUBSPOT_FORM_ID=${{ vars.APP_HUBSPOT_FORM_ID }}"
 
           docker --version
           docker buildx build --load \
-            --build-arg "APP_TENANT_ID=${{ vars.APP_TENANT_ID }}" \
             --build-arg "APP_HUBSPOT_PORTAL_ID=${{ vars.APP_HUBSPOT_PORTAL_ID }}" \
             --build-arg "APP_HUBSPOT_FORM_ID=${{ vars.APP_HUBSPOT_FORM_ID }}" \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
