@@ -17,9 +17,6 @@ declare global {
   }
 }
 
-console.log('process-env in axios', process.env)
-console.log('window-env in axios', window.APP_CONFIG)
-
 // Be careful when using SSR for cross-request state pollution
 // due to creating a Singleton instance here;
 // If any client changes this (global) instance, it might be a
