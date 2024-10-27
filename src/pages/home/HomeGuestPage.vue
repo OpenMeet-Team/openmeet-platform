@@ -2,6 +2,9 @@
   <q-page padding>
     <SpinnerComponent v-if="useHomeStore().loading"/>
     <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
+
+      <HomeDemoCommponent/>
+
       <!-- Hero Section -->
       <div class="col-12 q-mb-xl">
         <q-card class="bg-primary text-white">
@@ -109,6 +112,7 @@ import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import HomeEventItemComponent from 'src/components/home/HomeEventItemComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
+import HomeDemoCommponent from 'src/components/home/HomeDemoCommponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
 
