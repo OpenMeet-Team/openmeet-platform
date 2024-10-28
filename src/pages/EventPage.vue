@@ -18,52 +18,55 @@
           </q-card>
 
           <q-card class="shadow-0 q-mt-lg">
+            <q-card-section>
             <div class="text-h5">Details</div>
             <div class="text-body1 q-mt-md" v-html="event.description"></div>
+            </q-card-section>
           </q-card>
 
-          <div v-if="event?.attendees?.length" class="q-mt-lg text-h5 row items-center justify-between"><span>Attendees <span
-            v-if="event?.attendees?.length">({{ event?.attendees?.length }})</span></span>
-            <q-btn v-if="event.attendees?.length" padding="xs" no-caps flat label="See all">
-              <q-popup-proxy
+          <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md">
+            <q-popup-proxy
                 @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
                 <h2>Attendees here</h2>
-                TODO
-
-                {{ event.attendees }}
+                <q-item
+                  v-for="attendee in event.attendees"
+                  :key="attendee.id"
+                  clickable
+                  class="q-px-sm"
+                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId }})"
+                >
+                  <q-avatar avatar rounded>
+                    <q-img
+                      :src="getImageSrc(attendee.user?.photo)"
+                      :ratio="1" :alt="attendee.user?.name"
+                    />
+                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
+                  </q-avatar>
+                </q-item>
               </q-popup-proxy>
-            </q-btn>
-          </div>
-          <q-card v-if="event.attendees?.length">
-            <q-card-section>
+          </SubtitleComponent>
+          <q-card flat bordered>
+            <q-card-section v-if="event.attendees?.length">
               <div class="row q-gutter-md">
                 <q-item
                   v-for="attendee in event.attendees"
                   :key="attendee.id"
                   clickable
                   class="q-px-sm"
-                  @click="router.push({ name: 'UserPage', params: { id: attendee.id }})"
+                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId }})"
                 >
                   <q-avatar avatar rounded>
                     <q-img
-                      v-if="attendee.user?.photo"
-                      :src="getImageSrc(attendee.user.photo)"
-                      :ratio="1"
+                      :src="getImageSrc(attendee.user?.photo)"
+                      :ratio="1" :alt="attendee.user?.name"
                     />
-                    <q-icon v-else name="sym_r_person"/>
+                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
                   </q-avatar>
-                  <div class="q-gutter-xs">
-                    <div class="q-ml-sm">{{ attendee.user?.name }}</div>
-                    <q-badge
-                      class="q-ml-sm"
-                      color="primary"
-                      v-if="attendee.role && ['host', 'speaker', 'moderator'].includes(attendee.role)"
-                      :label="attendee.role"
-                      align="top"
-                    />
-                  </div>
                 </q-item>
               </div>
+            </q-card-section>
+            <q-card-section v-else>
+              <div class="text-body1">No attendees yet</div>
             </q-card-section>
           </q-card>
         </div>
@@ -107,7 +110,7 @@
             </q-card>
 
             <!-- Details section -->
-            <q-card class="q-mb-lg">
+            <q-card flat bordered class="q-mb-lg">
               <q-card-section>
                 <q-item>
                   <q-item-section side>
@@ -173,6 +176,7 @@ import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
+import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

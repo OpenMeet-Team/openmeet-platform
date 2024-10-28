@@ -13,9 +13,10 @@ const group = computed(() => useGroupStore().group)
   <div v-if="group" class="row q-col-gutter-lg q-mt-md">
 
     <div class="col-12 col-sm-6">
+
       <!-- Description -->
+      <SubtitleComponent class="q-px-md" hideLink label="What we’re about" />
       <q-card flat>
-        <SubtitleComponent hideLink label="What we’re about" />
         <q-card-section>
           <div class="text-body1">{{ group.description }}</div>
         </q-card-section>

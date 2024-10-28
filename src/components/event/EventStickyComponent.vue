@@ -17,6 +17,7 @@ interface Props {
 const { success } = useNotification()
 const props = defineProps<Props>()
 const { openAttendEventDialog, openCancelAttendingEventDialog } = useEventDialog()
+const { openLoginDialog } = useAuthDialog()
 
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
@@ -32,7 +33,7 @@ const onAttendClick = () => {
       })
     })
   } else {
-    useAuthDialog().openLoginDialog()
+    openLoginDialog()
   }
 }
 
@@ -53,11 +54,11 @@ const onEditAttendenceClick = () => {
 <template>
   <q-page-sticky v-if="event" expand position="bottom" :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2']">
     <div class="col row q-pa-md">
-      <div class="col q-px-md">
+      <div class="col col-12 col-md-8 q-px-md min-width-200">
         <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
         <div class="text-h6 text-bold">{{ event.name }}</div>
       </div>
-      <div class="row q-gutter-md">
+      <div class="col col-12 col-md-4 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
           <div class="text-subtitle1 text-bold">You're going!</div>
           <div><q-btn @click="onEditAttendenceClick" no-caps size="md" padding="none" flat color="primary" label="Edit RSVP"/></div>

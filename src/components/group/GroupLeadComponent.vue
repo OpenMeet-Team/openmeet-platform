@@ -55,7 +55,7 @@ const { navigateToUser } = useNavigation()
 
         <q-space/>
 
-        <q-card-section class="q-pb-none">
+        <q-card-section>
           <ShareComponent size="md"/>
         </q-card-section>
       </q-card>

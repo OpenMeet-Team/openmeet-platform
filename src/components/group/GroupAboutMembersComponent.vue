@@ -18,8 +18,7 @@ const { navigateToUser } = useNavigation()
 
 <template>
   <q-card flat style="position: sticky; top: 70px;" v-if="group">
-    <template v-if="group?.createdBy">
-      <SubtitleComponent hide-link label="Organisers" />
+    <SubtitleComponent class="q-px-md" hide-link label="Organisers" />
       <q-list style="max-height: 300px" class="scroll">
         <q-item>
           <template v-if="group.createdBy">
@@ -39,11 +38,10 @@ const { navigateToUser } = useNavigation()
           </template>
         </q-item>
       </q-list>
-    </template>
 
-    <SubtitleComponent class="q-mt-lg" label="Members"
+    <SubtitleComponent class="q-mt-lg q-px-md" label="Members"
       :to="{ name: 'GroupMembersPage', params: { id: route.params.id } }" />
-    <div class="row" v-if="group.groupMembers?.length" style="max-height: 300px">
+    <div class="row q-px-md" v-if="group.groupMembers?.length" style="max-height: 300px">
       <div class="cursor-pointer" @click="navigateToUser(member.user?.id)" v-for="member in group.groupMembers"
         :key="member.id">
         <q-avatar size="70px" font-size="52px">

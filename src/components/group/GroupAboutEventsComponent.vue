@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from 'src/utils/dateUtils.ts'
 import { EventEntity } from 'src/types'
-import { useRoute } from 'vue-router'
 import { useNavigation } from '../../composables/useNavigation.ts'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 
@@ -10,14 +9,13 @@ interface Props {
   events?: EventEntity[]
 }
 
-const route = useRoute()
-
 defineProps<Props>()
 </script>
 
 <template>
-  <q-card class="shadow-0 q-mt-lg">
-    <SubtitleComponent label="Upcoming Events" :to="{ name: 'GroupEventsPage', params: { id: route.params.id } }" />
+  <SubtitleComponent class="q-px-md q-mt-lg" label="Upcoming Events" :to="{ name: 'GroupEventsPage' }" />
+
+  <q-card flat>
     <q-list v-if="events?.length">
       <q-item class="shadow-1 q-mt-md" v-for="event in events" :key="event.id" clickable v-ripple>
         <q-item-section avatar>

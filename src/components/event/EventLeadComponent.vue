@@ -10,11 +10,10 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-    <div v-if="event?.group" class="row items-center q-py-sm">
+    <div v-if="event?.group" class="row items-center q-py-sm q-px-md">
       <q-btn round class="q-mr-md" @click="navigateToGroup(event.group.slug, event.group.id)">
         <q-avatar size="48px">
-          <img  v-if="event.group.image" :src="getImageSrc(event.group.image)" :alt="event.group.name">
-          <q-icon name="sym_r_group"/>
+          <img :src="getImageSrc(event.group?.image)" :alt="event.group?.name">
         </q-avatar>
       </q-btn>
       <div>
@@ -22,11 +21,10 @@ const { navigateToGroup } = useNavigation()
         <q-item-label class="text-bold"><span class="router-link-inherit" @click="navigateToGroup(event.group.slug, event.group.id)">{{ event.group.name }}</span></q-item-label>
       </div>
     </div>
-    <div v-else-if="event?.user" class="row items-center q-py-sm">
+    <div v-else-if="event?.user" class="row items-center q-py-sm q-px-md">
       <q-btn round class="q-mr-md" :to="{ name: 'MemberPage', params: { id: event.user.name } }">
         <q-avatar size="48px">
-          <img v-if="event.user.photo" :src="getImageSrc(event.user.photo)" :alt="event.user.name">
-          <q-icon name="sym_r_person"/>
+          <img :src="getImageSrc(event.user?.photo)" :alt="event.user?.name">
         </q-avatar>
       </q-btn>
       <div>

@@ -11,6 +11,7 @@ export type EventAttendeeStatus = 'invited' | 'confirmed' | 'attended' | 'cancel
 interface EventCategory extends CategoryEntity {}
 export interface EventAttendeeEntity {
   id: number
+  userId: number
   user: UserEntity
   rsvpStatus: string
   isHost: boolean
