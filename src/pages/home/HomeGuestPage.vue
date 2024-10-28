@@ -11,7 +11,7 @@
           <q-card-section class="text-center q-pa-lg">
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
             <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
-            <q-btn color="white" text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
+            <q-btn color="white" no-caps text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
                    size="lg"/>
           </q-card-section>
         </q-card>
@@ -19,7 +19,7 @@
 
       <!-- Featured Groups Section -->
       <div class="col-12 col-md-8">
-        <SubtitleComponent hide-link label="Featured Groups"/>
+        <SubtitleComponent hide-link label="Featured Groups" :to="{name: 'GroupsPage'}"/>
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
             <div v-for="group in featuredGroups" :key="group.id">
