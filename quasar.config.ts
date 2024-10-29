@@ -4,10 +4,10 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from 'quasar/wrappers'
-import { execSync } from 'child_process'
+// import { execSync } from 'child_process'
 import pkg from './package.json'
 
-const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
+// const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
 
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
@@ -60,8 +60,8 @@ export default configure((ctx) => {
         APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
         APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
         APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY,
-        APP_VERSION: pkg.version,
-        COMMIT_HASH: commitHash
+        APP_VERSION: pkg.version
+        // COMMIT_HASH: commitHash
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'

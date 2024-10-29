@@ -1,6 +1,6 @@
 <template>
   <div class="text-caption text-bold">
-    Version: {{ version }} - {{ commitHash }}
+    Version: {{ version }} {{ commitHash }}
   </div>
 </template>
 
