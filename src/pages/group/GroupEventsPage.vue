@@ -28,7 +28,7 @@
     </div>
 
     <div v-if="viewMode === 'list'">
-      <q-list bordered separator v-if="filteredEvents.length">
+      <q-list bordered separator v-if="filteredEvents?.length">
         <q-item v-for="event in filteredEvents" :key="event.id" class="q-my-sm">
           <q-item-section>
             <q-item-label class="text-primary">{{ formatDate(event.startDate) }}</q-item-label>
@@ -67,15 +67,14 @@ import CalendarComponent from 'components/common/CalendarComponent.vue'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import { useRoute } from 'vue-router'
-import { groupsApi } from 'src/api/groups.ts'
-import { EventEntity } from 'src/types'
 import { useNavigation } from 'src/composables/useNavigation.ts'
+import { useGroupStore } from 'src/stores/group-store'
 
 const { navigateToEvent } = useNavigation()
 
 const route = useRoute()
 const isLoading = ref<boolean>(false)
-const events = ref<EventEntity[]>([])
+const events = computed(() => useGroupStore().group?.events)
 
 const viewMode = ref<'list' | 'calendar'>('list')
 const timeFilter = ref<'upcoming' | 'past'>('upcoming')
@@ -85,23 +84,19 @@ onMounted(() => {
   isLoading.value = true
   const groupId = decodeLowercaseStringToNumber(route.params.id as string)
 
-  groupsApi.getEvents(String(groupId)).finally(() => (isLoading.value = false)).then(res => {
-    events.value = res.data
-  })
-  // events.value = useGroupStore().group?.events as EventEntity[]
+  useGroupStore().actionGetGroupEvents(String(groupId)).finally(() => (isLoading.value = false))
 })
 
 const filteredEvents = computed(() => {
   const now = new Date()
-  return events.value.filter(event => {
+  return events.value?.filter(event => {
     const eventDate = new Date(event.startDate)
-    console.log(eventDate)
     return timeFilter.value === 'upcoming' ? eventDate >= now : eventDate < now
   })
 })
 
 const calendarEvents = computed(() => {
-  return events.value.map(event => ({
+  return events.value?.map(event => ({
     title: event.name,
     date: event.startDate,
     bgcolor: 'primary'

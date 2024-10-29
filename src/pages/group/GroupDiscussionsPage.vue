@@ -1,7 +1,9 @@
 <script setup lang="ts">
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useGroupStore } from 'stores/group-store.ts'
+import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 
 const group = computed(() => useGroupStore().group)
 interface ChatMessage {
@@ -12,6 +14,7 @@ interface ChatMessage {
 
 const chatMessages = ref<ChatMessage[]>([])
 const newMessage = ref('')
+const isLoading = ref(false)
 
 // Mock chat messages
 chatMessages.value = [
@@ -30,14 +33,20 @@ const sendMessage = () => {
     // In a real app, you'd send this message to a backend service
   }
 }
+
+onMounted(async () => {
+  isLoading.value = true
+  await useGroupStore().actionGetGroupDiscussions(String(group.value?.id))
+  isLoading.value = false
+})
 </script>
 
 <template>
+  <SpinnerComponent v-if="isLoading"/>
+  <template v-if="!isLoading && group">
+  <SubtitleComponent class="q-mt-lg q-px-md" label="Discussions" :count="group?.discussions?.length" hide-link/>
   <!-- Chat Section -->
   <q-card v-if="group" class="shadow-0 q-mt-md">
-    <q-card-section>
-      <div class="text-h5">Discussions <span v-if="group.discussions">{{ group.discussions.length }}</span></div>
-    </q-card-section>
     <q-card-section class="chat-messages scroll" style="max-height: 300px">
       <div v-for="message in chatMessages" :key="message.id" class="q-mb-sm">
         <strong>{{ message.sender }}:</strong> {{ message.text }}
@@ -55,8 +64,9 @@ const sendMessage = () => {
           <q-btn round dense flat icon="sym_r_send" @click="sendMessage"/>
         </template>
       </q-input>
-    </q-card-section>
-  </q-card>
+      </q-card-section>
+    </q-card>
+  </template>
 </template>
 
 <style scoped lang="scss">

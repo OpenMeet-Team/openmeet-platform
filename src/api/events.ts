@@ -11,6 +11,7 @@ export const eventsApi = {
   update: (id: number, eventData: Partial<EventEntity>) => api.patch<EventEntity>(`/api/events/${id}`, eventData),
   delete: (id: number) => api.delete(`/api/events/${id}`),
   attend: (data: Partial<EventAttendeeEntity>) => api.post('/api/event-attendees/attend', data),
+  cancel: (userId: number, eventId: number) => api.delete(`/api/event-attendees/cancel/${userId}/${eventId}`),
   updateAteendee: (id: number, data: Partial<EventAttendeeEntity>) => api.post(`/api/event-attendees/${id}`, data),
   similarEvents: (id: string) => api.get<EventEntity[]>(`/api/events/${id}/recommended-events`)
 }

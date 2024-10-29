@@ -18,7 +18,7 @@ const group = computed(() => useGroupStore().group)
       <SubtitleComponent class="q-px-md" hideLink label="What we’re about" />
       <q-card flat>
         <q-card-section>
-          <div class="text-body1">{{ group.description }}</div>
+          <div class="text-body1" v-html="group.description"></div>
         </q-card-section>
       </q-card>
 

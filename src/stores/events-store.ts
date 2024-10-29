@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventPaginationEntity } from 'src/types'
+import { EventEntity, EventPaginationEntity } from 'src/types'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
 import { RouteQueryAndHash } from 'vue-router'
@@ -64,6 +64,12 @@ export const useEventsStore = defineStore('events', {
         this.events = response.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
+      }
+    },
+
+    async actionDeleteAttendee (event: EventEntity) {
+      if (event.attendee) {
+        return await eventsApi.cancel(event.attendee.userId, event.id)
       }
     }
   }

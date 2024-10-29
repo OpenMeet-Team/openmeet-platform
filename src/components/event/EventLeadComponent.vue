@@ -18,7 +18,7 @@ const { navigateToGroup } = useNavigation()
       </q-btn>
       <div>
         <q-item-label>Hosted by</q-item-label>
-        <q-item-label class="text-bold"><span class="router-link-inherit" @click="navigateToGroup(event.group.slug, event.group.id)">{{ event.group.name }}</span></q-item-label>
+        <q-item-label class="text-bold cursor-pointer"><span class="router-link-inherit" @click="navigateToGroup(event.group.slug, event.group.id)">{{ event.group.name }}</span></q-item-label>
       </div>
     </div>
     <div v-else-if="event?.user" class="row items-center q-py-sm q-px-md">
@@ -29,7 +29,7 @@ const { navigateToGroup } = useNavigation()
       </q-btn>
       <div>
         <q-item-label>Hosted by</q-item-label>
-        <q-item-label class="text-bold"><router-link class="router-link-inherit" :to="{ name: 'MemberPage', params: { id: event.user.id } }">{{ event.user.name }}</router-link></q-item-label>
+        <q-item-label class="text-bold cursor-pointer"><router-link class="router-link-inherit" :to="{ name: 'MemberPage', params: { id: event.user.id } }">{{ event.user.name }}</router-link></q-item-label>
       </div>
     </div>
 </template>

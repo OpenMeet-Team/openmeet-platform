@@ -18,9 +18,10 @@ const { navigateToUser } = useNavigation()
 
 <template>
   <q-card flat style="position: sticky; top: 70px;" v-if="group">
-    <SubtitleComponent class="q-px-md" hide-link label="Organisers" />
-      <q-list style="max-height: 300px" class="scroll">
-        <q-item>
+    <q-card-section>
+      <SubtitleComponent hide-link label="Organisers" />
+      <q-list>
+        <q-item class="q-px-none">
           <template v-if="group.createdBy">
             <q-item-section avatar>
               <q-avatar>
@@ -38,18 +39,22 @@ const { navigateToUser } = useNavigation()
           </template>
         </q-item>
       </q-list>
+    </q-card-section>
 
-    <SubtitleComponent class="q-mt-lg q-px-md" label="Members"
+    <q-card-section>
+    <SubtitleComponent label="Members"
       :to="{ name: 'GroupMembersPage', params: { id: route.params.id } }" />
-    <div class="row q-px-md" v-if="group.groupMembers?.length" style="max-height: 300px">
+    <div class="row q-gutter-md" v-if="group.groupMembers?.length" style="max-height: 300px">
       <div class="cursor-pointer" @click="navigateToUser(member.user?.id)" v-for="member in group.groupMembers"
         :key="member.id">
-        <q-avatar size="70px" font-size="52px">
+        <q-avatar size="60px" font-size="52px">
           <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name">
-        </q-avatar>
+          <q-badge color="primary" floating>{{ member.groupRole.name }}</q-badge>
+          </q-avatar>
+        </div>
       </div>
-    </div>
     <NoContentComponent v-else icon="sym_r_group" label="No members of this group yet." />
+    </q-card-section>
   </q-card>
 </template>
 

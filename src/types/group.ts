@@ -8,6 +8,8 @@ export type GroupRoleType = 'owner' | 'manager' | 'member'
 
 export interface GroupCategoryEntity extends CategoryEntity {}
 
+export interface GroupDiscussionEntity extends DiscussionEntity {}
+
 export interface GroupRoleEntity {
   id: number
   name: GroupRoleType,
@@ -16,6 +18,8 @@ export interface GroupMemberEntity {
   id: number
   user: UserEntity
   groupRole: GroupRoleEntity
+  createdAt?: string
+  updatedAt?: string
 }
 export interface GroupEventEntity {
   id: number;
@@ -38,7 +42,7 @@ export interface GroupEntity {
   membersCount?: number
   groupMembers?: GroupMemberEntity[]
   events?: EventEntity[]
-  discussions?: DiscussionEntity[]
+  discussions?: GroupDiscussionEntity[]
   visibility?: GroupVisibilityType
   status?: GroupStatusType,
   createdBy?: UserEntity

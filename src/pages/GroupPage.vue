@@ -37,7 +37,7 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   LoadingBar.start()
   const groupId = decodeLowercaseStringToNumber(route.params.id as string)
-  useGroupStore().actionGetGroupById(String(groupId)).finally(LoadingBar.stop).then(() => {
+  useGroupStore().actionGetGroup(String(groupId)).finally(LoadingBar.stop).then(() => {
     const group = useGroupStore().group
 
     if (group) {

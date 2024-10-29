@@ -41,7 +41,7 @@ const onLeaveGroup = () => {
 </script>
 
 <template>
-  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg']" style="position: sticky; top: 54px; z-index: 1001">
+  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg rounded-borders']" style="position: sticky; top: 54px; z-index: 1001">
     <div class="row">
       <div class="col-12 col-sm-6 q-pa-sm">
         <q-tabs align="justify" no-caps narrow-indicator>
@@ -53,7 +53,7 @@ const onLeaveGroup = () => {
                        label="Discussions"/>
         </q-tabs>
       </div>
-      <div class="col-12 col-sm-6 q-px-lg row items-center" v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupRole('manager')">
+      <div class="col-12 col-sm-6 q-px-lg row items-center q-gutter-md" v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupRole('manager')">
         <q-btn @click="openCreateEventDialog(group as GroupEntity)" no-caps size="md"
                label="Create event" color="primary"/>
         <q-btn-dropdown outline size="md" v-if="useGroupStore().getterGroupHasGroupMember()" align="center" no-caps label="Manage group">

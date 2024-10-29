@@ -9,6 +9,7 @@ import { useEventStore } from 'stores/event-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import { useEventsStore } from 'src/stores/events-store.ts'
 
 interface Props {
   event: EventEntity
@@ -40,12 +41,15 @@ const onAttendClick = () => {
 const onEditAttendenceClick = () => {
   openCancelAttendingEventDialog().onOk(() => {
     if (props.event.attendee) {
-      useEventStore().actionUpdateAttendee({
-        id: props.event.attendee?.id,
-        status: 'cancelled'
-      } as Partial<EventAttendeeEntity>).then(() => {
+      useEventsStore().actionDeleteAttendee(props.event).then(() => {
         success('Event attendance cancelled!')
       })
+      // useEventStore().actionUpdateAttendee({
+      //   id: props.event.attendee?.id,
+      //   status: 'cancelled'
+      // } as Partial<EventAttendeeEntity>).then(() => {
+      //   success('Event attendance cancelled!')
+      // })
     }
   })
 }

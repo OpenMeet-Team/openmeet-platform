@@ -89,7 +89,7 @@
             </q-card>
 
             <!-- Organiser section -->
-            <q-card class="q-mb-md" v-if="event?.group">
+            <q-card flat bordered class="q-mb-md" v-if="event?.group">
               <q-card-section>
                 <div class="text-h6">Organizer</div>
                 <div class="q-mt-md">

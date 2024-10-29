@@ -24,7 +24,7 @@ export const useGroupStore = defineStore('group', {
   },
 
   actions: {
-    async actionGetGroupById (id: string) {
+    async actionGetGroup (id: string) {
       try {
         const res = await groupsApi.getById(id)
         this.group = res.data
@@ -33,10 +33,34 @@ export const useGroupStore = defineStore('group', {
         error('Failed to fetch group data')
       }
     },
-    async actionGetGroupMembersById (id: string) {
+    async actionGetGroupMembers (id: string) {
       try {
         const res = await groupsApi.getMembers(id)
-        this.groupMembers = res.data
+        if (this.group) {
+          this.group.groupMembers = res.data
+        }
+      } catch (err) {
+        console.log(err)
+        error('Failed to fetch group data')
+      }
+    },
+    async actionGetGroupEvents (id: string) {
+      try {
+        const res = await groupsApi.getEvents(id)
+        if (this.group) {
+          this.group.events = res.data
+        }
+      } catch (err) {
+        console.log(err)
+        error('Failed to fetch group data')
+      }
+    },
+    async actionGetGroupDiscussions (id: string) {
+      try {
+        const res = await groupsApi.getDiscussions(id)
+        if (this.group) {
+          this.group.discussions = res.data
+        }
       } catch (err) {
         console.log(err)
         error('Failed to fetch group data')
