@@ -9,15 +9,17 @@ export type EventAttendeeRole = 'participant' | 'host' | 'speaker' | 'moderator'
 export type EventAttendeeStatus = 'invited' | 'confirmed' | 'attended' | 'cancelled' | 'rejected';
 
 interface EventCategory extends CategoryEntity {}
+
 export interface EventAttendeeEntity {
   id: number
   userId: number
+  // eslint-disable-next-line no-use-before-define
+  event: EventEntity
   user: UserEntity
-  rsvpStatus: string
-  isHost: boolean
   role: EventAttendeeRole
   status: EventAttendeeStatus
 }
+
 export interface EventEntity {
   id: number
   slug: string

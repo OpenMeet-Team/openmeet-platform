@@ -25,8 +25,6 @@ const onAttendClick = () => {
     openAttendEventDialog(props.event).onOk(() => {
       useEventStore().actionAttendEvent({
         eventId: props.event.id,
-        rsvpStatus: 'test',
-        isHost: false,
         role: 'participant',
         status: 'confirmed'
       } as Partial<EventAttendeeEntity>).then(() => {

@@ -29,7 +29,10 @@
       <q-separator dark />
     <q-toolbar>
       <div class="col row items-center justify-between q-py-sm">
-        <div class="text-caption">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
+        <div>
+          <div class="text-caption text-bold">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
+          <VersionComponent/>
+        </div>
         <div>
           <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Privacy Policy" href="https://biz.openmeet.net/privacy" target="_blank" />
           <q-btn size="md" padding="none" flat dense no-caps label="Terms of Service" href="https://biz.openmeet.net/terms" target="_blank" />
@@ -46,6 +49,7 @@ import { useRouter } from 'vue-router'
 import FooterHubspotComponent from 'components/footer/FooterHubspotComponent.vue'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import ShareComponent from 'components/common/ShareComponent.vue'
+import VersionComponent from '../common/VersionComponent.vue'
 const router = useRouter()
 
 const currentYear = computed(() => new Date().getFullYear())
