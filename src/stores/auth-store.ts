@@ -9,6 +9,7 @@ import {
   StoreAuthRestorePasswordRequest,
   UserRole
 } from 'src/types'
+import analyticsService from 'src/services/analyticsService'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
@@ -86,6 +87,8 @@ export const useAuthStore = defineStore('authStore', {
     async actionLogout () {
       return authApi.logout().finally(() => {
         this.actionClearAuth()
+        analyticsService.trackEvent('user_logged_out')
+        analyticsService.reset()
       }).catch((error) => {
         console.error('Logout failed', error)
       })
@@ -105,6 +108,12 @@ export const useAuthStore = defineStore('authStore', {
     actionSetUser (user: ApiAuthUser) {
       this.user = user
       LocalStorage.setItem('user', JSON.stringify(user))
+
+      analyticsService.identify(this.user.id, {
+        email: this.user.email,
+        name: this.user.name
+      })
+      analyticsService.trackEvent('user_authorized', { user_id: this.user.id, email: this.user.email, name: this.user.name })
     },
     actionClearAuth () {
       this.token = ''

@@ -12,10 +12,10 @@ import { useAuthStore } from 'src/stores/auth-store'
 const route = useRoute()
 
 const user = computed(() => useProfileStore().user)
-const interests = computed(() => useProfileStore().userInterests)
-const ownedGroups = computed(() => useProfileStore().ownedGroups)
-const organizedEvents = computed(() => useProfileStore().organizedEvents)
-const groupMemberships = computed(() => useProfileStore().groupMemberships)
+const interests = computed(() => useProfileStore().user?.subCategory)
+const ownedGroups = computed(() => useProfileStore().user?.groups)
+const organizedEvents = computed(() => useProfileStore().user?.events)
+const groupMemberships = computed(() => useProfileStore().user?.groupMembers?.filter(member => member.groupRole?.name !== 'owner'))
 
 onMounted(async () => {
   LoadingBar.start()
@@ -106,10 +106,10 @@ onMounted(async () => {
             <q-card-section>
               <SubtitleComponent hide-link label="Group Memberships" />
               <q-list>
-                <q-item v-for="group in groupMemberships" :key="group.id">
+                <q-item v-for="groupMember in groupMemberships" :key="groupMember.id">
                   <q-item-section>
-                    <q-item-label>{{ group.name }}</q-item-label>
-                    <q-item-label caption>{{ group.groupMembersCount }} members</q-item-label>
+                    <q-item-label>{{ groupMember.group?.name }}</q-item-label>
+                    <q-item-label caption>{{ groupMember.group?.groupMembersCount }} members</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>

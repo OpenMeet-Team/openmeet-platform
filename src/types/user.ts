@@ -1,4 +1,6 @@
-import { FileEntity } from 'src/types/model.ts'
+import { FileEntity, SubCategoryEntity } from 'src/types/model.ts'
+import { GroupEntity, GroupMemberEntity } from './group'
+import { EventEntity } from './event'
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -34,5 +36,9 @@ export interface UserEntity {
   photo?: FileEntity
   bio?: string
   role?: UserRole
+  groups?: GroupEntity[]
+  events?: EventEntity[]
+  groupMembers?: GroupMemberEntity[]
   permissions?: UserPermission[]
+  subCategory?: SubCategoryEntity[]
 }

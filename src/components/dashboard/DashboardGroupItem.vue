@@ -21,7 +21,7 @@ defineProps<Props>()
              spinner-size="40px"
       />
       <q-item-section>
-        <q-item-label lines="2" class="elipsys">{{ group.name }}</q-item-label>
+        <q-item-label lines="2" class="elipsys text-bold">{{ group.name }}</q-item-label>
       </q-item-section>
     </q-card>
   </router-link>

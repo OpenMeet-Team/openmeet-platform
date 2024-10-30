@@ -1,4 +1,5 @@
 import { PostHog } from 'posthog-js'
+import { useAuthStore } from 'src/stores/auth-store'
 import { Router } from 'vue-router'
 
 let posthog: PostHog
@@ -10,14 +11,23 @@ if (POSTHOG_KEY) {
   import('posthog-js').then((module) => {
     posthog = module.default
     posthog.init(POSTHOG_KEY, {
+      debug: false,
       api_host: 'https://us.i.posthog.com',
-      person_profiles: 'identified_only' // Set to 'always' if anonymous profiles are needed
+      person_profiles: 'identified_only'
     })
+    posthog.group('tenant_id', process.env.APP_TENANT_ID || window.APP_CONFIG?.APP_TENANT_ID || '')
   })
 }
 
 export default ({ router }: { router: Router }) => {
   if (posthog) {
+    const authStore = useAuthStore()
+    if (authStore.getUser) {
+      posthog.identify(authStore.getUserId, {
+        email: authStore.getUser.email,
+        name: authStore.getUser.name
+      })
+    }
     router.afterEach((to) => {
       posthog.capture('$pageview', { path: to.path })
     })

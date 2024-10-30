@@ -17,6 +17,8 @@ export interface GroupRoleEntity {
 export interface GroupMemberEntity {
   id: number
   user: UserEntity
+  // eslint-disable-next-line no-use-before-define
+  group: GroupEntity
   groupRole: GroupRoleEntity
   createdAt?: string
   updatedAt?: string

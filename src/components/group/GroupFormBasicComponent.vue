@@ -57,6 +57,7 @@ import LocationComponent from 'components/common/LocationComponent.vue'
 import { Dark, Loading, LoadingBar, Screen } from 'quasar'
 import DOMPurify from 'dompurify'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
+import analyticsService from 'src/services/analyticsService'
 
 const group = ref<GroupEntity>({
   id: 0,
@@ -146,9 +147,11 @@ const onSubmit = async () => {
     if (groupPayload.id) {
       const res = await groupsApi.update(groupPayload.id, groupPayload)
       emit('updated', res.data)
+      analyticsService.trackEvent('group_updated', { group_id: res.data.id, name: res.data.name })
     } else {
       const res = await groupsApi.create(groupPayload)
       emit('created', res.data)
+      analyticsService.trackEvent('group_created', { group_id: res.data.id, name: res.data.name })
     }
   } catch (err) {
     console.log(err)

@@ -53,12 +53,13 @@ const router = useRouter()
 
 const loaded = ref<boolean>(false)
 const userGroups = ref<GroupEntity[]>([])
-const hostedGroups = computed(() => userGroups.value?.filter(group => group.groupMembers?.some(member => member.user?.id === useAuthStore().getUserId && member.groupRole?.name !== 'member')))
-const memberedGroups = computed(() => userGroups.value?.filter(group => group.groupMembers?.some(member => member.user?.id === useAuthStore().getUserId && member.groupRole?.name === 'member')))
+const hostedGroups = computed(() => userGroups.value?.filter(group => group.createdBy?.id === useAuthStore().getUserId))
+const memberedGroups = computed(() => userGroups.value?.filter(group => group.groupMember?.groupRole?.name === 'member'))
 
 useMeta({
   title: 'Your groups'
 })
+
 const fetchData = async () => {
   LoadingBar.start()
   return apiGetDashboardGroups().then(res => {
@@ -81,13 +82,5 @@ const onAddNewGroup = () => {
 </script>
 
 <style scoped>
-.group-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
 
-.group-card .q-card__section:nth-last-child(3) {
-  flex-grow: 1;
-}
 </style>

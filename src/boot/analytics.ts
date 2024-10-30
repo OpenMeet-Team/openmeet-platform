@@ -1,5 +1,3 @@
-// src/boot/analytics.ts
-
 import { boot } from 'quasar/wrappers'
 import { App } from 'vue'
 

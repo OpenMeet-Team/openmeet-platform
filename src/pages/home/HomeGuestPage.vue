@@ -19,7 +19,7 @@
 
       <!-- Featured Groups Section -->
       <div class="col-12 col-md-8">
-        <SubtitleComponent hide-link label="Featured Groups" :to="{name: 'GroupsPage'}"/>
+        <SubtitleComponent class="q-px-md" hide-link label="Featured Groups" :to="{name: 'GroupsPage'}"/>
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
             <div v-for="group in featuredGroups" :key="group.id">
@@ -33,7 +33,7 @@
 
       <!-- Upcoming Events Section -->
       <div class="col-12 col-md-4">
-        <SubtitleComponent hide-link label="Upcoming Events" :to="{name: 'EventsPage'}"/>
+        <SubtitleComponent class="q-px-md" hide-link label="Upcoming Events" :to="{name: 'EventsPage'}"/>
         <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event"/>
         <template v-if="upcomingEvents?.length">
           <q-list bordered separator>
@@ -63,7 +63,7 @@
 
       <!-- Additional Information Section -->
       <div class="col-12" v-if="!useAuthStore().isAuthenticated">
-        <q-card class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white': 'bg-grey-2']">
+        <q-card flat bordered class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white': 'bg-grey-2']">
           <q-card-section>
             <div class="row q-col-gutter-md">
               <div class="col-12 col-md-4">

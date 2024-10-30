@@ -111,6 +111,7 @@ import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
 import { Dark, QForm, Screen } from 'quasar'
 import { groupsApi } from 'src/api/groups.ts'
 import DOMPurify from 'dompurify'
+import analyticsService from 'src/services/analyticsService'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -204,9 +205,11 @@ const onSubmit = async () => {
     if (event.id) {
       const res = await eventsApi.update(event.id, event)
       emit('updated', res.data)
+      analyticsService.trackEvent('event_updated', { event_id: res.data.id, name: res.data.name })
     } else {
       const res = await eventsApi.create(event)
       emit('created', res.data)
+      analyticsService.trackEvent('event_created', { event_id: res.data.id, name: res.data.name })
     }
   } catch (err) {
     console.log(err)

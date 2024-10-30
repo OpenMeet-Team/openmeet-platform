@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { groupsApi } from 'src/api/groups.ts'
 import { GroupEntity, GroupMemberEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
+import analyticsService from 'src/services/analyticsService'
 const { error } = useNotification()
 export const useGroupStore = defineStore('group', {
   state: () => ({
@@ -74,6 +75,7 @@ export const useGroupStore = defineStore('group', {
           this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
           this.group.groupMember = res.data
         }
+        analyticsService.trackEvent('group_joined', { group_id: this.group?.id, name: this.group?.name })
       } catch (err) {
         console.log(err)
         error('Failed to join group')
@@ -85,6 +87,7 @@ export const useGroupStore = defineStore('group', {
         await groupsApi.leave(groupId)
         if (this.group) {
           this.group.groupMember = undefined
+          analyticsService.trackEvent('group_left', { group_id: this.group?.id, name: this.group?.name })
         }
       } catch (err) {
         console.log(err)

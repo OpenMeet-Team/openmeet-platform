@@ -3,6 +3,7 @@ import { EventAttendeeEntity, EventEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
+import analyticsService from 'src/services/analyticsService'
 const { error } = useNotification()
 export const useEventStore = defineStore('event', {
   state: () => ({
@@ -74,8 +75,7 @@ export const useEventStore = defineStore('event', {
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data
-
-          console.log(this.event)
+          analyticsService.trackEvent('event_attended', { event_id: this.event.id, name: this.event.name })
         }
       } catch (err) {
         console.log(err)
@@ -95,6 +95,15 @@ export const useEventStore = defineStore('event', {
       } catch (err) {
         console.log(err)
         error('Failed to update attendee')
+      }
+    },
+
+    async actionDeleteAttendee (event: EventEntity) {
+      if (event.attendee) {
+        return await eventsApi.cancel(event.attendee.userId, event.id).then((res) => {
+          analyticsService.trackEvent('event_unattended', { event_id: event.id, name: event.name })
+          return res
+        })
       }
     }
   }

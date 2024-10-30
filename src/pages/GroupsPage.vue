@@ -66,6 +66,11 @@ const fetchGroups = async () => {
   useGroupsStore().actionGetGroups(route.query).finally(LoadingBar.stop)
 }
 
+watch(() => currentPage.value, (newVal) => {
+  if (newVal) {
+    router.push({ query: { ...route.query, page: newVal } })
+  }
+})
 watch(() => route.query, fetchGroups)
 
 const onPageChange = (page: number) => {

@@ -15,7 +15,7 @@
     <q-tabs align="left" no-caps v-model="tab" class="text-primary q-mb-md q-mt-md">
       <q-tab name="attending" label="Attending Events"/>
       <q-tab name="hosting" label="Hosting Events"/>
-      <q-tab name="saved" label="Saved Events"/>
+      <!-- <q-tab name="saved" label="Saved Events"/> -->
       <q-tab name="past" label="Past Events"/>
     </q-tabs>
 
@@ -38,21 +38,21 @@
         </div>
       </q-tab-panel>
 
-      <q-tab-panel name="saved">
+      <!-- <q-tab-panel name="saved">
         <NoContentComponent v-if="savedEvents && !savedEvents.length" @click="router.push({ name: 'EventsPage' })"
                             buttonLabel="Discover new events" label="You have not saved any events"
                             icon="sym_r_bookmarks"/>
         <div>
           <EventsItemComponent v-for="event in savedEvents" :key="event.id" :event="event"/>
         </div>
-      </q-tab-panel>
+      </q-tab-panel> -->
 
       <q-tab-panel name="past">
 
         <div v-if="pastEvents?.length">
           <EventsItemComponent v-for="event in pastEvents" :key="event.id" :event="event"/>
         </div>
-        <NoContentComponent v-if="savedEvents && !pastEvents.length" @click="router.push({ name: 'EventsPage' })"
+        <NoContentComponent v-if="events && !pastEvents.length" @click="router.push({ name: 'EventsPage' })"
                             buttonLabel="Discover new events" label="You have not attended any events"
                             icon="sym_r_timeline"/>
       </q-tab-panel>
@@ -68,17 +68,17 @@ import { apiGetDashboardEvents } from 'src/api/dashboard.ts'
 import { EventEntity } from 'src/types'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)
 const router = useRouter()
 
 // Mock data - replace with actual API calls
-const createdEvents = computed(() => events.value)
-const attendedEvents = computed(() => events.value)
-const savedEvents = computed(() => events.value)
-const pastEvents = computed(() => events.value)
-
+const createdEvents = computed(() => events.value.filter(event => event.user?.id === useAuthStore().getUserId))
+const attendedEvents = computed(() => events.value.filter(event => event.attendee?.user.id))
+// const savedEvents = computed(() => events.value)
+const pastEvents = computed(() => events.value.filter(event => event.startDate && new Date(event.startDate) < new Date()))
 const events = ref<EventEntity[]>([])
 
 useMeta({
