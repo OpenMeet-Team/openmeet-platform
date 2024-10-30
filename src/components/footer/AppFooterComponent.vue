@@ -29,7 +29,7 @@
       <q-separator dark />
     <q-toolbar>
       <div class="col row items-center justify-between q-py-sm">
-        <div>
+        <div class="text-left">
           <div class="text-caption text-bold">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
           <VersionComponent/>
         </div>

@@ -18,7 +18,7 @@
       </div>
 
       <!-- Featured Groups Section -->
-      <div class="col-12 col-md-8">
+      <div class="col-12 col-md-8 q-mt-lg">
         <SubtitleComponent class="q-px-md" hide-link label="Featured Groups" :to="{name: 'GroupsPage'}"/>
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
         <template v-else>
@@ -32,7 +32,7 @@
       </div>
 
       <!-- Upcoming Events Section -->
-      <div class="col-12 col-md-4">
+      <div class="col-12 col-md-4 q-mt-lg">
         <SubtitleComponent class="q-px-md" hide-link label="Upcoming Events" :to="{name: 'EventsPage'}"/>
         <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event"/>
         <template v-if="upcomingEvents?.length">
@@ -46,7 +46,7 @@
       </div>
 
       <div class="col-12 q-mt-xl">
-        <SubtitleComponent hide-link label="Categories"/>
+        <SubtitleComponent class="q-px-md" hide-link label="Categories"/>
         <div class="row q-gutter-md">
           <HomeCategoryComponent
             v-for="category in categories"
@@ -56,8 +56,8 @@
         </div>
       </div>
 
-      <div class="col-12">
-        <SubtitleComponent hide-link label="Interests"/>
+      <div class="col-12 q-mt-lg">
+        <SubtitleComponent class="q-px-md" hide-link label="Interests"/>
         <HomeInterestsComponent v-if="interests" :interests="interests"/>
       </div>
 

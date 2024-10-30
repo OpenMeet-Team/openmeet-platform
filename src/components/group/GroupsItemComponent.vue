@@ -18,10 +18,12 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="row q-mb-lg q-gutter-md wrap">
-    <q-img class="cursor-pointer rounded-borders" style="max-width: 300px; height: 150px;"
-      @click="navigateToGroup(group.slug, group.id)" ratio="16/9" :src="getImageSrc(group.image)" />
-    <div class="col column">
+  <div class="row q-mb-lg q-col-gutter-lg">
+    <div class="col-12 col-sm-4">
+      <q-img height="150px" class="cursor-pointer rounded-borders"
+        @click="navigateToGroup(group.slug, group.id)" ratio="16/9" :src="getImageSrc(group.image)" />
+    </div>
+    <div class="col-12 col-sm-8 column">
       <div class="text-h5 text-bold q-pa-none cursor-pointer elipsys" @click="navigateToGroup(group.slug, group.id)">{{
         group.name }}</div>
       <div class="text-subtitle2" v-if="group.categories">

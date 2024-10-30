@@ -14,12 +14,14 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="row q-mb-xl q-gutter-md">
-    <q-img class="cursor-pointer rounded-borders" style="max-width: 300px; height: 150px;"
+  <div class="row q-mb-xl q-col-gutter-md">
+    <div class="col-12 col-sm-4">
+        <q-img height="150px" class="cursor-pointer rounded-borders"
       @click="navigateToEvent(event.slug, event.id)" ratio="16/9" :src="getImageSrc(event.image)">
       <div class="q-pa-none absolute q-ml-sm no-padding bg-transparent"><q-badge>{{ event.type }}</q-badge></div>
     </q-img>
-    <div class="col column">
+    </div>
+    <div class="col-12 col-sm-8 column">
       <div class="text-h6 text-bold q-pa-none cursor-pointer elipsys" @click="navigateToEvent(event.slug, event.id)">{{
         formatDate(event.startDate) }}
       </div>

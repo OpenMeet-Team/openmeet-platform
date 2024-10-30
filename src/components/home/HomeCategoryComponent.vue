@@ -1,11 +1,9 @@
 <template>
-  <div class="q-pa-md">
-    <q-card class="cursor-pointer hover-shadow-1" flat bordered @click="onCategoryClick">
-      <q-card-section>
-        <h6 class="q-my-none">{{ category.name }}</h6>
-      </q-card-section>
-    </q-card>
-  </div>
+  <q-card class="cursor-pointer hover-shadow-1" flat bordered @click="onCategoryClick">
+    <q-card-section>
+      <h6 class="q-my-none">{{ category.name }}</h6>
+    </q-card-section>
+  </q-card>
 </template>
 
 <script lang="ts" setup>

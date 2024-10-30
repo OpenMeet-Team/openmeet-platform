@@ -1,13 +1,11 @@
 <template>
-  <div class="row">
-    <div class="q-pa-md" v-for="interest in interests" :key="interest.id">
-      <q-card flat bordered>
-        <q-card-section>
-          <h5 class="q-mb-none">{{ interest.title }}</h5>
-                    <p>{{ interest.description }}</p>
-        </q-card-section>
-      </q-card>
-    </div>
+  <div class="row q-gutter-md">
+    <q-card flat bordered v-for="interest in interests" :key="interest.id">
+      <q-card-section>
+        <h5 class="q-mb-none">{{ interest.title }}</h5>
+        <p>{{ interest.description }}</p>
+      </q-card-section>
+    </q-card>
   </div>
 
 </template>
