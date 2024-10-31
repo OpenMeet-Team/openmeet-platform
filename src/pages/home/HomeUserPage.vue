@@ -44,7 +44,7 @@ const onCreateEvent = (group: GroupEntity) => {
         <div class="row q-col-gutter-xl">
           <div class="col-12 col-sm-7">
             <!-- Groups you organize -->
-            <SubtitleComponent label="Groups you organize" :count="userOrganizedGroups?.length"
+            <SubtitleComponent class="q-px-md" label="Groups you organize" :count="userOrganizedGroups?.length"
               :to="{ name: 'DashboardGroupsPage' }" />
             <q-card flat bordered class="col column q-mb-md">
               <q-card-section v-if="userOrganizedGroups?.length">
@@ -71,7 +71,7 @@ const onCreateEvent = (group: GroupEntity) => {
           </div>
           <div class="col-12 col-sm-5">
             <!-- Next event you're hosting -->
-            <SubtitleComponent label="Next events you're hosting" :to="{ name: 'DashboardEventsPage' }" />
+            <SubtitleComponent class="q-px-md" label="Next events you're hosting" :to="{ name: 'DashboardEventsPage' }" />
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userNextHostedEvent">
                 <q-item v-ripple clickable @click="navigateToEvent(userNextHostedEvent.slug, userNextHostedEvent.id)">
@@ -116,9 +116,9 @@ const onCreateEvent = (group: GroupEntity) => {
           </div>
         </div>
 
-        <div class="text-h5 text-bold q-my-xl">Upcoming events</div>
+        <div class="text-h5 text-bold q-my-xl q-px-md">Upcoming events</div>
         <div class="row q-col-gutter-xl">
-          <div class="col-12 col-sm-4">
+          <div class="col-12 col-sm-6 col-md-4">
 
             <!-- Calendar -->
             <q-card flat bordered class="q-mb-xl">
@@ -128,8 +128,8 @@ const onCreateEvent = (group: GroupEntity) => {
             </q-card>
 
             <!-- Groups you're part of -->
-            <SubtitleComponent label="Groups you're part of" :hide-link="!userMemberGroups?.length" :count="userMemberGroups?.length"
-              :to="{ name: 'DashboardGroupsPage' }" />
+            <SubtitleComponent class="q-px-md" label="Groups you're part of" :hide-link="!userMemberGroups?.length"
+              :count="userMemberGroups?.length" :to="{ name: 'DashboardGroupsPage' }" />
             <q-card flat bordered class="q-mb-xl">
               <q-card-section v-if="userMemberGroups?.length">
                 <q-list>
@@ -146,7 +146,7 @@ const onCreateEvent = (group: GroupEntity) => {
             </q-card>
 
             <!-- Your interests -->
-            <SubtitleComponent hide-link label="Your interests" />
+            <SubtitleComponent class="q-px-md" hide-link label="Your interests" />
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
@@ -158,7 +158,7 @@ const onCreateEvent = (group: GroupEntity) => {
               <NoContentComponent v-else icon="sym_r_interests" label="You have no interests" />
             </q-card>
           </div>
-          <div class="col-12 col-sm-8">
+          <div class="col-12 col-sm-6 col-md-8">
             <!-- Upcoming events list -->
             <div v-for="event in userUpcomingEvents" :key="event.id" class="col-12 col-sm-6 col-md-4">
               <EventsItemComponent :event="event" />

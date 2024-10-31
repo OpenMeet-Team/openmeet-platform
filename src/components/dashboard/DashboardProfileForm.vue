@@ -1,13 +1,20 @@
 <template>
   <q-form @submit="onSubmit" class="q-gutter-md" style="max-width: 500px">
-    <q-input
+
+    <div @click="openChangeEmailDialog" class="input-wrapper">
+      <q-input
       filled
-      disable
-      v-model="form.email"
-      label="Email"
-      type="email"
-      :rules="[(val: string) => !!val || 'Email is required']"
-    />
+        readonly
+        v-model="form.email"
+        label="Email"
+        type="email"
+        :rules="[(val: string) => !!val || 'Email is required']"
+      >
+        <template v-slot:append>
+          <q-icon name="sym_r_email" />
+        </template>
+      </q-input>
+    </div>
 
     <q-input
       filled
@@ -84,7 +91,7 @@
 
     <q-card-actions align="right">
       <q-btn no-caps label="Delete account" color="negative" flat class="q-ml-sm" @click="onDeleteAccount"/>
-      <q-btn no-caps label="Update" type="submit" color="primary"/>
+      <q-btn no-caps :loading="isLoading" label="Update" type="submit" color="primary"/>
     </q-card-actions>
   </q-form>
 </template>
@@ -119,6 +126,7 @@ const form = ref<Profile>({
 })
 
 const isPwd = ref(true)
+const isLoading = ref(false)
 
 const onSubmit = async () => {
   const user = {
@@ -128,12 +136,23 @@ const onSubmit = async () => {
   if (form.value.photo && form.value.photo.id) {
     user.photo = Object.assign({}, { id: form.value.photo.id })
   }
+
+  isLoading.value = true
   authApi.updateMe(user).then(res => {
     useAuthStore().actionSetUser(res.data)
     success('Profile updated successfully')
+
+    if (res.data.email !== form.value.email) {
+      Dialog.create({
+        title: 'Confirm Email',
+        message: `Please confirm your new email by clicking the link in the email we just sent you to ${form.value.email}.`
+      })
+    }
   }).catch(err => {
     console.log(err)
     error('Failed to update profile')
+  }).finally(() => {
+    isLoading.value = false
   })
 }
 
@@ -147,6 +166,27 @@ onMounted(() => {
 
 const onProfilePhotoSelect = (file: FileEntity) => {
   form.value.photo = file
+}
+
+const openChangeEmailDialog = () => {
+  Dialog.create({
+    title: 'Change Email',
+    prompt: {
+      model: form.value.email,
+      type: 'email',
+      isValid: (val: string) => Boolean(val || 'Email is required')
+    },
+    cancel: {
+      label: 'Cancel',
+      flat: true
+    },
+    ok: {
+      label: 'Change',
+      color: 'primary'
+    }
+  }).onOk((val: string) => {
+    form.value.email = val
+  })
 }
 
 const onDeleteAccount = () => {

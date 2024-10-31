@@ -44,7 +44,7 @@
           </router-link>
         </div>
         <div class="q-mt-md">
-          <q-btn no-caps label="Login" type="submit" color="primary"/>
+          <q-btn no-caps label="Login" :loading="isLoading" type="submit" color="primary"/>
         </div>
       </q-card-section>
     </q-form>
@@ -66,12 +66,13 @@ const router = useRouter()
 const email = ref<string>('')
 const password = ref<string>('')
 const isPwd = ref<boolean>(true)
-
+const isLoading = ref<boolean>(false)
 const emits = defineEmits(['login', 'to'])
 const { warning } = useNotification()
 
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {
+    isLoading.value = true
     authStore.actionLogin({
       email: email.value,
       password: password.value
@@ -83,6 +84,8 @@ const onSubmit = (): void => {
     }).catch(error => {
       console.error('Error logging in:', error)
       warning('Please provide a valid email and password')
+    }).finally(() => {
+      isLoading.value = false
     })
   }
 }

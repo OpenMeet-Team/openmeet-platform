@@ -34,6 +34,12 @@ export const authApi = {
   getMe: (): Promise<AxiosResponse<ApiAuthUser>> =>
     api.get(`${BASE_URL}/me`),
 
+  confirmEmail: (hash: string): Promise<AxiosResponse<boolean>> =>
+    api.post(`${BASE_URL}/email/confirm`, { hash }),
+
+  confirmNewEmail: (hash: string): Promise<AxiosResponse<boolean>> =>
+    api.post(`${BASE_URL}/email/confirm/new`, { hash }),
+
   updateMe: (data: {
     photo?: {
       id: string

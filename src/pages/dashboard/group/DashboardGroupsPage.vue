@@ -1,5 +1,5 @@
 <template>
-  <q-page padding v-if="loaded">
+  <q-page padding v-if="loaded" style="max-width: 1024px" class="q-mx-auto">
 
     <SpinnerComponent v-if="!loaded"/>
 
@@ -15,8 +15,8 @@
     </div>
 
     <div>
-      <div v-if="hostedGroups?.length" class="row q-col-gutter-md q-mt-md">
-        <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-3 col-md-3 col-lg-2">
+      <div v-if="hostedGroups?.length" class="row q-col-gutter-lg q-mt-md">
+        <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
           <DashboardGroupItem :group="group"/>
         </div>
       </div>
@@ -29,7 +29,7 @@
 
     <div v-else class="row q-col-gutter-md q-mt-md">
       <template v-if="memberedGroups">
-        <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4">
+        <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
           <DashboardGroupItem :group="group"/>
         </div>
       </template>

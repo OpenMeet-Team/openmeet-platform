@@ -1,5 +1,5 @@
 <template>
-  <q-page padding style="padding-bottom: 110px">
+  <q-page padding style="padding-bottom: 110px; ">
     <SpinnerComponent v-if="!loaded"/>
     <div v-else-if="event">
 

@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding style="max-width: 1024px" class="q-mx-auto">
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
     <div class="row text-h4">

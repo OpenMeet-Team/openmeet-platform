@@ -86,7 +86,7 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn no-caps label="Register" type="submit" color="primary"/>
+        <q-btn no-caps label="Register" :loading="isLoading" type="submit" color="primary"/>
       </q-card-actions>
     </q-form>
   </q-card>
@@ -111,6 +111,7 @@ const isPwd = ref<boolean>(true)
 const isConfirmPwd = ref<boolean>(true)
 const accept = ref<boolean>(false)
 const authStore = useAuthStore()
+const isLoading = ref<boolean>(false)
 
 const router = useRouter()
 const route = useRoute()
@@ -118,6 +119,8 @@ const { error, warning } = useNotification()
 
 const onSubmit = async () => {
   if (!accept.value) return warning('Please accept our terms')
+
+  isLoading.value = true
 
   return authStore.actionRegister({
     firstName: firstName.value,
@@ -136,6 +139,8 @@ const onSubmit = async () => {
     return router.push((route.query.redirect || '/') as string)
   }).catch(() => {
     error('Registration failed. Please try again.')
+  }).finally(() => {
+    isLoading.value = false
   })
 }
 

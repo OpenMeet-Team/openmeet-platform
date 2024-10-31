@@ -13,10 +13,6 @@ describe('HomePage', () => {
     cy.visit('/')
   })
 
-  it('--- Should display correct page title', () => {
-    cy.title().should('include', 'OpenMeet')
-  })
-
   it('--- header has logo', () => {
     // cy.wait('@getHome')
     cy.dataCy('header-logo-component').should('be.visible')

@@ -1,7 +1,7 @@
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import RestorePasswordPage from 'src/pages/auth/RestorePasswordPage.vue'
+import RestorePasswordPage from 'src/pages/auth/PasswordChangePage.vue'
 import { installPinia } from 'app/test/vitest/install-pinia.ts'
 
 // Install Quasar plugin

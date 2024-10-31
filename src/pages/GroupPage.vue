@@ -1,5 +1,5 @@
 <template>
-  <q-page v-if="group" class="q-pa-md q-pb-xl">
+  <q-page v-if="group" class="q-pa-md q-pb-xl q-mx-auto" style="max-width: 1201px">
     <!-- Lead block -->
     <GroupLeadComponent/>
 

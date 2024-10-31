@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding style="max-width: 1024px" class="q-mx-auto">
 
     <div class="row text-h4">
       <span class="text-bold q-mr-xs">Events list</span>/

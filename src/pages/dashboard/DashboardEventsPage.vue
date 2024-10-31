@@ -1,5 +1,5 @@
 <template>
-  <q-page padding v-if="loaded">
+  <q-page padding style="max-width: 1024px" class="q-mx-auto" v-if="loaded">
 
     <div class="row justify-between items-start">
       <DashboardTitle defaultBack label="Your events"/>

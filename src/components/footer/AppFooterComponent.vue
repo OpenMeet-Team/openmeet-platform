@@ -1,6 +1,6 @@
 <template>
-  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']" style="z-index: auto">
-    <q-toolbar>
+  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']" style="z-index: auto;">
+    <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
           <h6 class="text-h6 q-mb-md">OpenMeet</h6>
@@ -26,11 +26,11 @@
 
       </div>
     </q-toolbar>
-      <q-separator dark />
-    <q-toolbar>
+    <q-separator />
+    <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row items-center justify-between q-py-sm">
         <div class="text-left">
-          <div class="text-caption text-bold">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
+          <div class="text-body2">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
           <VersionComponent/>
         </div>
         <div>

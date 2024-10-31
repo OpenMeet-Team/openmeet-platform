@@ -4,7 +4,7 @@
       <q-form @submit="onSubmit" class="q-gutter-md">
     <q-card class="restore-password-card">
         <q-card-section>
-          <div class="text-h5 text-bold">Restore Password</div>
+          <div class="text-h5 text-bold">Change Password</div>
         </q-card-section>
 
         <q-card-section>
@@ -58,8 +58,8 @@
             Please log in using your newly created password
           </q-card-section>
 
-          <q-card-actions>
-            <q-btn flat no-caps label="OK" color="primary" :to="{ name: 'AuthLoginPage' }" v-close-popup/>
+          <q-card-actions align="right">
+            <q-btn no-caps label="OK" color="primary" :to="{ name: 'AuthLoginPage' }" v-close-popup/>
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -95,14 +95,14 @@ const onSubmit = async () => {
     // Reset form field after successful submission
     password.value = ''
   } catch (err) {
-    error('Failed to reset password. Please try again.')
+    error('Failed to change password. Please try again.')
   } finally {
     loading.value = false
   }
 }
 
 useMeta({
-  title: 'Restore Password'
+  title: 'Change Password'
 })
 </script>
 

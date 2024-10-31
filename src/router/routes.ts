@@ -80,9 +80,19 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/auth/ForgotPasswordPage.vue')
       },
       {
-        path: 'restore-password',
-        name: 'AuthRestorePasswordPage',
-        component: () => import('pages/auth/RestorePasswordPage.vue')
+        path: 'password-change',
+        name: 'AuthPasswordChangePage',
+        component: () => import('pages/auth/PasswordChangePage.vue')
+      },
+      {
+        path: 'confirm-email',
+        component: () => import('pages/auth/ConfirmEmailPage.vue'),
+        name: 'AuthConfirmEmailPage'
+      },
+      {
+        path: 'confirm-new-email',
+        component: () => import('pages/auth/ConfirmNewEmailPage.vue'),
+        name: 'AuthConfirmNewEmailPage'
       }
     ],
     meta: { requiresAuth: false }

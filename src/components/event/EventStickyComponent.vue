@@ -54,7 +54,7 @@ const onEditAttendenceClick = () => {
 
 <template>
   <q-page-sticky v-if="event" expand position="bottom" :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2']">
-    <div class="col row q-pa-md">
+    <div class="col row q-py-md q-mx-auto" style="max-width: 1201px">
       <div class="col col-12 col-md-8 q-px-md min-width-200">
         <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
         <div class="text-h6 text-bold">{{ event.name }}</div>
