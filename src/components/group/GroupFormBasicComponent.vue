@@ -26,8 +26,8 @@
     <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
       @upload="onGroupImageSelect" />
 
-    <q-img v-if="group && group.image && group.image.path" :src="group.image.path" spinner-color="white"
-      style="height: 140px; max-width: 150px" />
+    <q-img ratio="16/9"  v-if="group && group.image && group.image.path" :src="group.image.path" spinner-color="white"
+      class="rounded-borders" style="height: 120px; max-width: 220px" />
 
     <q-select v-model="group.visibility" label="Group Viewable By" option-value="value" option-label="label" emit-value
       map-options :options="[

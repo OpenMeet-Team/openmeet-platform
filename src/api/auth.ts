@@ -42,7 +42,7 @@ export const authApi = {
 
   updateMe: (data: {
     photo?: {
-      id: string
+      id: number
     },
     firstName?: string,
     lastName?: string,

@@ -6,11 +6,13 @@ export enum SubCategoryType {
 }
 
 export interface FileEntity {
-  id: string
+  id: number
   path?: string
   fileSize?: number
   fileName?: string
-  fileType?: string
+  mimeType?: string
+  shortId?: string
+  resizes?: Record<string, string>
 }
 
 export interface AddressLocation {

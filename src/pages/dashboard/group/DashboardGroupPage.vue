@@ -3,7 +3,7 @@
     <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group"/>
 
     <div class="row justify-center">
-      <GroupFormBasicComponent @updated="router.push({ name: 'DashboardGroupsPage' })" :edit-group-id="route.params.id as string" style="max-width: 500px" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+      <GroupFormBasicComponent class="col" style="max-width: 500px" @updated="router.push({ name: 'DashboardGroupsPage' })" :edit-group-id="route.params.id as string" @close="router.push({ name: 'DashboardGroupsPage' })"/>
     </div>
 
   </q-page>

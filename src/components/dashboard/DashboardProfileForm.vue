@@ -37,14 +37,17 @@
       label="Your bio"
     />
 
-    <UploadComponent label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>
+    <UploadComponent class="q-mt-xl" label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>
 
     <q-img
       v-if="form && form.photo && form.photo.path"
       :src="form.photo.path"
       spinner-color="white"
-      style="height: 140px; max-width: 150px"
-    />
+      class="rounded-borders"
+      style="height: 100px; max-width: 100px"
+    >
+      <q-btn color="primary" size="md" icon="sym_r_delete" class="all-pointer-events absolute-top-right" @click="onProfilePhotoDelete"/>
+  </q-img>
 
 <!--    <LocationComponent label="Location" v-model:location="form.location.address" v-model:latitude="form.location.lat" v-model:longitude="form.location.lon"/>-->
 
@@ -166,6 +169,10 @@ onMounted(() => {
 
 const onProfilePhotoSelect = (file: FileEntity) => {
   form.value.photo = file
+}
+
+const onProfilePhotoDelete = () => {
+  form.value.photo = { id: 0 }
 }
 
 const openChangeEmailDialog = () => {

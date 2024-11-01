@@ -10,6 +10,7 @@ interface FileUploadResponse {
 export async function apiFilesGetPreSigned (fileUpload: {
   fileName: string;
   fileSize: number;
+  mimeType: string;
 }): Promise<AxiosResponse<FileUploadResponse>> {
   return api.post('/api/v1/files/upload', fileUpload).then()
 }
@@ -27,7 +28,8 @@ export async function apiUploadFileToS3 (file: File): Promise<FileEntity> {
   try {
     const response = await apiFilesGetPreSigned({
       fileName: file.name,
-      fileSize: file.size
+      fileSize: file.size,
+      mimeType: file.type
     })
 
     const { file: uploadedFile, uploadSignedUrl } = response.data
@@ -66,7 +68,8 @@ export async function apiUploadBase64ToS3 (base64Image: string, fileName: string
     // Get pre-signed URL
     const response = await apiFilesGetPreSigned({
       fileName,
-      fileSize: fileBlob.size
+      fileSize: fileBlob.size,
+      mimeType
     })
 
     const { file: uploadedFile, uploadSignedUrl } = response.data

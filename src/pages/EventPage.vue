@@ -77,7 +77,7 @@
                 <q-btn-dropdown align="center" no-caps label="Organiser tools">
                   <q-list>
                     <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
-                                       @click="router.push({ name: 'DashboardEventPage', params: { id: route.params.id }})"/>
+                                       @click="router.push({ name: 'DashboardEventPage', params: { id: event.id }})"/>
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
                                        @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id }})"/>
                     <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
