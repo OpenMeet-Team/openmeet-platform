@@ -5,6 +5,7 @@
     icon="sym_r_share"
     spread
     label="Share"
+    data-cy="share-button"
   >
     <q-list>
       <MenuItemComponent label="Facebook" icon="fab fa-facebook" icon-color="blue" @click="shareTo('facebook')"/>

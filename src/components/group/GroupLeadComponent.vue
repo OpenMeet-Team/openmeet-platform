@@ -5,7 +5,7 @@ import { useGroupStore } from 'stores/group-store.ts'
 import ShareComponent from 'components/common/ShareComponent.vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { GroupCategoryEntity } from 'src/types'
+import { GroupCategoryEntity, GroupMemberPermissions } from 'src/types'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import { pluralize } from 'src/utils/stringUtils'
 
@@ -24,7 +24,7 @@ const { navigateToMember } = useNavigation()
     <div class="col-12 col-sm-6 column">
       <q-card flat class="col column">
         <q-card-section>
-          <div class="text-h4 text-bold q-py-none q-mb-md">{{ group.name }}</div>
+          <div class="text-h4 text-bold q-py-none q-mb-md" data-cy="group-name">{{ group.name }}</div>
           <div class="row items-start no-wrap" v-if="group.location">
             <q-icon size="sm" left name="sym_r_location_on"/>
             <div class="text-body1">{{ group.location }}</div>
@@ -49,8 +49,8 @@ const { navigateToMember } = useNavigation()
           </div>
         </q-card-section>
 
-        <q-card-section class="q-py-none" v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupRole('manager')">
-          <q-btn icon="sym_r_edit" size="md" padding="none" no-caps flat label="Edit group info" @click="router.push({ name: 'DashboardGroupPage', params: {id: group.id }})"/>
+        <q-card-section class="q-py-none" v-if="useGroupStore().getterUserGroupPermission(GroupMemberPermissions.MANAGE_GROUP)">
+          <q-btn icon="sym_r_edit" size="md" data-cy="edit-group-button" padding="none" no-caps flat label="Edit group info" @click="router.push({ name: 'DashboardGroupPage', params: {id: group.id }})"/>
         </q-card-section>
 
         <q-space/>
