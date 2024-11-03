@@ -13,7 +13,7 @@ interface Props {
 defineProps<Props>()
 const route = useRoute()
 const group = computed(() => useGroupStore().group)
-const { navigateToUser } = useNavigation()
+const { navigateToMember } = useNavigation()
 </script>
 
 <template>
@@ -33,7 +33,7 @@ const { navigateToUser } = useNavigation()
               <!--                <q-item-label caption>{{ member.groupRole.name }}</q-item-label>-->
               <div>
                 <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none"
-                  :to="{ name: 'MessagesPage', query: { user: group.createdBy?.id } }" label="Message" />
+                  :to="{ name: 'MessagesPage', query: { member: group.createdBy?.shortId } }" label="Message" />
               </div>
             </q-item-section>
           </template>
@@ -45,7 +45,7 @@ const { navigateToUser } = useNavigation()
     <SubtitleComponent label="Members"
       :to="{ name: 'GroupMembersPage', params: { id: route.params.id } }" />
     <div class="row q-gutter-md" v-if="group.groupMembers?.length" style="max-height: 300px">
-      <div class="cursor-pointer" @click="navigateToUser(member.user?.id)" v-for="member in group.groupMembers"
+      <div class="cursor-pointer" @click="navigateToMember(member.user?.id)" v-for="member in group.groupMembers"
         :key="member.id">
         <q-avatar size="60px" font-size="52px">
           <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name">

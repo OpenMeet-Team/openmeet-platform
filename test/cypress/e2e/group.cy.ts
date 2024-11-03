@@ -7,7 +7,9 @@ describe('GroupPage', () => {
       body: {} as GroupEntity
     }).as('getGroup')
 
-    cy.visit('/groups/1')
+    cy.visit('/groups/1').then(() => {
+      cy.wait('@getGroup')
+    })
   })
 
   it.skip('--- fetches the group', () => {

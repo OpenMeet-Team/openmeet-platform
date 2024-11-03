@@ -19,15 +19,17 @@ describe('GroupsPage', () => {
       } as GroupPaginationEntity
     }).as('getGroups')
 
-    cy.visit('/groups')
+    cy.visit('/groups').then(() => {
+      cy.wait('@getCategories')
+      cy.wait('@getGroups')
+    })
   })
 
-  it('--- fetches the list of groups', () => {
-    cy.wait('@getGroups')
-    // cy.dataCy('groups-page-title').should('be.visible')
-  })
-
-  it('--- fetches the list of categories', () => {
-    cy.wait('@getCategories')
+  it('should fetch the list of groups', () => {
+    cy.dataCy('groups-page').should('be.visible')
+    cy.dataCy('groups-item').should('be.visible')
+    // cy.dataCy('groups-reset-filters').should('not.be.visible')
+    cy.dataCy('location-filter').should('be.visible')
+    cy.dataCy('categories-filter').should('be.visible')
   })
 })

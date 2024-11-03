@@ -48,6 +48,7 @@ onMounted(() => {
 
 <template>
   <q-select
+    data-cy="categories-filter"
     :model-value="selectedCategories"
     :options="categories"
     label="Any category"

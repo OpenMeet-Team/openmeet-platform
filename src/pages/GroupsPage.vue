@@ -1,5 +1,5 @@
 <template>
-  <q-page padding style="max-width: 1024px" class="q-mx-auto">
+  <q-page padding style="max-width: 1024px" class="q-mx-auto" data-cy="groups-page">
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
     <div class="row text-h4">
@@ -11,14 +11,14 @@
       <CategoriesFilterComponent/>
       <LocationFilterComponent/>
       <div class="row items-center" v-if="route.query.categories || route.query.location">
-        <q-btn no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
+        <q-btn data-cy="groups-reset-filters" no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
       </div>
     </div>
 
     <template v-if="groups">
       <div v-if="!useGroupsStore().isLoading && groups?.data?.length">
         <div v-for="group in groups.data" :key="group.id" class="col-12 col-sm-6 col-md-4">
-          <GroupsItemComponent :group="group"/>
+          <GroupsItemComponent data-cy="groups-item" :group="group"/>
         </div>
       </div>
 

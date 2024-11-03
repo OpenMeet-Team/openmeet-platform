@@ -65,7 +65,7 @@ function sendMessage () {
 </script>
 
 <template>
-  <q-page padding>
+  <q-page padding style="max-width: 1024px;" class="q-mx-auto">
     <DashboardTitle defaultBack label="Messages"/>
 
     <SpinnerComponent v-if="loading"/>

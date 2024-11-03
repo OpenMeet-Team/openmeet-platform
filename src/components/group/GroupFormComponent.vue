@@ -58,6 +58,7 @@ import { Dark, Loading, LoadingBar, Screen } from 'quasar'
 import DOMPurify from 'dompurify'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import analyticsService from 'src/services/analyticsService'
+import { useNavigation } from 'src/composables/useNavigation'
 
 const group = ref<GroupEntity>({
   id: 0,
@@ -67,7 +68,7 @@ const group = ref<GroupEntity>({
   categories: [],
   location: '',
   requireApproval: false,
-  visibility: 'public'
+  visibility: 'private'
 })
 
 const loading = ref(false)
@@ -91,6 +92,7 @@ const categoryOptions = ref<CategoryEntity[]>([])
 const { error } = useNotification()
 
 const emit = defineEmits(['created', 'updated', 'close'])
+const { navigateToGroup } = useNavigation()
 
 onMounted(async () => {
   try {
@@ -147,9 +149,11 @@ const onSubmit = async () => {
     if (groupPayload.id) {
       const res = await groupsApi.update(groupPayload.id, groupPayload)
       emit('updated', res.data)
+      navigateToGroup(res.data.slug, res.data.id)
       analyticsService.trackEvent('group_updated', { group_id: res.data.id, name: res.data.name })
     } else {
       const res = await groupsApi.create(groupPayload)
+      navigateToGroup(res.data.slug, res.data.id)
       emit('created', res.data)
       analyticsService.trackEvent('group_created', { group_id: res.data.id, name: res.data.name })
     }

@@ -1,6 +1,6 @@
 <template>
   <q-page padding>
-    <div class="row items-center justify-evenly q-py-lg">
+    <div class="row items-center justify-evenly q-py-lg" data-cy="forgot-password-form">
       <q-form @submit="onSubmit" class="q-gutter-md">
 
         <q-card class="forgot-password-card">
@@ -17,6 +17,7 @@
               v-model="email"
               label="Email"
               type="email"
+              data-cy="forgot-password-email"
               :rules="[
               (val: string) => !!val || 'Email is required',
               (val: string) => validateEmail(val) || 'Please enter a valid email address'
@@ -38,6 +39,7 @@
                      type="submit"
                      color="primary"
                      :loading="loading"
+                     data-cy="forgot-password-submit"
               />
             </div>
           </q-card-section>
@@ -45,7 +47,7 @@
         </q-card>
       </q-form>
 
-      <q-dialog v-model="showSuccessDialog">
+      <q-dialog v-model="showSuccessDialog" data-cy="forgot-password-dialog">
         <q-card>
           <q-card-section>
             <div class="text-h6">Password Reset Email Sent</div>
@@ -57,7 +59,7 @@
           </q-card-section>
 
           <q-card-actions align="right">
-            <q-btn flat label="OK" color="primary" v-close-popup/>
+            <q-btn flat label="OK" color="primary" v-close-popup data-cy="forgot-password-ok"/>
           </q-card-actions>
         </q-card>
       </q-dialog>

@@ -1,6 +1,6 @@
 <template>
   <q-card class="register-card">
-    <q-form @submit="onSubmit" class="q-gutter-md">
+    <q-form @submit="onSubmit" class="q-gutter-md" data-cy="register-form">
 
       <q-card-section>
         <div class="text-h5 text-bold">Register</div>
@@ -10,6 +10,7 @@
         <q-input
           filled
           v-model="firstName"
+          data-cy="register-first-name"
           label="First name"
           :rules="[
               (val: string) => !!val || 'First name name is required',
@@ -19,6 +20,7 @@
         <q-input
           filled
           v-model="lastName"
+          data-cy="register-last-name"
           label="Last name"
           :rules="[
               (val: string) => !!val || 'Last name is required',
@@ -28,6 +30,7 @@
         <q-input
           filled
           v-model="email"
+          data-cy="register-email"
           label="Your Email"
           type="email"
           :rules="[
@@ -39,6 +42,7 @@
         <q-input
           filled
           v-model="password"
+          data-cy="register-password"
           label="Password"
           :type="isPwd ? 'password' : 'text'"
           :rules="[
@@ -58,6 +62,7 @@
         <q-input
           filled
           v-model="confirmPassword"
+          data-cy="register-confirm-password"
           label="Confirm Password"
           :type="isConfirmPwd ? 'password' : 'text'"
           :rules="[
@@ -76,6 +81,7 @@
 
         <div class="row items-center">
           <q-toggle v-model="accept"
+                    data-cy="register-accept"
                     :rules="[(val: boolean) => val || 'To continue, please check the box to accept the terms and conditions.']"/>
           I accept the <a href="https://biz.openmeet.net/terms" target="_blank" class="q-ml-xs text-primary router-link-inherit">terms</a>.
         </div>
@@ -86,7 +92,7 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn no-caps label="Register" :loading="isLoading" type="submit" color="primary"/>
+        <q-btn no-caps label="Register" data-cy="register-submit" :loading="isLoading" type="submit" color="primary"/>
       </q-card-actions>
     </q-form>
   </q-card>

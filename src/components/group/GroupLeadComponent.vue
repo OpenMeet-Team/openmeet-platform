@@ -11,7 +11,7 @@ import { pluralize } from 'src/utils/stringUtils'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
-const { navigateToUser } = useNavigation()
+const { navigateToMember } = useNavigation()
 </script>
 
 <template>
@@ -36,7 +36,7 @@ const { navigateToUser } = useNavigation()
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
             <q-icon size="sm" left name="sym_r_person"/>
-            <div class="text-body1 cursor-pointer" @click="navigateToUser(group.createdBy.id)">Organised by {{ group.createdBy.name }}</div>
+            <div class="text-body1 cursor-pointer" @click="navigateToMember(group.createdBy.id)">Organised by {{ group.createdBy.name }}</div>
           </div>
         </q-card-section>
 

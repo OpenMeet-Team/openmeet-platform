@@ -1,6 +1,6 @@
 <template>
-  <q-card class="login-card">
-    <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+  <q-card class="login-card" data-cy="login-card">
+    <q-form @submit.prevent="onSubmit" class="q-gutter-md" data-cy="login-form">
 
       <q-card-section>
         <div class="text-h5 text-bold">Login</div>
@@ -12,6 +12,7 @@
           v-model="email"
           label="Email"
           type="email"
+          data-cy="login-email"
           :rules="[(val: string) => !!val || 'Email is required']"
         />
 
@@ -19,6 +20,7 @@
           filled
           v-model="password"
           label="Password"
+          data-cy="login-password"
           :type="isPwd ? 'password' : 'text'"
           :rules="[(val: string) => !!val || 'Password is required']"
         >
@@ -44,7 +46,7 @@
           </router-link>
         </div>
         <div class="q-mt-md">
-          <q-btn no-caps label="Login" :loading="isLoading" type="submit" color="primary"/>
+          <q-btn no-caps label="Login" :loading="isLoading" type="submit" color="primary" data-cy="login-submit"/>
         </div>
       </q-card-section>
     </q-form>

@@ -2,7 +2,7 @@
   <q-page padding>
     <div class="row justify-center q-pt-lg">
       <q-form @submit="onSubmit" class="q-gutter-md">
-    <q-card class="restore-password-card">
+    <q-card class="restore-password-card" data-cy="password-change-form">
         <q-card-section>
           <div class="text-h5 text-bold">Change Password</div>
         </q-card-section>
@@ -14,6 +14,7 @@
             <q-input
               filled
               v-model="password"
+              data-cy="password-change-password"
               label="New Password"
               :type="isPwd ? 'password' : 'text'"
               :rules="[
@@ -40,6 +41,7 @@
                 no-caps
                 label="Reset password"
                 type="submit"
+                data-cy="password-change-submit"
                 color="primary"
                 :loading="loading"
               />
@@ -48,7 +50,7 @@
       </q-card>
       </q-form>
 
-      <q-dialog v-model="showSuccessDialog">
+      <q-dialog v-model="showSuccessDialog" data-cy="password-change-dialog">
         <q-card>
           <q-card-section>
             <div class="text-h6">New Password is set!</div>
@@ -59,7 +61,7 @@
           </q-card-section>
 
           <q-card-actions align="right">
-            <q-btn no-caps label="OK" color="primary" :to="{ name: 'AuthLoginPage' }" v-close-popup/>
+            <q-btn no-caps label="OK" color="primary" :to="{ name: 'AuthLoginPage' }" v-close-popup data-cy="password-change-ok"/>
           </q-card-actions>
         </q-card>
       </q-dialog>

@@ -1,9 +1,11 @@
 import { useQuasar } from 'quasar'
 import GroupFormDialogComponent from 'src/components/group/GroupFormDialogComponent.vue'
-import { GroupEntity } from 'src/types'
+import { GroupEntity, GroupMemberEntity } from 'src/types'
 import { groupsApi } from 'src/api/groups.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import GroupWelcomeDialogComponent from 'components/group/GroupWelcomeDialogComponent.vue'
+import GroupMemberRoleDialogComponent from 'src/components/group/GroupMemberRoleDialogComponent.vue'
+import GroupMemberDeleteDialogComponent from 'src/components/group/GroupMemberDeleteDialogComponent.vue'
 
 export function useGroupDialog () {
   const $q = useQuasar()
@@ -12,6 +14,26 @@ export function useGroupDialog () {
   const openCreateGroupDialog = () => {
     return $q.dialog({
       component: GroupFormDialogComponent
+    })
+  }
+
+  const openGroupMemberRoleDialog = (group: GroupEntity, member: GroupMemberEntity) => {
+    return $q.dialog({
+      component: GroupMemberRoleDialogComponent,
+      componentProps: {
+        group,
+        member
+      }
+    })
+  }
+
+  const openGroupMemberDeleteDialog = (group: GroupEntity, member: GroupMemberEntity) => {
+    return $q.dialog({
+      component: GroupMemberDeleteDialogComponent,
+      componentProps: {
+        group,
+        member
+      }
     })
   }
 
@@ -58,6 +80,8 @@ export function useGroupDialog () {
     openCreateGroupDialog,
     openDeleteGroupDialog,
     openLeaveGroupDialog,
-    openWelcomeGroupDialog
+    openWelcomeGroupDialog,
+    openGroupMemberRoleDialog,
+    openGroupMemberDeleteDialog
   }
 }

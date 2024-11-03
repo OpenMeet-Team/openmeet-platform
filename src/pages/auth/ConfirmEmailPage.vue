@@ -4,8 +4,8 @@
     <div v-else class="text-center">
       <h1>{{ errorMessage }}</h1>
       <div class="row q-gutter-md justify-center">
-        <q-btn color="primary" no-caps label="Go to login" @click="router.push('/auth/login')" />
-        <q-btn outline color="primary" no-caps label="Go to home page" @click="router.push('/')" />
+        <q-btn data-cy="confirm-email-login" color="primary" no-caps label="Go to login" @click="router.push('/auth/login')" />
+        <q-btn data-cy="confirm-email-home" outline color="primary" no-caps label="Go to home page" @click="router.push('/')" />
       </div>
     </div>
   </q-page>
@@ -19,7 +19,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
-const isLoading = ref(true)
+const isLoading = ref(false)
 const errorMessage = ref('')
 onMounted(() => {
   const hash = route.query.hash as string

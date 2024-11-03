@@ -1,17 +1,9 @@
 <script setup lang="ts">
-import GroupFormBasicComponent from 'components/group/GroupFormBasicComponent.vue'
+import GroupFormComponent from 'components/group/GroupFormComponent.vue'
 import { QDialog } from 'quasar'
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 
 const dialogRef = ref<QDialog | null>(null)
-const router = useRouter()
-const onSubmit = () => {
-  if (dialogRef.value) {
-    dialogRef.value.hide()
-    router.push({ name: 'DashboardGroupsPage' })
-  }
-}
 
 const onClose = () => {
   if (dialogRef.value) {
@@ -28,7 +20,7 @@ const onClose = () => {
       <h1 class="text-h4 q-my-none">Create New Group</h1>
     </div>
 
-    <GroupFormBasicComponent @created="onSubmit" @close="onClose"/>
+    <GroupFormComponent @created="onClose" @close="onClose"/>
   </q-card>
 </q-dialog>
 </template>

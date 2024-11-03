@@ -4,11 +4,16 @@ import { EventEntity } from 'src/types/event.ts'
 
 export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
 export type GroupStatusType = 'draft' | 'pending' | 'published'
-export type GroupRoleType = 'owner' | 'manager' | 'member'
+export type GroupRoleType = 'owner' | 'admin' | 'moderator' | 'member' | 'guest'
 
 export interface GroupCategoryEntity extends CategoryEntity {}
 
 export interface GroupDiscussionEntity extends DiscussionEntity {}
+
+export interface GroupPermissionEntity {
+  id: number
+  name: string
+}
 
 export interface GroupRoleEntity {
   id: number
@@ -20,6 +25,7 @@ export interface GroupMemberEntity {
   // eslint-disable-next-line no-use-before-define
   group: GroupEntity
   groupRole: GroupRoleEntity
+  groupPermissions: GroupPermissionEntity[]
   createdAt?: string
   updatedAt?: string
 }

@@ -1,40 +1,38 @@
 <template>
-  <q-page padding v-if="loaded" style="max-width: 1024px" class="q-mx-auto">
+  <q-page padding style="max-width: 1024px" class="q-mx-auto">
 
-    <SpinnerComponent v-if="!loaded"/>
+    <SpinnerComponent v-if="isLoading" />
 
     <div class="row justify-between items-start">
-      <DashboardTitle defaultBack label="Your groups"/>
-      <q-btn v-if="hostedGroups?.length"
-             no-caps
-             color="primary"
-             icon="sym_r_add"
-             label="Create Group"
-             @click="onAddNewGroup"
-      />
+      <DashboardTitle defaultBack label="Your groups" />
+      <q-btn v-if="hostedGroups?.length" no-caps color="primary" icon="sym_r_add" label="Create Group"
+        @click="onAddNewGroup" />
     </div>
 
-    <div>
-      <div v-if="hostedGroups?.length" class="row q-col-gutter-lg q-mt-md">
-        <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <DashboardGroupItem :group="group"/>
+    <template v-if="!isLoading">
+      <div>
+        <div v-if="hostedGroups?.length" class="row q-col-gutter-lg q-mt-md">
+          <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <DashboardGroupItem :group="group" />
+          </div>
         </div>
+        <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group"
+          label="You haven't created any groups yet." icon="sym_r_groups" />
       </div>
-      <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group" label="You haven't created any groups yet." icon="sym_r_groups"/>
-    </div>
 
-    <div class="row text-h4 justify-between q-mt-xl text-bold">Member Groups</div>
+      <div class="row text-h4 justify-between q-mt-xl text-bold">Member Groups</div>
 
-    <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups" buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group"/>
+      <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups"
+        buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
 
-    <div v-else class="row q-col-gutter-md q-mt-md">
-      <template v-if="memberedGroups">
-        <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <DashboardGroupItem :group="group"/>
-        </div>
-      </template>
-    </div>
-
+      <div v-else class="row q-col-gutter-md q-mt-md">
+        <template v-if="memberedGroups">
+          <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <DashboardGroupItem :group="group" />
+          </div>
+        </template>
+      </div>
+    </template>
   </q-page>
 </template>
 
@@ -51,7 +49,7 @@ import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 
 const router = useRouter()
 
-const loaded = ref<boolean>(false)
+const isLoading = ref<boolean>(false)
 const userGroups = ref<GroupEntity[]>([])
 const hostedGroups = computed(() => userGroups.value?.filter(group => group.createdBy?.id === useAuthStore().getUserId))
 const memberedGroups = computed(() => userGroups.value?.filter(group => group.groupMember?.groupRole?.name === 'member'))
@@ -63,12 +61,13 @@ useMeta({
 const fetchData = async () => {
   LoadingBar.start()
   return apiGetDashboardGroups().then(res => {
-    userGroups.value = res.data
+    userGroups.value = res.data.sort((a, b) => b.name.localeCompare(a.name))
   }).finally(LoadingBar.stop)
 }
 
 onMounted(() => {
-  fetchData().finally(() => (loaded.value = true))
+  isLoading.value = true
+  fetchData().finally(() => (isLoading.value = false))
 })
 
 const exploreGroups = () => {
@@ -81,6 +80,4 @@ const onAddNewGroup = () => {
 
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

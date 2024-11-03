@@ -9,6 +9,15 @@ export function useEventDialog () {
   const $q = useQuasar()
   const { success } = useNotification()
 
+  const openDeleteGroupDialog = () => {
+    return $q.dialog({
+      title: 'Delete Group',
+      message: 'Are you sure you want to delete this group? This action cannot be undone.',
+      cancel: true,
+      persistent: true
+    })
+  }
+
   const openCreateEventDialog = (group?: GroupEntity) => {
     return $q.dialog({
       component: EventFormDialogComponent,
@@ -69,6 +78,7 @@ export function useEventDialog () {
     openDeleteEventDialog,
     openCancelEventDialog,
     openAttendEventDialog,
-    openCancelAttendingEventDialog
+    openCancelAttendingEventDialog,
+    openDeleteGroupDialog
   }
 }

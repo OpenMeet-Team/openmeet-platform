@@ -3,16 +3,15 @@
     <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group"/>
 
     <div class="row justify-center">
-      <GroupFormBasicComponent class="col" style="max-width: 500px" @updated="router.push({ name: 'DashboardGroupsPage' })" :edit-group-id="route.params.id as string" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+      <GroupFormComponent class="col" style="max-width: 500px" :edit-group-id="route.params.id as string" @close="router.push({ name: 'DashboardGroupsPage' })"/>
     </div>
-
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
-import GroupFormBasicComponent from 'src/components/group/GroupFormBasicComponent.vue'
+import GroupFormComponent from 'src/components/group/GroupFormComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

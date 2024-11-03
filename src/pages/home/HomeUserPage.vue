@@ -33,7 +33,7 @@ const onCreateEvent = (group: GroupEntity) => {
 </script>
 
 <template>
-  <q-page padding>
+  <q-page padding data-cy="home-user-page">
     <SpinnerComponent v-if="useHomeStore().loading" />
 
     <div v-if="!useHomeStore().loading">

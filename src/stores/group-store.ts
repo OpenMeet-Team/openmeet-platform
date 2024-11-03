@@ -16,11 +16,10 @@ export const useGroupStore = defineStore('group', {
     },
     getterUserGroupRole: (state) => (role: string) => {
       return state.group?.groupMember?.groupRole?.name === role
-      // return state.group?.userGroupRole?.name === role
     },
     getterUserGroupPermission: (state) => (permission: string) => {
       // return state.group?.userGroupRole?.permissions?.includes(permission) || false
-      return state.group && permission
+      return state.group?.groupMember?.groupPermissions?.some(p => p.name === permission)
     }
   },
 
@@ -92,6 +91,32 @@ export const useGroupStore = defineStore('group', {
       } catch (err) {
         console.log(err)
         error('Failed to leave group')
+      }
+    },
+    async actionDeleteGroup (id: number) {
+      try {
+        await groupsApi.delete(id)
+      } catch (err) {
+        console.log(err)
+        error('Failed to delete group')
+      }
+    },
+    async actionUpdateGroupMember (member: GroupMemberEntity) {
+      if (this.group?.groupMembers) {
+        this.group.groupMembers = this.group.groupMembers.map(m => m.id === member.id ? member : m)
+        console.log(this.group.groupMembers)
+      }
+    },
+    async actionRemoveGroupMember (groupId: number, userId: number) {
+      try {
+        await groupsApi.removeMember(groupId, userId).then(res => {
+          if (this.group?.groupMembers) {
+            this.group.groupMembers = this.group.groupMembers.filter(m => m.id !== res.data.id)
+          }
+        })
+      } catch (err) {
+        console.log(err)
+        error('Failed to remove group member')
       }
     }
   }

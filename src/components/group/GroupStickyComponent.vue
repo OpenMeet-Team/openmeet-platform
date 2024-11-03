@@ -28,8 +28,16 @@ const onJoinGroup = () => {
     openLoginDialog()
   }
 }
-const { openCreateEventDialog } = useEventDialog()
+const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
 
+const onDeleteGroup = () => {
+  openDeleteGroupDialog().onOk(() => {
+    useGroupStore().actionDeleteGroup(group.value?.id as number).then(() => {
+      success(`You have deleted the group: ${group.value?.name}`)
+      router.push({ name: 'GroupsPage' })
+    })
+  })
+}
 const onLeaveGroup = () => {
   openLeaveGroupDialog().onOk(() => {
     useGroupStore().actionLeaveGroup(String(group.value?.id)).then(() => {
@@ -58,7 +66,8 @@ const onLeaveGroup = () => {
                label="Create event" color="primary"/>
         <q-btn-dropdown outline size="md" v-if="useGroupStore().getterGroupHasGroupMember()" align="center" no-caps label="Manage group">
           <q-list>
-            <MenuItemComponent label="Edit group" icon="sym_r_settings" @click="router.push({ name: 'DashboardGroupPage', params: { id: String(group?.id) } })"/>
+            <MenuItemComponent v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupPermission('groupSettings')" label="Edit group" icon="sym_r_settings" @click="router.push({ name: 'DashboardGroupPage', params: { id: String(group?.id) } })"/>
+            <MenuItemComponent v-if="useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupPermission('deleteGroups')" label="Delete group" icon="sym_r_delete" @click="onDeleteGroup"/>
           </q-list>
         </q-btn-dropdown>
       </div>

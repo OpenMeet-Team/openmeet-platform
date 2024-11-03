@@ -13,16 +13,22 @@ describe('HomePage', () => {
     cy.visit('/')
   })
 
-  it('--- header has logo', () => {
-    // cy.wait('@getHome')
-    cy.dataCy('header-logo-component').should('be.visible')
-  })
+  describe('Guest Home', () => {
+    it('should fetch the guest home data', () => {
+      cy.wait('@getGuestHome')
+    })
 
-  it('--- fetches the guest home data', () => {
-    cy.wait('@getGuestHome')
+    it('should have logo', () => {
+      cy.wait('@getGuestHome')
+      cy.dataCy('header-logo-component').should('be.visible')
+    })
   })
 })
 
-// Workaround for Cypress AE + TS + Vite
-// See: https://github.com/quasarframework/quasar-testing/issues/262#issuecomment-1154127497
-export { }
+describe('User Home', () => {
+  beforeEach(() => {
+    cy.intercept('GET', '/api/home/user', {
+      statusCode: 200
+    }).as('getUserHome')
+  })
+})

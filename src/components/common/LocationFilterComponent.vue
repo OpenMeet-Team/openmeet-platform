@@ -56,6 +56,7 @@ watch(() => route.query, (newQuery) => {
 
 <template>
   <LocationComponent
+    data-cy="location-filter"
     :location="selectedLocation as string"
     :lat="selectedLat as number"
     :long="selectedLon as number"

@@ -21,6 +21,7 @@ export interface UserEntity {
   name?: string
   firstName?: string
   lastName?: string
+  shortId?: string
   // token: string
   // refreshToken: string
   photo?: FileEntity
