@@ -1,5 +1,5 @@
 <template>
-  <q-card class="cursor-pointer hover-shadow-1" flat bordered @click="onCategoryClick">
+  <q-card class="cursor-pointer hover-shadow-1" flat bordered @click="onCategoryClick" data-cy="categories-item-component">
     <q-card-section>
       <h6 class="q-my-none">{{ category.name }}</h6>
     </q-card-section>

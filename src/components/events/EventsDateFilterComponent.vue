@@ -90,6 +90,7 @@ const applyCustomDateRange = () => {
 
 <template>
   <q-select
+    data-cy="events-date-filter"
     :model-value="selectedRange"
     :options="dateRanges"
     label="Any day"

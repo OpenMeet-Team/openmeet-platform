@@ -47,6 +47,7 @@ const onFilterByType = (type: string) => {
 
 <template>
   <q-select
+    data-cy="events-type-filter"
     :model-value="selectedType"
     :options="types"
     label="Any type"

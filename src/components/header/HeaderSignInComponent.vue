@@ -13,11 +13,11 @@ const onRegister = () => {
 </script>
 
 <template>
-  <div class="row q-gutter-md no-wrap" v-if="!useAuthStore().isAuthenticated">
+  <div class="row q-gutter-md no-wrap" v-if="!useAuthStore().isAuthenticated" data-cy="header-sign-in-component">
 <!--    <q-btn size="md" no-caps outline :to="{name: 'AuthLoginPage'}" label="Sign in"/>-->
-    <q-btn rounded no-wrap size="md" no-caps outline @click="onLogin" label="Sign in"/>
+    <q-btn rounded no-wrap size="md" data-cy="sign-in-button" no-caps outline @click="onLogin" label="Sign in"/>
 <!--    <q-btn size="md" no-caps color="secondary"  :to="{name: 'AuthRegisterPage'}" label="Register"/>-->
-    <q-btn rounded size="md" no-caps color="secondary"  @click="onRegister" label="Register"/>
+    <q-btn rounded size="md" no-caps data-cy="register-button" color="secondary"  @click="onRegister" label="Register"/>
   </div>
 </template>
 

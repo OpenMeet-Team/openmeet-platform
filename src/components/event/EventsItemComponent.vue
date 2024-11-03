@@ -14,7 +14,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="row q-mb-xl q-col-gutter-md">
+  <div class="row q-mb-xl q-col-gutter-md" data-cy="events-item">
     <div class="col-12 col-sm-4">
         <q-img height="150px" class="cursor-pointer rounded-borders"
       @click="navigateToEvent(event.slug, event.id)" ratio="16/9" :src="getImageSrc(event.image)">

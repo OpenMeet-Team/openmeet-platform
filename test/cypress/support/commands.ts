@@ -24,6 +24,16 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
+Cypress.Commands.add('login', (username: string, password: string) => {
+  cy.dataCy('header-mobile-menu').click()
+  cy.dataCy('header-mobile-menu-drawer').should('be.visible').within(() => {
+    cy.dataCy('sign-in-button').click()
+  })
+  cy.dataCy('login-email').type(username)
+  cy.dataCy('login-password').type(password)
+  cy.dataCy('login-submit').click()
+})
+
 // DO NOT REMOVE
 // Imports Quasar Cypress AE predefined commands
 import { registerCommands } from '@quasar/quasar-app-extension-testing-e2e-cypress'

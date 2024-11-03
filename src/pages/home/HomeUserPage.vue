@@ -49,8 +49,8 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="col column q-mb-md">
               <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
-                  <q-item v-ripple v-for="group in userOrganizedGroups" :key="group.id" clickable
-                    @click="navigateToGroup(group.slug, group.id)">
+                  <q-item data-cy="organized-groups-item-component" v-ripple v-for="group in userOrganizedGroups" :key="group.id"
+                    clickable @click="navigateToGroup(group.slug, group.id)">
                     <q-item-section thumbnail>
                       <img :src="getImageSrc(group.image)">
                     </q-item-section>
@@ -74,7 +74,8 @@ const onCreateEvent = (group: GroupEntity) => {
             <SubtitleComponent class="q-px-md" label="Next events you're hosting" :to="{ name: 'DashboardEventsPage' }" />
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userNextHostedEvent">
-                <q-item v-ripple clickable @click="navigateToEvent(userNextHostedEvent.slug, userNextHostedEvent.id)">
+                <q-item data-cy="next-hosted-event-item-component" v-ripple clickable
+                  @click="navigateToEvent(userNextHostedEvent.slug, userNextHostedEvent.id)">
                   <q-item-section thumbnail>
                     <img :src="getImageSrc(userNextHostedEvent.image)">
                   </q-item-section>
@@ -95,8 +96,8 @@ const onCreateEvent = (group: GroupEntity) => {
               <q-card flat bordered class="q-mb-md">
                 <q-card-section v-if="userRecentEventDrafts?.length">
                   <q-list>
-                    <q-item clickable v-ripple v-for="event in userRecentEventDrafts" :key="event.id"
-                      @click="navigateToEvent(event.slug, event.id)">
+                    <q-item data-cy="recent-event-drafts-item-component" clickable v-ripple v-for="event in userRecentEventDrafts"
+                      :key="event.id" @click="navigateToEvent(event.slug, event.id)">
                       <q-item-section thumbnail>
                         <q-img :src="getImageSrc(event.image)" />
                       </q-item-section>
@@ -133,7 +134,8 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="q-mb-xl">
               <q-card-section v-if="userMemberGroups?.length">
                 <q-list>
-                  <q-item v-for="group in userMemberGroups" :key="group.id" clickable @click="navigateToGroup(group.slug, group.id)">
+                  <q-item data-cy="member-groups-item-component" v-for="group in userMemberGroups" :key="group.id"
+                    clickable @click="navigateToGroup(group.slug, group.id)">
                     <q-item-section>
                       <q-item-label>{{ group.name }}</q-item-label>
                       <q-item-label caption>{{ group.groupMembersCount }} members</q-item-label>
@@ -150,7 +152,8 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
-                  <q-chip v-for="interest in userInterests" :key="interest.id" color="primary" text-color="white">
+                  <q-chip data-cy="interests-item-component" v-for="interest in userInterests" :key="interest.id"
+                    color="primary" text-color="white">
                     {{ interest.title }}
                   </q-chip>
                 </div>
@@ -161,7 +164,7 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-sm-6 col-md-8">
             <!-- Upcoming events list -->
             <div v-for="event in userUpcomingEvents" :key="event.id" class="col-12 col-sm-6 col-md-4">
-              <EventsItemComponent :event="event" />
+              <EventsItemComponent data-cy="upcoming-events-item-component" :event="event" />
             </div>
             <NoContentComponent v-if="!userUpcomingEvents?.length" icon="sym_r_event"
               label="You have no upcoming events" />

@@ -55,7 +55,7 @@ describe('GroupsPage', () => {
     cy.testRoute('/groups')
   })
 
-  it.only('should reset categories filter', () => {
+  it('should reset categories filter', () => {
     cy.dataCy('categories-filter').should('be.visible').click()
     cy.dataCy('categories-filter').withinSelectMenu({
       fn: () => {

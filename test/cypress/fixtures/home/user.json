@@ -1,0 +1,36 @@
+{
+    "organizedGroups": [
+        {
+            "id": 1,
+            "name": "Super Admin"
+        }
+    ],
+    "nextHostedEvent": {
+        "id": 1,
+        "name": "Next Hosted Event"
+    },
+    "recentEventDrafts": [
+        {
+            "id": 1,
+            "name": "Recent Event Draft"
+        }
+    ],
+    "upcomingEvents": [
+        {
+            "id": 1,
+            "name": "Upcoming Event"
+        }
+    ],
+    "memberGroups": [
+        {
+            "id": 1,
+            "name": "Member Group"
+        }
+    ],
+    "interests": [
+        {
+            "id": 1,
+            "name": "Interest"
+        }
+    ]
+}

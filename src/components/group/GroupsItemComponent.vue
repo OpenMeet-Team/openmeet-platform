@@ -18,7 +18,7 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="row q-mb-lg q-col-gutter-lg">
+  <div class="row q-mb-lg q-col-gutter-lg" data-cy="groups-item-component">
     <div class="col-12 col-sm-4">
       <q-img height="150px" class="cursor-pointer rounded-borders"
         @click="navigateToGroup(group.slug, group.id)" ratio="16/9" :src="getImageSrc(group.image)" />

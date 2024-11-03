@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "id": 1,
+      "name": "Test Group"
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "name": "Test Event"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Test Category"
+    }
+  ],
+  "interests": [
+    {
+      "id": 1,
+      "name": "Test Interest"
+    }
+  ]
+}

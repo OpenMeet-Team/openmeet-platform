@@ -37,6 +37,7 @@ const toggleRightDrawer = () => {
 
 const login = () => {
   openLoginDialog()
+  rightDrawerOpen.value = false
 }
 
 const onClickLogout = () => {
@@ -48,6 +49,7 @@ const onClickLogout = () => {
 
 const signUp = () => {
   openRegisterDialog()
+  rightDrawerOpen.value = false
 }
 </script>
 
@@ -60,9 +62,10 @@ const signUp = () => {
     aria-label="Menu"
     @click="toggleRightDrawer"
     class="lt-md"
+    data-cy="header-mobile-menu"
   />
 
-  <q-drawer v-model="rightDrawerOpen" side="right" bordered>
+  <q-drawer v-model="rightDrawerOpen" side="right" bordered data-cy="header-mobile-menu-drawer">
     <q-list>
       <MenuItemComponent label="Home" :to="{name: 'HomePage'}"/>
       <MenuItemComponent label="Events" :to="{name: 'EventsPage'}"/>
@@ -90,8 +93,8 @@ const signUp = () => {
         <MenuItemComponent label="Logout" icon="sym_r_logout" @click="onClickLogout"/>
       </template>
       <template v-else>
-        <MenuItemComponent @click="login" icon="sym_r_login" label="Login"/>
-        <MenuItemComponent @click="signUp" icon="sym_r_person_add" label="Sign Up"/>
+        <MenuItemComponent @click="login" icon="sym_r_login" label="Login" data-cy="sign-in-button"/>
+        <MenuItemComponent @click="signUp" icon="sym_r_person_add" label="Sign Up" data-cy="sign-up-button"/>
       </template>
     </q-list>
   </q-drawer>

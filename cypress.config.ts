@@ -7,6 +7,8 @@ export default defineConfig({
   screenshotsFolder: 'test/cypress/screenshots',
   videosFolder: 'test/cypress/videos',
   video: true,
+  // viewportWidth: 1920,
+  // viewportHeight: 1080,
   e2e: {
     setupNodeEvents (on, config) {
       registerCodeCoverageTasks(on, config)

@@ -19,14 +19,18 @@ describe('EventsPage', () => {
       } as EventPaginationEntity
     }).as('getEvents')
 
-    cy.visit('/events')
+    cy.visit('/events').then(() => {
+      cy.wait('@getEvents')
+      cy.wait('@getCategories')
+    })
   })
 
-  it('--- fetches the list of events', () => {
-    cy.wait('@getEvents')
-  })
-
-  it('--- fetches the list of categories', () => {
-    cy.wait('@getCategories')
+  it('should fetch the list of events', () => {
+    cy.dataCy('events-page').should('be.visible')
+    cy.dataCy('events-item').should('be.visible')
+    cy.dataCy('events-date-filter').should('be.visible')
+    cy.dataCy('events-type-filter').should('be.visible')
+    cy.dataCy('categories-filter').should('be.visible')
+    cy.dataCy('location-filter').should('be.visible')
   })
 })
