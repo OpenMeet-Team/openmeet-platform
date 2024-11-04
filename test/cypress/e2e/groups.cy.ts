@@ -1,4 +1,5 @@
 import { GroupPaginationEntity } from 'src/types'
+import { ADMIN_PASSWORD, ADMIN_EMAIL } from '../utils/constants'
 
 describe('GroupsPage', () => {
   beforeEach(() => {
@@ -47,7 +48,7 @@ describe('GroupsPage', () => {
     // cy.wait('@getLocation')
     cy.dataCy('location-filter').withinSelectMenu({
       fn: () => {
-        cy.dataCy('location-filter-item-label').contains('Location').click()
+        cy.dataCy('location-item-label').contains('Location').click()
       }
     })
 
@@ -64,5 +65,77 @@ describe('GroupsPage', () => {
     })
     cy.dataCy('groups-reset-filters').should('be.visible').click()
     cy.testRoute('/groups')
+  })
+
+  it.skip('should navigate to the group page', () => {
+    cy.dataCy('groups-page').should('be.visible')
+    cy.dataCy('groups-item').should('be.visible').click()
+    cy.testRoute('/groups/group-one--b')
+  })
+
+  it('should display the login form', () => {
+    cy.dataCy('header-mobile-menu').click()
+    cy.dataCy('add-group-button').should('be.visible').click()
+    cy.dataCy('login-form').should('be.visible')
+  })
+
+  describe.only('User Home', () => {
+    beforeEach(() => {
+      cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
+    })
+
+    it('should display the add group form', () => {
+      cy.dataCy('header-mobile-menu').click()
+      cy.dataCy('add-group-button').should('be.visible').click()
+      cy.dataCy('group-form').should('be.visible')
+    })
+
+    it.only('should create a group', () => {
+      cy.intercept('POST', '/api/groups', {
+        statusCode: 200,
+        body: {
+          id: 2,
+          slug: 'group-two--b'
+        }
+      }).as('createGroup')
+      cy.dataCy('header-mobile-menu').click()
+      cy.dataCy('add-group-button').should('be.visible').click()
+      cy.dataCy('group-form').should('be.visible')
+      cy.dataCy('group-create').click()
+
+      cy.dataCy('group-name').type('Group Two')
+      cy.dataCy('group-create').click()
+
+      cy.dataCy('group-description').type('Description for group two')
+      cy.dataCy('group-create').click()
+
+      // TODO: fix this, for now categories are not required
+      // cy.dataCy('group-categories').should('be.visible').click()
+      // cy.dataCy('group-categories').withinSelectMenu({
+      //   fn: () => {
+      //     cy.get('.q-item').contains('Category One').click()
+      //   }
+      // })
+      // cy.dataCy('group-create').click()
+      cy.dataCy('group-location').should('be.visible').type('Location')
+      cy.dataCy('group-location').withinSelectMenu({
+        fn: () => {
+          cy.dataCy('location-item-label').first().click()
+        }
+      })
+      // cy.dataCy('group-image').should('be.visible').attachFile('test.png')
+      cy.dataCy('group-visibility').should('be.visible').click()
+      cy.dataCy('group-visibility').withinSelectMenu({
+        fn: () => {
+          cy.get('.q-item').first().click()
+        }
+      })
+      cy.dataCy('group-create').click()
+      cy.wait('@createGroup')
+      cy.testRoute('/groups/group-two--b')
+
+      // cy.dataCy('group-form').should('not.be.visible')
+      // cy.testRoute('/groups/group-two--b')
+    })
   })
 })

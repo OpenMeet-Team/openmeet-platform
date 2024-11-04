@@ -79,22 +79,22 @@ const signUp = () => {
         </q-item-section>
       </q-item>
 
-      <MenuItemComponent label="Add group" @click="openCreateGroupForm"/>
-      <MenuItemComponent label="Add new event" @click="openCreateEventForm"/>
+      <MenuItemComponent data-cy="add-group-button" label="Add group" @click="openCreateGroupForm"/>
+      <MenuItemComponent data-cy="add-event-button" label="Add new event" @click="openCreateEventForm"/>
 
       <template v-if="useAuthStore().isAuthenticated">
         <q-item-label header>Account</q-item-label>
 
-        <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
-        <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
-        <MenuItemComponent label="Profile" icon="sym_r_person" :to="{name: 'MemberPage', params: {id: useAuthStore().user?.id}}"/>
-        <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
+        <MenuItemComponent data-cy="my-events-button" label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
+        <MenuItemComponent data-cy="my-groups-button" label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
+        <MenuItemComponent data-cy="profile-button" label="Profile" icon="sym_r_person" :to="{name: 'MemberPage', params: {id: useAuthStore().user?.id}}"/>
+        <MenuItemComponent data-cy="account-settings-button" label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
         <q-separator/>
-        <MenuItemComponent label="Logout" icon="sym_r_logout" @click="onClickLogout"/>
+        <MenuItemComponent data-cy="logout-button" label="Logout" icon="sym_r_logout" @click="onClickLogout"/>
       </template>
       <template v-else>
-        <MenuItemComponent @click="login" icon="sym_r_login" label="Login" data-cy="sign-in-button"/>
-        <MenuItemComponent @click="signUp" icon="sym_r_person_add" label="Sign Up" data-cy="sign-up-button"/>
+        <MenuItemComponent data-cy="sign-in-button" @click="login" icon="sym_r_login" label="Login"/>
+        <MenuItemComponent data-cy="sign-up-button" @click="signUp" icon="sym_r_person_add" label="Sign Up"/>
       </template>
     </q-list>
   </q-drawer>

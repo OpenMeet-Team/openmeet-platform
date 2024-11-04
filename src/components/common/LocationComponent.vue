@@ -3,6 +3,7 @@
     <q-select
       class="location-select"
       ref="selectRef"
+      data-cy="location-select"
       :label="label"
       :placeholder="placeholder"
       :model-value="location"
@@ -37,12 +38,12 @@
         <MenuItemComponent icon="sym_r_add_location_alt" @click="openProxyDialog" label="Add a New Address"/>
       </template>
       <template v-slot:option="scope">
-        <q-item class="wrap" data-cy="location-filter-item" v-bind="scope.itemProps">
+        <q-item class="wrap" data-cy="location-item" v-bind="scope.itemProps">
           <q-item-section side>
             <q-icon name="sym_r_line_start_circle" />
           </q-item-section>
           <q-item-section>
-            <q-item-label data-cy="location-filter-item-label">{{ scope.label }}</q-item-label>
+            <q-item-label data-cy="location-item-label">{{ scope.label }}</q-item-label>
           </q-item-section>
         </q-item>
       </template>
