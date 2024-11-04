@@ -27,7 +27,7 @@
             :key="notification.id"
             clickable
             v-ripple
-            :class="[!notification.read ? (Dark.isActive ? 'bg-dark-gray' : 'bg-light-gray') : '']"
+            :class="[!notification.read ? (Dark.isActive ? 'text-dark-gray' : 'text-light-gray') : '']"
             @click="navigateToObject(notification)"
           >
             <q-item-section avatar>

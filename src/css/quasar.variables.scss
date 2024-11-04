@@ -1,96 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-// Import the fonts
-@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Montserrat:wght@300;600&display=swap');
+// Primary Colors (OpenMeet palette)
+$logo-white: #FFFFFF;
+$light-purple: #D2ACEE;
+$medium-purple: #AF9EE8;
+$dark-purple: #7B71DA;
+$deep-navy: #1E1A43;
 
-// Primary Colors
-$open-blue: #0066CC;
-$community-green: #00CC99;
-
-// Secondary Colors
-$privacy-gray: #333333;
-$support-yellow: #FFD700;
+// Theme Colors
+$primary: $dark-purple;
+$secondary: $light-purple;
+$accent: $medium-purple;
 
 // Neutral Colors
 $light-gray: #F2F2F2;
+$medium-gray: #CCCCCC;
 $dark-gray: #444444;
+$darker-gray: #333333;
 
 // Quasar Color Configuration
-$primary: $open-blue;
-$secondary: $community-green;
-$accent: $support-yellow;
+$primary: $dark-purple;
+$secondary: $light-purple;
+$accent: $medium-purple;
 
-$dark: #000000;
-$dark-page: $privacy-gray;
+// Dark Mode Colors
+$dark-page: $deep-navy;
+$dark-block: $darker-gray;
 
-$positive: $community-green;
-$negative: #C10015;
-$info: $open-blue;
-$warning: $support-yellow;
+// Status Colors
+$positive: #4CAF50;
+$negative: #F44336;
+$info: #2196F3;
+$warning: #FFC107;
 
-// Define the font variables
-$typography-font-family: 'Lato', sans-serif;
-$body-font-family: 'Lato', sans-serif;
-$heading-font-family: 'Lato', sans-serif;
-
-// Typography
-h1 {
-  font-family: 'Lato', sans-serif;
-  font-weight: 700;
-  font-size: 32px;
+.bg-dark-page {
+  background-color: $dark-page;
 }
 
-h2 {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  font-size: 24px;
-}
-
-body {
-  font-family: 'Lato', sans-serif;
-  font-weight: 400;
-  font-size: 16px;
-}
-
-.q-btn {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  font-size: 18px;
-}
-
-// Custom classes for additional typography styles
-.secondary-text {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 300;
-}
-
-.emphasis-text {
-  font-family: 'Lato', sans-serif;
-  font-weight: 700;
-}
-
-// Custom color classes
-.text-privacy-gray {
-  color: $privacy-gray;
-}
-
-.bg-privacy-gray {
-  background-color: $privacy-gray;
-}
-
-.text-support-yellow {
-  color: $support-yellow;
-}
-
-.bg-support-yellow {
-  background-color: $support-yellow;
-}
-
+// Text and Background Utilities
 .text-light-gray {
   color: $light-gray;
 }
 
 .bg-light-gray {
   background-color: $light-gray;
+}
+
+.text-medium-gray {
+  color: $medium-gray;
+}
+
+.bg-medium-gray {
+  background-color: $medium-gray;
 }
 
 .text-dark-gray {
@@ -101,17 +62,10 @@ body {
   background-color: $dark-gray;
 }
 
-// ... existing code ...
+.text-darker-gray {
+  color: $darker-gray;
+}
 
-.router-link-inherit {
-  color: inherit;
-  text-decoration: none;
-  text-decoration: underline;
-  transition: color 0.3s ease, opacity 0.3s ease;
-  position: relative;
-  
-  &:hover {
-    opacity: 0.8;
-    text-decoration: none;
-  }
+.bg-darker-gray {
+  background-color: $darker-gray;
 }

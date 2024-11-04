@@ -1,5 +1,5 @@
 <template>
-  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-white text-black']" style="z-index: auto;">
+  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-page text-white' : 'bg-white text-black']" style="z-index: auto;">
     <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">

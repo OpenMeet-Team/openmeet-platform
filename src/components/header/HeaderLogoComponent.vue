@@ -4,7 +4,10 @@
 
 <template>
   <q-toolbar-title shrink data-cy="header-logo-component">
-    <router-link style="color: inherit; text-decoration: none" to="/">OpenMeet</router-link>
+    <router-link style="color: inherit; text-decoration: none" to="/" class="row no-wrap items-center router-link-inherit">
+      <q-img class="q-mr-xs" left src="~assets/openmeet/logo.svg" style="height: 35px; width: 35px" />
+      <div class="text-bold gt-sm">OpenMeet</div>
+    </router-link>
   </q-toolbar-title>
 </template>
 

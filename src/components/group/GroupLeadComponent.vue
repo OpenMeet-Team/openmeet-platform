@@ -40,7 +40,7 @@ const { navigateToMember } = useNavigation()
           </div>
         </q-card-section>
 
-        <q-card-section v-if="group.categories">
+        <q-card-section v-if="group.categories?.length">
           <div class="text-h6">Categories</div>
           <div class="q-gutter-sm">
             <q-chip v-for="category in group.categories as GroupCategoryEntity[]" :key="category.id">

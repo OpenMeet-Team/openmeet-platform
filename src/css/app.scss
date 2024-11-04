@@ -1,9 +1,35 @@
 // app global css in SCSS form
 
+// Quasar Card
 .q-card {
   border-radius: 10px;
 }
 
+// Quasar Button
+.q-btn {
+  font-weight: bold
+}
+
+// Rounded Borders
 .rounded-borders {
   border-radius: 10px;
+}
+
+// Quasar Tab
+.q-tab {
+  font-weight: bold;
+}
+
+// Router Link Inherit
+.router-link-inherit {
+  color: inherit;
+  text-decoration: none;
+  text-decoration: underline;
+  transition: color 0.3s ease, opacity 0.3s ease;
+  position: relative;
+  
+  &:hover {
+    opacity: 0.8;
+    text-decoration: none;
+  }
 }

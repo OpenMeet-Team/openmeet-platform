@@ -4,33 +4,38 @@
     <q-input data-cy="group-name" filled v-model="group.name" label="Group Name" counter maxlength="60"
       :rules="[(val: string) => !!val || 'Group name is required']" />
 
-    <div class="text-h6 q-mt-lg">Group Description</div>
-    <q-editor :rules="[(val: string) => !!val || 'Description is required']" filled
-      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
-      :model-value="group.description as string" @update:model-value="onDescriptionInput" :dense="Screen.lt.md"
-      :toolbar="[
-        ['bold', 'italic'],
-        ['link', 'custom_btn'],
-        ['unordered', 'ordered'],
-        ['undo', 'redo'],
-      ]" data-cy="group-description" />
+    <div class="text-body1 q-mt-md">Group Description</div>
 
-    <q-select data-cy="group-categories" v-model="group.categories"
-      :options="categoryOptions" filled multiple use-chips emit-value map-options option-value="id" option-label="name"
-      label="Categories (press Enter after each)" />
+    <q-field class="q-mb-lg q-pa-none" flat :no-error-icon="true" filled ref="description"
+      v-model="group.description" :rules="[val => (!!val && val !== '<br>') || 'Description is required']">
+      <template #control>
+        <q-editor data-cy="group-description" flat class="bg-transparent full-width"
+          :style="descriptionRef && descriptionRef.hasError ? 'border-color: var(--q-negative)' : ''"
+          :model-value="group.description as string" @update:model-value="onDescriptionInput" :dense="Screen.lt.md"
+          :toolbar="[
+            ['bold', 'italic'],
+            ['link', 'custom_btn'],
+            ['unordered', 'ordered'],
+            ['undo', 'redo'],
+          ]" />
+      </template>
+    </q-field>
 
-    <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number" :lon="group.lon as number"
-      @update:model-value="onUpdateLocation" label="Group Address or location"
+    <q-select data-cy="group-categories" v-model="group.categories" :options="categoryOptions" filled multiple use-chips
+      emit-value map-options option-value="id" option-label="name" label="Categories (press Enter after each)" />
+
+    <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number"
+      :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location"
       placeholder="Neighborhood, city or zip" />
 
-    <UploadComponent data-cy="group-image" label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
+    <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
       @upload="onGroupImageSelect" />
 
-    <q-img ratio="16/9"  v-if="group && group.image && group.image.path" :src="group.image.path" spinner-color="white"
+    <q-img ratio="16/9" v-if="group && group.image && group.image.path" :src="group.image.path" spinner-color="white"
       class="rounded-borders" style="height: 120px; max-width: 220px" />
 
-    <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value" option-label="label" emit-value
-      map-options :options="[
+    <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value"
+      option-label="label" emit-value map-options :options="[
         { label: 'The World', value: 'public' },
         { label: 'Authenticated Users', value: 'authenticated' },
         { label: 'People You Invite', value: 'private' }
@@ -54,7 +59,7 @@ import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
 import LocationComponent from 'components/common/LocationComponent.vue'
-import { Dark, Loading, LoadingBar, Screen } from 'quasar'
+import { Loading, LoadingBar, QField, Screen } from 'quasar'
 import DOMPurify from 'dompurify'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import analyticsService from 'src/services/analyticsService'
@@ -72,6 +77,7 @@ const group = ref<GroupEntity>({
 })
 
 const loading = ref(false)
+const descriptionRef = ref<QField | null>(null)
 
 const onUpdateLocation = (address: { lat: string, lon: string, location: string }) => {
   group.value.lat = parseFloat(address.lat as string)

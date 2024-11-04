@@ -7,6 +7,7 @@
       :label="label"
       accept="image/*"
       @update:model-value="onUpload"
+      data-cy="upload-component"
     >
       <template v-slot:prepend>
         <q-icon name="sym_r_attach_file" />

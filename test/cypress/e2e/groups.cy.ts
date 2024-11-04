@@ -107,7 +107,6 @@ describe('GroupsPage', () => {
       cy.dataCy('group-create').click()
 
       cy.dataCy('group-description').type('Description for group two')
-      cy.dataCy('group-create').click()
 
       // TODO: fix this, for now categories are not required
       // cy.dataCy('group-categories').should('be.visible').click()
@@ -123,7 +122,16 @@ describe('GroupsPage', () => {
           cy.dataCy('location-item-label').first().click()
         }
       })
-      // cy.dataCy('group-image').should('be.visible').attachFile('test.png')
+      // TODO: fix this, for now image is not uploaded
+      // cy.dataCy('upload-component').should('be.visible').within(() => {
+      //   console.log(cy.get('input[type=file]'))
+      //   cy.get('input[type=file]').selectFile({
+      //     contents: Cypress.Buffer.from('image contents here', 'base64'),
+      //     fileName: 'image.png',
+      //     mimeType: 'image/png',
+      //     lastModified: Date.now()
+      //   })
+      // })
       cy.dataCy('group-visibility').should('be.visible').click()
       cy.dataCy('group-visibility').withinSelectMenu({
         fn: () => {

@@ -2,6 +2,7 @@
   <q-btn-dropdown
     no-caps
     color="secondary"
+    text-color="black"
     icon="sym_r_share"
     spread
     label="Share"
