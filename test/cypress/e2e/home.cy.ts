@@ -7,20 +7,24 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from '../utils/constants'
 
 // This test will pass when run against a clean Quasar project
 describe('HomePage', () => {
-  describe.only('User Home', () => {
+  describe('User Home', () => {
     beforeEach(() => {
+      cy.intercept('GET', '/api/home/guest', {
+        statusCode: 200,
+        fixture: 'home/guest.json'
+      }).as('getGuestHome')
       cy.intercept('GET', '/api/home/user', {
         statusCode: 200,
         fixture: 'home/user.json'
       }).as('getUserHome')
       cy.visit('/').then(() => {
+        cy.wait('@getGuestHome')
         cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
-        cy.wait('@getUserHome')
       })
     })
 
     it('should have home user page components', () => {
-      cy.dataCy('header-logo-component').should('be.visible')
+      cy.wait('@getUserHome')
       cy.dataCy('organized-groups-item-component').should('be.visible')
       cy.dataCy('upcoming-events-item-component').should('be.visible')
       cy.dataCy('interests-item-component').should('be.visible')

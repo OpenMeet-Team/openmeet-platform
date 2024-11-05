@@ -79,7 +79,7 @@ describe('GroupsPage', () => {
     cy.dataCy('login-form').should('be.visible')
   })
 
-  describe.only('User Home', () => {
+  describe('User creates a group', () => {
     beforeEach(() => {
       cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
     })
@@ -90,7 +90,7 @@ describe('GroupsPage', () => {
       cy.dataCy('group-form').should('be.visible')
     })
 
-    it.only('should create a group', () => {
+    it('should create a group', () => {
       cy.intercept('POST', '/api/groups', {
         statusCode: 200,
         body: {

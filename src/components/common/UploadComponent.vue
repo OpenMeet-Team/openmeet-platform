@@ -18,19 +18,19 @@
     <q-spinner v-if="loading" color="primary" size="50px" class="q-mt-md" />
 
     <!-- Cropper Dialog -->
-    <q-dialog v-model="showCropperDialog" persistent>
-      <q-card>
+    <q-dialog data-cy="cropper-dialog" v-model="showCropperDialog" persistent style="max-width: 500px">
+      <q-card class="full-width">
         <q-card-section>
           <div class="row items-center justify-between q-mb-xl">
-            <h1 class="text-h4 q-my-none">Crop Image</h1>
+            <div class="text-h5 text-bold q-my-none">Crop Image</div>
           </div>
         </q-card-section>
         <q-card-section>
           <CropperComponent v-if="imageSrc" :src="imageSrc" @change="onCropChange" :options="cropOptions"/>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" @click="cancelCrop" />
-          <q-btn label="Confirm" color="primary" @click="confirmCrop" />
+          <q-btn no-caps flat label="Cancel" @click="cancelCrop" />
+          <q-btn data-cy="cropper-confirm" no-caps label="Confirm" color="primary" @click="confirmCrop" />
         </q-card-actions>
       </q-card>
     </q-dialog>

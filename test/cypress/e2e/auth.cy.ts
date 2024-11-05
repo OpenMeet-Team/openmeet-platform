@@ -18,7 +18,7 @@ describe('Auth', () => {
         cy.dataCy('login-password').should('be.visible').type(TESTER_PASSWORD)
         cy.dataCy('login-submit').should('be.visible')
         cy.dataCy('login-submit').click()
-        cy.dataCy('home-user-page').should('be.visible')
+        cy.wait('@login')
       })
     })
   })

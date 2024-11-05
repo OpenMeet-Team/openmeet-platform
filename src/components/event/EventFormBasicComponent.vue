@@ -1,33 +1,26 @@
 <template>
-  <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="loaded">
+  <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="loaded">
 
-    <q-input v-model="eventData.name" label="Event Title" filled maxlength="80" counter
+    <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title" filled maxlength="80" counter
       :rules="[(val: string) => !!val || 'Title is required']" />
 
-    <q-select v-if="groupsOptions && groupsOptions.length" v-model="eventData.group" :options="groupsOptions" filled
+    <q-select data-cy="event-group" v-if="groupsOptions && groupsOptions.length" v-model="eventData.group" :options="groupsOptions" filled
       option-value="id" option-label="name" map-options emit-value clearable label="Group" />
 
-    <!--    <div>-->
-    <!--      {{ eventData.startDate }} - {{ new Date(eventData.startDate) }} - {{ new Date(eventData.startDate) > new Date() }} <br>-->
-    <!--      {{ eventData.endDate }} - {{ new Date(eventData.endDate) > new Date(eventData.startDate) }} <br>-->
-    <!--    </div>-->
-
-    <DatetimeComponent class="q-mt-xl" required label="Starting date and time" v-model="eventData.startDate"
+    <DatetimeComponent data-cy="event-start-date" class="q-mt-xl" required label="Starting date and time" v-model="eventData.startDate"
       reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-      <!-- (val: string) => (new Date(val) > new Date()) || 'Start date cannot be in the past.' -->
-      <!-- Display Timezone -->
       <template v-slot:after>
         <div class="text-overline text-bold">
           {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
         </div>
       </template>
     </DatetimeComponent>
-    <template v-if="eventData.startDate">
 
-      <q-checkbox class="q-mt-none" :model-value="!!eventData.endDate"
+    <template v-if="eventData.startDate">
+      <q-checkbox data-cy="event-set-end-time" class="q-mt-none" :model-value="!!eventData.endDate"
         @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set en end time..." />
 
-      <DatetimeComponent v-if="eventData.endDate" label="Ending date and time" v-model="eventData.endDate"
+      <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time" v-model="eventData.endDate"
         reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
         <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
         <template v-slot:hint>
@@ -38,62 +31,65 @@
       </DatetimeComponent>
     </template>
 
-    <UploadComponent label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
-      @upload="onEventImageSelect" />
+    <!-- <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" /> -->
+    <UploadComponent data-cy="event-image" label="Event image" @upload="onEventImageSelect" />
 
     <q-img v-if="eventData && eventData.image"
       :src="typeof eventData.image === 'object' ? eventData.image.path : eventData.image" spinner-color="white"
       style="height: 140px; max-width: 150px" />
 
-    <div class="text-h6 q-mt-lg">Event Description</div>
-    <q-editor :rules="[(val: string) => !!val || 'Description is required']" filled
-      :style="Dark.isActive ? 'background-color: rgba(255, 255, 255, 0.07)' : 'background-color: rgba(0, 0, 0, 0.05)'"
-      :model-value="eventData.description as string" @update:model-value="onDescriptionInput" :dense="Screen.lt.md"
-      :toolbar="[
-        ['bold', 'italic'],
-        ['link', 'custom_btn'],
-        ['unordered', 'ordered'],
-        ['undo', 'redo'],
-      ]" />
+    <div class="text-body1 q-mt-md">Event Description</div>
+    <q-field class="q-mb-lg q-pa-none" flat :no-error-icon="true" filled ref="description"
+      v-model="eventData.description" :rules="[val => (!!val && val !== '<br>') || 'Description is required']">
+      <template #control>
+        <q-editor data-cy="event-description" flat class="bg-transparent full-width"
+          :style="descriptionRef && descriptionRef.hasError ? 'border-color: var(--q-negative)' : ''"
+          :model-value="eventData.description as string" @update:model-value="onDescriptionInput" :dense="Screen.lt.md"
+          :toolbar="[
+            ['bold', 'italic'],
+            ['link', 'custom_btn'],
+            ['unordered', 'ordered'],
+            ['undo', 'redo'],
+          ]" />
+      </template>
+    </q-field>
 
-    <q-tabs no-caps v-model="eventData.type" align="left" indicator-color="primary">
-      <q-tab label="In person" icon="sym_r_person_pin_circle" name="in-person" />
-      <q-tab label="Online" name="online" icon="sym_r_videocam" />
-      <q-tab label="Hybrid" name="hybrid" icon="sym_r_diversity_2" />
+    <q-tabs data-cy="event-type" no-caps v-model="eventData.type" align="left" indicator-color="primary">
+      <q-tab data-cy="event-type-in-person" label="In person" icon="sym_r_person_pin_circle" name="in-person" />
+      <q-tab data-cy="event-type-online" label="Online" name="online" icon="sym_r_videocam" />
+      <q-tab data-cy="event-type-hybrid" label="Hybrid" name="hybrid" icon="sym_r_diversity_2" />
     </q-tabs>
 
-    <q-input v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
+    <q-input data-cy="event-location-online" v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)" filled
       v-model="eventData.locationOnline" type="url" label="Link to the event" />
 
-    <LocationComponent :location="eventData.location as string" :lat="eventData.lat as number"
+    <LocationComponent data-cy="event-location" :location="eventData.location as string" :lat="eventData.lat as number"
       :lon="eventData.lon as number" v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)"
       @update:model-value="onUpdateLocation" label="Address or location" />
 
-    <q-select class="q-mt-xl" v-model="eventData.categories" :options="categoryOptions" filled multiple use-chips
+    <q-select data-cy="event-category" class="q-mt-xl" v-model="eventData.categories" :options="categoryOptions" filled multiple use-chips
       option-value="id" option-label="name" label="Event Category" />
 
-    <q-select v-model="eventData.visibility" label="Event Viewable By" option-value="value" option-label="label"
+    <q-select data-cy="event-visibility" v-model="eventData.visibility" label="Event Viewable By" option-value="value" option-label="label"
       emit-value map-options :options="[
         { label: 'The World', value: 'public' },
         { label: 'Authenticated Users', value: 'authenticated' },
         { label: 'People You Invite', value: 'private' }
       ]" filled />
 
-    <q-checkbox :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
+    <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
       label="Limit number of attendees?" />
 
-    <q-input v-if="eventData.maxAttendees" v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled
+    <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees" v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled
       type="number" :rules="[
         (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
       ]" />
 
     <div class="row justify-end q-gutter-md">
-      <q-btn no-caps flat label="Cancel" @click="$emit('close')" />
-      <q-btn no-caps label="Save as draft" v-if="!eventData.status || eventData.status !== 'published'"
+      <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
+      <q-btn data-cy="event-save-draft" no-caps label="Save as draft" v-if="!eventData.status || eventData.status !== 'published'"
         color="secondary" @click="onSaveDraft" />
-      <q-btn no-caps v-if="!eventData.status || eventData.status !== 'published'" label="Publish" color="primary"
-        @click="onPublish" />
-      <q-btn no-caps v-else :label="eventData.id ? 'Update' : 'Publish'" color="primary" @click="onPublish" />
+      <q-btn data-cy="event-publish" no-caps :label="eventData.id ? 'Update' : 'Publish'" color="primary" @click="onPublish" />
     </div>
   </q-form>
 </template>
@@ -108,7 +104,7 @@ import { eventsApi } from 'src/api/events.ts'
 import DatetimeComponent from 'components/common/DatetimeComponent.vue'
 import { categoriesApi } from 'src/api/categories.ts'
 import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
-import { Dark, QForm, Screen } from 'quasar'
+import { QField, QForm, Screen } from 'quasar'
 import { groupsApi } from 'src/api/groups.ts'
 import DOMPurify from 'dompurify'
 import analyticsService from 'src/services/analyticsService'
@@ -124,6 +120,7 @@ const groupsOptions = ref<GroupEntity[]>([])
 const emit = defineEmits(['created', 'updated', 'close'])
 const formRef = ref<QForm | null>(null)
 const loaded = ref<boolean>(false)
+const descriptionRef = ref<QField | null>(null)
 
 const eventData = ref<EventEntity>({
   name: '',

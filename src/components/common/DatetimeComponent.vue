@@ -1,10 +1,12 @@
 <template>
-  <q-input filled v-model="formattedDate" :required="required">
+  <q-input data-cy="datetime-component" filled :model-value="formattedDate" @update:model-value="onDateInput"
+    :required="required">
     <!-- Date picker -->
     <template v-slot:prepend>
-      <q-icon name="sym_r_event" class="cursor-pointer">
+      <q-icon data-cy="datetime-component-date" name="sym_r_event" class="cursor-pointer">
         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-date v-model="tempDate" mask="YYYY-MM-DD" @update:model-value="onDateUpdate">
+          <q-date data-cy="datetime-component-date-picker" v-model="tempDate" mask="YYYY-MM-DD"
+            @update:model-value="onDateUpdate">
             <div class="row items-center justify-end">
               <q-btn v-close-popup label="Close" color="primary" flat />
             </div>
@@ -16,9 +18,10 @@
     <!-- Time picker -->
     <template v-slot:append>
       <div class="text-h6">{{ tempTime }}</div>
-      <q-icon name="sym_r_access_time" class="cursor-pointer">
+      <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer">
         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-time v-model="tempTime" format24h @update:model-value="onTimeUpdate">
+          <q-time data-cy="datetime-component-time-picker" v-model="tempTime" format24h
+            @update:model-value="onTimeUpdate">
             <div class="row items-center justify-end">
               <q-btn v-close-popup label="Close" color="primary" flat />
             </div>
@@ -35,11 +38,11 @@
       <slot name="hint"></slot>
     </template>
     <!--    &lt;!&ndash; Display Timezone &ndash;&gt;-->
-<!--    <template v-slot:after>-->
-<!--      <div class="text-overline text-bold">-->
-<!--        {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}-->
-<!--      </div>-->
-<!--    </template>-->
+    <!--    <template v-slot:after>-->
+    <!--      <div class="text-overline text-bold">-->
+    <!--        {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}-->
+    <!--      </div>-->
+    <!--    </template>-->
   </q-input>
 </template>
 
@@ -94,14 +97,20 @@ const formattedDate = computed(() => date.value ? new Date(date.value).toLocaleD
 
 // Update the date portion when a new date is selected
 const onDateUpdate = (newDate: string) => {
-  // console.log('newDate', newDate)
   tempDate.value = newDate
   updateDateTime()
 }
 
+const onDateInput = (newDate: string | number | null) => {
+  if (newDate && !isNaN(new Date(newDate).getTime())) {
+    date.value = String(newDate)
+    updateTempValuesFromISO()
+    emit('update:model-value', new Date(date.value).toISOString())
+  }
+}
+
 // Update the time portion when a new time is selected
 const onTimeUpdate = (newTime: string | null) => {
-  // console.log('newTime', newTime)
   if (newTime) tempTime.value = newTime
   updateDateTime()
 }
@@ -110,13 +119,11 @@ const onTimeUpdate = (newTime: string | null) => {
 const updateDateTime = () => {
   if (tempDate.value && tempTime.value) {
     const dateTimeString = `${tempDate.value}T${tempTime.value}:00`
-    // console.log('emit both', new Date(dateTimeString).toISOString())
     emit('update:model-value', new Date(dateTimeString).toISOString())
   } else {
     const currentDate = tempDate.value || new Date().toISOString().split('T')[0]
     const currentTime = tempTime.value || '17:00'
     const dateTimeString = `${currentDate}T${currentTime}:00`
-    // console.log('emit default', new Date(dateTimeString).toISOString())
     emit('update:model-value', new Date(dateTimeString).toISOString())
   }
 }
