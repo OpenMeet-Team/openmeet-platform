@@ -82,7 +82,7 @@ const onSubmit = (): void => {
       email.value = ''
       password.value = ''
       emits('login')
-      return router.replace((route.query.redirect || route.path.startsWith('/auth') ? '/' : '') as string)
+      return router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
     }).catch(error => {
       console.error('Error logging in:', error)
       warning('Please provide a valid email and password')

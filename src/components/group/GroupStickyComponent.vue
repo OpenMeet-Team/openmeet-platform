@@ -9,7 +9,7 @@ import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { useRouter } from 'vue-router'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
-import { GroupEntity, GroupMemberPermissions } from 'src/types'
+import { GroupEntity, GroupPermission, GroupRole } from 'src/types'
 
 const { openLoginDialog } = useAuthDialog()
 const groupStore = useGroupStore()
@@ -49,32 +49,42 @@ const onLeaveGroup = () => {
 </script>
 
 <template>
-  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg rounded-borders']" style="position: sticky; top: 54px; z-index: 1001">
+  <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg rounded-borders']"
+    style="position: sticky; top: 54px; z-index: 1001">
     <div class="row">
       <div class="col-12 col-sm-6 q-pa-sm">
         <q-tabs align="justify" no-caps narrow-indicator>
-          <q-route-tab :to="{name: 'GroupPage'}" label="About"/>
-          <q-route-tab :to="{name: 'GroupEventsPage'}" name="events" label="Events"/>
-          <q-route-tab :to="{name: 'GroupMembersPage'}" name="members"
-                       label="Members"/>
-          <q-route-tab :to="{name: 'GroupDiscussionsPage'}" name="discussions"
-                       label="Discussions"/>
+          <q-route-tab :to="{ name: 'GroupPage' }" label="About" />
+          <q-route-tab :to="{ name: 'GroupEventsPage' }" name="events" label="Events" />
+          <q-route-tab :to="{ name: 'GroupMembersPage' }" name="members" label="Members" />
+          <q-route-tab :to="{ name: 'GroupDiscussionsPage' }" name="discussions" label="Discussions" />
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center q-gutter-md">
         <q-btn data-cy="create-event-button" @click="openCreateEventDialog(group as GroupEntity)" no-caps size="md"
-               label="Create event" color="primary" v-if="useGroupStore().getterUserGroupPermission(GroupMemberPermissions.MANAGE_EVENTS)"/>
-        <q-btn-dropdown outline size="md" data-cy="manage-group-button" v-if="useGroupStore().getterUserGroupPermission(GroupMemberPermissions.MANAGE_GROUP)" align="center" no-caps label="Manage group">
+          label="Create event" color="primary"
+          v-if="useGroupStore().getterUserGroupPermission(GroupPermission.CreateEvent)" />
+        <q-btn-dropdown outline size="md" data-cy="manage-group-button"
+          v-if="useGroupStore().getterUserGroupPermission(GroupPermission.ManageGroup)" align="center" no-caps
+          label="Manage group">
           <q-list>
-            <MenuItemComponent data-cy="edit-group-button" v-if="useGroupStore().getterUserGroupPermission(GroupMemberPermissions.MANAGE_GROUP)" label="Edit group" icon="sym_r_settings" @click="router.push({ name: 'DashboardGroupPage', params: { id: String(group?.id) } })"/>
-            <MenuItemComponent data-cy="delete-group-button" v-if="useGroupStore().getterUserGroupPermission(GroupMemberPermissions.DELETE_GROUP)" label="Delete group" icon="sym_r_delete" @click="onDeleteGroup"/>
+            <MenuItemComponent data-cy="edit-group-button"
+              v-if="useGroupStore().getterUserGroupPermission(GroupPermission.ManageGroup)" label="Edit group"
+              icon="sym_r_settings"
+              @click="router.push({ name: 'DashboardGroupPage', params: { id: String(group?.id) } })" />
+            <MenuItemComponent data-cy="delete-group-button"
+              v-if="useGroupStore().getterUserGroupPermission(GroupPermission.DeleteGroup)" label="Delete group"
+              icon="sym_r_delete" @click="onDeleteGroup" />
           </q-list>
         </q-btn-dropdown>
-        <q-btn data-cy="join-group-button" :loading="isJoining" @click="onJoinGroup" v-if="!useGroupStore().getterGroupHasGroupMember()" no-caps size="md"
-               label="Join this group" color="primary"/>
-        <q-btn-dropdown outline size="md" data-cy="leave-group-button" v-else-if="useGroupStore().getterGroupHasGroupMember()" align="center" no-caps label="You're a member">
+        <q-btn data-cy="join-group-button" :loading="isJoining" @click="onJoinGroup"
+          v-if="!useGroupStore().getterGroupHasGroupMember()" no-caps size="md" label="Join this group"
+          color="primary" />
+        <q-btn-dropdown outline size="md" data-cy="leave-group-button"
+          v-else-if="useGroupStore().getterGroupHasGroupMember() && !useGroupStore().getterUserGroupRole(GroupRole.Owner)"
+          align="center" no-caps :label="`You're a ${group?.groupMember?.groupRole.name}`">
           <q-list>
-            <MenuItemComponent label="Leave this group" icon="sym_r_report" @click="onLeaveGroup"/>
+            <MenuItemComponent label="Leave this group" icon="sym_r_report" @click="onLeaveGroup" />
           </q-list>
         </q-btn-dropdown>
       </div>
@@ -82,6 +92,4 @@ const onLeaveGroup = () => {
   </div>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>

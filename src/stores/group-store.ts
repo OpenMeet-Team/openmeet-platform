@@ -7,6 +7,8 @@ const { error } = useNotification()
 export const useGroupStore = defineStore('group', {
   state: () => ({
     group: null as GroupEntity | null,
+    isLoading: false,
+    errorMessage: null as string | null,
     groupMembers: null as GroupMemberEntity[] | null
   }),
 
@@ -18,19 +20,21 @@ export const useGroupStore = defineStore('group', {
       return state.group?.groupMember?.groupRole?.name === role
     },
     getterUserGroupPermission: (state) => (permission: string) => {
-      // return state.group?.userGroupRole?.permissions?.includes(permission) || false
-      return state.group?.groupMember?.groupPermissions?.some(p => p.name === permission)
+      return state.group?.groupMember?.groupRole?.groupPermissions?.some(p => p.name === permission)
     }
   },
 
   actions: {
     async actionGetGroup (id: string) {
+      this.isLoading = true
       try {
         const res = await groupsApi.getById(id)
         this.group = res.data
       } catch (err) {
         console.log(err)
-        error('Failed to fetch group data')
+        this.errorMessage = 'Failed to fetch group data'
+      } finally {
+        this.isLoading = false
       }
     },
     async actionGetGroupMembers (id: string) {

@@ -1,6 +1,6 @@
 import { useQuasar } from 'quasar'
 import EventFormDialogComponent from 'src/components/event/EventFormDialogComponent.vue'
-import { EventEntity, GroupEntity } from 'src/types'
+import { EventEntity, GroupEntity, GroupStatus } from 'src/types'
 import { groupsApi } from 'src/api/groups.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
@@ -67,7 +67,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return groupsApi.update(event.id, { status: 'draft' }).then(() => {
+      return groupsApi.update(event.id, { status: GroupStatus.Draft }).then(() => {
         success('Event cancelled!')
       })
     })

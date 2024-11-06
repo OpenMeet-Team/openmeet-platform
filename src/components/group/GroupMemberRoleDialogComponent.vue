@@ -23,6 +23,21 @@
                     <q-radio v-model="role" val="member" label="Member" />
                     <q-radio v-model="role" val="guest" label="Guest" />
                 </div>
+                <p class="text-body1 q-mt-md" v-if="role === 'member'">
+                    Members can view discussions, events, and members. They can also create discussions.
+                </p>
+                <p class="text-body1 q-mt-md" v-else-if="role === 'guest'">
+                    Guests can not view discussions, events, or members. They can only request to join the group and wait for approval.
+                </p>
+                <p class="text-body1 q-mt-md" v-else-if="role === 'moderator'">
+                    Moderators can manage members, discussions, events, and the group.
+                </p>
+                <p class="text-body1 q-mt-md" v-else-if="role === 'admin'">
+                    Admins can manage members, discussions, events, and the group. They can also invite new members.
+                </p>
+                <p class="text-body1 q-mt-md" v-else>
+                    You can't change the role of the owner.
+                </p>
             </q-card-section>
 
             <q-card-actions align="right">
@@ -37,7 +52,7 @@
 import { useDialogPluginComponent } from 'quasar'
 import { groupsApi } from 'src/api'
 import { useGroupStore } from 'src/stores/group-store'
-import { GroupEntity, GroupMemberEntity, GroupRoleType } from 'src/types'
+import { GroupEntity, GroupMemberEntity, GroupRole } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { ref } from 'vue'
 
@@ -54,7 +69,7 @@ defineEmits([
 
 const { dialogRef } = useDialogPluginComponent()
 
-const role = ref<GroupRoleType>(props.member.groupRole.name)
+const role = ref<GroupRole>(props.member.groupRole.name)
 const isLoading = ref(false)
 
 const onUpdateRole = () => {

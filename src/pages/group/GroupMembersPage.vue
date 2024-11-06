@@ -1,7 +1,7 @@
 <template>
-  <div class="q-pa-md" v-if="group" style="max-width: 600px; margin: 0 auto;">
+  <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page">
     <SpinnerComponent v-if="isLoading"/>
-    <template v-if="!isLoading && group">
+    <template v-if="!isLoading && group && useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)">
       <SubtitleComponent label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-sm-8">
@@ -39,7 +39,7 @@
           <q-item-section top side>
           <div class="text-grey-8 q-gutter-xs">
             <q-btn size="md" @click="navigateToChat({ member: member.user.shortId || '' })" round flat icon="sym_r_chat" />
-            <q-btn size="md" round flat icon="sym_r_more_vert" v-if="(useGroupStore().getterUserGroupRole('owner') || useGroupStore().getterUserGroupPermission('manageMembership')) && member.groupRole.name !== 'owner'">
+            <q-btn size="md" round flat icon="sym_r_more_vert" :disable="!((useGroupStore().getterUserGroupRole(GroupRole.Owner) || useGroupStore().getterUserGroupPermission(GroupPermission.ManageMembers)) && member.groupRole.name !== GroupRole.Owner)">
               <q-menu>
                 <q-list>
                   <MenuItemComponent label="Change group role" @click="openGroupMemberRoleDialog(group, member)" icon="sym_r_edit"/>
@@ -53,6 +53,7 @@
       </q-list>
       <NoContentComponent v-if="!filteredMembers?.length" :label="getNoContentMessage" icon="sym_r_group"/>
     </template>
+    <NoContentComponent v-else label="You don't have permission to see this page" icon="sym_r_group"/>
   </div>
 </template>
 
@@ -62,17 +63,17 @@ import { useGroupStore } from 'stores/group-store.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { formatDate } from 'src/utils/dateUtils'
-import { GroupRoleType } from 'src/types'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation'
 import { useGroupDialog } from 'src/composables/useGroupDialog'
+import { GroupPermission, GroupRole } from 'src/types'
 
 const group = computed(() => useGroupStore().group)
 const groupMembers = computed(() => useGroupStore().group?.groupMembers)
 const isLoading = ref<boolean>(false)
 const searchQuery = ref('')
-const roleFilter = ref<GroupRoleType | ''>('')
+const roleFilter = ref<GroupRole | ''>('')
 
 const { navigateToMember, navigateToChat } = useNavigation()
 const { openGroupMemberRoleDialog, openGroupMemberDeleteDialog } = useGroupDialog()
@@ -104,7 +105,11 @@ const getNoContentMessage = computed(() => {
 
 onMounted(() => {
   isLoading.value = true
-  if (group.value) useGroupStore().actionGetGroupMembers(String(group.value.id)).finally(() => (isLoading.value = false))
+  if (useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)) {
+    if (group.value) useGroupStore().actionGetGroupMembers(String(group.value.id)).finally(() => (isLoading.value = false))
+  } else {
+    isLoading.value = false
+  }
 })
 
 const capitalizeFirstLetter = (string: string) => {

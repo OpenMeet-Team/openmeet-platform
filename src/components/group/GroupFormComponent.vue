@@ -40,8 +40,13 @@
         { label: 'Authenticated Users', value: 'authenticated' },
         { label: 'People You Invite', value: 'private' }
       ]" filled />
+    <div>
+      <p v-if="group.visibility === GroupVisibility.Private">Require approval for new group members. Not found in search and membership availabe only with group invite. </p>
+      <p v-if="group.visibility === GroupVisibility.Authenticated">Members must be authenticated. Found in search for authenticated users and can be joined by anyone with the link.</p>
+      <p v-if="group.visibility === GroupVisibility.Public">Everyone can join. Found in search.</p>
+    </div>
 
-    <!-- <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle> -->
+    <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
 
     <div class="row justify-end q-gutter-sm">
       <q-btn data-cy="group-cancel" flat label="Cancel" no-caps @click="$emit('close')" />
@@ -53,7 +58,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, FileEntity, GroupEntity } from 'src/types'
+import { CategoryEntity, FileEntity, GroupEntity, GroupStatus, GroupVisibility } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { categoriesApi } from 'src/api/categories.ts'
 import { groupsApi } from 'src/api/groups.ts'
@@ -72,8 +77,9 @@ const group = ref<GroupEntity>({
   description: '',
   categories: [],
   location: '',
-  requireApproval: false,
-  visibility: 'private'
+  requireApproval: true,
+  status: GroupStatus.Draft,
+  visibility: GroupVisibility.Private
 })
 
 const loading = ref(false)
@@ -139,7 +145,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
-  group.value.status = 'published'
+  group.value.status = GroupStatus.Published
   const groupPayload = {
     ...group.value
   }

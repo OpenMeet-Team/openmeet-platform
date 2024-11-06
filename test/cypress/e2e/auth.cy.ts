@@ -5,9 +5,7 @@ describe('Auth', () => {
     beforeEach(() => {
       cy.intercept('POST', '/api/auth/login', {
         statusCode: 200
-      }).as('login').then((response) => {
-        console.log(response)
-      })
+      }).as('login')
     })
 
     it('should login', () => {

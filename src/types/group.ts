@@ -3,8 +3,25 @@ import { UserEntity } from 'src/types/user.ts'
 import { EventEntity } from 'src/types/event.ts'
 
 export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
-export type GroupStatusType = 'draft' | 'pending' | 'published'
-export type GroupRoleType = 'owner' | 'admin' | 'moderator' | 'member' | 'guest'
+export enum GroupVisibility {
+  Public = 'public',
+  Authenticated = 'authenticated',
+  Private = 'private'
+}
+
+export enum GroupStatus {
+  Draft = 'draft',
+  Pending = 'pending',
+  Published = 'published'
+}
+
+export enum GroupRole {
+  Owner = 'owner',
+  Admin = 'admin',
+  Moderator = 'moderator',
+  Member = 'member',
+  Guest = 'guest'
+}
 
 export interface GroupCategoryEntity extends CategoryEntity {}
 
@@ -17,7 +34,8 @@ export interface GroupPermissionEntity {
 
 export interface GroupRoleEntity {
   id: number
-  name: GroupRoleType,
+  name: GroupRole,
+  groupPermissions: GroupPermissionEntity[]
 }
 export interface GroupMemberEntity {
   id: number
@@ -51,8 +69,8 @@ export interface GroupEntity {
   groupMembers?: GroupMemberEntity[]
   events?: EventEntity[]
   discussions?: GroupDiscussionEntity[]
-  visibility?: GroupVisibilityType
-  status?: GroupStatusType,
+  visibility: GroupVisibility
+  status: GroupStatus,
   createdBy?: UserEntity
   userGroupRole?: never
   groupMembersCount?: number
@@ -66,9 +84,21 @@ export const GroupRoles = {
   MEMBER: 'member'
 }
 
-export const GroupPermissions = {
-  CAN_CHAT: 'can_chat',
-  CAN_POST_FILES: 'can_post_files'
+export enum GroupPermission {
+  ManageGroup = 'MANAGE_GROUP',
+  ManageMembers = 'MANAGE_MEMBERS',
+  ManageEvents = 'MANAGE_EVENTS',
+  ManageDiscussions = 'MANAGE_DISCUSSIONS',
+  ManageReports = 'MANAGE_REPORTS',
+  ManageBilling = 'MANAGE_BILLING',
+  CreateEvent = 'CREATE_EVENT',
+  MessageDiscussion = 'MESSAGE_DISCUSSION',
+  MessageMember = 'MESSAGE_MEMBER',
+  SeeMembers = 'SEE_MEMBERS',
+  SeeEvents = 'SEE_EVENTS',
+  SeeDiscussions = 'SEE_DISCUSSIONS',
+  SeeGroup = 'SEE_GROUP',
+  DeleteGroup = 'DELETE_GROUP'
 }
 
 export interface GroupPaginationEntity extends Pagination<GroupEntity> {}
