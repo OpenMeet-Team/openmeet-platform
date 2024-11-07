@@ -29,7 +29,7 @@ export default boot(({ app, router }) => {
     const token = authStore?.token
 
     if (APP_TENANT_ID) {
-      config.headers['Tenant-ID'] = APP_TENANT_ID
+      config.headers['X-Tenant-ID'] = APP_TENANT_ID
     }
 
     if (token && !config.headers.Authorization) {
