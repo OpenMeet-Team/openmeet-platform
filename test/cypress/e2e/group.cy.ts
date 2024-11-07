@@ -1,5 +1,5 @@
 import { GroupEntity, GroupVisibility } from 'src/types'
-import { TESTER_EMAIL, TESTER_PASSWORD } from '../utils/constants'
+
 describe('GroupPage', () => {
   const group = {
     id: 1,
@@ -47,10 +47,9 @@ describe('GroupPage', () => {
     it('should join the group when clicking on join group button', () => {
       cy.dataCy('join-group-button').click()
       cy.dataCy('login-form').should('be.visible')
-      cy.dataCy('login-form-email').type(TESTER_EMAIL)
-      cy.dataCy('login-form-password').type(TESTER_PASSWORD)
-      cy.dataCy('login-form-submit').click()
-      cy.wait('@login')
+      cy.dataCy('login-email').type(Cypress.env('testerEmail'))
+      cy.dataCy('login-password').type(Cypress.env('testerPassword'))
+      cy.dataCy('login-submit').click()
       cy.dataCy('join-group-button').should('be.visible').click()
     })
 

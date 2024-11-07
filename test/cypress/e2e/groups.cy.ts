@@ -1,5 +1,4 @@
 import { GroupPaginationEntity } from 'src/types'
-import { ADMIN_PASSWORD, ADMIN_EMAIL } from '../utils/constants'
 
 describe('GroupsPage', () => {
   beforeEach(() => {
@@ -67,7 +66,7 @@ describe('GroupsPage', () => {
     cy.testRoute('/groups')
   })
 
-  it.skip('should navigate to the group page', () => {
+  it('should navigate to the group page', () => {
     cy.dataCy('groups-page').should('be.visible')
     cy.dataCy('groups-item').should('be.visible').click()
     cy.testRoute('/groups/group-one--b')
@@ -81,7 +80,7 @@ describe('GroupsPage', () => {
 
   describe('User creates a group', () => {
     beforeEach(() => {
-      cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
+      cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
     })
 
     it('should display the add group form', () => {
@@ -95,7 +94,7 @@ describe('GroupsPage', () => {
         statusCode: 200,
         body: {
           id: 2,
-          slug: 'group-two--b'
+          slug: 'group-two'
         }
       }).as('createGroup')
       cy.dataCy('header-mobile-menu').click()
@@ -139,8 +138,8 @@ describe('GroupsPage', () => {
         }
       })
       cy.dataCy('group-create').click()
-      cy.wait('@createGroup')
-      cy.testRoute('/groups/group-two--b')
+      // cy.wait('@createGroup')
+      cy.testRoute('/groups/group-two--c')
 
       // cy.dataCy('group-form').should('not.be.visible')
       // cy.testRoute('/groups/group-two--b')

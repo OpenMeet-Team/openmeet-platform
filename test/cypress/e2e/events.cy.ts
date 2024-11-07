@@ -1,6 +1,6 @@
 import { EventPaginationEntity } from 'src/types'
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from '../utils/constants'
 
+console.log('#######', Cypress.env())
 describe('EventsPage', () => {
   beforeEach(() => {
     cy.intercept('GET', '/api/categories', {}).as('getCategories')
@@ -37,7 +37,7 @@ describe('EventsPage', () => {
 
   describe('User creates an event', () => {
     beforeEach(() => {
-      cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
+      cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
     })
 
     it('should display the add event form', () => {

@@ -1,5 +1,3 @@
-import { TESTER_EMAIL, TESTER_PASSWORD } from '../utils/constants'
-
 describe('Auth', () => {
   describe('Login', () => {
     beforeEach(() => {
@@ -12,11 +10,11 @@ describe('Auth', () => {
       cy.visit('/auth/login').then(() => {
         cy.dataCy('login-card').should('be.visible')
         cy.dataCy('login-form').should('be.visible')
-        cy.dataCy('login-email').should('be.visible').type(TESTER_EMAIL)
-        cy.dataCy('login-password').should('be.visible').type(TESTER_PASSWORD)
+        cy.dataCy('login-email').should('be.visible').type(Cypress.env('testerEmail'))
+        cy.dataCy('login-password').should('be.visible').type(Cypress.env('testerPassword'))
         cy.dataCy('login-submit').should('be.visible')
         cy.dataCy('login-submit').click()
-        cy.wait('@login')
+        cy.testRoute('/')
       })
     })
   })
@@ -33,7 +31,7 @@ describe('Auth', () => {
         cy.dataCy('register-form').should('be.visible')
         cy.dataCy('register-first-name').should('be.visible').type('John')
         cy.dataCy('register-last-name').should('be.visible').type('Doe')
-        cy.dataCy('register-email').should('be.visible').type(TESTER_EMAIL)
+        cy.dataCy('register-email').should('be.visible').type(Cypress.env('testerEmail'))
         cy.dataCy('register-password').should('be.visible').type('12345678')
         cy.dataCy('register-confirm-password').should('be.visible').type('12345678')
         cy.dataCy('register-accept').should('be.visible').check()
@@ -51,7 +49,7 @@ describe('Auth', () => {
 
       cy.visit('/auth/forgot-password')
       cy.dataCy('forgot-password-form').should('be.visible')
-      cy.dataCy('forgot-password-email').should('be.visible').type(TESTER_EMAIL)
+      cy.dataCy('forgot-password-email').should('be.visible').type(Cypress.env('testerEmail'))
       cy.dataCy('forgot-password-submit').should('be.visible').click()
       cy.wait('@forgotPassword').then(() => {
         cy.dataCy('forgot-password-dialog').should('be.visible')

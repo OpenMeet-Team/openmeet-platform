@@ -1,11 +1,3 @@
-// Use `cy.dataCy` custom command for more robust tests
-// See https://docs.cypress.io/guides/references/best-practices.html#Selecting-Elements
-
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from '../utils/constants'
-
-// ** This file is an example of how to write Cypress tests, you can safely delete it **
-
-// This test will pass when run against a clean Quasar project
 describe('HomePage', () => {
   describe('User Home', () => {
     beforeEach(() => {
@@ -19,7 +11,7 @@ describe('HomePage', () => {
       }).as('getUserHome')
       cy.visit('/').then(() => {
         cy.wait('@getGuestHome')
-        cy.login(ADMIN_EMAIL, ADMIN_PASSWORD)
+        cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
       })
     })
 

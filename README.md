@@ -9,9 +9,16 @@ yarn
 npm install
 ```
 
+### Copy the environment variables and set the values
+```bash
+cp .env.example .env
+```
+
 ### Start the app in development mode (hot-code reloading, error reporting, etc.)
 ```bash
-quasar dev
+yarn dev
+# or
+npm run dev
 ```
 
 
@@ -26,8 +33,19 @@ npm run lint
 
 ### Build the app for production
 ```bash
-quasar build
+yarn build
+# or
+npm run build
 ```
+
+### Test the app
+```bash
+yarn test
+# or
+npm run test
+```
+
+
 
 ### Customize the configuration
 See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js).
