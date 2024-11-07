@@ -39,13 +39,12 @@ const onCreateEvent = (group: GroupEntity) => {
     <div v-if="!useHomeStore().loading">
       <!-- Content for authorized users -->
       <div>
-        <h2>{{ useAuthStore().getUser.name ? `Welcome back, ${useAuthStore().getUser.name}!` : 'Welcome!' }}</h2>
+        <div class="text-h2">{{ useAuthStore().getUser.name ? `Welcome back, ${useAuthStore().getUser.name}!` : 'Welcome!' }}</div>
 
-        <div class="row q-col-gutter-xl">
-          <div class="col-12 col-sm-7">
+        <div class="row q-col-gutter-xl q-mt-md">
+          <div class="col-12 col-md-7">
             <!-- Groups you organize -->
-            <SubtitleComponent class="q-px-md" label="Groups you organize" :count="userOrganizedGroups?.length"
-              :to="{ name: 'DashboardGroupsPage' }" />
+            <SubtitleComponent class="q-px-md" label="Groups you organize" :to="{ name: 'DashboardGroupsPage' }" />
             <q-card flat bordered class="col column q-mb-md">
               <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
@@ -69,7 +68,7 @@ const onCreateEvent = (group: GroupEntity) => {
                 :to="{ name: 'DashboardGroupsPage' }" label="You have no groups yet" />
             </q-card>
           </div>
-          <div class="col-12 col-sm-5">
+          <div class="col-12 col-md-5">
             <!-- Next event you're hosting -->
             <SubtitleComponent class="q-px-md" label="Next events you're hosting" :to="{ name: 'DashboardEventsPage' }" />
             <q-card flat bordered class="q-mb-md">
@@ -119,10 +118,10 @@ const onCreateEvent = (group: GroupEntity) => {
 
         <div class="text-h5 text-bold q-my-xl q-px-md">Upcoming events</div>
         <div class="row q-col-gutter-xl">
-          <div class="col-12 col-sm-6 col-md-4">
+          <div class="col-12 col-md-4">
 
             <!-- Calendar -->
-            <q-card flat bordered class="q-mb-xl">
+            <q-card flat bordered class="q-mb-xl gt-sm">
               <q-date class="full-width" model-value="2024/10/11"
                 :events="['2024/10/01', '2024/11/05', '2024/09/06', '2024/12/09', '2025/01/23']"
                 :event-color="(date: string) => (date[9] as any % 2 === 0) ? 'teal' : 'orange'" />
@@ -161,7 +160,7 @@ const onCreateEvent = (group: GroupEntity) => {
               <NoContentComponent v-else icon="sym_r_interests" label="You have no interests" />
             </q-card>
           </div>
-          <div class="col-12 col-sm-6 col-md-8">
+          <div class="col-12 col-md-8">
             <!-- Upcoming events list -->
             <div v-for="event in userUpcomingEvents" :key="event.id" class="col-12 col-sm-6 col-md-4">
               <EventsItemComponent data-cy="upcoming-events-item-component" :event="event" />

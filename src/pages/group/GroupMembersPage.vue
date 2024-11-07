@@ -2,7 +2,7 @@
   <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page">
     <SpinnerComponent v-if="isLoading"/>
     <template v-if="!isLoading && group && useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)">
-      <SubtitleComponent label="All group members" :count="group.groupMembers?.length" hide-link />
+      <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-sm-8">
           <q-input
