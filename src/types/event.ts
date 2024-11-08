@@ -2,11 +2,38 @@ import { CategoryEntity, FileEntity, Pagination } from 'src/types/model.ts'
 import { GroupEntity, GroupMemberEntity } from 'src/types/group.ts'
 import { UserEntity } from 'src/types/user.ts'
 
-export type EventType = 'online' | 'in-person' | 'hybrid'
-export type EventVisibilityType = 'public' | 'authenticated' | 'private'
-export type EventStatusType = 'draft' | 'pending' | 'published'
-export type EventAttendeeRole = 'participant' | 'host' | 'speaker' | 'moderator' | 'guest'
-export type EventAttendeeStatus = 'invited' | 'confirmed' | 'attended' | 'cancelled' | 'rejected';
+export enum EventType {
+  Online = 'online',
+  InPerson = 'in-person',
+  Hybrid = 'hybrid'
+}
+export enum EventVisibility {
+  Public = 'public',
+  Authenticated = 'authenticated',
+  Private = 'private'
+}
+export enum EventStatus {
+  Draft = 'draft',
+  Pending = 'pending',
+  Published = 'published',
+  Cancelled = 'cancelled'
+}
+export enum EventAttendeeRole {
+  Participant = 'participant',
+  Host = 'host',
+  Speaker = 'speaker',
+  Moderator = 'moderator',
+  Guest = 'guest'
+}
+export enum EventAttendeeStatus {
+  Invited = 'invited',
+  Confirmed = 'confirmed',
+  Attended = 'attended',
+  Cancelled = 'cancelled',
+  Rejected = 'rejected',
+  Maybe = 'maybe',
+  Pending = 'pending'
+}
 
 interface EventCategory extends CategoryEntity {}
 
@@ -39,10 +66,10 @@ export interface EventEntity {
   categories?: EventCategory[] | number[]
   groupId?: number
   group?: GroupEntity
-  visibility?: EventVisibilityType
+  visibility?: EventVisibility
   userId?: number
   user?: UserEntity
-  status?: EventStatusType,
+  status?: EventStatus
   groupMember?: GroupMemberEntity
   attendee?: EventAttendeeEntity
 }

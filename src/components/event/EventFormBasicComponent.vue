@@ -76,6 +76,15 @@
         { label: 'Authenticated Users', value: 'authenticated' },
         { label: 'People You Invite', value: 'private' }
       ]" filled />
+    <p class="text-caption" v-if="eventData.visibility === EventVisibility.Private">
+      If private, the event is hidden from search and accessible only by direct link or group members.
+    </p>
+    <p class="text-caption" v-if="eventData.visibility === EventVisibility.Public">
+      If public, the event is visible to everyone and searchable.
+    </p>
+    <p class="text-caption" v-if="eventData.visibility === EventVisibility.Authenticated">
+      If authenticated, the event is visible to authenticated users and searchable.
+    </p>
 
     <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees" @update:model-value="eventData.maxAttendees = Number($event)"
       label="Limit number of attendees?" />
@@ -96,7 +105,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, FileEntity, GroupEntity } from 'src/types'
+import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity } from 'src/types'
 import LocationComponent from 'components/common/LocationComponent.vue'
 import { useNotification } from 'src/composables/useNotification.ts'
 import UploadComponent from 'components/common/UploadComponent.vue'
@@ -128,9 +137,9 @@ const eventData = ref<EventEntity>({
   slug: '',
   startDate: '',
   id: 0,
-  type: 'in-person',
+  type: EventType.InPerson,
   maxAttendees: 0,
-  visibility: 'public',
+  visibility: EventVisibility.Public,
   categories: []
 })
 
@@ -139,12 +148,12 @@ const onDescriptionInput = (val: string) => {
 }
 
 const onSaveDraft = () => {
-  eventData.value.status = 'draft'
+  eventData.value.status = EventStatus.Draft
   formRef.value?.submit()
 }
 
 const onPublish = () => {
-  eventData.value.status = 'published'
+  eventData.value.status = EventStatus.Published
   formRef.value?.submit()
 }
 
@@ -169,7 +178,7 @@ onMounted(() => {
 
   if (props.editEventId) {
     promises.push(
-      eventsApi.getById(props.editEventId).then(res => {
+      eventsApi.edit(Number(props.editEventId)).then(res => {
         eventData.value = res.data
       })
     )

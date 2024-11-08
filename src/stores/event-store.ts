@@ -13,6 +13,12 @@ export const useEventStore = defineStore('event', {
   }),
 
   getters: {
+    getterAttendeeHasPermission: (state) => (permission: string): boolean => {
+      return !!(state.event?.attendee && permission)
+    },
+    getterGroupMemberHasPermission: (state) => (permission: string): boolean => {
+      return state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission) ?? false
+    },
     getterEventHasHostRole: (state) => (): boolean => {
       return ['owner', 'manager'].includes(state.event?.groupMember?.groupRole?.name ?? '')
     },
@@ -69,14 +75,15 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionAttendEvent (data: Partial<EventAttendeeEntity>) {
+    async actionAttendEvent (id: number, data: Partial<EventAttendeeEntity>) {
       try {
-        const res = await eventsApi.attend(data)
+        const res = await eventsApi.attend(id, data)
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data
           analyticsService.trackEvent('event_attended', { event_id: this.event.id, name: this.event.name })
         }
+        return res.data
       } catch (err) {
         console.log(err)
         error('Failed to join event')
@@ -98,11 +105,15 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionDeleteAttendee (event: EventEntity) {
+    async actionCancelAttending (event: EventEntity) {
       if (event.attendee) {
-        return await eventsApi.cancel(event.attendee.userId, event.id).then((res) => {
+        return await eventsApi.cancelAttending(event.id, event.attendee.userId).then((res) => {
+          if (this.event) {
+            this.event.attendees = this.event.attendees?.filter((attendee) => attendee.id !== event.attendee?.id)
+            this.event.attendee = res.data
+          }
           analyticsService.trackEvent('event_unattended', { event_id: event.id, name: event.name })
-          return res
+          return true
         })
       }
     }

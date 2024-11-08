@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
-import { EventAttendeeEntity, EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeeRole, EventAttendeeStatus, EventEntity } from 'src/types'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { Dark } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -22,12 +22,16 @@ const { openLoginDialog } = useAuthDialog()
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
     openAttendEventDialog(props.event).onOk(() => {
-      useEventStore().actionAttendEvent({
-        eventId: props.event.id,
-        role: 'participant',
-        status: 'confirmed'
-      } as Partial<EventAttendeeEntity>).then(() => {
-        success('You are now attending this event!')
+      useEventStore().actionAttendEvent(props.event.id, {
+        role: EventAttendeeRole.Participant
+      } as Partial<EventAttendeeEntity>).then(attendee => {
+        if (attendee) {
+          if (attendee.status === EventAttendeeStatus.Pending) {
+            success('Your attendance is pending approval')
+          } else {
+            success('You are now attending this event!')
+          }
+        }
       })
     })
   } else {
@@ -38,15 +42,9 @@ const onAttendClick = () => {
 const onEditAttendenceClick = () => {
   openCancelAttendingEventDialog().onOk(() => {
     if (props.event.attendee) {
-      useEventStore().actionDeleteAttendee(props.event).then(() => {
+      useEventStore().actionCancelAttending(props.event).then(() => {
         success('Event attendance cancelled!')
       })
-      // useEventStore().actionUpdateAttendee({
-      //   id: props.event.attendee?.id,
-      //   status: 'cancelled'
-      // } as Partial<EventAttendeeEntity>).then(() => {
-      //   success('Event attendance cancelled!')
-      // })
     }
   })
 }

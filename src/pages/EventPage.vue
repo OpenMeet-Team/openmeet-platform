@@ -74,9 +74,9 @@
           <div style="position: sticky; top: 70px">
             <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterEventHasHostRole()">
               <q-card-section>
-                <q-btn-dropdown align="center" no-caps label="Organiser tools">
+                <q-btn-dropdown ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
-                    <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
+                    <MenuItemComponent label="Edit event" icon="sym_r_edit_note" v-if="useEventStore().getterAttendeeHasPermission('test')"
                                        @click="router.push({ name: 'DashboardEventPage', params: { id: event.id }})"/>
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
                                        @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id }})"/>
