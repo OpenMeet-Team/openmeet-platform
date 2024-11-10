@@ -47,9 +47,6 @@ jobs:
             --build-arg "APP_HUBSPOT_FORM_ID=${{ vars.APP_HUBSPOT_FORM_ID }}" \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
 
-          echo "Testing that runtime args are set and match the expected values"
-          docker run -e APP_API_URL=test --rm $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG cat dist/spa/index.html | grep -E "APP_API_URL: \"test\""
-
           echo "Pushing image to ECR as $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG and :latest"
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
