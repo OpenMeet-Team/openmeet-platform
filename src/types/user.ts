@@ -3,8 +3,9 @@ import { GroupEntity, GroupMemberEntity } from './group'
 import { EventEntity } from './event'
 
 export enum UserRole {
-  ADMIN = 'admin',
-  USER = 'user',
+  Admin = 'admin',
+  User = 'user',
+  Editor = 'editor'
 }
 
 export enum UserPermission {
@@ -15,8 +16,18 @@ export enum UserPermission {
   MANAGE_USERS = 'manage_users'
 }
 
+export interface UserPermissionEntity {
+  name: UserPermission
+}
+
+export interface UserRoleEntity {
+  name: UserRole
+  permissions: UserPermissionEntity[]
+}
+
 export interface UserEntity {
   id: number
+  ulid: string
   email: string
   name?: string
   firstName?: string
@@ -26,10 +37,9 @@ export interface UserEntity {
   // refreshToken: string
   photo?: FileEntity
   bio?: string
-  role?: UserRole
+  role?: UserRoleEntity
   groups?: GroupEntity[]
   events?: EventEntity[]
   groupMembers?: GroupMemberEntity[]
-  permissions?: UserPermission[]
   subCategory?: SubCategoryEntity[]
 }

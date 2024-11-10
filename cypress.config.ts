@@ -17,11 +17,12 @@ export default defineConfig({
       return config
     },
     env: {
-      testingTenantId: process.env.TESTING_TENANT_ID,
-      testerEmail: process.env.TESTER_EMAIL,
-      testerPassword: process.env.TESTER_PASSWORD,
-      adminEmail: process.env.ADMIN_EMAIL,
-      adminPassword: process.env.ADMIN_PASSWORD
+      // These is place to set cypress.env() values
+      APP_TENANT_ID: process.env.APP_TESTING_TENANT_ID || process.env.APP_TENANT_ID,
+      APP_TESTING_USER_EMAIL: process.env.APP_TESTING_USER_EMAIL,
+      APP_TESTING_USER_PASSWORD: process.env.APP_TESTING_USER_PASSWORD,
+      APP_TESTING_ADMIN_EMAIL: process.env.APP_TESTING_ADMIN_EMAIL,
+      APP_TESTING_ADMIN_PASSWORD: process.env.APP_TESTING_ADMIN_PASSWORD
     },
     baseUrl: 'http://localhost:8087/',
     supportFile: 'test/cypress/support/e2e.ts',

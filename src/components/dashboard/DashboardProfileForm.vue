@@ -125,6 +125,7 @@ const { error, success } = useNotification()
 
 const form = ref<Profile>({
   id: 0,
+  ulid: '',
   email: ''
 })
 

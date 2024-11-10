@@ -5,7 +5,7 @@ import { Router } from 'vue-router'
 let posthog: PostHog
 
 // Check for the PostHog key before importing
-const POSTHOG_KEY = process.env.APP_POSTHOG_KEY || window.APP_CONFIG?.APP_POSTHOG_KEY
+const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
 
 if (POSTHOG_KEY) {
   import('posthog-js').then((module) => {
@@ -15,7 +15,7 @@ if (POSTHOG_KEY) {
       api_host: 'https://us.i.posthog.com',
       person_profiles: 'identified_only'
     })
-    posthog.group('tenant_id', process.env.APP_TENANT_ID || window.APP_CONFIG?.APP_TENANT_ID || '')
+    posthog.group('tenant_id', process.env.APP_TENANT_ID)
   })
 }
 
@@ -23,7 +23,7 @@ export default ({ router }: { router: Router }) => {
   if (posthog) {
     const authStore = useAuthStore()
     if (authStore.getUser) {
-      posthog.identify(authStore.getUserId, {
+      posthog.identify(authStore.getUser.shortId, {
         email: authStore.getUser.email,
         name: authStore.getUser.name
       })

@@ -75,6 +75,7 @@ export interface GroupEntity {
   userGroupRole?: never
   groupMembersCount?: number
   requireApproval?: boolean
+  requireGroupMembership?: boolean
   groupMember?: GroupMemberEntity
 }
 

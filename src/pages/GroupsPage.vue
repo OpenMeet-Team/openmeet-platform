@@ -15,14 +15,14 @@
       </div>
     </div>
 
-    <template v-if="groups">
-      <div v-if="!useGroupsStore().isLoading && groups?.data?.length">
+    <template v-if="!useGroupsStore().isLoading">
+      <div v-if="groups?.data?.length">
         <div v-for="group in groups.data" :key="group.id" class="col-12 col-sm-6 col-md-4">
           <GroupsItemComponent data-cy="groups-item" :group="group"/>
         </div>
       </div>
 
-      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups.data?.length" label="No groups found matching your criteria" icon="sym_r_search_off"/>
+      <NoContentComponent v-if="!useGroupsStore().isLoading && !groups?.data?.length" label="No groups found matching your criteria" icon="sym_r_search_off"/>
 
       <q-pagination v-if="!useGroupsStore().isLoading && groups && groups.totalPages && groups.totalPages > 1"
                     v-model="currentPage"

@@ -11,7 +11,7 @@ describe('HomePage', () => {
       }).as('getUserHome')
       cy.visit('/').then(() => {
         cy.wait('@getGuestHome')
-        cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
+        cy.login(Cypress.env('APP_TESTING_ADMIN_EMAIL'), Cypress.env('APP_TESTING_ADMIN_PASSWORD'))
       })
     })
 

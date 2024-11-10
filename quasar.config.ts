@@ -26,7 +26,6 @@ export default configure((ctx) => {
       'axios',
       'analytics',
       'global-components',
-      'config',
       'posthog'
     ],
 
@@ -56,12 +55,14 @@ export default configure((ctx) => {
         node: 'node20'
       },
       env: {
-        // Build time variables
+        // This is place to set build time variables
+        APP_API_URL: (process.env.QENV === 'test' && process.env.APP_TESTING_API_URL) || process.env.APP_API_URL,
+        APP_TENANT_ID: (process.env.QENV === 'test' && process.env.APP_TESTING_TENANT_ID) || process.env.APP_TENANT_ID,
+        APP_ENV: process.env.QENV,
         APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
         APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
         APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY,
         APP_VERSION: pkg.version
-        // COMMIT_HASH: commitHash
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
@@ -111,8 +112,8 @@ export default configure((ctx) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
-      port: Number(process.env.DEV_SERVER_PORT) || 8080,
-      open: Boolean(process.env.DEV_SERVER_OPEN) // opens browser window automatically
+      port: Number(process.env.APP_DEV_SERVER_PORT) || 8080,
+      open: Boolean(process.env.APP_DEV_SERVER_OPEN) // opens browser window automatically
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

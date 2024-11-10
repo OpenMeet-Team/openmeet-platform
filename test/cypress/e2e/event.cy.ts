@@ -10,7 +10,7 @@ describe('EventPage', () => {
     cy.visit('/events/1')
   })
 
-  it.skip('--- fetches the event', () => {
+  it.skip('should fetch the event', () => {
     cy.wait('@getEvent')
   })
 })

@@ -7,7 +7,9 @@ import {
   StoreAuthLoginRequest,
   StoreAuthRegisterRequest,
   StoreAuthRestorePasswordRequest,
-  UserRole
+  UserEntity,
+  UserRole,
+  UserPermission
 } from 'src/types'
 import analyticsService from 'src/services/analyticsService'
 
@@ -16,24 +18,18 @@ export const useAuthStore = defineStore('authStore', {
     token: LocalStorage.getItem('token') || '',
     refreshToken: LocalStorage.getItem('refreshToken') || '',
     tokenExpires: LocalStorage.getItem('tokenExpires') || '',
-    user: JSON.parse(LocalStorage.getItem('user') || '{}'),
-    role: UserRole.USER,
+    user: JSON.parse(LocalStorage.getItem('user') || '{}') as UserEntity,
+    role: UserRole.User,
     permissions: [] as string[]
   }),
   getters: {
     isAuthenticated: state => !!state.token,
     getUser: state => state.user,
-    hasRole: (state) => (role: string) => state.role === role || state.role === UserRole.ADMIN,
-    hasPermission: (state) => (permission: string) => state.permissions.includes(permission),
+    hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
+    hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id
   },
   actions: {
-    actionGetRights () {
-      // return authApi.getRights().then(res => {
-      //   this.actionSetRole(res.data.role)
-      //   this.actionSetPermissions(res.data.permissions)
-      // })
-    },
     async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
         const response = await authApi.login(credentials)
@@ -109,7 +105,7 @@ export const useAuthStore = defineStore('authStore', {
       this.user = user
       LocalStorage.setItem('user', JSON.stringify(user))
 
-      analyticsService.identify(this.user.id, {
+      analyticsService.identify(this.user.ulid, {
         email: this.user.email,
         name: this.user.name
       })
@@ -118,7 +114,7 @@ export const useAuthStore = defineStore('authStore', {
     actionClearAuth () {
       this.token = ''
       this.refreshToken = ''
-      this.user = {}
+      this.user = {} as UserEntity
       LocalStorage.removeItem('token')
       LocalStorage.removeItem('refreshToken')
       LocalStorage.removeItem('tokenExpires')

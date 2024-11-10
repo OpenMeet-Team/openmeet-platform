@@ -1,6 +1,6 @@
 {
   "name": "openmeet",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Building Communities",
   "productName": "OpenMeet",
   "author": "Stan Khatko <stanislavkhatko@gmail.com>",
@@ -8,17 +8,17 @@
   "private": true,
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
-    "dev": "quasar dev",
-    "build": "quasar build",
+    "dev": "QENV=development quasar dev",
+    "build": "QENV=production quasar build",
     "deploy": "vercel --prod",
     "test": "yarn test:unit:ci && yarn test:e2e:ci",
-    "test:unit:ui": "vitest --ui",
-    "test:unit": "vitest",
-    "test:unit:ci": "vitest run",
-    "test:e2e": "cross-env NODE_ENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress open --e2e\"",
-    "test:e2e:ci": "cross-env NODE_ENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress run --e2e\"",
-    "test:component": "cross-env NODE_ENV=test cypress open --component",
-    "test:component:ci": "cross-env NODE_ENV=test cypress run --component"
+    "test:unit:ui": "QENV=test vitest --ui",
+    "test:unit": "QENV=test vitest",
+    "test:unit:ci": "QENV=test vitest run",
+    "test:e2e": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress open --e2e\"",
+    "test:e2e:ci": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress run --e2e\"",
+    "test:component": "cross-env QENV=test cypress open --component",
+    "test:component:ci": "cross-env QENV=test cypress run --component"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.13",

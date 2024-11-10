@@ -47,8 +47,8 @@ describe('GroupPage', () => {
     it('should join the group when clicking on join group button', () => {
       cy.dataCy('join-group-button').click()
       cy.dataCy('login-form').should('be.visible')
-      cy.dataCy('login-email').type(Cypress.env('testerEmail'))
-      cy.dataCy('login-password').type(Cypress.env('testerPassword'))
+      cy.dataCy('login-email').type(Cypress.env('APP_TESTING_USER_EMAIL'))
+      cy.dataCy('login-password').type(Cypress.env('APP_TESTING_USER_PASSWORD'))
       cy.dataCy('login-submit').click()
       cy.dataCy('join-group-button').should('be.visible').click()
     })

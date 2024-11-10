@@ -16,21 +16,22 @@ declare module 'vue' {
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-const api = axios.create({ baseURL: process.env.APP_API_URL || window.APP_CONFIG?.APP_API_URL })
+// if testing set from env, otherwise use default tenant id
+console.log('###### appEnv', process.env.APP_ENV)
+console.log('###### tenantId', process.env.APP_TENANT_ID)
+console.log('###### appApiUrl', process.env.APP_API_URL)
+
+const api = axios.create({ baseURL: process.env.APP_API_URL })
 const { error } = useNotification()
 export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
-
   app.config.globalProperties.$axios = axios
 
   api.interceptors.request.use((config) => {
-    const APP_TENANT_ID = process.env.APP_TENANT_ID || window.APP_CONFIG?.APP_TENANT_ID
     const authStore = useAuthStore()
     const token = authStore?.token
 
-    if (APP_TENANT_ID) {
-      config.headers['X-Tenant-ID'] = APP_TENANT_ID
-    }
+    config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
 
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`

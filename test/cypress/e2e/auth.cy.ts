@@ -10,8 +10,8 @@ describe('Auth', () => {
       cy.visit('/auth/login').then(() => {
         cy.dataCy('login-card').should('be.visible')
         cy.dataCy('login-form').should('be.visible')
-        cy.dataCy('login-email').should('be.visible').type(Cypress.env('testerEmail'))
-        cy.dataCy('login-password').should('be.visible').type(Cypress.env('testerPassword'))
+        cy.dataCy('login-email').should('be.visible').type(Cypress.env('APP_TESTING_USER_EMAIL'))
+        cy.dataCy('login-password').should('be.visible').type(Cypress.env('APP_TESTING_USER_PASSWORD'))
         cy.dataCy('login-submit').should('be.visible')
         cy.dataCy('login-submit').click()
         cy.testRoute('/')
@@ -31,7 +31,7 @@ describe('Auth', () => {
         cy.dataCy('register-form').should('be.visible')
         cy.dataCy('register-first-name').should('be.visible').type('John')
         cy.dataCy('register-last-name').should('be.visible').type('Doe')
-        cy.dataCy('register-email').should('be.visible').type(Cypress.env('testerEmail'))
+        cy.dataCy('register-email').should('be.visible').type(Cypress.env('APP_TESTING_USER_EMAIL'))
         cy.dataCy('register-password').should('be.visible').type('12345678')
         cy.dataCy('register-confirm-password').should('be.visible').type('12345678')
         cy.dataCy('register-accept').should('be.visible').check()
@@ -49,7 +49,7 @@ describe('Auth', () => {
 
       cy.visit('/auth/forgot-password')
       cy.dataCy('forgot-password-form').should('be.visible')
-      cy.dataCy('forgot-password-email').should('be.visible').type(Cypress.env('testerEmail'))
+      cy.dataCy('forgot-password-email').should('be.visible').type(Cypress.env('APP_TESTING_USER_EMAIL'))
       cy.dataCy('forgot-password-submit').should('be.visible').click()
       cy.wait('@forgotPassword').then(() => {
         cy.dataCy('forgot-password-dialog').should('be.visible')
@@ -67,7 +67,7 @@ describe('Auth', () => {
 
       cy.visit('/auth/password-change')
       cy.dataCy('password-change-form').should('be.visible')
-      cy.dataCy('password-change-password').should('be.visible').type('12345678')
+      cy.dataCy('password-change-password').should('be.visible').type('random-password-string')
       cy.dataCy('password-change-submit').should('be.visible').click()
       cy.wait('@changePassword').then(() => {
         cy.dataCy('password-change-dialog').should('be.visible')

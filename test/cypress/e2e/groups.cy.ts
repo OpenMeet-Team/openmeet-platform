@@ -68,7 +68,7 @@ describe('GroupsPage', () => {
 
   it('should navigate to the group page', () => {
     cy.dataCy('groups-page').should('be.visible')
-    cy.dataCy('groups-item').should('be.visible').click()
+    cy.dataCy('groups-item-image').first().click()
     cy.testRoute('/groups/group-one--b')
   })
 
@@ -80,7 +80,7 @@ describe('GroupsPage', () => {
 
   describe('User creates a group', () => {
     beforeEach(() => {
-      cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
+      cy.login(Cypress.env('APP_TESTING_ADMIN_EMAIL'), Cypress.env('APP_TESTING_ADMIN_PASSWORD'))
     })
 
     it('should display the add group form', () => {

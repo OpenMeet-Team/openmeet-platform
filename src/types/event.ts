@@ -70,6 +70,9 @@ export interface EventEntity {
   userId?: number
   user?: UserEntity
   status?: EventStatus
+  requireApproval?: boolean
+  approvalQuestion?: string
+  allowWaitlist?: boolean
   groupMember?: GroupMemberEntity
   attendee?: EventAttendeeEntity
 }

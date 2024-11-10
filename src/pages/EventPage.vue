@@ -72,6 +72,8 @@
         </div>
         <div class="col-12 col-md-4">
           <div style="position: sticky; top: 70px">
+
+            <!-- Organiser tools -->
             <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterEventHasHostRole()">
               <q-card-section>
                 <q-btn-dropdown ripple flat align="center" no-caps label="Organiser tools">

@@ -1,9 +1,17 @@
 import { EventPaginationEntity } from 'src/types'
 
-console.log('#######', Cypress.env())
+console.log('####### all cypress', Cypress.env())
 describe('EventsPage', () => {
   beforeEach(() => {
-    cy.intercept('GET', '/api/categories', {}).as('getCategories')
+    cy.intercept('GET', '/api/categories', {
+      statusCode: 200,
+      body: [
+        {
+          id: 1,
+          name: 'Category One'
+        }
+      ]
+    }).as('getCategories')
     cy.intercept('GET', '/api/events', {
       statusCode: 200,
       body: {
@@ -37,13 +45,13 @@ describe('EventsPage', () => {
 
   describe('User creates an event', () => {
     beforeEach(() => {
-      cy.login(Cypress.env('adminEmail'), Cypress.env('adminPassword'))
+      cy.login(Cypress.env('APP_TESTING_ADMIN_EMAIL'), Cypress.env('APP_TESTING_ADMIN_PASSWORD'))
     })
 
     it('should display the add event form', () => {
       cy.dataCy('header-mobile-menu').click()
       cy.dataCy('add-event-button').should('be.visible').click()
-      cy.dataCy('event-form').should('be.visible')
+      cy.dataCy('event-form-dialog').should('be.visible')
     })
 
     it('should create an event', () => {
@@ -112,6 +120,7 @@ describe('EventsPage', () => {
 
           // cy.dataCy('cropper-confirm').click()
         })
+
         cy.dataCy('event-location').should('be.visible').type('Location')
         cy.wait('@getLocations')
         cy.dataCy('event-location').withinSelectMenu({
@@ -120,18 +129,27 @@ describe('EventsPage', () => {
           }
         })
 
+        cy.dataCy('event-categories').should('be.visible')
         // cy.dataCy('event-categories').click()
         // cy.dataCy('event-categories').withinSelectMenu({
         //   fn: () => {
         //     cy.get('.q-item').first().click()
         //   }
         // })
-        // cy.dataCy('event-visibility').should('be.visible').click()
-        // cy.dataCy('event-visibility').withinSelectMenu({
-        //   fn: () => {
-        //     cy.get('.q-item').first().click()
-        //   }
-        // })
+
+        cy.dataCy('event-max-attendees').click()
+        cy.dataCy('event-max-attendees-input').should('be.visible').type('10')
+
+        cy.dataCy('event-require-approval').click()
+        cy.dataCy('event-approval-question').type('Approval question')
+
+        cy.dataCy('event-visibility').should('be.visible').click()
+        cy.dataCy('event-visibility').withinSelectMenu({
+          fn: () => {
+            cy.get('.q-item').first().click()
+          }
+        })
+
         cy.dataCy('event-publish').click()
         cy.wait('@createEvent')
         cy.testRoute('/events/event-two--b--c')
