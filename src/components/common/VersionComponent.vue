@@ -5,8 +5,10 @@
 </template>
 
 <script setup>
-const version = process.env.APP_VERSION
-const commitHash = process.env.COMMIT_HASH
+import getEnv from 'src/utils/env'
+
+const version = getEnv('APP_VERSION')
+const commitHash = getEnv('COMMIT_HASH')
 </script>
 
 <style scoped>

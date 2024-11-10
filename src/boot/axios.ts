@@ -2,6 +2,7 @@ import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from 'stores/auth-store.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import getEnv from 'src/utils/env'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -17,12 +18,12 @@ declare module 'vue' {
 // "export default () => {}" function below (which runs individually
 // for each client)
 // if testing set from env, otherwise use default tenant id
-console.log('###### appEnv', process.env.APP_ENV)
-console.log('###### tenantId', process.env.APP_TENANT_ID)
-console.log('###### appApiUrl', process.env.APP_API_URL)
-console.log('###### env', process.env)
+console.log('###### appEnv', getEnv('APP_ENV'))
+console.log('###### tenantId', getEnv('APP_TENANT_ID'))
+console.log('###### appApiUrl', getEnv('APP_API_URL'))
+console.log('###### env', getEnv())
 
-const api = axios.create({ baseURL: process.env.APP_API_URL })
+const api = axios.create({ baseURL: getEnv('APP_API_URL') as string })
 const { error } = useNotification()
 export default boot(({ app, router }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
@@ -32,7 +33,7 @@ export default boot(({ app, router }) => {
     const authStore = useAuthStore()
     const token = authStore?.token
 
-    config.headers['X-Tenant-ID'] = process.env.APP_TENANT_ID
+    config.headers['X-Tenant-ID'] = getEnv('APP_TENANT_ID')
 
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`

@@ -14,6 +14,7 @@ import { ref } from 'vue'
 import { validateEmail } from 'src/utils/validation'
 import axios from 'axios'
 import { useNotification } from 'src/composables/useNotification'
+import getEnv from 'src/utils/env'
 
 const formData = ref({
   email: ''
@@ -22,7 +23,7 @@ const { success, error } = useNotification()
 
 const onSubmit = () => {
   if (validateEmail(formData.value.email)) {
-    axios.post(`https://api.hsforms.com/submissions/v3/integration/submit/${process.env.APP_HUBSPOT_PORTAL_ID}/${process.env.APP_HUBSPOT_FORM_ID}`, {
+    axios.post(`https://api.hsforms.com/submissions/v3/integration/submit/${getEnv('APP_HUBSPOT_PORTAL_ID')}/${getEnv('APP_HUBSPOT_FORM_ID')}`, {
       fields: [
         { name: 'email', value: formData.value.email }
       ]

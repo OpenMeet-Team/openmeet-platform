@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { Dark, useMeta } from 'quasar'
 import { onBeforeMount } from 'vue'
+import getEnv from './utils/env'
 
 defineOptions({
   name: 'App'
@@ -12,10 +13,10 @@ defineOptions({
 
 useMeta({
   title: '',
-  titleTemplate: title => `${title} | ${process.env.APP_TENANT_NAME || 'OpenMeet'}`,
+  titleTemplate: title => `${title} | ${getEnv('APP_TENANT_NAME') || 'OpenMeet'}`,
   meta: {
-    description: { content: process.env.APP_TENANT_DESCRIPTION || 'Building communities' },
-    'og:image': { content: process.env.APP_TENANT_IMAGE || '/default-image.jpg' }
+    description: { content: getEnv('APP_TENANT_DESCRIPTION') || 'Building communities' },
+    'og:image': { content: getEnv('APP_TENANT_IMAGE') || '/default-image.jpg' }
   }
 })
 

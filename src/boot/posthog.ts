@@ -1,21 +1,22 @@
 import { PostHog } from 'posthog-js'
 import { useAuthStore } from 'src/stores/auth-store'
+import getEnv from 'src/utils/env'
 import { Router } from 'vue-router'
 
 let posthog: PostHog
 
 // Check for the PostHog key before importing
-const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
+const POSTHOG_KEY = getEnv('APP_POSTHOG_KEY')
 
 if (POSTHOG_KEY) {
   import('posthog-js').then((module) => {
     posthog = module.default
-    posthog.init(POSTHOG_KEY, {
+    posthog.init(POSTHOG_KEY as string, {
       debug: false,
       api_host: 'https://us.i.posthog.com',
       person_profiles: 'identified_only'
     })
-    posthog.group('tenant_id', process.env.APP_TENANT_ID)
+    posthog.group('tenant_id', getEnv('APP_TENANT_ID') as string)
   })
 }
 
