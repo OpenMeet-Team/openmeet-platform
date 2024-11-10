@@ -20,6 +20,7 @@ declare module 'vue' {
 console.log('###### appEnv', process.env.APP_ENV)
 console.log('###### tenantId', process.env.APP_TENANT_ID)
 console.log('###### appApiUrl', process.env.APP_API_URL)
+console.log('###### env', process.env)
 
 const api = axios.create({ baseURL: process.env.APP_API_URL })
 const { error } = useNotification()
