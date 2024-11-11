@@ -45,6 +45,10 @@ yarn test
 npm run test
 ```
 
+### Adding variables to the build
+  - Add to .env
+  - Add to quasar.config.ts (env section)
+  - Add to Dockerfile (window.APP_CONFIG section)
 
 
 ### Customize the configuration

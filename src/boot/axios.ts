@@ -18,11 +18,6 @@ declare module 'vue' {
 // "export default () => {}" function below (which runs individually
 // for each client)
 // if testing set from env, otherwise use default tenant id
-console.log('###### appEnv', getEnv('APP_ENV'))
-console.log('###### tenantId', getEnv('APP_TENANT_ID'))
-console.log('###### appApiUrl', getEnv('APP_API_URL'))
-console.log('###### env', getEnv())
-
 const api = axios.create({ baseURL: getEnv('APP_API_URL') as string })
 const { error } = useNotification()
 export default boot(({ app, router }) => {

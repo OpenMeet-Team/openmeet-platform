@@ -6,8 +6,6 @@ set -e
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin   433321780850.dkr.ecr.us-east-1.amazonaws.com
 
 docker build \
-  --build-arg APP_HUBSPOT_PORTAL_ID=47380304 \
-  --build-arg APP_HUBSPOT_FORM_ID=7aa8f331-96a9-48ec-a787-0c894dc5f85e \
   -t openmeet-platform:test .
 
 # tag and push to ECR
