@@ -60,12 +60,12 @@ const onEditAttendenceClick = () => {
       <div class="col col-12 col-md-4 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
           <div class="text-subtitle1 text-bold">You're going!</div>
-          <div><q-btn @click="onEditAttendenceClick" no-caps size="md" padding="none" flat color="primary" label="Edit RSVP"/></div>
+          <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md" padding="none" flat color="primary" label="Edit RSVP"/></div>
         </div>
 
         <div class="row items-start">
           <ShareComponent class="q-mr-md"/>
-          <q-btn v-if="!useEventStore().getterUserIsAttendee()" no-caps label="Attend" color="primary" @click="onAttendClick"/>
+          <q-btn data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps label="Attend" color="primary" @click="onAttendClick"/>
         </div>
       </div>
     </div>

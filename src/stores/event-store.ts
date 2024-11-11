@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeeRole, EventEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
@@ -17,10 +17,14 @@ export const useEventStore = defineStore('event', {
       return !!(state.event?.attendee && permission)
     },
     getterGroupMemberHasPermission: (state) => (permission: string): boolean => {
-      return state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission) ?? false
+      return !!(state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission))
     },
-    getterEventHasHostRole: (state) => (): boolean => {
-      return ['owner', 'manager'].includes(state.event?.groupMember?.groupRole?.name ?? '')
+    getterEventAttendeeHasRole: (state) => (role: EventAttendeeRole): boolean => {
+      return state.event?.attendee?.role === role
+    },
+    getterEventAttendeeHasPermission: (state) => (permission: string): boolean => {
+      // return state.event?.attendee?.user?.permissions.some(p => p.name === permission) ?? false
+      return permission === 'test' && state.event?.attendee?.role === EventAttendeeRole.Host // TODO: replace with actual permission check
     },
     getterUserIsAttendee: (state) => (): boolean => {
       return !!state.event?.attendee
@@ -63,12 +67,14 @@ export const useEventStore = defineStore('event', {
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
+      } finally {
+        this.isLoading = false
       }
     },
 
-    async actionGetEventAttendeesById (id: string) {
+    async actionGetEventAttendees (id: string) {
       try {
-        const res = await eventsApi.getAttendeesById(id)
+        const res = await eventsApi.getAttendees(id)
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)

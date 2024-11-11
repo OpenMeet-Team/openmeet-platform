@@ -1,65 +1,40 @@
 <template>
-  <q-page padding style="padding-bottom: 110px; ">
-    <SpinnerComponent v-if="!loaded"/>
-    <div v-else-if="event">
+  <q-page padding style="padding-bottom: 110px; max-width: 1201px;" class="q-mx-auto">
+    <SpinnerComponent v-if="useEventStore().isLoading" />
+    <template v-else-if="event">
 
       <!-- Title -->
-      <div :class="[Dark.isActive ? 'bg-dark' : 'bg-white']" class="text-h4 text-bold bg-inherit q-py-sm">{{
+      <div data-cy="event-name" :class="[Dark.isActive ? 'bg-dark' : 'bg-white']"
+        class="text-h4 text-bold bg-inherit q-py-sm">{{
           event.name
         }}
       </div>
 
-      <EventLeadComponent/>
+      <!-- Lead block -->
+      <EventLeadComponent />
 
       <div class="row q-col-gutter-md q-mt-lg">
         <div class="col-12 col-md-8">
           <q-card class="shadow-0">
-            <q-img :src="getImageSrc(event.image)" :ratio="16/9"/>
+            <q-img data-cy="event-image" :src="getImageSrc(event.image)" :ratio="16 / 9" />
           </q-card>
 
           <q-card class="shadow-0 q-mt-lg">
             <q-card-section>
-            <div class="text-h5">Details</div>
-            <div class="text-body1 q-mt-md" v-html="event.description"></div>
+              <div class="text-h5">Details</div>
+              <div data-cy="event-description" class="text-body1 q-mt-md" v-html="event.description"></div>
             </q-card-section>
           </q-card>
 
-          <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md">
-            <q-popup-proxy
-                @before-show="useEventStore().actionGetEventAttendeesById(String(decodeLowercaseStringToNumber(route.params.id as string)))">
-                <h2>Attendees here</h2>
-                <q-item
-                  v-for="attendee in event.attendees"
-                  :key="attendee.id"
-                  clickable
-                  class="q-px-sm"
-                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId }})"
-                >
-                  <q-avatar avatar rounded>
-                    <q-img
-                      :src="getImageSrc(attendee.user?.photo)"
-                      :ratio="1" :alt="attendee.user?.name"
-                    />
-                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
-                  </q-avatar>
-                </q-item>
-              </q-popup-proxy>
-          </SubtitleComponent>
+          <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md"
+            @click="onAttendeesClick" />
           <q-card flat bordered>
             <q-card-section v-if="event.attendees?.length">
               <div class="row q-gutter-md">
-                <q-item
-                  v-for="attendee in event.attendees"
-                  :key="attendee.id"
-                  clickable
-                  class="q-px-sm"
-                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId }})"
-                >
+                <q-item v-for="attendee in event.attendees" :key="attendee.id" clickable class="q-px-sm"
+                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId } })">
                   <q-avatar avatar rounded>
-                    <q-img
-                      :src="getImageSrc(attendee.user?.photo)"
-                      :ratio="1" :alt="attendee.user?.name"
-                    />
+                    <q-img :src="getImageSrc(attendee.user?.photo)" :ratio="1" :alt="attendee.user?.name" />
                     <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
                   </q-avatar>
                 </q-item>
@@ -74,17 +49,19 @@
           <div style="position: sticky; top: 70px">
 
             <!-- Organiser tools -->
-            <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterEventHasHostRole()">
+            <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents) || useEventStore().getterEventAttendeeHasRole(EventAttendeeRole.Host)">
               <q-card-section>
-                <q-btn-dropdown ripple flat align="center" no-caps label="Organiser tools">
+                <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
-                    <MenuItemComponent label="Edit event" icon="sym_r_edit_note" v-if="useEventStore().getterAttendeeHasPermission('test')"
-                                       @click="router.push({ name: 'DashboardEventPage', params: { id: event.id }})"/>
+                    <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
+                      v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageEvent)"
+                      @click="router.push({ name: 'DashboardEventPage', params: { id: event.id } })" />
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
-                                       @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id }})"/>
-                    <MenuItemComponent label="Cancel event" icon="sym_r_event_busy" @click="onCancelEvent"/>
-                    <q-separator/>
-                    <MenuItemComponent label="Delete event" icon="sym_r_delete" @click="onDeleteEvent"/>
+                      v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageAttendees)"
+                      @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })" />
+                    <MenuItemComponent label="Cancel event" v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageEvent)" icon="sym_r_event_busy" @click="onCancelEvent" />
+                    <q-separator />
+                    <MenuItemComponent label="Delete event" v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.DeleteEvent)" icon="sym_r_delete" @click="onDeleteEvent" />
                   </q-list>
                 </q-btn-dropdown>
               </q-card-section>
@@ -99,7 +76,7 @@
                     <q-item-section avatar>
                       <q-avatar size="48px">
                         <img v-if="event.group.image" :src="getImageSrc(event.group.image)" :alt="event.group.name">
-                        <q-icon v-else name="sym_r_group"/>
+                        <q-icon v-else name="sym_r_group" />
                       </q-avatar>
                     </q-item-section>
                     <q-item-section>
@@ -116,7 +93,7 @@
               <q-card-section>
                 <q-item>
                   <q-item-section side>
-                    <q-icon name="sym_r_schedule"/>
+                    <q-icon name="sym_r_schedule" />
                   </q-item-section>
                   <q-item-section>
                     <q-item-label>{{ formatDate(event.startDate) }}</q-item-label>
@@ -126,21 +103,21 @@
                 <q-item>
                   <q-item-section side>
                     <q-icon label="In person" v-if="event.type === 'in-person'" icon="sym_r_person_pin_circle"
-                            name="sym_r_person_pin_circle"/>
-                    <q-icon label="Online" v-if="event.type === 'online'" name="sym_r_videocam"/>
-                    <q-icon label="Hybrid" v-if="event.type === 'hybrid'" name="sym_r_diversity_2"/>
+                      name="sym_r_person_pin_circle" />
+                    <q-icon label="Online" v-if="event.type === 'online'" name="sym_r_videocam" />
+                    <q-icon label="Hybrid" v-if="event.type === 'hybrid'" name="sym_r_diversity_2" />
                   </q-item-section>
                   <q-item-section>
                     <q-item-label>{{ event.type }} event</q-item-label>
                     <q-btn no-caps size="md" align="left" flat padding="none" target="_blank"
-                           :href="event.locationOnline">Online link
+                      :href="event.locationOnline">Online link
                     </q-btn>
                     <q-item-label class="cursor-pointer">
                       {{ event.location }}
                       <q-popup-proxy>
                         <q-card class="q-pa-md" style="height: 500px; width: 500px">
                           <LeafletMapComponent disabled style="height: 300px; width: 300px" :lat="event.lat"
-                                               :lon="event.lon"/>
+                            :lon="event.lon" />
                         </q-card>
                       </q-popup-proxy>
                     </q-item-label>
@@ -153,11 +130,13 @@
         </div>
       </div>
 
-      <EventSimilarEventsComponent v-if="event" :event="event"/>
-    </div>
-    <EventStickyComponent v-if="event" :event="event" style="z-index: 1000"/>
-    <NoContentComponent v-if="errorMessage" :label="errorMessage" icon="sym_r_warning"
-                        @click="router.push({ name: 'EventsPage' })" button-label="Back to events"/>
+    </template>
+
+    <EventStickyComponent v-if="event" :event="event" style="z-index: 1000" />
+    <NoContentComponent v-if="errorMessage" label="Event not found" icon="sym_r_error"
+      @click="router.push({ name: 'EventsPage' })" button-label="Go to events" />
+
+    <EventSimilarEventsComponent v-if="showSimilarEvents" :event="event" />
   </q-page>
 </template>
 
@@ -179,21 +158,34 @@ import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import { GroupPermission } from 'src/types/group.ts'
+import { EventAttendeePermission, EventAttendeeRole } from 'src/types/event.ts'
+import { useAuthStore } from 'src/stores/auth-store.ts'
+import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 
 const route = useRoute()
 const router = useRouter()
+const showSimilarEvents = ref<boolean>(false)
 const { navigateToGroup } = useNavigation()
 // const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
-const loaded = ref<boolean>(false)
+const { openLoginDialog } = useAuthDialog()
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
 }
 
 const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
+}
+
+const onAttendeesClick = () => {
+  if (!useAuthStore().isAuthenticated) {
+    openLoginDialog()
+  } else {
+    router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })
+  }
 }
 
 onBeforeUnmount(() => {
@@ -204,7 +196,7 @@ onMounted(() => {
   LoadingBar.start()
   const eventId = decodeLowercaseStringToNumber(route.params.id as string)
   useEventStore().actionGetEventById(String(eventId)).finally(() => {
-    loaded.value = true
+    showSimilarEvents.value = true
     LoadingBar.stop()
   }).then(() => {
     useMeta({

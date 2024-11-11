@@ -47,6 +47,18 @@ export interface EventAttendeeEntity {
   status: EventAttendeeStatus
 }
 
+export enum EventAttendeePermission {
+  ViewEvent = 'VIEW_EVENT',
+  AttendEvent = 'ATTEND_EVENT',
+  MessageAttendees = 'MESSAGE_ATTENDEES',
+  CreateDiscussion = 'CREATE_DISCUSSION',
+  ManageEvent = 'MANAGE_EVENT',
+  DeleteEvent = 'DELETE_EVENT',
+  ApproveAttendees = 'APPROVE_ATTENDEES',
+  ManageAttendees = 'MANAGE_ATTENDEES',
+  ManageDiscussions = 'MANAGE_DISCUSSIONS',
+}
+
 export interface EventEntity {
   id: number
   slug: string

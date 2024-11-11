@@ -20,12 +20,12 @@
     </template>
     <NoContentComponent v-else data-cy="no-group-content" icon="sym_r_error" label="Group not found" :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
 
-    <GroupSimilarEventsComponent v-if="!useGroupStore().isLoading" :group="group" />
+    <GroupSimilarEventsComponent v-if="showSimilarEvents" :group="group" />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useGroupStore } from 'stores/group-store.ts'
@@ -40,7 +40,7 @@ import { GroupPermission, GroupVisibility } from 'src/types'
 import { useAuthStore } from 'src/stores/auth-store'
 
 const route = useRoute()
-
+const showSimilarEvents = ref<boolean>(false)
 const group = computed(() => {
   return useGroupStore().group
 })
@@ -52,7 +52,10 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   LoadingBar.start()
   const groupId = decodeLowercaseStringToNumber(route.params.id as string)
-  useGroupStore().actionGetGroup(String(groupId)).finally(LoadingBar.stop).then(() => {
+  useGroupStore().actionGetGroup(String(groupId)).finally(() => {
+    showSimilarEvents.value = true
+    LoadingBar.stop()
+  }).then(() => {
     const group = useGroupStore().group
 
     if (group) {
