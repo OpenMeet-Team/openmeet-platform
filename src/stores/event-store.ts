@@ -13,9 +13,6 @@ export const useEventStore = defineStore('event', {
   }),
 
   getters: {
-    getterAttendeeHasPermission: (state) => (permission: string): boolean => {
-      return !!(state.event?.attendee && permission)
-    },
     getterGroupMemberHasPermission: (state) => (permission: string): boolean => {
       return !!(state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission))
     },
@@ -113,7 +110,7 @@ export const useEventStore = defineStore('event', {
 
     async actionCancelAttending (event: EventEntity) {
       if (event.attendee) {
-        return await eventsApi.cancelAttending(event.id, event.attendee.userId).then((res) => {
+        return await eventsApi.cancelAttending(event.id).then((res) => {
           if (this.event) {
             this.event.attendees = this.event.attendees?.filter((attendee) => attendee.id !== event.attendee?.id)
             this.event.attendee = res.data

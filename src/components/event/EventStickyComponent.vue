@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
-import { EventAttendeeEntity, EventAttendeeRole, EventAttendeeStatus, EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus, EventEntity } from 'src/types'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { Dark } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -16,20 +16,24 @@ interface Props {
 
 const { success } = useNotification()
 const props = defineProps<Props>()
-const { openAttendEventDialog, openCancelAttendingEventDialog } = useEventDialog()
+const { openAttendEventDialog, openCancelAttendingEventDialog, openEventAttendPendingDialog, openEventAttendWaitlistDialog, openEventAttendRejectedDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
 
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
-    openAttendEventDialog(props.event).onOk(() => {
+    openAttendEventDialog(props.event).onOk(({ approvalAnswer }) => {
       useEventStore().actionAttendEvent(props.event.id, {
-        role: EventAttendeeRole.Participant
+        approvalAnswer
       } as Partial<EventAttendeeEntity>).then(attendee => {
         if (attendee) {
           if (attendee.status === EventAttendeeStatus.Pending) {
-            success('Your attendance is pending approval')
-          } else {
+            openEventAttendPendingDialog()
+          } else if (attendee.status === EventAttendeeStatus.Confirmed) {
             success('You are now attending this event!')
+          } else if (attendee.status === EventAttendeeStatus.Waitlist) {
+            openEventAttendWaitlistDialog()
+          } else if (attendee.status === EventAttendeeStatus.Rejected) {
+            openEventAttendRejectedDialog()
           }
         }
       })
@@ -59,19 +63,22 @@ const onEditAttendenceClick = () => {
       </div>
       <div class="col col-12 col-md-4 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
-          <div class="text-subtitle1 text-bold">You're going!</div>
-          <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md" padding="none" flat color="primary" label="Edit RSVP"/></div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're rejected!</div>
+          <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
+              padding="none" flat color="primary" label="Edit RSVP" /></div>
         </div>
 
         <div class="row items-start">
-          <ShareComponent class="q-mr-md"/>
-          <q-btn data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps label="Attend" color="primary" @click="onAttendClick"/>
+          <ShareComponent class="q-mr-md" />
+          <q-btn data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee() || useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.AttendEvent)" no-caps label="Attend"
+            color="primary" @click="onAttendClick" />
         </div>
       </div>
     </div>
   </q-page-sticky>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>

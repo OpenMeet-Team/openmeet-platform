@@ -10,7 +10,7 @@ export const eventsApi = {
   update: (id: number, eventData: Partial<EventEntity>): Promise<AxiosResponse<EventEntity>> => api.patch<EventEntity>(`/api/events/${id}`, eventData),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${id}`),
   attend: (id: number, data: Partial<EventAttendeeEntity>): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${id}/attend`, data),
-  cancelAttending: (id: number, userId: number): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${id}/cancel-attending?userId=${userId}`),
+  cancelAttending: (id: number): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${id}/cancel-attending`),
   updateAteendee: (id: number, data: Partial<EventAttendeeEntity>): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${id}/attendees`, data),
   similarEvents: (id: string): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>(`/api/events/${id}/recommended-events`),
   getAttendees: (id: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${id}/attendees`),

@@ -113,8 +113,8 @@
     </div>
 
     <!-- Require group membership -->
-    <q-checkbox v-if="eventData.group" data-cy="event-require-group-membership" :model-value="!!eventData.groupMember"
-      @update:model-value="eventData.groupMember = $event" label="Require group membership?" />
+    <q-checkbox v-if="eventData.group" data-cy="event-require-group-membership" :model-value="!!eventData.requireGroupMembership"
+      @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
 
     <!-- Require attendee approval -->
     <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"

@@ -47,6 +47,30 @@ export function useEventDialog () {
     })
   }
 
+  const openEventAttendPendingDialog = () => {
+    return $q.dialog({
+      title: 'Attendance Pending',
+      message: 'Your attendance is pending approval. Please wait for the event organizer to approve your attendance.',
+      persistent: true
+    })
+  }
+
+  const openEventAttendWaitlistDialog = () => {
+    return $q.dialog({
+      title: 'Waitlist',
+      message: 'The waitlist is full. Please wait for the event organizer to approve your attendance.',
+      persistent: true
+    })
+  }
+
+  const openEventAttendRejectedDialog = () => {
+    return $q.dialog({
+      title: 'Rejected',
+      message: 'You have been rejected from this event.',
+      persistent: true
+    })
+  }
+
   const openDeleteEventDialog = (event: EventEntity) => {
     $q.dialog({
       title: 'Delete Event',
@@ -79,6 +103,9 @@ export function useEventDialog () {
     openCancelEventDialog,
     openAttendEventDialog,
     openCancelAttendingEventDialog,
-    openDeleteGroupDialog
+    openDeleteGroupDialog,
+    openEventAttendPendingDialog,
+    openEventAttendWaitlistDialog,
+    openEventAttendRejectedDialog
   }
 }

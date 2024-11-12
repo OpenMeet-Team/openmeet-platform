@@ -54,14 +54,14 @@
                 <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
                     <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
-                      v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageEvent)"
+                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.ManageEvent)"
                       @click="router.push({ name: 'DashboardEventPage', params: { id: event.id } })" />
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
-                      v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageAttendees)"
+                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.ManageAttendees)"
                       @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })" />
-                    <MenuItemComponent label="Cancel event" v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.ManageEvent)" icon="sym_r_event_busy" @click="onCancelEvent" />
+                    <MenuItemComponent label="Cancel event" v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.CancelEvent)" icon="sym_r_event_busy" @click="onCancelEvent" />
                     <q-separator />
-                    <MenuItemComponent label="Delete event" v-if="useEventStore().getterAttendeeHasPermission(EventAttendeePermission.DeleteEvent)" icon="sym_r_delete" @click="onDeleteEvent" />
+                    <MenuItemComponent label="Delete event" v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.DeleteEvent)" icon="sym_r_delete" @click="onDeleteEvent" />
                   </q-list>
                 </q-btn-dropdown>
               </q-card-section>
