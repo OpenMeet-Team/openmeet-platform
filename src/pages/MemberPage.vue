@@ -19,7 +19,7 @@ const groupMemberships = computed(() => useProfileStore().user?.groupMembers?.fi
 
 onMounted(async () => {
   LoadingBar.start()
-  useProfileStore().actionGetProfile(route.params.id as string).finally(() => LoadingBar.stop())
+  useProfileStore().actionGetProfile(route.params.ulid as string).finally(() => LoadingBar.stop())
 })
 </script>
 
@@ -62,7 +62,7 @@ onMounted(async () => {
 
         <div class="col-12 col-sm-8">
           <!-- Interests -->
-          <q-card flat bordered>
+          <q-card class="q-mb-lg" flat bordered v-if="interests?.length">
             <q-card-section>
               <SubtitleComponent hide-link label="My Interests" />
               <q-chip v-for="interest in interests" :key="interest.id" color="primary" text-color="white">
@@ -72,7 +72,7 @@ onMounted(async () => {
           </q-card>
 
           <!-- Owned Groups -->
-          <q-card flat bordered class="q-mt-lg">
+          <q-card flat bordered class="q-mb-lg" v-if="ownedGroups?.length">
             <q-card-section>
               <SubtitleComponent hide-link label="Owned Groups" />
               <q-list>
@@ -87,7 +87,7 @@ onMounted(async () => {
           </q-card>
 
           <!-- Organized Events -->
-          <q-card flat bordered class="q-mt-md">
+          <q-card flat bordered class="q-mb-lg" v-if="organizedEvents?.length">
             <q-card-section>
               <SubtitleComponent hide-link label="Organized Events" />
               <q-list>
@@ -102,7 +102,7 @@ onMounted(async () => {
           </q-card>
 
           <!-- Group Memberships -->
-          <q-card flat bordered class="q-mt-lg">
+          <q-card flat bordered class="q-mb-lg" v-if="groupMemberships?.length">
             <q-card-section>
               <SubtitleComponent hide-link label="Group Memberships" />
               <q-list>

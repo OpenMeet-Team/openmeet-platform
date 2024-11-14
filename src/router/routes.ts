@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
         name: 'EventAttendeesPage',
         component: () => import('pages/event/EventAttendeesPage.vue')
       },
-      { path: 'members/:id', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
+      { path: 'members/:ulid', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
       { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } },
       { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
       {

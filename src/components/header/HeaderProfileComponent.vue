@@ -6,7 +6,7 @@
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>
       <MenuItemComponent label="My groups" icon="sym_r_group" to="/dashboard/groups"/>
       <q-separator/>
-      <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {id: useAuthStore().getUser.id }}"/>
+      <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {ulid: useAuthStore().getUser.ulid }}"/>
       <MenuItemComponent label="Account settings" icon="sym_r_settings" to="/dashboard/profile"/>
       <MenuItemComponent label="Logout" icon="sym_r_logout" @click="useAuthStore().actionLogout().then(() => router.push('/'))"/>
     </q-menu>

@@ -16,7 +16,7 @@ const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()
 const onMemberClick = (member: GroupMemberEntity) => {
   if (useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)) {
-    navigateToMember(member.user?.id)
+    navigateToMember(member.user?.ulid)
   }
 }
 </script>
@@ -28,13 +28,13 @@ const onMemberClick = (member: GroupMemberEntity) => {
       <q-list>
         <q-item class="q-px-none">
           <template v-if="group.createdBy">
-            <q-item-section class="cursor-pointer" avatar @click="navigateToMember(group.createdBy?.id)">
+            <q-item-section class="cursor-pointer" avatar @click="navigateToMember(group.createdBy?.ulid)">
               <q-avatar>
                 <img :src="getImageSrc(group.createdBy?.photo)" :alt="group.createdBy?.name">
               </q-avatar>
             </q-item-section>
             <q-item-section>
-              <q-item-label class="cursor-pointer text-body1" @click="navigateToMember(group.createdBy?.id)">{{ group.createdBy?.name }}</q-item-label>
+              <q-item-label class="cursor-pointer text-body1" @click="navigateToMember(group.createdBy?.ulid)">{{ group.createdBy?.name }}</q-item-label>
               <div>
                 <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" v-if="useGroupStore().getterUserGroupPermission(GroupPermission.MessageMember)"
                   :to="{ name: 'MessagesPage', query: { member: group.createdBy?.shortId } }" label="Message" />

@@ -36,7 +36,7 @@ const { navigateToMember } = useNavigation()
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
             <q-icon size="sm" left name="sym_r_person"/>
-            <div class="text-body1 cursor-pointer">Organised by <span class="router-link-inherit" @click.stop="navigateToMember(group.createdBy.id)">{{ group.createdBy.name }}</span></div>
+            <div class="text-body1 cursor-pointer">Organised by <span class="router-link-inherit" @click.stop="navigateToMember(group.createdBy.ulid)">{{ group.createdBy.name }}</span></div>
           </div>
         </q-card-section>
 

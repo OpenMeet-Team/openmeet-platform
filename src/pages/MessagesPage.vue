@@ -1,156 +1,155 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
+import { useChatStore } from 'src/stores/chat-store'
+import { LoadingBar, QScrollArea } from 'quasar'
+import { useRoute } from 'vue-router'
+import { getImageSrc } from 'src/utils/imageUtils'
+import { useNavigation } from 'src/composables/useNavigation'
+import { nextTick } from 'process'
 
-interface User {
-  id: number;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
+const route = useRoute()
+const chatList = computed(() => useChatStore().chatList)
+const chatScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
+
+const scrollToEnd = () => {
+  nextTick(() => {
+    if (chatScrollArea.value) {
+      chatScrollArea.value.setScrollPercentage('vertical', 1, 500)
+    }
+  })
 }
 
-interface Message {
-  id: number;
-  senderId: number;
-  text: string;
-  timestamp: string;
-}
+onMounted(async () => {
+  LoadingBar.start()
+  await useChatStore().actionGetChatList().finally(() => LoadingBar.stop())
 
-// Mock data for chat list
-const chatList = ref<User[]>([
-  { id: 1, name: 'Alice Johnson', avatar: 'https://cdn.quasar.dev/img/avatar1.jpg', lastMessage: 'See you at the meetup!', lastMessageTime: '10:30 AM', unreadCount: 2 },
-  { id: 2, name: 'Bob Smith', avatar: 'https://cdn.quasar.dev/img/avatar2.jpg', lastMessage: 'Great idea!', lastMessageTime: 'Yesterday', unreadCount: 0 },
-  { id: 3, name: 'Carol Williams', avatar: 'https://cdn.quasar.dev/img/avatar3.jpg', lastMessage: 'Can you share the event details?', lastMessageTime: 'Monday', unreadCount: 1 }
-])
+  if (route.query.user) {
+    await useChatStore().actionGetChatByUserUlid(route.query.user as string).then(() => {
+      scrollToEnd()
+    })
+  }
 
-// Mock data for messages
-const messages = ref<Message[]>([
-  { id: 1, senderId: 1, text: 'Hi there! Are you coming to the tech meetup this weekend?', timestamp: '10:00 AM' },
-  { id: 2, senderId: 0, text: 'Hello! Yes, I\'m planning to attend. What time does it start?', timestamp: '10:15 AM' },
-  { id: 3, senderId: 1, text: 'Great! It starts at 2 PM. See you at the meetup!', timestamp: '10:30 AM' }
-])
+  if (route.query.chat) {
+    await useChatStore().actionGetChatByUlid(route.query.chat as string).then(() => {
+      scrollToEnd()
+    })
+  }
+})
 
-const loading = ref(false)
+watch(() => route.query, async (newVal) => {
+  if (newVal.user) {
+    await useChatStore().actionGetChatByUserUlid(newVal.user as string)
+  } else if (newVal.chat) {
+    await useChatStore().actionGetChatByUlid(newVal.chat as string)
+  }
+})
+
 const searchQuery = ref('')
-const selectedChat = ref<User | null>(null)
 const newMessage = ref('')
 
+const selectedChat = computed(() => useChatStore().chat)
 const filteredChatList = computed(() => {
   return chatList.value.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+    chat.participant?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
 
-function selectChat (chat: User) {
-  selectedChat.value = chat
-  // In a real app, you would fetch messages for this chat here
-}
+const avatarSrc = getImageSrc(null)
+
+const { navigateToChat } = useNavigation()
 
 function sendMessage () {
   if (newMessage.value.trim() && selectedChat.value) {
-    messages.value.push({
-      id: messages.value.length + 1,
-      senderId: 0, // Assuming 0 is the current user's ID
-      text: newMessage.value.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    useChatStore().actionSendMessage(selectedChat.value.ulid, {
+      content: newMessage.value.trim(),
+      sender_id: selectedChat.value.user.zulipUserId as number,
+      sender_full_name: selectedChat.value.user.name as string,
+      timestamp: new Date().getTime()
+    }).finally(() => {
+      newMessage.value = ''
+      scrollToEnd()
     })
-    newMessage.value = ''
-    // In a real app, you would send this message to your backend here
   }
 }
 </script>
 
 <template>
-  <q-page padding style="max-width: 1024px;" class="q-mx-auto">
-    <DashboardTitle defaultBack label="Messages"/>
+  <q-page padding style="max-width: 1024px;" class="q-mx-auto c-messages-page">
+    <DashboardTitle defaultBack label="Messages" />
 
-    <SpinnerComponent v-if="loading"/>
+    <SpinnerComponent v-if="useChatStore().isLoading" />
 
     <div v-else class="messages-page row q-mt-md q-gutter-md">
       <div class="col-4">
         <q-card flat bordered class="bg-grey-2" style="min-height: 98%">
-          <q-input
-            v-model="searchQuery"
-            filled
-            type="search"
-            label="Search people"
-            class="q-ma-md"
-          >
+          <q-input v-model="searchQuery" @clear="searchQuery = ''" filled type="search" label="Search people" clearable
+            class="q-ma-md">
             <template v-slot:append>
               <q-icon name="sym_r_search" />
             </template>
           </q-input>
 
-          <q-list separator>
-            <q-item
-              v-for="chat in filteredChatList"
-              :key="chat.id"
-              clickable
-              v-ripple
-              @click="selectChat(chat)"
-              :active="selectedChat && selectedChat.id === chat.id"
-            >
+          <q-list separator v-if="filteredChatList?.length">
+            <q-item v-for="chat in filteredChatList" :key="chat.id" clickable v-ripple
+              :active="selectedChat && selectedChat.id === chat.id" @click="navigateToChat({ chat: chat.ulid })"
+              data-cy="chat-item">
               <q-item-section avatar>
                 <q-avatar>
-                  <img :src="chat.avatar" />
+                  <img :src="chat.participant.photo ? getImageSrc(chat.participant.photo) : avatarSrc" />
                 </q-avatar>
               </q-item-section>
               <q-item-section>
-                <q-item-label>{{ chat.name }}</q-item-label>
-                <q-item-label caption>{{ chat.lastMessage }}</q-item-label>
+                <q-item-label>{{ chat.participant.name }}</q-item-label>
+                <q-item-label caption>{{ chat.participant.name }}</q-item-label>
               </q-item-section>
-              <q-item-section side>
+              <!-- <q-item-section side>
                 <q-item-label caption>{{ chat.lastMessageTime }}</q-item-label>
                 <q-badge v-if="chat.unreadCount" color="red">{{ chat.unreadCount }}</q-badge>
-              </q-item-section>
+              </q-item-section> -->
             </q-item>
           </q-list>
+          <NoContentComponent v-else icon="sym_r_chat" label="No chats yet" />
         </q-card>
       </div>
 
       <!-- Chat area -->
-      <div class="col q-pa-md">
-        <div v-if="selectedChat" class="full-height column">
-          <!-- Chat header -->
-          <div class="row items-center q-mb-md">
-            <q-avatar size="48px" class="q-mr-md">
-              <img :src="selectedChat.avatar" />
-            </q-avatar>
-            <div class="text-h6">{{ selectedChat.name }}</div>
-          </div>
-
-          <!-- Messages -->
-          <q-scroll-area class="col q-mb-md">
-            <div v-for="message in messages" :key="message.id" class="q-mb-md">
-              <div :class="['flex', message.senderId === 0 ? 'justify-end' : 'justify-start']">
-                <q-chat-message
-                  :name="message.senderId === 0 ? 'Me' : selectedChat.name"
-                  :text="[message.text]"
-                  :sent="message.senderId === 0"
-                  :stamp="message.timestamp"
-                />
-              </div>
+      <div class="col q-pa-md relative-position">
+        <SpinnerComponent v-if="useChatStore().isLoadingChat" />
+        <template v-else>
+          <div class="full-height column" data-cy="chat-messages" v-if="selectedChat">
+            <!-- Chat header -->
+            <div class="row items-center q-mb-md">
+              <q-avatar size="48px" class="q-mr-md">
+                <img :src="selectedChat.participant.photo ? getImageSrc(selectedChat.participant.photo) : avatarSrc" />
+              </q-avatar>
+              <div class="text-h6">{{ selectedChat.participant?.name }}</div>
             </div>
-          </q-scroll-area>
 
-          <!-- Message input -->
-          <q-input
-            v-model="newMessage"
-            filled
-            type="textarea"
-            label="Type a message"
-            @keyup.enter="sendMessage"
-          >
-            <template v-slot:after>
-              <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
-            </template>
-          </q-input>
-        </div>
-        <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging"/>
+            <!-- Messages -->
+            <q-scroll-area ref="chatScrollArea" class="col q-mb-md">
+              <div v-for="message in selectedChat.messages" :key="message.id" class="q-mb-md">
+                <div
+                  :class="['flex', message.sender_id === selectedChat.participant.zulipUserId ? 'justify-end' : 'justify-start']">
+                  <q-chat-message data-cy="chat-message" :name="message.sender_full_name" :text="[message.content]"
+                    text-html :sent="message.sender_id === selectedChat.user.zulipUserId"
+                    :stamp="new Date(message.timestamp * 1000).toLocaleString()" />
+                </div>
+              </div>
+            </q-scroll-area>
+
+            <!-- Message input -->
+            <q-input data-cy="chat-message-input" :loading="useChatStore().isSendingMessage" v-model="newMessage"
+              filled type="textarea" label="Type a message" @keyup.enter="sendMessage">
+              <template v-slot:after>
+                <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
+              </template>
+            </q-input>
+          </div>
+          <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging" />
+        </template>
       </div>
     </div>
   </q-page>
@@ -158,6 +157,7 @@ function sendMessage () {
 
 <style scoped>
 .messages-page {
-  height: calc(100vh - 120px); /* Adjust based on your layout */
+  height: calc(100vh - 165px);
+  /* Adjust based on your layout */
 }
 </style>
