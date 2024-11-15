@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router'
 import { GroupCategoryEntity, GroupPermission } from 'src/types'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import { pluralize } from 'src/utils/stringUtils'
+import QRCodeComponent from '../common/QRCodeComponent.vue'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
@@ -57,6 +58,10 @@ const { navigateToMember } = useNavigation()
 
         <q-card-section>
           <ShareComponent size="md"/>
+        </q-card-section>
+
+        <q-card-section>
+          <QRCodeComponent class="" />
         </q-card-section>
       </q-card>
     </div>
