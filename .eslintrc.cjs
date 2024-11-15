@@ -9,7 +9,7 @@ module.exports = {
   // `parser: 'vue-eslint-parser'` is already included with any 'plugin:vue/**' config and should be omitted
   parserOptions: {
     parser: require.resolve('@typescript-eslint/parser'),
-    extraFileExtensions: [ '.vue' ]
+    extraFileExtensions: ['.vue']
   },
 
   env: {
@@ -108,8 +108,8 @@ module.exports = {
       extends: [
         // Add Cypress-specific lint rules, globals and Cypress plugin
         // See https://github.com/cypress-io/eslint-plugin-cypress#rules
-        'plugin:cypress/recommended',
-      ],
-    },
+        'plugin:cypress/recommended'
+      ]
+    }
   ]
 }
