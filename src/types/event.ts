@@ -7,6 +7,21 @@ export enum EventType {
   InPerson = 'in-person',
   Hybrid = 'hybrid'
 }
+
+export enum EventAttendeePermission {
+  DeleteEvent = 'DELETE_EVENT',
+  CancelEvent = 'CANCEL_EVENT',
+  ManageEvent = 'MANAGE_EVENT',
+  ApproveAttendees = 'APPROVE_ATTENDEES',
+  DeleteAttendees = 'DELETE_ATTENDEES',
+  ManageAttendees = 'MANAGE_ATTENDEES',
+  ManageDiscussions = 'MANAGE_DISCUSSIONS',
+  ViewEvent = 'VIEW_EVENT',
+  AttendEvent = 'ATTEND_EVENT',
+  MessageAttendees = 'MESSAGE_ATTENDEES',
+  CreateDiscussion = 'CREATE_DISCUSSION',
+}
+
 export enum EventVisibility {
   Public = 'public',
   Authenticated = 'authenticated',
@@ -36,6 +51,17 @@ export enum EventAttendeeStatus {
   Waitlist = 'waitlist'
 }
 
+export interface EventAttendeePermissionEntity {
+  id: number
+  name: EventAttendeePermission
+}
+
+export interface EventAttendeeRoleEntity {
+  id: number
+  name: EventAttendeeRole
+  permissions: EventAttendeePermissionEntity[]
+}
+
 interface EventCategory extends CategoryEntity {}
 
 export interface EventAttendeeEntity {
@@ -44,22 +70,8 @@ export interface EventAttendeeEntity {
   // eslint-disable-next-line no-use-before-define
   event: EventEntity
   user: UserEntity
-  role: EventAttendeeRole
+  role: EventAttendeeRoleEntity
   status: EventAttendeeStatus
-}
-
-export enum EventAttendeePermission {
-  DeleteEvent = 'DELETE_EVENT',
-  CancelEvent = 'CANCEL_EVENT',
-  ManageEvent = 'MANAGE_EVENT',
-  ApproveAttendees = 'APPROVE_ATTENDEES',
-  DeleteAttendees = 'DELETE_ATTENDEES',
-  ManageAttendees = 'MANAGE_ATTENDEES',
-  ManageDiscussions = 'MANAGE_DISCUSSIONS',
-  ViewEvent = 'VIEW_EVENT',
-  AttendEvent = 'ATTEND_EVENT',
-  MessageAttendees = 'MESSAGE_ATTENDEES',
-  CreateDiscussion = 'CREATE_DISCUSSION',
 }
 
 export interface EventEntity {

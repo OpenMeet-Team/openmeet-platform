@@ -28,10 +28,12 @@ Cypress.Commands.add('login', (username: string, password: string) => {
   cy.dataCy('header-mobile-menu').click()
   cy.dataCy('header-mobile-menu-drawer').should('be.visible').within(() => {
     cy.dataCy('sign-in-button').click()
-    cy.dataCy('login-email').type(username)
-    cy.dataCy('login-password').type(password)
-    cy.dataCy('login-submit').click()
   })
+
+  cy.dataCy('login-form').should('be.visible')
+  cy.dataCy('login-email').type(username)
+  cy.dataCy('login-password').type(password)
+  cy.dataCy('login-submit').click()
 })
 
 Cypress.Commands.add('loginPage', (username: string, password: string) => {

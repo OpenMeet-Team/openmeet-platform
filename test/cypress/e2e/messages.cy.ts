@@ -1,65 +1,19 @@
-import { ChatEntity, FileEntity } from 'src/types/model'
-
 describe('Messages', () => {
   beforeEach(() => {
     cy.intercept('GET', '/api/chat', {
       statusCode: 200,
-      body: [
-        {
-          id: 1,
-          ulid: '1234567890',
-          participants: [{
-            id: 1,
-            ulid: '1234567890',
-            email: 'test@test.com',
-            name: 'Test User',
-            photo: { path: 'test.jpg' } as FileEntity
-          }],
-          participant: {
-            id: 1,
-            ulid: '1234567890',
-            email: 'test@test.com',
-            zulipUserId: 1,
-            name: 'Test User',
-            photo: { path: 'test.jpg' } as FileEntity
-          },
-          user: {
-            id: 1,
-            ulid: '1234567890',
-            email: 'test@test.com',
-            zulipUserId: 1,
-            name: 'Test User',
-            photo: { path: 'test.jpg' } as FileEntity
-          },
-          messages: []
-        }
-      ] as ChatEntity[]
+      fixture: 'messages/chats.json'
     }).as('getChatList')
 
-    cy.intercept('GET', '/api/chat/*', {
+    cy.intercept('GET', '/api/chat?chat=1234567890', {
       statusCode: 200,
-      body: {
-        id: 1,
-        name: 'Chat One',
-        ulid: '1234567890',
-        user: {
-          id: 1,
-          ulid: '1234567890',
-          email: 'test@test.com',
-          zulipUserId: 1,
-          name: 'Test User',
-          photo: { path: 'test.jpg' } as FileEntity
-        },
-        participant: {
-          id: 1,
-          ulid: '1234567890',
-          email: 'test@test.com',
-          name: 'Test User',
-          zulipUserId: 1,
-          photo: { path: 'test.jpg' } as FileEntity
-        }
-      }
+      fixture: 'messages/chat.json'
     }).as('getChatById')
+
+    cy.intercept('GET', '/api/chat?user=1234567890', {
+      statusCode: 200,
+      fixture: 'messages/chat.json'
+    }).as('getChatByUser')
 
     cy.intercept('POST', '/api/chat/*/message', {
       statusCode: 200,
@@ -71,30 +25,6 @@ describe('Messages', () => {
         timestamp: new Date().getTime()
       }
     }).as('sendMessage')
-
-    cy.intercept('GET', '/api/chat/user/*', {
-      statusCode: 200,
-      body: {
-        id: 1,
-        ulid: '1234567890',
-        user: {
-          id: 1,
-          ulid: '1234567890',
-          email: 'test@test.com',
-          zulipUserId: 1,
-          name: 'Test User',
-          photo: { path: 'test.jpg' } as FileEntity
-        },
-        participant: {
-          id: 1,
-          ulid: '1234567890',
-          email: 'test@test.com',
-          zulipUserId: 1,
-          name: 'Test User',
-          photo: { path: 'test.jpg' } as FileEntity
-        }
-      }
-    }).as('getChatByUser')
 
     cy.visit('/messages').then(() => {
       cy.loginPage(Cypress.env('APP_TESTING_USER_EMAIL'), Cypress.env('APP_TESTING_USER_PASSWORD'))

@@ -17,7 +17,7 @@ export interface ChatMessageEntity {
   is_me_message?: boolean;
   reactions?: [];
   submessages?: [];
-  flags?: [];
+  flags?: string[];
   sender_full_name: string;
   sender_email?: string;
   sender_realm_str?: string;

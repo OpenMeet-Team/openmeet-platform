@@ -1,5 +1,5 @@
 <template>
-  <q-page padding style="padding-bottom: 110px; max-width: 1201px;" class="q-mx-auto">
+  <q-page padding style="padding-bottom: 110px; max-width: 1201px;" class="q-mx-auto c-event-page">
     <SpinnerComponent v-if="useEventStore().isLoading" />
     <template v-else-if="event">
 
@@ -35,7 +35,7 @@
                   @click="router.push({ name: 'MemberPage', params: { ulid: attendee.user?.ulid } })">
                   <q-avatar avatar rounded>
                     <q-img :src="getImageSrc(attendee.user?.photo)" :ratio="1" :alt="attendee.user?.name" />
-                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
+                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role.name }}</q-badge>
                   </q-avatar>
                 </q-item>
               </div>

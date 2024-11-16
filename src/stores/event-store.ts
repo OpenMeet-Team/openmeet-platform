@@ -17,11 +17,11 @@ export const useEventStore = defineStore('event', {
       return !!(state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission))
     },
     getterEventAttendeeHasRole: (state) => (role: EventAttendeeRole): boolean => {
-      return state.event?.attendee?.role === role
+      return state.event?.attendee?.role?.name === role
     },
     getterEventAttendeeHasPermission: (state) => (permission: string): boolean => {
-      // return state.event?.attendee?.user?.permissions.some(p => p.name === permission) ?? false
-      return permission === 'test' && state.event?.attendee?.role === EventAttendeeRole.Host // TODO: replace with actual permission check
+      return state.event?.attendee?.role?.permissions.some(p => p.name === permission) ?? false
+      // return permission === 'test' && state.event?.attendee?.role?.name === EventAttendeeRole.Host // TODO: replace with actual permission check
     },
     getterUserIsAttendee: (state) => (): boolean => {
       return !!state.event?.attendee
