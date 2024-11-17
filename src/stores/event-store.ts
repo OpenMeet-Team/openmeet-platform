@@ -119,6 +119,14 @@ export const useEventStore = defineStore('event', {
           return true
         })
       }
+    },
+
+    async actionCreateEventComment (eventUlid: string, comment: string) {
+      try {
+        return await eventsApi.createComment(eventUlid, { content: comment })
+      } catch (err) {
+        console.log(err)
+      }
     }
   }
 })

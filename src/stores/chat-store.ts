@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { chatApi } from 'src/api/chat'
-import { ChatEntity, ChatMessageEntity } from 'src/types/model'
+import { ChatEntity } from 'src/types/model'
 import { RouteQueryAndHash } from 'vue-router'
 const { error } = useNotification()
 
@@ -31,7 +31,7 @@ export const useChatStore = defineStore('chat', {
           this.activeChat?.messages.push({
             id: res.data.id,
             ...data
-          } as ChatMessageEntity)
+          })
         })
       } catch (err) {
         error('Failed to send message')

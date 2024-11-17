@@ -18,5 +18,6 @@ export const eventsApi = {
   topics: (id: number): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${id}/topics`),
   postTopic: (id: number, data: Partial<EventEntity>): Promise<AxiosResponse<EventEntity>> => api.post<EventEntity>(`/api/events/${id}/topics`, data),
   updateTopic: (id: number, messageId: number, data: Partial<EventEntity>): Promise<AxiosResponse<EventEntity>> => api.post<EventEntity>(`/api/events/${id}/topics/${messageId}`, data),
-  deleteTopic: (id: number, messageId: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${id}/topics/${messageId}`)
+  deleteTopic: (id: number, messageId: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${id}/topics/${messageId}`),
+  createComment: (eventUlid: string, data: Partial<{content: string, topic?: string}>): Promise<AxiosResponse<{ id: number }>> => api.post(`/api/events/${eventUlid}/comments`, data)
 }

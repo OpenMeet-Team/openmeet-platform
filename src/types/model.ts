@@ -5,7 +5,12 @@ export enum SubCategoryType {
   GROUP = 'GROUP',
 }
 
-export interface ChatMessageEntity {
+export interface ZulipTopicEntity {
+  name: string;
+  max_id: number;
+}
+
+export interface ZulipMessageEntity {
   id: number;
   sender_id: number;
   content: string;
@@ -46,7 +51,7 @@ export interface ChatEntity {
   participants: UserEntity[];
   participant: UserEntity;
   user: UserEntity;
-  messages: ChatMessageEntity[];
+  messages: ZulipMessageEntity[];
 }
 
 export interface FileEntity {

@@ -1,4 +1,4 @@
-import { CategoryEntity, FileEntity, Pagination } from 'src/types/model.ts'
+import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model.ts'
 import { GroupEntity, GroupMemberEntity } from 'src/types/group.ts'
 import { UserEntity } from 'src/types/user.ts'
 
@@ -74,8 +74,16 @@ export interface EventAttendeeEntity {
   status: EventAttendeeStatus
 }
 
+export interface EventTopicCommentEntity {
+  // id: number
+  // content: string
+  // user: UserEntity
+  // topic?: string
+}
+
 export interface EventEntity {
   id: number
+  ulid: string
   slug: string
   name: string
   startDate: string
@@ -103,6 +111,8 @@ export interface EventEntity {
   requireGroupMembership?: boolean
   groupMember?: GroupMemberEntity
   attendee?: EventAttendeeEntity
+  topics?: ZulipTopicEntity[]
+  comments?: ZulipMessageEntity[]
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
