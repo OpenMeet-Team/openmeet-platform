@@ -1,5 +1,7 @@
 # OpenMeet (openmeet)
 
+[[User Stories]]
+
 Building Communities
 
 ## Install the dependencies
