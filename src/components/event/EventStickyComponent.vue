@@ -9,6 +9,7 @@ import { useEventStore } from 'stores/event-store.ts'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
+import QRCodeComponent from '../common/QRCodeComponent.vue'
 
 interface Props {
   event: EventEntity
@@ -71,12 +72,15 @@ const onEditAttendenceClick = () => {
           <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
               padding="none" flat color="primary" label="Edit RSVP" /></div>
         </div>
+        <div class="row items-start q-gutter-md">
+          <ShareComponent class="col-4" />
+          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee() ||
+            useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.AttendEvent)" no-caps
+            label="Attend" color="primary" @click="onAttendClick" />
 
-        <div class="row items-start">
-          <ShareComponent class="q-mr-md" />
-          <q-btn data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee() || useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.AttendEvent)" no-caps label="Attend"
-            color="primary" @click="onAttendClick" />
+          <QRCodeComponent class="" />
         </div>
+
       </div>
     </div>
   </q-page-sticky>
