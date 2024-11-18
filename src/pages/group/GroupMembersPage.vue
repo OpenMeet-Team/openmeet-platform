@@ -25,12 +25,12 @@
       </div>
       <q-list bordered separator>
         <q-item v-for="member in filteredMembers" :key="member.id">
-          <q-item-section class="cursor-pointer" avatar @click="navigateToMember(member.user.id)">
+          <q-item-section class="cursor-pointer" avatar @click="navigateToMember(member.user.ulid)">
             <q-avatar>
               <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name" />
             </q-avatar>
           </q-item-section>
-          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user.id)">
+          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user.ulid)">
             <q-item-label>{{ member.user.name }}</q-item-label>
             <q-item-label caption>
               {{ capitalizeFirstLetter(member.groupRole.name) }} • <span v-if="member.createdAt">Joined {{ formatDate(member.createdAt, 'DD MMM YYYY') }}</span>

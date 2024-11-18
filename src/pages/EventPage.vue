@@ -1,5 +1,5 @@
 <template>
-  <q-page padding style="padding-bottom: 110px; max-width: 1201px;" class="q-mx-auto">
+  <q-page padding style="padding-bottom: 110px; max-width: 1201px;" class="q-mx-auto c-event-page">
     <SpinnerComponent v-if="useEventStore().isLoading" />
     <template v-else-if="event">
 
@@ -26,24 +26,9 @@
             </q-card-section>
           </q-card>
 
-          <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md"
-            @click="onAttendeesClick" />
-          <q-card flat bordered>
-            <q-card-section v-if="event.attendees?.length">
-              <div class="row q-gutter-md">
-                <q-item v-for="attendee in event.attendees" :key="attendee.id" clickable class="q-px-sm"
-                  @click="router.push({ name: 'MemberPage', params: { id: attendee.userId } })">
-                  <q-avatar avatar rounded>
-                    <q-img :src="getImageSrc(attendee.user?.photo)" :ratio="1" :alt="attendee.user?.name" />
-                    <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role }}</q-badge>
-                  </q-avatar>
-                </q-item>
-              </div>
-            </q-card-section>
-            <q-card-section v-else>
-              <div class="text-body1">No attendees yet</div>
-            </q-card-section>
-          </q-card>
+          <EventAttendeesComponent />
+
+          <EventTopicsComponent />
         </div>
         <div class="col-12 col-md-4">
           <div style="position: sticky; top: 70px">
@@ -157,35 +142,24 @@ import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import { GroupPermission } from 'src/types/group.ts'
 import { EventAttendeePermission, EventAttendeeRole } from 'src/types/event.ts'
-import { useAuthStore } from 'src/stores/auth-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
+import EventAttendeesComponent from 'src/components/event/EventAttendeesComponent.vue'
+import EventTopicsComponent from 'src/components/event/EventTopicsComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
 const showSimilarEvents = ref<boolean>(false)
 const { navigateToGroup } = useNavigation()
-// const { success } = useNotification()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
-const { openLoginDialog } = useAuthDialog()
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
 }
 
 const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
-}
-
-const onAttendeesClick = () => {
-  if (!useAuthStore().isAuthenticated) {
-    openLoginDialog()
-  } else {
-    router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })
-  }
 }
 
 onBeforeUnmount(() => {

@@ -64,14 +64,11 @@ const onEditAttendenceClick = () => {
       </div>
       <div class="col col-12 col-md-4 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're
-            going!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're
-            pending!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on
-            the waitlist!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're
-            rejected!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're rejected!</div>
+          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Cancelled">You're cancelled!</div>
           <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
               padding="none" flat color="primary" label="Edit RSVP" /></div>
         </div>

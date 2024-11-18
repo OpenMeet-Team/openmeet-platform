@@ -1,4 +1,4 @@
-import { CategoryEntity, FileEntity, Pagination } from 'src/types/model.ts'
+import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model.ts'
 import { GroupEntity, GroupMemberEntity } from 'src/types/group.ts'
 import { UserEntity } from 'src/types/user.ts'
 
@@ -7,6 +7,21 @@ export enum EventType {
   InPerson = 'in-person',
   Hybrid = 'hybrid'
 }
+
+export enum EventAttendeePermission {
+  DeleteEvent = 'DELETE_EVENT',
+  CancelEvent = 'CANCEL_EVENT',
+  ManageEvent = 'MANAGE_EVENT',
+  ApproveAttendees = 'APPROVE_ATTENDEES',
+  DeleteAttendees = 'DELETE_ATTENDEES',
+  ManageAttendees = 'MANAGE_ATTENDEES',
+  ManageDiscussions = 'MANAGE_DISCUSSIONS',
+  ViewEvent = 'VIEW_EVENT',
+  AttendEvent = 'ATTEND_EVENT',
+  MessageAttendees = 'MESSAGE_ATTENDEES',
+  CreateDiscussion = 'CREATE_DISCUSSION',
+}
+
 export enum EventVisibility {
   Public = 'public',
   Authenticated = 'authenticated',
@@ -36,6 +51,17 @@ export enum EventAttendeeStatus {
   Waitlist = 'waitlist'
 }
 
+export interface EventAttendeePermissionEntity {
+  id: number
+  name: EventAttendeePermission
+}
+
+export interface EventAttendeeRoleEntity {
+  id: number
+  name: EventAttendeeRole
+  permissions: EventAttendeePermissionEntity[]
+}
+
 interface EventCategory extends CategoryEntity {}
 
 export interface EventAttendeeEntity {
@@ -44,26 +70,20 @@ export interface EventAttendeeEntity {
   // eslint-disable-next-line no-use-before-define
   event: EventEntity
   user: UserEntity
-  role: EventAttendeeRole
+  role: EventAttendeeRoleEntity
   status: EventAttendeeStatus
 }
 
-export enum EventAttendeePermission {
-  DeleteEvent = 'DELETE_EVENT',
-  CancelEvent = 'CANCEL_EVENT',
-  ManageEvent = 'MANAGE_EVENT',
-  ApproveAttendees = 'APPROVE_ATTENDEES',
-  DeleteAttendees = 'DELETE_ATTENDEES',
-  ManageAttendees = 'MANAGE_ATTENDEES',
-  ManageDiscussions = 'MANAGE_DISCUSSIONS',
-  ViewEvent = 'VIEW_EVENT',
-  AttendEvent = 'ATTEND_EVENT',
-  MessageAttendees = 'MESSAGE_ATTENDEES',
-  CreateDiscussion = 'CREATE_DISCUSSION',
+export interface EventTopicCommentEntity {
+  // id: number
+  // content: string
+  // user: UserEntity
+  // topic?: string
 }
 
 export interface EventEntity {
   id: number
+  ulid: string
   slug: string
   name: string
   startDate: string
@@ -91,6 +111,8 @@ export interface EventEntity {
   requireGroupMembership?: boolean
   groupMember?: GroupMemberEntity
   attendee?: EventAttendeeEntity
+  topics?: ZulipTopicEntity[]
+  comments?: ZulipMessageEntity[]
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}

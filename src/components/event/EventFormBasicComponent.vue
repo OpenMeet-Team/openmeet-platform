@@ -172,7 +172,8 @@ const eventData = ref<EventEntity>({
   type: EventType.InPerson,
   maxAttendees: 0,
   visibility: EventVisibility.Public,
-  categories: []
+  categories: [],
+  ulid: ''
 })
 
 const onDescriptionInput = (val: string) => {

@@ -35,6 +35,9 @@ export interface UserEntity {
   shortId?: string
   // token: string
   // refreshToken: string
+  zulipUserId?: number
+  zulipUsername?: string
+  zulipApiKey?: string
   photo?: FileEntity
   bio?: string
   role?: UserRoleEntity

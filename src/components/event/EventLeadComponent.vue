@@ -22,14 +22,14 @@ const { navigateToGroup } = useNavigation()
       </div>
     </div>
     <div v-else-if="event?.user" class="row items-center q-py-sm q-px-md">
-      <q-btn round class="q-mr-md" :to="{ name: 'MemberPage', params: { id: event.user.name } }">
+      <q-btn round class="q-mr-md" :to="{ name: 'MemberPage', params: { ulid: event.user.ulid } }">
         <q-avatar size="48px">
           <img :src="getImageSrc(event.user?.photo)" :alt="event.user?.name">
         </q-avatar>
       </q-btn>
       <div>
         <q-item-label>Hosted by</q-item-label>
-        <q-item-label class="text-bold cursor-pointer"><router-link class="router-link-inherit" :to="{ name: 'MemberPage', params: { id: event.user.id } }">{{ event.user.name }}</router-link></q-item-label>
+        <q-item-label class="text-bold cursor-pointer"><router-link class="router-link-inherit" :to="{ name: 'MemberPage', params: { ulid: event.user.ulid } }">{{ event.user.name }}</router-link></q-item-label>
       </div>
     </div>
 </template>

@@ -1,0 +1,60 @@
+{
+    "chats": [
+      {
+        "id": 1,
+        "ulid": "1234567890",
+        "participants": [{
+          "id": 1,
+          "ulid": "1234567890",
+          "email": "test@test.com",
+          "name": "Test User",
+          "photo": { "path": "test.jpg" }
+        }],
+        "participant": {
+          "id": 1,
+          "ulid": "1234567890",
+          "email": "test@test.com",
+          "zulipUserId": 1,
+          "name": "Test User",
+          "photo": { "path": "test.jpg" }
+        },
+        "user": {
+          "id": 1,
+          "ulid": "1234567890",
+          "email": "test@test.com",
+          "zulipUserId": 1,
+          "name": "Test User",
+          "photo": { "path": "test.jpg" }
+        },
+        "messages": []
+      }
+    ],
+  "chat": {
+    "id": 1,
+    "ulid": "1234567890",
+    "participants": [],
+    "participant": {
+      "id": 1,
+      "ulid": "1234567890",
+      "email": "test@test.com",
+      "zulipUserId": 1,
+      "name": "Test User",
+      "photo": { "path": "test.jpg" }
+    },
+    "user": {
+      "id": 1,
+      "ulid": "1234567890",
+      "email": "test@test.com",
+      "zulipUserId": 1,
+      "name": "Test User",
+      "photo": { "path": "test.jpg" }
+    },
+    "messages": [{
+        "id": 1,
+        "content": "Hello, world!",
+        "sender_id": 1,
+        "sender_full_name": "Test User",
+        "timestamp": "1728637873969"
+      }]
+  }
+}

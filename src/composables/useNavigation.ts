@@ -14,11 +14,11 @@ export function useNavigation () {
     router.push({ name: 'EventPage', params: { slug, id: eventId } })
   }
 
-  const navigateToMember = (userId: number) => {
-    router.push({ name: 'MemberPage', params: { id: userId } })
+  const navigateToMember = (ulid: string) => {
+    router.push({ name: 'MemberPage', params: { ulid } })
   }
 
-  const navigateToChat = (query: { member: string }) => {
+  const navigateToChat = (query: { member?: string, user?: string, chat?: string }) => {
     router.push({ name: 'MessagesPage', query })
   }
 

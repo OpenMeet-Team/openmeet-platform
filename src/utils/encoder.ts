@@ -6,7 +6,7 @@ export function encodeNumberToLowercaseString (num: number): string {
   while (num >= 0) {
     const remainder = num % base
     encodedString = String.fromCharCode(remainder + 'a'.charCodeAt(0)) + encodedString
-    num = Math.floor(num / base) - 1 // Subtract 1 to handle 0-indexing correctly
+    num = Math.floor(num / base) - 1
     if (num < 0) break
   }
 
@@ -21,8 +21,8 @@ export function decodeLowercaseStringToNumber (str: string): number {
   // Reverse loop through the string to convert it back to a number
   for (let i = 0; i < str.length; i++) {
     const charValue = str.charCodeAt(i) - 'a'.charCodeAt(0)
-    num = num * base + charValue + 1 // Add 1 to adjust for 0-indexed letters
+    num = num * base + charValue + 1
   }
 
-  return num - 1 // Adjust for 0-based numbering
+  return num - 1
 }
