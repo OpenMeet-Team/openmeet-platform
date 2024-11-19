@@ -1,47 +1,48 @@
 <template>
-    <div class="">
-        <q-btn no-caps color="secondary" text-color="black" spread label="Generate QR Code" data-cy="share-button" style="width: 240px;"
-            @click="showQRCodePopup = true">
-        </q-btn>
-        <q-dialog class="q-pa-lg" v-model="showQRCodePopup" @show="onDialogShow">
-            <q-card class="custom-width">
-                <div class="flex row justify-between items-center">
-                    <q-card-section class="text-h6 flex justify-center">
-                        QR Code
-                    </q-card-section>
-                    <q-card-actions align="center" class="justify-center">
-                        <q-btn flat icon="sym_r_close" color="primary" @click="showQRCodePopup = false" />
-                    </q-card-actions>
-                </div>
+  <div class="">
+    <q-btn no-caps color="secondary" text-color="black" spread label="Generate QR Code" data-cy="share-button"
+      style="width: 240px;" @click="showQRCodePopup = true">
+    </q-btn>
+    <q-dialog class="q-pa-lg" v-model="showQRCodePopup" @show="onDialogShow">
+      <q-card class="custom-width">
+        <div class="flex row justify-between items-center">
+          <q-card-section class="text-h6 flex justify-center">
+            QR Code
+          </q-card-section>
+          <q-card-actions align="center" class="justify-center">
+            <q-btn flat icon="sym_r_close" color="primary" @click="showQRCodePopup = false" />
+          </q-card-actions>
+        </div>
 
-                <q-card-section class="q-pa-md">
-                    <div class="q-mb-md">
-                        <!-- Render canvas only when dialog is open -->
-                        <canvas v-if="showQRCodePopup" ref="qrCanvas"  class="qr-code-canvas"/>
-                    </div>
+        <q-card-section class="q-pa-md">
+          <div class="q-mb-md">
+            <!-- Render canvas only when dialog is open -->
+            <canvas v-if="showQRCodePopup" ref="qrCanvas" class="qr-code-canvas" />
+          </div>
 
-                    <q-input v-model="qrLink" label="Link" outlined readonly />
-                    <q-btn label="Copy link" color="primary" class="q-mt-md center" @click="copyToClipboard" />
+          <q-input v-model="qrLink" label="Link" outlined readonly />
+          <q-btn label="Copy link" color="primary" class="q-mt-md center" @click="copyToClipboard" />
 
-                    <!-- Share Buttons Section -->
-                    <div class="q-mt-md flex justify-center">
-                            <q-btn icon="fab fa-facebook" color="blue" flat @click="shareOnPlatform('facebook')" />
-                            <q-btn icon="fab fa-twitter" color="blue" flat @click="shareOnPlatform('twitter')" />
-                            <q-btn icon="fab fa-linkedin" color="blue" flat @click="shareOnPlatform('linkedin')" />
-                            <q-btn icon="fab fa-whatsapp" color="green" flat @click="shareOnPlatform('whatsapp')" />
-                            <q-btn icon="fas fa-envelope" color="red" flat @click="shareOnPlatform('email')" />
-
-                    </div>
-                </q-card-section>
-            </q-card>
-        </q-dialog>
-    </div>
+          <!-- Share Buttons Section -->
+          <div class="q-mt-md flex justify-center">
+            <q-btn icon="fab fa-facebook" color="blue" flat @click="shareOnPlatform('facebook')" />
+            <q-btn icon="fab fa-twitter" color="blue" flat @click="shareOnPlatform('twitter')" />
+            <q-btn icon="fab fa-linkedin" color="blue" flat @click="shareOnPlatform('linkedin')" />
+            <q-btn icon="fab fa-whatsapp" color="green" flat @click="shareOnPlatform('whatsapp')" />
+            <q-btn icon="fas fa-envelope" color="red" flat @click="shareOnPlatform('email')" />
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
+import { useQuasar } from 'quasar'
 import QRCode from 'qrcode'
 
+const $q = useQuasar()
 const showQRCodePopup = ref(false)
 const qrLink = ref<string>('')
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
@@ -70,7 +71,19 @@ const onDialogShow = () => {
 
 const copyToClipboard = () => {
   navigator.clipboard.writeText(qrLink.value).then(() => {
-    alert('Link copied to clipboard!')
+    $q.notify({
+      type: 'positive',
+      message: 'Link copied to clipboard!',
+      position: 'top',
+      timeout: 2000
+    })
+  }).catch(() => {
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to copy link.',
+      position: 'top',
+      timeout: 2000
+    })
   })
 }
 
@@ -104,14 +117,16 @@ const shareOnPlatform = (platform: string) => {
   max-width: 90vw;
   border-radius: 15px;
 }
+
 .qr-code-canvas {
-    width: 100%;
-    max-width: 300px;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-  }
-  .center{
-    width: 100%;
-  }
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.center {
+  width: 100%;
+}
 </style>
