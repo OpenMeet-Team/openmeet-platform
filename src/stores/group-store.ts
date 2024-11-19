@@ -25,10 +25,10 @@ export const useGroupStore = defineStore('group', {
   },
 
   actions: {
-    async actionGetGroup (id: string) {
+    async actionGetGroup (slug: string) {
       this.isLoading = true
       try {
-        const res = await groupsApi.getById(id)
+        const res = await groupsApi.getBySlug(slug)
         this.group = res.data
       } catch (err) {
         console.log(err)
@@ -37,9 +37,9 @@ export const useGroupStore = defineStore('group', {
         this.isLoading = false
       }
     },
-    async actionGetGroupMembers (id: string) {
+    async actionGetGroupMembers (slug: string) {
       try {
-        const res = await groupsApi.getMembers(id)
+        const res = await groupsApi.getMembers(slug)
         if (this.group) {
           this.group.groupMembers = res.data
         }
@@ -48,9 +48,9 @@ export const useGroupStore = defineStore('group', {
         error('Failed to fetch group data')
       }
     },
-    async actionGetGroupEvents (id: string) {
+    async actionGetGroupEvents (slug: string) {
       try {
-        const res = await groupsApi.getEvents(id)
+        const res = await groupsApi.getEvents(slug)
         if (this.group) {
           this.group.events = res.data
         }
@@ -59,9 +59,9 @@ export const useGroupStore = defineStore('group', {
         error('Failed to fetch group data')
       }
     },
-    async actionGetGroupDiscussions (id: string) {
+    async actionGetGroupDiscussions (slug: string) {
       try {
-        const res = await groupsApi.getDiscussions(id)
+        const res = await groupsApi.getDiscussions(slug)
         if (this.group) {
           this.group.discussions = res.data
         }
@@ -71,9 +71,9 @@ export const useGroupStore = defineStore('group', {
       }
     },
 
-    async actionJoinGroup (id: string) {
+    async actionJoinGroup (slug: string) {
       try {
-        const res = await groupsApi.join(id)
+        const res = await groupsApi.join(slug)
         if (this.group) {
           this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
           this.group.groupMember = res.data
@@ -85,9 +85,9 @@ export const useGroupStore = defineStore('group', {
       }
     },
 
-    async actionLeaveGroup (groupId: string) {
+    async actionLeaveGroup (slug: string) {
       try {
-        await groupsApi.leave(groupId)
+        await groupsApi.leave(slug)
         if (this.group) {
           this.group.groupMember = undefined
           analyticsService.trackEvent('group_left', { group_id: this.group?.id, name: this.group?.name })
@@ -97,9 +97,9 @@ export const useGroupStore = defineStore('group', {
         error('Failed to leave group')
       }
     },
-    async actionDeleteGroup (id: number) {
+    async actionDeleteGroup (ulid: string) {
       try {
-        await groupsApi.delete(id)
+        await groupsApi.delete(ulid)
       } catch (err) {
         console.log(err)
         error('Failed to delete group')
@@ -111,9 +111,9 @@ export const useGroupStore = defineStore('group', {
         console.log(this.group.groupMembers)
       }
     },
-    async actionRemoveGroupMember (groupId: number, userId: number) {
+    async actionRemoveGroupMember (slug: string, groupMemberId: number) {
       try {
-        await groupsApi.removeMember(groupId, userId).then(res => {
+        await groupsApi.removeMember(slug, groupMemberId).then(res => {
           if (this.group?.groupMembers) {
             this.group.groupMembers = this.group.groupMembers.filter(m => m.id !== res.data.id)
           }

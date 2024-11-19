@@ -28,6 +28,7 @@ export interface UserRoleEntity {
 export interface UserEntity {
   id: number
   ulid: string
+  slug: string
   email: string
   name?: string
   firstName?: string

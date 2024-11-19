@@ -57,7 +57,7 @@ export function useGroupDialog () {
       },
       persistent: true
     }).onOk(() => {
-      return groupsApi.delete(group.id).then(() => {
+      return groupsApi.delete(group.ulid).then(() => {
         return success('Group deleted')
       })
     })

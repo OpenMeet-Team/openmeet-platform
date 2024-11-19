@@ -209,9 +209,9 @@ onMounted(() => {
     })
   ]
 
-  if (props.editEventId) {
+  if (props.editEventUlid) {
     promises.push(
-      eventsApi.edit(Number(props.editEventId)).then(res => {
+      eventsApi.edit(props.editEventUlid).then(res => {
         eventData.value = res.data
       })
     )
@@ -224,10 +224,10 @@ onMounted(() => {
   })
 })
 
-interface Props { editEventId?: string, group?: GroupEntity }
+interface Props { editEventUlid?: string, group?: GroupEntity }
 
 const props = withDefaults(defineProps<Props>(), {
-  editEventId: undefined
+  editEventUlid: undefined
 })
 
 const onSubmit = async () => {
@@ -242,8 +242,8 @@ const onSubmit = async () => {
   }
 
   try {
-    if (event.id) {
-      const res = await eventsApi.update(event.id, event)
+    if (event.ulid) {
+      const res = await eventsApi.update(event.ulid, event)
       emit('updated', res.data)
       analyticsService.trackEvent('event_updated', { event_id: res.data.id, name: res.data.name })
     } else {

@@ -48,7 +48,7 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
       <q-card-actions align="right">
         <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
-        <q-btn no-caps label="Join Group" color="primary" @click="navigateToGroup(event.group?.slug, event.group?.id)" />
+        <q-btn no-caps label="Join Group" color="primary" @click="navigateToGroup(event.group)" />
       </q-card-actions>
     </q-card>
 

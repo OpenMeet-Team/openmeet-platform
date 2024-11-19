@@ -55,12 +55,12 @@ export const useEventStore = defineStore('event', {
       // Optionally, log the error details for debugging
       console.error('Error details:', err)
     },
-    async actionGetEventById (id: string) {
+    async actionGetEventBySlug (slug: string) {
       this.isLoading = true
       this.errorMessage = null
 
       try {
-        const res = await eventsApi.getById(id)
+        const res = await eventsApi.getBySlug(slug)
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
@@ -69,18 +69,18 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionGetEventAttendees (id: string) {
+    async actionGetEventAttendees (ulid: string) {
       try {
-        const res = await eventsApi.getAttendees(id)
+        const res = await eventsApi.getAttendees(ulid)
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       }
     },
 
-    async actionAttendEvent (id: number, data: Partial<EventAttendeeEntity>) {
+    async actionAttendEvent (ulid: string, data: Partial<EventAttendeeEntity>) {
       try {
-        const res = await eventsApi.attend(id, data)
+        const res = await eventsApi.attend(ulid, data)
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data
@@ -93,9 +93,9 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionUpdateAttendee (data: Partial<EventAttendeeEntity>) {
+    async actionUpdateAttendee (ulid: string, data: Partial<EventAttendeeEntity>) {
       try {
-        const res = await eventsApi.updateAteendee(data.id as number, data)
+        const res = await eventsApi.updateAteendee(ulid, data)
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data
@@ -110,7 +110,7 @@ export const useEventStore = defineStore('event', {
 
     async actionCancelAttending (event: EventEntity) {
       if (event.attendee) {
-        return await eventsApi.cancelAttending(event.id).then((res) => {
+        return await eventsApi.cancelAttending(event.slug).then((res) => {
           if (this.event) {
             this.event.attendees = this.event.attendees?.filter((attendee) => attendee.id !== event.attendee?.id)
             this.event.attendee = res.data

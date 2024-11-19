@@ -6,36 +6,39 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'HomePage', component: () => import('pages/HomePage.vue') },
-      { path: 'events', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
       {
-        path: 'events/:slug?--:id',
-        name: 'EventPage',
-        component: () => import('pages/EventPage.vue')
-      },
-      {
-        path: 'events/:slug?--:id/attendees',
-        name: 'EventAttendeesPage',
-        component: () => import('pages/event/EventAttendeesPage.vue')
-      },
-      { path: 'members/:ulid', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
-      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } },
-      { path: 'groups', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
-      {
-        path: 'groups/:slug?--:id',
-        name: 'GroupPage',
-        redirect: { name: 'GroupAboutPage' },
-        component: () => import('pages/GroupPage.vue'),
+        path: 'events',
+        name: 'EventsPage',
         children: [
-          { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
-          { path: 'events', name: 'GroupEventsPage', component: () => import('pages/group/GroupEventsPage.vue') },
-          { path: 'members', name: 'GroupMembersPage', component: () => import('pages/group/GroupMembersPage.vue') },
+          { path: '', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
+          { path: ':slug', name: 'EventPage', component: () => import('pages/EventPage.vue') },
           {
-            path: 'discussions',
-            name: 'GroupDiscussionsPage',
-            component: () => import('pages/group/GroupDiscussionsPage.vue')
+            path: ':slug/attendees',
+            name: 'EventAttendeesPage',
+            component: () => import('pages/event/EventAttendeesPage.vue')
           }
         ]
-      }
+      },
+      {
+        path: 'groups',
+        name: 'GroupsPage',
+        children: [
+          { path: '', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
+          {
+            path: ':slug',
+            name: 'GroupPage',
+            component: () => import('pages/GroupPage.vue'),
+            children: [
+              { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
+              { path: 'events', name: 'GroupEventsPage', component: () => import('pages/group/GroupEventsPage.vue') },
+              { path: 'members', name: 'GroupMembersPage', component: () => import('pages/group/GroupMembersPage.vue') },
+              { path: 'discussions', name: 'GroupDiscussionsPage', component: () => import('pages/group/GroupDiscussionsPage.vue') }
+            ]
+          }
+        ]
+      },
+      { path: 'members/:slug', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
+      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } }
     ],
     meta: { requiresAuth: false }
   },
@@ -44,31 +47,26 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
-      { path: 'events', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
       {
-        path: 'events/create',
-        name: 'DashboardEventCreatePage',
-        component: () => import('pages/dashboard/DashboardEventCreatePage.vue')
+        path: 'events',
+        name: 'DashboardEventsPage',
+        component: () => import('pages/dashboard/DashboardEventsPage.vue'),
+        children: [
+          { path: '', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
+          { path: 'create', name: 'DashboardEventCreatePage', component: () => import('pages/dashboard/DashboardEventCreatePage.vue') },
+          { path: ':id', name: 'DashboardEventPage', component: () => import('pages/dashboard/DashboardEventPage.vue') }
+        ]
       },
-      {
-        path: 'events/:id',
-        name: 'DashboardEventPage',
-        component: () => import('pages/dashboard/DashboardEventPage.vue')
-      },
+
       {
         path: 'groups',
         name: 'DashboardGroupsPage',
-        component: () => import('pages/dashboard/group/DashboardGroupsPage.vue')
-      },
-      {
-        path: 'groups/create',
-        name: 'DashboardGroupsCreatePage',
-        component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue')
-      },
-      {
-        path: 'groups/:id',
-        name: 'DashboardGroupPage',
-        component: () => import('pages/dashboard/group/DashboardGroupPage.vue')
+        component: () => import('pages/dashboard/group/DashboardGroupsPage.vue'),
+        children: [
+          { path: '', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/group/DashboardGroupsPage.vue') },
+          { path: 'create', name: 'DashboardGroupsCreatePage', component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue') },
+          { path: ':id', name: 'DashboardGroupPage', component: () => import('pages/dashboard/group/DashboardGroupPage.vue') }
+        ]
       },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
     ],

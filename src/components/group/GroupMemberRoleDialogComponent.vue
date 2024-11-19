@@ -75,7 +75,7 @@ const isLoading = ref(false)
 const onUpdateRole = () => {
   isLoading.value = true
 
-  groupsApi.updateMemberRole(props.group.id, props.member.user.id, { name: role.value }).then(res => {
+  groupsApi.updateMemberRole(props.group.slug, props.member.id, { name: role.value }).then(res => {
     useGroupStore().actionUpdateGroupMember(res.data)
     dialogRef.value?.hide()
   }).finally(() => {

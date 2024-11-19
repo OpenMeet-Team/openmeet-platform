@@ -71,6 +71,7 @@ import analyticsService from 'src/services/analyticsService'
 import { useNavigation } from 'src/composables/useNavigation'
 
 const group = ref<GroupEntity>({
+  ulid: '',
   id: 0,
   name: '',
   slug: '',
@@ -118,8 +119,8 @@ onMounted(async () => {
 
     // Fetch group data conditionally if `editGroupId` exists
     let groupPromise
-    if (props.editGroupId) {
-      groupPromise = groupsApi.getMeById(props.editGroupId).then(res => {
+    if (props.editGroupSlug) {
+      groupPromise = groupsApi.getMeBySlug(props.editGroupSlug).then(res => {
         group.value = res.data
       })
     }
@@ -137,11 +138,11 @@ onMounted(async () => {
 })
 
 interface Props {
-  editGroupId?: string
+  editGroupSlug?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  editGroupId: undefined
+  editGroupSlug: undefined
 })
 
 const onSubmit = async () => {
@@ -158,14 +159,14 @@ const onSubmit = async () => {
 
   Loading.show()
   try {
-    if (groupPayload.id) {
-      const res = await groupsApi.update(groupPayload.id, groupPayload)
+    if (groupPayload.ulid) {
+      const res = await groupsApi.update(groupPayload.ulid, groupPayload)
       emit('updated', res.data)
-      navigateToGroup(res.data.slug, res.data.id)
+      navigateToGroup(res.data)
       analyticsService.trackEvent('group_updated', { group_id: res.data.id, name: res.data.name })
     } else {
       const res = await groupsApi.create(groupPayload)
-      navigateToGroup(res.data.slug, res.data.id)
+      navigateToGroup(res.data)
       emit('created', res.data)
       analyticsService.trackEvent('group_created', { group_id: res.data.id, name: res.data.name })
     }

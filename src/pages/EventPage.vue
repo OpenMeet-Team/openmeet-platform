@@ -57,7 +57,7 @@
               <q-card-section>
                 <div class="text-h6">Organizer</div>
                 <div class="q-mt-md">
-                  <q-item clickable @click="navigateToGroup(event.group.slug, event.group.id)">
+                  <q-item clickable @click="navigateToGroup(event.group)">
                     <q-item-section avatar>
                       <q-avatar size="48px">
                         <img v-if="event.group.image" :src="getImageSrc(event.group.image)" :alt="event.group.name">
@@ -137,7 +137,6 @@ import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import EventLeadComponent from 'components/event/EventLeadComponent.vue'
 import { useEventStore } from 'stores/event-store.ts'
-import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
@@ -168,8 +167,7 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   LoadingBar.start()
-  const eventId = decodeLowercaseStringToNumber(route.params.id as string)
-  useEventStore().actionGetEventById(String(eventId)).finally(() => {
+  useEventStore().actionGetEventBySlug(route.params.slug as string).finally(() => {
     showSimilarEvents.value = true
     LoadingBar.stop()
   }).then(() => {

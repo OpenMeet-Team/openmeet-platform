@@ -21,10 +21,10 @@ const { navigateToGroup } = useNavigation()
   <div class="c-groups-item-component row q-mb-lg q-col-gutter-lg" data-cy="groups-item-component">
     <div class="col-12 col-sm-4">
       <q-img height="150px" class="cursor-pointer rounded-borders" data-cy="groups-item-image"
-        @click="navigateToGroup(group.slug, group.id)" ratio="16/9" :src="getImageSrc(group.image)" />
+        @click="navigateToGroup(group)" ratio="16/9" :src="getImageSrc(group.image)" />
     </div>
     <div class="col-12 col-sm-8 column">
-      <div class="text-h5 text-bold q-pa-none cursor-pointer elipsys" data-cy="groups-item-name" @click="navigateToGroup(group.slug, group.id)">{{
+      <div class="text-h5 text-bold q-pa-none cursor-pointer elipsys" data-cy="groups-item-name" @click="navigateToGroup(group)">{{
         group.name }}</div>
       <div class="text-subtitle2" v-if="group.categories">
         {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}

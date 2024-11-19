@@ -30,7 +30,7 @@
               </div>
             </q-item-section>
             <q-item-section side>
-              <q-btn color="primary" label="Attend" @click="navigateToEvent(event.slug, event.id)" />
+              <q-btn color="primary" label="Attend" @click="navigateToEvent(event)" />
             </q-item-section>
           </q-item>
         </q-list>

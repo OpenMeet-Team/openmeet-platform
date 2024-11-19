@@ -1,21 +1,19 @@
 import { useRouter } from 'vue-router'
-import { encodeNumberToLowercaseString } from 'src/utils/encoder.ts'
+import { GroupEntity, EventEntity, UserEntity } from 'src/types'
 
 export function useNavigation () {
   const router = useRouter()
 
-  const navigateToGroup = (slug: string, id: number) => {
-    const groupId = encodeNumberToLowercaseString(id)
-    router.push({ name: 'GroupPage', params: { slug, id: groupId } })
+  const navigateToGroup = (group: GroupEntity) => {
+    router.push({ name: 'GroupPage', params: { slug: group.slug } })
   }
 
-  const navigateToEvent = (slug: string, id: number) => {
-    const eventId = encodeNumberToLowercaseString(id)
-    router.push({ name: 'EventPage', params: { slug, id: eventId } })
+  const navigateToEvent = (event: EventEntity) => {
+    router.push({ name: 'EventPage', params: { slug: event.slug } })
   }
 
-  const navigateToMember = (ulid: string) => {
-    router.push({ name: 'MemberPage', params: { ulid } })
+  const navigateToMember = (member: UserEntity | string) => {
+    router.push({ name: 'MemberPage', params: { slug: typeof member === 'string' ? member : member.slug } })
   }
 
   const navigateToChat = (query: { member?: string, user?: string, chat?: string }) => {

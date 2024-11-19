@@ -23,7 +23,7 @@ const { openLoginDialog } = useAuthDialog()
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
     openAttendEventDialog(props.event).onOk(({ approvalAnswer }) => {
-      useEventStore().actionAttendEvent(props.event.id, {
+      useEventStore().actionAttendEvent(props.event.ulid, {
         approvalAnswer
       } as Partial<EventAttendeeEntity>).then(attendee => {
         if (attendee) {

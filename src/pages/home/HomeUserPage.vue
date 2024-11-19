@@ -49,7 +49,7 @@ const onCreateEvent = (group: GroupEntity) => {
               <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
                   <q-item data-cy="organized-groups-item-component" v-ripple v-for="group in userOrganizedGroups" :key="group.id"
-                    clickable @click="navigateToGroup(group.slug, group.id)">
+                    clickable @click="navigateToGroup(group)">
                     <q-item-section thumbnail>
                       <img :src="getImageSrc(group.image)">
                     </q-item-section>
@@ -74,7 +74,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userNextHostedEvent">
                 <q-item data-cy="next-hosted-event-item-component" v-ripple clickable
-                  @click="navigateToEvent(userNextHostedEvent.slug, userNextHostedEvent.id)">
+                  @click="navigateToEvent(userNextHostedEvent)">
                   <q-item-section thumbnail>
                     <img :src="getImageSrc(userNextHostedEvent.image)">
                   </q-item-section>
@@ -96,7 +96,7 @@ const onCreateEvent = (group: GroupEntity) => {
                 <q-card-section v-if="userRecentEventDrafts?.length">
                   <q-list>
                     <q-item data-cy="recent-event-drafts-item-component" clickable v-ripple v-for="event in userRecentEventDrafts"
-                      :key="event.id" @click="navigateToEvent(event.slug, event.id)">
+                      :key="event.id" @click="navigateToEvent(event)">
                       <q-item-section thumbnail>
                         <q-img :src="getImageSrc(event.image)" />
                       </q-item-section>
@@ -134,7 +134,7 @@ const onCreateEvent = (group: GroupEntity) => {
               <q-card-section v-if="userMemberGroups?.length">
                 <q-list>
                   <q-item data-cy="member-groups-item-component" v-for="group in userMemberGroups" :key="group.id"
-                    clickable @click="navigateToGroup(group.slug, group.id)">
+                    clickable @click="navigateToGroup(group)">
                     <q-item-section>
                       <q-item-label>{{ group.name }}</q-item-label>
                       <q-item-label caption>{{ group.groupMembersCount }} members</q-item-label>

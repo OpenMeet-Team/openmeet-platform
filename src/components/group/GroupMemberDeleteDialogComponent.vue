@@ -51,7 +51,7 @@ const isLoading = ref(false)
 
 const onDeleteMember = () => {
   isLoading.value = true
-  useGroupStore().actionRemoveGroupMember(props.group.id, props.member.user.id).finally(() => {
+  useGroupStore().actionRemoveGroupMember(props.group.slug, props.member.id).finally(() => {
     isLoading.value = false
     dialogRef.value?.hide()
   })

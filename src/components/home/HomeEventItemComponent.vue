@@ -13,7 +13,7 @@ const { navigateToEvent } = useNavigation()
 </script>
 
 <template>
-  <q-item v-for="event in events" :key="event.id" clickable v-ripple @click="navigateToEvent(event.slug, event.id)" data-cy="events-item-component">
+  <q-item v-for="event in events" :key="event.id" clickable v-ripple @click="navigateToEvent(event)" data-cy="events-item-component">
     <q-item-section avatar>
       <q-icon name="sym_r_event" color="primary" size="md"/>
     </q-item-section>
