@@ -3,7 +3,7 @@
     <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event"/>
 
     <div class="row justify-center">
-        <EventFormBasicComponent class="col" @updated="navigateToEvent($event.slug, $event.id)" :edit-event-id="route.params.id as string" style="max-width: 500px" @close="router.push({ name: 'DashboardEventsPage' })"/>
+        <EventFormBasicComponent class="col" @updated="navigateToEvent($event)" :edit-event-ulid="route.params.ulid as string" style="max-width: 500px" @close="router.push({ name: 'DashboardEventsPage' })"/>
     </div>
 
   </q-page>

@@ -1,9 +1,9 @@
 import { useQuasar } from 'quasar'
 import EventFormDialogComponent from 'src/components/event/EventFormDialogComponent.vue'
-import { EventEntity, GroupEntity, GroupStatus } from 'src/types'
-import { groupsApi } from 'src/api/groups.ts'
+import { EventEntity, EventStatus, GroupEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
+import { eventsApi } from 'src/api/events'
 
 export function useEventDialog () {
   const $q = useQuasar()
@@ -78,7 +78,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return groupsApi.delete(event.id).then(() => {
+      return eventsApi.delete(event.ulid).then(() => {
         success('Event deleted!')
       })
     })
@@ -91,7 +91,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return groupsApi.update(event.id, { status: GroupStatus.Draft }).then(() => {
+      return eventsApi.update(event.ulid, { status: EventStatus.Cancelled }).then(() => {
         success('Event cancelled!')
       })
     })

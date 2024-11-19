@@ -15,7 +15,7 @@ const events = ref<EventEntity[]>([])
 const loaded = ref<boolean>(false)
 
 onMounted(() => {
-  groupsApi.similarEvents((String(props.group?.id || 0))).then(res => {
+  groupsApi.similarEvents(String(props.group?.slug || '')).then(res => {
     events.value = res.data
   }).finally(() => {
     loaded.value = true

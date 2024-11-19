@@ -19,6 +19,7 @@ describe('EventsPage', () => {
           {
             id: 1,
             name: 'Event One',
+            slug: 'event-one',
             description: 'Description for event one'
           }
         ],
@@ -71,7 +72,8 @@ describe('EventsPage', () => {
         statusCode: 200,
         body: {
           id: 2,
-          slug: 'event-two--b'
+          name: 'Event Two',
+          slug: 'event-two'
         }
       }).as('createEvent')
 
@@ -152,7 +154,7 @@ describe('EventsPage', () => {
 
         cy.dataCy('event-publish').click()
         cy.wait('@createEvent')
-        cy.testRoute('/events/event-two--b--c')
+        cy.testRoute('/events/event-two')
       })
     })
   })

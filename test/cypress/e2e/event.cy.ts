@@ -10,22 +10,22 @@ describe('EventPage', () => {
 
   describe('when the group visibility is public', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/events/1', {
+      cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
         body: {
           ...event,
           visibility: EventVisibility.Public
         } as EventEntity
       }).as('getEvent')
-      cy.intercept('GET', '/api/events/1/recommended-events', {
+      cy.intercept('GET', `/api/events/${event.slug}/recommended-events`, {
         statusCode: 200,
-        body: [{ id: 1, name: 'Event One' }]
+        body: [{ id: 1, name: 'Event One', slug: 'event-one' }]
       }).as('getRecommendedEvents')
       cy.intercept('POST', '/api/auth/login', {
         statusCode: 200
       }).as('login')
 
-      cy.visit('/events/event-one--b').then(() => {
+      cy.visit(`/events/${event.slug}`).then(() => {
         cy.wait('@getEvent')
         cy.wait('@getRecommendedEvents')
       })
@@ -60,12 +60,12 @@ describe('EventPage', () => {
 
   describe('when the group visibility is private', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/events/1', {
+      cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
         body: { ...event, visibility: EventVisibility.Private } as EventEntity
       }).as('getEvent')
 
-      cy.visit('/events/event-one--b').then(() => {
+      cy.visit(`/events/${event.slug}`).then(() => {
         cy.wait('@getEvent')
       })
     })
@@ -77,12 +77,15 @@ describe('EventPage', () => {
 
   describe('when the group visibility is authenticated', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/events/1', {
+      cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
-        body: { ...event, visibility: EventVisibility.Authenticated } as EventEntity
+        body: {
+          ...event,
+          visibility: EventVisibility.Authenticated
+        } as EventEntity
       }).as('getEvent')
 
-      cy.visit('/events/event-one--b').then(() => {
+      cy.visit(`/events/${event.slug}`).then(() => {
         cy.wait('@getEvent')
       })
     })

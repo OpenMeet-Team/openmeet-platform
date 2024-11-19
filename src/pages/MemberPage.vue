@@ -19,7 +19,7 @@ const groupMemberships = computed(() => useProfileStore().user?.groupMembers?.fi
 
 onMounted(async () => {
   LoadingBar.start()
-  useProfileStore().actionGetProfile(route.params.ulid as string).finally(() => LoadingBar.stop())
+  useProfileStore().actionGetMemberProfile(route.params.slug as string).finally(() => LoadingBar.stop())
 })
 </script>
 

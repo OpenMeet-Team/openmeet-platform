@@ -9,9 +9,9 @@ export const useProfileStore = defineStore('profile', {
   }),
 
   actions: {
-    actionGetProfile (ulid: string) {
+    actionGetMemberProfile (slug: string) {
       this.isLoading = true
-      return usersApi.getProfile(ulid).then(user => {
+      return usersApi.getMemberProfile(slug).then(user => {
         this.user = user.data
       }).finally(() => {
         this.isLoading = false

@@ -3,7 +3,7 @@
     <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event" />
 
     <div class="row justify-center">
-      <EventFormComponent class="col" @created="navigateToEvent($event.slug, $event.id)" style="max-width: 500px"
+      <EventFormComponent class="col" @created="navigateToEvent($event)" style="max-width: 500px"
         @close="onClose" />
     </div>
   </q-page>

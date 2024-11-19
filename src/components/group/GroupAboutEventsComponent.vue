@@ -29,7 +29,7 @@ defineProps<Props>()
         </q-item-section>
         <q-item-section side>
           <q-btn no-caps outline size="md" color="primary" label="Attend"
-            @click="navigateToEvent(event.slug, event.id)" />
+            @click="navigateToEvent(event)" />
         </q-item-section>
       </q-item>
     </q-list>

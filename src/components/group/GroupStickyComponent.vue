@@ -32,7 +32,7 @@ const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
 
 const onDeleteGroup = () => {
   openDeleteGroupDialog().onOk(() => {
-    useGroupStore().actionDeleteGroup(group.value?.id as number).then(() => {
+    useGroupStore().actionDeleteGroup(group.value?.ulid as string).then(() => {
       success(`You have deleted the group: ${group.value?.name}`)
       router.push({ name: 'GroupsPage' })
     })

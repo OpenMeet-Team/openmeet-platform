@@ -10,22 +10,22 @@ describe('GroupPage', () => {
 
   describe('when the group visibility is public', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/groups/1', {
+      cy.intercept('GET', `/api/groups/${group.slug}`, {
         statusCode: 200,
         body: {
           ...group,
           visibility: GroupVisibility.Public
         } as GroupEntity
       }).as('getGroup')
-      cy.intercept('GET', '/api/groups/1/recommended-events', {
+      cy.intercept('GET', `/api/groups/${group.slug}/recommended-events`, {
         statusCode: 200,
-        body: [{ id: 1, name: 'Event One' }]
+        body: [{ id: 1, name: 'Event One', slug: 'event-one' }]
       }).as('getRecommendedEvents')
       cy.intercept('POST', '/api/auth/login', {
         statusCode: 200
       }).as('login')
 
-      cy.visit('/groups/group-one--b').then(() => {
+      cy.visit(`/groups/${group.slug}`).then(() => {
         cy.wait('@getGroup')
         cy.wait('@getRecommendedEvents')
       })
@@ -60,12 +60,12 @@ describe('GroupPage', () => {
 
   describe('when the group visibility is private', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/groups/1', {
+      cy.intercept('GET', `/api/groups/${group.slug}`, {
         statusCode: 200,
         body: { ...group, visibility: GroupVisibility.Private } as GroupEntity
       }).as('getGroup')
 
-      cy.visit('/groups/group-one--b').then(() => {
+      cy.visit(`/groups/${group.slug}`).then(() => {
         cy.wait('@getGroup')
       })
     })
@@ -81,12 +81,15 @@ describe('GroupPage', () => {
 
   describe('when the group visibility is authenticated', () => {
     beforeEach(() => {
-      cy.intercept('GET', '/api/groups/1', {
+      cy.intercept('GET', `/api/groups/${group.slug}`, {
         statusCode: 200,
-        body: { ...group, visibility: GroupVisibility.Authenticated } as GroupEntity
+        body: {
+          ...group,
+          visibility: GroupVisibility.Authenticated
+        } as GroupEntity
       }).as('getGroup')
 
-      cy.visit('/groups/group-one--b').then(() => {
+      cy.visit(`/groups/${group.slug}`).then(() => {
         cy.wait('@getGroup')
       })
     })

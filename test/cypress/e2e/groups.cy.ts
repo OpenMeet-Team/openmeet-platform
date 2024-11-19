@@ -69,7 +69,7 @@ describe('GroupsPage', () => {
   it('should navigate to the group page', () => {
     cy.dataCy('groups-page').should('be.visible')
     cy.dataCy('groups-item-image').first().click()
-    cy.testRoute('/groups/group-one--b')
+    cy.testRoute('/groups/group-one')
   })
 
   it('should display the login form', () => {
@@ -139,7 +139,7 @@ describe('GroupsPage', () => {
       })
       cy.dataCy('group-create').click()
       // cy.wait('@createGroup')
-      cy.testRoute('/groups/group-two--c')
+      cy.testRoute('/groups/group-two')
 
       // cy.dataCy('group-form').should('not.be.visible')
       // cy.testRoute('/groups/group-two--b')

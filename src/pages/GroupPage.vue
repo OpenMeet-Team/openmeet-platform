@@ -32,7 +32,6 @@ import { useGroupStore } from 'stores/group-store.ts'
 import GroupStickyComponent from 'components/group/GroupStickyComponent.vue'
 import GroupLeadComponent from 'components/group/GroupLeadComponent.vue'
 import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComponent.vue'
-import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
@@ -50,9 +49,10 @@ onBeforeUnmount(() => {
 })
 
 onMounted(async () => {
+  console.log('GroupPageonMounted')
+
   LoadingBar.start()
-  const groupId = decodeLowercaseStringToNumber(route.params.id as string)
-  useGroupStore().actionGetGroup(String(groupId)).finally(() => {
+  useGroupStore().actionGetGroup(route.params.slug as string).finally(() => {
     showSimilarEvents.value = true
     LoadingBar.stop()
   }).then(() => {

@@ -18,7 +18,7 @@ const { navigateToEvent } = useNavigation()
 const onEventCreated = (event: EventEntity) => {
   if (dialogRef.value) {
     dialogRef.value.hide()
-    navigateToEvent(event.slug, event.id)
+    navigateToEvent(event)
   }
 }
 
