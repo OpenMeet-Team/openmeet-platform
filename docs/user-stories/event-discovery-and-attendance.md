@@ -36,19 +36,8 @@ Sarah clicks or scrolls to view more details and sees:
   - What to bring
   - How to contact organizers
 
-## Flow Classification
-This story illustrates how the three key aspects interplay:
-- **Discoverability**: Listed (Sarah found it in search)
-- **Access**: Restricted (requires group membership)
-- **Confirmation**: Manual (host approval required)
-
-
-## Notes
-
-- how to enforce the group membership requirement? Is it automatic or is the host validating that?
-- what happens if the host doesn't approve the attendance? What does the user see?
--
 ---
+
 # Invite-Only Group Event Flow
 
 ## Host Creation Phase

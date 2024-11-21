@@ -4,11 +4,7 @@
 
 1. When creating a group, select "People you invite" from the dropdown for "Group Visibility".
 
-<<<<<<< Updated upstream
 2. This means that only the members you invite will be able to see or join the group.
-=======
-2. This means that only the members you invite will be able to see or join the group.
->>>>>>> Stashed changes
 3. This group won't show up during searches or as recommendations to other users.
 4. The only way to join this group is if you have been invited by a member of the group.
 
