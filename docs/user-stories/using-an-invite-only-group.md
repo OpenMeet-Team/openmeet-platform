@@ -4,7 +4,11 @@
 
 1. When creating a group, select "People you invite" from the dropdown for "Group Visibility".
 
-2. This means that only the members you invite will be able to see or join the group.  
+<<<<<<< Updated upstream
+2. This means that only the members you invite will be able to see or join the group.
+=======
+2. This means that only the members you invite will be able to see or join the group.
+>>>>>>> Stashed changes
 3. This group won't show up during searches or as recommendations to other users.
 4. The only way to join this group is if you have been invited by a member of the group.
 
@@ -27,6 +31,20 @@
 4. Once an admin or moderator approves my membership, I get a notification that I'm a member of the group, and I can now participate in group activities.
 
 
+## 5. Vetting new members who requested to join
+
+1. As a moderator, admin, or owner, I can see a list of pending members that have requested to join the group.
+2. I can approve or reject their membership to the group moving them from the waiting list to the group members list.
+    * If I reject them, they get a notification that they were rejected and why.
+    * If I approve them, they get a notification that they were approved and can now participate in group activities with the role of Member
+    * If I want a more thorough vetting process, I can email or DM them to schedule a video call where I can check their ID and address information
+    * If I want to be more hands off, I can approve all requests automatically or disable the invitation only option.
+
+## 6. Removing members from the group
+
+1. As a moderator, admin, or owner, I can remove a member from the group.
+2. This removes them from the group members list and they will no longer be able to participate in group activities.
+
 ---
 
 # Using an Invite-Only Group v2
@@ -35,7 +53,7 @@
 
 1. When creating a group, select "People you invite" from the dropdown for "Group Visibility".
 
-2. This means that only the members you invite or people who know the group url will be able to see or join the group.  
+2. This means that only the members you invite or people who know the group url will be able to see or join the group.
 3. This group won't show up during searches or as recommendations to other users.
 4. The only way to join this group is if you have the group URL, and pass a vetting stage.
 
