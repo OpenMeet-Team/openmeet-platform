@@ -1,7 +1,8 @@
 <template>
-  <div>
+  <div class="c-group-events-page">
     <SpinnerComponent v-if="isLoading" />
-    <template v-if="!isLoading && useGroupStore().getterUserGroupPermission(GroupPermission.SeeEvents)">
+    <div data-cy="group-events-page"
+      v-if="hasPermission">
       <div class="row q-mb-md">
         <q-btn-toggle v-model="viewMode" flat stretch toggle-color="primary" :options="[
           { label: 'List', value: 'list', icon: 'sym_r_list' },
@@ -41,8 +42,8 @@
         <CalendarComponent mode="month" :day-height="100" :model-value="selectedDate" view="month"
           :events="calendarEvents" />
       </div>
-    </template>
-    <NoContentComponent v-else label="You don't have permission to see this page" icon="sym_r_group" />
+    </div>
+    <NoContentComponent data-cy="no-permission-group-events-page" v-if="!hasPermission && !isLoading" label="You don't have permission to see this page" icon="sym_r_group" />
   </div>
 </template>
 
@@ -51,11 +52,11 @@ import { ref, computed, onMounted } from 'vue'
 import { date } from 'quasar'
 import CalendarComponent from 'components/common/CalendarComponent.vue'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
-import { decodeLowercaseStringToNumber } from 'src/utils/encoder.ts'
 import { useRoute } from 'vue-router'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import { useGroupStore } from 'src/stores/group-store'
 import { GroupPermission } from 'src/types'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const { navigateToEvent } = useNavigation()
 
@@ -68,12 +69,15 @@ const timeFilter = ref<'upcoming' | 'past'>('upcoming')
 const selectedDate = ref(null)
 const group = computed(() => useGroupStore().group)
 
-onMounted(() => {
-  const groupId = decodeLowercaseStringToNumber(route.params.id as string)
+const hasPermission = computed(() => {
+  return group.value && ((useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated)) ||
+    useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
+})
 
-  if (group.value && useGroupStore().getterUserGroupPermission(GroupPermission.SeeEvents)) {
+onMounted(() => {
+  if (hasPermission.value) {
     isLoading.value = true
-    useGroupStore().actionGetGroupEvents(String(groupId)).finally(() => (isLoading.value = false))
+    useGroupStore().actionGetGroupEvents(route.params.slug as string).finally(() => (isLoading.value = false))
   }
 })
 

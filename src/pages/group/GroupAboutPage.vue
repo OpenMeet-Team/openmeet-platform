@@ -1,17 +1,33 @@
 <script setup lang="ts">
 import { useGroupStore } from 'stores/group-store.ts'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import GroupAboutMembersComponent from 'components/group/GroupAboutMembersComponent.vue'
 import GroupAboutDiscussionsComponent from 'components/group/GroupAboutDiscussionsComponent.vue'
 import GroupAboutEventsComponent from 'components/group/GroupAboutEventsComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import { GroupPermission } from 'src/types'
+import { useAuthStore } from 'src/stores/auth-store'
+import { useRoute } from 'vue-router'
 
 const group = computed(() => useGroupStore().group)
+const route = useRoute()
+const isLoading = ref<boolean>(false)
+const hasPermission = computed(() => {
+  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
+})
+
+onMounted(() => {
+  console.log('GroupAboutPage onMounted')
+  if (hasPermission.value) {
+    isLoading.value = true
+    useGroupStore().actionGetGroupAbout(route.params.slug as string).finally(() => (isLoading.value = false))
+  }
+})
+
 </script>
 
 <template>
-  <div v-if="group" class="row q-col-gutter-lg q-mt-md">
-
+  <div v-if="group && !isLoading" class="row q-col-gutter-lg q-mt-md">
     <div class="col-12 col-sm-6">
 
       <!-- Description -->
@@ -26,7 +42,7 @@ const group = computed(() => useGroupStore().group)
       <GroupAboutEventsComponent :events="group.events" />
 
       <!-- Discussions section -->
-      <GroupAboutDiscussionsComponent :discussion="group.discussions" />
+      <GroupAboutDiscussionsComponent :group="group" />
     </div>
 
     <!-- Members List -->
@@ -34,6 +50,7 @@ const group = computed(() => useGroupStore().group)
       <GroupAboutMembersComponent :groupMembers="group.groupMembers" />
     </div>
   </div>
+  <SpinnerComponent v-else />
 </template>
 
 <style scoped lang="scss"></style>

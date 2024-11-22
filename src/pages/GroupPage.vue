@@ -10,13 +10,13 @@
       <GroupStickyComponent v-if="group" />
 
       <!-- Secondary blocks -->
-      <router-view v-if="group && (group.visibility === GroupVisibility.Public || (group.visibility === GroupVisibility.Authenticated && useAuthStore().isAuthenticated)) || useGroupStore().getterUserGroupPermission(GroupPermission.SeeGroup)" />
+      <router-view />
 
       <!-- Private group content -->
-      <NoContentComponent v-if="group && group.visibility === GroupVisibility.Private && !useGroupStore().getterUserGroupPermission(GroupPermission.SeeGroup)" icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
+      <NoContentComponent v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)" icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
 
       <!-- Auth group content -->
-      <NoContentComponent v-if="group && group.visibility === GroupVisibility.Authenticated && !useAuthStore().isAuthenticated" icon="sym_r_error" data-cy="auth-group-content" label="You need to be logged in to see the content" />
+      <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated" icon="sym_r_error" data-cy="auth-group-content" label="You need to be logged in to see the content" />
     </template>
     <NoContentComponent v-else data-cy="no-group-content" icon="sym_r_error" label="Group not found" :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
 
@@ -35,7 +35,7 @@ import GroupSimilarEventsComponent from 'components/group/GroupSimilarEventsComp
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
-import { GroupPermission, GroupVisibility } from 'src/types'
+import { GroupPermission } from 'src/types'
 import { useAuthStore } from 'src/stores/auth-store'
 
 const route = useRoute()
@@ -48,27 +48,27 @@ onBeforeUnmount(() => {
   useGroupStore().$reset()
 })
 
-onMounted(async () => {
-  console.log('GroupPageonMounted')
+useMeta(() => {
+  return {
+    title: group.value?.name,
+    meta: {
+      description: { content: group.value?.description },
+      'og:image': { content: getImageSrc(group.value?.image) }
+    }
+  }
+})
 
+onMounted(async () => {
   LoadingBar.start()
   useGroupStore().actionGetGroup(route.params.slug as string).finally(() => {
     showSimilarEvents.value = true
     LoadingBar.stop()
-  }).then(() => {
-    const group = useGroupStore().group
-
-    if (group) {
-      useMeta({
-        title: group.name,
-        meta: {
-          description: { content: group.description },
-          'og:image': { content: getImageSrc(group.image) }
-        }
-      })
-    }
   })
 })
+
+// const hasPermission = computed(() => {
+//   return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
+// })
 
 onBeforeUnmount(() => {
   useGroupStore().$reset()

@@ -130,19 +130,3 @@ export interface Pagination<T> {
   page: number
   totalPages: number
 }
-
-export interface DiscussionReplyEntity {
-  id: string
-  author: UserEntity
-  text: string
-  datePosted: Date
-}
-
-// Represents a discussion topic in the group
-export interface DiscussionEntity {
-  id: string;
-  topic: string;
-  author: UserEntity;
-  createdAt: Date;
-  replies: DiscussionReplyEntity[];
-}

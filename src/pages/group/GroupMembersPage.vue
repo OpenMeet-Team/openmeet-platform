@@ -1,7 +1,7 @@
 <template>
   <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page">
     <SpinnerComponent v-if="isLoading"/>
-    <template v-if="!isLoading && group && useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)">
+    <div data-cy="group-members-page" v-if="!isLoading && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-sm-8">
@@ -30,7 +30,7 @@
               <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name" />
             </q-avatar>
           </q-item-section>
-          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user)">
+          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user.ulid)">
             <q-item-label>{{ member.user.name }}</q-item-label>
             <q-item-label caption>
               {{ capitalizeFirstLetter(member.groupRole.name) }} • <span v-if="member.createdAt">Joined {{ formatDate(member.createdAt, 'DD MMM YYYY') }}</span>
@@ -38,10 +38,12 @@
           </q-item-section>
           <q-item-section top side>
           <div class="text-grey-8 q-gutter-xs">
-            <q-btn size="md" @click="navigateToChat({ member: member.user.shortId || '' })" round flat icon="sym_r_chat" />
-            <q-btn size="md" round flat icon="sym_r_more_vert" :disable="!((useGroupStore().getterUserGroupRole(GroupRole.Owner) || useGroupStore().getterUserGroupPermission(GroupPermission.ManageMembers)) && member.groupRole.name !== GroupRole.Owner)">
+            <q-btn color="primary" size="md" @click="navigateToChat({ member: member.user.shortId || '' })" round flat icon="sym_r_chat" />
+            <q-btn color="primary" size="md" round flat icon="sym_r_more_vert" :disable="!(useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers) && member.groupRole.name !== GroupRole.Owner)">
               <q-menu>
                 <q-list>
+                  <!-- <MenuItemComponent v-if="member.groupRole.name === GroupRole.Guest" label="Approve" @click="openGroupMemberRoleDialog(group, member)" icon="sym_r_check"/> -->
+                  <!-- <MenuItemComponent v-if="member.groupRole.name === GroupRole.Guest" label="Reject" @click="openGroupMemberRoleDialog(group, member)" icon="sym_r_close"/> -->
                   <MenuItemComponent label="Change group role" @click="openGroupMemberRoleDialog(group, member)" icon="sym_r_edit"/>
                   <MenuItemComponent label="Remove from group" @click="openGroupMemberDeleteDialog(group, member)" icon="sym_r_delete" />
                 </q-list>
@@ -52,8 +54,8 @@
         </q-item>
       </q-list>
       <NoContentComponent v-if="!filteredMembers?.length" :label="getNoContentMessage" icon="sym_r_group"/>
-    </template>
-    <NoContentComponent v-else label="You don't have permission to see this page" icon="sym_r_group"/>
+    </div>
+    <NoContentComponent data-cy="no-permission-group-members-page" v-else label="You don't have permission to see this page" icon="sym_r_group"/>
   </div>
 </template>
 
@@ -103,12 +105,14 @@ const getNoContentMessage = computed(() => {
   return 'No group members yet'
 })
 
+const hasPermission = computed(() => {
+  return group.value && (useGroupStore().getterIsPublicGroup || useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers))
+})
+
 onMounted(() => {
-  isLoading.value = true
-  if (useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)) {
-    if (group.value) useGroupStore().actionGetGroupMembers(String(group.value.id)).finally(() => (isLoading.value = false))
-  } else {
-    isLoading.value = false
+  if (group.value && hasPermission.value) {
+    isLoading.value = true
+    useGroupStore().actionGetGroupMembers(group.value.slug).finally(() => (isLoading.value = false))
   }
 })
 

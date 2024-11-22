@@ -5,7 +5,7 @@
         <q-card-section v-if="event?.attendees?.length">
             <div class="row q-gutter-md">
                 <q-item v-for="attendee in event.attendees" :key="attendee.id" clickable class="q-px-sm"
-                    @click="router.push({ name: 'MemberPage', params: { ulid: attendee.user?.ulid } })">
+                    @click="router.push({ name: 'MemberPage', params: { slug: attendee.user?.slug } })">
                     <q-avatar avatar rounded>
                         <q-img :src="getImageSrc(attendee.user?.photo)" :ratio="1" :alt="attendee.user?.name" />
                         <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role.name }}</q-badge>

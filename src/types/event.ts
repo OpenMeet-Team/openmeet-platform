@@ -112,7 +112,7 @@ export interface EventEntity {
   groupMember?: GroupMemberEntity
   attendee?: EventAttendeeEntity
   topics?: ZulipTopicEntity[]
-  comments?: ZulipMessageEntity[]
+  messages?: ZulipMessageEntity[]
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}

@@ -69,9 +69,9 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionGetEventAttendees (ulid: string) {
+    async actionGetEventAttendees (slug: string) {
       try {
-        const res = await eventsApi.getAttendees(ulid)
+        const res = await eventsApi.getAttendees(slug)
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
@@ -121,11 +121,39 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionCreateEventComment (eventUlid: string, comment: string) {
+    async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
       try {
-        return await eventsApi.createComment(eventUlid, { content: comment })
+        if (this.event?.slug) {
+          const res = await eventsApi.sendDiscussionMessage(this.event.slug, message, topicName)
+          return res.data.id
+        }
       } catch (err) {
         console.log(err)
+        error('Failed to send event discussion message')
+      }
+    },
+
+    async actionUpdateEventDiscussionMessage (messageId: number, newText: string): Promise<number | undefined> {
+      try {
+        if (this.event?.slug) {
+          const res = await eventsApi.updateDiscussionMessage(this.event.slug, messageId, newText)
+          return res.data.id
+        }
+      } catch (err) {
+        console.log(err)
+        error('Failed to update event discussion message')
+      }
+    },
+
+    async actionDeleteEventDiscussionMessage (messageId: number): Promise<number | undefined> {
+      try {
+        if (this.event?.slug) {
+          const res = await eventsApi.deleteDiscussionMessage(this.event.slug, messageId)
+          return res.data.id
+        }
+      } catch (err) {
+        console.log(err)
+        error('Failed to delete event discussion message')
       }
     }
   }

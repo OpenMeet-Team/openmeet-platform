@@ -1,43 +1,31 @@
 <script setup lang="ts">
 
-import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { DiscussionEntity } from 'src/types'
-import { useRouter, useRoute } from 'vue-router'
+import { GroupEntity, GroupPermission } from 'src/types'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
+import { useGroupStore } from 'src/stores/group-store'
+import DiscussionComponent from '../discussion/DiscussionComponent.vue'
+import { useAuthStore } from 'src/stores/auth-store'
+import { computed } from 'vue'
 interface Props {
-  discussions?: DiscussionEntity[]
+  group?: GroupEntity
 }
 
-const router = useRouter()
-const route = useRoute()
+const canRead = computed(() => {
+  return useGroupStore().getterIsPublicGroup || ((useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeDiscussions))
+})
 
 defineProps<Props>()
 </script>
 
 <template>
-  <q-card class="shadow-0 q-mt-lg" v-if="discussions?.length">
-    <SubtitleComponent label="Discussions" :to="{ name: 'GroupDiscussionsPage', params: { id: route.params.id }}" />
-    <q-card-section v-if="discussions?.length">
-      <q-list bordered>
-        <q-item v-for="discussion in discussions" :key="discussion.id" clickable>
-          <q-item-section avatar>
-            <q-avatar size="lg">
-              <img :src="getImageSrc(discussion.author.photo, 'https://placehold.co/100')" alt="Author Avatar" />
-            </q-avatar>
-          </q-item-section>
+  <SubtitleComponent class="q-px-md q-mt-lg" label="Discussions" :to="{ name: 'GroupDiscussionsPage' }" />
 
-          <q-item-section>
-            <div class="text-weight-bold">{{ discussion.topic }}</div>
-            <div class="text-subtitle2">by {{ discussion.author.name }} · {{ discussion.createdAt }}</div>
-          </q-item-section>
-
-          <q-item-section side>
-            <q-btn flat label="Reply" icon="reply" color="primary" @click="router.push({ name: 'GroupDiscussionsPage', params: {id: route.params.id, discussionId: discussion.id}})" />
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-card-section>
-    <NoContentComponent v-else icon="sym_r_forum" label="No discussions yet"/>
+  <q-card class="q-mt-md" flat>
+      <DiscussionComponent v-if="group && group.topics && group.messages" :messages="group?.messages || []" :topics="group?.topics || []" :context-type="'group'" :context-id="group?.slug || ''" :permissions="{
+        canRead: !!canRead,
+        canWrite: !!useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion),
+        canManage: !!useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions)
+      }" />
   </q-card>
 
 </template>
