@@ -57,7 +57,6 @@ const currentPage = ref(parseInt(route.query.page as string) || 1)
 const groups = computed(() => useGroupsStore().groups)
 
 onMounted(() => {
-  console.log('GroupsPage onMounted')
   LoadingBar.start()
   useGroupsStore().actionGetGroupsState(route.query).finally(LoadingBar.stop)
 })

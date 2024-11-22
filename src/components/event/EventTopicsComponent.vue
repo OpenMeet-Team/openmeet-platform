@@ -9,9 +9,14 @@ const event = computed(() => useEventStore().event)
 </script>
 
 <template>
-    <div class="c-event-topics-component" v-if="event">
-        <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" />
+  <div class="c-event-topics-component" v-if="event">
+    <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" />
 
-        <DiscussionComponent :messages="event?.comments ?? []" :topics="event?.topics ?? []" />
-    </div>
+    <DiscussionComponent v-if="event.messages && event.topics" :messages="event?.messages ?? []" :topics="event?.topics ?? []" :context-type="'event'"
+      :context-id="event?.slug ?? ''" :permissions="{
+        canRead: true,
+        canWrite: true,
+        canManage: true
+      }" />
+  </div>
 </template>

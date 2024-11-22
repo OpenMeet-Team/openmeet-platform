@@ -19,7 +19,15 @@ export default route(function (/* { store, ssrContext } */) {
     : (getEnv('VUE_ROUTER_MODE') === 'history' ? createWebHistory : createWebHashHistory)
 
   const Router = createRouter({
-    scrollBehavior: () => ({ left: 0, top: 0 }),
+    // scrollBehavior: () => ({ left: 0, top: 0 }),
+    scrollBehavior (to, from, savedPosition) {
+      if (to.path.startsWith('/groups/') && from.path.startsWith('/groups/')) {
+        return false
+      }
+
+      // For other routes, restore position or go to top
+      return savedPosition || { top: 0 }
+    },
     routes,
 
     // Leave this as is and make changes in quasar.conf.js instead!

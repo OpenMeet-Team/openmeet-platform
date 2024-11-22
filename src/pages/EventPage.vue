@@ -34,7 +34,8 @@
           <div style="position: sticky; top: 70px">
 
             <!-- Organiser tools -->
-            <q-card class="q-mb-md shadow-0" v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents) || useEventStore().getterEventAttendeeHasRole(EventAttendeeRole.Host)">
+            <q-card class="q-mb-md shadow-0"
+              v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents) || useEventStore().getterEventAttendeeHasRole(EventAttendeeRole.Host)">
               <q-card-section>
                 <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
@@ -43,10 +44,14 @@
                       @click="router.push({ name: 'DashboardEventPage', params: { id: event.id } })" />
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
                       v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.ManageAttendees)"
-                      @click="router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })" />
-                    <MenuItemComponent label="Cancel event" v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.CancelEvent)" icon="sym_r_event_busy" @click="onCancelEvent" />
+                      @click="router.push({ name: 'EventAttendeesPage' })" />
+                    <MenuItemComponent label="Cancel event"
+                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.CancelEvent)"
+                      icon="sym_r_event_busy" @click="onCancelEvent" />
                     <q-separator />
-                    <MenuItemComponent label="Delete event" v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.DeleteEvent)" icon="sym_r_delete" @click="onDeleteEvent" />
+                    <MenuItemComponent label="Delete event"
+                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.DeleteEvent)"
+                      icon="sym_r_delete" @click="onDeleteEvent" />
                   </q-list>
                 </q-btn-dropdown>
               </q-card-section>
@@ -165,19 +170,19 @@ onBeforeUnmount(() => {
   useEventStore().$reset()
 })
 
+useMeta({
+  title: event.value?.name,
+  meta: {
+    description: { content: event.value?.description },
+    'og:image': { content: getImageSrc(event.value?.image) }
+  }
+})
+
 onMounted(() => {
   LoadingBar.start()
   useEventStore().actionGetEventBySlug(route.params.slug as string).finally(() => {
     showSimilarEvents.value = true
     LoadingBar.stop()
-  }).then(() => {
-    useMeta({
-      title: event.value?.name,
-      meta: {
-        description: { content: event.value?.description },
-        'og:image': { content: getImageSrc(event.value?.image) }
-      }
-    })
   })
 })
 </script>

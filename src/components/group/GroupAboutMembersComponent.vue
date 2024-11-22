@@ -1,24 +1,36 @@
 <script setup lang="ts">
 
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { GroupMemberEntity, GroupPermission } from 'src/types'
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { GroupMemberEntity, GroupPermission, GroupVisibility } from 'src/types'
+import { computed, onMounted } from 'vue'
 import { useGroupStore } from 'stores/group-store.ts'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation'
+import { useRoute } from 'vue-router'
+
 interface Props {
   groupMembers?: GroupMemberEntity[]
 }
+
 defineProps<Props>()
+
 const route = useRoute()
 const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()
+
 const onMemberClick = (member: GroupMemberEntity) => {
-  if (useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)) {
+  if (useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)) {
     navigateToMember(member.user)
   }
 }
+
+const hasPermissions = computed(() => group.value && group.value.visibility === GroupVisibility.Public && useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers))
+
+onMounted(() => {
+  if (hasPermissions.value) {
+    useGroupStore().actionGetGroup(route.params.slug as string)
+  }
+})
 </script>
 
 <template>
@@ -36,7 +48,7 @@ const onMemberClick = (member: GroupMemberEntity) => {
             <q-item-section>
               <q-item-label class="cursor-pointer text-body1" @click="navigateToMember(group.createdBy)">{{ group.createdBy?.name }}</q-item-label>
               <div>
-                <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" v-if="useGroupStore().getterUserGroupPermission(GroupPermission.MessageMember)"
+                <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" v-if="useGroupStore().getterUserHasPermission(GroupPermission.MessageMember)"
                   :to="{ name: 'MessagesPage', query: { member: group.createdBy?.shortId } }" label="Message" />
               </div>
             </q-item-section>
@@ -47,13 +59,13 @@ const onMemberClick = (member: GroupMemberEntity) => {
 
     <q-card-section>
     <SubtitleComponent label="Members"
-      :to="{ name: 'GroupMembersPage', params: { id: route.params.id } }" />
+      :to="{ name: 'GroupMembersPage' }" />
     <div class="row q-gutter-md" v-if="group.groupMembers?.length" style="max-height: 300px">
       <div v-for="member in group.groupMembers"
         :key="member.id">
-        <q-avatar size="60px" font-size="52px" @click="onMemberClick(member)" :class="{'cursor-pointer': useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)}">
+        <q-avatar size="60px" font-size="52px" @click="onMemberClick(member)" :class="{'cursor-pointer': useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)}">
           <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name">
-          <q-badge color="primary" v-if="useGroupStore().getterUserGroupPermission(GroupPermission.SeeMembers)" floating>{{ member.groupRole.name }}</q-badge>
+          <q-badge color="primary" v-if="useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)" floating>{{ member.groupRole.name }}</q-badge>
           </q-avatar>
         </div>
       </div>

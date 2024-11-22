@@ -8,7 +8,6 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'HomePage', component: () => import('pages/HomePage.vue') },
       {
         path: 'events',
-        name: 'EventsPage',
         children: [
           { path: '', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
           { path: ':slug', name: 'EventPage', component: () => import('pages/EventPage.vue') },
@@ -21,12 +20,12 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'groups',
-        name: 'GroupsPage',
         children: [
           { path: '', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
           {
             path: ':slug',
             name: 'GroupPage',
+            redirect: { name: 'GroupAboutPage' },
             component: () => import('pages/GroupPage.vue'),
             children: [
               { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
@@ -49,7 +48,6 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
       {
         path: 'events',
-        name: 'DashboardEventsPage',
         component: () => import('pages/dashboard/DashboardEventsPage.vue'),
         children: [
           { path: '', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
@@ -57,10 +55,8 @@ const routes: RouteRecordRaw[] = [
           { path: ':id', name: 'DashboardEventPage', component: () => import('pages/dashboard/DashboardEventPage.vue') }
         ]
       },
-
       {
         path: 'groups',
-        name: 'DashboardGroupsPage',
         component: () => import('pages/dashboard/group/DashboardGroupsPage.vue'),
         children: [
           { path: '', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/group/DashboardGroupsPage.vue') },

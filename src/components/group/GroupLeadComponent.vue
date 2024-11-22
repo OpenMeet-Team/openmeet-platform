@@ -50,7 +50,7 @@ const { navigateToMember } = useNavigation()
           </div>
         </q-card-section>
 
-        <q-card-section class="q-py-none" v-if="useGroupStore().getterUserGroupPermission(GroupPermission.ManageGroup)">
+        <q-card-section class="q-py-none" v-if="useGroupStore().getterUserHasPermission(GroupPermission.ManageGroup)">
           <q-btn icon="sym_r_edit" size="md" data-cy="edit-group-button" padding="none" no-caps flat label="Edit group info" @click="router.push({ name: 'DashboardGroupPage', params: {id: group.id }})"/>
         </q-card-section>
 

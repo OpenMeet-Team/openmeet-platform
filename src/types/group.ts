@@ -1,4 +1,4 @@
-import { CategoryEntity, DiscussionEntity, FileEntity, Pagination } from 'src/types/model.ts'
+import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model.ts'
 import { UserEntity } from 'src/types/user.ts'
 import { EventEntity } from 'src/types/event.ts'
 
@@ -24,8 +24,6 @@ export enum GroupRole {
 }
 
 export interface GroupCategoryEntity extends CategoryEntity {}
-
-export interface GroupDiscussionEntity extends DiscussionEntity {}
 
 export interface GroupPermissionEntity {
   id: number
@@ -69,7 +67,8 @@ export interface GroupEntity {
   membersCount?: number
   groupMembers?: GroupMemberEntity[]
   events?: EventEntity[]
-  discussions?: GroupDiscussionEntity[]
+  topics?: ZulipTopicEntity[]
+  messages?: ZulipMessageEntity[]
   visibility: GroupVisibility
   status: GroupStatus,
   createdBy?: UserEntity

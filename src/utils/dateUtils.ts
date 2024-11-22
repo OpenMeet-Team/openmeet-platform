@@ -8,7 +8,7 @@ export function getHumanReadableDateDifference (startDate: string | Date, endDat
   const differenceMs = end.getTime() - start.getTime() // Use getTime() for a more accurate difference
 
   if (differenceMs < 0) {
-    return 'End date must be later than start date.'
+    return 'Just seconds'
   }
 
   const seconds = Math.floor(differenceMs / 1000)

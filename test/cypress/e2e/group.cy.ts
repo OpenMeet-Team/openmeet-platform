@@ -56,6 +56,21 @@ describe('GroupPage', () => {
     it('should display the recommended events', () => {
       cy.dataCy('recommended-events-component').should('be.visible')
     })
+
+    it('should display the group events page', () => {
+      cy.visit(`/groups/${group.slug}/events`)
+      cy.dataCy('group-events-page').should('be.visible')
+    })
+
+    it('should display the group members page', () => {
+      cy.visit(`/groups/${group.slug}/members`)
+      cy.dataCy('group-members-page').should('be.visible')
+    })
+
+    it('should display the group discussions page', () => {
+      cy.visit(`/groups/${group.slug}/discussions`)
+      cy.dataCy('group-discussions-page').should('be.visible')
+    })
   })
 
   describe('when the group visibility is private', () => {
@@ -77,6 +92,21 @@ describe('GroupPage', () => {
     it('should display the private group content', () => {
       cy.dataCy('private-group-content').should('be.visible')
     })
+
+    it('should show not permission page when trying to access to group events page', () => {
+      cy.visit(`/groups/${group.slug}/events`)
+      cy.dataCy('no-permission-group-events-page').should('be.visible')
+    })
+
+    it('should show not permission page when trying to access to group members page', () => {
+      cy.visit(`/groups/${group.slug}/members`)
+      cy.dataCy('no-permission-group-members-page').should('be.visible')
+    })
+
+    it('should show not permission page when trying to access to group discussions page', () => {
+      cy.visit(`/groups/${group.slug}/discussions`)
+      cy.dataCy('no-permission-group-discussions-page').should('be.visible')
+    })
   })
 
   describe('when the group visibility is authenticated', () => {
@@ -96,6 +126,11 @@ describe('GroupPage', () => {
 
     it('should display the auth group content', () => {
       cy.dataCy('auth-group-content').should('be.visible')
+    })
+
+    it('should show please authenticate page when trying to access to group events page', () => {
+      cy.visit(`/groups/${group.slug}/events`)
+      cy.dataCy('no-permission-group-events-page').should('be.visible')
     })
   })
 })
