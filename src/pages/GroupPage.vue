@@ -10,15 +10,20 @@
       <GroupStickyComponent v-if="group" />
 
       <!-- Secondary blocks -->
-      <router-view />
-
-      <!-- Private group content -->
-      <NoContentComponent v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)" icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
+      <router-view v-if="hasRightPermission" :key="group.id" />
 
       <!-- Auth group content -->
-      <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated" icon="sym_r_error" data-cy="auth-group-content" label="You need to be logged in to see the content" />
+      <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated"
+        icon="sym_r_error" data-cy="auth-group-content" label="You need to be logged in to see the content" />
+
+      <!-- Private group content -->
+      <NoContentComponent
+        v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)"
+        icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
+
     </template>
-    <NoContentComponent v-else data-cy="no-group-content" icon="sym_r_error" label="Group not found" :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
+    <NoContentComponent v-else data-cy="no-group-content" icon="sym_r_error" label="Group not found"
+      :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
 
     <GroupSimilarEventsComponent v-if="showSimilarEvents" :group="group" />
   </q-page>
@@ -46,6 +51,10 @@ const group = computed(() => {
 
 onBeforeUnmount(() => {
   useGroupStore().$reset()
+})
+
+const hasRightPermission = computed(() => {
+  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
 })
 
 useMeta(() => {

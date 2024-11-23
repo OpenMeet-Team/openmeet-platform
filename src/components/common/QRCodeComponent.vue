@@ -39,10 +39,9 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
-import { useQuasar } from 'quasar'
 import QRCode from 'qrcode'
+import { useNotification } from 'src/composables/useNotification'
 
-const $q = useQuasar()
 const showQRCodePopup = ref(false)
 const qrLink = ref<string>('')
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
@@ -69,21 +68,13 @@ const onDialogShow = () => {
   })
 }
 
+const { success, error } = useNotification()
+
 const copyToClipboard = () => {
   navigator.clipboard.writeText(qrLink.value).then(() => {
-    $q.notify({
-      type: 'positive',
-      message: 'Link copied to clipboard!',
-      position: 'top',
-      timeout: 2000
-    })
+    success('Link copied to clipboard!')
   }).catch(() => {
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to copy link.',
-      position: 'top',
-      timeout: 2000
-    })
+    error('Failed to copy link.')
   })
 }
 

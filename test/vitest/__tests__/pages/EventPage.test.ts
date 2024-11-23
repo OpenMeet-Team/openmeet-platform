@@ -16,7 +16,7 @@ installRouter({
 
 vi.mock('src/api/events', () => ({
   eventsApi: {
-    getById: vi.fn().mockResolvedValue({ data: { id: '1', name: 'Test Event' } })
+    getBySlug: vi.fn().mockResolvedValue({ data: { id: '1', name: 'Test Event' } })
   }
 }))
 

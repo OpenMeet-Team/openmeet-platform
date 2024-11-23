@@ -10,7 +10,7 @@ import { useAuthStore } from 'src/stores/auth-store'
 
 const group = computed(() => useGroupStore().group)
 const hasPermission = computed(() => {
-  return group.value && (useGroupStore().getterIsPublicGroup || useGroupStore().getterUserHasPermission(GroupPermission.SeeDiscussions))
+  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeDiscussions))
 })
 
 const isLoading = ref(false)

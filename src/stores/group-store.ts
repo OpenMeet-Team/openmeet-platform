@@ -40,7 +40,7 @@ export const useGroupStore = defineStore('group', {
       this.isLoading = true
       try {
         const res = await groupsApi.getBySlug(slug)
-        this.group = { ...this.group, ...res.data }
+        this.group = res.data
       } catch (err) {
         console.log(err)
         this.errorMessage = 'Failed to fetch group data'

@@ -70,6 +70,7 @@ import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation'
 import { useGroupDialog } from 'src/composables/useGroupDialog'
 import { GroupPermission, GroupRole } from 'src/types'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const group = computed(() => useGroupStore().group)
 const groupMembers = computed(() => useGroupStore().group?.groupMembers)
@@ -106,7 +107,7 @@ const getNoContentMessage = computed(() => {
 })
 
 const hasPermission = computed(() => {
-  return group.value && (useGroupStore().getterIsPublicGroup || useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers))
+  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers))
 })
 
 onMounted(() => {

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { GroupEntity } from 'src/types'
-import { encodeNumberToLowercaseString } from 'src/utils/encoder'
 import { getImageSrc } from 'src/utils/imageUtils'
 
 interface Props {
@@ -12,7 +11,7 @@ defineProps<Props>()
 </script>
 
 <template>
-  <router-link class="router-link-inherit" :to="{ name: 'GroupPage', params: { slug: group.slug, id: encodeNumberToLowercaseString(group.id) } }">
+  <router-link class="router-link-inherit" :to="{ name: 'GroupPage', params: { slug: group.slug } }">
     <q-card flat class="group-card">
       <q-card-section class="q-pa-none">
         <q-img :src="getImageSrc(group.image)"
