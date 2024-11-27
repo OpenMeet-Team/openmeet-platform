@@ -8,6 +8,7 @@ const dialogRef = ref<QDialog | null>(null)
 const onLogin = () => {
   if (dialogRef.value) {
     dialogRef.value.hide()
+    // window.location.reload()
   }
 }
 

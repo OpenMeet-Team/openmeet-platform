@@ -1,12 +1,11 @@
 <script setup lang="ts">
 
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { GroupMemberEntity, GroupPermission, GroupVisibility } from 'src/types'
-import { computed, onMounted } from 'vue'
+import { GroupMemberEntity, GroupPermission } from 'src/types'
+import { computed } from 'vue'
 import { useGroupStore } from 'stores/group-store.ts'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation'
-import { useRoute } from 'vue-router'
 
 interface Props {
   groupMembers?: GroupMemberEntity[]
@@ -14,7 +13,6 @@ interface Props {
 
 defineProps<Props>()
 
-const route = useRoute()
 const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()
 
@@ -24,13 +22,6 @@ const onMemberClick = (member: GroupMemberEntity) => {
   }
 }
 
-const hasPermissions = computed(() => group.value && group.value.visibility === GroupVisibility.Public && useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers))
-
-onMounted(() => {
-  if (hasPermissions.value) {
-    useGroupStore().actionGetGroup(route.params.slug as string)
-  }
-})
 </script>
 
 <template>

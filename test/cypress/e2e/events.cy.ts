@@ -1,6 +1,5 @@
 import { EventPaginationEntity } from 'src/types'
 
-console.log('####### all cypress', Cypress.env())
 describe('EventsPage', () => {
   beforeEach(() => {
     cy.intercept('GET', '/api/categories', {
@@ -153,8 +152,10 @@ describe('EventsPage', () => {
         })
 
         cy.dataCy('event-publish').click()
-        cy.wait('@createEvent')
-        cy.testRoute('/events/event-two')
+        cy.wait('@createEvent').then((e) => {
+          console.log('e', e)
+          cy.testRoute('/events/event-two')
+        })
       })
     })
   })

@@ -15,14 +15,16 @@ defineProps<Props>()
 </script>
 
 <template>
-  <q-dialog ref="dialogRef">
+  <q-dialog ref="dialogRef" data-cy="welcome-group-dialog">
     <q-card>
       <q-card-section>
         <div class="text-h6 text-bold">Welcome to the "{{ group.name }}" Group!</div>
-        <p class="text-body1 q-mt-md" v-if="group.groupMember && group.groupMember.groupRole.name === GroupRole.Member">
+        <p class="text-body1 q-mt-md" data-cy="welcome-group-dialog-member"
+          v-if="group.groupMember && group.groupMember.groupRole.name === GroupRole.Member">
           You have successfully joined the group. Feel free to explore and participate in discussions, making new connections.
         </p>
-        <p class="text-body1 q-mt-md" v-else-if="group.groupMember && group.groupMember.groupRole.name === GroupRole.Guest">
+        <p class="text-body1 q-mt-md" data-cy="welcome-group-dialog-pending-approval"
+          v-else-if="group.groupMember && group.groupMember.groupRole.name === GroupRole.Guest">
           Thank you for your interest in the group. Your request to join has been sent to the group admin for approval.
         </p>
       </q-card-section>
@@ -35,7 +37,7 @@ defineProps<Props>()
           flat
           v-close-popup
         />
-        <q-btn no-caps label="Close" color="primary" v-close-popup />
+        <q-btn data-cy="welcome-group-dialog-close" no-caps label="Close" color="primary" v-close-popup />
       </q-card-actions>
     </q-card>
   </q-dialog>

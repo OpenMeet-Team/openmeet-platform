@@ -8,6 +8,7 @@ import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import { useAuthStore } from 'src/stores/auth-store'
+import NoContentComponent from 'src/components/global/NoContentComponent.vue'
 
 const route = useRoute()
 
@@ -118,5 +119,6 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    <NoContentComponent v-else label="Profile not found" icon="sym_r_info" :to="{ name: 'HomePage' }" button-label="Go to Home page" />
   </q-page>
 </template>

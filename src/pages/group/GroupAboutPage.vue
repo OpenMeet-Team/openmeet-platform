@@ -17,7 +17,6 @@ const hasPermission = computed(() => {
 })
 
 onMounted(() => {
-  console.log('GroupAboutPage onMounted')
   if (hasPermission.value) {
     isLoading.value = true
     useGroupStore().actionGetGroupAbout(route.params.slug as string).finally(() => (isLoading.value = false))

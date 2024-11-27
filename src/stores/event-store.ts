@@ -99,8 +99,6 @@ export const useEventStore = defineStore('event', {
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data
-
-          console.log(this.event)
         }
       } catch (err) {
         console.log(err)

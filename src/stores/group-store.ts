@@ -37,6 +37,9 @@ export const useGroupStore = defineStore('group', {
 
   actions: {
     async actionGetGroup (slug: string) {
+      if (this.isLoading) {
+        return
+      }
       this.isLoading = true
       try {
         const res = await groupsApi.getBySlug(slug)
@@ -51,15 +54,12 @@ export const useGroupStore = defineStore('group', {
     async actionGetGroupAbout (slug: string) {
       try {
         const res = await groupsApi.getAbout(slug)
-
-        if (!this.group) {
-          this.group = {} as GroupEntity
+        if (this.group) {
+          this.group.events = res.data.events
+          this.group.groupMembers = res.data.groupMembers
+          this.group.messages = res.data.messages
+          this.group.topics = res.data.topics
         }
-
-        this.group.events = res.data.events
-        this.group.groupMembers = res.data.groupMembers
-        this.group.messages = res.data.messages
-        this.group.topics = res.data.topics
       } catch (err) {
         console.log(err)
         this.errorMessage = 'Failed to fetch group data'
@@ -137,7 +137,6 @@ export const useGroupStore = defineStore('group', {
     async actionUpdateGroupMember (member: GroupMemberEntity) {
       if (this.group?.groupMembers) {
         this.group.groupMembers = this.group.groupMembers.map(m => m.id === member.id ? member : m)
-        console.log(this.group.groupMembers)
       }
     },
     async actionRemoveGroupMember (slug: string, groupMemberId: number) {

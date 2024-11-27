@@ -13,6 +13,7 @@ export function useNavigation () {
   }
 
   const navigateToMember = (member: UserEntity | string) => {
+    console.log(member)
     router.push({ name: 'MemberPage', params: { slug: typeof member === 'string' ? member : member.slug } })
   }
 

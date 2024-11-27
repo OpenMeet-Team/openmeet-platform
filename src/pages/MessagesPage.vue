@@ -105,6 +105,11 @@ function sendMessage () {
     })
   }
 }
+
+onBeforeUnmount(() => {
+  clearInterval(chatInterval.value)
+  useChatStore().$reset()
+})
 </script>
 
 <template>
@@ -123,7 +128,7 @@ function sendMessage () {
             </template>
           </q-input>
 
-          <q-list separator v-if="filteredChatList?.length">
+          <q-list separator v-if="filteredChatList?.length" style="max-height: 100%;">
             <q-item v-for="chat in filteredChatList" :key="chat.id" clickable v-ripple
               :active="activeChat && activeChat.id === chat.id" @click="navigateToChat({ chat: chat.ulid })"
               data-cy="chat-item">

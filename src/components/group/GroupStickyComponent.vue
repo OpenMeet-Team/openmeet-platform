@@ -22,7 +22,7 @@ const onJoinGroup = () => {
   if (useAuthStore().isAuthenticated && group.value) {
     isJoining.value = true
     useGroupStore().actionJoinGroup(group.value.slug).finally(() => (isJoining.value = false)).then(() => {
-      if (group.value) openWelcomeGroupDialog(group.value)
+      if (group.value?.groupMember) openWelcomeGroupDialog(group.value)
     })
   } else {
     openLoginDialog()
@@ -80,11 +80,12 @@ const onLeaveGroup = () => {
         <q-btn data-cy="join-group-button" :loading="isJoining" @click="onJoinGroup"
           v-if="!useGroupStore().getterUserIsGroupMember()" no-caps size="md" label="Join this group"
           color="primary" />
-        <q-btn-dropdown outline size="md" data-cy="leave-group-button"
+        <q-btn-dropdown outline size="md" data-cy="leave-group-button-dropdown"
           v-else-if="useGroupStore().getterUserIsGroupMember() && !useGroupStore().getterUserHasRole(GroupRole.Owner)"
           align="center" no-caps :label="`You're a ${group?.groupMember?.groupRole.name}`">
           <q-list>
-            <MenuItemComponent label="Leave this group" icon="sym_r_report" @click="onLeaveGroup" />
+            <MenuItemComponent data-cy="leave-group-button" label="Leave this group" icon="sym_r_report"
+              @click="onLeaveGroup" />
           </q-list>
         </q-btn-dropdown>
       </div>

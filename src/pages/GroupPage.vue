@@ -1,8 +1,9 @@
 <template>
   <q-page class="q-pa-md q-pb-xl q-mx-auto" style="max-width: 1201px">
+    <!-- Loading -->
     <SpinnerComponent v-if="useGroupStore().isLoading" />
 
-    <template v-else-if="group">
+    <template v-else>
       <!-- Lead block -->
       <GroupLeadComponent v-if="group" />
 
@@ -10,7 +11,7 @@
       <GroupStickyComponent v-if="group" />
 
       <!-- Secondary blocks -->
-      <router-view v-if="hasRightPermission" :key="group.id" />
+      <router-view v-if="groupMounted && hasRightPermission" />
 
       <!-- Auth group content -->
       <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated"
@@ -21,11 +22,13 @@
         v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)"
         icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
 
-    </template>
-    <NoContentComponent v-else data-cy="no-group-content" icon="sym_r_error" label="Group not found"
-      :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
+      <!-- No group content -->
+      <NoContentComponent v-if="!group" data-cy="no-group-content" icon="sym_r_error" label="Group not found"
+        :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
 
-    <GroupSimilarEventsComponent v-if="showSimilarEvents" :group="group" />
+    </template>
+
+    <GroupSimilarEventsComponent />
   </q-page>
 </template>
 
@@ -42,12 +45,12 @@ import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
 import { GroupPermission } from 'src/types'
 import { useAuthStore } from 'src/stores/auth-store'
+import { storeToRefs } from 'pinia'
 
 const route = useRoute()
-const showSimilarEvents = ref<boolean>(false)
-const group = computed(() => {
-  return useGroupStore().group
-})
+
+const { group } = storeToRefs(useGroupStore())
+const groupMounted = ref<boolean>(false)
 
 onBeforeUnmount(() => {
   useGroupStore().$reset()
@@ -57,21 +60,19 @@ const hasRightPermission = computed(() => {
   return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
 })
 
-useMeta(() => {
-  return {
-    title: group.value?.name,
-    meta: {
-      description: { content: group.value?.description },
-      'og:image': { content: getImageSrc(group.value?.image) }
-    }
+useMeta({
+  title: group.value?.name,
+  meta: {
+    description: { content: group.value?.description },
+    'og:image': { content: getImageSrc(group.value?.image) }
   }
 })
 
-onMounted(async () => {
+onMounted(() => {
   LoadingBar.start()
   useGroupStore().actionGetGroup(route.params.slug as string).finally(() => {
-    showSimilarEvents.value = true
     LoadingBar.stop()
+    groupMounted.value = true
   })
 })
 

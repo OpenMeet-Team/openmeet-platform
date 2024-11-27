@@ -30,7 +30,7 @@
               <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name" />
             </q-avatar>
           </q-item-section>
-          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user.ulid)">
+          <q-item-section class="cursor-pointer" @click="navigateToMember(member.user)">
             <q-item-label>{{ member.user.name }}</q-item-label>
             <q-item-label caption>
               {{ capitalizeFirstLetter(member.groupRole.name) }} • <span v-if="member.createdAt">Joined {{ formatDate(member.createdAt, 'DD MMM YYYY') }}</span>
@@ -38,7 +38,7 @@
           </q-item-section>
           <q-item-section top side>
           <div class="text-grey-8 q-gutter-xs">
-            <q-btn color="primary" size="md" @click="navigateToChat({ member: member.user.shortId || '' })" round flat icon="sym_r_chat" />
+            <q-btn color="primary" size="md" @click="navigateToChat({ member: member.user.ulid })" round flat icon="sym_r_chat" />
             <q-btn color="primary" size="md" round flat icon="sym_r_more_vert" :disable="!(useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers) && member.groupRole.name !== GroupRole.Owner)">
               <q-menu>
                 <q-list>

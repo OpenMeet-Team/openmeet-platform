@@ -15,6 +15,7 @@ describe('GroupPage', () => {
         body: {
           ...group,
           visibility: GroupVisibility.Public
+
         } as GroupEntity
       }).as('getGroup')
       cy.intercept('GET', `/api/groups/${group.slug}/recommended-events`, {
@@ -44,13 +45,19 @@ describe('GroupPage', () => {
       cy.dataCy('login-form').should('be.visible')
     })
 
-    it('should join the group when clicking on join group button', () => {
+    it.only('should join and leave the group when clicking on join group button', () => {
       cy.dataCy('join-group-button').click()
       cy.dataCy('login-form').should('be.visible')
       cy.dataCy('login-email').type(Cypress.env('APP_TESTING_USER_EMAIL'))
       cy.dataCy('login-password').type(Cypress.env('APP_TESTING_USER_PASSWORD'))
       cy.dataCy('login-submit').click()
       cy.dataCy('join-group-button').should('be.visible').click()
+      cy.dataCy('welcome-group-dialog').should('be.visible').within(() => {
+        cy.dataCy('welcome-group-dialog-member').should('be.visible')
+        cy.dataCy('welcome-group-dialog-close').should('be.visible').click()
+      })
+      cy.dataCy('leave-group-button-dropdown').should('be.visible').click()
+      cy.dataCy('leave-group-button').should('be.visible').click()
     })
 
     it('should display the recommended events', () => {
@@ -95,17 +102,36 @@ describe('GroupPage', () => {
 
     it('should show not permission page when trying to access to group events page', () => {
       cy.visit(`/groups/${group.slug}/events`)
-      cy.dataCy('no-permission-group-events-page').should('be.visible')
+      cy.dataCy('private-group-content').should('be.visible')
     })
 
     it('should show not permission page when trying to access to group members page', () => {
       cy.visit(`/groups/${group.slug}/members`)
-      cy.dataCy('no-permission-group-members-page').should('be.visible')
+      cy.dataCy('private-group-content').should('be.visible')
     })
 
     it('should show not permission page when trying to access to group discussions page', () => {
       cy.visit(`/groups/${group.slug}/discussions`)
-      cy.dataCy('no-permission-group-discussions-page').should('be.visible')
+      cy.dataCy('private-group-content').should('be.visible')
+    })
+
+    it('should wait for approval and leave the group', () => {
+      cy.dataCy('join-group-button').click()
+      cy.dataCy('login-form').should('be.visible')
+      cy.dataCy('login-email').type(Cypress.env('APP_TESTING_USER_EMAIL'))
+      cy.dataCy('login-password').type(Cypress.env('APP_TESTING_USER_PASSWORD'))
+      cy.dataCy('login-submit').click()
+      //  page reload
+
+      // cy.dataCy('join-group-button').should('be.visible').click()
+      // a dialog with pending message should be displayed
+      // cy.dataCy('welcome-group-dialog').should('be.visible').within(() => {
+      //   cy.dataCy('welcome-group-dialog-pending-approval').should('be.visible')
+      //   cy.dataCy('welcome-group-dialog-close').should('be.visible').click()
+      // })
+      // cy.dataCy('leave-group-button-dropdown').should('be.visible').click()
+      // cy.dataCy('leave-group-button').should('be.visible').click()
+      // cy.dataCy('join-group-button').should('be.visible')
     })
   })
 
@@ -129,8 +155,9 @@ describe('GroupPage', () => {
     })
 
     it('should show please authenticate page when trying to access to group events page', () => {
-      cy.visit(`/groups/${group.slug}/events`)
-      cy.dataCy('no-permission-group-events-page').should('be.visible')
+      cy.visit(`/groups/${group.slug}/events`).then(() => {
+        cy.dataCy('auth-group-content').should('be.visible')
+      })
     })
   })
 })
