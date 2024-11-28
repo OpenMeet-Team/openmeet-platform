@@ -1,11 +1,12 @@
 <template>
   <div class="c-search-component row items-center q-mx-md">
     <div class="row">
-      <q-select rounded class="xs-hide" outlined ref="searchRef" hide-dropdown-icon placeholder="Search" dense
+      <q-select :loading="isLoading" class="xs-hide" outlined ref="searchRef" hide-dropdown-icon placeholder="Search" dense
         v-model="search" clearable use-input name="search" input-debounce="1000" :options="options" @filter="filterFn"
         style="width: 250px" behavior="dialog">
         <template v-slot:prepend>
-          <q-icon name="sym_r_search" />
+          <q-icon v-if="!isLoading" name="sym_r_search" />
+          <q-spinner-dots v-if="isLoading" color="primary" size="24px" />
         </template>
         <template v-slot:no-option>
           <q-item>
@@ -13,6 +14,19 @@
               No results
             </q-item-section>
           </q-item>
+        </template>
+        <template v-slot:option="scope">
+          <q-item @click="onSearchOptionClick(scope.opt)" v-bind="scope.itemProps">
+            <q-item-section >
+              {{ scope.opt.name }}
+            </q-item-section>
+            <q-item-label caption>
+              {{ scope.opt.type }}
+            </q-item-label>
+          </q-item>
+        </template>
+        <template v-slot:selected-item>
+
         </template>
         <!--        <template v-slot:after>-->
         <!--          <q-select-->
@@ -45,18 +59,30 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { QSelect } from 'quasar'
-
+import { useRouter } from 'vue-router'
 import { searchApi } from 'src/api/search.ts'
 
 interface SearchResult {
-  id: number
   name: string
+  slug: string
   type: 'event' | 'group'
 }
 
 const search = ref<string>('')
 const options = ref<SearchResult[]>([])
 const searchRef = ref<InstanceType<typeof QSelect> | null>(null)
+const isLoading = ref<boolean>(false)
+const router = useRouter()
+
+const onSearchOptionClick = (option: SearchResult) => {
+  console.log(search.value)
+  searchRef.value?.reset()
+  if (option.type === 'event') {
+    router.push(`/events/${option.slug}`)
+  } else {
+    router.push(`/groups/${option.slug}`)
+  }
+}
 
 const onSearchClick = () => {
   if (searchRef.value) searchRef.value.showPopup()
@@ -78,15 +104,18 @@ const filterFn = async (
   })
 
   try {
-    const response = await searchApi.searchAll({ q: val })
+    isLoading.value = true
+    const response = await searchApi.searchAll({ search: val, page: 1, limit: 5 }).finally(() => {
+      isLoading.value = false
+    })
     update(() => {
-      options.value = response.data.events.map(event => ({ id: event.id, name: event.name, type: 'event' }))
+      options.value = response.data.events.data.map(event => ({ name: event.name, slug: event.slug, type: 'event' }))
+      options.value = options.value.concat(response.data.groups.data.map(group => ({ name: group.name, slug: group.slug, type: 'group' })))
     })
   } catch (error) {
     console.error('Error fetching search results:', error)
     update(() => {
       options.value = []
-      // options.value = [{ id: 'error', title: 'Error fetching results' }]
     })
   }
 }
