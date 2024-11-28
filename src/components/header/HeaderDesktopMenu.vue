@@ -8,11 +8,11 @@ import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.v
 </script>
 
 <template>
-  <HeaderNavComponent class="q-mr-xl gt-sm"/>
+  <HeaderNavComponent class="q-mr-md gt-xs"/>
   <!-- <HeaderNotificationsComponent/> -->
-  <HeaderDarkModeComponent class="q-mr-md gt-sm"/>
-  <HeaderSignInComponent class="gt-sm"/>
-  <HeaderProfile class="gt-sm"/>
+  <HeaderDarkModeComponent class="q-mr-md gt-xs"/>
+  <HeaderSignInComponent class="gt-xs"/>
+  <HeaderProfile class="gt-xs"/>
 </template>
 
 <style scoped lang="scss">

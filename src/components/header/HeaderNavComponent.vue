@@ -26,18 +26,12 @@ const openCreateEventForm = () => {
 </script>
 
 <template>
-  <q-tabs class="q-mr-md">
-    <q-route-tab no-caps :to="{name: 'EventsPage'}">Events</q-route-tab>
-    <q-route-tab no-caps :to="{name: 'GroupsPage'}">Groups</q-route-tab>
-    <q-route-tab no-caps href="https://biz.openmeet.net/about" target="_blank">About Us</q-route-tab>
-    <q-btn-group size="md" padding="xs sm" outline rounded>
-      <q-btn color="primary" padding="xs sm" outline no-wrap dense no-caps @click="openCreateGroupForm" label="New Group"/>
-      <q-separator vertical/>
-      <q-btn color="primary" padding="xs sm" outline no-wrap dense no-caps @click="openCreateEventForm" label="New Event"/>
-    </q-btn-group>
-  </q-tabs>
+  <div class="c-header-nav-component row q-gutter-sm no-wrap">
+    <q-btn color="primary" icon="sym_r_add_circle" padding="sm" outline no-wrap dense no-caps
+      @click="openCreateGroupForm" label="New Group" />
+    <q-btn color="primary" icon="sym_r_add_circle" padding="xs" outline no-wrap dense no-caps
+      @click="openCreateEventForm" label="New Event" />
+  </div>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>

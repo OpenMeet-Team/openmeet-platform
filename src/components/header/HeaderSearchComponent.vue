@@ -2,8 +2,8 @@
   <div class="c-search-component row items-center q-mx-md">
     <div class="row">
       <q-select :loading="isLoading" class="xs-hide" outlined ref="searchRef" hide-dropdown-icon placeholder="Search" dense
-        v-model="search" clearable use-input name="search" input-debounce="1000" :options="options" @filter="filterFn"
-        style="width: 250px" behavior="dialog">
+        v-model="search" clearable use-input name="search" input-debounce="500" :options="options" @filter="filterFn"
+        style="max-width: 250px" behavior="dialog">
         <template v-slot:prepend>
           <q-icon v-if="!isLoading" name="sym_r_search" />
           <q-spinner-dots v-if="isLoading" color="primary" size="24px" />

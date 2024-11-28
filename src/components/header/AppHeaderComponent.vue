@@ -1,28 +1,15 @@
 <script setup lang="ts">
-import HeaderSearchComponent from 'components/header/HeaderSearchComponent.vue'
-import HeaderLogoComponent from 'components/header/HeaderLogoComponent.vue'
-import HeaderMobileMenu from 'components/header/HeaderMobileMenu.vue'
-import HeaderDesktopMenu from 'components/header/HeaderDesktopMenu.vue'
 import HeaderWrapperComponent from 'components/header/HeaderWrapperComponent.vue'
-// import HeaderLocationComponent from 'components/header/HeaderLocationComponent.vue'
+import HeaderDesktopComponent from './HeaderDesktopComponent.vue'
+import HeaderMobileComponent from './HeaderMobileComponent.vue'
+import { Screen } from 'quasar'
 </script>
 
 <template>
   <HeaderWrapperComponent>
-    <q-toolbar>
-      <HeaderLogoComponent/>
-
-      <HeaderSearchComponent/>
-<!--      <HeaderLocationComponent/>-->
-
-      <q-space/>
-
-      <HeaderDesktopMenu/>
-      <HeaderMobileMenu/>
-    </q-toolbar>
+    <HeaderDesktopComponent v-if="Screen.width > 700" />
+    <HeaderMobileComponent v-else />
   </HeaderWrapperComponent>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>
