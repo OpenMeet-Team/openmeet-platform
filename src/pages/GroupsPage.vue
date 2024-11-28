@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import GroupsItemComponent from 'components/group/GroupsItemComponent.vue'
@@ -59,6 +59,10 @@ const groups = computed(() => useGroupsStore().groups)
 onMounted(() => {
   LoadingBar.start()
   useGroupsStore().actionGetGroupsState(route.query).finally(LoadingBar.stop)
+})
+
+onBeforeUnmount(() => {
+  useGroupsStore().$reset()
 })
 
 const fetchGroups = async () => {

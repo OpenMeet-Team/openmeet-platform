@@ -41,7 +41,6 @@ export interface GroupMemberEntity {
   // eslint-disable-next-line no-use-before-define
   group: GroupEntity
   groupRole: GroupRoleEntity
-  groupPermissions: GroupPermissionEntity[]
   createdAt?: string
   updatedAt?: string
 }

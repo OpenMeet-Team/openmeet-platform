@@ -13,7 +13,7 @@
         <q-btn v-if="useDiscussionStore().permissions.canWrite" flat round size="sm" icon="sym_r_reply" @click.stop="onReply" />
         <template v-if="useDiscussionStore().permissions.canManage">
           <q-btn class="hidden" flat round size="sm" icon="sym_r_edit" @click.stop="onEdit" /> <!-- TODO: make visible -->
-          <q-btn class="hidden" flat round size="sm" icon="sym_r_delete" @click.stop="onDelete" /> <!-- TODO: make visible -->
+          <q-btn flat round size="sm" icon="sym_r_delete" @click.stop="onDelete" />
         </template>
       </div>
     </div>

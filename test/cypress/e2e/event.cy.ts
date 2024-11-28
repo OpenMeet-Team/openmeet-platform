@@ -35,15 +35,6 @@ describe('EventPage', () => {
       cy.dataCy('event-name').should('be.visible')
     })
 
-    it('should display the join event button', () => {
-      cy.dataCy('event-attend-button').should('be.visible')
-    })
-
-    it('should display login popup when clicking on join event button', () => {
-      cy.dataCy('event-attend-button').click()
-      cy.dataCy('login-form').should('be.visible')
-    })
-
     it('should join the event when clicking on join event button', () => {
       cy.dataCy('event-attend-button').click()
       cy.dataCy('login-form').should('be.visible')

@@ -2,7 +2,7 @@
   <div class="c-group-events-page">
     <SpinnerComponent v-if="isLoading" />
     <div data-cy="group-events-page"
-      v-if="hasPermission">
+      v-if="!isLoading && group && hasPermission">
       <div class="row q-mb-md">
         <q-btn-toggle v-model="viewMode" flat stretch toggle-color="primary" :options="[
           { label: 'List', value: 'list', icon: 'sym_r_list' },
@@ -43,7 +43,7 @@
           :events="calendarEvents" />
       </div>
     </div>
-    <NoContentComponent data-cy="no-permission-group-events-page" v-if="!hasPermission && !isLoading" label="You don't have permission to see this page" icon="sym_r_group" />
+    <NoContentComponent data-cy="no-permission-group-events-page" v-if="!isLoading && group && !hasPermission" label="You don't have permission to see this page" icon="sym_r_group" />
   </div>
 </template>
 

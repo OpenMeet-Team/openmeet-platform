@@ -72,7 +72,7 @@ export function useGroupDialog () {
         label: 'Leave Group',
         color: 'primary'
       },
-      persistent: true
+      persistent: false
     })
   }
 

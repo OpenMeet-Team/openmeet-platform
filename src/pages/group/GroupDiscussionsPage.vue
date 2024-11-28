@@ -36,7 +36,7 @@ onMounted(async () => {
       canManage: Boolean(useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions))
     }" />
   </div>
-  <NoContentComponent data-cy="no-permission-group-discussions-page" v-else label="You don't have permission to see this page" icon="sym_r_group"/>
+  <NoContentComponent data-cy="no-permission-group-discussions-page" v-if="!isLoading && group && !hasPermission" label="You don't have permission to see this page" icon="sym_r_group"/>
 </template>
 
 <style scoped lang="scss">

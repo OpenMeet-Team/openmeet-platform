@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus, EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeeStatus, EventEntity } from 'src/types'
 import { formatDate } from '../../utils/dateUtils.ts'
 import { Dark } from 'quasar'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -23,7 +23,7 @@ const { openLoginDialog } = useAuthDialog()
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
     openAttendEventDialog(props.event).onOk(({ approvalAnswer }) => {
-      useEventStore().actionAttendEvent(props.event.ulid, {
+      useEventStore().actionAttendEvent(props.event.slug, {
         approvalAnswer
       } as Partial<EventAttendeeEntity>).then(attendee => {
         if (attendee) {
@@ -74,8 +74,7 @@ const onEditAttendenceClick = () => {
         </div>
         <div class="row items-start q-gutter-md">
           <ShareComponent class="col-4" />
-          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee() ||
-            useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.AttendEvent)" no-caps
+          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
             label="Attend" color="primary" @click="onAttendClick" />
 
           <QRCodeComponent class="" />

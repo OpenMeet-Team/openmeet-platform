@@ -1,7 +1,7 @@
 <template>
   <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page">
     <SpinnerComponent v-if="isLoading"/>
-    <div data-cy="group-members-page" v-if="!isLoading && hasPermission">
+    <div data-cy="group-members-page" v-if="!isLoading && group && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-sm-8">
@@ -55,7 +55,7 @@
       </q-list>
       <NoContentComponent v-if="!filteredMembers?.length" :label="getNoContentMessage" icon="sym_r_group"/>
     </div>
-    <NoContentComponent data-cy="no-permission-group-members-page" v-else label="You don't have permission to see this page" icon="sym_r_group"/>
+    <NoContentComponent data-cy="no-permission-group-members-page" v-if="!isLoading && group && !hasPermission" label="You don't have permission to see this page" icon="sym_r_group"/>
   </div>
 </template>
 

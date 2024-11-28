@@ -78,9 +78,9 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionAttendEvent (ulid: string, data: Partial<EventAttendeeEntity>) {
+    async actionAttendEvent (slug: string, data: Partial<EventAttendeeEntity>) {
       try {
-        const res = await eventsApi.attend(ulid, data)
+        const res = await eventsApi.attend(slug, data)
         if (this.event) {
           this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           this.event.attendee = res.data

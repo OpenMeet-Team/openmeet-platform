@@ -45,14 +45,13 @@ export const useDiscussionStore = defineStore('discussion', {
     actionSendMessage: (state) => async (message: string, topicName: string) => {
       state.isSending = true
 
-      console.log('message', message, topicName)
       let messageId: number | undefined
       if (state.contextType === 'group') {
         messageId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
       } else if (state.contextType === 'event') {
         messageId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
       }
-      console.log('messageId', messageId)
+
       if (messageId) {
         const topic = state.topics.find(t => t.name === topicName)
         if (topic) {
@@ -60,7 +59,7 @@ export const useDiscussionStore = defineStore('discussion', {
         } else {
           state.topics = [...state.topics, { name: topicName, max_id: messageId }]
         }
-        state.messages = [...state.messages, { id: messageId, content: message, subject: topicName, sender_full_name: useAuthStore().user?.name || '', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }]
+        state.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: useAuthStore().user?.name || '', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...state.messages]
       }
       state.isSending = false
     },
@@ -75,8 +74,6 @@ export const useDiscussionStore = defineStore('discussion', {
       }
       if (updatedMessageId) {
         state.messages = state.messages.map(m => m.id === messageId ? { ...m, content: newText } : m)
-
-        console.log('state.messages', state.messages)
       }
       state.isUpdating = false
     },
@@ -90,7 +87,6 @@ export const useDiscussionStore = defineStore('discussion', {
       }
       if (deletedMessageId) {
         state.messages = state.messages.filter(m => m.id !== deletedMessageId)
-        console.log('state.messages', state.messages)
       }
       state.isDeleting = false
     }

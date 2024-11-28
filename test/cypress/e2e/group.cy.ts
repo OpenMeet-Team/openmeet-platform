@@ -1,4 +1,4 @@
-import { GroupEntity, GroupVisibility } from 'src/types'
+import { GroupEntity, GroupMemberEntity, GroupPermission, GroupPermissionEntity, GroupRole, GroupRoleEntity, GroupVisibility, UserEntity } from 'src/types'
 
 describe('GroupPage', () => {
   const group = {
@@ -15,7 +15,6 @@ describe('GroupPage', () => {
         body: {
           ...group,
           visibility: GroupVisibility.Public
-
         } as GroupEntity
       }).as('getGroup')
       cy.intercept('GET', `/api/groups/${group.slug}/recommended-events`, {
@@ -25,6 +24,23 @@ describe('GroupPage', () => {
       cy.intercept('POST', '/api/auth/login', {
         statusCode: 200
       }).as('login')
+
+      cy.intercept('POST', `/api/groups/${group.slug}/join`, {
+        statusCode: 200,
+        body: {
+          id: 1,
+          user: { id: 1, email: 'test@test.com' } as UserEntity,
+          group: { id: group.id, slug: group.slug } as GroupEntity,
+          groupRole: {
+            id: 1,
+            name: GroupRole.Member,
+            groupPermissions: [
+              { id: 1, name: GroupPermission.SeeDiscussions } as GroupPermissionEntity,
+              { id: 2, name: GroupPermission.MessageDiscussion } as GroupPermissionEntity
+            ]
+          } as unknown as GroupRoleEntity
+        } as unknown as GroupMemberEntity
+      }).as('joinGroup')
 
       cy.visit(`/groups/${group.slug}`).then(() => {
         cy.wait('@getGroup')
@@ -45,19 +61,21 @@ describe('GroupPage', () => {
       cy.dataCy('login-form').should('be.visible')
     })
 
-    it.only('should join and leave the group when clicking on join group button', () => {
+    it('should join and leave the group when clicking on join group button', () => {
       cy.dataCy('join-group-button').click()
       cy.dataCy('login-form').should('be.visible')
       cy.dataCy('login-email').type(Cypress.env('APP_TESTING_USER_EMAIL'))
       cy.dataCy('login-password').type(Cypress.env('APP_TESTING_USER_PASSWORD'))
       cy.dataCy('login-submit').click()
       cy.dataCy('join-group-button').should('be.visible').click()
-      cy.dataCy('welcome-group-dialog').should('be.visible').within(() => {
+      cy.dataCy('welcome-group-dialog').should('be.visible').withinDialog(() => {
         cy.dataCy('welcome-group-dialog-member').should('be.visible')
         cy.dataCy('welcome-group-dialog-close').should('be.visible').click()
       })
       cy.dataCy('leave-group-button-dropdown').should('be.visible').click()
       cy.dataCy('leave-group-button').should('be.visible').click()
+
+      // click escape to close the dialog
     })
 
     it('should display the recommended events', () => {
