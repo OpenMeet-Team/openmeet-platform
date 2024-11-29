@@ -1,9 +1,11 @@
 <template>
-  <q-page padding>
-    <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Create New Group"/>
+  <q-page padding class="c-dashboard-group-create-page">
+    <div class="q-mx-auto" style="max-width: 500px">
+      <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Create a Group" />
 
-    <div class="row justify-center">
-      <GroupFormComponent class="col" style="max-width: 500px" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+      <div class="row justify-center">
+        <GroupFormComponent class="col" @close="router.push({ name: 'DashboardGroupsPage' })" />
+      </div>
     </div>
   </q-page>
 </template>

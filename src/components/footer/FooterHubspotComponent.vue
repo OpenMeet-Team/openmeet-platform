@@ -1,9 +1,9 @@
 <template>
   <q-form @submit="onSubmit" class="q-gutter-md">
-    <q-input data-cy="mail-signup" v-model="formData.email" filled type="email" label="Your email" lazy-rules
+    <q-input filled label-color="white" data-cy="mail-signup" outlined v-model="formData.email" type="email" label="Your email" lazy-rules
              :rules="[val => validateEmail(val) || 'Please enter a valid email']">
       <template v-slot:append>
-        <q-btn data-cy="mail-signup-submit" round dense @click="onSubmit" type="submit" flat icon="sym_r_send"/>
+        <q-btn color="primary" data-cy="mail-signup-submit" round dense @click="onSubmit" type="submit" flat icon="sym_r_send"/>
       </template>
     </q-input>
   </q-form>

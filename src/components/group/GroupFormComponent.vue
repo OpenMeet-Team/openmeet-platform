@@ -50,8 +50,8 @@
 
     <div class="row justify-end q-gutter-sm">
       <q-btn data-cy="group-cancel" flat label="Cancel" no-caps @click="$emit('close')" />
-      <q-btn data-cy="group-update" v-if="group.id" no-caps label="Update" type="submit" color="primary" />
-      <q-btn data-cy="group-create" v-else no-caps label="Create" type="submit" color="primary" />
+      <q-btn data-cy="group-update" v-if="group.id" no-caps label="Update Group" type="submit" color="primary" />
+      <q-btn data-cy="group-create" v-else no-caps label="Create Group" type="submit" color="primary" />
     </div>
   </q-form>
 </template>

@@ -3,7 +3,7 @@
     <div class="row items-center justify-evenly q-py-lg" data-cy="forgot-password-form">
       <q-form @submit="onSubmit" class="q-gutter-md">
 
-        <q-card class="forgot-password-card">
+        <q-card class="forgot-password-card q-pa-sm">
           <q-card-section>
             <div class="text-h5 text-bold">Forgot Password</div>
           </q-card-section>
@@ -24,7 +24,7 @@
             ]"
             >
               <template v-slot:prepend>
-                <q-icon name="sym_r_email"/>
+                <q-icon color="primary" name="sym_r_email"/>
               </template>
             </q-input>
 
@@ -35,6 +35,8 @@
 
             <div class="q-mt-md">
               <q-btn no-caps
+                     class="full-width"
+                     rounded
                      label="Send Reset Instructions"
                      type="submit"
                      color="primary"
@@ -110,5 +112,6 @@ useMeta({
   width: 100%;
   max-width: 400px;
   min-width: 350px;
+  border-radius: 24px;
 }
 </style>

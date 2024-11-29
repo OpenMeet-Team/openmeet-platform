@@ -1,5 +1,5 @@
 <template>
-  <q-card class="login-card" data-cy="login-card">
+  <q-card class="login-card q-pa-sm" data-cy="login-card">
     <q-form @submit.prevent="onSubmit" class="q-gutter-md" data-cy="login-form">
 
       <q-card-section>
@@ -46,7 +46,7 @@
           </router-link>
         </div>
         <div class="q-mt-md">
-          <q-btn no-caps label="Login" :loading="isLoading" type="submit" color="primary" data-cy="login-submit"/>
+          <q-btn block no-caps rounded class="full-width" label="Login" :loading="isLoading" type="submit" color="primary" data-cy="login-submit"/>
         </div>
       </q-card-section>
     </q-form>
@@ -59,7 +59,6 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from 'src/utils/validation'
 import { useNotification } from 'src/composables/useNotification.ts'
-import { useMeta } from 'quasar'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -92,9 +91,6 @@ const onSubmit = (): void => {
   }
 }
 
-useMeta({
-  title: 'Login'
-})
 </script>
 
 <style scoped>
@@ -102,5 +98,6 @@ useMeta({
   width: 100%;
   max-width: 400px;
   min-width: 350px;
+  border-radius: 24px;
 }
 </style>

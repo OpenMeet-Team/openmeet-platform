@@ -7,7 +7,7 @@
       <MenuItemComponent label="My groups" icon="sym_r_group" to="/dashboard/groups"/>
       <MenuItemComponent label="My chats" icon="sym_r_chat" to="/messages"/>
       <q-separator/>
-      <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {ulid: useAuthStore().getUser.ulid }}"/>
+      <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {slug: useAuthStore().getUser.slug }}"/>
       <MenuItemComponent label="Account settings" icon="sym_r_settings" to="/dashboard/profile"/>
       <MenuItemComponent label="Logout" icon="sym_r_logout" @click="useAuthStore().actionLogout().then(() => router.push('/'))"/>
     </q-menu>

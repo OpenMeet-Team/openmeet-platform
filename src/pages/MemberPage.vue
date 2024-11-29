@@ -2,13 +2,14 @@
 import { onMounted, computed } from 'vue'
 import { LoadingBar } from 'quasar'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 import { useProfileStore } from 'src/stores/profile-store'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import { useAuthStore } from 'src/stores/auth-store'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
+import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
+import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 
 const route = useRoute()
 
@@ -25,12 +26,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <q-page padding class="q-pb-xl">
+  <q-page padding class="q-pb-xl q-mx-auto" style="max-width: 1201px;">
     <SpinnerComponent v-if="useProfileStore().isLoading" />
 
     <div v-if="!useProfileStore().isLoading && user">
-      <DashboardTitle defaultBack />
-
       <div class="row q-col-gutter-md">
 
         <div class="col-12 col-sm-4">
@@ -65,7 +64,7 @@ onMounted(async () => {
           <!-- Interests -->
           <q-card class="q-mb-lg" flat bordered v-if="interests?.length">
             <q-card-section>
-              <SubtitleComponent hide-link label="My Interests" />
+              <SubtitleComponent :count="interests.length" hide-link label="My Interests" />
               <q-chip v-for="interest in interests" :key="interest.id" color="primary" text-color="white">
                 {{ interest.title }}
               </q-chip>
@@ -75,45 +74,24 @@ onMounted(async () => {
           <!-- Owned Groups -->
           <q-card flat bordered class="q-mb-lg" v-if="ownedGroups?.length">
             <q-card-section>
-              <SubtitleComponent hide-link label="Owned Groups" />
-              <q-list>
-                <q-item v-for="group in ownedGroups" :key="group.id">
-                  <q-item-section>
-                    <q-item-label>{{ group.name }}</q-item-label>
-                    <q-item-label caption>{{ group.groupMembersCount }} members</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
+              <SubtitleComponent hide-link :count="ownedGroups.length" label="Owned Groups" />
+              <GroupsItemComponent v-for="group in ownedGroups" :key="group.id" :group="group" />
             </q-card-section>
           </q-card>
 
           <!-- Organized Events -->
           <q-card flat bordered class="q-mb-lg" v-if="organizedEvents?.length">
             <q-card-section>
-              <SubtitleComponent hide-link label="Organized Events" />
-              <q-list>
-                <q-item v-for="event in organizedEvents" :key="event.id">
-                  <q-item-section>
-                    <q-item-label>{{ event.name }}</q-item-label>
-                    <q-item-label caption>{{ event.startDate }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
+              <SubtitleComponent :count="organizedEvents.length" hide-link label="Organized Events" />
+              <EventsItemComponent v-for="event in organizedEvents" :key="event.id" :event="event" />
             </q-card-section>
           </q-card>
 
           <!-- Group Memberships -->
           <q-card flat bordered class="q-mb-lg" v-if="groupMemberships?.length">
             <q-card-section>
-              <SubtitleComponent hide-link label="Group Memberships" />
-              <q-list>
-                <q-item v-for="groupMember in groupMemberships" :key="groupMember.id">
-                  <q-item-section>
-                    <q-item-label>{{ groupMember.group?.name }}</q-item-label>
-                    <q-item-label caption>{{ groupMember.group?.groupMembersCount }} members</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
+              <SubtitleComponent :count="groupMemberships.length" hide-link label="Group Memberships" />
+              <GroupsItemComponent v-for="groupMember in groupMemberships" :key="groupMember.id" :group="groupMember.group" />
             </q-card-section>
           </q-card>
         </div>

@@ -1,6 +1,6 @@
 <template>
   <q-page padding>
-    <SpinnerComponent v-if="useHomeStore().loading"/>
+    <SpinnerComponent v-if="useHomeStore().loading" />
     <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
 
       <!-- Hero Section -->
@@ -10,58 +10,47 @@
             <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
             <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
             <q-btn color="white" no-caps text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
-                   size="lg"/>
+              size="lg" />
           </q-card-section>
         </q-card>
       </div>
 
       <!-- Featured Groups Section -->
-      <div class="col-12 col-md-8 q-mt-lg">
-        <SubtitleComponent class="q-px-md" hide-link label="Featured Groups" :to="{name: 'GroupsPage'}"/>
-        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet." icon="sym_r_groups"/>
+      <div class="col-12 q-mt-lg">
+        <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">Explore All Groups<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
+        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet."
+          icon="sym_r_groups" />
         <template v-else>
-            <div v-for="group in featuredGroups" :key="group.id">
-              <GroupsItemComponent :group="group"/>
-            </div>
-          <div class="text-center q-mt-lg">
-            <q-btn color="primary" label="Explore All Groups" @click="exploreGroups"/>
+          <div>
+            <GroupsItemComponent v-for="group in featuredGroups" :key="group.id" :group="group" />
           </div>
         </template>
       </div>
 
       <!-- Upcoming Events Section -->
-      <div class="col-12 col-md-4 q-mt-lg">
-        <SubtitleComponent class="q-px-md" hide-link label="Upcoming Events" :to="{name: 'EventsPage'}"/>
-        <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event"/>
+      <div class="col-12 q-mt-lg">
+        <SubtitleComponent label="Upcoming Events" :to="{ name: 'EventsPage' }">Explore All Events<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
+        <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event" />
         <template v-if="upcomingEvents?.length">
-          <q-list bordered separator>
-            <HomeEventItemComponent v-if="upcomingEvents?.length" :events="upcomingEvents"/>
-          </q-list>
-          <div class="text-center q-mt-md">
-            <q-btn color="secondary" label="View All Events" @click="viewAllEvents"/>
-          </div>
+          <EventsItemComponent v-for="event in upcomingEvents" :key="event.id" :event="event" />
         </template>
       </div>
 
       <div class="col-12 q-mt-xl">
-        <SubtitleComponent class="q-px-md" hide-link label="Categories"/>
+        <SubtitleComponent class="q-px-md" hide-link label="Categories" />
         <div class="row q-gutter-md">
-          <HomeCategoryComponent
-            v-for="category in categories"
-            :key="category.id"
-            :category="category"
-          />
+          <HomeCategoryComponent v-for="category in categories" :key="category.id" :category="category" />
         </div>
       </div>
 
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent class="q-px-md" hide-link label="Interests"/>
-        <HomeInterestsComponent v-if="interests" :interests="interests"/>
+        <SubtitleComponent class="q-px-md" hide-link label="Interests" />
+        <HomeInterestsComponent v-if="interests" :interests="interests" />
       </div>
 
       <!-- Additional Information Section -->
       <div class="col-12" v-if="!useAuthStore().isAuthenticated">
-        <q-card flat bordered class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white': 'bg-grey-2']">
+        <q-card flat bordered class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-grey-2']">
           <q-card-section>
             <div class="row q-col-gutter-md">
               <div class="col-12 col-md-4">
@@ -69,7 +58,7 @@
                 <q-list>
                   <q-item v-for="(reason, index) in reasons" :key="index">
                     <q-item-section avatar>
-                      <q-icon :name="reason.icon" color="primary"/>
+                      <q-icon :name="reason.icon" color="primary" />
                     </q-item-section>
                     <q-item-section>
                       <q-item-label>{{ reason.text }}</q-item-label>
@@ -81,13 +70,13 @@
                 <h3 class="text-h5">How It Works</h3>
                 <q-timeline color="secondary">
                   <q-timeline-entry v-for="(step, index) in howItWorks" :key="index" :title="step.title"
-                                    :subtitle="step.subtitle" :icon="step.icon"/>
+                    :subtitle="step.subtitle" :icon="step.icon" />
                 </q-timeline>
               </div>
               <div class="col-12 col-md-4">
                 <h3 class="text-h5">Get Started Now</h3>
                 <p>Join our community today and start connecting with people who share your interests!</p>
-                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md"/>
+                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md" />
               </div>
             </div>
           </q-card-section>
@@ -100,20 +89,17 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
-import { useRouter } from 'vue-router'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
 import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
-import HomeEventItemComponent from 'src/components/home/HomeEventItemComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
+import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 
 const { openLoginDialog, openRegisterDialog } = useAuthDialog()
-
-const router = useRouter()
 
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
@@ -137,14 +123,6 @@ const howItWorks = [
   { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
   { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
-
-const exploreGroups = () => {
-  router.push({ name: 'GroupsPage' })
-}
-
-const viewAllEvents = () => {
-  router.push({ name: 'EventsPage' })
-}
 
 useMeta({
   title: 'Home'

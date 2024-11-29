@@ -57,10 +57,9 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'groups',
-        component: () => import('pages/dashboard/group/DashboardGroupsPage.vue'),
         children: [
           { path: '', name: 'DashboardGroupsPage', component: () => import('pages/dashboard/group/DashboardGroupsPage.vue') },
-          { path: 'create', name: 'DashboardGroupsCreatePage', component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue') },
+          { path: 'create', name: 'DashboardGroupCreatePage', component: () => import('pages/dashboard/group/DashboardGroupCreatePage.vue') },
           { path: ':slug', name: 'DashboardGroupPage', component: () => import('pages/dashboard/group/DashboardGroupPage.vue') }
         ]
       },

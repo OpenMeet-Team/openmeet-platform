@@ -2,6 +2,10 @@
   font-weight: bold;
 }
 
+body {
+  background-color: $primary-light-gray;
+}
+
 // Quasar Card
 .q-card {
   border-radius: 10px;
@@ -34,4 +38,14 @@
     opacity: 0.8;
     text-decoration: none;
   }
+}
+
+// Quasar Button
+.q-btn--rectangle {
+  border-radius: 6px;
+}
+
+// Quasar Input
+.q-field--filled .q-field__control {
+  border-radius: 6px;
 }

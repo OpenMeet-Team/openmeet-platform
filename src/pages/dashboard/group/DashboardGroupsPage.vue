@@ -75,7 +75,7 @@ const exploreGroups = () => {
 }
 
 const onAddNewGroup = () => {
-  router.push({ name: 'DashboardGroupsCreatePage' })
+  router.push({ name: 'DashboardGroupCreatePage' })
 }
 
 </script>

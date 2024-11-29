@@ -50,7 +50,7 @@ const onLeaveGroup = () => {
 
 <template>
   <div :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2', 'q-mt-lg rounded-borders']"
-    style="position: sticky; top: 54px; z-index: 1001">
+    style="position: sticky; top: 0; z-index: 1001">
     <div class="row">
       <div class="col-12 col-sm-6 q-pa-sm">
         <q-tabs align="justify" no-caps narrow-indicator>

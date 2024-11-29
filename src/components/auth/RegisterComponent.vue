@@ -1,5 +1,5 @@
 <template>
-  <q-card class="register-card">
+  <q-card class="register-card q-pa-sm">
     <q-form @submit="onSubmit" class="q-gutter-md" data-cy="register-form">
 
       <q-card-section>
@@ -92,7 +92,7 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn no-caps label="Register" data-cy="register-submit" :loading="isLoading" type="submit" color="primary"/>
+        <q-btn no-caps label="Register" data-cy="register-submit" class="full-width" rounded :loading="isLoading" type="submit" color="primary"/>
       </q-card-actions>
     </q-form>
   </q-card>
@@ -160,5 +160,6 @@ useMeta({
   width: 100%;
   max-width: 400px;
   min-width: 350px;
+  border-radius: 24px;
 }
 </style>

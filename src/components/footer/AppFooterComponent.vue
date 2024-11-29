@@ -1,16 +1,16 @@
 <template>
-  <q-footer bordered :class="[Dark.isActive ? 'bg-dark-page text-white' : 'bg-white text-black']" style="z-index: auto;">
+  <q-footer bordered class="bg-dark-page text-white" style="z-index: auto;">
     <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
-          <h6 class="text-h6 q-mb-md">OpenMeet</h6>
-          <p class="text-body2">Connect, share, and grow with like-minded people. Join our community today!</p>
+          <HeaderLogoComponent />
+          <p class="text-body2 q-mt-md">Connect, share, and grow with like-minded people. Join our community today!</p>
           <div class="q-gutter-md q-mt-md">
             <ShareComponent/>
           </div>
         </div>
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
-          <h6 class="text-h6 q-mb-md">Quick Links</h6>
+          <div class="text-h6 q-mb-md">Quick Links</div>
           <q-list dense>
             <MenuItemComponent label="Home" @click="navigateTo('/')"/>
             <MenuItemComponent label="About Us" @click="openSocialLink('https://biz.openmeet.net/about')"/>
@@ -19,7 +19,7 @@
           </q-list>
         </div>
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
-          <h6 class="text-h6 q-mb-md">Stay Connected</h6>
+          <div class="text-h6 q-mb-md">Stay Connected</div>
           <p class="text-body2 q-mb-sm">Subscribe to our newsletter for updates</p>
           <FooterHubspotComponent/>
         </div>
@@ -34,8 +34,8 @@
           <VersionComponent/>
         </div>
         <div>
-          <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Privacy Policy" href="https://biz.openmeet.net/privacy" target="_blank" />
-          <q-btn size="md" padding="none" flat dense no-caps label="Terms of Service" href="https://biz.openmeet.net/terms" target="_blank" />
+          <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Terms of Service" href="https://biz.openmeet.net/terms" target="_blank" />
+          <q-btn size="md" padding="none" flat dense no-caps label="Privacy Policy" href="https://biz.openmeet.net/privacy" target="_blank" />
         </div>
       </div>
     </q-toolbar>
@@ -44,12 +44,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Dark } from 'quasar'
 import { useRouter } from 'vue-router'
 import FooterHubspotComponent from 'components/footer/FooterHubspotComponent.vue'
 import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 import ShareComponent from 'components/common/ShareComponent.vue'
 import VersionComponent from '../common/VersionComponent.vue'
+import HeaderLogoComponent from '../header/HeaderLogoComponent.vue'
 const router = useRouter()
 
 const currentYear = computed(() => new Date().getFullYear())

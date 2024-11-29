@@ -13,8 +13,8 @@ const onClose = () => {
 </script>
 
 <template>
-<q-dialog ref="dialogRef" persistent>
-  <q-card class="full-width q-pa-md" style="max-width: 600px">
+<q-dialog class="c-group-form-dialog-component" ref="dialogRef" persistent>
+  <q-card class="full-width q-pa-md group-form-card" style="max-width: 600px">
 
     <div class="row q-mb-xl">
       <h1 class="text-h4 q-my-none">Create New Group</h1>
@@ -26,5 +26,7 @@ const onClose = () => {
 </template>
 
 <style scoped lang="scss">
-
+.group-form-card {
+  border-radius: 24px;
+}
 </style>
