@@ -49,8 +49,7 @@ describe('EventsPage', () => {
     })
 
     it('should display the add event form', () => {
-      cy.dataCy('header-mobile-menu').click()
-      cy.dataCy('add-event-button').should('be.visible').click()
+      cy.dataCy('header-nav-add-event-button').should('be.visible').click()
       cy.dataCy('event-form-dialog').should('be.visible')
     })
 
@@ -95,8 +94,7 @@ describe('EventsPage', () => {
         ]
       }).as('getLocations')
 
-      cy.dataCy('header-mobile-menu').click()
-      cy.dataCy('add-event-button').should('be.visible').click()
+      cy.dataCy('header-nav-add-event-button').should('be.visible').click()
       cy.wait('@getMyGroups').then(() => {
         // cy.dataCy('event-publish').click()
 

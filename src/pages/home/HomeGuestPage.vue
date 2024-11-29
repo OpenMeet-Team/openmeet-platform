@@ -21,7 +21,7 @@
         <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet."
           icon="sym_r_groups" />
         <template v-else>
-          <div>
+          <div data-cy="home-featured-groups">
             <GroupsItemComponent v-for="group in featuredGroups" :key="group.id" :group="group" />
           </div>
         </template>
@@ -31,21 +31,23 @@
       <div class="col-12 q-mt-lg">
         <SubtitleComponent label="Upcoming Events" :to="{ name: 'EventsPage' }">Explore All Events<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
         <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event" />
-        <template v-if="upcomingEvents?.length">
+        <div data-cy="home-upcoming-events" v-if="upcomingEvents?.length">
           <EventsItemComponent v-for="event in upcomingEvents" :key="event.id" :event="event" />
-        </template>
+        </div>
       </div>
 
       <div class="col-12 q-mt-xl">
         <SubtitleComponent class="q-px-md" hide-link label="Categories" />
-        <div class="row q-gutter-md">
+        <div data-cy="home-categories" class="row q-gutter-md">
           <HomeCategoryComponent v-for="category in categories" :key="category.id" :category="category" />
         </div>
       </div>
 
       <div class="col-12 q-mt-lg">
         <SubtitleComponent class="q-px-md" hide-link label="Interests" />
-        <HomeInterestsComponent v-if="interests" :interests="interests" />
+        <div data-cy="home-interests">
+          <HomeInterestsComponent v-if="interests" :interests="interests" />
+        </div>
       </div>
 
       <!-- Additional Information Section -->

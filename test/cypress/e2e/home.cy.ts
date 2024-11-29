@@ -17,11 +17,11 @@ describe('HomePage', () => {
 
     it('should have home user page components', () => {
       cy.wait('@getUserHome')
-      cy.dataCy('organized-groups-item-component').should('be.visible')
-      cy.dataCy('upcoming-events-item-component').should('be.visible')
-      cy.dataCy('interests-item-component').should('be.visible')
-      cy.dataCy('recent-event-drafts-item-component').should('be.visible')
-      cy.dataCy('member-groups-item-component').should('be.visible')
+      cy.dataCy('home-user-organized-groups-item-component').should('be.visible')
+      cy.dataCy('home-user-upcoming-events-item-component').should('be.visible')
+      cy.dataCy('home-user-interests-item-component').should('be.visible')
+      cy.dataCy('home-user-recent-event-drafts-item-component').should('be.visible')
+      cy.dataCy('home-user-member-groups-item-component').should('be.visible')
     })
   })
 
@@ -41,19 +41,19 @@ describe('HomePage', () => {
     })
 
     it('should have featured groups', () => {
-      cy.dataCy('groups-item-component').should('be.visible')
+      cy.dataCy('home-featured-groups').should('be.visible')
     })
 
     it('should have upcoming events', () => {
-      cy.dataCy('events-item-component').should('be.visible')
+      cy.dataCy('home-upcoming-events').should('be.visible')
     })
 
     it('should have categories', () => {
-      cy.dataCy('categories-item-component').should('be.visible')
+      cy.dataCy('home-categories').should('be.visible')
     })
 
     it('should have interests', () => {
-      cy.dataCy('interests-item-component').should('be.visible')
+      cy.dataCy('home-interests').should('be.visible')
     })
   })
 })

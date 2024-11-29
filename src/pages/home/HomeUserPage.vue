@@ -48,7 +48,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="col column q-mb-md">
               <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
-                  <q-item data-cy="organized-groups-item-component" v-ripple v-for="group in userOrganizedGroups" :key="group.id"
+                  <q-item data-cy="home-user-organized-groups-item-component" v-ripple v-for="group in userOrganizedGroups" :key="group.id"
                     clickable @click="navigateToGroup(group)">
                     <q-item-section thumbnail>
                       <img :src="getImageSrc(group.image)">
@@ -95,7 +95,7 @@ const onCreateEvent = (group: GroupEntity) => {
               <q-card flat bordered class="q-mb-md">
                 <q-card-section v-if="userRecentEventDrafts?.length">
                   <q-list>
-                    <q-item data-cy="recent-event-drafts-item-component" clickable v-ripple v-for="event in userRecentEventDrafts"
+                    <q-item data-cy="home-user-recent-event-drafts-item-component" clickable v-ripple v-for="event in userRecentEventDrafts"
                       :key="event.id" @click="navigateToEvent(event)">
                       <q-item-section thumbnail>
                         <q-img :src="getImageSrc(event.image)" />
@@ -131,7 +131,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <SubtitleComponent class="q-px-md" label="Groups you're part of" :hide-link="!userMemberGroups?.length"
               :count="userMemberGroups?.length" :to="{ name: 'DashboardGroupsPage' }" />
             <q-card flat bordered class="q-mb-xl">
-              <q-card-section v-if="userMemberGroups?.length">
+              <q-card-section v-if="userMemberGroups?.length" data-cy="home-user-member-groups-item-component">
                 <q-list>
                   <q-item data-cy="member-groups-item-component" v-for="group in userMemberGroups" :key="group.id"
                     clickable @click="navigateToGroup(group)">
@@ -151,7 +151,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <q-card flat bordered class="q-mb-md">
               <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
-                  <q-chip data-cy="interests-item-component" v-for="interest in userInterests" :key="interest.id"
+                  <q-chip data-cy="home-user-interests-item-component" v-for="interest in userInterests" :key="interest.id"
                     color="primary" text-color="white">
                     {{ interest.title }}
                   </q-chip>
@@ -163,7 +163,7 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-md-8">
             <!-- Upcoming events list -->
             <div v-for="event in userUpcomingEvents" :key="event.id" class="col-12 col-sm-6 col-md-4">
-              <EventsItemComponent data-cy="upcoming-events-item-component" :event="event" />
+              <EventsItemComponent data-cy="home-user-upcoming-events-item-component" :event="event" />
             </div>
             <NoContentComponent v-if="!userUpcomingEvents?.length" icon="sym_r_event"
               label="You have no upcoming events" />

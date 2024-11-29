@@ -73,8 +73,7 @@ describe('GroupsPage', () => {
   })
 
   it('should display the login form', () => {
-    cy.dataCy('header-mobile-menu').click()
-    cy.dataCy('add-group-button').should('be.visible').click()
+    cy.dataCy('header-nav-add-group-button').should('be.visible').click()
     cy.dataCy('login-form').should('be.visible')
   })
 
@@ -84,8 +83,7 @@ describe('GroupsPage', () => {
     })
 
     it('should display the add group form', () => {
-      cy.dataCy('header-mobile-menu').click()
-      cy.dataCy('add-group-button').should('be.visible').click()
+      cy.dataCy('header-nav-add-group-button').should('be.visible').click()
       cy.dataCy('group-form').should('be.visible')
     })
 
@@ -97,8 +95,7 @@ describe('GroupsPage', () => {
           slug: 'group-two'
         }
       }).as('createGroup')
-      cy.dataCy('header-mobile-menu').click()
-      cy.dataCy('add-group-button').should('be.visible').click()
+      cy.dataCy('header-nav-add-group-button').should('be.visible').click()
       cy.dataCy('group-form').should('be.visible')
       cy.dataCy('group-create').click()
 

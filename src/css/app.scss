@@ -41,8 +41,14 @@ body {
 }
 
 // Quasar Button
-.q-btn--rectangle {
-  border-radius: 6px;
+.q-btn {
+  &--rectangle {
+    border-radius: 6px;
+  }
+
+  &--rounded {
+    border-radius: 28px;
+  }
 }
 
 // Quasar Input
