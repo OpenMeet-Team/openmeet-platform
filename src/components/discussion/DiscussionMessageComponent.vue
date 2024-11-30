@@ -5,7 +5,7 @@
         <div class="row items-center">
           <span class="text-weight-medium">{{ message.sender_full_name }}</span>
           <span class="q-ml-md text-caption text-grey" v-if="message.timestamp">
-            {{ getHumanReadableDateDifference(new Date(message.timestamp * 1000), new Date()) }} ago
+            {{ getRoundedHumanReadableDateDifference(new Date(message.timestamp * 1000), new Date()) }} ago
           </span>
         </div>
       </div>
@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { useDiscussionStore } from 'src/stores/discussion-store'
 import { ZulipMessageEntity } from 'src/types'
-import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
+import { getRoundedHumanReadableDateDifference } from 'src/utils/dateUtils'
 
 interface Props {
   message: ZulipMessageEntity

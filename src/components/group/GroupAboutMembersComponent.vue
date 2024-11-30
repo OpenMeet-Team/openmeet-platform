@@ -49,7 +49,7 @@ const onMemberClick = (member: GroupMemberEntity) => {
     </q-card-section>
 
     <q-card-section>
-    <SubtitleComponent label="Members"
+    <SubtitleComponent label="Members" :count="group.groupMembersCount"
       :to="{ name: 'GroupMembersPage' }" />
     <div class="row q-gutter-md" v-if="group.groupMembers?.length" style="max-height: 300px">
       <div v-for="member in group.groupMembers"

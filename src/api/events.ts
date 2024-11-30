@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 import { api } from 'boot/axios'
-import { EventAttendeeEntity, EventEntity, EventPaginationEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity } from 'src/types'
 import { RouteQueryAndHash } from 'vue-router'
 
 const createEventApiHeaders = (eventSlug: string) => ({
@@ -18,8 +18,9 @@ export const eventsApi = {
   cancelAttending: (slug: string): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${slug}/cancel-attending`, null, createEventApiHeaders(slug)),
   updateAteendee: (slug: string, data: Partial<EventAttendeeEntity>): Promise<AxiosResponse<EventAttendeeEntity>> => api.post(`/api/events/${slug}/attendees`, data, createEventApiHeaders(slug)),
   similarEvents: (slug: string): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>(`/api/events/${slug}/recommended-events`, createEventApiHeaders(slug)),
-  getAttendees: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/attendees`, createEventApiHeaders(slug)),
-  edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/me/${slug}`, createEventApiHeaders(slug)),
+  getAttendees: (slug: string, query: { page: number, limit: number }): Promise<AxiosResponse<EventAttendeePaginationEntity>> => api.get<EventAttendeePaginationEntity>(`/api/events/${slug}/attendees`, { params: query, ...createEventApiHeaders(slug) }),
+  edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/edit`, createEventApiHeaders(slug)),
+  getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
   // postTopic: (id: number, data: Partial<EventEntity>): Promise<AxiosResponse<EventEntity>> => api.post<EventEntity>(`/api/events/${id}/topics`, data),
   // updateTopic: (slug: string, messageId: number, data: Partial<EventEntity>): Promise<AxiosResponse<EventEntity>> => api.post<EventEntity>(`/api/events/${slug}/topics/${messageId}`, data, createEventApiHeaders(slug)),

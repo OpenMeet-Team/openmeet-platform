@@ -20,7 +20,7 @@
 
       <!-- Reply Form -->
       <template v-else-if="replyingToId === topic.message.id">
-        <q-input :rules="[val => !!val || 'Message is required']" ref="replyInput" v-model="replyContent" filled
+        <q-input counter maxlength="700" :rules="[val => !!val || 'Message is required']" ref="replyInput" v-model="replyContent" filled
           autogrow placeholder="Write your reply..." @keyup.enter="sendReply" class="q-mb-sm" />
         <div class="row justify-end q-gutter-x-sm">
           <q-btn flat label="Cancel" @click="replyingToId = null" />

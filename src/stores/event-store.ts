@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeeRole, EventEntity } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
@@ -13,18 +13,26 @@ export const useEventStore = defineStore('event', {
   }),
 
   getters: {
-    getterGroupMemberHasPermission: (state) => (permission: string): boolean => {
+    getterGroupMemberHasPermission: (state) => (permission: GroupPermission) => {
       return !!(state.event?.groupMember?.groupRole?.groupPermissions.some(p => p.name === permission))
     },
-    getterEventAttendeeHasRole: (state) => (role: EventAttendeeRole): boolean => {
+    getterUserIsAttendee: (state) => (): EventAttendeeEntity | undefined => {
+      return state.event?.attendee
+    },
+    getterUserHasRole: (state) => (role: EventAttendeeRole) => {
       return state.event?.attendee?.role?.name === role
     },
-    getterEventAttendeeHasPermission: (state) => (permission: string): boolean => {
-      return state.event?.attendee?.role?.permissions.some(p => p.name === permission) ?? false
-      // return permission === 'test' && state.event?.attendee?.role?.name === EventAttendeeRole.Host // TODO: replace with actual permission check
+    getterUserHasPermission: (state) => (permission: EventAttendeePermission) => {
+      return state.event?.attendee?.role?.permissions?.some(p => p.name === permission)
     },
-    getterUserIsAttendee: (state) => (): boolean => {
-      return !!state.event?.attendee
+    getterIsPublicEvent: (state) => {
+      return state.event?.visibility === EventVisibility.Public
+    },
+    getterIsPrivateEvent: (state) => {
+      return state.event?.visibility === EventVisibility.Private
+    },
+    getterIsAuthenticatedEvent: (state) => {
+      return state.event?.visibility === EventVisibility.Authenticated
     }
   },
 
@@ -66,15 +74,6 @@ export const useEventStore = defineStore('event', {
         this.handleAxiosError(err as AxiosError)
       } finally {
         this.isLoading = false
-      }
-    },
-
-    async actionGetEventAttendees (slug: string) {
-      try {
-        const res = await eventsApi.getAttendees(slug)
-        this.event = res.data
-      } catch (err) {
-        this.handleAxiosError(err as AxiosError)
       }
     },
 

@@ -56,14 +56,12 @@ describe('EventsPage', () => {
     it('should create an event', () => {
       cy.intercept('GET', '/api/groups/me', {
         statusCode: 200,
-        body: {
-          data: [
-            {
-              id: 1,
-              name: 'Group One'
-            }
-          ]
-        }
+        body: [
+          {
+            id: 1,
+            name: 'Group One'
+          }
+        ]
       }).as('getMyGroups')
 
       cy.intercept('POST', '/api/events', {

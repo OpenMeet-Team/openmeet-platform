@@ -120,7 +120,7 @@ onMounted(async () => {
     // Fetch group data conditionally if `editGroupId` exists
     let groupPromise
     if (props.editGroupSlug) {
-      groupPromise = groupsApi.getMeBySlug(props.editGroupSlug).then(res => {
+      groupPromise = groupsApi.getDashboardGroup(props.editGroupSlug).then(res => {
         group.value = res.data
       })
     }

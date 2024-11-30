@@ -1,9 +1,12 @@
 <template>
   <q-page padding>
-    <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group"/>
+    <div class="q-mx-auto" style="max-width: 500px">
+      <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group" />
 
-    <div class="row justify-center">
-      <GroupFormComponent class="col" style="max-width: 500px" :edit-group-ulid="route.params.ulid as string" @close="router.push({ name: 'DashboardGroupsPage' })"/>
+      <div class="row justify-center">
+        <GroupFormComponent class="col" style="max-width: 500px" :editGroupSlug="route.params.slug as string"
+          @close="router.push({ name: 'DashboardGroupsPage' })" />
+      </div>
     </div>
   </q-page>
 </template>

@@ -1,6 +1,10 @@
 import { date } from 'quasar'
 import { EventEntity } from 'src/types'
 
+export function getRoundedHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {
+  return getHumanReadableDateDifference(startDate, endDate).split(', ')[0]
+}
+
 export function getHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {
   const start = new Date(startDate)
   const end = new Date(endDate)

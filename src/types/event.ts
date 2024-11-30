@@ -72,6 +72,7 @@ export interface EventAttendeeEntity {
   user: UserEntity
   role: EventAttendeeRoleEntity
   status: EventAttendeeStatus
+  createdAt?: string
 }
 
 export interface EventTopicCommentEntity {
@@ -116,3 +117,4 @@ export interface EventEntity {
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
+export interface EventAttendeePaginationEntity extends Pagination<EventAttendeeEntity> {}

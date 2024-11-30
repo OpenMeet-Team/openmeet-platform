@@ -13,7 +13,6 @@
 
 <style scoped lang="scss">
 .q-toolbar__title {
-  // flex: 0;
-  // flex-basis: 35px;
+  flex: none;
 }
 </style>

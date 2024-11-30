@@ -66,7 +66,7 @@ describe('EventPage', () => {
     })
   })
 
-  describe('when the group visibility is authenticated', () => {
+  describe('when the event visibility is authenticated', () => {
     beforeEach(() => {
       cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
@@ -79,6 +79,11 @@ describe('EventPage', () => {
       cy.visit(`/events/${event.slug}`).then(() => {
         cy.wait('@getEvent')
       })
+    })
+
+    it.skip('should attendees and discussion be hidden', () => {
+      cy.dataCy('event-attendees').should('not.exist')
+      cy.dataCy('event-discussion').should('not.exist')
     })
   })
 })

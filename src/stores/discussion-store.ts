@@ -20,7 +20,7 @@ export const useDiscussionStore = defineStore('discussion', {
   state: () => ({
     messages: [] as ZulipMessageEntity[],
     topics: [] as ZulipTopicEntity[],
-    contextType: 'general',
+    contextType: 'general' as 'general' | 'group' | 'event',
     contextId: '',
     permissions: {
       canRead: false,
@@ -57,7 +57,7 @@ export const useDiscussionStore = defineStore('discussion', {
         if (topic) {
           state.topics = state.topics.map(t => t.name === topicName ? { ...t, max_id: messageId } : t)
         } else {
-          state.topics = [...state.topics, { name: topicName, max_id: messageId }]
+          state.topics = [{ name: topicName, max_id: messageId }, ...state.topics]
         }
         state.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: useAuthStore().user?.name || '', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...state.messages]
       }

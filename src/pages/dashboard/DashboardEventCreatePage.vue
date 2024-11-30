@@ -1,11 +1,8 @@
 <template>
-  <q-page padding class="q-pb-xl">
+  <q-page padding class="q-mx-auto q-px-xl" style="max-width: 500px;">
     <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event" />
 
-    <div class="row justify-center">
-      <EventFormComponent class="col" @created="navigateToEvent($event)" style="max-width: 500px"
-        @close="onClose" />
-    </div>
+    <EventFormComponent class="col" @created="navigateToEvent($event)" @close="onClose" />
   </q-page>
 </template>
 

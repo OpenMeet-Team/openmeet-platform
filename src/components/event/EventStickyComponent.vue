@@ -58,11 +58,11 @@ const onEditAttendenceClick = () => {
 <template>
   <q-page-sticky v-if="event" expand position="bottom" :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2']">
     <div class="col row q-py-md q-mx-auto" style="max-width: 1201px">
-      <div class="col col-12 col-md-8 q-px-md min-width-200">
+      <div class="col col-12 col-sm-6 q-px-md min-width-200">
         <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
         <div class="text-h6 text-bold">{{ event.name }}</div>
       </div>
-      <div class="col col-12 col-md-4 row q-gutter-md justify-end no-wrap">
+      <div class="col col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
           <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
           <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>

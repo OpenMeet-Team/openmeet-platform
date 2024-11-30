@@ -9,8 +9,8 @@ const createGroupApiHeaders = (groupSlug: string) => ({
 
 export const groupsApi = {
   getAll: (query: RouteQueryAndHash) => api.get<GroupPaginationEntity>('/api/groups', { params: query }),
-  getAllMe: (query: RouteQueryAndHash) => api.get<GroupPaginationEntity>('/api/groups/me', { params: query }),
-  getMeBySlug: (slug: string) => api.get<GroupEntity>(`/api/groups/me/${slug}`, createGroupApiHeaders(slug)),
+  getAllMe: () => api.get<GroupEntity[]>('/api/groups/me'),
+  getDashboardGroup: (slug: string) => api.get<GroupEntity>(`/api/groups/me/${slug}`, createGroupApiHeaders(slug)),
   getBySlug: (slug: string) => api.get<GroupEntity>(`/api/groups/${slug}`, createGroupApiHeaders(slug)),
   getAbout: (slug: string) => api.get<{
     events: EventEntity[],

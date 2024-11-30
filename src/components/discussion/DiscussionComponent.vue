@@ -97,7 +97,10 @@ const sendComment = () => {
 
   newComment.value = ''
 
-  useDiscussionStore().actionSendMessage(message, new Date().toISOString())
+  useDiscussionStore().actionSendMessage(message, new Date().toISOString()).catch(error => {
+    newComment.value = message
+    throw error
+  })
 }
 
 </script>

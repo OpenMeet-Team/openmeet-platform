@@ -48,7 +48,6 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'DashboardPage', component: () => import('pages/dashboard/DashboardPage.vue') },
       {
         path: 'events',
-        component: () => import('pages/dashboard/DashboardEventsPage.vue'),
         children: [
           { path: '', name: 'DashboardEventsPage', component: () => import('pages/dashboard/DashboardEventsPage.vue') },
           { path: 'create', name: 'DashboardEventCreatePage', component: () => import('pages/dashboard/DashboardEventCreatePage.vue') },

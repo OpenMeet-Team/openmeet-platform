@@ -35,22 +35,22 @@
 
             <!-- Organiser tools -->
             <q-card class="q-mb-md shadow-0"
-              v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents) || useEventStore().getterEventAttendeeHasRole(EventAttendeeRole.Host)">
+              v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)">
               <q-card-section>
                 <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
                     <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
-                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.ManageEvent)"
-                      @click="router.push({ name: 'DashboardEventPage', params: { id: event.id } })" />
+                      v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)"
+                      @click="router.push({ name: 'DashboardEventPage', params: { slug: event.slug } })" />
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
-                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.ManageAttendees)"
+                      v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.ManageAttendees)"
                       @click="router.push({ name: 'EventAttendeesPage' })" />
                     <MenuItemComponent label="Cancel event"
-                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.CancelEvent)"
+                      v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.CancelEvent)"
                       icon="sym_r_event_busy" @click="onCancelEvent" />
                     <q-separator />
                     <MenuItemComponent label="Delete event"
-                      v-if="useEventStore().getterEventAttendeeHasPermission(EventAttendeePermission.DeleteEvent)"
+                      v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.DeleteEvent)"
                       icon="sym_r_delete" @click="onDeleteEvent" />
                   </q-list>
                 </q-btn-dropdown>
@@ -147,7 +147,7 @@ import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
 import { GroupPermission } from 'src/types/group.ts'
-import { EventAttendeePermission, EventAttendeeRole } from 'src/types/event.ts'
+import { EventAttendeePermission } from 'src/types/event.ts'
 import EventAttendeesComponent from 'src/components/event/EventAttendeesComponent.vue'
 import EventTopicsComponent from 'src/components/event/EventTopicsComponent.vue'
 

@@ -3,7 +3,7 @@
 }
 
 body {
-  background-color: $primary-light-gray;
+  @extend .bg-primary-light-gray;
 }
 
 // Quasar Card

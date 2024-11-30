@@ -1,11 +1,11 @@
 <template>
-  <q-page padding>
-    <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event"/>
+  <q-page padding class="c-dashboard-event-page">
+    <div class="q-mx-auto q-pb-xl" style="max-width: 500px">
+      <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event" />
 
-    <div class="row justify-center">
-        <EventFormBasicComponent class="col" @updated="navigateToEvent($event)" :edit-event-ulid="route.params.ulid as string" style="max-width: 500px" @close="router.push({ name: 'DashboardEventsPage' })"/>
+      <EventFormBasicComponent @updated="navigateToEvent($event)" :edit-event-slug="route.params.slug as string"
+        @close="router.push({ name: 'DashboardEventsPage' })" />
     </div>
-
   </q-page>
 </template>
 
