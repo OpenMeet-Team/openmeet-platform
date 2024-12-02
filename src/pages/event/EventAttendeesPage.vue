@@ -42,6 +42,10 @@
             <q-item-section side>
               <q-badge :color="getStatusColor(attendee.status)" :label="attendee.status" />
             </q-item-section>
+            <!-- Allow edit attendee status for admin -->
+            <!-- <q-item-section v-if="isAdmin" side>
+              <q-btn flat no-caps color="primary" icon="sym_r_edit" label="Edit" />
+            </q-item-section> -->
           </q-item>
         </q-list>
 
@@ -59,7 +63,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { date, LoadingBar } from 'quasar'
+import { date, LoadingBar, QSelectOption } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useEventStore } from 'src/stores/event-store'
 import { eventsApi } from 'src/api'
@@ -72,12 +76,12 @@ const isLoading = ref(false)
 const noMoreData = ref(false)
 const page = ref(1)
 const PER_PAGE = 20
-const search = ref('')
-const status = ref('')
+const search = ref<string>('')
+const status = ref<QSelectOption | null>(null)
 
 const statusOptions = computed(() => {
   return Object.values(EventAttendeeStatus).map((status) => ({
-    label: status,
+    label: status.charAt(0).toUpperCase() + status.slice(1),
     value: status
   }))
 })
@@ -87,7 +91,7 @@ const filteredAttendees = computed(() => {
     // if search or filter otherwise return all
     if (search.value || status.value) {
       const searchMatch = attendee.user.name?.toLowerCase().includes(search.value.toLowerCase())
-      const statusMatch = attendee.status === status.value
+      const statusMatch = attendee.status === status.value?.value
       return searchMatch && statusMatch
     }
     return true

@@ -1,6 +1,6 @@
 <template>
   <div class="c-event-attendees-component">
-    <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md" @click="onAttendeesClick" />
+    <SubtitleComponent label="Attendees" class="q-mt-lg q-px-md" :count="event?.attendeesCount" @click="onAttendeesClick" />
     <q-card flat bordered v-if="hasPermissions">
       <q-card-section v-if="event?.attendees?.length">
         <div class="row q-gutter-md">

@@ -8,7 +8,7 @@
     </q-card-section>
 
     <!-- Input Section -->
-    <q-input ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
+    <q-input class="q-px-md q-pb-xl" ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
       :disable="!props.permissions?.canWrite" maxlength="700">
       <template v-slot:after>
         <q-btn :loading="useDiscussionStore().isSending" icon="sym_r_send" round color="primary" @click="sendComment" :disabled="!newComment.trim()" />

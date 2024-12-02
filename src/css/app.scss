@@ -55,3 +55,12 @@ body {
 .q-field--filled .q-field__control {
   border-radius: 6px;
 }
+
+// Quasar field
+.q-field {
+
+
+  &.q-field--outlined .q-field__control:not(.q-field--rounded) {
+    border-radius: 6px;
+  }
+}

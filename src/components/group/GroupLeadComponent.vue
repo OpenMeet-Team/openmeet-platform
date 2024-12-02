@@ -16,7 +16,7 @@ const { navigateToMember } = useNavigation()
 </script>
 
 <template>
-  <div v-if="group" class="row q-col-gutter-md">
+  <div v-if="group" class="c-group-lead-component row q-col-gutter-md">
     <div class="col-12 col-sm-6">
       <q-card flat>
         <q-img :src="getImageSrc(group.image)" :ratio="16/9"/>

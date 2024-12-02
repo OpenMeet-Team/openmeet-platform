@@ -40,7 +40,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { apiGetDashboardGroups } from 'src/api/dashboard.ts'
+import { groupsApi } from 'src/api/groups'
 import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity } from 'src/types'
 import { useAuthStore } from 'stores/auth-store.ts'
@@ -60,7 +60,7 @@ useMeta({
 
 const fetchData = async () => {
   LoadingBar.start()
-  return apiGetDashboardGroups().then(res => {
+  return groupsApi.getAllMe().then(res => {
     userGroups.value = res.data.sort((a, b) => b.name.localeCompare(a.name))
   }).finally(LoadingBar.stop)
 }
