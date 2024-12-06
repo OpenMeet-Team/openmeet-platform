@@ -31,7 +31,7 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
       <q-card-section>
         {{ event.approvalQuestion }}
-        <q-input v-model="approvalAnswer" required filled type="textarea" />
+        <q-input v-model="approvalAnswer" :rules="[val => !!val || 'Please answer the question']" required filled type="textarea" />
       </q-card-section>
       <q-card-actions align="right">
         <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>

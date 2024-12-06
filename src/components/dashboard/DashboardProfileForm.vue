@@ -1,9 +1,10 @@
 <template>
-  <q-form @submit="onSubmit" class="q-gutter-md" style="max-width: 500px">
+  <q-form data-cy="profile-form" @submit="onSubmit" class="c-dashboard-profile-form q-gutter-md" style="max-width: 500px">
 
     <div @click="openChangeEmailDialog" class="input-wrapper">
       <q-input
-      filled
+        data-cy="profile-email"
+        filled
         readonly
         v-model="form.email"
         label="Email"
@@ -17,6 +18,7 @@
     </div>
 
     <q-input
+      data-cy="profile-first-name"
       filled
       v-model="form.firstName"
       label="First Name"
@@ -24,6 +26,7 @@
     />
 
     <q-input
+      data-cy="profile-last-name"
       filled
       v-model="form.lastName"
       label="Last Name"
@@ -31,13 +34,20 @@
     />
 
     <q-input
+      data-cy="profile-bio"
       filled
       type="textarea"
       v-model="form.bio"
       label="Your bio"
     />
 
-    <UploadComponent class="q-mt-xl" label="Profile picture" :crop-options="{autoZoom: true, aspectRatio: 1}" @upload="onProfilePhotoSelect"/>
+    <UploadComponent
+      data-cy="profile-photo"
+      class="q-mt-xl"
+      label="Profile picture"
+      :crop-options="{autoZoom: true, aspectRatio: 1}"
+      @upload="onProfilePhotoSelect"
+    />
 
     <q-img
       v-if="form && form.photo && form.photo.path"
@@ -46,21 +56,33 @@
       class="rounded-borders"
       style="height: 100px; max-width: 100px"
     >
-      <q-btn color="primary" size="md" icon="sym_r_delete" class="all-pointer-events absolute-top-right" @click="onProfilePhotoDelete"/>
-  </q-img>
+      <q-btn
+        data-cy="profile-photo-delete"
+        color="primary"
+        size="md"
+        icon="sym_r_delete"
+        class="all-pointer-events absolute-top-right"
+        @click="onProfilePhotoDelete"
+      />
+    </q-img>
 
 <!--    <LocationComponent label="Location" v-model:location="form.location.address" v-model:latitude="form.location.lat" v-model:longitude="form.location.lon"/>-->
 
     <q-expansion-item
+      data-cy="profile-password"
       expand-separator
       icon="sym_r_vpn_key"
       label="Change Password"
     >
       <q-card>
         <q-card-section>
+          <!-- required password if expansion is open -->
+
           <q-input
+            data-cy="profile-old-password"
             v-model="form.oldPassword"
             filled
+            maxlength="255"
             :type="isPwd ? 'password' : 'text'"
             label="Current Password"
           >
@@ -74,6 +96,9 @@
           </q-input>
 
           <q-input
+            minlength="8"
+            maxlength="255"
+            data-cy="profile-new-password"
             v-model="form.password"
             filled
             :type="isPwd ? 'password' : 'text'"
@@ -93,8 +118,23 @@
     </q-expansion-item>
 
     <q-card-actions align="right">
-      <q-btn no-caps label="Delete account" color="negative" flat class="q-ml-sm" @click="onDeleteAccount"/>
-      <q-btn no-caps :loading="isLoading" label="Update" type="submit" color="primary"/>
+      <q-btn
+        data-cy="profile-delete-account"
+        no-caps
+        label="Delete account"
+        color="negative"
+        flat
+        class="q-ml-sm"
+        @click="onDeleteAccount"
+      />
+      <q-btn
+        data-cy="profile-update"
+        no-caps
+        :loading="isLoading"
+        label="Update"
+        type="submit"
+        color="primary"
+      />
     </q-card-actions>
   </q-form>
 </template>

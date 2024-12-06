@@ -8,14 +8,14 @@
     </q-card-section>
 
     <!-- Input Section -->
-    <q-input class="q-px-md q-pb-xl" ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
+    <q-input class="q-px-md q-py-md" ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
       :disable="!props.permissions?.canWrite" maxlength="700">
       <template v-slot:after>
         <q-btn :loading="useDiscussionStore().isSending" icon="sym_r_send" round color="primary" @click="sendComment" :disabled="!newComment.trim()" />
       </template>
     </q-input>
 
-    <DiscussionTopicComponent :expanded="expanded"
+    <DiscussionTopicComponent class="q-px-md q-py-none" :expanded="expanded"
       @update:expanded="expanded = $event" :can-moderate="props.permissions?.canManage"
       :can-reply="props.permissions?.canWrite" v-for="topic in messageTree" :topic="topic" :key="topic.topicName" />
 

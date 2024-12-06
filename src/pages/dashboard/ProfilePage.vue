@@ -8,7 +8,7 @@ useMeta({
 </script>
 
 <template>
-  <q-page padding style="max-width: 1024px" class="q-mx-auto q-pb-xl">
+  <q-page data-cy="profile-page" padding style="max-width: 1024px" class="q-mx-auto q-pb-xl">
     <DashboardTitle defaultBack label="Profile settings"/>
 
     <div class="row justify-center">

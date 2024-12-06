@@ -16,7 +16,7 @@ const event = computed(() => useEventStore().event)
       </q-btn>
       <div>
         <q-item-label>Hosted by</q-item-label>
-        <q-item-label class="text-bold cursor-pointer"><span class="router-link-inherit" :to="{ name: 'GroupPage', params: { slug: event.group.slug } }">{{ event.group.name }}</span></q-item-label>
+        <q-item-label class="text-bold cursor-pointer"><router-link class="router-link-inherit" :to="{ name: 'GroupPage', params: { slug: event.group.slug } }">{{ event.group.name }}</router-link></q-item-label>
       </div>
     </div>
     <div v-else-if="event?.user" class="row items-center q-py-sm q-px-md">

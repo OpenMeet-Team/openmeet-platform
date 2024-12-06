@@ -1,3 +1,33 @@
+<template>
+  <q-page-sticky class="c-event-sticky-component" v-if="event" expand position="bottom" :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2']">
+    <div class="col row q-py-md q-mx-auto" style="max-width: 1201px">
+      <div class="col col-12 col-sm-6 q-px-md min-width-200">
+        <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
+        <div class="text-h6 text-bold">{{ event.name }}</div>
+      </div>
+      <div class="col col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
+        <div class="column" v-if="useEventStore().getterUserIsAttendee()">
+          <div data-cy="event-attendee-status-confirmed" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
+          <div data-cy="event-attendee-status-pending" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>
+          <div data-cy="event-attendee-status-waitlist" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
+          <div data-cy="event-attendee-status-rejected" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're rejected!</div>
+          <div data-cy="event-attendee-status-cancelled" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Cancelled">You're cancelled!</div>
+          <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
+              padding="none" flat color="primary" label="Edit RSVP" /></div>
+        </div>
+        <div class="row items-start q-gutter-md">
+          <ShareComponent class="col-4" />
+          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
+            label="Attend" color="primary" @click="onAttendClick" />
+
+          <QRCodeComponent class="" />
+        </div>
+
+      </div>
+    </div>
+  </q-page-sticky>
+</template>
+
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
@@ -54,35 +84,5 @@ const onEditAttendenceClick = () => {
   })
 }
 </script>
-
-<template>
-  <q-page-sticky v-if="event" expand position="bottom" :class="[Dark.isActive ? 'bg-dark' : 'bg-grey-2']">
-    <div class="col row q-py-md q-mx-auto" style="max-width: 1201px">
-      <div class="col col-12 col-sm-6 q-px-md min-width-200">
-        <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
-        <div class="text-h6 text-bold">{{ event.name }}</div>
-      </div>
-      <div class="col col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
-        <div class="column" v-if="useEventStore().getterUserIsAttendee()">
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're rejected!</div>
-          <div class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Cancelled">You're cancelled!</div>
-          <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
-              padding="none" flat color="primary" label="Edit RSVP" /></div>
-        </div>
-        <div class="row items-start q-gutter-md">
-          <ShareComponent class="col-4" />
-          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
-            label="Attend" color="primary" @click="onAttendClick" />
-
-          <QRCodeComponent class="" />
-        </div>
-
-      </div>
-    </div>
-  </q-page-sticky>
-</template>
 
 <style scoped lang="scss"></style>
