@@ -48,6 +48,11 @@
         <div class="q-mt-md">
           <q-btn block no-caps rounded class="full-width" label="Login" :loading="isLoading" type="submit" color="primary" data-cy="login-submit"/>
         </div>
+
+        <div class="text-grey-6">
+          <GoogleLoginComponent class="q-mt-md" @success="emits('login')" />
+          <GithubLoginComponent class="q-mt-md" @success="emits('login')" />
+        </div>
       </q-card-section>
     </q-form>
   </q-card>
@@ -59,7 +64,8 @@ import { useAuthStore } from 'stores/auth-store.ts'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from 'src/utils/validation'
 import { useNotification } from 'src/composables/useNotification.ts'
-
+import GoogleLoginComponent from './GoogleLoginComponent.vue'
+import GithubLoginComponent from './GithubLoginComponent.vue'
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()

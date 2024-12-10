@@ -46,7 +46,7 @@ onMounted(() => {
 
     <!-- Members List -->
     <div class="col-12 col-sm-6">
-      <GroupAboutMembersComponent :groupMembers="group.groupMembers" />
+      <GroupAboutMembersComponent />
     </div>
   </div>
   <SpinnerComponent v-else />

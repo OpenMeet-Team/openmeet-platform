@@ -23,9 +23,9 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
 </script>
 
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide" persistent class="c-event-attend-dialog-component">
+  <q-dialog data-cy="event-attend-dialog" ref="dialogRef" @hide="onDialogHide" persistent class="c-event-attend-dialog-component">
 
-    <q-card v-if="event.approvalQuestion">
+    <q-card data-cy="approval-question-card" v-if="event.approvalQuestion">
       <q-card-section>
         <div class="text-h6">Please answer the following question to attend this event:</div>
       </q-card-section>
@@ -35,11 +35,11 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
       <q-card-actions align="right">
         <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
-        <q-btn no-caps label="Confirm" color="primary" @click="onDialogOK({ approvalAnswer })"/>
+        <q-btn data-cy="confirm-button" no-caps label="Confirm" color="primary" @click="onDialogOK({ approvalAnswer })"/>
       </q-card-actions>
     </q-card>
 
-    <q-card v-else-if="event.requireGroupMembership && event.group">
+    <q-card data-cy="group-membership-card" v-else-if="event.requireGroupMembership && event.group">
       <q-card-section>
         <div class="text-h6">You must be a member of the following group to attend this event:</div>
       </q-card-section>
@@ -47,12 +47,12 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
         {{ event.group?.name }}
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
-        <q-btn no-caps label="Join Group" color="primary" v-close-popup @click="navigateToGroup(event.group)" />
+        <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
+        <q-btn data-cy="join-group-button" no-caps label="Join Group" color="primary" v-close-popup @click="navigateToGroup(event.group)" />
       </q-card-actions>
     </q-card>
 
-    <q-card v-else>
+    <q-card data-cy="confirm-attendance-card" v-else>
       <q-card-section>
         <div class="text-h6">Confirm Attendance</div>
       </q-card-section>
@@ -63,8 +63,8 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
 
       <q-card-actions align="right">
-        <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
-        <q-btn no-caps label="Confirm" color="primary" @click="onDialogOK"/>
+        <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
+        <q-btn data-cy="confirm-button" no-caps label="Confirm" color="primary" @click="onDialogOK"/>
       </q-card-actions>
     </q-card>
 <!--    <q-card>-->

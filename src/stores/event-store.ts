@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventAttendeeStatus, EventEntity, EventVisibility, GroupPermission } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { eventsApi } from 'src/api/events.ts'
 import { AxiosError } from 'axios'
@@ -81,7 +81,9 @@ export const useEventStore = defineStore('event', {
       try {
         const res = await eventsApi.attend(slug, data)
         if (this.event) {
-          this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
+          if (res.data.status !== EventAttendeeStatus.Confirmed) {
+            this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
+          }
           this.event.attendee = res.data
           analyticsService.trackEvent('event_attended', { event_id: this.event.id, name: this.event.name })
         }

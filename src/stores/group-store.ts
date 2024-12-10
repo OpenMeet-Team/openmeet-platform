@@ -104,7 +104,9 @@ export const useGroupStore = defineStore('group', {
       try {
         const res = await groupsApi.join(slug)
         if (this.group) {
-          this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
+          if (res.data.groupRole.name !== GroupRole.Guest) {
+            this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
+          }
           this.group.groupMember = res.data
         }
         analyticsService.trackEvent('group_joined', { group_id: this.group?.id, name: this.group?.name })

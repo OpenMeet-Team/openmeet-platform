@@ -1,7 +1,8 @@
 <template>
-  <q-page padding class="q-mx-auto" style="max-width: 600px;">
+  <q-page data-cy="event-attendees-page" padding class="c-event-attendees-page q-mx-auto" style="max-width: 600px;">
     <SpinnerComponent v-if="isLoading" />
-    <div v-else-if="attendees">
+    <NoContentComponent data-cy="event-not-found" v-else-if="!isLoading && !event" icon="sym_r_event" label="Event not found" />
+    <div v-else-if="attendees && event">
       <q-btn flat no-caps color="primary" icon="sym_r_arrow_back" label="Back"
         :to="{ name: 'EventPage', params: { slug: route.params.slug } }" class="q-mb-md" />
       <div class="q-pa-md">
@@ -69,6 +70,8 @@ import { useEventStore } from 'src/stores/event-store'
 import { eventsApi } from 'src/api'
 import { EventAttendeeEntity, EventAttendeeStatus } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils'
+import { useAuthStore } from 'src/stores/auth-store'
+import NoContentComponent from 'src/components/global/NoContentComponent.vue'
 
 const route = useRoute()
 const attendees = ref<EventAttendeeEntity[]>([])
@@ -78,6 +81,7 @@ const page = ref(1)
 const PER_PAGE = 20
 const search = ref<string>('')
 const status = ref<QSelectOption | null>(null)
+const event = computed(() => useEventStore().event)
 
 const statusOptions = computed(() => {
   return Object.values(EventAttendeeStatus).map((status) => ({
@@ -172,7 +176,13 @@ const loadMore = async (index: number, done: () => void) => {
 
 onMounted(() => {
   LoadingBar.start()
-  loadAttendees().finally(() => {
+  useEventStore().actionGetEventBySlug(route.params.slug as string).then(() => {
+    if (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserIsAttendee()) {
+      loadAttendees().finally(() => {
+        LoadingBar.stop()
+      })
+    }
+  }).finally(() => {
     LoadingBar.stop()
   })
 })

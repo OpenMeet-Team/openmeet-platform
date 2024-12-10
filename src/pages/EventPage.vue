@@ -123,7 +123,7 @@
     </template>
 
     <EventStickyComponent v-if="event" :event="event" style="z-index: 1000" />
-    <NoContentComponent v-if="errorMessage" label="Event not found" icon="sym_r_error"
+    <NoContentComponent data-cy="event-not-found" v-if="errorMessage" label="Event not found" icon="sym_r_error"
       @click="router.push({ name: 'EventsPage' })" button-label="Go to events" />
 
     <EventSimilarEventsComponent v-if="showSimilarEvents" :event="event" />

@@ -58,9 +58,15 @@ body {
 
 // Quasar field
 .q-field {
-
-
   &.q-field--outlined .q-field__control:not(.q-field--rounded) {
     border-radius: 6px;
+  }
+}
+
+// Dialog
+.q-dialog {
+
+  & .q-dialog__inner > div {
+    border-radius: 10px;
   }
 }

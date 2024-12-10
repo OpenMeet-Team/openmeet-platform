@@ -71,6 +71,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Auth',
     component: () => import('layouts/AuthLayout.vue'),
     children: [
+      { path: 'github/callback', name: 'AuthGithubCallbackPage', component: () => import('pages/auth/GithubCallbackPage.vue') },
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },
       {

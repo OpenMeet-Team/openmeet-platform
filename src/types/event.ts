@@ -20,6 +20,7 @@ export enum EventAttendeePermission {
   AttendEvent = 'ATTEND_EVENT',
   MessageAttendees = 'MESSAGE_ATTENDEES',
   CreateDiscussion = 'CREATE_DISCUSSION',
+  ViewDiscussion = 'VIEW_DISCUSSION'
 }
 
 export enum EventVisibility {

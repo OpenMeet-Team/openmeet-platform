@@ -50,6 +50,6 @@ const onAttendeesClick = () => {
 }
 
 const hasPermissions = computed(() => {
-  return (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserHasPermission(EventAttendeePermission.MessageAttendees))
+  return (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || (useEventStore().getterUserIsAttendee() && useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)))
 })
 </script>

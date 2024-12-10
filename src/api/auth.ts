@@ -61,5 +61,11 @@ export const authApi = {
     }),
 
   logout: (): Promise<AxiosResponse<void>> =>
-    api.post(`${BASE_URL}/logout`)
+    api.post(`${BASE_URL}/logout`),
+
+  googleLogin: (idToken: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/google/login`, { idToken }),
+
+  githubLogin: (code: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/github/login`, { code })
 }

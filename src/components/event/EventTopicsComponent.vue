@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from 'src/stores/event-store'
 import DiscussionComponent from '../discussion/DiscussionComponent.vue'
+import { EventAttendeePermission } from 'src/types'
+import { useAuthStore } from 'src/stores/auth-store'
 
 const event = computed(() => useEventStore().event)
 
@@ -14,10 +16,10 @@ const event = computed(() => useEventStore().event)
 
     <DiscussionComponent v-if="event.messages && event.topics" :messages="event?.messages ?? []" :topics="event?.topics ?? []" :context-type="'event'"
       :context-id="event?.slug ?? ''" :permissions="{
-        canRead: true,
-        canWrite: true,
-        canManage: true
-      }" />
+      canRead: Boolean(useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserHasPermission(EventAttendeePermission.ViewDiscussion)),
+      canWrite: !!useEventStore().getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
+      canManage: !!useEventStore().getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
+    }" />
 
     <NoContentComponent v-else icon="sym_r_error" label="No comments yet" />
   </div>

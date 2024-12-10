@@ -43,6 +43,22 @@ export const useAuthStore = defineStore('authStore', {
         throw error
       }
     },
+    async actionGoogleLogin (idToken: string) {
+      return await authApi.googleLogin(idToken).then(response => {
+        this.actionSetToken(response.data.token)
+        this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
+        return response.data.token
+      })
+    },
+    async actionGithubLogin (code: string) {
+      return await authApi.githubLogin(code).then(response => {
+        this.actionSetToken(response.data.token)
+        this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
+        return response.data.token
+      })
+    },
     async actionRefreshToken () {
       return await authApi.refreshToken(this.refreshToken).then(response => {
         this.actionSetToken(response.data.token)

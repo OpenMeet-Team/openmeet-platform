@@ -94,6 +94,11 @@
       <q-card-actions align="right">
         <q-btn no-caps label="Register" data-cy="register-submit" class="full-width" rounded :loading="isLoading" type="submit" color="primary"/>
       </q-card-actions>
+
+      <div class="text-grey-6">
+        <GoogleLoginComponent class="q-mt-md" @success="emits('register')" />
+        <GithubLoginComponent class="q-mt-md" @success="emits('register')" />
+      </div>
     </q-form>
   </q-card>
 </template>
@@ -106,6 +111,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { useMeta } from 'quasar'
 import AuthLoginLinkComponent from 'components/auth/AuthLoginLinkComponent.vue'
+import GoogleLoginComponent from './GoogleLoginComponent.vue'
+import GithubLoginComponent from './GithubLoginComponent.vue'
 
 const emits = defineEmits(['register'])
 const firstName = ref<string>('')

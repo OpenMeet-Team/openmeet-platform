@@ -1,17 +1,11 @@
 <script setup lang="ts">
 
 import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { GroupMemberEntity, GroupPermission } from 'src/types'
+import { GroupMemberEntity, GroupPermission, GroupRole } from 'src/types'
 import { computed } from 'vue'
 import { useGroupStore } from 'stores/group-store.ts'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation'
-
-interface Props {
-  groupMembers?: GroupMemberEntity[]
-}
-
-defineProps<Props>()
 
 const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()
@@ -56,7 +50,7 @@ const onMemberClick = (member: GroupMemberEntity) => {
         :key="member.id">
         <q-avatar size="60px" font-size="52px" @click="onMemberClick(member)" :class="{'cursor-pointer': useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)}">
           <img :src="getImageSrc(member.user?.photo)" :alt="member.user?.name">
-          <q-badge color="primary" v-if="useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)" floating>{{ member.groupRole.name }}</q-badge>
+          <q-badge color="primary" v-if="[GroupRole.Admin, GroupRole.Moderator, GroupRole.Owner].includes(member.groupRole.name)" floating>{{ member.groupRole.name }}</q-badge>
           </q-avatar>
         </div>
       </div>
