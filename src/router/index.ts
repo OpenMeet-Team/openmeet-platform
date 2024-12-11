@@ -2,7 +2,6 @@ import { route } from 'quasar/wrappers'
 import { createMemoryHistory, createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import routes from './routes'
 import { useAuthStore } from 'stores/auth-store.ts'
-import getEnv from 'src/utils/env'
 
 /*
  * If not building with SSR mode, you can
@@ -14,10 +13,12 @@ import getEnv from 'src/utils/env'
  */
 
 export default route(function (/* { store, ssrContext } */) {
-  const createHistory = getEnv('SERVER')
+  console.log(process.env)
+  const createHistory = process.env.SERVER
     ? createMemoryHistory
-    : (getEnv('VUE_ROUTER_MODE') === 'history' ? createWebHistory : createWebHashHistory)
+    : (process.env.VUE_ROUTER_MODE === 'history' ? createWebHistory : createWebHashHistory)
 
+  console.log(createHistory)
   const Router = createRouter({
     // scrollBehavior: () => ({ left: 0, top: 0 }),
     scrollBehavior (to, from, savedPosition) {
