@@ -98,6 +98,7 @@
       <div class="text-grey-6">
         <GoogleLoginComponent class="q-mt-md" @success="emits('register')" />
         <GithubLoginComponent class="q-mt-md" @success="emits('register')" />
+        <BlueSkyLoginComponent class="q-mt-md" @success="emits('register')" />
       </div>
     </q-form>
   </q-card>
@@ -113,7 +114,7 @@ import { useMeta } from 'quasar'
 import AuthLoginLinkComponent from 'components/auth/AuthLoginLinkComponent.vue'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
-
+import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
 const emits = defineEmits(['register'])
 const firstName = ref<string>('')
 const lastName = ref<string>('')

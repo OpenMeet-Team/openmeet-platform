@@ -1,4 +1,3 @@
-<!-- platform/src/pages/auth/github/callback.vue -->
 <template>
   <div class="c-github-callback-page">
     <q-card v-if="error" class="error-card q-pa-md">

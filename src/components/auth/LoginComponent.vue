@@ -52,6 +52,7 @@
         <div class="text-grey-6">
           <GoogleLoginComponent class="q-mt-md" @success="emits('login')" />
           <GithubLoginComponent class="q-mt-md" @success="emits('login')" />
+          <BlueSkyLoginComponent class="q-mt-md" @success="emits('login')" />
         </div>
       </q-card-section>
     </q-form>
@@ -66,6 +67,8 @@ import { validateEmail } from 'src/utils/validation'
 import { useNotification } from 'src/composables/useNotification.ts'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
+import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
+
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
