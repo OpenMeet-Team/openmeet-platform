@@ -32,7 +32,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       </div>
 
       <q-space />
-      <div class="q-mt-sm text-body2"><q-icon name="sym_r_people" size="sm" /> {{ event.attendeesCount }} <span
+      <div class="q-mt-sm text-body2" v-if="event.attendeesCount"><q-icon name="sym_r_people" size="sm" /> {{ event.attendeesCount }} <span
           v-if="event.maxAttendees">/ {{ event.maxAttendees }}</span> {{ pluralize(event.attendeesCount as number, 'attendee', 'attendees') }}</div>
     </div>
   </div>

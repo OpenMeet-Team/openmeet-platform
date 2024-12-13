@@ -1,6 +1,7 @@
 <template>
     <q-dialog ref="dialogRef" persistent>
-        <q-card class="full-width" style="max-width: 400px;">
+      <SpinnerComponent v-if="isLoading" />
+      <q-card class="full-width" style="max-width: 400px;" v-else>
             <q-card-section>
                 <div class="row items-center q-py-sm">
                     <q-btn round class="q-mr-md">

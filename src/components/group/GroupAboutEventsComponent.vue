@@ -17,7 +17,7 @@ defineProps<Props>()
 
   <q-card flat>
     <q-list v-if="events?.length">
-      <q-item class="shadow-1 q-mt-md" v-for="event in events" :key="event.id" clickable v-ripple>
+      <q-item v-ripple="false" class="shadow-1 q-mt-md" v-for="event in events" :key="event.id" clickable>
         <q-item-section avatar>
           <q-icon name="sym_r_event" color="primary" size="md" />
         </q-item-section>
