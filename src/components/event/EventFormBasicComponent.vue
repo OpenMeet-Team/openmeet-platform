@@ -40,9 +40,8 @@
 
       <!-- <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" /> -->
       <UploadComponent data-cy="event-image" label="Event image" @upload="onEventImageSelect" />
-      <q-img v-if="eventData && eventData.image"
-        :src="typeof eventData.image === 'object' ? eventData.image.path : eventData.image" spinner-color="white"
-        style="height: 140px; max-width: 150px" />
+      <q-img ratio="16/9" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path"
+        :src="eventData.image.path" spinner-color="white" class="rounded-borders" style="height: 120px; max-width: 220px" />
 
       <!-- Event Description -->
       <div class="text-body1 q-mt-md">Event Description</div>
@@ -207,10 +206,8 @@ onMounted(() => {
       categoryOptions.value = res.data
     }),
     groupsApi.getAllMe().then(res => {
-      console.log(res)
       groupsOptions.value = res.data
 
-      console.log(groupsOptions)
       if (props.group) {
         eventData.value.group = res.data.find(group => group.id === props.group?.id)
       }
@@ -250,8 +247,8 @@ const onSubmit = async () => {
   }
 
   try {
-    if (event.ulid) {
-      const res = await eventsApi.update(event.ulid, event)
+    if (event.slug) {
+      const res = await eventsApi.update(event.slug, event)
       emit('updated', res.data)
       analyticsService.trackEvent('event_updated', { event_id: res.data.id, name: res.data.name })
     } else {

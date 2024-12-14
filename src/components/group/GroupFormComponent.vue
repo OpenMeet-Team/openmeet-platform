@@ -159,8 +159,8 @@ const onSubmit = async () => {
 
   Loading.show()
   try {
-    if (groupPayload.ulid) {
-      const res = await groupsApi.update(groupPayload.ulid, groupPayload)
+    if (groupPayload.slug) {
+      const res = await groupsApi.update(groupPayload.slug, groupPayload)
       emit('updated', res.data)
       navigateToGroup(res.data)
       analyticsService.trackEvent('group_updated', { group_id: res.data.id, name: res.data.name })
