@@ -39,6 +39,8 @@
       type="textarea"
       v-model="form.bio"
       label="Your bio"
+      counter
+      maxlength="255"
     />
 
     <UploadComponent

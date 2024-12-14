@@ -41,7 +41,7 @@ onMounted(async () => {
                   <img :src="getImageSrc(user.photo)" :alt="user.name" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">{{ user.name }}</h4>
-                <p>{{ user.bio }}</p>
+                <div class="text-body2">{{ user.bio }}</div>
               </div>
             </q-card-section>
           </q-card>

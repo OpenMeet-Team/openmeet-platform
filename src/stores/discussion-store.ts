@@ -59,7 +59,7 @@ export const useDiscussionStore = defineStore('discussion', {
         } else {
           state.topics = [{ name: topicName, max_id: messageId }, ...state.topics]
         }
-        state.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: useAuthStore().user?.name || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...state.messages]
+        state.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: `${useAuthStore().user?.firstName || ''} ${useAuthStore().user?.lastName || ''}`.trim() || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...state.messages]
       }
       state.isSending = false
     },
