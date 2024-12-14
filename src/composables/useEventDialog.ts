@@ -78,7 +78,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return eventsApi.delete(event.ulid).then(() => {
+      return eventsApi.delete(event.slug).then(() => {
         success('Event deleted!')
       })
     })
@@ -91,7 +91,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return eventsApi.update(event.ulid, { status: EventStatus.Cancelled }).then(() => {
+      return eventsApi.update(event.slug, { status: EventStatus.Cancelled }).then(() => {
         success('Event cancelled!')
       })
     })
