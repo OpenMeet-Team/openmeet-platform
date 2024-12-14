@@ -5,7 +5,6 @@
 
 import { configure } from 'quasar/wrappers'
 // import { execSync } from 'child_process'
-import pkg from './package.json'
 
 // const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
 
@@ -62,7 +61,7 @@ export default configure((ctx) => {
         APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
         APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
         APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY,
-        APP_VERSION: pkg.version,
+        APP_VERSION: process.env.APP_VERSION,
         APP_GOOGLE_CLIENT_ID: process.env.APP_GOOGLE_CLIENT_ID,
         APP_GITHUB_CLIENT_ID: process.env.APP_GITHUB_CLIENT_ID,
         APP_BLUESKY_CLIENT_ID: process.env.APP_BLUESKY_CLIENT_ID

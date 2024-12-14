@@ -8,5 +8,6 @@ declare namespace NodeJS {
     APP_HUBSPOT_PORTAL_ID: string
     APP_GOOGLE_CLIENT_ID: string
     APP_GITHUB_CLIENT_ID: string
+    APP_VERSION: string
   }
 }
