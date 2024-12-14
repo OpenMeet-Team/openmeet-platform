@@ -13,7 +13,7 @@ const onClose = () => {
 </script>
 
 <template>
-<q-dialog class="c-group-form-dialog-component" ref="dialogRef" persistent>
+<q-dialog class="c-group-form-dialog-component" ref="dialogRef">
   <q-card class="full-width q-pa-md group-form-card" style="max-width: 600px">
 
     <div class="row q-mb-xl">
