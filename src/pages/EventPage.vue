@@ -35,7 +35,9 @@
 
             <!-- Organiser tools -->
             <q-card class="q-mb-md shadow-0"
-              v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)">
+              v-if="useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents) ||
+              useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)"
+              >
               <q-card-section>
                 <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
@@ -126,7 +128,7 @@
     <NoContentComponent data-cy="event-not-found" v-if="errorMessage" label="Event not found" icon="sym_r_error"
       @click="router.push({ name: 'EventsPage' })" button-label="Go to events" />
 
-    <EventSimilarEventsComponent v-if="showSimilarEvents" :event="event" />
+    <EventSimilarEventsComponent v-if="showSimilarEvents && event && !errorMessage" :event="event" />
   </q-page>
 </template>
 
