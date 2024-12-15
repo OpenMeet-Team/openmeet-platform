@@ -2,10 +2,14 @@ set -a
 source .env
 set +a
 set -e
+NAMESPACE=openmeet-platform-dev
 
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin   433321780850.dkr.ecr.us-east-1.amazonaws.com
 
-docker build \
+
+docker buildx build --load \
+  --build-arg APP_VERSION=$(node -p "require('./package.json').version") \
+  --build-arg COMMIT_SHA=$(git rev-parse --short HEAD) \
   -t openmeet-platform:test .
 
 # tag and push to ECR
@@ -15,6 +19,6 @@ docker push 433321780850.dkr.ecr.us-east-1.amazonaws.com/openmeet-ecr/openmeet-p
 # get the image digest
 DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' 433321780850.dkr.ecr.us-east-1.amazonaws.com/openmeet-ecr/openmeet-platform:test)
 
-# working:  433321780850.dkr.ecr.us-east-1.amazonaws.com/openmeet-ecr/openmeet-platform@sha256:5dce0e1d11910e3631eca63ca1fcaf1de4ea960b57a24432127a9c2e114e4813
 # update deployment
-kubectl set image -n openmeet-platform-dev deployment/openmeet-platform openmeet-platform=$DIGEST
+kubectl set image -n $NAMESPACE deployment/openmeet-platform openmeet-platform=$DIGEST
+kubectl rollout status deployment openmeet-platform -n $NAMESPACE
