@@ -4,14 +4,9 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from 'quasar/wrappers'
-// import { execSync } from 'child_process'
-
-// const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
 
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
-
-// dotenv.config({ path: ['.env.local', '.env'] })
 
 export default configure((ctx) => {
   return {
@@ -55,16 +50,8 @@ export default configure((ctx) => {
       },
       env: {
         // This is place to set build time variables
-        APP_API_URL: (process.env.QENV === 'test' && process.env.APP_TESTING_API_URL) || process.env.APP_API_URL,
-        APP_TENANT_ID: (process.env.QENV === 'test' && process.env.APP_TESTING_TENANT_ID) || process.env.APP_TENANT_ID,
-        APP_ENV: process.env.QENV,
-        APP_HUBSPOT_PORTAL_ID: process.env.APP_HUBSPOT_PORTAL_ID,
-        APP_HUBSPOT_FORM_ID: process.env.APP_HUBSPOT_FORM_ID,
-        APP_POSTHOG_KEY: process.env.APP_POSTHOG_KEY,
-        APP_VERSION: process.env.APP_VERSION,
-        APP_GOOGLE_CLIENT_ID: process.env.APP_GOOGLE_CLIENT_ID,
-        APP_GITHUB_CLIENT_ID: process.env.APP_GITHUB_CLIENT_ID,
-        APP_BLUESKY_CLIENT_ID: process.env.APP_BLUESKY_CLIENT_ID
+        APP_VERSION: JSON.stringify(process.env.APP_VERSION || 'alpha'),
+        COMMIT_SHA: JSON.stringify(process.env.COMMIT_SHA || 'not set')
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
