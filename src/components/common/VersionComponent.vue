@@ -7,8 +7,8 @@
 <script setup>
 import getEnv from 'src/utils/env'
 
-const version = getEnv('APP_VERSION') || 'alpha'
-const commitHash = getEnv('COMMIT_SHA') || 'not set'
+const version = getEnv('APP_VERSION')
+const commitHash = getEnv('COMMIT_SHA')
 </script>
 
 <style scoped>
