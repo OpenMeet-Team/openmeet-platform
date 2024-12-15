@@ -17,4 +17,4 @@ DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' 433321780850.dkr.ecr
 
 # working:  433321780850.dkr.ecr.us-east-1.amazonaws.com/openmeet-ecr/openmeet-platform@sha256:5dce0e1d11910e3631eca63ca1fcaf1de4ea960b57a24432127a9c2e114e4813
 # update deployment
-kubectl set image -n openmeet-platform-dev deployment/openmeet-platform openmeet-platform=$DIGEST
+kubectl set image -n openmeet-platform-prod deployment/openmeet-platform openmeet-platform=$DIGEST
