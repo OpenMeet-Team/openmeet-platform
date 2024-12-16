@@ -58,8 +58,12 @@ const handleGithubLogin = async () => {
     const state = Math.random().toString(36).substring(7)
     sessionStorage.setItem('github_oauth_state', state)
 
-    // Construct GitHub OAuth URL
-    const githubUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${redirectUri}`
+    // Construct GitHub OAuth URL with state parameter
+    const githubUrl = new URL('https://github.com/login/oauth/authorize')
+    githubUrl.searchParams.append('client_id', githubClientId as string)
+    githubUrl.searchParams.append('redirect_uri', redirectUri)
+    githubUrl.searchParams.append('state', state)
+    githubUrl.searchParams.append('scope', 'user:email') // Add required scopes
 
     // Open popup
     const width = 600
@@ -68,16 +72,21 @@ const handleGithubLogin = async () => {
     const top = window.screenY + (window.outerHeight - height) / 2
 
     const popup = window.open(
-      githubUrl,
+      githubUrl.toString(),
       'GitHub Login',
       `width=${width},height=${height},left=${left},top=${top}`
     )
 
     // Handle the OAuth callback message
-    window.addEventListener('message', async (event) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
 
-      const { code } = event.data
+      const { code, state: returnedState } = event.data
+
+      // Verify state to prevent CSRF attacks
+      if (returnedState !== state) {
+        throw new Error('Invalid state parameter')
+      }
 
       if (code) {
         await authStore.actionGithubLogin(code)
@@ -87,7 +96,20 @@ const handleGithubLogin = async () => {
         })
         popup?.close()
       }
-    }, { once: true })
+    }
+
+    window.addEventListener('message', handleMessage, { once: true })
+
+    // Add timeout to clean up if authentication takes too long
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage)
+      popup?.close()
+      isLoading.value = false
+      $q.notify({
+        type: 'negative',
+        message: 'Authentication timeout'
+      })
+    }, 300000) // 5 minute timeout
   } catch (error) {
     console.error('GitHub auth error:', error)
     $q.notify({

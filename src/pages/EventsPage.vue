@@ -34,10 +34,11 @@
       </div>
 
       <!-- Pagination -->
-      <q-pagination v-if="!useEventsStore().isLoading && events && events.totalPages && events.totalPages > 1"
-                    v-model="currentPage"
-                    :max="events.totalPages"
-                    @input="onPageChange"
+      <q-pagination
+        v-if="!useEventsStore().isLoading && events?.totalPages > 1"
+        v-model="currentPage"
+        :max="events.totalPages"
+        @update:model-value="onPageChange"
       />
     </template>
   </q-page>
@@ -86,11 +87,23 @@ const fetchEvents = async () => {
 }
 
 // Refetch events when query parameters (category, location, page) change
-watch(() => route.query, fetchEvents)
+watch(
+  () => route.query,
+  () => {
+    currentPage.value = parseInt(route.query.page as string) || 1
+    fetchEvents()
+  },
+  { immediate: true }
+)
 
 // Handle pagination changes and update the URL
 const onPageChange = (page: number) => {
-  router.push({ query: { ...route.query, page } })
+  router.push({
+    query: {
+      ...route.query,
+      page: page.toString() // Ensure page is converted to string
+    }
+  })
 }
 
 </script>

@@ -18,27 +18,20 @@ FROM dependencies AS build
 # Copy app files
 COPY . .
 
-# Use build args for build-time variables
-ARG APP_API_URL
-ARG APP_TENANT_ID
-ARG APP_HUBSPOT_PORTAL_ID
-ARG APP_HUBSPOT_FORM_ID
-ARG APP_POSTHOG_KEY
-ARG APP_GOOGLE_CLIENT_ID
-ARG APP_GITHUB_CLIENT_ID
-ARG APP_BLUESKY_CLIENT_ID
+# Accept build arguments
 ARG APP_VERSION
+ARG COMMIT_SHA
 
-# Set the APP_ variables for the build
-ENV APP_API_URL=${APP_API_URL}
-ENV APP_TENANT_ID=${APP_TENANT_ID}
-ENV APP_POSTHOG_KEY=${APP_POSTHOG_KEY}
-ENV APP_HUBSPOT_PORTAL_ID=${APP_HUBSPOT_PORTAL_ID}
-ENV APP_HUBSPOT_FORM_ID=${APP_HUBSPOT_FORM_ID}
-ENV APP_GOOGLE_CLIENT_ID=${APP_GOOGLE_CLIENT_ID}
-ENV APP_GITHUB_CLIENT_ID=${APP_GITHUB_CLIENT_ID}
-ENV APP_BLUESKY_CLIENT_ID=${APP_BLUESKY_CLIENT_ID}
+# During the build stage, these values need to be available as environment variables
+# so the Quasar build can access them
 ENV APP_VERSION=${APP_VERSION}
+ENV COMMIT_SHA=${COMMIT_SHA}
+
+# Echo them to verify they're set
+RUN echo "Building version: ${APP_VERSION}"
+RUN echo "Commit SHA: ${COMMIT_SHA}"
+
+
 RUN quasar build
 
 # Remove devDependencies
@@ -46,6 +39,8 @@ RUN npm prune --omit=dev
 
 # ---- Release ----
 FROM base AS release
+ARG APP_VERSION
+ARG COMMIT_SHA
 COPY --from=dependencies /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/dist ./dist
 
@@ -54,18 +49,19 @@ RUN apk add --no-cache gettext
 # Create template from the built index.html
 RUN cp ./dist/spa/index.html ./dist/spa/index.html.template
 
-# Modify the template to include our config script
-RUN sed -i 's/<head>/<head><script>window.APP_CONFIG = {\
-  APP_API_URL: "${APP_API_URL}",\
-  APP_TENANT_ID: "${APP_TENANT_ID}",\
-  APP_POSTHOG_KEY: "${APP_POSTHOG_KEY}",\
-  APP_HUBSPOT_PORTAL_ID: "${APP_HUBSPOT_PORTAL_ID}",\
-  APP_HUBSPOT_FORM_ID: "${APP_HUBSPOT_FORM_ID}",\
-  APP_GOOGLE_CLIENT_ID: "${APP_GOOGLE_CLIENT_ID}",\
-  APP_GITHUB_CLIENT_ID: "${APP_GITHUB_CLIENT_ID}",\
-  APP_BLUESKY_CLIENT_ID: "${APP_BLUESKY_CLIENT_ID}",\
-  APP_VERSION: "${APP_VERSION}",\
-};<\/script>/' ./dist/spa/index.html.template
+# Create template from the built index.html with hardcoded version values
+RUN sed -i "s/<head>/<head><script>window.APP_CONFIG = {\
+  APP_VERSION: \"${APP_VERSION}\",\
+  COMMIT_SHA: \"${COMMIT_SHA}\",\
+  APP_API_URL: \"\${APP_API_URL}\",\
+  APP_TENANT_ID: \"\${APP_TENANT_ID}\",\
+  APP_POSTHOG_KEY: \"\${APP_POSTHOG_KEY}\",\
+  APP_HUBSPOT_PORTAL_ID: \"\${APP_HUBSPOT_PORTAL_ID}\",\
+  APP_HUBSPOT_FORM_ID: \"\${APP_HUBSPOT_FORM_ID}\",\
+  APP_GOOGLE_CLIENT_ID: \"\${APP_GOOGLE_CLIENT_ID}\",\
+  APP_GITHUB_CLIENT_ID: \"\${APP_GITHUB_CLIENT_ID}\",\
+  APP_BLUESKY_CLIENT_ID: \"\${APP_BLUESKY_CLIENT_ID}\" \
+};<\/script>/" ./dist/spa/index.html.template
 
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
