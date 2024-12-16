@@ -56,12 +56,12 @@ onBeforeUnmount(() => {
 })
 
 const messageTree = computed(() => {
-  return useDiscussionStore().topics.map(topic => {
-    const topicMessages = useDiscussionStore().messages.filter(
+  return useDiscussionStore().topics?.map(topic => {
+    const topicMessages = useDiscussionStore().messages?.filter(
       message => message.subject === topic.name
     ).sort((a, b) => a.id - b.id)
 
-    const [firstMessage, ...restMessages] = topicMessages
+    const [firstMessage, ...restMessages] = topicMessages ?? []
 
     return {
       topicName: topic.name,

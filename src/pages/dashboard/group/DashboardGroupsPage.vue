@@ -1,5 +1,5 @@
 <template>
-  <q-page padding style="max-width: 1024px" class="q-mx-auto">
+  <q-page padding style="max-width: 1024px" class="q-mx-auto q-pb-xl">
 
     <SpinnerComponent v-if="isLoading" />
 
@@ -60,7 +60,7 @@ useMeta({
 
 const fetchData = async () => {
   LoadingBar.start()
-  return groupsApi.getAllMe().then(res => {
+  return groupsApi.getDashboardGroups().then(res => {
     userGroups.value = res.data.sort((a, b) => b.name.localeCompare(a.name))
   }).finally(LoadingBar.stop)
 }

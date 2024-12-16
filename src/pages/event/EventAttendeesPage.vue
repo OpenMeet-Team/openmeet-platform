@@ -43,10 +43,12 @@
             <q-item-section side>
               <q-badge :color="getStatusColor(attendee.status)" :label="attendee.status" />
             </q-item-section>
-            <!-- Allow edit attendee status for admin -->
-            <!-- <q-item-section v-if="isAdmin" side>
-              <q-btn flat no-caps color="primary" icon="sym_r_edit" label="Edit" />
-            </q-item-section> -->
+
+            <q-item-section side>
+              <q-btn :disable="!canManageAttendees" round flat no-caps color="primary" icon="sym_r_more_vert">
+                <MenuItemComponent v-if="canManageAttendees" label="Change role" icon="sym_r_edit" />
+              </q-btn>
+            </q-item-section>
           </q-item>
         </q-list>
 
@@ -68,10 +70,11 @@ import { date, LoadingBar, QSelectOption } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useEventStore } from 'src/stores/event-store'
 import { eventsApi } from 'src/api'
-import { EventAttendeeEntity, EventAttendeeStatus } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { useAuthStore } from 'src/stores/auth-store'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
+import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
 
 const route = useRoute()
 const attendees = ref<EventAttendeeEntity[]>([])
@@ -82,6 +85,7 @@ const PER_PAGE = 20
 const search = ref<string>('')
 const status = ref<QSelectOption | null>(null)
 const event = computed(() => useEventStore().event)
+const canManageAttendees = computed(() => useEventStore().getterUserHasPermission(EventAttendeePermission.ManageAttendees))
 
 const statusOptions = computed(() => {
   return Object.values(EventAttendeeStatus).map((status) => ({

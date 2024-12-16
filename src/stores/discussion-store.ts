@@ -21,7 +21,7 @@ export const useDiscussionStore = defineStore('discussion', {
     messages: [] as ZulipMessageEntity[],
     topics: [] as ZulipTopicEntity[],
     contextType: 'general' as 'general' | 'group' | 'event',
-    contextId: '',
+    contextId: '' as string,
     permissions: {
       canRead: false,
       canWrite: false,
@@ -33,64 +33,68 @@ export const useDiscussionStore = defineStore('discussion', {
     isReplying: false,
     isSending: false
   }),
-
   getters: {
-    actionSetDiscussionState: (state) => (discussionState: DiscussionState) => {
-      state.messages = discussionState.messages
-      state.topics = discussionState.topics
-      state.permissions = discussionState.permissions
-      state.contextType = discussionState.contextType
-      state.contextId = discussionState.contextId
+    getterMessages: (state) => state.messages,
+    getterTopics: (state) => state.topics,
+    getterPermissions: (state) => state.permissions,
+    getterContextId: (state) => state.contextId,
+    getterContextType: (state) => state.contextType
+  },
+  actions: {
+    actionSetDiscussionState (discussionState: DiscussionState) {
+      this.messages = discussionState.messages
+      this.topics = discussionState.topics
+      this.permissions = discussionState.permissions
+      this.contextId = discussionState.contextId
+      this.contextType = discussionState.contextType ?? 'general'
     },
-    actionSendMessage: (state) => async (message: string, topicName: string) => {
-      state.isSending = true
+    async actionSendMessage (message: string, topicName: string) {
+      this.isSending = true
 
       let messageId: number | undefined
-      if (state.contextType === 'group') {
+      if (this.contextType === 'group') {
         messageId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
-      } else if (state.contextType === 'event') {
+      } else if (this.contextType === 'event') {
         messageId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
       }
 
       if (messageId) {
-        const topic = state.topics.find(t => t.name === topicName)
+        const topic = this.topics.find(t => t.name === topicName)
         if (topic) {
-          state.topics = state.topics.map(t => t.name === topicName ? { ...t, max_id: messageId } : t)
+          this.topics = this.topics.map(t => t.name === topicName ? { ...t, max_id: messageId } : t)
         } else {
-          state.topics = [{ name: topicName, max_id: messageId }, ...state.topics]
+          this.topics = [{ name: topicName, max_id: messageId }, ...this.topics]
         }
-        state.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: `${useAuthStore().user?.firstName || ''} ${useAuthStore().user?.lastName || ''}`.trim() || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...state.messages]
+        this.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: `${useAuthStore().user?.firstName || ''} ${useAuthStore().user?.lastName || ''}`.trim() || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...this.messages]
       }
-      state.isSending = false
+      this.isSending = false
     },
 
-    actionUpdateMessage: (state) => async (messageId: number, newText: string) => {
-      state.isUpdating = true
+    async actionUpdateMessage (messageId: number, newText: string) {
+      this.isUpdating = true
       let updatedMessageId: number | undefined
-      if (state.contextType === 'group') {
+      if (this.contextType === 'group') {
         updatedMessageId = await useGroupStore().actionUpdateGroupDiscussionMessage(messageId, newText)
-      } else if (state.contextType === 'event') {
+      } else if (this.contextType === 'event') {
         updatedMessageId = await useEventStore().actionUpdateEventDiscussionMessage(messageId, newText)
       }
       if (updatedMessageId) {
-        state.messages = state.messages.map(m => m.id === messageId ? { ...m, content: newText } : m)
+        this.messages = this.messages.map(m => m.id === messageId ? { ...m, content: newText } : m)
       }
-      state.isUpdating = false
+      this.isUpdating = false
     },
-    actionDeleteMessage: (state) => async (messageId: number) => {
-      state.isDeleting = true
+    async actionDeleteMessage (messageId: number) {
+      this.isDeleting = true
       let deletedMessageId: number | undefined
-      if (state.contextType === 'group') {
+      if (this.contextType === 'group') {
         deletedMessageId = await useGroupStore().actionDeleteGroupDiscussionMessage(messageId)
-      } else if (state.contextType === 'event') {
+      } else if (this.contextType === 'event') {
         deletedMessageId = await useEventStore().actionDeleteEventDiscussionMessage(messageId)
       }
       if (deletedMessageId) {
-        state.messages = state.messages.filter(m => m.id !== deletedMessageId)
+        this.messages = this.messages.filter(m => m.id !== deletedMessageId)
       }
-      state.isDeleting = false
+      this.isDeleting = false
     }
-  },
-
-  actions: {}
+  }
 })

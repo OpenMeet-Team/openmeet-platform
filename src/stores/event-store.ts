@@ -90,7 +90,7 @@ export const useEventStore = defineStore('event', {
         return res.data
       } catch (err) {
         console.log(err)
-        error('Failed to join event')
+        error('Failed to attend event')
       }
     },
 
