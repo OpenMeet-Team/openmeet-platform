@@ -5,7 +5,7 @@ import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import { useChatStore } from 'src/stores/chat-store'
 import { LoadingBar, QScrollArea } from 'quasar'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
 import { nextTick } from 'process'
@@ -14,6 +14,7 @@ import { useNotification } from 'src/composables/useNotification'
 const route = useRoute()
 const chatList = computed(() => useChatStore().chatList)
 const chatScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
+const router = useRouter()
 
 const scrollToEnd = (delay = 0) => {
   nextTick(() => {
@@ -158,10 +159,16 @@ onBeforeUnmount(() => {
           <div class="full-height column" data-cy="chat-messages" v-if="activeChat">
             <!-- Chat header -->
             <div class="row items-center q-mb-md">
-              <q-avatar size="48px" class="q-mr-md">
+              <div class="row col items-center">
+                <q-avatar size="48px" class="q-mr-md">
                 <img :src="activeChat.participant.photo ? getImageSrc(activeChat.participant.photo) : avatarSrc" />
               </q-avatar>
-              <div class="text-h6">{{ activeChat.participant?.name }}</div>
+              <div class="text-h6">{{ activeChat.participant?.firstName }} {{ activeChat.participant?.lastName }}</div>
+              </div>
+
+              <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
+                <q-tooltip>Close chat</q-tooltip>
+              </q-btn>
             </div>
 
             <!-- Messages -->

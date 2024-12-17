@@ -1,7 +1,9 @@
 <template>
-  <q-page data-cy="event-attendees-page" padding class="c-event-attendees-page q-mx-auto" style="max-width: 600px;">
+  <q-page data-cy="event-attendees-page" padding class="c-event-attendees-page q-mx-auto q-pb-xl"
+    style="max-width: 600px;">
     <SpinnerComponent v-if="isLoading" />
-    <NoContentComponent data-cy="event-not-found" v-else-if="!isLoading && !event" icon="sym_r_event" label="Event not found" />
+    <NoContentComponent data-cy="event-not-found" v-else-if="!isLoading && !event" icon="sym_r_event"
+      label="Event not found" />
     <div v-else-if="attendees && event">
       <q-btn flat no-caps color="primary" icon="sym_r_arrow_back" label="Back"
         :to="{ name: 'EventPage', params: { slug: route.params.slug } }" class="q-mb-md" />
@@ -29,7 +31,7 @@
           <q-item v-for="attendee in filteredAttendees" :key="attendee.id" class="q-py-md">
             <q-item-section avatar>
               <q-avatar>
-                <q-img :src="getImageSrc(attendee.user.photo?.path)" :alt="attendee.user.name" @error="onImageError" />
+                <q-img :src="getImageSrc(attendee.user.photo?.path)" :alt="attendee.user.name" />
               </q-avatar>
             </q-item-section>
 
@@ -46,13 +48,28 @@
 
             <q-item-section side>
               <q-btn :disable="!canManageAttendees" round flat no-caps color="primary" icon="sym_r_more_vert">
-                <MenuItemComponent v-if="canManageAttendees" label="Change role" icon="sym_r_edit" />
+                <q-menu>
+                  <MenuItemComponent v-if="canManageAttendees" @click="editAttendee(attendee)" label="Edit"
+                    icon="sym_r_edit" />
+                  <!-- Send message -->
+                  <MenuItemComponent v-if="canManageAttendees" @click="sendMessage(attendee)" label="Send message"
+                    icon="sym_r_message" />
+                  <!-- View profile -->
+                  <MenuItemComponent v-if="canManageAttendees" @click="viewProfile(attendee)" label="View profile"
+                    icon="sym_r_person" />
+                  <!-- View attendee request -->
+                  <MenuItemComponent v-if="canManageAttendees" @click="viewAttendeeRequest(attendee)"
+                    label="View attendee request" icon="sym_r_person" />
+                  <!-- Delete attendee -->
+                  <MenuItemComponent icon-color="negative" v-if="canManageAttendees" @click="deleteAttendee(attendee)"
+                    label="Delete" icon="sym_r_delete" />
+                </q-menu>
               </q-btn>
             </q-item-section>
           </q-item>
         </q-list>
 
-        <q-infinite-scroll @load="loadMore" :disable="isLoading || noMoreData">
+        <q-infinite-scroll @load="loadMore" v-if="isMounted" :disable="isLoading || noMoreData">
           <template v-slot:loading>
             <div class="row justify-center q-my-md">
               <q-spinner color="primary" size="40px" />
@@ -67,7 +84,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { date, LoadingBar, QSelectOption } from 'quasar'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useEventStore } from 'src/stores/event-store'
 import { eventsApi } from 'src/api'
 import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from 'src/types'
@@ -75,17 +92,21 @@ import { getImageSrc } from 'src/utils/imageUtils'
 import { useAuthStore } from 'src/stores/auth-store'
 import NoContentComponent from 'src/components/global/NoContentComponent.vue'
 import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
+import { useEventAttendeeDialog } from 'src/composables/useEventAttendeeDialog'
 
 const route = useRoute()
+const router = useRouter()
 const attendees = ref<EventAttendeeEntity[]>([])
 const isLoading = ref(false)
 const noMoreData = ref(false)
+const isMounted = ref(false)
 const page = ref(1)
 const PER_PAGE = 20
 const search = ref<string>('')
 const status = ref<QSelectOption | null>(null)
 const event = computed(() => useEventStore().event)
 const canManageAttendees = computed(() => useEventStore().getterUserHasPermission(EventAttendeePermission.ManageAttendees))
+const { openEditAttendeeDialog, openDeleteAttendeeDialog, openViewAttendeeRequestDialog } = useEventAttendeeDialog()
 
 const statusOptions = computed(() => {
   return Object.values(EventAttendeeStatus).map((status) => ({
@@ -123,11 +144,6 @@ const formatDate = (dateStr: string): string => {
   return date.formatDate(dateStr, 'MMMM D, YYYY')
 }
 
-const onImageError = (err: Event) => {
-  const target = err.target as HTMLImageElement
-  target.src = '/default-avatar.png'
-}
-
 const loadAttendees = async () => {
   try {
     if (isLoading.value) return
@@ -139,11 +155,6 @@ const loadAttendees = async () => {
       page: page.value,
       limit: PER_PAGE
     })
-
-    // Check if response data exists
-    if (!res?.data?.data) {
-      throw new Error('Invalid response format')
-    }
 
     if (page.value === 1 && res.data.data.length === 0) {
       attendees.value = []
@@ -178,12 +189,37 @@ const loadMore = async (index: number, done: () => void) => {
   done()
 }
 
+const editAttendee = (attendee: EventAttendeeEntity) => {
+  openEditAttendeeDialog(attendee)
+}
+
+const deleteAttendee = (attendee: EventAttendeeEntity) => {
+  openDeleteAttendeeDialog().onOk(() => {
+    eventsApi.deleteAttendee(route.params.slug as string, attendee.id).then(() => {
+      attendees.value = attendees.value.filter(a => a.id !== attendee.id)
+    })
+  })
+}
+
+const sendMessage = (attendee: EventAttendeeEntity) => {
+  router.push({ name: 'MessagesPage', query: { user: attendee.user.slug } })
+}
+
+const viewProfile = (attendee: EventAttendeeEntity) => {
+  window.open(`/members/${attendee.user.slug}`, '_blank')
+}
+
+const viewAttendeeRequest = (attendee: EventAttendeeEntity) => {
+  openViewAttendeeRequestDialog(attendee)
+}
+
 onMounted(() => {
   LoadingBar.start()
   useEventStore().actionGetEventBySlug(route.params.slug as string).then(() => {
     if (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserIsAttendee()) {
       loadAttendees().finally(() => {
         LoadingBar.stop()
+        isMounted.value = true
       })
     }
   }).finally(() => {
