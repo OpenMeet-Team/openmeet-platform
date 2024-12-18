@@ -97,6 +97,14 @@ export function useEventDialog () {
     })
   }
 
+  const openNoAttendeesRightsDialog = () => {
+    return $q.dialog({
+      title: 'No rights to view attendees',
+      message: 'You do not have permission to view the attendees of this event. Attend the event and wait for approval if needed.',
+      persistent: true
+    })
+  }
+
   return {
     openCreateEventDialog,
     openDeleteEventDialog,
@@ -106,6 +114,7 @@ export function useEventDialog () {
     openDeleteGroupDialog,
     openEventAttendPendingDialog,
     openEventAttendWaitlistDialog,
-    openEventAttendRejectedDialog
+    openEventAttendRejectedDialog,
+    openNoAttendeesRightsDialog
   }
 }

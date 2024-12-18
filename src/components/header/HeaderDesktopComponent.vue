@@ -16,7 +16,7 @@ import HeaderSearchComponent from './HeaderSearchComponent.vue'
       <router-link class="router-link-inherit text-bold" no-caps to="" href="https://biz.openmeet.net/about" target="_blank">About Us</router-link>
     </div>
 
-    <div class="q-py-md row justify-between items-center q-px-md">
+    <div class="q-py-md row justify-between items-center q-px-md no-wrap">
       <HeaderLogoComponent/>
 
       <HeaderSearchComponent/>

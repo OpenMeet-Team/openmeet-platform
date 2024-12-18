@@ -35,15 +35,19 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { EventAttendeePermission } from 'src/types'
+import { useEventDialog } from 'src/composables/useEventDialog'
 
 const event = computed(() => useEventStore().event)
 const { openLoginDialog } = useAuthDialog()
+const { openNoAttendeesRightsDialog } = useEventDialog()
 const route = useRoute()
 const router = useRouter()
 
 const onAttendeesClick = () => {
   if (!useAuthStore().isAuthenticated) {
     openLoginDialog()
+  } else if (!useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)) {
+    openNoAttendeesRightsDialog()
   } else {
     router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })
   }

@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding class="q-mb-xl">
     <div class="q-mx-auto" style="max-width: 500px">
       <DashboardTitle :backTo="{ name: 'DashboardGroupsPage' }" label="Edit Group" />
 

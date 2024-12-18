@@ -6,11 +6,9 @@ import LoginComponent from 'components/auth/LoginComponent.vue'
 <template>
   <q-page padding>
     <div class="row items-center justify-evenly q-py-lg">
-    <LoginComponent/>
+      <LoginComponent />
     </div>
   </q-page>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>

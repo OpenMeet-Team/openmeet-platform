@@ -83,7 +83,9 @@ const newMessage = ref('')
 const activeChat = computed(() => useChatStore().activeChat)
 const filteredChatList = computed(() => {
   return chatList.value?.filter(chat =>
-    chat.participant?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
+    searchQuery.value
+      ? chat.participant?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      : true
   )
 })
 
@@ -139,7 +141,7 @@ onBeforeUnmount(() => {
                 </q-avatar>
               </q-item-section>
               <q-item-section>
-                <q-item-label>{{ chat.participant.name }}</q-item-label>
+                <q-item-label>{{ chat.participant.firstName }} {{ chat.participant.lastName }}</q-item-label>
                 <q-item-label caption>{{ chat.participant.name }}</q-item-label>
               </q-item-section>
               <q-item-section side v-if="chat.messages">

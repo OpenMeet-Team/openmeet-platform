@@ -105,7 +105,9 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.join(slug)
         if (this.group) {
           if (res.data.groupRole.name !== GroupRole.Guest) {
-            this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
+            if (this.group.groupMembers?.find(m => m.id === res.data.id)) {
+              this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
+            }
           }
           this.group.groupMember = res.data
         }

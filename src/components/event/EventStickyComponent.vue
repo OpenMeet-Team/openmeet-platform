@@ -18,7 +18,7 @@
         <div class="row items-start q-gutter-md">
           <ShareComponent class="col-4" />
           <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
-            label="Attend" color="primary" @click="onAttendClick" />
+            label="Attend" color="primary" :disable="new Date(event.startDate) < new Date()" @click="onAttendClick" />
 
           <QRCodeComponent class="" />
         </div>

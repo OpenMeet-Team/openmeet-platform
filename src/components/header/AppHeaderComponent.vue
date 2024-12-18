@@ -7,7 +7,7 @@ import { Screen } from 'quasar'
 
 <template>
   <HeaderWrapperComponent>
-    <HeaderDesktopComponent v-if="Screen.width > 700" />
+    <HeaderDesktopComponent v-if="Screen.width > 891" />
     <HeaderMobileComponent v-else />
   </HeaderWrapperComponent>
 </template>

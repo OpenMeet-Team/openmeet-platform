@@ -27,8 +27,9 @@
         </div>
 
         <!-- Attendees list -->
-        <q-list bordered separator>
-          <q-item v-for="attendee in filteredAttendees" :key="attendee.id" class="q-py-md">
+        <q-list bordered separator v-if="filteredAttendees.length">
+          <q-item v-for="attendee in filteredAttendees" :key="attendee.id"
+            class="q-py-md">
             <q-item-section avatar>
               <q-avatar>
                 <q-img :src="getImageSrc(attendee.user.photo?.path)" :alt="attendee.user.name" />
@@ -68,6 +69,7 @@
             </q-item-section>
           </q-item>
         </q-list>
+        <NoContentComponent v-else icon="sym_r_person" label="No attendees found" />
 
         <q-infinite-scroll @load="loadMore" v-if="isMounted" :disable="isLoading || noMoreData">
           <template v-slot:loading>
@@ -98,6 +100,7 @@ const route = useRoute()
 const router = useRouter()
 const attendees = ref<EventAttendeeEntity[]>([])
 const isLoading = ref(false)
+const attendeesError = ref(false)
 const noMoreData = ref(false)
 const isMounted = ref(false)
 const page = ref(1)
@@ -149,6 +152,7 @@ const loadAttendees = async () => {
     if (isLoading.value) return
 
     if (noMoreData.value) return
+    if (attendeesError.value) return
 
     isLoading.value = true
     const res = await eventsApi.getAttendees(route.params.slug as string, {
@@ -178,6 +182,7 @@ const loadAttendees = async () => {
     attendees.value = uniqueAttendees
     page.value++
   } catch (error) {
+    attendeesError.value = true
     console.error('Failed to load attendees:', error)
   } finally {
     isLoading.value = false

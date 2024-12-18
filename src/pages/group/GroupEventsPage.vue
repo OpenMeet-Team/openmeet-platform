@@ -3,7 +3,7 @@
     <SpinnerComponent v-if="isLoading" />
     <div data-cy="group-events-page"
       v-if="!isLoading && group && hasPermission">
-      <div class="row q-mb-md">
+      <div class="row q-mb-md q-mt-lg">
         <q-btn-toggle v-model="viewMode" flat stretch toggle-color="primary" :options="[
           { label: 'List', value: 'list', icon: 'sym_r_list' },
           { label: 'Calendar', value: 'calendar', icon: 'sym_r_event' }
@@ -90,11 +90,12 @@ const filteredEvents = computed(() => {
 })
 
 const calendarEvents = computed(() => {
-  return events.value?.map(event => ({
+  const data = events.value?.map(event => ({
     title: event.name,
     date: event.startDate,
-    bgcolor: 'primary'
+    bgColor: 'primary'
   }))
+  return data
 })
 
 const formatDate = (dateString: string) => {
