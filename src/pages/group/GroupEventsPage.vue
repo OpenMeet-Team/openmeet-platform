@@ -18,29 +18,15 @@
       </div>
 
       <div v-if="viewMode === 'list'">
-        <q-list bordered separator v-if="filteredEvents?.length">
-          <q-item v-for="event in filteredEvents" :key="event.id" class="q-my-sm">
-            <q-item-section>
-              <q-item-label class="text-primary">{{ formatDate(event.startDate) }}</q-item-label>
-              <q-item-label class="text-h6">{{ event.name }}</q-item-label>
-              <q-item-label caption>{{ event.type }}</q-item-label>
-              <q-item-label caption>{{ event.description }}</q-item-label>
-              <div class="row items-center q-gutter-sm">
-                <q-icon name="sym_r_people" size="sm" />
-                <span>{{ event.attendeesCount }} {{ event.attendeesCount === 1 ? 'attendee' : 'attendees' }}</span>
-              </div>
-            </q-item-section>
-            <q-item-section side>
-              <q-btn color="primary" label="Attend" @click="navigateToEvent(event)" />
-            </q-item-section>
-          </q-item>
-        </q-list>
+        <div v-if="filteredEvents?.length">
+          <EventsItemComponent v-for="event in filteredEvents" :key="event.id" :event="event" />
+        </div>
         <NoContentComponent v-else label="No events found" icon="sym_r_event_busy" />
       </div>
 
       <div v-else>
         <CalendarComponent mode="month" :day-height="100" :model-value="selectedDate" view="month"
-          :events="calendarEvents" />
+          :selected-dates="calendarEvents" />
       </div>
     </div>
     <NoContentComponent data-cy="no-permission-group-events-page" v-if="!isLoading && group && !hasPermission" label="You don't have permission to see this page" icon="sym_r_group" />
@@ -49,16 +35,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { date } from 'quasar'
 import CalendarComponent from 'components/common/CalendarComponent.vue'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
-import { useNavigation } from 'src/composables/useNavigation.ts'
 import { useGroupStore } from 'src/stores/group-store'
 import { GroupPermission } from 'src/types'
 import { useAuthStore } from 'src/stores/auth-store'
-
-const { navigateToEvent } = useNavigation()
+import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 
 const route = useRoute()
 const isLoading = ref<boolean>(false)
@@ -90,16 +73,8 @@ const filteredEvents = computed(() => {
 })
 
 const calendarEvents = computed(() => {
-  const data = events.value?.map(event => ({
-    title: event.name,
-    date: event.startDate,
-    bgColor: 'primary'
-  }))
+  const data = events.value?.map(event => event.startDate)
   return data
 })
-
-const formatDate = (dateString: string) => {
-  return date.formatDate(dateString, 'ddd, MMM D, YYYY, h:mm A')
-}
 
 </script>

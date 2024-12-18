@@ -38,7 +38,7 @@
           </q-item-section>
           <q-item-section top side>
           <div class="text-grey-8 q-gutter-xs">
-            <q-btn color="primary" :disable="member.user.slug === useAuthStore().user?.slug" size="md" @click="navigateToChat({ member: member.user.ulid })" round flat icon="sym_r_chat" />
+            <q-btn color="primary" :disable="member.user.slug === useAuthStore().user?.slug" size="md" @click="navigateToChat({ user: member.user.slug })" round flat icon="sym_r_chat" />
             <q-btn color="primary" size="md" round flat icon="sym_r_more_vert" :disable="!(useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers) && member.groupRole.name !== GroupRole.Owner)">
               <q-menu>
                 <q-list>

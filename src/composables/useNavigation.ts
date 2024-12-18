@@ -12,11 +12,12 @@ export function useNavigation () {
     router.push({ name: 'EventPage', params: { slug: event.slug } })
   }
 
-  const navigateToMember = (member: UserEntity | string) => {
-    router.push({ name: 'MemberPage', params: { slug: typeof member === 'string' ? member : member.slug } })
+  const navigateToMember = (user: UserEntity | string) => {
+    console.log(user)
+    router.push({ name: 'MemberPage', params: { slug: typeof user === 'string' ? user : user.slug } })
   }
 
-  const navigateToChat = (query: { member?: string, user?: string, chat?: string }) => {
+  const navigateToChat = (query: { user?: string, chat?: string }) => {
     router.push({ name: 'MessagesPage', query })
   }
 

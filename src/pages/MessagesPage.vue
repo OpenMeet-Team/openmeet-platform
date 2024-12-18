@@ -155,26 +155,32 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Chat area -->
-      <div class="col q-pa-md relative-position">
+      <div class="col relative-position">
         <SpinnerComponent v-if="useChatStore().isLoadingChat" />
         <template v-else>
           <div class="full-height column" data-cy="chat-messages" v-if="activeChat">
             <!-- Chat header -->
-            <div class="row items-center q-mb-md">
-              <div class="row col items-center">
-                <q-avatar size="48px" class="q-mr-md">
-                <img :src="activeChat.participant.photo ? getImageSrc(activeChat.participant.photo) : avatarSrc" />
-              </q-avatar>
-              <div class="text-h6">{{ activeChat.participant?.firstName }} {{ activeChat.participant?.lastName }}</div>
-              </div>
+            <q-card flat bordered>
+              <q-card-section class="row items-center col">
+                <div class="row items-center">
+                  <div class="row col items-center">
+                    <q-avatar size="48px" class="q-mr-md">
+                      <img
+                        :src="activeChat.participant.photo ? getImageSrc(activeChat.participant.photo) : avatarSrc" />
+                    </q-avatar>
+                    <div class="text-h6">{{ activeChat.participant?.firstName }} {{ activeChat.participant?.lastName }}
+                    </div>
+                  </div>
 
-              <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
-                <q-tooltip>Close chat</q-tooltip>
-              </q-btn>
-            </div>
+                  <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
+                    <q-tooltip>Close chat</q-tooltip>
+                  </q-btn>
+                </div>
+              </q-card-section>
+            </q-card>
 
             <!-- Messages -->
-            <q-scroll-area ref="chatScrollArea" class="col q-mb-md" v-if="activeChat.messages?.length">
+            <q-scroll-area ref="chatScrollArea" class="col q-mt-md" v-if="activeChat.messages?.length">
               <div v-for="message in activeChat.messages" :key="message.id" class="q-mb-md q-px-md">
                 <div style="max-width: 100%;"
                   :class="['flex', message.sender_id !== activeChat.user.zulipUserId ? 'justify-end' : 'justify-start']">
@@ -188,7 +194,7 @@ onBeforeUnmount(() => {
 
             <!-- Message input -->
             <q-input data-cy="chat-message-input" :loading="useChatStore().isSendingMessage" v-model="newMessage" filled
-              type="textarea" label="Type a message" @keyup.enter="sendMessage">
+              resi label="Type a message" @keyup.enter="sendMessage">
               <template v-slot:after>
                 <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
               </template>
