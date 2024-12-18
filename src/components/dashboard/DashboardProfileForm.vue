@@ -43,6 +43,18 @@
       maxlength="255"
     />
 
+    <q-select
+      data-cy="profile-interests"
+      v-model="form.interests"
+      label="Interests"
+      multiple
+      clearable
+      filled
+      :options="interests"
+      option-label="title"
+      option-value="id"
+    />
+
     <UploadComponent
       data-cy="profile-photo"
       class="q-mt-xl"
@@ -142,14 +154,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Dialog, LoadingBar } from 'quasar'
 import { authApi } from 'src/api/auth.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
-import { FileEntity, UserEntity } from 'src/types'
+import { FileEntity, SubCategoryEntity, UserEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from 'components/common/UploadComponent.vue'
+import { subcategoriesApi } from 'src/api/subcategories'
 
 interface UserLocation {
   lat: number
@@ -171,6 +184,8 @@ const form = ref<Profile>({
   ulid: '',
   email: ''
 })
+
+const subCategories = ref<SubCategoryEntity[]>([])
 
 const isPwd = ref(true)
 const isLoading = ref(false)
@@ -203,12 +218,21 @@ const onSubmit = async () => {
   })
 }
 
+const interests = computed(() => {
+  return subCategories.value
+})
+
 onMounted(() => {
   LoadingBar.start()
-  authApi.getMe().then(res => {
-    form.value = res.data
-    // Object.assign(form, res.data)
-  }).finally(() => LoadingBar.stop())
+
+  Promise.all([
+    subcategoriesApi.getAll().then(res => {
+      subCategories.value = res.data
+    }),
+    authApi.getMe().then(res => {
+      form.value = res.data
+    })
+  ]).finally(() => LoadingBar.stop())
 })
 
 const onProfilePhotoSelect = (file: FileEntity) => {

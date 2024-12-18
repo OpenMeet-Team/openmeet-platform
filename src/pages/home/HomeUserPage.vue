@@ -12,6 +12,7 @@ import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
 import { GroupEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils'
+import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 
 const userOrganizedGroups = computed(() => useHomeStore().userOrganizedGroups)
 const userNextHostedEvent = computed(() => useHomeStore().userNextHostedEvent)
@@ -89,7 +90,7 @@ const onCreateEvent = (group: GroupEntity) => {
                 </q-item>
               </q-card-section>
               <NoContentComponent v-if="!userNextHostedEvent" icon="sym_r_event" button-label="Create your own event"
-                :to="{ name: 'DashboardEventsPage' }" label="You have no upcoming events" />
+                :to="{ name: 'DashboardEventsPage' }" label="You have no hosting event" />
             </q-card>
 
             <!-- Recent event drafts -->
@@ -135,15 +136,7 @@ const onCreateEvent = (group: GroupEntity) => {
               :count="userMemberGroups?.length" :to="{ name: 'DashboardGroupsPage' }" />
             <q-card flat bordered class="q-mb-xl">
               <q-card-section v-if="userMemberGroups?.length" data-cy="home-user-member-groups-item-component">
-                <q-list>
-                  <q-item data-cy="member-groups-item-component" v-for="group in userMemberGroups" :key="group.id"
-                    clickable @click="navigateToGroup(group)">
-                    <q-item-section>
-                      <q-item-label>{{ group.name }}</q-item-label>
-                      <q-item-label caption>{{ group.groupMembersCount }} members</q-item-label>
-                    </q-item-section>
-                  </q-item>
-                </q-list>
+                <GroupsItemComponent v-for="group in userMemberGroups" :key="group.id" :group="group" />
               </q-card-section>
               <NoContentComponent v-else button-label="Browse groups" icon="sym_r_group"
                 label="You are not a member of any groups" :to="{ name: 'GroupsPage' }" />

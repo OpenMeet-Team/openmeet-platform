@@ -45,5 +45,5 @@ export interface UserEntity {
   groups?: GroupEntity[]
   events?: EventEntity[]
   groupMembers?: GroupMemberEntity[]
-  subCategory?: SubCategoryEntity[]
+  interests?: SubCategoryEntity[]
 }

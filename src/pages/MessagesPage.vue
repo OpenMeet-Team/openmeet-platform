@@ -116,14 +116,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <q-page padding style="max-width: 1024px;" class="q-mx-auto c-messages-page">
+  <q-page padding style="max-width: 1024px;" class="q-mx-auto c-messages-page q-pb-xl">
     <DashboardTitle defaultBack label="Messages" />
 
     <SpinnerComponent v-if="useChatStore().isLoading" />
 
-    <div v-else class="messages-page row q-mt-md q-gutter-md">
+    <div v-else class="messages-page row q-col-gutter-md">
       <div class="col-4">
-        <q-card flat bordered style="min-height: 98%">
+        <q-card flat bordered class="full-height">
           <q-input v-model="searchQuery" @clear="searchQuery = ''" filled type="search" label="Search people" clearable
             class="q-ma-md">
             <template v-slot:append>
@@ -209,7 +209,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .messages-page {
-  height: calc(100vh - 165px);
+  min-height: calc(100vh - 260px);
+  /* height: calc(100vh - 165px); */
   /* Adjust based on your layout */
 }
 </style>

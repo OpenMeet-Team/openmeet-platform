@@ -5,7 +5,8 @@ import {
   ApiAuthLoginResponse,
   ApiAuthRefreshTokenResponse,
   ApiAuthRestorePasswordRequest,
-  ApiAuthUser
+  ApiAuthUser,
+  SubCategoryEntity
 } from 'src/types'
 
 const BASE_URL = '/api/v1/auth'
@@ -48,7 +49,8 @@ export const authApi = {
     lastName?: string,
     email?: string,
     password?: string,
-    oldPassword?: string
+    oldPassword?: string,
+    interests?: SubCategoryEntity[]
   }): Promise<AxiosResponse<ApiAuthUser>> =>
     api.patch(`${BASE_URL}/me`, data),
 

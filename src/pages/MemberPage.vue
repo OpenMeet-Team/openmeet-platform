@@ -14,7 +14,7 @@ import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 const route = useRoute()
 
 const user = computed(() => useProfileStore().user)
-const interests = computed(() => useProfileStore().user?.subCategory)
+const interests = computed(() => useProfileStore().user?.interests)
 const ownedGroups = computed(() => useProfileStore().user?.groups)
 const organizedEvents = computed(() => useProfileStore().user?.events)
 const groupMemberships = computed(() => useProfileStore().user?.groupMembers?.filter(member => member.groupRole?.name !== 'owner'))
