@@ -14,6 +14,7 @@
           <q-list dense>
             <MenuItemComponent label="Home" @click="navigateTo('/')"/>
             <MenuItemComponent label="About Us" @click="openSocialLink('https://biz.openmeet.net/about')"/>
+            <MenuItemComponent label="Contact Us" @click="openSocialLink('https://biz.openmeet.net/contact')"/>
             <MenuItemComponent label="Groups" @click="navigateTo('/groups')"/>
             <MenuItemComponent label="Events" @click="navigateTo('/events')"/>
           </q-list>
