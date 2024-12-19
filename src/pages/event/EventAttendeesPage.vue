@@ -220,6 +220,7 @@ const viewAttendeeRequest = (attendee: EventAttendeeEntity) => {
 
 onMounted(() => {
   LoadingBar.start()
+  isLoading.value = true
   useEventStore().actionGetEventBySlug(route.params.slug as string).then(() => {
     if (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserIsAttendee()) {
       loadAttendees().finally(() => {
@@ -229,6 +230,7 @@ onMounted(() => {
     }
   }).finally(() => {
     LoadingBar.stop()
+    isLoading.value = false
   })
 })
 </script>

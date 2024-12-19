@@ -4,6 +4,10 @@ import { EventEntity, EventStatus, GroupEntity } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
 import { eventsApi } from 'src/api/events'
+import EventAttendWaitlistDialogComponent from 'src/components/event/dialogs/EventAttendWaitlistDialogComponent.vue'
+import EventAttendPendingDialogComponent from 'src/components/event/dialogs/EventAttendPendingDialogComponent.vue'
+import EventAttendRejectedDialogComponent from 'src/components/event/dialogs/EventAttendRejectedDialogComponent.vue'
+import EventAttendeesNoRightsDialogComponent from 'src/components/event/dialogs/EventAttendeesNoRightsDialogComponent.vue'
 
 export function useEventDialog () {
   const $q = useQuasar()
@@ -49,25 +53,19 @@ export function useEventDialog () {
 
   const openEventAttendPendingDialog = () => {
     return $q.dialog({
-      title: 'Attendance Pending',
-      message: 'Your attendance is pending approval. Please wait for the event organizer to approve your attendance.',
-      persistent: true
+      component: EventAttendPendingDialogComponent
     })
   }
 
   const openEventAttendWaitlistDialog = () => {
     return $q.dialog({
-      title: 'Waitlist',
-      message: 'The waitlist is full. Please wait for the event organizer to approve your attendance.',
-      persistent: true
+      component: EventAttendWaitlistDialogComponent
     })
   }
 
   const openEventAttendRejectedDialog = () => {
     return $q.dialog({
-      title: 'Rejected',
-      message: 'You have been rejected from this event.',
-      persistent: true
+      component: EventAttendRejectedDialogComponent
     })
   }
 
@@ -99,9 +97,7 @@ export function useEventDialog () {
 
   const openNoAttendeesRightsDialog = () => {
     return $q.dialog({
-      title: 'No rights to view attendees',
-      message: 'You do not have permission to view the attendees of this event. Attend the event and wait for approval if needed.',
-      persistent: true
+      component: EventAttendeesNoRightsDialogComponent
     })
   }
 

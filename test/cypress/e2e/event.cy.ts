@@ -94,7 +94,7 @@ describe('EventPage', () => {
     })
   })
 
-  describe('when approvalQuestion is set', () => {
+  describe('event approvalQuestion is set', () => {
     beforeEach(() => {
       cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
@@ -115,7 +115,9 @@ describe('EventPage', () => {
 
     it('should display the approval question card', () => {
       cy.dataCy('event-attend-button').click()
-      cy.dataCy('approval-question-card').should('be.visible')
+      cy.dataCy('event-attend-dialog').should('be.visible').within(() => {
+        cy.dataCy('approval-question-card').should('be.visible')
+      })
     })
   })
 })

@@ -13,5 +13,15 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
+Cypress.on('uncaught:exception', (err) => {
+  // Ignore ResizeObserver errors
+  if (err.message.includes('ResizeObserver') ||
+    err.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+    return false
+  }
+  // Return true for other errors
+  return true
+})
+
 import './commands'
 import '@cypress/code-coverage/support'

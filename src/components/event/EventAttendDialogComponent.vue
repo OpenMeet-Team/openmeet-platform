@@ -31,10 +31,10 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
       <q-card-section>
         {{ event.approvalQuestion }}
-        <q-input v-model="approvalAnswer" :rules="[val => !!val || 'Please answer the question']" required filled type="textarea" />
+        <q-input data-cy="approval-question-input" v-model="approvalAnswer" :rules="[val => !!val || 'Please answer the question']" required filled type="textarea" />
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
+        <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
         <q-btn data-cy="confirm-button" no-caps label="Confirm" color="primary" @click="onDialogOK({ approvalAnswer })"/>
       </q-card-actions>
     </q-card>
@@ -44,7 +44,7 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
         <div class="text-h6">You must be a member of the following group to attend this event:</div>
       </q-card-section>
       <q-card-section>
-        {{ event.group?.name }}
+        <router-link v-close-popup :to="`/groups/${event.group?.slug}`">{{ event.group?.name }}</router-link>
       </q-card-section>
       <q-card-actions align="right">
         <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>

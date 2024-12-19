@@ -18,7 +18,6 @@ export default defineConfig({
     },
     env: {
       // These is place to set cypress.env() values
-      APP_TENANT_ID: process.env.APP_TESTING_TENANT_ID || process.env.APP_TENANT_ID,
       APP_TESTING_USER_EMAIL: process.env.APP_TESTING_USER_EMAIL,
       APP_TESTING_USER_PASSWORD: process.env.APP_TESTING_USER_PASSWORD,
       APP_TESTING_ADMIN_EMAIL: process.env.APP_TESTING_ADMIN_EMAIL,

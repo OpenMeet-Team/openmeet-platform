@@ -48,10 +48,10 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-md-7">
             <!-- Groups you organize -->
             <SubtitleComponent class="q-px-md" label="Groups you organize" :to="{ name: 'DashboardGroupsPage' }" />
-            <q-card flat bordered class="col column q-mb-md">
+            <q-card data-cy="home-user-organized-groups-component" flat bordered class="col column q-mb-md">
               <q-card-section v-if="userOrganizedGroups?.length">
                 <q-list>
-                  <q-item data-cy="home-user-organized-groups-item-component" v-ripple
+                  <q-item v-ripple
                     v-for="group in userOrganizedGroups" :key="group.id" clickable @click="navigateToGroup(group)">
                     <q-item-section thumbnail>
                       <img :src="getImageSrc(group.image)">
@@ -134,8 +134,8 @@ const onCreateEvent = (group: GroupEntity) => {
             <!-- Groups you're part of -->
             <SubtitleComponent class="q-px-md" label="Groups you're part of" :hide-link="!userMemberGroups?.length"
               :count="userMemberGroups?.length" :to="{ name: 'DashboardGroupsPage' }" />
-            <q-card flat bordered class="q-mb-xl">
-              <q-card-section v-if="userMemberGroups?.length" data-cy="home-user-member-groups-item-component">
+            <q-card flat bordered class="q-mb-xl" data-cy="home-user-member-groups-item-component">
+              <q-card-section v-if="userMemberGroups?.length">
                 <GroupsItemComponent v-for="group in userMemberGroups" :key="group.id" :group="group" />
               </q-card-section>
               <NoContentComponent v-else button-label="Browse groups" icon="sym_r_group"
@@ -144,10 +144,10 @@ const onCreateEvent = (group: GroupEntity) => {
 
             <!-- Your interests -->
             <SubtitleComponent class="q-px-md" hide-link label="Your interests" />
-            <q-card flat bordered class="q-mb-md">
+            <q-card flat bordered class="q-mb-md" data-cy="home-user-interests-item-component">
               <q-card-section v-if="userInterests?.length">
                 <div class="q-gutter-sm">
-                  <q-chip data-cy="home-user-interests-item-component" v-for="interest in userInterests"
+                  <q-chip v-for="interest in userInterests"
                     :key="interest.id" color="primary" text-color="white">
                     {{ interest.title }}
                   </q-chip>
