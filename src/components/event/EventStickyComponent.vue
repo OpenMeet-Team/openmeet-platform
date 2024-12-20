@@ -17,7 +17,7 @@
         </div>
         <div class="row items-start q-gutter-md">
           <ShareComponent class="col-4" />
-          <q-btn class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
+          <q-btn :loading="isLoading" class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
             label="Attend" color="primary" :disable="new Date(event.startDate) < new Date()" @click="onAttendClick" />
 
           <QRCodeComponent class="" />
@@ -40,6 +40,7 @@ import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
+import { ref } from 'vue'
 
 interface Props {
   event: EventEntity
@@ -49,10 +50,12 @@ const { success } = useNotification()
 const props = defineProps<Props>()
 const { openAttendEventDialog, openCancelAttendingEventDialog, openEventAttendPendingDialog, openEventAttendWaitlistDialog, openEventAttendRejectedDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
+const isLoading = ref(false)
 
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
     openAttendEventDialog(props.event).onOk(({ approvalAnswer }) => {
+      isLoading.value = true
       useEventStore().actionAttendEvent(props.event.slug, {
         approvalAnswer
       } as Partial<EventAttendeeEntity>).then(attendee => {
@@ -67,6 +70,8 @@ const onAttendClick = () => {
             openEventAttendRejectedDialog()
           }
         }
+      }).finally(() => {
+        isLoading.value = false
       })
     })
   } else {

@@ -30,16 +30,16 @@
         <q-list bordered separator v-if="filteredAttendees.length">
           <q-item v-for="attendee in filteredAttendees" :key="attendee.id"
             class="q-py-md">
-            <q-item-section avatar>
+            <q-item-section avatar @click="viewProfile(attendee)" class="cursor-pointer">
               <q-avatar>
                 <q-img :src="getImageSrc(attendee.user.photo?.path)" :alt="attendee.user.name" />
               </q-avatar>
             </q-item-section>
 
-            <q-item-section>
+            <q-item-section @click="viewProfile(attendee)" class="cursor-pointer">
               <q-item-label>{{ attendee.user.name }}</q-item-label>
               <q-item-label caption>
-                Joined {{ formatDate(attendee.createdAt || '') }}
+                {{ attendee.role.name.charAt(0).toUpperCase() + attendee.role.name.slice(1) }}
               </q-item-label>
             </q-item-section>
 
@@ -47,23 +47,21 @@
               <q-badge :color="getStatusColor(attendee.status)" :label="attendee.status" />
             </q-item-section>
 
-            <q-item-section side>
+            <q-item-section side v-if="canManageAttendees">
               <q-btn :disable="!canManageAttendees" round flat no-caps color="primary" icon="sym_r_more_vert">
                 <q-menu>
-                  <MenuItemComponent v-if="canManageAttendees" @click="editAttendee(attendee)" label="Edit"
+                  <MenuItemComponent v-if="canManageAttendees" @click="editAttendee(attendee)" label="Edit attendance"
                     icon="sym_r_edit" />
                   <!-- Send message -->
                   <MenuItemComponent v-if="canManageAttendees" @click="sendMessage(attendee)" label="Send message"
                     icon="sym_r_message" />
-                  <!-- View profile -->
-                  <MenuItemComponent v-if="canManageAttendees" @click="viewProfile(attendee)" label="View profile"
-                    icon="sym_r_person" />
+
                   <!-- View attendee request -->
-                  <MenuItemComponent v-if="canManageAttendees" @click="viewAttendeeRequest(attendee)"
-                    label="View attendee request" icon="sym_r_person" />
+                  <MenuItemComponent v-if="false" @click="viewAttendeeRequest(attendee)" label="View attendee request"
+                    icon="sym_r_visibility" />
                   <!-- Delete attendee -->
                   <MenuItemComponent icon-color="negative" v-if="canManageAttendees" @click="deleteAttendee(attendee)"
-                    label="Delete" icon="sym_r_delete" />
+                    label="Remove attendee" icon="sym_r_delete" />
                 </q-menu>
               </q-btn>
             </q-item-section>
@@ -85,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { date, LoadingBar, QSelectOption } from 'quasar'
+import { LoadingBar, QSelectOption } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { useEventStore } from 'src/stores/event-store'
 import { eventsApi } from 'src/api'
@@ -136,15 +134,13 @@ onBeforeUnmount(() => {
 
 const getStatusColor = (status: string): string => {
   const colors = {
-    going: 'positive',
-    waitlist: 'warning',
-    not_going: 'negative'
+    [EventAttendeeStatus.Confirmed]: 'positive',
+    [EventAttendeeStatus.Waitlist]: 'warning',
+    [EventAttendeeStatus.Rejected]: 'negative',
+    [EventAttendeeStatus.Pending]: 'grey',
+    [EventAttendeeStatus.Cancelled]: 'grey'
   }
   return colors[status as keyof typeof colors] || 'grey'
-}
-
-const formatDate = (dateStr: string): string => {
-  return date.formatDate(dateStr, 'MMMM D, YYYY')
 }
 
 const loadAttendees = async () => {
@@ -195,7 +191,9 @@ const loadMore = async (index: number, done: () => void) => {
 }
 
 const editAttendee = (attendee: EventAttendeeEntity) => {
-  openEditAttendeeDialog(attendee)
+  openEditAttendeeDialog(attendee).onOk((attendee: EventAttendeeEntity) => {
+    attendees.value = attendees.value.map(a => a.id === attendee.id ? attendee : a)
+  })
 }
 
 const deleteAttendee = (attendee: EventAttendeeEntity) => {

@@ -8,7 +8,7 @@
             @click="router.push({ name: 'MemberPage', params: { slug: attendee.user?.slug } })">
             <q-avatar avatar rounded>
               <q-img :src="getImageSrc(attendee.user?.photo)" :ratio="1" :alt="attendee.user?.name" />
-              <q-badge floating color="teal" v-if="attendee.role">{{ attendee.role.name }}</q-badge>
+              <q-badge floating color="teal" v-if="attendee.role && attendee.role.name !== EventAttendeeRole.Participant">{{ attendee.role.name }}</q-badge>
             </q-avatar>
           </q-item>
         </div>
@@ -34,7 +34,7 @@ import { getImageSrc } from 'src/utils/imageUtils'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
-import { EventAttendeePermission } from 'src/types'
+import { EventAttendeePermission, EventAttendeeRole } from 'src/types'
 import { useEventDialog } from 'src/composables/useEventDialog'
 
 const event = computed(() => useEventStore().event)

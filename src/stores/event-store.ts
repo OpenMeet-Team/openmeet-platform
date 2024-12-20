@@ -94,19 +94,6 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionUpdateAttendee (ulid: string, data: Partial<EventAttendeeEntity>) {
-      try {
-        const res = await eventsApi.updateAteendee(ulid, data)
-        if (this.event) {
-          this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
-          this.event.attendee = res.data
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to update attendee')
-      }
-    },
-
     async actionCancelAttending (event: EventEntity) {
       if (event.attendee) {
         return await eventsApi.cancelAttending(event.slug).then((res) => {
