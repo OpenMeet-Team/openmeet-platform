@@ -14,6 +14,12 @@
         </div>
       </q-card-section>
 
+      <!-- Approval answer -->
+      <q-card-section>
+        <div class="text-body2 text-bold">Approval answer:</div>
+        <div class="text-body2">{{ attendee.approvalAnswer }}</div>
+      </q-card-section>
+
       <q-card-section>
         <!-- Edit attendee role -->
         <q-select v-model="role" :options="attendeeRoles" label="Attendee Role" emit-value map-options />

@@ -22,12 +22,12 @@
         </div>
       </q-tab-panel>
       <q-tab-panel name="hosting">
-        <template v-if="createdEvents && !createdEvents.length">
+        <template v-if="hostingEvents && !hostingEvents.length">
           <NoContentComponent @click="onAddNewEvent" buttonLabel="Add new Event and select a group to get started."
             label="You are not hosting any upcoming events" icon="sym_r_app_registration" />
         </template>
         <div v-else>
-          <EventsItemComponent v-for="event in createdEvents" :key="event.id" :event="event" />
+          <EventsItemComponent v-for="event in hostingEvents" :key="event.id" :event="event" />
         </div>
       </q-tab-panel>
 
@@ -56,10 +56,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { EventEntity } from 'src/types'
+import { EventAttendeeRole, EventEntity } from 'src/types'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
-import { useAuthStore } from 'src/stores/auth-store'
 import { eventsApi } from 'src/api'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
@@ -67,8 +66,8 @@ const loaded = ref<boolean>(false)
 const router = useRouter()
 
 // Mock data - replace with actual API calls
-const createdEvents = computed(() => events.value.filter(event => event.user?.id === useAuthStore().getUserId))
-const attendedEvents = computed(() => events.value.filter(event => event.attendee?.user.id))
+const hostingEvents = computed(() => events.value.filter(event => event.attendee?.role.name === EventAttendeeRole.Host))
+const attendedEvents = computed(() => events.value.filter(event => event.attendee?.user.name !== EventAttendeeRole.Host))
 // const savedEvents = computed(() => events.value)
 const pastEvents = computed(() => events.value.filter(event => event.startDate && new Date(event.startDate) < new Date()))
 const events = ref<EventEntity[]>([])

@@ -3,12 +3,15 @@
     <div class="col row q-py-md q-mx-auto" style="max-width: 1201px">
       <div class="col col-12 col-sm-6 q-px-md min-width-200">
         <div class="text-body2 text-bold">{{ formatDate(event.startDate) }}</div>
+        <span v-if="event.maxAttendees">
+          <span class="text-red">{{ spotsLeft > 0 ? `${spotsLeft} ${pluralize(spotsLeft, 'spot')} left` : 'No spots left' }}</span>
+        </span>
         <div class="text-h6 text-bold">{{ event.name }}</div>
       </div>
       <div class="col col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
         <div class="column" v-if="useEventStore().getterUserIsAttendee()">
           <div data-cy="event-attendee-status-confirmed" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Confirmed">You're going!</div>
-          <div data-cy="event-attendee-status-pending" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending!</div>
+          <div data-cy="event-attendee-status-pending" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Pending">You're pending approval!</div>
           <div data-cy="event-attendee-status-waitlist" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
           <div data-cy="event-attendee-status-rejected" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Rejected">You're rejected!</div>
           <div data-cy="event-attendee-status-cancelled" class="text-subtitle1 text-bold" v-if="event.attendee?.status === EventAttendeeStatus.Cancelled">You're cancelled!</div>
@@ -40,7 +43,8 @@ import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { pluralize } from 'src/utils/stringUtils.ts'
 
 interface Props {
   event: EventEntity
@@ -51,6 +55,7 @@ const props = defineProps<Props>()
 const { openAttendEventDialog, openCancelAttendingEventDialog, openEventAttendPendingDialog, openEventAttendWaitlistDialog, openEventAttendRejectedDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
 const isLoading = ref(false)
+const spotsLeft = computed(() => props.event.maxAttendees ? props.event.maxAttendees - (props.event.attendeesCount || 0) : 0)
 
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {

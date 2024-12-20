@@ -81,7 +81,7 @@ export const useEventStore = defineStore('event', {
       try {
         const res = await eventsApi.attend(slug, data)
         if (this.event) {
-          if (res.data.status !== EventAttendeeStatus.Confirmed) {
+          if (res.data.status !== EventAttendeeStatus.Pending) {
             this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           }
           this.event.attendee = res.data

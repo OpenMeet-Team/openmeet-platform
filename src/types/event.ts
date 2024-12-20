@@ -73,6 +73,7 @@ export interface EventAttendeeEntity {
   user: UserEntity
   role: EventAttendeeRoleEntity
   status: EventAttendeeStatus
+  approvalAnswer?: string
   createdAt?: string
 }
 

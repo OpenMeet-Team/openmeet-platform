@@ -8,7 +8,7 @@
         :rules="[(val: string) => !!val || 'Title is required']" />
 
       <!-- Event Group -->
-      <q-select data-cy="event-group" v-if="groupsOptions && groupsOptions.length" v-model="eventData.group"
+      <q-select data-cy="event-group" v-if="groupsOptions && groupsOptions.length" :readonly="!!eventData.id" v-model="eventData.group"
         :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
         label="Group" />
 
@@ -113,14 +113,18 @@
         </div>
       </div>
 
-      <!-- Require group membership -->
-      <q-checkbox v-if="eventData.group" data-cy="event-require-group-membership"
-        :model-value="!!eventData.requireGroupMembership"
-        @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
+      <div class="row">
+        <!-- Require group membership -->
+        <q-checkbox v-if="eventData.group" data-cy="event-require-group-membership"
+          :model-value="!!eventData.requireGroupMembership"
+          @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
+      </div>
 
       <!-- Require attendee approval -->
-      <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
-        @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
+      <div class="row">
+        <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
+          @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
+      </div>
       <!-- If require approval, show approval question -->
       <q-input type="textarea" counter maxlength="255" v-if="eventData.requireApproval"
         data-cy="event-approval-question" v-model="eventData.approvalQuestion" label="Approval Question" filled />
@@ -130,7 +134,7 @@
         <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
         <q-btn data-cy="event-save-draft" no-caps label="Save as draft"
           v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft" />
-        <q-btn data-cy="event-publish" no-caps :label="eventData.id ? 'Update' : 'Publish'" color="primary"
+        <q-btn data-cy="event-publish" no-caps label="Publish" color="primary"
           @click="onPublish" />
       </div>
     </q-form>

@@ -40,6 +40,7 @@
               useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)"
               >
               <q-card-section>
+                <span class="text-overline" v-if="event.status === EventStatus.Draft">{{ event.status }}</span>
                 <q-btn-dropdown data-cy="organiser-tools" ripple flat align="center" no-caps label="Organiser tools">
                   <q-list>
                     <MenuItemComponent label="Edit event" icon="sym_r_edit_note"
@@ -48,8 +49,7 @@
                     <MenuItemComponent label="Manage attendees" icon="sym_r_people"
                       v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.ManageAttendees)"
                       @click="router.push({ name: 'EventAttendeesPage' })" />
-                    <MenuItemComponent label="Cancel event"
-                      v-if="useEventStore().getterUserHasPermission(EventAttendeePermission.CancelEvent)"
+                    <MenuItemComponent v-if="event.status === EventStatus.Published && useEventStore().getterUserHasPermission(EventAttendeePermission.CancelEvent)" label="Cancel event"
                       icon="sym_r_event_busy" @click="onCancelEvent" />
                     <q-separator />
                     <MenuItemComponent label="Delete event"
@@ -150,7 +150,7 @@ import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import EventSimilarEventsComponent from 'src/components/event/EventSimilarEventsComponent.vue'
 import { GroupPermission } from 'src/types/group.ts'
-import { EventAttendeePermission } from 'src/types/event.ts'
+import { EventAttendeePermission, EventStatus } from 'src/types/event.ts'
 import EventAttendeesComponent from 'src/components/event/EventAttendeesComponent.vue'
 import EventTopicsComponent from 'src/components/event/EventTopicsComponent.vue'
 

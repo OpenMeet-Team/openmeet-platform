@@ -31,7 +31,7 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       </q-card-section>
       <q-card-section>
         {{ event.approvalQuestion }}
-        <q-input data-cy="approval-question-input" v-model="approvalAnswer" :rules="[val => !!val || 'Please answer the question']" required filled type="textarea" />
+        <q-input counter maxlength="300" data-cy="approval-question-input" v-model="approvalAnswer" :rules="[val => !!val || 'Please answer the question']" required filled type="textarea" />
       </q-card-section>
       <q-card-actions align="right">
         <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
@@ -49,6 +49,20 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
       <q-card-actions align="right">
         <q-btn data-cy="cancel-button" no-caps flat label="Cancel" color="primary" @click="onDialogCancel"/>
         <q-btn data-cy="join-group-button" no-caps label="Join Group" color="primary" v-close-popup @click="navigateToGroup(event.group)" />
+      </q-card-actions>
+    </q-card>
+
+    <q-card data-cy="confirm-attendance-card" v-else-if="!event.allowWaitlist && event.maxAttendees && event.attendeesCount && event.attendeesCount >= event.maxAttendees">
+      <q-card-section>
+        <div class="text-h6">No more spots available</div>
+      </q-card-section>
+
+      <q-card-section>
+        All spots are taken.
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn data-cy="cancel-button" no-caps label="Ok" color="primary" @click="onDialogCancel"/>
       </q-card-actions>
     </q-card>
 
