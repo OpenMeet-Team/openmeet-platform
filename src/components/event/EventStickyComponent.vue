@@ -18,14 +18,38 @@
           <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
               padding="none" flat color="primary" label="Edit RSVP" /></div>
         </div>
+<!--
+        <div class="column" v-if="event.attendee && event.attendee.status !== 'cancelled'">
+          <div data-cy="event-attendee-status-confirmed" v-if="event.attendee.status === EventAttendeeStatus.Confirmed">You're going!</div>
+          <div data-cy="event-attendee-status-pending" v-if="event.attendee.status === EventAttendeeStatus.Pending">You're pending!</div>
+          <div data-cy="event-attendee-status-waitlist" v-if="event.attendee.status === EventAttendeeStatus.Waitlist">You're on the waitlist!</div>
+          <div data-cy="event-attendee-status-rejected" v-if="event.attendee.status === EventAttendeeStatus.Rejected">You're rejected!</div>
+
+          <div>
+            <q-btn data-cy="event-edit-attendance-button"
+                   @click="onEditAttendenceClick"
+                   no-caps
+                   size="md"
+                   padding="none"
+                   flat
+                   color="primary"
+                   label="Cancel RSVP" />
+          </div> -->
         <div class="row items-start q-gutter-md">
           <ShareComponent class="col-4" />
-          <q-btn :loading="isLoading" class="col-3" data-cy="event-attend-button" v-if="!useEventStore().getterUserIsAttendee()" no-caps
-            label="Attend" color="primary" :disable="new Date(event.startDate) < new Date()" @click="onAttendClick" />
+
+          <q-btn :loading="isLoading"
+                 class="col-3"
+                 data-cy="event-attend-button"
+                 v-if="!event.attendee || event.attendee.status === 'cancelled'"
+                 no-caps
+                 label="Attend"
+                 color="primary"
+                 :disable="new Date(event.startDate) < new Date()"
+                 @click="onAttendClick" />
 
           <QRCodeComponent class="" />
         </div>
-
       </div>
     </div>
   </q-page-sticky>
@@ -43,29 +67,53 @@ import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
-import { computed, ref } from 'vue'
 import { pluralize } from 'src/utils/stringUtils.ts'
+import { ref, watch, computed } from 'vue'
 
 interface Props {
   event: EventEntity
 }
 
-const { success } = useNotification()
+const { success, error } = useNotification()
 const props = defineProps<Props>()
 const { openAttendEventDialog, openCancelAttendingEventDialog, openEventAttendPendingDialog, openEventAttendWaitlistDialog, openEventAttendRejectedDialog } = useEventDialog()
 const { openLoginDialog } = useAuthDialog()
 const isLoading = ref(false)
 const spotsLeft = computed(() => props.event.maxAttendees ? props.event.maxAttendees - (props.event.attendeesCount || 0) : 0)
 
+// Add debugging logs
+watch(() => props.event?.attendee, (newVal) => {
+  console.log('Event attendee changed:', {
+    hasAttendee: !!newVal,
+    status: newVal?.status,
+    raw: newVal
+  })
+}, { immediate: true })
+
+// Log when buttons should show
+const showAttendButton = computed(() => !props.event?.attendee || props.event.attendee.status === 'cancelled')
+const showCancelButton = computed(() => props.event?.attendee && props.event.attendee.status !== 'cancelled')
+
+watch([showAttendButton, showCancelButton], ([attend, cancel]) => {
+  console.log('Button visibility:', {
+    showAttend: attend,
+    showCancel: cancel,
+    attendeeStatus: props.event?.attendee?.status
+  })
+}, { immediate: true })
+
 const onAttendClick = () => {
   if (useAuthStore().isAuthenticated) {
+    isLoading.value = true
     openAttendEventDialog(props.event).onOk(({ approvalAnswer }) => {
-      isLoading.value = true
       useEventStore().actionAttendEvent(props.event.slug, {
-        approvalAnswer
+        approvalAnswer,
+        status: 'pending'
       } as Partial<EventAttendeeEntity>).then(attendee => {
         if (attendee) {
-          if (attendee.status === EventAttendeeStatus.Pending) {
+          if (attendee.status === 'cancelled') {
+            error('Unable to attend event at this time')
+          } else if (attendee.status === EventAttendeeStatus.Pending) {
             openEventAttendPendingDialog()
           } else if (attendee.status === EventAttendeeStatus.Confirmed) {
             success('You are now attending this event!')
@@ -93,6 +141,9 @@ const onEditAttendenceClick = () => {
     }
   })
 }
+
+console.log('Event attendee status:', props.event?.attendee?.status)
+console.log('Is cancelled?', props.event?.attendee?.status === 'cancelled')
 </script>
 
 <style scoped lang="scss"></style>

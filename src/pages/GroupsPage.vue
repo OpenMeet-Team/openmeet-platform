@@ -10,7 +10,8 @@
     <div class="row q-col-gutter-md q-mb-lg q-mt-md">
       <CategoriesFilterComponent/>
       <LocationFilterComponent/>
-      <div class="row items-center" v-if="route.query.categories || route.query.location">
+      <RadiusFilterComponent/>
+      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.radius">
         <q-btn data-cy="groups-reset-filters" no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
       </div>
     </div>
@@ -43,6 +44,7 @@ import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import LocationFilterComponent from 'components/common/LocationFilterComponent.vue'
 import CategoriesFilterComponent from 'components/common/CategoriesFilterComponent.vue'
+import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
 import { useGroupsStore } from 'stores/groups-store.ts'
 
 const router = useRouter()
