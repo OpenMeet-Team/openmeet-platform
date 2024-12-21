@@ -95,7 +95,7 @@ const onCreateEvent = (group: GroupEntity) => {
 
             <!-- Recent event drafts -->
             <template v-if="userRecentEventDrafts?.length">
-              <SubtitleComponent label="Recent event drafts" hide-link />
+              <SubtitleComponent class="q-px-md" label="Recent event drafts" hide-link />
               <q-card flat bordered class="q-mb-md">
                 <q-card-section v-if="userRecentEventDrafts?.length">
                   <q-list>
