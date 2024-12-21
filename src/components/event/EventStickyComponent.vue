@@ -18,7 +18,7 @@
           <div><q-btn data-cy="event-edit-attendance-button" @click="onEditAttendenceClick" no-caps size="md"
               padding="none" flat color="primary" label="Edit RSVP" /></div>
         </div>
-<!-- 
+<!--
         <div class="column" v-if="event.attendee && event.attendee.status !== 'cancelled'">
           <div data-cy="event-attendee-status-confirmed" v-if="event.attendee.status === EventAttendeeStatus.Confirmed">You're going!</div>
           <div data-cy="event-attendee-status-pending" v-if="event.attendee.status === EventAttendeeStatus.Pending">You're pending!</div>
@@ -67,12 +67,8 @@ import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useNotification } from 'src/composables/useNotification.ts'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
-<<<<<<< Updated upstream
-import { computed, ref } from 'vue'
 import { pluralize } from 'src/utils/stringUtils.ts'
-=======
 import { ref, watch, computed } from 'vue'
->>>>>>> Stashed changes
 
 interface Props {
   event: EventEntity
