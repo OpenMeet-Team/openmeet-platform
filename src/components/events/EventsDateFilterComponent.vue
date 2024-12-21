@@ -59,13 +59,13 @@ const filterBy = (filter: DateRange) => {
     } else if (filter === 'this-month') {
       const today = new Date()
       const thisMonthStart = today.toISOString()
-      const thisMonthEnd = date.endOfDate(today, 'month').toISOString()
+      const thisMonthEnd = date.addToDate(thisMonthStart, { month: 1 }).toISOString()
       fromDate = thisMonthStart
       toDate = thisMonthEnd
     } else if (filter === 'next-month') {
       const today = new Date()
-      const nextMonthStart = date.addToDate(today, { month: 1 }).toISOString()
-      const nextMonthEnd = date.endOfDate(nextMonthStart, 'month').toISOString()
+      const nextMonthStart = date.endOfDate(today, 'month').toISOString()
+      const nextMonthEnd = date.addToDate(nextMonthStart, { month: 1 }).toISOString()
       fromDate = nextMonthStart
       toDate = nextMonthEnd
     }
