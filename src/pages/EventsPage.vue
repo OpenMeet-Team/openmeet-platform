@@ -11,7 +11,8 @@
       <EventsTypeFilterComponent/>
       <EventsCategoriesFilterComponent/>
       <EventsLocationFilterComponent/>
-      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.range || route.query.type">
+      <RadiusFilterComponent/>
+      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.range || route.query.type || route.query.radius">
         <q-btn no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
       </div>
     </div>
@@ -56,6 +57,7 @@ import EventsTypeFilterComponent from 'components/events/EventsTypeFilterCompone
 import EventsCategoriesFilterComponent from 'components/common/CategoriesFilterComponent.vue'
 import { useEventsStore } from 'stores/events-store.ts'
 import EventsLocationFilterComponent from 'components/common/LocationFilterComponent.vue'
+import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -83,6 +85,7 @@ onBeforeUnmount(() => {
 // Fetch events based on the query parameters
 const fetchEvents = async () => {
   LoadingBar.start()
+  console.log('Query params:', route.query)
   useEventsStore().actionGetEvents(route.query).finally(LoadingBar.stop)
 }
 

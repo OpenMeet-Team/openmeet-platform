@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventAttendeeStatus, EventEntity, EventVisibility, GroupPermission } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission, EventAttendeeStatus } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
-import { eventsApi } from 'src/api/events.ts'
+import { api } from 'src/boot/axios'
 import { AxiosError } from 'axios'
-import analyticsService from 'src/services/analyticsService'
+import { eventsApi } from 'src/api/events'
 const { error } = useNotification()
 export const useEventStore = defineStore('event', {
   state: () => ({
@@ -68,7 +68,7 @@ export const useEventStore = defineStore('event', {
       this.errorMessage = null
 
       try {
-        const res = await eventsApi.getBySlug(slug)
+        const res = await api.get(`/api/events/${slug}`)
         this.event = res.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
@@ -78,39 +78,69 @@ export const useEventStore = defineStore('event', {
     },
 
     async actionAttendEvent (slug: string, data: Partial<EventAttendeeEntity>) {
+      console.log('Starting actionAttendEvent:', { slug, data })
+
       try {
         const res = await eventsApi.attend(slug, data)
         if (this.event) {
           if (res.data.status !== EventAttendeeStatus.Pending) {
             this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
           }
-          this.event.attendee = res.data
-          analyticsService.trackEvent('event_attended', { event_id: this.event.id, name: this.event.name })
         }
+        console.log('Attend API response:', res.data)
+
+        // // Update both the attendee and the attendees list
+        // if (this.event && this.event.slug === slug) {
+        //   console.log('Updating event state:', {
+        //     oldStatus: this.event.attendee?.status,
+        //     newStatus: response.data.status
+        //   })
+
+        //   // Only update if the status is not cancelled
+        //   if (response.data.status !== 'cancelled') {
+        //     this.event = {
+        //       ...this.event,
+        //       attendee: response.data,
+        //       attendees: [...(this.event.attendees || []).filter(a => a.id !== response.data.id), response.data]
+        //     }
+
         return res.data
-      } catch (err) {
-        console.log(err)
-        error('Failed to attend event')
+      } catch (error) {
+        console.error('Error in actionAttendEvent:', error)
+        throw error
       }
     },
 
     async actionCancelAttending (event: EventEntity) {
-      if (event.attendee) {
-        return await eventsApi.cancelAttending(event.slug).then((res) => {
-          if (this.event) {
-            this.event.attendees = this.event.attendees?.filter((attendee) => attendee.id !== event.attendee?.id)
-            this.event.attendee = res.data
+      console.log('Starting actionCancelAttending:', {
+        slug: event.slug,
+        currentStatus: event.attendee?.status
+      })
+
+      try {
+        const response = await eventsApi.cancelAttending(event.slug)
+        console.log('Cancel API response:', response.data)
+
+        if (this.event && this.event.slug === event.slug) {
+          console.log('Updating event state after cancel')
+          this.event = {
+            ...this.event,
+            attendee: response.data,
+            attendees: this.event.attendees?.filter(a => a.id !== event.attendee?.id) || []
           }
-          analyticsService.trackEvent('event_unattended', { event_id: event.id, name: event.name })
-          return true
-        })
+        }
+
+        return true
+      } catch (error) {
+        console.error('Error in actionCancelAttending:', error)
+        throw error
       }
     },
 
     async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await eventsApi.sendDiscussionMessage(this.event.slug, message, topicName)
+          const res = await api.post(`/api/events/${this.event.slug}/discussion`, { message, topicName })
           return res.data.id
         }
       } catch (err) {
@@ -122,7 +152,7 @@ export const useEventStore = defineStore('event', {
     async actionUpdateEventDiscussionMessage (messageId: number, newText: string): Promise<number | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await eventsApi.updateDiscussionMessage(this.event.slug, messageId, newText)
+          const res = await api.put(`/api/events/${this.event.slug}/discussion/${messageId}`, { newText })
           return res.data.id
         }
       } catch (err) {
@@ -134,7 +164,7 @@ export const useEventStore = defineStore('event', {
     async actionDeleteEventDiscussionMessage (messageId: number): Promise<number | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await eventsApi.deleteDiscussionMessage(this.event.slug, messageId)
+          const res = await api.delete(`/api/events/${this.event.slug}/discussion/${messageId}`)
           return res.data.id
         }
       } catch (err) {
