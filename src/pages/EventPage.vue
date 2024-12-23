@@ -103,9 +103,9 @@
                   <q-item-section>
                     <q-item-label>{{ event.type }} event</q-item-label>
                     <q-btn no-caps size="md" align="left" flat padding="none" target="_blank"
-                      :href="event.locationOnline">Online link
+                      :href="event.locationOnline" class="text-underline text-blue">Online link
                     </q-btn>
-                    <q-item-label class="cursor-pointer">
+                    <q-item-label class="cursor-pointer text-underline text-blue">
                       {{ event.location }}
                       <q-popup-proxy>
                         <q-card class="q-pa-md" style="height: 500px; width: 500px">
