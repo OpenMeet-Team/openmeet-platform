@@ -25,11 +25,11 @@ const router = useRouter()
 const radius = ref<string>(route.query.radius as string || '')
 
 const radiusOptions = [
-  { label: '5 km', value: '5' },
-  { label: '10 km', value: '10' },
-  { label: '25 km', value: '25' },
-  { label: '50 km', value: '50' },
-  { label: '100 km', value: '100' }
+  { label: '5 miles', value: '5' },
+  { label: '10 miles', value: '10' },
+  { label: '25 miles', value: '25' },
+  { label: '50 miles', value: '50' },
+  { label: '100 miles', value: '100' }
 ]
 
 const onFilterByRadius = (value: string | null) => {
