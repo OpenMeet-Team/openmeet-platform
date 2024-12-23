@@ -20,7 +20,7 @@
       <div class="text-h6">{{ tempTime }}</div>
       <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer">
         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-time data-cy="datetime-component-time-picker" v-model="tempTime" format24h
+          <q-time data-cy="datetime-component-time-picker" v-model="tempTime" :format24h=false
             @update:model-value="onTimeUpdate">
             <div class="row items-center justify-end">
               <q-btn v-close-popup label="Close" color="primary" flat />
