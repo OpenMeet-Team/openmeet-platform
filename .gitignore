@@ -1,8 +1,6 @@
 .DS_Store
 .thumbs.db
 node_modules
-cert.pem
-key.pem
 
 # Quasar core related directories
 .quasar
