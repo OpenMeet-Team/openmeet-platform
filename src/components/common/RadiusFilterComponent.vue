@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -50,4 +50,8 @@ const onFilterByRadius = (value: string | null) => {
   console.log('Final query:', query)
   router.push({ query })
 }
+
+watch(() => route.query.radius, (newRadius) => {
+  radius.value = newRadius as string || ''
+})
 </script>
