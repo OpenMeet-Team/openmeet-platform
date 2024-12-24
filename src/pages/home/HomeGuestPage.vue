@@ -18,7 +18,7 @@
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
         <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">Explore All Groups<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
-        <NoContentComponent v-if="featuredGroups && !featuredGroups.length" label="There are no groups yet."
+        <NoContentComponent v-if="!featuredGroups?.length" label="There are no groups yet."
           icon="sym_r_groups" />
         <template v-else>
           <div data-cy="home-featured-groups">
@@ -38,16 +38,18 @@
 
       <div class="col-12 q-mt-xl">
         <SubtitleComponent class="q-px-md" hide-link label="Categories" />
-        <div data-cy="home-categories" class="row q-gutter-md">
+        <div data-cy="home-categories" class="row q-gutter-md" v-if="categories?.length">
           <HomeCategoryComponent v-for="category in categories" :key="category.id" :category="category" />
         </div>
+        <NoContentComponent v-if="!categories?.length" label="There are no categories yet." icon="sym_r_category" />
       </div>
 
       <div class="col-12 q-mt-lg">
         <SubtitleComponent class="q-px-md" hide-link label="Interests" />
-        <div data-cy="home-interests">
-          <HomeInterestsComponent v-if="interests" :interests="interests" />
+        <div data-cy="home-interests" v-if="interests?.length">
+          <HomeInterestsComponent :interests="interests" />
         </div>
+        <NoContentComponent v-if="!interests?.length" label="There are no interests yet." icon="sym_r_interests" />
       </div>
 
       <!-- Additional Information Section -->
