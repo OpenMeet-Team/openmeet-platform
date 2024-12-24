@@ -7,7 +7,7 @@ import { configure } from 'quasar/wrappers'
 
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
-
+import { readFileSync } from 'node:fs'
 export default configure((ctx) => {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
@@ -101,8 +101,21 @@ export default configure((ctx) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
-      port: Number(process.env.APP_DEV_SERVER_PORT) || 8080,
-      open: Boolean(process.env.APP_DEV_SERVER_OPEN) // opens browser window automatically
+      port: Number(process.env.APP_DEV_SERVER_PORT) || 9005,
+      open: Boolean(process.env.APP_DEV_SERVER_OPEN), // opens browser window automatically
+      https: {
+        key: readFileSync('key.pem'),
+        cert: readFileSync('cert.pem'),
+        minVersion: 'TLSv1.2', // Specify minimum TLS version
+        ciphers: [
+          'ECDHE-ECDSA-AES128-GCM-SHA256',
+          'ECDHE-RSA-AES128-GCM-SHA256',
+          'ECDHE-ECDSA-AES256-GCM-SHA384',
+          'ECDHE-RSA-AES256-GCM-SHA384',
+          'ECDHE-ECDSA-CHACHA20-POLY1305',
+          'ECDHE-RSA-CHACHA20-POLY1305'
+        ].join(':')
+      }
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
