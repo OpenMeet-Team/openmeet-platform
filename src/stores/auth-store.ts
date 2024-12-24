@@ -12,6 +12,7 @@ import {
   UserPermission
 } from 'src/types'
 import analyticsService from 'src/services/analyticsService'
+import getEnv from 'src/utils/env'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
@@ -141,6 +142,40 @@ export const useAuthStore = defineStore('authStore', {
     },
     actionSetPermissions (permissions: string[]) {
       this.permissions = permissions
+    },
+    async loginWithBluesky (handle: string) {
+      try {
+        const baseUrl = getEnv('APP_API_URL')
+        const tenantId = getEnv('APP_TENANT_ID')
+        window.location.href = `${baseUrl}/api/v1/auth/bluesky/login?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
+      } catch (error) {
+        console.error('Bluesky login error:', error)
+        throw error
+      }
+    },
+    async handleBlueskyCallback (params: URLSearchParams) {
+      try {
+        const token = params.get('token')
+        const profileStr = params.get('profile')
+
+        if (token && profileStr) {
+          const profile = JSON.parse(decodeURIComponent(profileStr))
+          this.actionSetToken(token)
+          this.actionSetUser({
+            id: profile.did,
+            email: `${profile.handle}@bsky.social`,
+            firstName: profile.displayName?.split(' ')[0] || '',
+            lastName: profile.displayName?.split(' ').slice(1).join(' ') || '',
+            ulid: profile.did,
+            slug: profile.handle
+          })
+          return true
+        }
+        return false
+      } catch (error) {
+        console.error('Bluesky callback error:', error)
+        throw error
+      }
     }
   }
 })
