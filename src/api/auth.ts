@@ -69,5 +69,8 @@ export const authApi = {
     api.post(`${BASE_URL}/google/login`, { idToken }),
 
   githubLogin: (code: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/github/login`, { code })
+    api.post(`${BASE_URL}/github/login`, { code }),
+
+  blueskyLogin: (handle: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/bluesky/authorize`, { handle })
 }

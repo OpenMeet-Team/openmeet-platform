@@ -12,7 +12,6 @@ import {
   UserPermission
 } from 'src/types'
 import analyticsService from 'src/services/analyticsService'
-import getEnv from 'src/utils/env'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
@@ -54,6 +53,14 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionGithubLogin (code: string) {
       return await authApi.githubLogin(code).then(response => {
+        this.actionSetToken(response.data.token)
+        this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
+        return response.data.token
+      })
+    },
+    async actionBlueskyLogin (handle: string) {
+      return await authApi.blueskyLogin(handle).then(response => {
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -142,16 +149,6 @@ export const useAuthStore = defineStore('authStore', {
     },
     actionSetPermissions (permissions: string[]) {
       this.permissions = permissions
-    },
-    async loginWithBluesky (handle: string) {
-      try {
-        const baseUrl = getEnv('APP_API_URL')
-        const tenantId = getEnv('APP_TENANT_ID')
-        window.location.href = `${baseUrl}/api/v1/auth/bluesky/login?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
-      } catch (error) {
-        console.error('Bluesky login error:', error)
-        throw error
-      }
     },
     async handleBlueskyCallback (params: URLSearchParams) {
       try {

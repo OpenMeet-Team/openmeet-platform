@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from 'src/stores/auth-store'
+import getEnv from 'src/utils/env'
 
 const props = withDefaults(defineProps<{
   text?: 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
@@ -34,7 +34,6 @@ const props = withDefaults(defineProps<{
 
 const isLoading = ref(false)
 const $q = useQuasar()
-const authStore = useAuthStore()
 
 const buttonText = computed(() => {
   const textMap = {
@@ -49,6 +48,7 @@ const buttonText = computed(() => {
 const handleBlueskyLogin = async () => {
   try {
     isLoading.value = true
+
     // Open a dialog to get the Bluesky handle
     $q.dialog({
       title: 'Enter your Bluesky handle',
@@ -60,7 +60,30 @@ const handleBlueskyLogin = async () => {
       cancel: true,
       persistent: true
     }).onOk(async (handle) => {
-      await authStore.loginWithBluesky(handle)
+      try {
+        const baseUrl = getEnv('APP_API_URL')
+        const tenantId = getEnv('APP_TENANT_ID')
+
+        // Get the authorization URL from the backend
+        const response = await fetch(
+          `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
+        )
+        const { url } = await response.json()
+
+        if (!url) {
+          throw new Error('No authorization URL received')
+        }
+
+        // Redirect the whole window to the Bluesky auth page
+        window.location.href = url
+      } catch (error) {
+        console.error('Failed to get auth URL:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'Failed to initiate Bluesky login'
+        })
+        isLoading.value = false
+      }
     }).onCancel(() => {
       isLoading.value = false
     })
