@@ -5,38 +5,35 @@
   </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent, onMounted } from 'vue'
+<script setup lang="ts">
 import { useAuthStore } from 'stores/auth-store'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { onMounted } from 'vue'
 
-export default defineComponent({
-  name: 'AuthBlueskyCallbackPage',
-  setup () {
-    const authStore = useAuthStore()
-    const router = useRouter()
-    const $q = useQuasar()
+const authStore = useAuthStore()
+const router = useRouter()
+const $q = useQuasar()
 
-    onMounted(async () => {
-      try {
-        const params = new URLSearchParams(window.location.search)
-        const success = await authStore.handleBlueskyCallback(params)
+onMounted(async () => {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const success = await authStore.handleBlueskyCallback(params)
 
-        if (success) {
-          await router.push({ name: 'HomePage' })
-        } else {
-          throw new Error('Login failed')
-        }
-      } catch (error) {
-        console.error('Bluesky callback error:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to complete Bluesky login'
-        })
-        await router.push({ name: 'AuthLoginPage' })
-      }
+    if (success) {
+      // Clear the token from URL for security
+      window.history.replaceState({}, document.title, window.location.pathname)
+      await router.push({ name: 'HomePage' })
+    } else {
+      throw new Error('Login failed')
+    }
+  } catch (error) {
+    console.error('Bluesky callback error:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to complete Bluesky login'
     })
+    await router.push({ name: 'AuthLoginPage' })
   }
 })
 </script>

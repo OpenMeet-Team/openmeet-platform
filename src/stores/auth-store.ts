@@ -153,19 +153,15 @@ export const useAuthStore = defineStore('authStore', {
     async handleBlueskyCallback (params: URLSearchParams) {
       try {
         const token = params.get('token')
-        const profileStr = params.get('profile')
+        const refreshToken = params.get('refreshToken')
+        const tokenExpires = params.get('tokenExpires')
+        const user = params.get('user')
 
-        if (token && profileStr) {
-          const profile = JSON.parse(decodeURIComponent(profileStr))
+        if (token && refreshToken && tokenExpires && user) {
           this.actionSetToken(token)
-          this.actionSetUser({
-            id: profile.did,
-            email: `${profile.handle}@bsky.social`,
-            firstName: profile.displayName?.split(' ')[0] || '',
-            lastName: profile.displayName?.split(' ').slice(1).join(' ') || '',
-            ulid: profile.did,
-            slug: profile.handle
-          })
+          this.actionSetRefreshToken(refreshToken)
+          this.actionSetTokenExpires(Number(tokenExpires))
+          this.actionSetUser(JSON.parse(user))
           return true
         }
         return false
