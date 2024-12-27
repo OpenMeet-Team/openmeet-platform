@@ -59,6 +59,14 @@ export const useAuthStore = defineStore('authStore', {
         return response.data.token
       })
     },
+    async actionBlueskyLogin (handle: string) {
+      return await authApi.blueskyLogin(handle).then(response => {
+        this.actionSetToken(response.data.token)
+        this.actionSetRefreshToken(response.data.refreshToken)
+        this.actionSetTokenExpires(response.data.tokenExpires)
+        return response.data.token
+      })
+    },
     async actionRefreshToken () {
       return await authApi.refreshToken(this.refreshToken).then(response => {
         this.actionSetToken(response.data.token)
@@ -141,6 +149,26 @@ export const useAuthStore = defineStore('authStore', {
     },
     actionSetPermissions (permissions: string[]) {
       this.permissions = permissions
+    },
+    async handleBlueskyCallback (params: URLSearchParams) {
+      try {
+        const token = params.get('token')
+        const refreshToken = params.get('refreshToken')
+        const tokenExpires = params.get('tokenExpires')
+        const user = params.get('user')
+
+        if (token && refreshToken && tokenExpires && user) {
+          this.actionSetToken(token)
+          this.actionSetRefreshToken(refreshToken)
+          this.actionSetTokenExpires(Number(tokenExpires))
+          this.actionSetUser(JSON.parse(user))
+          return true
+        }
+        return false
+      } catch (error) {
+        console.error('Bluesky callback error:', error)
+        throw error
+      }
     }
   }
 })

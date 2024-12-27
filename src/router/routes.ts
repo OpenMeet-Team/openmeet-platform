@@ -97,6 +97,16 @@ const routes: RouteRecordRaw[] = [
     ],
     meta: { requiresAuth: false }
   },
+  {
+    path: '/auth/bluesky/callback',
+    name: 'AuthBlueskyCallback',
+    component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
+  },
+  {
+    path: '/auth/error',
+    name: 'AuthErrorPage',
+    component: () => import('pages/auth/ErrorPage.vue')
+  },
   // Always leave this as last one,
   // but you can also remove it
   {

@@ -1,6 +1,6 @@
 <!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
 <template>
-  <div v-if="blueskyClientId" class="c-bluesky-login-component row justify-center">
+  <div class="c-bluesky-login-component row justify-center">
     <q-btn
       :loading="isLoading"
       :disable="isLoading"
@@ -9,7 +9,7 @@
     >
       <template v-slot:default>
         <div class="row items-center no-wrap">
-          <q-icon name="img:src/assets/bluesky-logo.svg" size="18px" class="q-mr-sm" />
+          <q-icon name="img:/bluesky-logo.svg" size="18px" class="q-mr-sm" />
           <span>{{ buttonText }}</span>
         </div>
       </template>
@@ -24,7 +24,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
-// import { useAuthStore } from 'src/stores/auth-store'
 import getEnv from 'src/utils/env'
 
 const props = withDefaults(defineProps<{
@@ -35,8 +34,6 @@ const props = withDefaults(defineProps<{
 
 const isLoading = ref(false)
 const $q = useQuasar()
-// const authStore = useAuthStore()
-const blueskyClientId = getEnv('APP_BLUESKY_CLIENT_ID')
 
 const buttonText = computed(() => {
   const textMap = {
@@ -52,55 +49,51 @@ const handleBlueskyLogin = async () => {
   try {
     isLoading.value = true
 
-    const redirectUri = `${window.location.origin}/auth/bluesky/callback`
-    const state = Math.random().toString(36).substring(7)
-    sessionStorage.setItem('bluesky_oauth_state', state)
+    // Open a dialog to get the Bluesky handle
+    $q.dialog({
+      title: 'Enter your Bluesky handle',
+      message: 'Please enter your Bluesky handle (e.g., alice.bsky.social)',
+      prompt: {
+        model: '',
+        type: 'text'
+      },
+      cancel: true,
+      persistent: true
+    }).onOk(async (handle) => {
+      try {
+        const baseUrl = getEnv('APP_API_URL')
+        const tenantId = getEnv('APP_TENANT_ID')
 
-    const blueskyUrl = new URL('https://bsky.app/oauth/authorize')
-    blueskyUrl.searchParams.append('client_id', blueskyClientId as string)
-    blueskyUrl.searchParams.append('redirect_uri', redirectUri)
-    blueskyUrl.searchParams.append('scope', 'read write')
-    blueskyUrl.searchParams.append('state', state)
-    blueskyUrl.searchParams.append('response_type', 'code')
+        // Get the authorization URL from the backend
+        const response = await fetch(
+          `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
+        )
+        const { url } = await response.json()
 
-    const width = 600
-    const height = 700
-    const left = window.screenX + (window.outerWidth - width) / 2
-    const top = window.screenY + (window.outerHeight - height) / 2
+        if (!url) {
+          throw new Error('No authorization URL received')
+        }
 
-    const popup = window.open(
-      blueskyUrl.toString(),
-      'Bluesky Login',
-      `width=${width},height=${height},left=${left},top=${top}`
-    )
-
-    window.addEventListener('message', async (event) => {
-      if (event.origin !== window.location.origin) return
-
-      const { code, state: returnedState } = event.data
-
-      if (returnedState !== sessionStorage.getItem('bluesky_oauth_state')) {
-        throw new Error('Invalid state parameter')
-      }
-
-      if (code) {
-        // await authStore.actionBlueskyLogin(code)
+        // Redirect the whole window to the Bluesky auth page
+        window.location.href = url
+      } catch (error) {
+        console.error('Failed to get auth URL:', error)
         $q.notify({
-          type: 'positive',
-          message: 'Successfully logged in with Bluesky'
+          type: 'negative',
+          message: 'Failed to initiate Bluesky login'
         })
-        popup?.close()
+        isLoading.value = false
       }
-    }, { once: true })
+    }).onCancel(() => {
+      isLoading.value = false
+    })
   } catch (error) {
     console.error('Bluesky auth error:', error)
     $q.notify({
       type: 'negative',
       message: 'Bluesky authentication failed'
     })
-  } finally {
     isLoading.value = false
-    sessionStorage.removeItem('bluesky_oauth_state')
   }
 }
 </script>
