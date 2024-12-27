@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { date } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -32,9 +32,9 @@ watch(() => route.query, (newQuery) => {
 // Function to handle date filtering
 const filterBy = (filter: DateRange) => {
   selectedRange.value = filter
+  const today = new Date()
 
   if (filter) {
-    const today = new Date()
     let fromDate, toDate
 
     if (filter === 'today') {
@@ -86,11 +86,13 @@ const filterBy = (filter: DateRange) => {
       isDateRangeDialogOpen.value = true
     }
   } else {
+    // Even when no filter is selected, include today as the minimum date
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { fromDate, toDate, range, ...rest } = route.query // Destructure to remove location
+    const { fromDate, toDate, range, ...rest } = route.query
     router.push({
       query: {
         ...rest,
+        fromDate: today.toISOString(), // Always include today as minimum date
         page: 1
       }
     })
@@ -99,18 +101,35 @@ const filterBy = (filter: DateRange) => {
 
 const applyCustomDateRange = () => {
   if (customDateRange.value.fromDate && customDateRange.value.toDate) {
+    // Convert dates to start and end of day to include full days
+    const fromDate = date.startOfDate(new Date(customDateRange.value.fromDate), 'day').toISOString()
+    const toDate = date.endOfDate(new Date(customDateRange.value.toDate), 'day').toISOString()
+
     router.push({
       query: {
         ...route.query,
         range: 'custom',
-        fromDate: new Date(customDateRange.value.fromDate).toISOString(),
-        toDate: new Date(customDateRange.value.toDate).toISOString(),
+        fromDate,
+        toDate,
         page: 1
       }
     })
     isDateRangeDialogOpen.value = false
   }
 }
+
+// Ensure default fromDate is set on component mount
+onMounted(() => {
+  if (!route.query.fromDate) {
+    const today = new Date()
+    router.push({
+      query: {
+        ...route.query,
+        fromDate: today.toISOString()
+      }
+    })
+  }
+})
 
 </script>
 
