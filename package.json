@@ -1,9 +1,9 @@
 {
   "name": "openmeet",
   "version": "0.0.2",
-  "description": "Building Communities",
+  "description": "Building communities should be easy and free. OpenMeet is a free and opensource platform for creating and managing events, groups, and communities.",
   "productName": "OpenMeet",
-  "author": "Stan Khatko <stanislavkhatko@gmail.com>",
+  "author": "Tom Scanlan <tom@openmeet.com>",
   "type": "module",
   "private": true,
   "scripts": {
