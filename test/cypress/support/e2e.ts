@@ -12,6 +12,7 @@
 // You can read more here:
 // https://on.cypress.io/configuration
 // ***********************************************************
+import '@cypress/code-coverage/support'
 
 Cypress.on('uncaught:exception', (err) => {
   // Ignore ResizeObserver errors
@@ -24,4 +25,3 @@ Cypress.on('uncaught:exception', (err) => {
 })
 
 import './commands'
-import '@cypress/code-coverage/support'

@@ -15,10 +15,11 @@
     "test:unit:ui": "QENV=test vitest --ui",
     "test:unit": "QENV=test vitest",
     "test:unit:ci": "QENV=test vitest run",
-    "test:e2e": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress open --e2e\"",
-    "test:e2e:ci": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"cypress run --e2e\"",
-    "test:component": "cross-env QENV=test cypress open --component",
-    "test:component:ci": "cross-env QENV=test cypress run --component"
+    "test:e2e": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"COVERAGE=true cypress open --e2e\"",
+    "test:e2e:ci": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"COVERAGE=true cypress run --e2e\" && npx nyc report --reporter=lcov --reporter=text",
+    "test:component": "cross-env QENV=test COVERAGE=true cypress open --component",
+    "test:component:ci": "cross-env QENV=test COVERAGE=true cypress run --component && npx nyc report --reporter=lcov --reporter=text",
+    "test:coverage": "npx nyc report --reporter=lcov --reporter=text"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.13",
@@ -61,6 +62,7 @@
     "eslint-plugin-vue": "^9.30.0",
     "typescript": "~5.5.3",
     "vite-plugin-checker": "^0.7.2",
+    "vite-plugin-istanbul": "^6.0.2",
     "vitest": "^2.1.4",
     "vue-router-mock": "^1.1.0",
     "vue-tsc": "2.0.29"

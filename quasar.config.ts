@@ -4,9 +4,9 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from 'quasar/wrappers'
-
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
+import istanbul from 'vite-plugin-istanbul'
 
 export default configure((ctx) => {
   return {
@@ -45,6 +45,7 @@ export default configure((ctx) => {
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#build
     build: {
+      sourcemap: true,
       target: {
         browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
         node: 'node20'
@@ -95,7 +96,13 @@ export default configure((ctx) => {
           eslint: {
             lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}"'
           }
-        }, { server: false }]
+        }, { server: false }],
+        istanbul({
+          include: 'src/*',
+          exclude: ['node_modules', 'test/'],
+          extension: ['.js', '.ts', '.vue'],
+          requireEnv: false
+        })
       ]
     },
 
