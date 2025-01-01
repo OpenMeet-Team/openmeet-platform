@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "name": "Private Test Event",
+  "description": "This is a private event",
+  "slug": "private-test-event",
+  "visibility": "Private",
+  "attendees": []
+}
