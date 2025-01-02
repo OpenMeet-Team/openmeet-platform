@@ -45,16 +45,15 @@ Cypress.Commands.add('loginPage', (username: string, password: string) => {
 
 Cypress.Commands.add('logout', () => {
   // Click the avatar to open menu
-  cy.get('.q-avatar').click()
+  cy.dataCy('header-profile-avatar').click()
 
   // Click the logout menu item and wait for auth state to clear
-  cy.contains('Logout').click()
+  cy.contains('Logout').click({ force: true })
 
-  // Force visit home page
-  cy.visit('/')
+  cy.url().should('eq', Cypress.config().baseUrl)
 
-  // Verify we're logged out by checking for login button
-  cy.contains('Sign in').should('be.visible')
+  // Now check for the sign-in button
+  cy.dataCy('header-sign-in-button').should('be.visible')
 })
 
 // DO NOT REMOVE
