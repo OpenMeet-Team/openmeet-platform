@@ -135,9 +135,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { eventsApi } from 'src/api/events'
 import EventStickyComponent from 'components/event/EventStickyComponent.vue'
 import { formatDate } from '../utils/dateUtils.ts'
 import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
@@ -181,11 +182,34 @@ useMeta({
   }
 })
 
+const loaded = ref(false)
+
 onMounted(() => {
   LoadingBar.start()
   useEventStore().actionGetEventBySlug(route.params.slug as string).finally(() => {
     showSimilarEvents.value = true
     LoadingBar.stop()
   })
+})
+
+// Add this watcher to reload data when route changes
+onBeforeRouteUpdate(async (to) => {
+  // Reset loading state
+  loaded.value = false
+
+  // Reload event data with new slug
+  if (to.params.slug) {
+    try {
+      LoadingBar.start()
+      const response = await eventsApi.getBySlug(String(to.params.slug))
+      useEventStore().event = response.data
+      showSimilarEvents.value = true
+    } catch (error) {
+      console.error('Failed to load event:', error)
+    } finally {
+      loaded.value = true
+      LoadingBar.stop()
+    }
+  }
 })
 </script>
