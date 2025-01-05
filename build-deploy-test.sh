@@ -9,7 +9,7 @@ aws ecr get-login-password --region us-east-1 | docker login --username AWS --pa
 
 docker buildx build --load \
   --build-arg APP_VERSION=$(node -p "require('./package.json').version") \
-  --build-arg COMMIT_SHA=$(git rev-parse --short HEAD) \
+  --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
   -t openmeet-platform:test .
 
 # tag and push to ECR

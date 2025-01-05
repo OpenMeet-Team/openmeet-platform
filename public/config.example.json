@@ -1,0 +1,6 @@
+{
+  "APP_TENANT_DESCRIPTION": "Your tenant description",
+  "APP_TENANT_NAME": "Your Tenant Name",
+  "APP_TENANT_IMAGE": "/path/to/image.jpg"
+  
+}

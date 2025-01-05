@@ -4,7 +4,10 @@
     "baseUrl": ".",
     "types": [
       "cypress"
-    ]
+    ],
+    "allowJs": true,
+    "moduleResolution": "node",
+    "module": "ESNext"
   },
   "esModuleInterop": true,
   "exclude": [
