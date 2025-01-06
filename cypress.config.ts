@@ -1,5 +1,5 @@
-import { defineConfig } from 'cypress'
 import registerCodeCoverageTasks from '@cypress/code-coverage/task.js'
+import { defineConfig } from 'cypress'
 import dotenv from 'dotenv'
 import startDevServer from '@quasar/quasar-app-extension-testing-e2e-cypress/cct-dev-server/index.js'
 

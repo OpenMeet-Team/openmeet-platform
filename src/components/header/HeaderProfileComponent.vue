@@ -1,6 +1,6 @@
 <template>
   <q-avatar class="cursor-pointer" v-if="useAuthStore().isAuthenticated">
-    <img :src="getImageSrc(useAuthStore().getUser.photo)" alt="avatar">
+    <img data-cy="header-profile-avatar" :src="getImageSrc(useAuthStore().getUser.photo)" alt="avatar">
     <q-icon size="md" name="sym_r_person" />
     <q-menu>
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>

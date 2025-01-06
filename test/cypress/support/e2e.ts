@@ -12,11 +12,13 @@
 // You can read more here:
 // https://on.cypress.io/configuration
 // ***********************************************************
+import '@cypress/code-coverage/support'
 
 Cypress.on('uncaught:exception', (err) => {
   // Ignore ResizeObserver errors
   if (err.message.includes('ResizeObserver') ||
-    err.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+    err.message.includes('ResizeObserver loop completed with undelivered notifications') ||
+    err.message.includes('ResizeObserver loop limit exceeded')) {
     return false
   }
   // Return true for other errors
@@ -24,4 +26,3 @@ Cypress.on('uncaught:exception', (err) => {
 })
 
 import './commands'
-import '@cypress/code-coverage/support'

@@ -43,6 +43,19 @@ Cypress.Commands.add('loginPage', (username: string, password: string) => {
   cy.dataCy('login-submit').click()
 })
 
+Cypress.Commands.add('logout', () => {
+  // Click the avatar to open menu
+  cy.dataCy('header-profile-avatar').click()
+
+  // Click the logout menu item and wait for auth state to clear
+  cy.contains('Logout').click({ force: true })
+
+  cy.url().should('eq', Cypress.config().baseUrl)
+
+  // Now check for the sign-in button
+  cy.dataCy('header-sign-in-button').should('be.visible')
+})
+
 // DO NOT REMOVE
 // Imports Quasar Cypress AE predefined commands
 import { registerCommands } from '@quasar/quasar-app-extension-testing-e2e-cypress'

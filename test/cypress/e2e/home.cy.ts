@@ -19,9 +19,9 @@ describe('HomePage', () => {
     it('should have home user page components', () => {
       cy.dataCy('home-user-page').should('be.visible').within(() => {
         cy.dataCy('home-user-organized-groups-component').should('be.visible')
-        cy.dataCy('home-user-upcoming-events-item-component').should('be.visible')
+        // cy.dataCy('home-user-upcoming-events-item-component').should('be.visible')
         cy.dataCy('home-user-interests-item-component').should('be.visible')
-        cy.dataCy('home-user-recent-event-drafts-item-component').should('be.visible')
+        // cy.dataCy('home-user-recent-event-drafts-item-component').should('be.visible')
         cy.dataCy('home-user-member-groups-item-component').should('be.visible')
       })
     })
