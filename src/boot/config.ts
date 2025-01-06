@@ -12,7 +12,7 @@ export default boot(async () => {
     window.APP_CONFIG = {
       APP_TENANT_DESCRIPTION: 'Building communities',
       APP_TENANT_NAME: 'OpenMeet',
-      APP_TENANT_IMAGE: '/default-image.jpg',
+      APP_TENANT_IMAGE: '/openmeet/openmeet-logo.png',
       APP_API_URL: process.env.APP_API_URL as string
     }
   }
