@@ -27,12 +27,10 @@ ARG COMMIT_SHA
 ENV APP_VERSION=${APP_VERSION}
 ENV COMMIT_SHA=${COMMIT_SHA}
 
-# Echo them to verify they're set
-RUN echo "Building version: ${APP_VERSION}"
-RUN echo "Commit SHA: ${COMMIT_SHA}"
-
-
 RUN quasar build
+
+RUN echo "$APP_VERSION" > /usr/src/app/dist/spa/app-version.txt && \
+    echo "$COMMIT_SHA" > /usr/src/app/dist/spa/commit-sha.txt
 
 # Remove devDependencies
 RUN npm prune --omit=dev
@@ -43,26 +41,6 @@ ARG APP_VERSION
 ARG COMMIT_SHA
 COPY --from=dependencies /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/dist ./dist
-
-RUN apk add --no-cache gettext
-
-# Create template from the built index.html
-RUN cp ./dist/spa/index.html ./dist/spa/index.html.template
-
-# Create template from the built index.html with hardcoded version values
-RUN sed -i "s/<head>/<head><script>window.APP_CONFIG = {\
-  APP_VERSION: \"${APP_VERSION}\",\
-  COMMIT_SHA: \"${COMMIT_SHA}\",\
-  APP_API_URL: \"\${APP_API_URL}\",\
-  APP_TENANT_ID: \"\${APP_TENANT_ID}\",\
-  APP_POSTHOG_KEY: \"\${APP_POSTHOG_KEY}\",\
-  APP_HUBSPOT_PORTAL_ID: \"\${APP_HUBSPOT_PORTAL_ID}\",\
-  APP_HUBSPOT_FORM_ID: \"\${APP_HUBSPOT_FORM_ID}\",\
-  APP_GOOGLE_CLIENT_ID: \"\${APP_GOOGLE_CLIENT_ID}\",\
-  APP_GITHUB_CLIENT_ID: \"\${APP_GITHUB_CLIENT_ID}\",\
-  APP_BLUESKY_CLIENT_ID: \"\${APP_BLUESKY_CLIENT_ID}\" \
-};<\/script>/" ./dist/spa/index.html.template
-
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 

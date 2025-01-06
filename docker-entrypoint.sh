@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Replace environment variables in index.html
-envsubst < ./dist/spa/index.html.template > ./dist/spa/index.html
+echo "Starting OpenMeet Platform"
+echo "App version: $(cat /usr/src/app/dist/spa/app-version.txt)"
+echo "Commit SHA: $(cat /usr/src/app/dist/spa/commit-sha.txt)"
 
 # Execute CMD
 exec "$@"

@@ -1,7 +1,7 @@
-import registerCodeCoverageTasks from '@cypress/code-coverage/task'
-import { injectQuasarDevServerConfig } from '@quasar/quasar-app-extension-testing-e2e-cypress/cct-dev-server'
 import { defineConfig } from 'cypress'
+import registerCodeCoverageTasks from '@cypress/code-coverage/task.js'
 import dotenv from 'dotenv'
+import startDevServer from '@quasar/quasar-app-extension-testing-e2e-cypress/cct-dev-server/index.js'
 
 // Load environment variables from .env file
 dotenv.config()
@@ -35,6 +35,6 @@ export default defineConfig({
     supportFile: 'test/cypress/support/component.ts',
     specPattern: 'src/**/*.cy.{js,jsx,ts,tsx}',
     indexHtmlFile: 'test/cypress/support/component-index.html',
-    devServer: injectQuasarDevServerConfig()
+    devServer: startDevServer
   }
 })

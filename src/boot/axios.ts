@@ -11,16 +11,19 @@ declare module 'vue' {
   }
 }
 
-// Be careful when using SSR for cross-request state pollution
-// due to creating a Singleton instance here;
-// If any client changes this (global) instance, it might be a
-// good idea to move this instance creation inside of the
-// "export default () => {}" function below (which runs individually
-// for each client)
-// if testing set from env, otherwise use default tenant id
-const api = axios.create({ baseURL: getEnv('APP_API_URL') as string })
+// Create api without baseURL initially
+const api = axios.create()
 const { error } = useNotification()
-export default boot(({ app, router }) => {
+
+export default boot(async ({ app, router }) => {
+  // Wait for config to be available
+  while (!window.APP_CONFIG?.APP_API_URL) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+
+  // Now we can safely set the baseURL
+  api.defaults.baseURL = window.APP_CONFIG.APP_API_URL
+
   // for use inside Vue files (Options API) through this.$axios and this.$api
   app.config.globalProperties.$axios = axios
 

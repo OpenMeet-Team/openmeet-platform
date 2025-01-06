@@ -17,10 +17,11 @@ export default configure((ctx) => {
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
     boot: [
+      'config',
+      'posthog',
       'axios',
       'analytics',
-      'global-components',
-      'posthog'
+      'global-components'
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
