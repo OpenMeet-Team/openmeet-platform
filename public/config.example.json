@@ -1,6 +1,13 @@
 {
   "APP_TENANT_DESCRIPTION": "Your tenant description",
   "APP_TENANT_NAME": "Your Tenant Name",
-  "APP_TENANT_IMAGE": "/path/to/image.jpg"
-  
+  "APP_TENANT_IMAGE": "/path/to/image.jpg",
+  "APP_API_URL": "https://api.openmeet.net",
+  "APP_TENANT_ID": "lsdfaopkljdfs",
+  "NODE_ENV": "production",
+  "APP_HUBSPOT_PORTAL_ID": "123",
+  "APP_HUBSPOT_FORM_ID": "456",
+  "APP_GOOGLE_CLIENT_ID": "789",
+  "APP_GITHUB_CLIENT_ID": "135",
+  "APP_POSTHOG_KEY": "790"
 }
