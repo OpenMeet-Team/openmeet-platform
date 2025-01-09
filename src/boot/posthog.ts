@@ -1,27 +1,27 @@
 import { PostHog } from 'posthog-js'
 import { useAuthStore } from 'src/stores/auth-store'
-import getEnv from 'src/utils/env'
 import { Router } from 'vue-router'
 
 let posthog: PostHog
 
-// Check for the PostHog key before importing
-const POSTHOG_KEY = getEnv('APP_POSTHOG_KEY')
+export default async ({ router }: { router: Router }) => {
+  // Wait for config to be available
+  while (!window.APP_CONFIG?.APP_POSTHOG_KEY) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
 
-if (POSTHOG_KEY) {
-  import('posthog-js').then((module) => {
+  const POSTHOG_KEY = window.APP_CONFIG.APP_POSTHOG_KEY
+
+  if (POSTHOG_KEY) {
+    const module = await import('posthog-js')
     posthog = module.default
-    posthog.init(POSTHOG_KEY as string, {
+    posthog.init(POSTHOG_KEY, {
       debug: false,
       api_host: 'https://us.i.posthog.com',
       person_profiles: 'identified_only'
     })
-    posthog.group('tenant_id', getEnv('APP_TENANT_ID') as string)
-  })
-}
+    posthog.group('tenant_id', window.APP_CONFIG.APP_TENANT_ID)
 
-export default ({ router }: { router: Router }) => {
-  if (posthog) {
     const authStore = useAuthStore()
     if (authStore.getUser) {
       posthog.identify(authStore.getUser.shortId, {
@@ -29,6 +29,7 @@ export default ({ router }: { router: Router }) => {
         name: authStore.getUser.name
       })
     }
+
     router.afterEach((to) => {
       posthog.capture('$pageview', { path: to.path })
     })
