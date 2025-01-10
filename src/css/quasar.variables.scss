@@ -10,15 +10,31 @@ $primary-light-gray:#F5F5FA;
 
 // Primary Colors (OpenMeet palette)
 $logo-white: #FFFFFF;
-$light-purple: #D2ACEE;
-$medium-purple: #AF9EE8;
-$dark-purple: #7B71DA;
-$deep-navy: #1E1A43;
+$purple-100: #EEEDFB;
+$purple-200: #D2ACEE;
+$purple-300: #AF9EE8;
+$purple-400: #7B71DA;
+$purple-500: #1E1A43;
+$light-purple: $purple-200;
+$medium-purple: $purple-300;
+$dark-purple: $purple-400;
+$deep-navy: $purple-500;
 
 // Theme Colors
-$primary: $dark-purple;
-$secondary: $light-purple;
-$accent: $medium-purple;
+$blue: #22B2DA;
+$blue-light: #E4F5FA;
+$purple: $purple-400;
+$purple-light: $purple-100;
+$pink: #FDA7CC;
+$pink-light: #FEF4F8;
+$orange: #FFB677;
+$orange-light: #FFF6EE;
+$green: #60CBA4;
+$green-light: #EEFFF9;
+
+$primary: $purple-300;
+$secondary: $purple-400;
+$accent: $purple-200;
 
 // Neutral Colors
 $light-gray: #F2F2F2;
@@ -26,20 +42,20 @@ $medium-gray: #CCCCCC;
 $dark-gray: #444444;
 $darker-gray: #333333;
 
-// Quasar Color Configuration
-$primary: $dark-purple;
-$secondary: $light-purple;
-$accent: $medium-purple;
+// // Quasar Color Configuration
+// $primary: $dark-purple;
+// $secondary: $light-purple;
+// $accent: $medium-purple;
 
 // Dark Mode Colors
-$dark-page: $deep-navy;
-$dark-block: $darker-gray;
+$dark-page: $purple-500;
+$dark-block: $purple-200;
 
 // Status Colors
-$positive: #4CAF50;
-$negative: #F44336;
-$info: #2196F3;
-$warning: #FFC107;
+$positive: $green;
+$negative: $pink;
+$info: $blue;
+$warning: $orange;
 
 .bg-dark-page {
   background-color: $dark-page;
@@ -48,6 +64,10 @@ $warning: #FFC107;
 // Text and Background Utilities
 .text-light-gray {
   color: $light-gray;
+}
+
+.bg-white {
+  background-color: $logo-white;
 }
 
 .bg-light-gray {
@@ -84,4 +104,24 @@ $warning: #FFC107;
 
 .text-underline {
   text-decoration: underline;
+}
+
+.bg-purple-100 {
+  background-color: $purple-100;
+}
+
+.bg-purple-200 {
+  background-color: $purple-200;
+}
+
+.bg-purple-300 {
+  background-color: $purple-300;
+}
+
+.bg-purple-400 {
+  background-color: $purple-400;
+}
+
+.bg-purple-500 {
+  background-color: $purple-500;
 }
