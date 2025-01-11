@@ -14,8 +14,9 @@ $purple-100: #EEEDFB;
 $purple-200: #D2ACEE;
 $purple-300: #AF9EE8;
 $purple-400: #7B71DA;
-$purple-500: #1E1A43;
-$light-purple: $purple-200;
+$purple-500: #4238A6;
+$purple-600: #1E1A43;
+$light-purple: $purple-100;
 $medium-purple: $purple-300;
 $dark-purple: $purple-400;
 $deep-navy: $purple-500;
@@ -124,4 +125,8 @@ $warning: $orange;
 
 .bg-purple-500 {
   background-color: $purple-500;
+}
+
+.text-purple-400 {
+  color: $purple-400;
 }

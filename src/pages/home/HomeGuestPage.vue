@@ -3,17 +3,7 @@
     <SpinnerComponent v-if="useHomeStore().loading" />
     <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
 
-      <!-- Hero Section -->
-      <div class="col-12 q-mb-xl">
-        <q-card class="bg-primary text-white">
-          <q-card-section class="text-center q-pa-lg">
-            <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
-            <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
-            <q-btn color="white" no-caps text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
-              size="lg" />
-          </q-card-section>
-        </q-card>
-      </div>
+      <HomeHeroComponent />
 
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
@@ -102,17 +92,13 @@ import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
 import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
-
-const { openLoginDialog, openRegisterDialog } = useAuthDialog()
+import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
+const { openRegisterDialog } = useAuthDialog()
 
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
-
-const onJoinNowClick = () => {
-  openLoginDialog()
-}
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
