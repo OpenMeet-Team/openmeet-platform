@@ -23,13 +23,13 @@ const { navigateToGroup } = useNavigation()
     <!-- Group Image -->
     <q-img
       :src="getImageSrc(group.image)"
-      class="cursor-pointer rounded-borders group-image"
+      class="cursor-pointer group-image"
       @click="navigateToGroup(group)"
       :ratio="16/9"
     />
 
     <!-- Group Info -->
-    <div class="group-content">
+    <div class="group-content bg-purple-100">
       <div class="text-h5 text-bold cursor-pointer" @click="navigateToGroup(group)">
         {{ group.name }}
       </div>
@@ -59,14 +59,21 @@ const { navigateToGroup } = useNavigation()
   border: 1px solid $grey-4;
   border-radius: 8px;
   overflow: hidden;
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 
   &.grid {
     display: flex;
     flex-direction: column;
     height: 100%;
+    margin-bottom: 0;
 
     .group-image {
       width: 100%;
+      border-radius: 8px 8px 0 0;
     }
 
     .group-content {
@@ -82,6 +89,7 @@ const { navigateToGroup } = useNavigation()
     .group-image {
       width: 160px;
       min-width: 160px;
+      border-radius: 8px 0 0 8px;
 
       @media (min-width: 600px) {
         width: 240px;

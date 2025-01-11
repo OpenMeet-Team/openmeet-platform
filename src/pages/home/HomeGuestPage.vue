@@ -12,6 +12,7 @@
           <q-icon name="sym_r_arrow_forward" />
         </SubtitleComponent>
 
+        <!-- Featured Groups -->
         <GroupsListComponent
           :groups="featuredGroups"
           :show-pagination="false"
