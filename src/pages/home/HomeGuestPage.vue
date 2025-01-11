@@ -7,14 +7,18 @@
 
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">Explore All Groups<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
-        <NoContentComponent v-if="!featuredGroups?.length" label="There are no groups yet."
-          icon="sym_r_groups" />
-        <template v-else>
-          <div data-cy="home-featured-groups">
-            <GroupsItemComponent v-for="group in featuredGroups" :key="group.id" :group="group" />
-          </div>
-        </template>
+        <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">
+          Explore All Groups
+          <q-icon name="sym_r_arrow_forward" />
+        </SubtitleComponent>
+
+        <GroupsListComponent
+          :groups="featuredGroups"
+          :show-pagination="false"
+          :loading="useHomeStore().loading"
+          empty-message="There are no groups yet."
+          layout="grid"
+        />
       </div>
 
       <!-- Upcoming Events Section -->
@@ -90,9 +94,9 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
+import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
 const { openRegisterDialog } = useAuthDialog()
 
 const categories = computed(() => useHomeStore().guestCategories)

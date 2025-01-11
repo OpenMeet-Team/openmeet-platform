@@ -18,6 +18,7 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
+  <!-- GroupsItemComponent -->
   <div class="c-groups-item-component row q-mb-lg q-col-gutter-lg" data-cy="groups-item-component">
     <div class="col-12 col-sm-4">
       <q-img height="150px" class="cursor-pointer rounded-borders" data-cy="groups-item-image"
