@@ -35,7 +35,7 @@ const shareUrls = {
 // Function to share content based on the selected platform
 const shareTo = (platform: keyof typeof shareUrls) => {
   const url = window.location.href // Share the current page URL
-  const text = 'Check this out!' // Share message text (can be customized)
+  const text = 'Check out OpenMeet!' // Share message text
 
   const shareUrl = shareUrls[platform](url, text)
   try {
@@ -47,7 +47,7 @@ const shareTo = (platform: keyof typeof shareUrls) => {
 
 // Function for sharing via email
 const shareToEmail = () => {
-  const subject = encodeURIComponent('Check this out!')
+  const subject = encodeURIComponent('Check out OpenMeet!')
   const body = encodeURIComponent(`I found this interesting: ${window.location.href}`)
 
   try {
