@@ -130,5 +130,8 @@ const onJoinNowClick = () => {
 :deep(.q-btn) {
   text-transform: uppercase;
   font-weight: 600;
+  color: white;
+  background: linear-gradient(to right, $purple-400, $purple-200);
 }
+
 </style>

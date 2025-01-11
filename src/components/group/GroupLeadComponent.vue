@@ -27,16 +27,16 @@ const { navigateToMember } = useNavigation()
         <q-card-section>
           <div class="text-h4 text-bold q-py-none q-mb-md" data-cy="group-name">{{ group.name }}</div>
           <div class="row items-start no-wrap" v-if="group.location">
-            <q-icon size="sm" left name="sym_r_location_on"/>
+            <q-icon size="sm" left name="sym_r_location_on" class="text-purple-300"/>
             <div class="text-body1">{{ group.location }}</div>
           </div>
           <div class="row items-start no-wrap q-mt-xs">
-            <q-icon size="sm" left name="sym_r_people"/>
+            <q-icon size="sm" left name="sym_r_people" class="text-purple-300"/>
             <div class="text-body1 q-mr-sm">{{ group.groupMembersCount }} {{ pluralize(group.groupMembersCount as number, 'member') }}</div>|
             <div class="text-body1 q-ml-sm">{{ group.visibility }} group</div>
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
-            <q-icon size="sm" left name="sym_r_person"/>
+            <q-icon size="sm" left name="sym_r_person" class="text-purple-300"/>
             <div class="text-body1 cursor-pointer">Organised by <span class="router-link-inherit" v-if="group.createdBy" @click.stop="navigateToMember(group.createdBy)">{{ group.createdBy.name }}</span></div>
           </div>
         </q-card-section>
