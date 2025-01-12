@@ -7,14 +7,10 @@
 
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">
-          Explore All Groups
-          <q-icon name="sym_r_arrow_forward" />
-        </SubtitleComponent>
-
         <!-- Featured Groups -->
         <GroupsListComponent
           :groups="featuredGroups"
+          label="Featured Groups"
           :show-pagination="false"
           :loading="useHomeStore().loading"
           empty-message="There are no groups yet."
