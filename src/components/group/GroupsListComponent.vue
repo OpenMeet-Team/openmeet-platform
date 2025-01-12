@@ -3,7 +3,7 @@ import { GroupEntity } from 'src/types'
 import GroupsItemComponent from './GroupsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
-
+import SubtitleComponent from '../common/SubtitleComponent.vue'
 interface Props {
   groups?: GroupEntity[]
   loading?: boolean
@@ -12,6 +12,7 @@ interface Props {
   showPagination?: boolean
   currentPage: number
   totalPages?: number
+  label?: string
 }
 
 withDefaults(defineProps<Props>(), {
@@ -19,7 +20,8 @@ withDefaults(defineProps<Props>(), {
   layout: 'list',
   emptyMessage: 'No groups found',
   showPagination: false,
-  currentPage: 1
+  currentPage: 1,
+  label: 'Groups'
 })
 
 const emit = defineEmits(['page-change', 'update:currentPage'])
@@ -32,6 +34,9 @@ const onPageChange = (page: number) => {
 
 <template>
   <div class="groups-list">
+    <SubtitleComponent v-if="label" :label="label" :to="{ name: 'GroupsPage' }">
+      All Groups<q-icon name="sym_r_arrow_forward" />
+    </SubtitleComponent>
     <SpinnerComponent v-if="loading" />
 
     <template v-else>
