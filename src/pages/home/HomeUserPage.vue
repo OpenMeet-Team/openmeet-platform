@@ -12,7 +12,6 @@ import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
 import { GroupEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils'
-import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
 
 const userOrganizedGroups = computed(
@@ -177,34 +176,27 @@ const onCreateEvent = (group: GroupEntity) => {
             </q-card>
 
             <!-- Groups you're part of -->
-            <SubtitleComponent
-              class="q-px-md"
+            <GroupsListComponent
+              data-cy="home-user-member-groups-item-component"
+              :groups="userMemberGroups ?? []"
+              :show-pagination="false"
+              empty-message="You are not a member of any groups"
+              layout="list"
+              :current-page="1"
               label="Groups you're part of"
               :hide-link="!userMemberGroups?.length"
               :count="userMemberGroups?.length"
               :to="{ name: 'DashboardGroupsPage' }"
-            />
-            <q-card
-              flat
-              bordered
-              class="q-mb-xl"
-              data-cy="home-user-member-groups-item-component"
             >
-              <q-card-section v-if="userMemberGroups?.length">
-                <GroupsItemComponent
-                  v-for="group in userMemberGroups"
-                  :key="group.id"
-                  :group="group"
+              <template #empty>
+                <NoContentComponent
+                  button-label="Browse groups"
+                  icon="sym_r_group"
+                  label="You are not a member of any groups"
+                  :to="{ name: 'GroupsPage' }"
                 />
-              </q-card-section>
-              <NoContentComponent
-                v-else
-                button-label="Browse groups"
-                icon="sym_r_group"
-                label="You are not a member of any groups"
-                :to="{ name: 'GroupsPage' }"
-              />
-            </q-card>
+              </template>
+            </GroupsListComponent>
 
             <!-- Your interests -->
             <SubtitleComponent

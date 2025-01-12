@@ -9,9 +9,10 @@
       <div class="col-12 q-mt-lg">
         <!-- Featured Groups -->
         <GroupsListComponent
-          :groups="featuredGroups"
+          :groups="featuredGroups as GroupEntity[]"
           label="Featured Groups"
           :show-pagination="false"
+          :current-page="1"
           :loading="useHomeStore().loading"
           empty-message="There are no groups yet."
           layout="grid"
@@ -95,6 +96,7 @@ import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
 import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
 const { openRegisterDialog } = useAuthDialog()
+import { GroupEntity } from 'src/types/group.ts'
 
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
