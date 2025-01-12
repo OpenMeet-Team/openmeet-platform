@@ -1,35 +1,35 @@
 <script setup lang="ts">
-import { onMounted, computed } from "vue";
-import { LoadingBar } from "quasar";
-import { getImageSrc } from "src/utils/imageUtils.ts";
-import { useProfileStore } from "src/stores/profile-store";
-import SpinnerComponent from "src/components/common/SpinnerComponent.vue";
-import { useRoute } from "vue-router";
-import SubtitleComponent from "src/components/common/SubtitleComponent.vue";
-import { useAuthStore } from "src/stores/auth-store";
-import NoContentComponent from "src/components/global/NoContentComponent.vue";
-import GroupsItemComponent from "src/components/group/GroupsItemComponent.vue";
-import EventsItemComponent from "src/components/event/EventsItemComponent.vue";
-import GroupsListComponent from "src/components/group/GroupsListComponent.vue";
+import { onMounted, computed } from 'vue'
+import { LoadingBar } from 'quasar'
+import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { useProfileStore } from 'src/stores/profile-store'
+import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
+import { useRoute } from 'vue-router'
+import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
+import { useAuthStore } from 'src/stores/auth-store'
+import NoContentComponent from 'src/components/global/NoContentComponent.vue'
+import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
+import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
+import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
 
-const route = useRoute();
+const route = useRoute()
 
-const user = computed(() => useProfileStore().user);
-const interests = computed(() => useProfileStore().user?.interests);
-const ownedGroups = computed(() => useProfileStore().user?.groups);
-const organizedEvents = computed(() => useProfileStore().user?.events);
+const user = computed(() => useProfileStore().user)
+const interests = computed(() => useProfileStore().user?.interests)
+const ownedGroups = computed(() => useProfileStore().user?.groups)
+const organizedEvents = computed(() => useProfileStore().user?.events)
 const groupMemberships = computed(() =>
   useProfileStore().user?.groupMembers?.filter(
-    (member) => member.groupRole?.name !== "owner"
+    (member) => member.groupRole?.name !== 'owner'
   )
-);
+)
 
 onMounted(async () => {
-  LoadingBar.start();
+  LoadingBar.start()
   useProfileStore()
     .actionGetMemberProfile(route.params.slug as string)
-    .finally(() => LoadingBar.stop());
-});
+    .finally(() => LoadingBar.stop())
+})
 </script>
 
 <template>
