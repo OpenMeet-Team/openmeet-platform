@@ -5,14 +5,14 @@ import SubtitleComponent from 'components/common/SubtitleComponent.vue'
 import { useAuthStore } from 'stores/auth-store.ts'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { useHomeStore } from 'src/stores/home-store'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
-import { GroupEntity } from 'src/types'
+import { GroupEntity, EventEntity } from 'src/types'
 import { formatDate } from 'src/utils/dateUtils'
 import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
+import EventsListComponent from 'src/components/event/EventsListComponent.vue'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -230,22 +230,23 @@ const onCreateEvent = (group: GroupEntity) => {
             </q-card>
           </div>
           <div class="col-12 col-md-8">
-            <!-- Upcoming events list -->
-            <div
-              v-for="event in userUpcomingEvents"
-              :key="event.id"
-              class="col-12 col-sm-6 col-md-4"
+            <EventsListComponent
+              :events="userUpcomingEvents as EventEntity[]"
+              label="Upcoming Events"
+              :show-pagination="false"
+              :current-page="1"
+              :loading="useHomeStore().loading"
+              empty-message="No events found"
+              layout="list"
             >
-              <EventsItemComponent
-                data-cy="home-user-upcoming-events-item-component"
-                :event="event"
-              />
-            </div>
-            <NoContentComponent
-              v-if="!userUpcomingEvents?.length"
-              icon="sym_r_event"
-              label="You have no upcoming events"
-            />
+              <template #empty>
+                <NoContentComponent
+                  v-if="!userUpcomingEvents?.length"
+                  icon="sym_r_event"
+                  label="You have no upcoming events"
+                />
+              </template>
+            </EventsListComponent>
           </div>
         </div>
       </div>

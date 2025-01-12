@@ -21,11 +21,15 @@
 
       <!-- Upcoming Events Section -->
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent label="Upcoming Events" :to="{ name: 'EventsPage' }">Explore All Events<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
-        <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event" />
-        <div data-cy="home-upcoming-events" v-if="upcomingEvents?.length">
-          <EventsItemComponent v-for="event in upcomingEvents" :key="event.id" :event="event" />
-        </div>
+        <EventsListComponent
+          :events="upcomingEvents as EventEntity[]"
+          label="Upcoming Events"
+          :show-pagination="false"
+          :current-page="1"
+          :loading="useHomeStore().loading"
+          empty-message="No events found"
+          layout="list"
+        />
       </div>
 
       <div class="col-12 q-mt-xl">
@@ -92,16 +96,16 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
 import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
 import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
 const { openRegisterDialog } = useAuthDialog()
 import { GroupEntity } from 'src/types/group.ts'
-
+import { EventEntity } from 'src/types'
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
+import EventsListComponent from 'src/components/event/EventsListComponent.vue'
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
