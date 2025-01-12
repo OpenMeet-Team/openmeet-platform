@@ -3,7 +3,6 @@
     <SpinnerComponent v-if="useGroupsStore().isLoading"/>
 
     <div class="row text-h4">
-      <router-link class="q-mr-xs router-link-inherit" active-class="text-bold" :to="{ name: 'EventsPage' }">Events list</router-link>/
       <span class="text-bold q-ml-xs">Groups list</span>
     </div>
 
@@ -23,6 +22,7 @@
       :current-page="currentPage"
       :total-pages="groups?.totalPages"
       layout="list"
+      label=""
       @page-change="onPageChange"
     />
 

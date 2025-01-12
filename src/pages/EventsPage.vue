@@ -1,54 +1,62 @@
 <template>
-  <q-page padding style="max-width: 1024px" class="q-mx-auto" data-cy="events-page">
-
+  <q-page
+    padding
+    style="max-width: 1024px"
+    class="q-mx-auto"
+    data-cy="events-page"
+  >
     <div class="row text-h4">
-      <span class="text-bold q-mr-xs">Events list</span>/
-      <router-link class="q-ml-xs router-link-inherit" active-class="text-bold" :to="{ name: 'GroupsPage' }">Groups list</router-link>
+      <span class="text-bold q-mr-xs">Events list</span>
     </div>
 
     <div class="row q-col-gutter-md q-mb-lg q-mt-md">
-      <EventsDateFilterComponent/>
-      <EventsTypeFilterComponent/>
-      <EventsCategoriesFilterComponent/>
-      <EventsLocationFilterComponent/>
-      <RadiusFilterComponent/>
-      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.range || route.query.type || route.query.radius">
-        <q-btn no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
+      <EventsDateFilterComponent />
+      <EventsTypeFilterComponent />
+      <EventsCategoriesFilterComponent />
+      <EventsLocationFilterComponent />
+      <RadiusFilterComponent />
+      <div
+        class="row items-center"
+        v-if="
+          route.query.categories ||
+          route.query.location ||
+          route.query.range ||
+          route.query.type ||
+          route.query.radius
+        "
+      >
+        <q-btn
+          no-caps
+          size="md"
+          flat
+          label="Reset filters"
+          @click="router.push({ path: '' })"
+        />
       </div>
     </div>
 
-    <template v-if="events">
-
-        <!-- Show loader if loading, else show content -->
-        <SpinnerComponent v-if="useEventsStore().isLoading"/>
-
-        <!-- Event List -->
-        <div v-else-if="events">
-          <div v-if="events.data?.length">
-            <div  v-for="event in events.data" :key="event.id" class="col-12 col-sm-6 col-md-4">
-            <EventsItemComponent :event="event"/>
-          </div>
-          </div>
-
-          <!-- No content if no events and not loading -->
-          <NoContentComponent v-else label="No events found matching your criteria" icon="sym_r_search_off"/>
-      </div>
-
-      <!-- Pagination -->
-      <q-pagination
-        v-if="!useEventsStore().isLoading && events?.totalPages > 1"
-        v-model="currentPage"
-        :max="events.totalPages"
-        @update:model-value="onPageChange"
-      />
-    </template>
+    <EventsListComponent
+      :events="events?.data"
+      :loading="useEventsStore().isLoading"
+      :show-pagination="true"
+      :current-page="currentPage"
+      :total-pages="events?.totalPages"
+      layout="list"
+      @page-change="onPageChange"
+      label=""
+    >
+      <template #empty>
+        <NoContentComponent
+          label="No events found matching your criteria"
+          icon="sym_r_search_off"
+        />
+      </template>
+    </EventsListComponent>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onBeforeUnmount } from 'vue'
-import EventsItemComponent from 'components/event/EventsItemComponent.vue'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
@@ -58,6 +66,7 @@ import EventsCategoriesFilterComponent from 'components/common/CategoriesFilterC
 import { useEventsStore } from 'stores/events-store.ts'
 import EventsLocationFilterComponent from 'components/common/LocationFilterComponent.vue'
 import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
+import EventsListComponent from 'components/event/EventsListComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -114,9 +123,6 @@ const onPageChange = (page: number) => {
     }
   })
 }
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>
