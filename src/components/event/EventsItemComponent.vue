@@ -61,7 +61,6 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     }
 
     .event-content {
-      background-color: #ffffff;
       padding: 16px;
       flex: 1;
     }
@@ -84,7 +83,6 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     }
 
     .event-content {
-      background-color: #ffffff;
       padding: 16px;
       flex: 1;
     }
