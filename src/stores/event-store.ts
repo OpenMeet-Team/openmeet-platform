@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission, EventAttendeeStatus } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { api } from 'src/boot/axios'
 import { AxiosError } from 'axios'
@@ -81,30 +81,10 @@ export const useEventStore = defineStore('event', {
       console.log('Starting actionAttendEvent:', { slug, data })
 
       try {
-        const res = await eventsApi.attend(slug, data)
-        if (this.event) {
-          if (res.data.status !== EventAttendeeStatus.Pending) {
-            this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
-          }
-        }
-        console.log('Attend API response:', res.data)
-
-        // // Update both the attendee and the attendees list
-        // if (this.event && this.event.slug === slug) {
-        //   console.log('Updating event state:', {
-        //     oldStatus: this.event.attendee?.status,
-        //     newStatus: response.data.status
-        //   })
-
-        //   // Only update if the status is not cancelled
-        //   if (response.data.status !== 'cancelled') {
-        //     this.event = {
-        //       ...this.event,
-        //       attendee: response.data,
-        //       attendees: [...(this.event.attendees || []).filter(a => a.id !== response.data.id), response.data]
-        //     }
-
-        return res.data
+        await eventsApi.attend(slug, data)
+        // Force refresh the event data to get the latest attendance status
+        await this.actionGetEventBySlug(slug)
+        return this.event?.attendee
       } catch (error) {
         console.error('Error in actionAttendEvent:', error)
         throw error
@@ -122,10 +102,10 @@ export const useEventStore = defineStore('event', {
         console.log('Cancel API response:', response.data)
 
         if (this.event && this.event.slug === event.slug) {
-          console.log('Updating event state after cancel')
+          // Create a new event object without the attendee property
           this.event = {
             ...this.event,
-            attendee: response.data,
+            attendee: undefined,
             attendees: this.event.attendees?.filter(a => a.id !== event.attendee?.id) || []
           }
         }

@@ -48,9 +48,6 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 
 <style lang="scss" scoped>
 .event-item {
-  border: 1px solid $grey-4;
-  border-radius: 8px;
-  overflow: hidden;
   margin-bottom: 16px;
 
   &.grid {
@@ -64,7 +61,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     }
 
     .event-content {
-      background-color: $purple-100;
+      background-color: #ffffff;
       padding: 16px;
       flex: 1;
     }
@@ -77,6 +74,8 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     .event-image {
       width: 160px;
       min-width: 160px;
+      border-radius: 8px;
+      overflow: hidden;
 
       @media (min-width: 600px) {
         width: 240px;
@@ -85,7 +84,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     }
 
     .event-content {
-      background-color: $purple-100;
+      background-color: #ffffff;
       padding: 16px;
       flex: 1;
     }
