@@ -5,8 +5,8 @@ import { useNavigation } from 'src/composables/useNavigation.ts'
 import { computed } from 'vue'
 
 interface Props {
-  group: GroupEntity
-  layout?: 'grid' | 'list'
+  group: GroupEntity;
+  layout?: 'grid' | 'list';
 }
 defineEmits(['view'])
 const props = defineProps<Props>()
@@ -25,18 +25,25 @@ const { navigateToGroup } = useNavigation()
       :src="getImageSrc(group.image)"
       class="cursor-pointer group-image"
       @click="navigateToGroup(group)"
-      :ratio="16/9"
+      :ratio="16 / 9"
     />
 
     <!-- Group Info -->
-    <div class="group-content bg-purple-100">
-      <div class="text-h5 text-bold cursor-pointer" @click="navigateToGroup(group)">
+    <div class="group-content bg-white">
+      <div
+        class="text-h5 text-bold cursor-pointer"
+        @click="navigateToGroup(group)"
+      >
         {{ group.name }}
       </div>
 
       <!-- Categories -->
       <div v-if="group.categories">
-        {{ group.categories.map(c => typeof c === 'object' ? c.name : '').join(', ') }}
+        {{
+          group.categories
+            .map((c) => (typeof c === "object" ? c.name : ""))
+            .join(", ")
+        }}
       </div>
 
       <!-- Location -->
@@ -56,9 +63,6 @@ const { navigateToGroup } = useNavigation()
 
 <style lang="scss" scoped>
 .group-item {
-  border: 1px solid $grey-4;
-  border-radius: 8px;
-  overflow: hidden;
   margin-bottom: 16px;
 
   &:last-child {
@@ -73,7 +77,8 @@ const { navigateToGroup } = useNavigation()
 
     .group-image {
       width: 100%;
-      border-radius: 8px 8px 0 0;
+      border-radius: 8px;
+      overflow: hidden;
     }
 
     .group-content {
@@ -89,7 +94,8 @@ const { navigateToGroup } = useNavigation()
     .group-image {
       width: 160px;
       min-width: 160px;
-      border-radius: 8px 0 0 8px;
+      border-radius: 8px;
+      overflow: hidden;
 
       @media (min-width: 600px) {
         width: 240px;
