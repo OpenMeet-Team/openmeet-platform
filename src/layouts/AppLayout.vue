@@ -1,10 +1,10 @@
 <template>
   <q-layout view="hhh LpR ffr">
-    <AppHeaderComponent/>
+    <AppHeaderComponent />
     <q-page-container>
-      <router-view/>
+      <router-view />
     </q-page-container>
-    <AppFooterComponent/>
+    <AppFooterComponent />
   </q-layout>
 </template>
 
