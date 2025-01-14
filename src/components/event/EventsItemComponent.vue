@@ -3,7 +3,6 @@ import { EventEntity } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
 import { formatDate } from 'src/utils/dateUtils'
-import EventAttendanceButton from './EventAttendanceButton.vue'
 
 interface Props {
   event: EventEntity;
@@ -44,7 +43,6 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       >
         {{ event.group.name }}
       </div>
-      <EventAttendanceButton :event="event" :attendee="event.attendee" />
     </div>
   </div>
 </template>

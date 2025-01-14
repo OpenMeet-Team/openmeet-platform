@@ -61,6 +61,7 @@ export const useEventsStore = defineStore('events', {
 
       try {
         const response = await eventsApi.getAll(query)
+        console.log('events store response', response.data)
         this.events = response.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
