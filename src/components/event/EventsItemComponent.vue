@@ -3,6 +3,7 @@ import { EventEntity } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils'
 import { useNavigation } from 'src/composables/useNavigation'
 import { formatDate } from 'src/utils/dateUtils'
+import EventAttendanceButton from './EventAttendanceButton.vue'
 
 interface Props {
   event: EventEntity;
@@ -15,16 +16,14 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 
 <template>
   <div class="event-item" :class="layout">
-    <q-img
-      class="cursor-pointer event-image"
-      @click="navigateToEvent(event)"
-      :src="getImageSrc(event.image)"
-      :ratio="16 / 9"
-    >
-      <div class="absolute-top-left q-pa-xs">
-        <q-badge>{{ event.type }}</q-badge>
-      </div>
-    </q-img>
+    <div class="event-image-container">
+      <q-img
+        class="cursor-pointer event-image"
+        @click="navigateToEvent(event)"
+        :src="getImageSrc(event.image)"
+        :ratio="16 / 9"
+      />
+    </div>
 
     <div class="event-content">
       <div
@@ -35,6 +34,9 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       </div>
       <div class="text-caption">{{ formatDate(event.startDate) }}</div>
       <div class="text-caption">{{ event.location }}</div>
+      <div class="text-caption">
+        <q-badge>{{ event.type }}</q-badge>
+      </div>
       <div
         v-if="event.group"
         class="text-caption cursor-pointer"
@@ -42,6 +44,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       >
         {{ event.group.name }}
       </div>
+      <EventAttendanceButton :event="event" :attendee="event.attendee" />
     </div>
   </div>
 </template>
@@ -56,8 +59,17 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     height: 100%;
     margin-bottom: 0;
 
-    .event-image {
+    .event-image-container {
       width: 100%;
+
+      .event-image {
+        border-radius: 8px;
+
+        :deep(.q-img__content) {
+          background-size: cover;
+          background-position: center;
+        }
+      }
     }
 
     .event-content {
@@ -70,15 +82,12 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     display: flex;
     align-items: stretch;
 
-    .event-image {
-      width: 160px;
-      min-width: 160px;
-      border-radius: 8px;
-      overflow: hidden;
+    .event-image-container {
+      width: 300px;
 
-      @media (min-width: 600px) {
-        width: 240px;
-        min-width: 240px;
+      .event-image {
+        border-radius: 8px;
+        overflow: hidden;
       }
     }
 

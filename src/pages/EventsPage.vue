@@ -41,7 +41,7 @@
       :show-pagination="true"
       :current-page="currentPage"
       :total-pages="events?.totalPages"
-      layout="list"
+      layout="grid"
       @page-change="onPageChange"
       label=""
     >
