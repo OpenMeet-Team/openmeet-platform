@@ -7,14 +7,45 @@
     spread
     label="Share"
     data-cy="share-button"
+    class="share-button"
   >
     <q-list>
-      <MenuItemComponent label="Bluesky" icon="fab fa-bluesky" icon-color="blue" @click="shareTo('bluesky')"/>
-      <MenuItemComponent label="Facebook" icon="fab fa-facebook" icon-color="blue" @click="shareTo('facebook')"/>
-      <MenuItemComponent label="X" icon="fab fa-square-x-twitter" icon-color="black" @click="shareTo('x')"/>
-      <MenuItemComponent label="LinkedIn" icon="fab fa-linkedin" icon-color="blue-8" @click="shareTo('linkedin')"/>
-      <MenuItemComponent label="WhatsApp" icon="fab fa-whatsapp" icon-color="green" @click="shareTo('whatsapp')"/>
-      <MenuItemComponent label="Email" icon="sym_r_mail" icon-color="red" @click="shareToEmail"/>
+      <MenuItemComponent
+        label="Bluesky"
+        icon="fab fa-bluesky"
+        icon-color="blue"
+        @click="shareTo('bluesky')"
+      />
+      <MenuItemComponent
+        label="Facebook"
+        icon="fab fa-facebook"
+        icon-color="blue"
+        @click="shareTo('facebook')"
+      />
+      <MenuItemComponent
+        label="X"
+        icon="fab fa-square-x-twitter"
+        icon-color="black"
+        @click="shareTo('x')"
+      />
+      <MenuItemComponent
+        label="LinkedIn"
+        icon="fab fa-linkedin"
+        icon-color="blue-8"
+        @click="shareTo('linkedin')"
+      />
+      <MenuItemComponent
+        label="WhatsApp"
+        icon="fab fa-whatsapp"
+        icon-color="green"
+        @click="shareTo('whatsapp')"
+      />
+      <MenuItemComponent
+        label="Email"
+        icon="sym_r_mail"
+        icon-color="red"
+        @click="shareToEmail"
+      />
     </q-list>
   </q-btn-dropdown>
 </template>
@@ -25,11 +56,20 @@ import MenuItemComponent from 'components/common/MenuItemComponent.vue'
 
 // Define the URLs for each social media platform
 const shareUrls = {
-  bluesky: (url: string) => `https://bsky.app/intent/compose?text=${encodeURIComponent(url)}`,
-  facebook: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-  x: (url: string, text: string) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
-  linkedin: (url: string) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-  whatsapp: (url: string) => `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`
+  bluesky: (url: string) =>
+    `https://bsky.app/intent/compose?text=${encodeURIComponent(url)}`,
+  facebook: (url: string) =>
+    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+  x: (url: string, text: string) =>
+    `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+      url
+    )}&text=${encodeURIComponent(text)}`,
+  linkedin: (url: string) =>
+    `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+      url
+    )}`,
+  whatsapp: (url: string) =>
+    `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`
 }
 
 // Function to share content based on the selected platform
@@ -48,7 +88,9 @@ const shareTo = (platform: keyof typeof shareUrls) => {
 // Function for sharing via email
 const shareToEmail = () => {
   const subject = encodeURIComponent('Check out OpenMeet!')
-  const body = encodeURIComponent(`I found this interesting: ${window.location.href}`)
+  const body = encodeURIComponent(
+    `I found this interesting: ${window.location.href}`
+  )
 
   try {
     window.location.href = `mailto:?subject=${subject}&body=${body}`
@@ -59,5 +101,8 @@ const shareToEmail = () => {
 </script>
 
 <style scoped>
-/* Optional custom styles */
+.share-button {
+  min-width: 120px; /* Adjust this value as needed */
+  white-space: nowrap;
+}
 </style>
