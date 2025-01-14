@@ -3,37 +3,33 @@
     <SpinnerComponent v-if="useHomeStore().loading" />
     <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
 
-      <!-- Hero Section -->
-      <div class="col-12 q-mb-xl">
-        <q-card class="bg-primary text-white">
-          <q-card-section class="text-center q-pa-lg">
-            <h1 class="text-h3 q-mb-md">Welcome to OpenMeet</h1>
-            <p class="text-h6">Connect, Share, and Grow with Like-minded People</p>
-            <q-btn color="white" no-caps text-color="primary" label="Join Now" @click="onJoinNowClick" class="q-mt-md"
-              size="lg" />
-          </q-card-section>
-        </q-card>
-      </div>
+      <HomeHeroComponent />
 
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent label="Groups" :to="{ name: 'GroupsPage' }">Explore All Groups<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
-        <NoContentComponent v-if="!featuredGroups?.length" label="There are no groups yet."
-          icon="sym_r_groups" />
-        <template v-else>
-          <div data-cy="home-featured-groups">
-            <GroupsItemComponent v-for="group in featuredGroups" :key="group.id" :group="group" />
-          </div>
-        </template>
+        <!-- Featured Groups -->
+        <GroupsListComponent
+          :groups="featuredGroups as GroupEntity[]"
+          label="Featured Groups"
+          :show-pagination="false"
+          :current-page="1"
+          :loading="useHomeStore().loading"
+          empty-message="There are no groups yet."
+          layout="grid"
+        />
       </div>
 
       <!-- Upcoming Events Section -->
       <div class="col-12 q-mt-lg">
-        <SubtitleComponent label="Upcoming Events" :to="{ name: 'EventsPage' }">Explore All Events<q-icon name="sym_r_arrow_forward" /></SubtitleComponent>
-        <NoContentComponent v-if="!upcomingEvents?.length" label="No events found" icon="sym_r_event" />
-        <div data-cy="home-upcoming-events" v-if="upcomingEvents?.length">
-          <EventsItemComponent v-for="event in upcomingEvents" :key="event.id" :event="event" />
-        </div>
+        <EventsListComponent
+          :events="upcomingEvents as EventEntity[]"
+          label="Upcoming Events"
+          :show-pagination="false"
+          :current-page="1"
+          :loading="useHomeStore().loading"
+          empty-message="No events found"
+          layout="list"
+        />
       </div>
 
       <div class="col-12 q-mt-xl">
@@ -100,19 +96,16 @@ import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
 import { useHomeStore } from 'stores/home-store.ts'
 import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
 import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
-
-const { openLoginDialog, openRegisterDialog } = useAuthDialog()
-
+import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
+import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
+const { openRegisterDialog } = useAuthDialog()
+import { GroupEntity } from 'src/types/group.ts'
+import { EventEntity } from 'src/types'
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
-
-const onJoinNowClick = () => {
-  openLoginDialog()
-}
+import EventsListComponent from 'src/components/event/EventsListComponent.vue'
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },

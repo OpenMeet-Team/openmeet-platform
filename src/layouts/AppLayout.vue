@@ -1,10 +1,10 @@
 <template>
   <q-layout view="hhh LpR ffr">
-    <AppHeaderComponent/>
+    <AppHeaderComponent />
     <q-page-container>
-      <router-view/>
+      <router-view />
     </q-page-container>
-    <AppFooterComponent/>
+    <AppFooterComponent />
   </q-layout>
 </template>
 
@@ -16,3 +16,16 @@ defineOptions({
   name: 'AppLayout'
 })
 </script>
+
+<style lang="scss">
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 0 !important;
+}
+
+.q-page {
+  padding-bottom: 0 !important;
+  min-height: calc(100vh - 500px) !important;
+}
+</style>

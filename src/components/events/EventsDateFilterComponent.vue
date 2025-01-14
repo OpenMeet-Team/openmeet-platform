@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { date } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 
-type DateRange = 'today' | 'tomorrow' | 'this-week' | 'next-week' | 'this-month' | 'next-month' | 'custom'
+type DateRange =
+  | 'today'
+  | 'tomorrow'
+  | 'this-week'
+  | 'next-week'
+  | 'this-month'
+  | 'next-month'
+  | 'custom';
 
 const dateRanges = ref([
   { label: 'Today', value: 'today' },
@@ -16,18 +23,23 @@ const dateRanges = ref([
 ])
 const route = useRoute()
 const router = useRouter()
-const selectedRange = ref<DateRange | null>(route.query.range as DateRange || null)
+const selectedRange = ref<DateRange | null>(
+  (route.query.range as DateRange) || null
+)
 const customDateRange = ref({ fromDate: '', toDate: '' })
 const isDateRangeDialogOpen = ref<boolean>(false)
 
 // Watch for changes in the query and update selectedRange and customDateRange accordingly
-watch(() => route.query, (newQuery) => {
-  selectedRange.value = newQuery.range as DateRange || null
-  if (newQuery.range === 'custom') {
-    customDateRange.value.fromDate = newQuery.fromDate as string || ''
-    customDateRange.value.toDate = newQuery.toDate as string || ''
+watch(
+  () => route.query,
+  (newQuery) => {
+    selectedRange.value = (newQuery.range as DateRange) || null
+    if (newQuery.range === 'custom') {
+      customDateRange.value.fromDate = (newQuery.fromDate as string) || ''
+      customDateRange.value.toDate = (newQuery.toDate as string) || ''
+    }
   }
-})
+)
 
 // Function to handle date filtering
 const filterBy = (filter: DateRange) => {
@@ -45,29 +57,31 @@ const filterBy = (filter: DateRange) => {
       fromDate = date.startOfDate(tomorrow, 'day').toISOString()
       toDate = date.endOfDate(tomorrow, 'day').toISOString()
     } else if (filter === 'this-week') {
-      const today = new Date()
-      const thisWeekStart = today.toISOString()
-      const thisWeekEnd = date.addToDate(thisWeekStart, { days: 6 }).toISOString()
-      fromDate = thisWeekStart
-      toDate = thisWeekEnd
+      fromDate = today.toISOString()
+      const daysUntilSunday = 7 - today.getDay()
+      const nextSunday = date.addToDate(today, { days: daysUntilSunday })
+      toDate = date.startOfDate(nextSunday, 'day').toISOString()
     } else if (filter === 'next-week') {
-      const today = new Date()
-      const nextWeekStart = date.addToDate(today, { days: 7 })
-      const nextWeekEnd = date.addToDate(nextWeekStart, { days: 6 })
-      fromDate = date.startOfDate(nextWeekStart, 'day').toISOString()
-      toDate = date.endOfDate(nextWeekEnd, 'day').toISOString()
+      const daysUntilSunday = 7 - today.getDay()
+      const nextSunday = date.addToDate(today, { days: daysUntilSunday })
+      fromDate = date.startOfDate(nextSunday, 'day').toISOString()
+      toDate = date.addToDate(nextSunday, { days: 6 }).toISOString()
     } else if (filter === 'this-month') {
-      const today = new Date()
-      const thisMonthStart = today.toISOString()
-      const thisMonthEnd = date.addToDate(thisMonthStart, { month: 1 }).toISOString()
-      fromDate = thisMonthStart
-      toDate = thisMonthEnd
+      fromDate = today.toISOString()
+      const firstOfNextMonth = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        1
+      )
+      toDate = date.startOfDate(firstOfNextMonth, 'day').toISOString()
     } else if (filter === 'next-month') {
-      const today = new Date()
-      const nextMonthStart = date.endOfDate(today, 'month').toISOString()
-      const nextMonthEnd = date.addToDate(nextMonthStart, { month: 1 }).toISOString()
-      fromDate = nextMonthStart
-      toDate = nextMonthEnd
+      const firstOfNextMonth = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        1
+      )
+      fromDate = date.startOfDate(firstOfNextMonth, 'day').toISOString()
+      toDate = date.endOfDate(firstOfNextMonth, 'month').toISOString()
     }
 
     if (filter !== 'custom') {
@@ -92,7 +106,6 @@ const filterBy = (filter: DateRange) => {
     router.push({
       query: {
         ...rest,
-        fromDate: today.toISOString(), // Always include today as minimum date
         page: 1
       }
     })
@@ -102,8 +115,12 @@ const filterBy = (filter: DateRange) => {
 const applyCustomDateRange = () => {
   if (customDateRange.value.fromDate && customDateRange.value.toDate) {
     // Convert dates to start and end of day to include full days
-    const fromDate = date.startOfDate(new Date(customDateRange.value.fromDate), 'day').toISOString()
-    const toDate = date.endOfDate(new Date(customDateRange.value.toDate), 'day').toISOString()
+    const fromDate = date
+      .startOfDate(new Date(customDateRange.value.fromDate), 'day')
+      .toISOString()
+    const toDate = date
+      .endOfDate(new Date(customDateRange.value.toDate), 'day')
+      .toISOString()
 
     router.push({
       query: {
@@ -117,20 +134,6 @@ const applyCustomDateRange = () => {
     isDateRangeDialogOpen.value = false
   }
 }
-
-// Ensure default fromDate is set on component mount
-onMounted(() => {
-  if (!route.query.fromDate) {
-    const today = new Date()
-    router.push({
-      query: {
-        ...route.query,
-        fromDate: today.toISOString()
-      }
-    })
-  }
-})
-
 </script>
 
 <template>
@@ -145,24 +148,30 @@ onMounted(() => {
     map-options
     clearable
     :hide-dropdown-icon="!!selectedRange"
-    style="min-width: 150px;"
+    style="min-width: 150px"
     @update:model-value="filterBy"
   />
   <!-- Custom Date Range Dialog -->
   <q-dialog v-model="isDateRangeDialogOpen">
     <q-card>
       <q-card-section>
-        <q-input v-model="customDateRange.fromDate" label="Start Date" type="date"/>
-        <q-input v-model="customDateRange.toDate" label="End Date" type="date"/>
+        <q-input
+          v-model="customDateRange.fromDate"
+          label="Start Date"
+          type="date"
+        />
+        <q-input
+          v-model="customDateRange.toDate"
+          label="End Date"
+          type="date"
+        />
       </q-card-section>
       <q-card-actions>
-        <q-btn flat label="Cancel" @click="isDateRangeDialogOpen = false"/>
-        <q-btn color="primary" label="Apply" @click="applyCustomDateRange()"/>
+        <q-btn flat label="Cancel" @click="isDateRangeDialogOpen = false" />
+        <q-btn color="primary" label="Apply" @click="applyCustomDateRange()" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>
