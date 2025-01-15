@@ -71,7 +71,6 @@ const filterBy = (filter: DateRange) => {
     }
 
     if (filter !== 'custom') {
-      // Update query with start and end dates
       router.push({
         query: {
           ...route.query,
@@ -82,17 +81,16 @@ const filterBy = (filter: DateRange) => {
         }
       })
     } else {
-      // Open date range dialog for custom filter
       isDateRangeDialogOpen.value = true
     }
   } else {
-    // Even when no filter is selected, include today as the minimum date
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { fromDate, toDate, range, ...rest } = route.query
+    const { range, fromDate, toDate, ...rest } = route.query
     router.push({
       query: {
+        range,
+        fromDate,
+        toDate,
         ...rest,
-        fromDate: today.toISOString(), // Always include today as minimum date
         page: 1
       }
     })
@@ -120,15 +118,11 @@ const applyCustomDateRange = () => {
 
 // Ensure default fromDate is set on component mount
 onMounted(() => {
-  if (!route.query.fromDate) {
-    const today = new Date()
-    router.push({
-      query: {
-        ...route.query,
-        fromDate: today.toISOString()
-      }
-    })
+  // Only apply filter if range is explicitly set
+  if (route.query.range) {
+    filterBy(route.query.range as DateRange)
   }
+  // Don't set any default fromDate if no range is specified
 })
 
 </script>
