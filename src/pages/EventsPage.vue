@@ -61,6 +61,7 @@ import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
+const eventsStore = useEventsStore()
 
 // Pagination
 const currentPage = ref(parseInt(route.query.page as string) || 1)
@@ -71,33 +72,37 @@ useMeta({
   title: 'Events'
 })
 
-// Fetch categories and events when the component is mounted
-onMounted(() => {
-  LoadingBar.start()
-  useEventsStore().actionGetEventsState(route.query).finally(LoadingBar.stop)
-})
-
-onBeforeUnmount(() => {
-  // Cleanup store state when the component unmounts
-  useEventsStore().$reset()
-})
-
 // Fetch events based on the query parameters
 const fetchEvents = async () => {
-  LoadingBar.start()
-  console.log('Query params:', route.query)
-  useEventsStore().actionGetEvents(route.query).finally(LoadingBar.stop)
+  try {
+    LoadingBar.start()
+    await eventsStore.actionGetEvents(route.query)
+  } catch (error) {
+    console.error('Error fetching events:', error)
+  } finally {
+    LoadingBar.stop()
+  }
 }
 
-// Refetch events when query parameters (category, location, page) change
+// Refetch events when query parameters change
 watch(
   () => route.query,
-  () => {
+  async () => {
     currentPage.value = parseInt(route.query.page as string) || 1
-    fetchEvents()
+    await fetchEvents()
   },
   { immediate: true }
 )
+
+// Remove the separate LoadingBar calls in onMounted
+onMounted(() => {
+  fetchEvents()
+})
+
+onBeforeUnmount(() => {
+  LoadingBar.stop() // Ensure loading bar is stopped when component unmounts
+  eventsStore.$reset()
+})
 
 // Handle pagination changes and update the URL
 const onPageChange = (page: number) => {
