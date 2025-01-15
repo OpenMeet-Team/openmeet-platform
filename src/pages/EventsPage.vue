@@ -89,7 +89,8 @@ watch(
   () => route.query,
   async () => {
     currentPage.value = parseInt(route.query.page as string) || 1
-    await fetchEvents()
+    LoadingBar.start()
+    fetchEvents().finally(LoadingBar.stop)
   },
   { immediate: true }
 )

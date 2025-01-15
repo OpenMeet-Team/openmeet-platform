@@ -18,6 +18,7 @@ export default configure((ctx) => {
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
     boot: [
       'config',
+      'tracing',
       'posthog',
       'axios',
       'analytics',
