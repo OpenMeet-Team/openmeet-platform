@@ -72,6 +72,19 @@ useMeta({
   title: 'Events'
 })
 
+<<<<<<< HEAD
+=======
+// Fetch categories and events when the component is mounted
+onMounted(() => {
+  LoadingBar.start()
+})
+
+onBeforeUnmount(() => {
+  // Cleanup store state when the component unmounts
+  useEventsStore().$reset()
+})
+
+>>>>>>> ca2e5db (add some tracing, don't filter events by fromdate by default, caused 2 db queries)
 // Fetch events based on the query parameters
 const fetchEvents = async () => {
   try {
@@ -89,7 +102,12 @@ watch(
   () => route.query,
   async () => {
     currentPage.value = parseInt(route.query.page as string) || 1
+<<<<<<< HEAD
     await fetchEvents()
+=======
+    LoadingBar.start()
+    fetchEvents().finally(LoadingBar.stop)
+>>>>>>> ca2e5db (add some tracing, don't filter events by fromdate by default, caused 2 db queries)
   },
   { immediate: true }
 )

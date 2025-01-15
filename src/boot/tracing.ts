@@ -10,18 +10,10 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { ZoneContextManager } from '@opentelemetry/context-zone'
 
 export default boot(() => {
-  console.log('Tracing boot file loaded')
-  console.log('VITE_ENABLE_TRACING:', {
-    value: process.env.VITE_ENABLE_TRACING,
-    type: typeof process.env.VITE_ENABLE_TRACING,
-    comparison: process.env.VITE_ENABLE_TRACING !== 'true'
-  })
-
   if (process.env.VITE_ENABLE_TRACING !== 'true') {
     console.log('Tracing disabled')
     return
   }
-  console.log('Tracing enabled')
 
   const endpoint = process.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT + '/v1/traces'
   console.log('Tracing endpoint:', endpoint)
