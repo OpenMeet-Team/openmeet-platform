@@ -1,9 +1,9 @@
 <script setup lang="ts">
-
+import { RouteLocationRaw } from 'vue-router'
 interface SubtitleProps {
   label: string
   count?: number
-  to?: object
+  to?: RouteLocationRaw
   hideLink?: boolean
 }
 

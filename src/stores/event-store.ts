@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission, EventAttendeeStatus } from 'src/types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from 'src/types'
 import { useNotification } from 'src/composables/useNotification.ts'
 import { api } from 'src/boot/axios'
 import { AxiosError } from 'axios'
@@ -78,33 +78,15 @@ export const useEventStore = defineStore('event', {
     },
 
     async actionAttendEvent (slug: string, data: Partial<EventAttendeeEntity>) {
-      console.log('Starting actionAttendEvent:', { slug, data })
-
       try {
-        const res = await eventsApi.attend(slug, data)
-        if (this.event) {
-          if (res.data.status !== EventAttendeeStatus.Pending) {
-            this.event.attendees = this.event.attendees ? [...this.event.attendees, res.data] : [res.data]
-          }
-        }
-        console.log('Attend API response:', res.data)
+        console.log('Sending attend request with data:', data)
+        const response = await eventsApi.attend(slug, data)
+        console.log('Received attend response:', response.data)
 
-        // // Update both the attendee and the attendees list
-        // if (this.event && this.event.slug === slug) {
-        //   console.log('Updating event state:', {
-        //     oldStatus: this.event.attendee?.status,
-        //     newStatus: response.data.status
-        //   })
+        // Refresh the event data to get the updated attendance status
+        await this.actionGetEventBySlug(slug)
 
-        //   // Only update if the status is not cancelled
-        //   if (response.data.status !== 'cancelled') {
-        //     this.event = {
-        //       ...this.event,
-        //       attendee: response.data,
-        //       attendees: [...(this.event.attendees || []).filter(a => a.id !== response.data.id), response.data]
-        //     }
-
-        return res.data
+        return response.data
       } catch (error) {
         console.error('Error in actionAttendEvent:', error)
         throw error
@@ -112,23 +94,13 @@ export const useEventStore = defineStore('event', {
     },
 
     async actionCancelAttending (event: EventEntity) {
-      console.log('Starting actionCancelAttending:', {
-        slug: event.slug,
-        currentStatus: event.attendee?.status
-      })
-
       try {
+        console.log('Sending cancel attending request for event:', event.slug)
         const response = await eventsApi.cancelAttending(event.slug)
-        console.log('Cancel API response:', response.data)
+        console.log('Received cancel attending response:', response.data)
 
-        if (this.event && this.event.slug === event.slug) {
-          console.log('Updating event state after cancel')
-          this.event = {
-            ...this.event,
-            attendee: response.data,
-            attendees: this.event.attendees?.filter(a => a.id !== event.attendee?.id) || []
-          }
-        }
+        // Refresh the event data to get the updated attendance status
+        await this.actionGetEventBySlug(event.slug)
 
         return true
       } catch (error) {

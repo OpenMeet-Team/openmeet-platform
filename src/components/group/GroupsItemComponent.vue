@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { CategoryEntity, GroupEntity } from 'src/types'
+import { GroupEntity } from 'src/types'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
 import { useNavigation } from 'src/composables/useNavigation.ts'
 import { computed } from 'vue'
 
 interface Props {
-  group: GroupEntity
+  group: GroupEntity;
+  layout?: 'grid' | 'list';
 }
 defineEmits(['view'])
 const props = defineProps<Props>()
@@ -18,21 +19,39 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="c-groups-item-component row q-mb-lg q-col-gutter-lg" data-cy="groups-item-component">
-    <div class="col-12 col-sm-4">
-      <q-img height="150px" class="cursor-pointer rounded-borders" data-cy="groups-item-image"
-        @click="navigateToGroup(group)" ratio="16/9" :src="getImageSrc(group.image)" />
-    </div>
-    <div class="col-12 col-sm-8 column">
-      <div class="text-h5 text-bold q-pa-none cursor-pointer elipsys" data-cy="groups-item-name" @click="navigateToGroup(group)">{{
-        group.name }}</div>
-      <div class="text-subtitle2" v-if="group.categories">
-        {{ group.categories.map((c: number | CategoryEntity) => typeof c === 'object' ? c.name : '').join(', ') }}
+  <div class="group-item" :class="layout">
+    <!-- Group Image -->
+    <q-img
+      :src="getImageSrc(group.image)"
+      class="cursor-pointer group-image"
+      @click="navigateToGroup(group)"
+      :ratio="16 / 9"
+    />
+
+    <!-- Group Info -->
+    <div class="group-content bg-white">
+      <div
+        class="text-h5 text-bold cursor-pointer"
+        @click="navigateToGroup(group)"
+      >
+        {{ group.name }}
       </div>
-      <div class="text-subtitle2" data-cy="groups-item-location">{{ group.location }}</div>
-      <q-space />
-      <div class="q-mt-sm text-body2">
-        <span v-if="group.groupMembersCount" class="q-mr-md">
+
+      <!-- Categories -->
+      <div v-if="group.categories">
+        {{
+          group.categories
+            .map((c) => (typeof c === "object" ? c.name : ""))
+            .join(", ")
+        }}
+      </div>
+
+      <!-- Location -->
+      <div>{{ group.location }}</div>
+
+      <!-- Member Count & Visibility -->
+      <div class="group-footer">
+        <span v-if="group.groupMembersCount">
           <q-icon name="sym_r_people" />
           {{ group.groupMembersCount }} {{ memberText }}
         </span>
@@ -42,4 +61,57 @@ const { navigateToGroup } = useNavigation()
   </div>
 </template>
 
-<style scoped lang="scss"></style>
+<style lang="scss" scoped>
+.group-item {
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.grid {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-bottom: 0;
+
+    .group-image {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .group-content {
+      padding: 16px;
+      flex: 1;
+    }
+  }
+
+  &.list {
+    display: flex;
+    align-items: stretch;
+
+    .group-image {
+      width: 160px;
+      min-width: 160px;
+      border-radius: 8px;
+      overflow: hidden;
+
+      @media (min-width: 600px) {
+        width: 240px;
+        min-width: 240px;
+      }
+
+      @media (min-width: 1024px) {
+        width: 300px;
+        min-width: 300px;
+      }
+    }
+
+    .group-content {
+      padding: 16px;
+      flex: 1;
+    }
+  }
+}
+</style>
