@@ -50,17 +50,17 @@ import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useEventStore } from 'stores/event-store'
 import { useAuthStore } from 'stores/auth-store'
-import { useRouter } from 'vue-router'
 import {
   EventEntity,
   EventAttendeeEntity,
   EventAttendeeStatus
 } from 'src/types'
+import { useAuthDialog } from 'src/composables/useAuthDialog'
 
 const $q = useQuasar()
-const router = useRouter()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
+const authDialog = useAuthDialog()
 
 const props = defineProps<{
   event: EventEntity;
@@ -71,7 +71,7 @@ const loading = ref(false)
 
 const handleAttend = async () => {
   if (!authStore.isAuthenticated) {
-    router.push('/login')
+    authDialog.openLoginDialog()
     return
   }
 
