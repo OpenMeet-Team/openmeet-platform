@@ -17,6 +17,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
   <div class="event-item" :class="layout">
     <div class="event-image-container">
       <q-img
+        loading="lazy"
         class="cursor-pointer event-image"
         @click="navigateToEvent(event)"
         :src="getImageSrc(event.image)"

@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
@@ -96,18 +96,16 @@ const fetchEvents = async () => {
 // Refetch events when query parameters change
 watch(
   () => route.query,
-  async () => {
-    currentPage.value = parseInt(route.query.page as string) || 1
-    LoadingBar.start()
-    fetchEvents().finally(LoadingBar.stop)
+  async (newQuery, oldQuery) => {
+    // Only fetch if the queries are actually different
+    if (JSON.stringify(newQuery) !== JSON.stringify(oldQuery)) {
+      currentPage.value = parseInt(newQuery.page as string) || 1
+      LoadingBar.start()
+      fetchEvents().finally(LoadingBar.stop)
+    }
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 )
-
-// Remove the separate LoadingBar calls in onMounted
-onMounted(() => {
-  fetchEvents()
-})
 
 onBeforeUnmount(() => {
   LoadingBar.stop() // Ensure loading bar is stopped when component unmounts
