@@ -74,6 +74,16 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     .event-content {
       padding: 16px;
       flex: 1;
+      border-radius: 8px;
+
+      // Light mode
+      background: $primary-light-gray;
+      color: $purple-600;
+
+      body.body--dark & {
+        background: $purple-600;
+        color: white;
+      }
     }
   }
 
@@ -93,6 +103,16 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
     .event-content {
       padding: 16px;
       flex: 1;
+      border-radius: 8px;
+
+      // Light mode
+      background: $primary-light-gray;
+      color: $purple-600;
+
+      body.body--dark & {
+        background: $purple-600;
+        color: white;
+      }
     }
   }
 }

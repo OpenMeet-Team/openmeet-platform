@@ -54,7 +54,18 @@ export default configure((ctx) => {
       env: {
         // This is place to set build time variables
         APP_VERSION: JSON.stringify(process.env.APP_VERSION || 'alpha'),
-        COMMIT_SHA: JSON.stringify(process.env.COMMIT_SHA || 'not set')
+        COMMIT_SHA: JSON.stringify(process.env.COMMIT_SHA || 'not set'),
+        CSP: JSON.stringify([
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleusercontent.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+          "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
+          "font-src 'self' https://fonts.gstatic.com",
+          "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com",
+          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net",
+          "object-src 'none'",
+          "base-uri 'self'"
+        ].join('; '))
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'

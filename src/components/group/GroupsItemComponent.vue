@@ -29,16 +29,16 @@ const { navigateToGroup } = useNavigation()
     />
 
     <!-- Group Info -->
-    <div class="group-content bg-white">
+    <div class="group-content">
       <div
-        class="text-h5 text-bold cursor-pointer"
+        class="text-h5 cursor-pointer"
         @click="navigateToGroup(group)"
       >
         {{ group.name }}
       </div>
 
       <!-- Categories -->
-      <div v-if="group.categories">
+      <div v-if="group.categories" class="text-body1">
         {{
           group.categories
             .map((c) => (typeof c === "object" ? c.name : ""))
@@ -47,7 +47,7 @@ const { navigateToGroup } = useNavigation()
       </div>
 
       <!-- Location -->
-      <div>{{ group.location }}</div>
+      <div class="text-body1">{{ group.location }}</div>
 
       <!-- Member Count & Visibility -->
       <div class="group-footer">
@@ -84,6 +84,16 @@ const { navigateToGroup } = useNavigation()
     .group-content {
       padding: 16px;
       flex: 1;
+      border-radius: 8px;
+
+      // Light mode
+      background: $primary-light-gray;
+      color: $purple-600;
+
+      body.body--dark & {
+        background: $purple-600;
+        color: white;
+      }
     }
   }
 
@@ -111,6 +121,16 @@ const { navigateToGroup } = useNavigation()
     .group-content {
       padding: 16px;
       flex: 1;
+      border-radius: 8px;
+
+      // Light mode
+      background: $primary-light-gray;
+      color: $purple-600;
+
+      body.body--dark & {
+        background: $purple-600;
+        color: white;
+      }
     }
   }
 }

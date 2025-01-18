@@ -17,6 +17,7 @@ interface Props {
   label?: string
   hideLink?: boolean
   to?: RouteLocationRaw
+  linkText?: string
 }
 
 withDefaults(defineProps<Props>(), {
@@ -25,7 +26,10 @@ withDefaults(defineProps<Props>(), {
   emptyMessage: 'No events found',
   showPagination: false,
   currentPage: 1,
-  label: 'Events'
+  label: 'Events',
+  hideLink: false,
+  to: () => ({ name: 'EventsPage' }),
+  linkText: 'See all events'
 })
 
 const emit = defineEmits(['page-change', 'update:currentPage'])
@@ -43,6 +47,7 @@ const onPageChange = (page: number) => {
       :label="label"
       :to="to"
       :hide-link="hideLink"
+      :link-text="linkText"
     />
 
     <SpinnerComponent v-if="loading" />

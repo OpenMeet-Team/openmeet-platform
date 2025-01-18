@@ -4,6 +4,8 @@ import GroupsItemComponent from './GroupsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
+import { RouteLocationRaw } from 'vue-router'
+
 interface Props {
   groups?: GroupEntity[]
   loading?: boolean
@@ -13,6 +15,9 @@ interface Props {
   currentPage: number
   totalPages?: number
   label?: string
+  hideLink?: boolean
+  to?: RouteLocationRaw
+  linkText?: string
 }
 
 withDefaults(defineProps<Props>(), {
@@ -21,7 +26,10 @@ withDefaults(defineProps<Props>(), {
   emptyMessage: 'No groups found',
   showPagination: false,
   currentPage: 1,
-  label: 'Groups'
+  label: 'Groups',
+  hideLink: false,
+  to: () => ({ name: 'GroupsPage' }),
+  linkText: 'See all groups'
 })
 
 const emit = defineEmits(['page-change', 'update:currentPage'])
@@ -34,9 +42,13 @@ const onPageChange = (page: number) => {
 
 <template>
   <div class="groups-list">
-    <SubtitleComponent v-if="label" :label="label" :to="{ name: 'GroupsPage' }">
-      All Groups<q-icon name="sym_r_arrow_forward" />
-    </SubtitleComponent>
+    <SubtitleComponent
+      v-if="label"
+      :label="label"
+      :to="to"
+      :hide-link="hideLink"
+      :link-text="linkText"
+    />
     <SpinnerComponent v-if="loading" />
 
     <template v-else>
