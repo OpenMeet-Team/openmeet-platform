@@ -62,7 +62,7 @@ export default configure((ctx) => {
           "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
           "font-src 'self' https://fonts.gstatic.com",
           "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com",
-          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net",
+          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net https://s3.us-east-1.amazonaws.com https://nominatim.openstreetmap.org",
           "object-src 'none'",
           "base-uri 'self'"
         ].join('; '))
