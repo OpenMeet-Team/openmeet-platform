@@ -57,12 +57,12 @@ export default configure((ctx) => {
         COMMIT_SHA: JSON.stringify(process.env.COMMIT_SHA || 'not set'),
         CSP: JSON.stringify([
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleusercontent.com",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleusercontent.com https://*.posthog.com",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
           "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
           "font-src 'self' https://fonts.gstatic.com",
           "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com",
-          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net https://s3.us-east-1.amazonaws.com https://nominatim.openstreetmap.org https://us.i.posthog.com",
+          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net https://*.amazonaws.com https://nominatim.openstreetmap.org https://*.posthog.com",
           "object-src 'none'",
           "base-uri 'self'"
         ].join('; '))
