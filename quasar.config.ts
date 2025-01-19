@@ -49,7 +49,7 @@ export default configure((ctx) => {
       sourcemap: true,
       target: {
         browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
-        node: 'node20'
+        node: 'node22'
       },
       env: {
         // This is place to set build time variables
