@@ -157,13 +157,30 @@ export const useAuthStore = defineStore('authStore', {
         const tokenExpires = params.get('tokenExpires')
         const user = params.get('user')
 
+        console.log('Processing Bluesky callback:', {
+          hasToken: !!token,
+          hasRefreshToken: !!refreshToken,
+          tokenExpires,
+          hasUser: !!user
+        })
+
         if (token && refreshToken && tokenExpires && user) {
-          this.actionSetToken(token)
-          this.actionSetRefreshToken(refreshToken)
-          this.actionSetTokenExpires(Number(tokenExpires))
-          this.actionSetUser(JSON.parse(user))
-          return true
+          try {
+            const parsedUser = JSON.parse(user)
+            console.log('Parsed user data:', parsedUser)
+
+            this.actionSetToken(token)
+            this.actionSetRefreshToken(refreshToken)
+            this.actionSetTokenExpires(Number(tokenExpires))
+            this.actionSetUser(parsedUser)
+
+            return true
+          } catch (parseError) {
+            console.error('Failed to parse user data:', parseError)
+            throw new Error('Invalid user data format')
+          }
         }
+        console.warn('Missing required callback parameters')
         return false
       } catch (error) {
         console.error('Bluesky callback error:', error)

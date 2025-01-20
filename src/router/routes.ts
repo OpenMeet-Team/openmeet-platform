@@ -93,14 +93,18 @@ const routes: RouteRecordRaw[] = [
         path: 'confirm-new-email',
         component: () => import('pages/auth/ConfirmNewEmailPage.vue'),
         name: 'AuthConfirmNewEmailPage'
+      },
+      {
+        path: 'bluesky/callback',
+        name: 'AuthBlueskyCallbackPage',
+        component: () => import('pages/auth/AuthBlueskyCallbackPage.vue'),
+        props: route => ({
+          code: route.query.code,
+          state: route.query.state
+        })
       }
     ],
     meta: { requiresAuth: false }
-  },
-  {
-    path: '/auth/bluesky/callback',
-    name: 'AuthBlueskyCallback',
-    component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
   },
   {
     path: '/auth/error',
