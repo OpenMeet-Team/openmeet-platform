@@ -97,11 +97,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'bluesky/callback',
         name: 'AuthBlueskyCallbackPage',
-        component: () => import('pages/auth/AuthBlueskyCallbackPage.vue'),
-        props: route => ({
-          code: route.query.code,
-          state: route.query.state
-        })
+        component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
       }
     ],
     meta: { requiresAuth: false }

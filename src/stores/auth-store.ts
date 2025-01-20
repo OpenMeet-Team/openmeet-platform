@@ -157,17 +157,17 @@ export const useAuthStore = defineStore('authStore', {
         const tokenExpires = params.get('tokenExpires')
         const user = params.get('user')
 
-        // console.log('Processing Bluesky callback:', {
-        //   hasToken: !!token,
-        //   hasRefreshToken: !!refreshToken,
-        //   tokenExpires,
-        //   hasUser: !!user
-        // })
+        console.log('Processing Bluesky callback:', {
+          hasToken: !!token,
+          hasRefreshToken: !!refreshToken,
+          tokenExpires,
+          hasUser: !!user
+        })
 
         if (token && refreshToken && tokenExpires && user) {
           try {
             const parsedUser = JSON.parse(user)
-            // console.log('Parsed user data:', parsedUser)
+            console.log('Parsed user data:', parsedUser)
 
             this.actionSetToken(token)
             this.actionSetRefreshToken(refreshToken)

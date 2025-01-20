@@ -1,52 +1,60 @@
 <template>
-  <q-page class="flex flex-center">
-    <q-spinner-dots size="40px" color="primary" />
-    <div class="q-mt-md">Processing login...</div>
-  </q-page>
+  <q-layout view="lHh Lpr lFf">
+    <q-page-container>
+      <q-page class="flex flex-center column">
+        <q-spinner-dots size="40" color="primary" />
+        <div class="q-mt-md">Processing login...</div>
+        <div v-if="error" class="text-negative q-mt-sm">{{ error }}</div>
+      </q-page>
+    </q-page-container>
+  </q-layout>
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useQuasar } from 'quasar'
 import { useAuthStore } from 'stores/auth-store'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
-import { onMounted } from 'vue'
 
-const authStore = useAuthStore()
-const router = useRouter()
+console.log('AuthBlueskyCallbackPage script loaded')
+
 const $q = useQuasar()
+const router = useRouter()
+const authStore = useAuthStore()
+const error = ref('')
 
-onMounted(async () => {
+async function handleBlueskyCallback () {
+  console.log('handleBlueskyCallback called')
   try {
     const params = new URLSearchParams(window.location.search)
-
-    // // Debug logging
-    // console.log('Callback params:', {
-    //   token: params.get('token')?.substring(0, 20) + '...',
-    //   refreshToken: params.get('refreshToken')?.substring(0, 20) + '...',
-    //   tokenExpires: params.get('tokenExpires'),
-    //   user: params.get('user')
-    // })
+    console.log('URL params:', Object.fromEntries(params.entries()))
 
     const success = await authStore.handleBlueskyCallback(params)
-    // console.log('Auth store callback result:', success)
+    console.log('Callback handled with success:', success)
 
-    if (success) {
-      // Clear the token from URL for security
-      window.history.replaceState({}, document.title, window.location.pathname)
-      // console.log('Redirecting to HomePage')
-      await router.push({ name: 'HomePage' })
+    if (success && authStore.isAuthenticated) {
+      console.log('Authentication successful, redirecting to home')
+      await router.push('/')
     } else {
-      throw new Error('Login failed')
+      throw new Error('Authentication failed')
     }
-  } catch (error) {
-    console.error('Bluesky callback error:', error)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('Bluesky callback error:', err)
+    error.value = message
     $q.notify({
       type: 'negative',
       message: 'Failed to complete Bluesky login',
-      // Add more error details in development
-      caption: process.env.DEV ? (error as Error).message : undefined
+      caption: process.env.DEV ? message : undefined
     })
-    await router.push({ name: 'AuthLoginPage' })
+    setTimeout(async () => {
+      await router.push('/auth/login')
+    }, 2000)
   }
+}
+
+onMounted(() => {
+  console.log('AuthBlueskyCallbackPage mounted')
+  handleBlueskyCallback()
 })
 </script>
