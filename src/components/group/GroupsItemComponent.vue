@@ -55,7 +55,7 @@ const { navigateToGroup } = useNavigation()
           <q-icon name="sym_r_people" />
           {{ group.groupMembersCount }} {{ memberText }}
         </span>
-        <q-badge v-if="group.visibility">{{ group.visibility }}</q-badge>
+        <q-badge v-if="group.visibility" :class="[group.groupMembersCount ? 'q-ml-sm' : '']">{{ group.visibility }}</q-badge>
       </div>
     </div>
   </div>
