@@ -2,16 +2,16 @@
   <!-- HeroHomeComponent -->
   <div class="col-12 q-mb-xl">
     <div class="hero-container">
-      <img src="../../assets/openmeet/loops.png" alt="" class="background-loops">
+      <img src="~assets/openmeet/home/loops-min.png" alt="" class="background-loops">
       <div class="floating-profiles">
         <div class="bubble-wrapper-left bubble-left">
           <q-avatar class="profile-left">
-            <img src="../../assets/openmeet/young-woman1.png" alt="Profile 1">
+            <img src="~assets/openmeet/home/young-woman1-min.png" alt="Profile 1">
           </q-avatar>
         </div>
         <div class="bubble-wrapper-right bubble-right">
           <q-avatar class="profile-right">
-            <img src="../../assets/openmeet/older-gentleman.png" alt="Profile 2">
+            <img src="~assets/openmeet/home/older-gentleman-min.png" alt="Profile 2">
           </q-avatar>
         </div>
       </div>
@@ -19,7 +19,6 @@
         <h1 class="text-h3 q-mb-md text-white">Welcome to OpenMeet</h1>
         <p class="text-h6 text-white">Connect, Share, and Grow with Like-minded People</p>
         <q-btn
-          unelevated
           rounded
           color="purple-300"
           label="Join Now"
