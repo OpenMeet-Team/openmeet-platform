@@ -1,12 +1,12 @@
 <script setup lang="ts">
 
 import { ref, computed, onMounted } from 'vue'
-import { useGroupStore } from 'stores/group-store.ts'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
-import { GroupPermission } from 'src/types'
-import DiscussionComponent from 'src/components/discussion/DiscussionComponent.vue'
-import { useAuthStore } from 'src/stores/auth-store'
+import { useGroupStore } from '../../stores/group-store'
+import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
+import { GroupPermission } from '../../types'
+import DiscussionComponent from '../../components/discussion/DiscussionComponent.vue'
+import { useAuthStore } from '../../stores/auth-store'
 
 const group = computed(() => useGroupStore().group)
 const hasPermission = computed(() => {

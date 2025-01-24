@@ -10,7 +10,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Map as LMap, Marker, TileLayer } from 'leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import SpinnerComponent from '../common/SpinnerComponent.vue'
 
 // Refs and interfaces
 const mapContainer = ref<HTMLElement | null>(null)

@@ -56,10 +56,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { EventAttendeeRole, EventEntity } from 'src/types'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
-import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
-import { eventsApi } from 'src/api'
+import { EventAttendeeRole, EventEntity } from '../../types'
+import EventsItemComponent from '../../components/event/EventsItemComponent.vue'
+import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
+import { eventsApi } from '../../api'
 
 const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)

@@ -1,4 +1,4 @@
-import { UserEntity } from 'src/types/user.ts'
+import { UserEntity } from './user'
 
 export enum SubCategoryType {
   EVENT = 'EVENT',

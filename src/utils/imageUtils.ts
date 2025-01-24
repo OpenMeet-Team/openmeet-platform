@@ -7,7 +7,7 @@
 //   return typeof image === 'string' ? image : placeholder
 // }
 
-import { FileEntity } from 'src/types'
+import { FileEntity } from '../types'
 
 export function getImageSrc (image: FileEntity | undefined | string | null, placeholder: string = generateRandomImageBase64(300, 150, 5)): string {
   if (typeof image === 'object' && image?.path) {

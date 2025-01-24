@@ -1,11 +1,11 @@
 import { useQuasar } from 'quasar'
-import GroupFormDialogComponent from 'src/components/group/GroupFormDialogComponent.vue'
-import { GroupEntity, GroupMemberEntity } from 'src/types'
-import { groupsApi } from 'src/api/groups.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
-import GroupWelcomeDialogComponent from 'components/group/GroupWelcomeDialogComponent.vue'
-import GroupMemberRoleDialogComponent from 'src/components/group/GroupMemberRoleDialogComponent.vue'
-import GroupMemberDeleteDialogComponent from 'src/components/group/GroupMemberDeleteDialogComponent.vue'
+import GroupFormDialogComponent from '../components/group/GroupFormDialogComponent.vue'
+import { GroupEntity, GroupMemberEntity } from '../types'
+import { groupsApi } from '../api/groups'
+import { useNotification } from './useNotification'
+import GroupWelcomeDialogComponent from '../components/group/GroupWelcomeDialogComponent.vue'
+import GroupMemberRoleDialogComponent from '../components/group/GroupMemberRoleDialogComponent.vue'
+import GroupMemberDeleteDialogComponent from '../components/group/GroupMemberDeleteDialogComponent.vue'
 
 export function useGroupDialog () {
   const $q = useQuasar()

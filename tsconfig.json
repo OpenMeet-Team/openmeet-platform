@@ -1,15 +1,20 @@
 {
-  "extends": "@quasar/app-vite/tsconfig-preset",
+  "extends": "./.quasar/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "types": [
       "cypress"
     ],
-    "allowJs": true,
-    "moduleResolution": "node",
-    "module": "ESNext"
+    // "paths": {
+    //   "*": ["src/*"]
+    // },
+    // "allowJs": true,
+    // "moduleResolution": "node",
+    // "module": "ESNext"
+    // Cannot find module 'boot/axios' or its corresponding type declarations.ts(2307)
+
   },
-  "esModuleInterop": true,
+  // "esModuleInterop": true,
   "exclude": [
     "./local",
     "./dist",

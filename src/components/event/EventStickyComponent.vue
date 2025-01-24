@@ -58,16 +58,16 @@
 <script setup lang="ts">
 
 import ShareComponent from 'components/common/ShareComponent.vue'
-import { EventAttendeeEntity, EventAttendeeStatus, EventEntity } from 'src/types'
-import { formatDate } from '../../utils/dateUtils.ts'
+import { EventAttendeeEntity, EventAttendeeStatus, EventEntity } from '../../types'
+import { formatDate } from '../../utils/dateUtils'
 import { Dark } from 'quasar'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useEventStore } from 'stores/event-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
-import { useEventDialog } from 'src/composables/useEventDialog.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { useAuthStore } from '../../stores/auth-store'
+import { useEventStore } from '../../stores/event-store'
+import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useEventDialog } from '../../composables/useEventDialog'
+import { useNotification } from '../../composables/useNotification'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
-import { pluralize } from 'src/utils/stringUtils.ts'
+import { pluralize } from '../../utils/stringUtils'
 import { ref, watch, computed } from 'vue'
 
 interface Props {

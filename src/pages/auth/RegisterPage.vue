@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import RegisterComponent from 'components/auth/RegisterComponent.vue'
+import RegisterComponent from '../../components/auth/RegisterComponent.vue'
 </script>
 
 <template>

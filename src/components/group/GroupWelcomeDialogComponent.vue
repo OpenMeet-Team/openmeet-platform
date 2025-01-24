@@ -2,7 +2,7 @@
 import { QDialog } from 'quasar'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { GroupEntity, GroupRole } from 'src/types'
+import { GroupEntity, GroupRole } from '../../types'
 
 const dialogRef = ref<QDialog | null>(null)
 const router = useRouter()

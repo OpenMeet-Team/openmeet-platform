@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EventEntity } from 'src/types'
+import { EventEntity } from '../../types'
 import EventsItemComponent from './EventsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import SpinnerComponent from '../common/SpinnerComponent.vue'

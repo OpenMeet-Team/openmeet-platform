@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ZulipTopicEntity, ZulipMessageEntity } from 'src/types'
+import { ZulipTopicEntity, ZulipMessageEntity } from '../types'
 import { useGroupStore } from './group-store'
 import { useEventStore } from './event-store'
 import { useAuthStore } from './auth-store'

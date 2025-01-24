@@ -9,8 +9,8 @@
 </template>
 
 <script setup lang="ts">
-import AppHeaderComponent from 'components/header/AppHeaderComponent.vue'
-import AppFooterComponent from 'components/footer/AppFooterComponent.vue'
+import AppHeaderComponent from '../components/header/AppHeaderComponent.vue'
+import AppFooterComponent from '../components/footer/AppFooterComponent.vue'
 
 defineOptions({
   name: 'AppLayout'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import HeaderWrapperComponent from 'components/header/HeaderWrapperComponent.vue'
+import HeaderWrapperComponent from '../header/HeaderWrapperComponent.vue'
 import HeaderDesktopComponent from './HeaderDesktopComponent.vue'
 import HeaderMobileComponent from './HeaderMobileComponent.vue'
 import { Screen } from 'quasar'

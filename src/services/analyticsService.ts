@@ -1,5 +1,5 @@
 import { PostHog } from 'posthog-js'
-import { posthog } from 'src/boot/posthog'
+import { posthog } from '../boot/posthog'
 
 class AnalyticsService {
   private posthog: PostHog

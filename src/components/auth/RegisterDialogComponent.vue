@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import RegisterComponent from 'components/auth/RegisterComponent.vue'
+import RegisterComponent from '../auth/RegisterComponent.vue'
 import { QDialog } from 'quasar'
 
 const dialogRef = ref<QDialog | null>(null)

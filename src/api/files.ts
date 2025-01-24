@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from 'axios'
-import { api } from 'src/boot/axios.ts'
-import { FileEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { FileEntity } from '../types'
 
 interface FileUploadResponse {
   file: FileEntity

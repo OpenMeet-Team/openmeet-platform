@@ -1,5 +1,5 @@
 import { AxiosResponse } from 'axios'
-import { api } from 'src/boot/axios'
+import { api } from '../boot/axios'
 import {
   ApiAuthForgotPasswordRequest,
   ApiAuthLoginResponse,
@@ -7,7 +7,7 @@ import {
   ApiAuthRestorePasswordRequest,
   ApiAuthUser,
   SubCategoryEntity
-} from 'src/types'
+} from '../types'
 
 const BASE_URL = '/api/v1/auth'
 

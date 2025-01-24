@@ -11,7 +11,7 @@
 </template>
 
 <script lang="ts" setup>
-import { SubCategoryEntity } from 'src/types'
+import { SubCategoryEntity } from '../../types'
 
 defineProps<{
   interests: SubCategoryEntity[]

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatDate } from 'src/utils/dateUtils.ts'
-import { EventEntity } from 'src/types'
-import { useNavigation } from '../../composables/useNavigation.ts'
+import { formatDate } from '../../utils/dateUtils'
+import { EventEntity } from '../../types'
+import { useNavigation } from '../../composables/useNavigation'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 
 const { navigateToEvent } = useNavigation()

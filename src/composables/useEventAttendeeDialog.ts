@@ -1,7 +1,7 @@
 import { useQuasar } from 'quasar'
-import EditAttendeeDialogComponent from 'src/components/event-attendees/EditAttendeeDialogComponent.vue'
-import ViewAttendeeRequestDialogComponent from 'src/components/event-attendees/ViewAttendeeRequestDialogComponent.vue'
-import { EventAttendeeEntity } from 'src/types'
+import EditAttendeeDialogComponent from '../components/event-attendees/EditAttendeeDialogComponent.vue'
+import ViewAttendeeRequestDialogComponent from '../components/event-attendees/ViewAttendeeRequestDialogComponent.vue'
+import { EventAttendeeEntity } from '../types'
 
 export function useEventAttendeeDialog () {
   const $q = useQuasar()

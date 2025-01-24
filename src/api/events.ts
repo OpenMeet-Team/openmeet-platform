@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
-import { api } from 'boot/axios'
-import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 
 const createEventApiHeaders = (eventSlug: string) => ({

@@ -34,10 +34,10 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { ZulipMessageEntity } from 'src/types'
+import { ZulipMessageEntity } from '../../types'
 import DiscussionMessageComponent from './DiscussionMessageComponent.vue'
-import { useDiscussionStore } from 'src/stores/discussion-store'
-import { useDiscussionDialog } from 'src/composables/useDiscussionDialog'
+import { useDiscussionStore } from '../../stores/discussion-store'
+import { useDiscussionDialog } from '../../composables/useDiscussionDialog'
 import DOMPurify from 'dompurify'
 
 const editingMessageId = ref<number | null>(null)

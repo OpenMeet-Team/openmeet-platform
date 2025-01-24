@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { authApi } from 'src/api/auth.ts'
+import { authApi } from '../api/auth'
 import { LocalStorage } from 'quasar'
 import {
   ApiAuthUser,
@@ -10,8 +10,8 @@ import {
   UserEntity,
   UserRole,
   UserPermission
-} from 'src/types'
-import analyticsService from 'src/services/analyticsService'
+} from '../types'
+import analyticsService from '../services/analyticsService'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({

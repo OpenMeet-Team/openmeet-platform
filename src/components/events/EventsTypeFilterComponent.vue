@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { ref, watch } from 'vue'
-import { EventType } from 'src/types'
+import { EventType } from '../../types'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()

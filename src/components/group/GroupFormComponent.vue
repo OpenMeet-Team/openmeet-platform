@@ -58,17 +58,17 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, FileEntity, GroupEntity, GroupStatus, GroupVisibility } from 'src/types'
-import { useNotification } from 'src/composables/useNotification.ts'
-import { categoriesApi } from 'src/api/categories.ts'
-import { groupsApi } from 'src/api/groups.ts'
-import UploadComponent from 'components/common/UploadComponent.vue'
-import LocationComponent from 'components/common/LocationComponent.vue'
+import { CategoryEntity, FileEntity, GroupEntity, GroupStatus, GroupVisibility } from '../../types'
+import { useNotification } from '../../composables/useNotification'
+import { categoriesApi } from '../../api/categories'
+import { groupsApi } from '../../api/groups'
+import UploadComponent from '../../components/common/UploadComponent.vue'
+import LocationComponent from '../../components/common/LocationComponent.vue'
 import { Loading, LoadingBar, QField, Screen } from 'quasar'
 import DOMPurify from 'dompurify'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
-import analyticsService from 'src/services/analyticsService'
-import { useNavigation } from 'src/composables/useNavigation'
+import analyticsService from '../../services/analyticsService'
+import { useNavigation } from '../../composables/useNavigation'
 
 const group = ref<GroupEntity>({
   ulid: '',

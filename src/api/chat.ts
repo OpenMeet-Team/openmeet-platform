@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
-import { api } from 'boot/axios'
-import { ChatEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { ChatEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 
 export const chatApi = {

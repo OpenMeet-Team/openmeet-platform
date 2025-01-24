@@ -9,8 +9,8 @@
 </template>
 
 <script setup lang="ts">
-import AuthHeaderComponent from 'components/header/AuthHeaderComponent.vue'
-import AppFooterComponent from 'components/footer/AppFooterComponent.vue'
+import AuthHeaderComponent from '../components/header/AuthHeaderComponent.vue'
+import AppFooterComponent from '../components/footer/AppFooterComponent.vue'
 
 defineOptions({
   name: 'AuthLayout'

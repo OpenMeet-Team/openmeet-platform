@@ -1,9 +1,9 @@
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import HomePage from 'src/pages/HomePage.vue'
-import { installPinia } from 'app/test/vitest/install-pinia.ts'
-import '../../mocks/axios.ts'
+import HomePage from '../../../../src/pages/HomePage.vue'
+import { installPinia } from '../../install-pinia'
+import '../../mocks/axios'
 
 installQuasarPlugin()
 installPinia({ stubActions: false, createSpy: vi.fn })

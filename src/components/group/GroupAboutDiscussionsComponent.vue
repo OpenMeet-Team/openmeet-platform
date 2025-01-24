@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
-import { GroupEntity, GroupPermission } from 'src/types'
+import { GroupEntity, GroupPermission } from '../../types'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
-import { useGroupStore } from 'src/stores/group-store'
+import { useGroupStore } from '../../stores/group-store'
 import DiscussionComponent from '../discussion/DiscussionComponent.vue'
-import { useAuthStore } from 'src/stores/auth-store'
+import { useAuthStore } from '../../stores/auth-store'
 import { computed } from 'vue'
 interface Props {
   group?: GroupEntity
@@ -20,7 +20,7 @@ defineProps<Props>()
 <template>
   <SubtitleComponent class="q-px-md q-mt-lg" label="Discussions" :to="{ name: 'GroupDiscussionsPage' }" />
 
-  <q-card class="q-mt-md" flat>
+  <q-card class="q-mt-md q-pb-sm" flat>
       <DiscussionComponent v-if="group && group.topics && group.messages" :messages="group?.messages || []" :topics="group?.topics || []" :context-type="'group'" :context-id="group?.slug || ''" :permissions="{
         canRead: !!canRead,
         canWrite: !!useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion),

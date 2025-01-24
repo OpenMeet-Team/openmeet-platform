@@ -1,13 +1,13 @@
 <script setup lang="ts">
 
-import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { useGroupStore } from 'stores/group-store.ts'
-import ShareComponent from 'components/common/ShareComponent.vue'
+import { getImageSrc } from '../../utils/imageUtils'
+import { useGroupStore } from '../../stores/group-store'
+import ShareComponent from '../../components/common/ShareComponent.vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { GroupCategoryEntity, GroupPermission } from 'src/types'
-import { useNavigation } from 'src/composables/useNavigation.ts'
-import { pluralize } from 'src/utils/stringUtils'
+import { GroupCategoryEntity, GroupPermission } from '../../types'
+import { useNavigation } from '../../composables/useNavigation'
+import { pluralize } from '../../utils/stringUtils'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
 
 const group = computed(() => useGroupStore().group)
