@@ -75,6 +75,11 @@ const routes: RouteRecordRaw[] = [
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },
       {
+        path: 'bluesky/callback',
+        name: 'AuthBlueskyCallbackPage',
+        component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
+      },
+      {
         path: 'forgot-password',
         name: 'AuthForgotPasswordPage',
         component: () => import('pages/auth/ForgotPasswordPage.vue')
@@ -97,11 +102,7 @@ const routes: RouteRecordRaw[] = [
     ],
     meta: { requiresAuth: false }
   },
-  {
-    path: '/auth/bluesky/callback',
-    name: 'AuthBlueskyCallback',
-    component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
-  },
+
   {
     path: '/auth/error',
     name: 'AuthErrorPage',

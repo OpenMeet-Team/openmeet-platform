@@ -90,6 +90,7 @@ const onSubmit = (): void => {
       email.value = ''
       password.value = ''
       emits('login')
+      console.log('router replace ', route.query.redirect)
       return router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
     }).catch(error => {
       console.error('Error logging in:', error)

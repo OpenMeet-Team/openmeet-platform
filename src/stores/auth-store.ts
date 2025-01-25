@@ -20,7 +20,8 @@ export const useAuthStore = defineStore('authStore', {
     tokenExpires: LocalStorage.getItem('tokenExpires') || '',
     user: JSON.parse(LocalStorage.getItem('user') || '{}') as UserEntity,
     role: UserRole.User,
-    permissions: [] as string[]
+    permissions: [] as string[],
+    isHandlingCallback: false
   }),
   getters: {
     isAuthenticated: state => !!state.token,
@@ -113,17 +114,71 @@ export const useAuthStore = defineStore('authStore', {
         console.error('Logout failed', error)
       })
     },
+    async handleBlueskyCallback (params: URLSearchParams) {
+      if (this.isHandlingCallback) {
+        console.log('Already handling Bluesky callback')
+        return false
+      }
+
+      this.isHandlingCallback = true
+      console.log('Starting Bluesky callback handling')
+
+      try {
+        const token = params.get('token')
+        const refreshToken = params.get('refreshToken')
+        const tokenExpires = params.get('tokenExpires')
+        const user = params.get('user')
+
+        console.log('Received callback params:', {
+          hasToken: !!token,
+          hasRefreshToken: !!refreshToken,
+          hasTokenExpires: !!tokenExpires,
+          hasUser: !!user
+        })
+
+        if (token && refreshToken && tokenExpires && user) {
+          // Set values sequentially to avoid race conditions
+          await Promise.all([
+            this.actionSetToken(token),
+            this.actionSetRefreshToken(refreshToken),
+            this.actionSetTokenExpires(Number(tokenExpires)),
+            this.actionSetUser(JSON.parse(user))
+          ])
+
+          console.log('Successfully set auth data')
+          return true
+        }
+
+        console.log('Missing required callback parameters')
+        return false
+      } catch (error) {
+        console.error('Bluesky callback error:', error)
+        throw error
+      } finally {
+        this.isHandlingCallback = false
+        console.log('Finished Bluesky callback handling')
+      }
+    },
     actionSetToken (token: string) {
-      this.token = token
-      LocalStorage.setItem('token', token)
+      return new Promise<void>(resolve => {
+        this.token = token
+        LocalStorage.setItem('token', token)
+        resolve()
+      })
     },
     actionSetRefreshToken (refreshToken: string) {
-      this.refreshToken = refreshToken
-      LocalStorage.setItem('refreshToken', refreshToken)
+      return new Promise<void>(resolve => {
+        this.refreshToken = refreshToken
+        LocalStorage.setItem('refreshToken', refreshToken)
+        resolve()
+      })
     },
     actionSetTokenExpires (tokenExpires: number) {
-      this.tokenExpires = tokenExpires
-      LocalStorage.setItem('tokenExpires', tokenExpires)
+      return new Promise<void>(resolve => {
+        this.tokenExpires = tokenExpires
+        LocalStorage.setItem('tokenExpires', tokenExpires)
+        resolve()
+      })
     },
     actionSetUser (user: ApiAuthUser) {
       this.user = user
@@ -149,26 +204,6 @@ export const useAuthStore = defineStore('authStore', {
     },
     actionSetPermissions (permissions: string[]) {
       this.permissions = permissions
-    },
-    async handleBlueskyCallback (params: URLSearchParams) {
-      try {
-        const token = params.get('token')
-        const refreshToken = params.get('refreshToken')
-        const tokenExpires = params.get('tokenExpires')
-        const user = params.get('user')
-
-        if (token && refreshToken && tokenExpires && user) {
-          this.actionSetToken(token)
-          this.actionSetRefreshToken(refreshToken)
-          this.actionSetTokenExpires(Number(tokenExpires))
-          this.actionSetUser(JSON.parse(user))
-          return true
-        }
-        return false
-      } catch (error) {
-        console.error('Bluesky callback error:', error)
-        throw error
-      }
     }
   }
 })

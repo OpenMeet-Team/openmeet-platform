@@ -39,6 +39,7 @@ export default async ({ router }: { router: Router }) => {
   }
 
   router.afterEach((to) => {
+    console.log('router afterEach from posthog', to.path)
     posthog.capture('$pageview', { path: to.path })
   })
 }

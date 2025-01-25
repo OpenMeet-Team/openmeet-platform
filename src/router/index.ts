@@ -36,20 +36,29 @@ export default route(function (/* { store, ssrContext } */) {
   })
 
   Router.beforeEach((to, from, next) => {
+    console.log('router beforeEach', from.name, to.name)
+    // console.trace()
+
     const authStore = useAuthStore()
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 
     if (to.matched.some(record => record.meta.requiresAuth)) {
+      console.log('router requiresAuth')
       if (!authStore.isAuthenticated) {
+        console.log('router beforeEach redirect to AuthLoginPage', to.fullPath)
         next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
       } else {
+        console.log('router next')
         next()
       }
     } else {
+      console.log('router requiresAuth false')
       if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
+        console.log('router beforeEach redirect to HomePage', to.fullPath)
         next({ name: 'HomePage' })
       } else {
+        console.log('router next')
         next()
       }
     }

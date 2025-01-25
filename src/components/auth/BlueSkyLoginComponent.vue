@@ -46,8 +46,12 @@ const buttonText = computed(() => {
 })
 
 const handleBlueskyLogin = async () => {
+  if (isLoading.value) return // Prevent multiple clicks
   try {
     isLoading.value = true
+
+    // Add debounce flag
+    const isRedirecting = ref(false)
 
     // Open a dialog to get the Bluesky handle
     $q.dialog({
@@ -61,6 +65,10 @@ const handleBlueskyLogin = async () => {
       persistent: true
     }).onOk(async (handle) => {
       try {
+        // Prevent multiple redirects
+        if (isRedirecting.value) return
+        isRedirecting.value = true
+
         const baseUrl = getEnv('APP_API_URL')
         const tenantId = getEnv('APP_TENANT_ID')
 
@@ -74,9 +82,12 @@ const handleBlueskyLogin = async () => {
           throw new Error('No authorization URL received')
         }
 
-        // Redirect the whole window to the Bluesky auth page
+        // Add a small delay before redirect to prevent rapid successive calls
+        console.log('Redirecting to Bluesky auth page:', url)
+        await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = url
       } catch (error) {
+        isRedirecting.value = false
         console.error('Failed to get auth URL:', error)
         $q.notify({
           type: 'negative',
