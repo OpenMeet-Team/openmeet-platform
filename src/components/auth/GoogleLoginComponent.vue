@@ -22,8 +22,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from 'src/stores/auth-store'
-import getEnv from 'src/utils/env'
+import { useAuthStore } from '../../stores/auth-store'
+import getEnv from '../../utils/env'
 
 const googleClientId = getEnv('APP_GOOGLE_CLIENT_ID') as string
 

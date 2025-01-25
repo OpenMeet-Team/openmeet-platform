@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from 'src/stores/auth-store'
+import { useAuthStore } from '../../stores/auth-store'
 import { useQuasar } from 'quasar'
 
 const route = useRoute()

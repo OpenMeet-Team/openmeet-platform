@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
+import { useAuthStore } from '../../stores/auth-store'
+import { useAuthDialog } from '../../composables/useAuthDialog'
 const authDialog = useAuthDialog()
 const onLogin = () => {
   authDialog.openLoginDialog()

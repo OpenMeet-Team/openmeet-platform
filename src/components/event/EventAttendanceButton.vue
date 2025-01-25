@@ -48,14 +48,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { useEventStore } from 'stores/event-store'
-import { useAuthStore } from 'stores/auth-store'
+import { useEventStore } from '../../stores/event-store'
+import { useAuthStore } from '../../stores/auth-store'
 import {
   EventEntity,
   EventAttendeeEntity,
   EventAttendeeStatus
-} from 'src/types'
-import { useAuthDialog } from 'src/composables/useAuthDialog'
+} from '../../types'
+import { useAuthDialog } from '../../composables/useAuthDialog'
 
 const $q = useQuasar()
 const eventStore = useEventStore()

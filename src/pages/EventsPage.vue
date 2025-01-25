@@ -59,14 +59,14 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import NoContentComponent from 'components/global/NoContentComponent.vue'
-import EventsDateFilterComponent from 'components/events/EventsDateFilterComponent.vue'
-import EventsTypeFilterComponent from 'components/events/EventsTypeFilterComponent.vue'
-import EventsCategoriesFilterComponent from 'components/common/CategoriesFilterComponent.vue'
-import { useEventsStore } from 'stores/events-store.ts'
-import EventsLocationFilterComponent from 'components/common/LocationFilterComponent.vue'
-import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
-import EventsListComponent from 'components/event/EventsListComponent.vue'
+import NoContentComponent from '../components/global/NoContentComponent.vue'
+import EventsDateFilterComponent from '../components/events/EventsDateFilterComponent.vue'
+import EventsTypeFilterComponent from '../components/events/EventsTypeFilterComponent.vue'
+import EventsCategoriesFilterComponent from '../components/common/CategoriesFilterComponent.vue'
+import { useEventsStore } from '../stores/events-store'
+import EventsLocationFilterComponent from '../components/common/LocationFilterComponent.vue'
+import RadiusFilterComponent from '../components/common/RadiusFilterComponent.vue'
+import EventsListComponent from '../components/event/EventsListComponent.vue'
 
 const route = useRoute()
 const router = useRouter()

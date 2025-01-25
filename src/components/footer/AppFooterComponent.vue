@@ -45,9 +45,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import FooterHubspotComponent from 'components/footer/FooterHubspotComponent.vue'
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
-import ShareComponent from 'components/common/ShareComponent.vue'
+import FooterHubspotComponent from '../footer/FooterHubspotComponent.vue'
+import MenuItemComponent from '../common/MenuItemComponent.vue'
+import ShareComponent from '../common/ShareComponent.vue'
 import VersionComponent from '../common/VersionComponent.vue'
 import HeaderLogoComponent from '../header/HeaderLogoComponent.vue'
 const router = useRouter()

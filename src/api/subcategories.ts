@@ -1,5 +1,5 @@
-import { api } from 'boot/axios'
-import { SubCategoryEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { SubCategoryEntity } from '../types'
 
 export const subcategoriesApi = {
   getAll: () => api.get<SubCategoryEntity[]>('/api/subcategories'),

@@ -90,7 +90,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Notify, QSelect, Screen } from 'quasar'
 import { useRouter } from 'vue-router'
-import { searchApi } from 'src/api/search.ts'
+import { searchApi } from '../../api/search'
 
 interface SearchResult {
   name: string

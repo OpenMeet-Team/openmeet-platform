@@ -1,7 +1,7 @@
 import { boot } from 'quasar/wrappers'
 import NoContentComponent from 'components/global/NoContentComponent.vue'
 import { QCalendar, QCalendarMonth } from '@quasar/quasar-ui-qcalendar'
-import '@quasar/quasar-ui-qcalendar/src/css/q-calendar.sass'
+// import '@quasar/quasar-ui-qcalendar/src/css/q-calendar.sass'
 import SpinnerComponent from 'components/common/SpinnerComponent.vue'
 
 export default boot(({ app }) => {

@@ -3,11 +3,11 @@ import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-v
 import { mount } from '@vue/test-utils'
 import { Notify } from 'quasar'
 import { describe, it, expect, vi } from 'vitest'
-import LoginPage from 'src/components/auth/LoginComponent.vue'
-import { useAuthStore } from 'stores/auth-store'
+import LoginPage from '../../../../../src/components/auth/LoginComponent.vue'
 import { useRouter } from 'vue-router'
-import { installPinia } from 'app/test/vitest/install-pinia.ts'
-import { installRouter } from 'app/test/vitest/install-router.ts'
+import { useAuthStore } from '../../../../../src/stores/auth-store'
+import { installPinia } from '../../../install-pinia'
+import { installRouter } from '../../../install-router'
 
 installQuasarPlugin({ plugins: { Notify } })
 installPinia({ stubActions: false, createSpy: vi.fn })

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 
-import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { GroupMemberEntity, GroupPermission, GroupRole } from 'src/types'
+import { getImageSrc } from '../../utils/imageUtils'
+import { GroupMemberEntity, GroupPermission, GroupRole } from '../../types'
 import { computed } from 'vue'
-import { useGroupStore } from 'stores/group-store.ts'
+import { useGroupStore } from '../../stores/group-store'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
-import { useNavigation } from 'src/composables/useNavigation'
+import { useNavigation } from '../../composables/useNavigation'
 
 const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()

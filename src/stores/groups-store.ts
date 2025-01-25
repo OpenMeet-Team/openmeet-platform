@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import { GroupPaginationEntity } from 'src/types'
+import { GroupPaginationEntity } from '../types'
 import { AxiosError } from 'axios'
 import { RouteQueryAndHash } from 'vue-router'
-import { groupsApi } from 'src/api/groups.ts'
+import { groupsApi } from '../api/groups'
 
 export const useGroupsStore = defineStore('groups', {
   state: () => ({

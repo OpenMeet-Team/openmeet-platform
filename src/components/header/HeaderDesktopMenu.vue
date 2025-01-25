@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
-import HeaderNavComponent from 'components/header/HeaderNavComponent.vue'
-import HeaderSignInComponent from 'components/header/HeaderSignInComponent.vue'
-import HeaderProfile from 'components/header/HeaderProfileComponent.vue'
+import HeaderNavComponent from '../header/HeaderNavComponent.vue'
+import HeaderSignInComponent from '../header/HeaderSignInComponent.vue'
+import HeaderProfile from '../header/HeaderProfileComponent.vue'
 // import HeaderNotificationsComponent from 'components/header/HeaderNotificationsComponent.vue'
-import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
+import HeaderDarkModeComponent from '../header/HeaderDarkModeComponent.vue'
 </script>
 
 <template>

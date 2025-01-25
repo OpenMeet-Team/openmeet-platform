@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { Notify } from 'quasar'
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
+import MenuItemComponent from '../common/MenuItemComponent.vue'
 
 // Define the URLs for each social media platform
 const shareUrls = {

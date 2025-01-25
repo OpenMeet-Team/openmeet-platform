@@ -33,12 +33,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
-import LocationFilterComponent from 'components/common/LocationFilterComponent.vue'
-import CategoriesFilterComponent from 'components/common/CategoriesFilterComponent.vue'
-import RadiusFilterComponent from 'components/common/RadiusFilterComponent.vue'
-import { useGroupsStore } from 'stores/groups-store.ts'
-import GroupsListComponent from 'components/group/GroupsListComponent.vue'
+import SpinnerComponent from '../components/common/SpinnerComponent.vue'
+import LocationFilterComponent from '../components/common/LocationFilterComponent.vue'
+import CategoriesFilterComponent from '../components/common/CategoriesFilterComponent.vue'
+import RadiusFilterComponent from '../components/common/RadiusFilterComponent.vue'
+import { useGroupsStore } from '../stores/groups-store'
+import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -22,6 +22,6 @@ export default defineConfig({
     quasar({
       sassVariables: 'src/quasar-variables.scss'
     }),
-    tsconfigPaths({})
+    tsconfigPaths() as any
   ]
 })

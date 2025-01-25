@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { EventPaginationEntity } from 'src/types'
-import { eventsApi } from 'src/api/events.ts'
+import { EventPaginationEntity } from '../types'
+import { eventsApi } from '../api/events'
 import { AxiosError } from 'axios'
 import { RouteQueryAndHash } from 'vue-router'
 

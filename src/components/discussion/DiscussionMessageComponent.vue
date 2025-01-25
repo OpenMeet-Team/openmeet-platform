@@ -22,9 +22,9 @@
 </template>
 
 <script setup lang="ts">
-import { useDiscussionStore } from 'src/stores/discussion-store'
-import { ZulipMessageEntity } from 'src/types'
-import { getRoundedHumanReadableDateDifference } from 'src/utils/dateUtils'
+import { useDiscussionStore } from '../../stores/discussion-store'
+import { ZulipMessageEntity } from '../../types'
+import { getRoundedHumanReadableDateDifference } from '../../utils/dateUtils'
 
 interface Props {
   message: ZulipMessageEntity

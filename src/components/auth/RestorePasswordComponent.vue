@@ -72,10 +72,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { useAuthStore } from '../../stores/auth-store'
+import { useNotification } from '../../composables/useNotification'
 import { useMeta } from 'quasar'
-import AuthLoginLinkComponent from 'components/auth/AuthLoginLinkComponent.vue'
+import AuthLoginLinkComponent from '../../components/auth/AuthLoginLinkComponent.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

@@ -37,9 +37,9 @@
 
 <script setup lang="ts">
 import { useDialogPluginComponent } from 'quasar'
-import { eventsApi } from 'src/api'
-import { EventAttendeeEntity, EventAttendeeRole, EventAttendeeStatus } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
+import { eventsApi } from '../../api'
+import { EventAttendeeEntity, EventAttendeeRole, EventAttendeeStatus } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import SpinnerComponent from '../common/SpinnerComponent.vue'

@@ -1,6 +1,6 @@
-import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model.ts'
-import { UserEntity } from 'src/types/user.ts'
-import { EventEntity } from 'src/types/event.ts'
+import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from './model'
+import { UserEntity } from './user'
+import { EventEntity } from './event'
 
 export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
 export enum GroupVisibility {

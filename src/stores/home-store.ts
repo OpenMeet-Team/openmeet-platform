@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { homeApi } from 'src/api'
-import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from 'src/types'
+import { homeApi } from '../api'
+import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from '../types'
 
 export const useHomeStore = defineStore('home', {
   state: () => ({

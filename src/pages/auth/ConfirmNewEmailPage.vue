@@ -12,8 +12,8 @@
 </template>
 
 <script setup lang="ts">
-import { authApi } from 'src/api'
-import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
+import { authApi } from '../../api'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

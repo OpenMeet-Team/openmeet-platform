@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import RestorePasswordComponent from 'components/auth/RestorePasswordComponent.vue'
+import RestorePasswordComponent from '../../components/auth/RestorePasswordComponent.vue'
 </script>
 
 <template>

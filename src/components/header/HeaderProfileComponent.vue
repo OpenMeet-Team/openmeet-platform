@@ -14,10 +14,10 @@
   </q-avatar>
 </template>
 <script setup lang="ts">
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
-import { useAuthStore } from 'stores/auth-store.ts'
+import MenuItemComponent from '../common/MenuItemComponent.vue'
+import { useAuthStore } from '../../stores/auth-store'
 import { useRouter } from 'vue-router'
-import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { getImageSrc } from '../../utils/imageUtils'
 
 const router = useRouter()
 

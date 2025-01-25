@@ -27,15 +27,15 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthDialog } from 'src/composables/useAuthDialog'
-import { useAuthStore } from 'src/stores/auth-store'
-import { useEventStore } from 'src/stores/event-store'
-import { getImageSrc } from 'src/utils/imageUtils'
+import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuthStore } from '../../stores/auth-store'
+import { useEventStore } from '../../stores/event-store'
+import { getImageSrc } from '../../utils/imageUtils'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
-import { EventAttendeePermission, EventAttendeeRole } from 'src/types'
-import { useEventDialog } from 'src/composables/useEventDialog'
+import { EventAttendeePermission, EventAttendeeRole } from '../../types'
+import { useEventDialog } from '../../composables/useEventDialog'
 
 const event = computed(() => useEventStore().event)
 const { openLoginDialog } = useAuthDialog()

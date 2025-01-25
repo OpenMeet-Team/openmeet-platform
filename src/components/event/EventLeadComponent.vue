@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
 import { computed } from 'vue'
-import { useEventStore } from 'stores/event-store.ts'
-import { getImageSrc } from 'src/utils/imageUtils.ts'
+import { useEventStore } from '../../stores/event-store'
+import { getImageSrc } from '../../utils/imageUtils'
 
 const event = computed(() => useEventStore().event)
 </script>

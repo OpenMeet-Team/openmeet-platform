@@ -1,6 +1,6 @@
-import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model.ts'
-import { GroupEntity, GroupMemberEntity } from 'src/types/group.ts'
-import { UserEntity } from 'src/types/user.ts'
+import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from './model'
+import { GroupEntity, GroupMemberEntity } from './group'
+import { UserEntity } from './user'
 
 export enum EventType {
   Online = 'online',

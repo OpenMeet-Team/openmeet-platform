@@ -35,13 +35,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import CalendarComponent from 'components/common/CalendarComponent.vue'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
+import CalendarComponent from '../../components/common/CalendarComponent.vue'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
-import { useGroupStore } from 'src/stores/group-store'
-import { GroupPermission } from 'src/types'
-import { useAuthStore } from 'src/stores/auth-store'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
+import { useGroupStore } from '../../stores/group-store'
+import { GroupPermission } from '../../types'
+import { useAuthStore } from '../../stores/auth-store'
+import EventsItemComponent from '../../components/event/EventsItemComponent.vue'
 
 const route = useRoute()
 const isLoading = ref<boolean>(false)

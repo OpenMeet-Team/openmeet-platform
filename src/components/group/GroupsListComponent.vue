@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GroupEntity } from 'src/types'
+import { GroupEntity } from '../../types'
 import GroupsItemComponent from './GroupsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import SpinnerComponent from '../common/SpinnerComponent.vue'

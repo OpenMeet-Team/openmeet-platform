@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { LoadingBar } from 'quasar'
-import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { useProfileStore } from 'src/stores/profile-store'
-import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
+import { getImageSrc } from '../utils/imageUtils'
+import { useProfileStore } from '../stores/profile-store'
+import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import { useAuthStore } from 'src/stores/auth-store'
-import NoContentComponent from 'src/components/global/NoContentComponent.vue'
-import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
-import EventsItemComponent from 'src/components/event/EventsItemComponent.vue'
-import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
+import SubtitleComponent from '../components/common/SubtitleComponent.vue'
+import { useAuthStore } from '../stores/auth-store'
+import NoContentComponent from '../components/global/NoContentComponent.vue'
+import GroupsItemComponent from '../components/group/GroupsItemComponent.vue'
+import EventsItemComponent from '../components/event/EventsItemComponent.vue'
+import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 
 const route = useRoute()
 

@@ -1,6 +1,6 @@
-import { api } from 'boot/axios.ts'
+import { api } from '../boot/axios'
 
-import { EventEntity, GroupEntity } from 'src/types'
+import { EventEntity, GroupEntity } from '../types'
 
 interface SearchEvents {
   data: { name: string, slug: string }[]

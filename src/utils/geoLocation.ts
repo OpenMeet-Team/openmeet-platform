@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { OneTrustGeoLocationResponse } from 'src/types'
+import { OneTrustGeoLocationResponse } from '../types'
 
 const CACHE_KEY = 'geoLocation'
 const CACHE_EXPIRATION_KEY = 'geoLocationExpiration'

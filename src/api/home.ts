@@ -1,5 +1,5 @@
-import { api } from 'boot/axios.ts'
-import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { CategoryEntity, EventEntity, GroupEntity, SubCategoryEntity } from '../types'
 
 interface HomeGuestResponse {
   groups: GroupEntity[]

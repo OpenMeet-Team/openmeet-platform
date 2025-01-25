@@ -85,14 +85,14 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { LoadingBar, QSelectOption } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import { useEventStore } from 'src/stores/event-store'
-import { eventsApi } from 'src/api'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
-import { useAuthStore } from 'src/stores/auth-store'
-import NoContentComponent from 'src/components/global/NoContentComponent.vue'
-import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
-import { useEventAttendeeDialog } from 'src/composables/useEventAttendeeDialog'
+import { useEventStore } from '../../stores/event-store'
+import { eventsApi } from '../../api'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
+import { useAuthStore } from '../../stores/auth-store'
+import NoContentComponent from '../../components/global/NoContentComponent.vue'
+import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
+import { useEventAttendeeDialog } from '../../composables/useEventAttendeeDialog'
 
 const route = useRoute()
 const router = useRouter()

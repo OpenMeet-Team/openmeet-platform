@@ -1,4 +1,4 @@
-import { EventEntity, EventVisibility } from 'src/types'
+import { EventEntity, EventVisibility } from '../../../src/types'
 
 describe('EventPage', () => {
   const event = {

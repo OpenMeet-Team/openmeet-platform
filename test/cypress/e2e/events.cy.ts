@@ -1,4 +1,4 @@
-import { EventPaginationEntity } from 'src/types'
+import { EventPaginationEntity } from '../../../src/types'
 
 describe('EventsPage', () => {
   beforeEach(() => {

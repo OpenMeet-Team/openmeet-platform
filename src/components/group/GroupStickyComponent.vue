@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { Dark } from 'quasar'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
-import { useGroupStore } from 'stores/group-store.ts'
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
+import { useAuthStore } from '../../stores/auth-store'
+import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useGroupStore } from '../../stores/group-store'
+import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import { computed, ref } from 'vue'
-import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { useGroupDialog } from '../../composables/useGroupDialog'
+import { useNotification } from '../../composables/useNotification'
 import { useRouter } from 'vue-router'
-import { useEventDialog } from 'src/composables/useEventDialog.ts'
-import { GroupEntity, GroupPermission, GroupRole } from 'src/types'
+import { useEventDialog } from '../../composables/useEventDialog'
+import { GroupEntity, GroupPermission, GroupRole } from '../../types'
 
 const { openLoginDialog } = useAuthDialog()
 const groupStore = useGroupStore()

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { EventEntity } from 'src/types'
+import { EventEntity } from '../../types'
 import { QDialog, useDialogPluginComponent } from 'quasar'
-import { useNavigation } from 'src/composables/useNavigation'
+import { useNavigation } from '../../composables/useNavigation'
 // import { addToGoogleCalendar, addToOutlookCalendar } from 'src/utils/dateUtils.ts'
 
 interface Props {

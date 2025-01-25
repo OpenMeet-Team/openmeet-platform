@@ -51,10 +51,10 @@
 
 <script setup lang="ts">
 import { useDialogPluginComponent } from 'quasar'
-import { groupsApi } from 'src/api'
-import { useGroupStore } from 'src/stores/group-store'
-import { GroupEntity, GroupMemberEntity, GroupRole } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
+import { groupsApi } from '../../api'
+import { useGroupStore } from '../../stores/group-store'
+import { GroupEntity, GroupMemberEntity, GroupRole } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
 import { ref } from 'vue'
 
 interface Props {

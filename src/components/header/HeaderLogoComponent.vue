@@ -6,7 +6,7 @@
   <q-toolbar-title class="c-header-logo-component" data-cy="header-logo-component">
     <router-link to="/" class="self-center text-inherit no-decoration row items-center">
       <q-img
-        src="~assets/openmeet/logo.svg"
+        src="../../assets/openmeet/logo.svg"
         style="height: 45px; width: 45px"
       />
       <div class="text-bold q-ml-sm text-h5">OpenMeet</div>

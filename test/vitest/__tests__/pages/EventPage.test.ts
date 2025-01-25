@@ -1,8 +1,8 @@
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import EventPage from 'src/pages/EventPage.vue'
-import { installRouter } from 'app/test/vitest/install-router.ts'
+import EventPage from '../../../../src/pages/EventPage.vue'
+import { installRouter } from '../../install-router'
 import { installPinia } from '../../install-pinia'
 
 installQuasarPlugin()

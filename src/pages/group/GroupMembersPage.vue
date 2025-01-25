@@ -61,16 +61,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useGroupStore } from 'stores/group-store.ts'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
-import { getImageSrc } from 'src/utils/imageUtils'
-import { formatDate } from 'src/utils/dateUtils'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import MenuItemComponent from 'src/components/common/MenuItemComponent.vue'
-import { useNavigation } from 'src/composables/useNavigation'
-import { useGroupDialog } from 'src/composables/useGroupDialog'
-import { GroupPermission, GroupRole } from 'src/types'
-import { useAuthStore } from 'src/stores/auth-store'
+import { useGroupStore } from '../../stores/group-store'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
+import { getImageSrc } from '../../utils/imageUtils'
+import { formatDate } from '../../utils/dateUtils'
+import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
+import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
+import { useNavigation } from '../../composables/useNavigation'
+import { useGroupDialog } from '../../composables/useGroupDialog'
+import { GroupPermission, GroupRole } from '../../types'
+import { useAuthStore } from '../../stores/auth-store'
 
 const group = computed(() => useGroupStore().group)
 const groupMembers = computed(() => useGroupStore().group?.groupMembers)

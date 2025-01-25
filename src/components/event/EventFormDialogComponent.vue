@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
-import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
+import EventFormComponent from '../event/EventFormBasicComponent.vue'
 import { ref } from 'vue'
 import { QDialog } from 'quasar'
-import { EventEntity, GroupEntity } from 'src/types'
-import { useNavigation } from 'src/composables/useNavigation'
+import { EventEntity, GroupEntity } from '../../types'
+import { useNavigation } from '../../composables/useNavigation'
 
 interface Props {
   group?: GroupEntity

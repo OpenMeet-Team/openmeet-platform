@@ -1,4 +1,4 @@
-import { FileEntity, SubCategoryEntity } from 'src/types/model.ts'
+import { FileEntity, SubCategoryEntity } from './model'
 import { GroupEntity, GroupMemberEntity } from './group'
 import { EventEntity } from './event'
 

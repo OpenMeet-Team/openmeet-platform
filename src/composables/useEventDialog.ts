@@ -1,13 +1,13 @@
 import { useQuasar } from 'quasar'
-import EventFormDialogComponent from 'src/components/event/EventFormDialogComponent.vue'
-import { EventEntity, EventStatus, GroupEntity } from 'src/types'
-import { useNotification } from 'src/composables/useNotification.ts'
-import EventAttendDialogComponent from 'components/event/EventAttendDialogComponent.vue'
-import { eventsApi } from 'src/api/events'
-import EventAttendWaitlistDialogComponent from 'src/components/event/dialogs/EventAttendWaitlistDialogComponent.vue'
-import EventAttendPendingDialogComponent from 'src/components/event/dialogs/EventAttendPendingDialogComponent.vue'
-import EventAttendRejectedDialogComponent from 'src/components/event/dialogs/EventAttendRejectedDialogComponent.vue'
-import EventAttendeesNoRightsDialogComponent from 'src/components/event/dialogs/EventAttendeesNoRightsDialogComponent.vue'
+import EventFormDialogComponent from '../components/event/EventFormDialogComponent.vue'
+import { EventEntity, EventStatus, GroupEntity } from '../types'
+import { useNotification } from '../composables/useNotification'
+import EventAttendDialogComponent from '../components/event/EventAttendDialogComponent.vue'
+import { eventsApi } from '../api/events'
+import EventAttendWaitlistDialogComponent from '../components/event/dialogs/EventAttendWaitlistDialogComponent.vue'
+import EventAttendPendingDialogComponent from '../components/event/dialogs/EventAttendPendingDialogComponent.vue'
+import EventAttendRejectedDialogComponent from '../components/event/dialogs/EventAttendRejectedDialogComponent.vue'
+import EventAttendeesNoRightsDialogComponent from '../components/event/dialogs/EventAttendeesNoRightsDialogComponent.vue'
 
 export function useEventDialog () {
   const $q = useQuasar()

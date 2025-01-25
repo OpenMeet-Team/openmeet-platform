@@ -1,5 +1,5 @@
-import { api } from 'boot/axios'
-import { CategoryEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { CategoryEntity } from '../types'
 
 export const categoriesApi = {
   getAll: () => api.get<CategoryEntity[]>('/api/categories'),

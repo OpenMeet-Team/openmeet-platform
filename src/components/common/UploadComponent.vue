@@ -39,9 +39,9 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import { apiUploadFileToS3 } from 'src/api/files.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
-import CropperComponent from 'components/common/CropperComponent.vue'
+import { apiUploadFileToS3 } from '../../api/files'
+import { useNotification } from '../../composables/useNotification'
+import CropperComponent from '../../components/common/CropperComponent.vue'
 
 interface CropOptions {
   aspectRatio?: number // e.g., 16/9 for widescreen

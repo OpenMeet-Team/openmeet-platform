@@ -262,7 +262,8 @@ export default configure((ctx) => {
 
       contentScripts: [
         'my-content-script'
-      ]
+      ],
+      extendBexScriptsConf: () => {}
     }
   }
 })

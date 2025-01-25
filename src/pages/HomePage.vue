@@ -7,10 +7,10 @@
 
 <script setup lang="ts">
 import { useMeta } from 'quasar'
-import { useAuthStore } from 'stores/auth-store.ts'
-import HomeUserPage from 'src/pages/home/HomeUserPage.vue'
-import HomeGuestPage from 'src/pages/home/HomeGuestPage.vue'
-import { useHomeStore } from 'src/stores/home-store'
+import { useAuthStore } from '../stores/auth-store'
+import HomeUserPage from '../pages/home/HomeUserPage.vue'
+import HomeGuestPage from '../pages/home/HomeGuestPage.vue'
+import { useHomeStore } from '../stores/home-store'
 import { onBeforeUnmount } from 'vue'
 
 useMeta({

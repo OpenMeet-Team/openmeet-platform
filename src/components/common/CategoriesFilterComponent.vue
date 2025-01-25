@@ -3,8 +3,8 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LoadingBar } from 'quasar'
-import { categoriesApi } from 'src/api/categories.ts'
-import { CategoryEntity } from 'src/types'
+import { categoriesApi } from '../../api/categories'
+import { CategoryEntity } from '../../types'
 
 const route = useRoute()
 const router = useRouter()

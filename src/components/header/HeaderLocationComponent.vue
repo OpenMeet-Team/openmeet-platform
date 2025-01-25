@@ -4,8 +4,8 @@
 
 <script lang="ts" setup>
 import { ref, onBeforeMount } from 'vue'
-import { getGeoLocation } from 'src/utils/geoLocation'
-import { OneTrustGeoLocationResponse } from 'src/types' // Utility function with caching
+import { getGeoLocation } from '../../utils/geoLocation'
+import { OneTrustGeoLocationResponse } from '../../types' // Utility function with caching
 
 const geoData = ref<OneTrustGeoLocationResponse | null>(null)
 

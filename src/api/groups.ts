@@ -1,5 +1,5 @@
-import { api } from 'boot/axios'
-import { EventEntity, ZulipMessageEntity, ZulipTopicEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from 'src/types'
+import { api } from '../boot/axios'
+import { EventEntity, ZulipMessageEntity, ZulipTopicEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 import { AxiosResponse } from 'axios'
 

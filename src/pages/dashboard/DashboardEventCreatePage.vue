@@ -7,10 +7,10 @@
 </template>
 
 <script setup lang="ts">
-import EventFormComponent from 'components/event/EventFormBasicComponent.vue'
+import EventFormComponent from '../../components/event/EventFormBasicComponent.vue'
 import { useRouter } from 'vue-router'
-import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
-import { useNavigation } from 'src/composables/useNavigation'
+import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
+import { useNavigation } from '../../composables/useNavigation'
 
 const router = useRouter()
 const { navigateToEvent } = useNavigation()

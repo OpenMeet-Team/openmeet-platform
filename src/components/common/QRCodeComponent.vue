@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
 import QRCode from 'qrcode'
-import { useNotification } from 'src/composables/useNotification'
+import { useNotification } from '../../composables/useNotification'
 
 const showQRCodePopup = ref(false)
 const qrLink = ref<string>('')
