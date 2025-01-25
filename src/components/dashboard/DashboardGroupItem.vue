@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { GroupEntity } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
+import { GroupEntity } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
 
 interface Props {
   group: GroupEntity

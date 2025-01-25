@@ -1,5 +1,5 @@
 import { useRouter } from 'vue-router'
-import { GroupEntity, EventEntity, UserEntity } from 'src/types'
+import { GroupEntity, EventEntity, UserEntity } from '../types'
 
 export function useNavigation () {
   const router = useRouter()

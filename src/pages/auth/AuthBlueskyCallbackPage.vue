@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from 'stores/auth-store'
+import { useAuthStore } from '../../stores/auth-store'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { onMounted } from 'vue'

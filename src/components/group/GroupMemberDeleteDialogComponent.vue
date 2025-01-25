@@ -30,9 +30,9 @@
 
 <script setup lang="ts">
 import { useDialogPluginComponent } from 'quasar'
-import { useGroupStore } from 'src/stores/group-store'
-import { GroupEntity, GroupMemberEntity } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
+import { useGroupStore } from '../../stores/group-store'
+import { GroupEntity, GroupMemberEntity } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
 import { ref } from 'vue'
 
 interface Props {

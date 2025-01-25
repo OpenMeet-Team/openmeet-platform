@@ -89,23 +89,23 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
-import { useAuthStore } from 'stores/auth-store.ts'
-import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
-import HomeInterestsComponent from 'components/home/HomeInterestsComponent.vue'
-import { useHomeStore } from 'stores/home-store.ts'
-import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import HomeHeroComponent from 'src/components/home/HomeHeroComponent.vue'
-import GroupsListComponent from 'src/components/group/GroupsListComponent.vue'
+import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuthStore } from '../../stores/auth-store'
+import HomeCategoryComponent from '../../components/home/HomeCategoryComponent.vue'
+import HomeInterestsComponent from '../../components/home/HomeInterestsComponent.vue'
+import { useHomeStore } from '../../stores/home-store'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
+import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
+import HomeHeroComponent from '../../components/home/HomeHeroComponent.vue'
+import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 const { openRegisterDialog } = useAuthDialog()
-import { GroupEntity } from 'src/types/group.ts'
-import { EventEntity } from 'src/types'
+import { GroupEntity } from '../../types/group'
+import { EventEntity } from '../../types'
 const categories = computed(() => useHomeStore().guestCategories)
 const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
-import EventsListComponent from 'src/components/event/EventsListComponent.vue'
+import EventsListComponent from '../../components/event/EventsListComponent.vue'
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },

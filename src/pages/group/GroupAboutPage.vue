@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { useGroupStore } from 'stores/group-store.ts'
+import { useGroupStore } from '../../stores/group-store'
 import { computed, onMounted, ref } from 'vue'
-import GroupAboutMembersComponent from 'components/group/GroupAboutMembersComponent.vue'
-import GroupAboutDiscussionsComponent from 'components/group/GroupAboutDiscussionsComponent.vue'
-import GroupAboutEventsComponent from 'components/group/GroupAboutEventsComponent.vue'
-import SubtitleComponent from 'src/components/common/SubtitleComponent.vue'
-import { GroupPermission } from 'src/types'
-import { useAuthStore } from 'src/stores/auth-store'
+import GroupAboutMembersComponent from '../../components/group/GroupAboutMembersComponent.vue'
+import GroupAboutDiscussionsComponent from '../../components/group/GroupAboutDiscussionsComponent.vue'
+import GroupAboutEventsComponent from '../../components/group/GroupAboutEventsComponent.vue'
+import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
+import { GroupPermission } from '../../types'
+import { useAuthStore } from '../../stores/auth-store'
 import { useRoute } from 'vue-router'
 
 const group = computed(() => useGroupStore().group)

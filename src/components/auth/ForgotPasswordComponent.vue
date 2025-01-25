@@ -71,11 +71,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { validateEmail } from 'src/utils/validation.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { useAuthStore } from '../../stores/auth-store'
+import { validateEmail } from '../../utils/validation'
+import { useNotification } from '../../composables/useNotification'
 import { useMeta } from 'quasar'
-import AuthLoginLinkComponent from 'components/auth/AuthLoginLinkComponent.vue'
+import AuthLoginLinkComponent from '../../components/auth/AuthLoginLinkComponent.vue'
 
 const email = ref('')
 const loading = ref(false)

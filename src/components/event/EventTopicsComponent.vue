@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
-import { useEventStore } from 'src/stores/event-store'
+import { useEventStore } from '../../stores/event-store'
 import DiscussionComponent from '../discussion/DiscussionComponent.vue'
-import { EventAttendeePermission } from 'src/types'
-import { useAuthStore } from 'src/stores/auth-store'
+import { EventAttendeePermission } from '../../types'
+import { useAuthStore } from '../../stores/auth-store'
 
 const event = computed(() => useEventStore().event)
 

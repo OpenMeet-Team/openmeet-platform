@@ -1,4 +1,4 @@
-import { GroupEntity, GroupMemberEntity, GroupPermission, GroupPermissionEntity, GroupRole, GroupRoleEntity, GroupVisibility, UserEntity } from 'src/types'
+import { GroupEntity, GroupMemberEntity, GroupPermission, GroupPermissionEntity, GroupRole, GroupRoleEntity, GroupVisibility, UserEntity } from '../../../src/types'
 
 describe('GroupPage', () => {
   const group = {

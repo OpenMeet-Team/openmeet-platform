@@ -156,13 +156,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Dialog, LoadingBar } from 'quasar'
-import { authApi } from 'src/api/auth.ts'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { FileEntity, SubCategoryEntity, UserEntity } from 'src/types'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { authApi } from '../../api/auth'
+import { useAuthStore } from '../../stores/auth-store'
+import { FileEntity, SubCategoryEntity, UserEntity } from '../../types'
+import { useNotification } from '../../composables/useNotification'
 // import LocationComponent from 'components/common/LocationComponent.vue'
-import UploadComponent from 'components/common/UploadComponent.vue'
-import { subcategoriesApi } from 'src/api/subcategories'
+import UploadComponent from '../../components/common/UploadComponent.vue'
+import { subcategoriesApi } from '../../api/subcategories'
 
 interface UserLocation {
   lat: number

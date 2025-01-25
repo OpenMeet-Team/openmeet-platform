@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from 'src/types'
-import { useNotification } from 'src/composables/useNotification.ts'
-import { api } from 'src/boot/axios'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from '../types'
+import { useNotification } from '../composables/useNotification'
+import { api } from '../boot/axios'
 import { AxiosError } from 'axios'
-import { eventsApi } from 'src/api/events'
+import { eventsApi } from '../api/events'
 const { error } = useNotification()
 export const useEventStore = defineStore('event', {
   state: () => ({

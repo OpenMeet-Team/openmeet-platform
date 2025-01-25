@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import { groupsApi } from 'src/api/groups.ts'
-import { GroupEntity, GroupMemberEntity, GroupPermission, GroupRole, GroupVisibility } from 'src/types'
-import { useNotification } from 'src/composables/useNotification.ts'
-import analyticsService from 'src/services/analyticsService'
+import { groupsApi } from '../api/groups'
+import { GroupEntity, GroupMemberEntity, GroupPermission, GroupRole, GroupVisibility } from '../types'
+import { useNotification } from '../composables/useNotification'
+import analyticsService from '../services/analyticsService'
 
 const { error } = useNotification()
 

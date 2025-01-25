@@ -40,12 +40,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { groupsApi } from 'src/api/groups'
-import DashboardGroupItem from 'components/dashboard/DashboardGroupItem.vue'
-import { GroupEntity } from 'src/types'
-import { useAuthStore } from 'stores/auth-store.ts'
-import SpinnerComponent from 'components/common/SpinnerComponent.vue'
-import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
+import { groupsApi } from '../../../api/groups'
+import DashboardGroupItem from '../../../components/dashboard/DashboardGroupItem.vue'
+import { GroupEntity } from '../../../types'
+import { useAuthStore } from '../../../stores/auth-store'
+import SpinnerComponent from '../../../components/common/SpinnerComponent.vue'
+import DashboardTitle from '../../../components/dashboard/DashboardTitle.vue'
 
 const router = useRouter()
 

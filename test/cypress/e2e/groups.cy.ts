@@ -1,4 +1,4 @@
-import { GroupPaginationEntity } from 'src/types'
+import { GroupPaginationEntity } from '../../../src/types'
 
 describe('GroupsPage', () => {
   beforeEach(() => {

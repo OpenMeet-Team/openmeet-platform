@@ -7,7 +7,7 @@
 </template>
 
 <script lang="ts" setup>
-import { CategoryEntity } from 'src/types'
+import { CategoryEntity } from '../../types'
 import { useRouter } from 'vue-router'
 
 const props = defineProps<{

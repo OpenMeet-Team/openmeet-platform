@@ -1,4 +1,4 @@
-import { UserEntity } from 'src/types'
+import { UserEntity } from '../types'
 
 export interface ApiAuthUser extends UserEntity {
   token?: string

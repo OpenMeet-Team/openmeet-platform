@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import NoContentComponent from 'components/global/NoContentComponent.vue'
-import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
-import SpinnerComponent from 'src/components/common/SpinnerComponent.vue'
-import { useChatStore } from 'src/stores/chat-store'
+import NoContentComponent from '../components/global/NoContentComponent.vue'
+import DashboardTitle from '../components/dashboard/DashboardTitle.vue'
+import SpinnerComponent from '../components/common/SpinnerComponent.vue'
+import { useChatStore } from '../stores/chat-store'
 import { LoadingBar, QScrollArea } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import { getImageSrc } from 'src/utils/imageUtils'
-import { useNavigation } from 'src/composables/useNavigation'
+import { getImageSrc } from '../utils/imageUtils'
+import { useNavigation } from '../composables/useNavigation'
 import { nextTick } from 'process'
-import { useNotification } from 'src/composables/useNotification'
+import { useNotification } from '../composables/useNotification'
 
 const route = useRoute()
 const chatList = computed(() => useChatStore().chatList)

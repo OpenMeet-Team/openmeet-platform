@@ -1,8 +1,8 @@
 import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useNotification } from 'src/composables/useNotification.ts'
-import getEnv from 'src/utils/env'
+import { useAuthStore } from '../stores/auth-store'
+import { useNotification } from '../composables/useNotification'
+import getEnv from '../utils/env'
 
 declare module 'vue' {
   interface ComponentCustomProperties {

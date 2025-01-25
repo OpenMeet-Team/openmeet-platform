@@ -11,9 +11,9 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { useNavigation } from 'src/composables/useNavigation'
-import EventFormBasicComponent from 'src/components/event/EventFormBasicComponent.vue'
-import DashboardTitle from 'src/components/dashboard/DashboardTitle.vue'
+import { useNavigation } from '../../composables/useNavigation'
+import EventFormBasicComponent from '../../components/event/EventFormBasicComponent.vue'
+import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
 
 const { navigateToEvent } = useNavigation()
 const router = useRouter()

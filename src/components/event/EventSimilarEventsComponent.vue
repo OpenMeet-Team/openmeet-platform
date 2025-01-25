@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { EventEntity } from 'src/types'
+import { EventEntity } from '../../types'
 import { onMounted, ref } from 'vue'
-import { eventsApi } from 'src/api/events.ts'
+import { eventsApi } from '../../api/events'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import EventsItemComponent from './EventsItemComponent.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'

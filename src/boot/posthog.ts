@@ -1,5 +1,5 @@
 import { PostHog } from 'posthog-js'
-import { useAuthStore } from 'src/stores/auth-store'
+import { useAuthStore } from '../stores/auth-store'
 import { Router } from 'vue-router'
 
 let posthog: PostHog

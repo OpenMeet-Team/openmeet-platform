@@ -144,18 +144,18 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity } from 'src/types'
-import LocationComponent from 'components/common/LocationComponent.vue'
-import { useNotification } from 'src/composables/useNotification'
-import UploadComponent from 'components/common/UploadComponent.vue'
-import { eventsApi } from 'src/api/events'
-import DatetimeComponent from 'components/common/DatetimeComponent.vue'
-import { categoriesApi } from 'src/api/categories'
-import { getHumanReadableDateDifference } from 'src/utils/dateUtils'
+import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity } from '../../types'
+import LocationComponent from '../common/LocationComponent.vue'
+import { useNotification } from '../../composables/useNotification'
+import UploadComponent from '../common/UploadComponent.vue'
+import { eventsApi } from '../../api/events'
+import DatetimeComponent from '../common/DatetimeComponent.vue'
+import { categoriesApi } from '../../api/categories'
+import { getHumanReadableDateDifference } from '../../utils/dateUtils'
 import { QField, QForm, Screen } from 'quasar'
-import { groupsApi } from 'src/api/groups'
+import { groupsApi } from '../../api/groups'
 import DOMPurify from 'dompurify'
-import analyticsService from 'src/services/analyticsService'
+import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 
 const { error } = useNotification()

@@ -23,8 +23,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from 'src/stores/auth-store'
-import getEnv from 'src/utils/env'
+import { useAuthStore } from '../../stores/auth-store'
+import getEnv from '../../utils/env'
 
 const props = withDefaults(defineProps<{
   text?: 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'

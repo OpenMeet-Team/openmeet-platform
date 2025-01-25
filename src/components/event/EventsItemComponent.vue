@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { EventEntity } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils'
-import { useNavigation } from 'src/composables/useNavigation'
-import { formatDate } from 'src/utils/dateUtils'
+import { EventEntity } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
+import { useNavigation } from '../../composables/useNavigation'
+import { formatDate } from '../../utils/dateUtils'
 
 interface Props {
   event: EventEntity;

@@ -106,12 +106,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { validateEmail } from 'src/utils/validation'
+import { useAuthStore } from '../../stores/auth-store'
+import { validateEmail } from '../../utils/validation'
 import { useRoute, useRouter } from 'vue-router'
-import { useNotification } from 'src/composables/useNotification.ts'
+import { useNotification } from '../../composables/useNotification'
 import { useMeta } from 'quasar'
-import AuthLoginLinkComponent from 'components/auth/AuthLoginLinkComponent.vue'
+import AuthLoginLinkComponent from '../../components/auth/AuthLoginLinkComponent.vue'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'

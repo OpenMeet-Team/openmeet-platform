@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import GroupFormComponent from 'components/group/GroupFormComponent.vue'
+import GroupFormComponent from '../group/GroupFormComponent.vue'
 import { QDialog } from 'quasar'
 import { ref } from 'vue'
 

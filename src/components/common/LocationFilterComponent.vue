@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import LocationComponent from 'components/common/LocationComponent.vue'
+import LocationComponent from '../../components/common/LocationComponent.vue'
 import { ref, watch } from 'vue'
-import { AddressLocation } from 'src/types'
+import { AddressLocation } from '../../types'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()

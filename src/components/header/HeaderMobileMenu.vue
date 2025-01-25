@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
-import { useEventDialog } from 'src/composables/useEventDialog.ts'
-import { useAuthStore } from 'stores/auth-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
-import HeaderDarkModeComponent from 'components/header/HeaderDarkModeComponent.vue'
+import { useGroupDialog } from '../../composables/useGroupDialog'
+import { useEventDialog } from '../../composables/useEventDialog'
+import { useAuthStore } from '../../stores/auth-store'
+import { useAuthDialog } from '../../composables/useAuthDialog'
+import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
+import HeaderDarkModeComponent from '../../components/header/HeaderDarkModeComponent.vue'
 import { useRouter } from 'vue-router'
 
 const { openCreateGroupDialog } = useGroupDialog()

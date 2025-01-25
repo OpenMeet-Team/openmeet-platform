@@ -87,10 +87,10 @@
 <script lang="ts" setup>
 import { defineEmits, ref } from 'vue'
 import axios from 'axios'
-import { useNotification } from 'src/composables/useNotification.ts'
-import { AddressLocation, OSMLocationSuggestion } from 'src/types'
-import MenuItemComponent from 'components/common/MenuItemComponent.vue'
-import LeafletMapComponent from 'components/common/LeafletMapComponent.vue'
+import { useNotification } from '../../composables/useNotification'
+import { AddressLocation, OSMLocationSuggestion } from '../../types'
+import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
+import LeafletMapComponent from '../../components/common/LeafletMapComponent.vue'
 import { QSelect, ValidationRule } from 'quasar'
 
 const { error } = useNotification()

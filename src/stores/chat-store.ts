@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { useNotification } from 'src/composables/useNotification.ts'
-import { chatApi } from 'src/api/chat'
-import { ChatEntity } from 'src/types/model'
+import { useNotification } from '../composables/useNotification'
+import { chatApi } from '../api/chat'
+import { ChatEntity } from '../types/model'
 import { RouteQueryAndHash } from 'vue-router'
 const { error } = useNotification()
 

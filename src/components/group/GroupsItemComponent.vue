@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { GroupEntity } from 'src/types'
-import { getImageSrc } from 'src/utils/imageUtils.ts'
-import { useNavigation } from 'src/composables/useNavigation.ts'
+import { GroupEntity } from '../../types'
+import { getImageSrc } from '../../utils/imageUtils'
+import { useNavigation } from '../../composables/useNavigation'
 import { computed } from 'vue'
 
 interface Props {

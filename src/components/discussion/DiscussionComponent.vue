@@ -24,9 +24,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ZulipMessageEntity, ZulipTopicEntity } from 'src/types/model'
+import { ZulipMessageEntity, ZulipTopicEntity } from '../../types/model'
 import DiscussionTopicComponent from './DiscussionTopicComponent.vue'
-import { useDiscussionStore } from 'src/stores/discussion-store'
+import { useDiscussionStore } from '../../stores/discussion-store'
 import DOMPurify from 'dompurify'
 
 interface Props {
