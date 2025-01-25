@@ -87,8 +87,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
-import { Dark, LoadingBar, useMeta } from 'quasar'
+import { onMounted, computed, useSSRContext } from 'vue'
+import { Dark, LoadingBar } from 'quasar'
 import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
 import { useAuthStore } from 'stores/auth-store.ts'
 import HomeCategoryComponent from 'components/home/HomeCategoryComponent.vue'
@@ -106,6 +106,7 @@ const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
 import EventsListComponent from 'src/components/event/EventsListComponent.vue'
+import getEnv from 'src/utils/env'
 
 const reasons = [
   { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
@@ -121,9 +122,40 @@ const howItWorks = [
   { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
 ]
 
-useMeta({
-  title: 'Home'
-})
+// Move data fetching to top level for SSR
+console.log('import.meta.env.SSR', import.meta.env.SSR)
+if (import.meta.env.SSR) {
+  try {
+    const store = useHomeStore()
+    await store.actionGetGuestHomeState()
+
+    const ssrContext = useSSRContext()
+    if (ssrContext) {
+      ssrContext.meta = {
+        title: 'OpenMeet - Connect and Share',
+        description: getEnv('APP_TENANT_DESCRIPTION'),
+        'og:title': 'OpenMeet - Connect and Share',
+        'og:description': getEnv('APP_TENANT_DESCRIPTION'),
+        'og:image': getEnv('APP_TENANT_IMAGE'),
+        'og:type': 'website',
+        'og:url': getEnv('APP_URL'),
+        'Content-Security-Policy': [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleusercontent.com https://*.posthog.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+          "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
+          "font-src 'self' https://fonts.gstatic.com",
+          "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com",
+          "connect-src 'self' http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net https://*.amazonaws.com https://nominatim.openstreetmap.org https://*.posthog.com",
+          "object-src 'none'",
+          "base-uri 'self'"
+        ].join('; ')
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load home state:', error)
+  }
+}
 
 onMounted(() => {
   LoadingBar.start()

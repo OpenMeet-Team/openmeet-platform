@@ -107,6 +107,11 @@ const routes: RouteRecordRaw[] = [
     name: 'AuthErrorPage',
     component: () => import('pages/auth/ErrorPage.vue')
   },
+  {
+    path: '/test-ssr',
+    name: 'TestSSRPage',
+    component: () => import('pages/TestSSRPage.vue')
+  },
   // Always leave this as last one,
   // but you can also remove it
   {

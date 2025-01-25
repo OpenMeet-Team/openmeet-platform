@@ -9,6 +9,7 @@ import 'dotenv/config'
 import istanbul from 'vite-plugin-istanbul'
 
 export default configure((ctx) => {
+  console.log('quasar context', ctx)
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -96,7 +97,13 @@ export default configure((ctx) => {
           // you need to set `runtimeOnly: false`
           // runtimeOnly: false,
 
-          ssr: ctx.modeName === 'ssr',
+          ssr: {
+            pwa: true,
+            prodPort: 3000,
+            middlewares: [
+              'render' // keep this as last one
+            ]
+          },
 
           // you need to set i18n resource including paths !
           include: [fileURLToPath(new URL('./src/i18n', import.meta.url))]
@@ -115,7 +122,17 @@ export default configure((ctx) => {
           extension: ['.js', '.ts', '.vue'],
           requireEnv: false
         })
-      ]
+      ],
+
+      // Add Vite config
+      extendViteConf (viteConf) {
+        viteConf.resolve = viteConf.resolve || {}
+        viteConf.resolve.alias = {
+          ...viteConf.resolve.alias,
+          '@': fileURLToPath(new URL('./src', import.meta.url)),
+          src: fileURLToPath(new URL('./src', import.meta.url))
+        }
+      }
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer

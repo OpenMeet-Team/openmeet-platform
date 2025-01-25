@@ -1,10 +1,10 @@
 <template>
   <q-page padding style="max-width: 1201px" class="q-mx-auto c-event-page">
     <SpinnerComponent v-if="useEventStore().isLoading" />
-    <div v-else-if="event" class="row q-col-gutter-md">
+    <div v-else-if="useEventStore().event" class="row q-col-gutter-md">
       <div class="col-8">
         <q-card>
-          <q-img data-cy="event-image" :src="getImageSrc(event.image)" />
+          <q-img data-cy="event-image" :src="getImageSrc(useEventStore().event?.image)" />
         </q-card>
 
         <!-- Event actions -->
@@ -13,16 +13,16 @@
             <div class="row items-center justify-between">
               <div class="col-12 col-sm-6">
                 <div class="text-body2 text-bold">
-                  {{ formatDate(event.startDate) }}
+                  {{ formatDate(useEventStore().event?.startDate || '') }}
                 </div>
-                <span v-if="event.maxAttendees">
+                <span v-if="useEventStore().event?.maxAttendees">
                   <span class="text-red">{{
                     spotsLeft > 0
                       ? `${spotsLeft} ${pluralize(spotsLeft, "spot")} left`
                       : "No spots left"
                   }}</span>
                 </span>
-                <div class="text-h6 text-bold">{{ event.name }}</div>
+                <div class="text-h6 text-bold">{{ useEventStore().event?.name }}</div>
               </div>
               <!-- Attendance status -->
               <div class="col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
@@ -34,7 +34,7 @@
                     data-cy="event-attendee-status-confirmed"
                     class="text-subtitle1 text-bold"
                     v-if="
-                      event.attendee?.status === EventAttendeeStatus.Confirmed
+                      useEventStore().event?.attendee?.status === EventAttendeeStatus.Confirmed
                     "
                   >
                     You're going!
@@ -43,7 +43,7 @@
                     data-cy="event-attendee-status-pending"
                     class="text-subtitle1 text-bold"
                     v-if="
-                      event.attendee?.status === EventAttendeeStatus.Pending
+                      useEventStore().event?.attendee?.status === EventAttendeeStatus.Pending
                     "
                   >
                     You're pending approval!
@@ -52,7 +52,7 @@
                     data-cy="event-attendee-status-waitlist"
                     class="text-subtitle1 text-bold"
                     v-if="
-                      event.attendee?.status === EventAttendeeStatus.Waitlist
+                      useEventStore().event?.attendee?.status === EventAttendeeStatus.Waitlist
                     "
                   >
                     You're on the waitlist!
@@ -61,7 +61,7 @@
                     data-cy="event-attendee-status-rejected"
                     class="text-subtitle1 text-bold"
                     v-if="
-                      event.attendee?.status === EventAttendeeStatus.Rejected
+                      useEventStore().event?.attendee?.status === EventAttendeeStatus.Rejected
                     "
                   >
                     You're rejected!
@@ -70,7 +70,7 @@
                     data-cy="event-attendee-status-cancelled"
                     class="text-subtitle1 text-bold"
                     v-if="
-                      event.attendee?.status === EventAttendeeStatus.Cancelled
+                      useEventStore().event?.attendee?.status === EventAttendeeStatus.Cancelled
                     "
                   >
                     You're cancelled!
@@ -81,7 +81,7 @@
                   <ShareComponent class="col-4" />
 
                   <!-- Attend button -->
-                  <EventAttendanceButton :event="event" :attendee="event.attendee" />
+                  <EventAttendanceButton :event="useEventStore().event!" :attendee="useEventStore().event?.attendee" />
 
                   <QRCodeComponent class="" />
                 </div>
@@ -110,8 +110,8 @@
             <q-card-section>
               <span
                 class="text-overline"
-                v-if="event.status === EventStatus.Draft"
-                >{{ event.status }}</span
+                v-if="useEventStore().event?.status === EventStatus.Draft"
+                >{{ useEventStore().event?.status }}</span
               >
               <q-btn-dropdown
                 data-cy="organiser-tools"
@@ -133,7 +133,7 @@
                     @click="
                       router.push({
                         name: 'DashboardEventPage',
-                        params: { slug: event.slug },
+                        params: { slug: useEventStore().event?.slug || '' },
                       })
                     "
                   />
@@ -149,7 +149,7 @@
                   />
                   <MenuItemComponent
                     v-if="
-                      event.status === EventStatus.Published &&
+                      useEventStore().event?.status === EventStatus.Published &&
                       useEventStore().getterUserHasPermission(
                         EventAttendeePermission.CancelEvent
                       )
@@ -175,25 +175,25 @@
           </q-card>
 
           <!-- Organiser section -->
-          <q-card v-if="event?.group">
+          <q-card v-if="useEventStore().event?.group">
             <q-card-section>
               <div class="text-h6">Organizer</div>
               <div class="q-mt-md">
-                <q-item clickable @click="navigateToGroup(event.group)">
+                <q-item clickable @click="navigateToGroup(useEventStore().event?.group!)">
                   <q-item-section avatar>
                     <q-avatar size="48px">
                       <img
-                        v-if="event.group.image"
-                        :src="getImageSrc(event.group.image)"
-                        :alt="event.group.name"
+                        v-if="useEventStore().event?.group?.image"
+                        :src="getImageSrc(useEventStore().event?.group?.image)"
+                        :alt="useEventStore().event?.group?.name"
                       />
                       <q-icon v-else name="sym_r_group" />
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ event.group.name }}</q-item-label>
+                    <q-item-label>{{ useEventStore().event?.group?.name }}</q-item-label>
                     <q-item-label caption
-                      >{{ event.group.visibility }} group</q-item-label
+                      >{{ useEventStore().event?.group?.visibility }} group</q-item-label
                     >
                   </q-item-section>
                 </q-item>
@@ -210,13 +210,13 @@
                 :class="[Dark.isActive ? 'bg-dark' : 'bg-white']"
                 class="text-h4 text-bold bg-inherit q-py-sm"
               >
-                {{ event.name }}
+                {{ useEventStore().event?.name }}
               </div>
               <q-card-section>
                 <div
                   data-cy="event-description"
                   class="text-body1 q-mt-md"
-                  v-html="event.description"
+                  v-html="useEventStore().event?.description || ''"
                 ></div>
               </q-card-section>
             </q-card-section>
@@ -230,9 +230,9 @@
                   <q-icon name="sym_r_schedule" />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label>{{ formatDate(event.startDate) }}</q-item-label>
-                  <q-item-label v-if="event.endDate">{{
-                    formatDate(event.endDate)
+                  <q-item-label>{{ formatDate(useEventStore().event?.startDate || '') }}</q-item-label>
+                  <q-item-label v-if="useEventStore().event?.endDate">{{
+                    formatDate(useEventStore().event?.endDate || '')
                   }}</q-item-label>
                 </q-item-section>
               </q-item>
@@ -240,23 +240,23 @@
                 <q-item-section side>
                   <q-icon
                     label="In person"
-                    v-if="event.type === 'in-person'"
+                    v-if="useEventStore().event?.type === 'in-person'"
                     icon="sym_r_person_pin_circle"
                     name="sym_r_person_pin_circle"
                   />
                   <q-icon
                     label="Online"
-                    v-if="event.type === 'online'"
+                    v-if="useEventStore().event?.type === 'online'"
                     name="sym_r_videocam"
                   />
                   <q-icon
                     label="Hybrid"
-                    v-if="event.type === 'hybrid'"
+                    v-if="useEventStore().event?.type === 'hybrid'"
                     name="sym_r_diversity_2"
                   />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label>{{ event.type }} event</q-item-label>
+                  <q-item-label>{{ useEventStore().event?.type }} event</q-item-label>
                   <q-btn
                     no-caps
                     size="md"
@@ -264,12 +264,12 @@
                     flat
                     padding="none"
                     target="_blank"
-                    :href="event.locationOnline"
+                    :href="useEventStore().event?.locationOnline"
                     class="text-underline text-blue"
                     >Online link
                   </q-btn>
                   <q-item-label class="cursor-pointer text-underline text-blue">
-                    {{ event.location }}
+                    {{ useEventStore().event?.location }}
                     <q-popup-proxy>
                       <q-card
                         class="q-pa-md"
@@ -278,8 +278,8 @@
                         <LeafletMapComponent
                           disabled
                           style="height: 300px; width: 300px"
-                          :lat="event.lat"
-                          :lon="event.lon"
+                          :lat="useEventStore().event?.lat || 0"
+                          :lon="useEventStore().event?.lon || 0"
                         />
                       </q-card>
                     </q-popup-proxy>
@@ -288,11 +288,11 @@
               </q-item>
             </q-card-section>
             <LeafletMapComponent
-              v-if="event"
+              v-if="useEventStore().event"
               disabled
               style="height: 300px; width: 300px"
-              :lat="event.lat"
-              :lon="event.lon"
+              :lat="useEventStore().event?.lat || 0"
+              :lon="useEventStore().event?.lon || 0"
             />
           </q-card>
         </div>
@@ -338,7 +338,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, onServerPrefetch, useSSRContext } from 'vue'
+import { useHead } from '@vueuse/head'
 import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { getImageSrc } from 'src/utils/imageUtils.ts'
@@ -370,26 +371,102 @@ const route = useRoute()
 const router = useRouter()
 const { navigateToGroup } = useNavigation()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
-const event = computed(() => useEventStore().event)
-const errorMessage = computed(() => useEventStore().errorMessage)
+
+// Initialize event store
+const eventStore = useEventStore()
+
+// SSR-specific logic
+if (import.meta.env.SSR) {
+  const ssrContext = useSSRContext()
+
+  // Fetch event data during SSR
+  await eventStore.actionGetEventBySlug(route.params.slug as string)
+    .then(() => {
+      // Set meta tags during SSR
+      if (eventStore.event && ssrContext) {
+        ssrContext.meta = {
+          title: eventStore.event.name,
+          description: eventStore.event.description?.replace(/<[^>]*>/g, '') || '',
+          'og:type': 'website',
+          'og:title': eventStore.event.name,
+          'og:description': eventStore.event.description?.replace(/<[^>]*>/g, '') || '',
+          'og:image': eventStore.event.image ? `${process.env.APP_URL}${getImageSrc(eventStore.event.image)}` : 'https://platform.openmeet.net/openmeet/icons/android-chrome-512x512.png',
+          'og:url': `${process.env.APP_URL}/events/${eventStore.event.slug}`
+        }
+      }
+    })
+}
+
+// Move client-side meta updates to watch
+watch(() => eventStore.event, (newEvent) => {
+  if (!import.meta.env.SSR && newEvent) {
+    useMeta({
+      title: newEvent.name,
+      meta: {
+        description: { name: 'description', content: newEvent.description?.replace(/<[^>]*>/g, '') || '' },
+        'og:title': { property: 'og:title', content: newEvent.name },
+        'og:description': {
+          property: 'og:description',
+          content: newEvent.description?.replace(/<[^>]*>/g, '') || ''
+        },
+        'og:image': {
+          property: 'og:image',
+          content: newEvent.image
+            ? `${process.env.APP_URL}${getImageSrc(newEvent.image)}`
+            : `${process.env.APP_URL}/openmeet/icons/android-chrome-192x192.png`
+        },
+        'og:url': {
+          property: 'og:url',
+          content: `${process.env.APP_URL}/events/${newEvent.slug}`
+        },
+        'og:type': { property: 'og:type', content: 'website' }
+      }
+    })
+  }
+}, { immediate: true })
+
+// Update metadata for SEO and social sharing
+useHead({
+  title: computed(() => `${eventStore.event?.name} | OpenMeet`),
+  meta: [
+    { name: 'test1', content: 'in useHead' },
+    {
+      name: 'description',
+      content: computed(() => eventStore.event?.description || '')
+    },
+    {
+      property: 'og:type',
+      content: 'website'
+    },
+    {
+      property: 'og:title',
+      content: computed(() => eventStore.event?.name || '')
+    },
+    {
+      property: 'og:description',
+      content: computed(() => eventStore.event?.description || '')
+    },
+    {
+      property: 'og:image',
+      content: computed(() => eventStore.event?.image ? getImageSrc(eventStore.event.image) : '/openmeet/icons/android-chrome-192x192.png')
+    },
+    {
+      property: 'og:url',
+      content: computed(() => `${window?.location?.origin}/events/${eventStore.event?.slug}` || '')
+    }
+  ]
+})
+
 const onDeleteEvent = () => {
-  if (event.value) openDeleteEventDialog(event.value)
+  if (eventStore.event) openDeleteEventDialog(eventStore.event as unknown as EventEntity)
 }
 
 const onCancelEvent = () => {
-  if (event.value) openCancelEventDialog(event.value)
+  if (eventStore.event) openCancelEventDialog(eventStore.event as unknown as EventEntity)
 }
 
 onBeforeUnmount(() => {
   useEventStore().$reset()
-})
-
-useMeta({
-  title: event.value?.name,
-  meta: {
-    description: { content: event.value?.description },
-    'og:image': { content: getImageSrc(event.value?.image) }
-  }
 })
 
 const loaded = ref(false)
@@ -398,14 +475,19 @@ const loaded = ref(false)
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 
+// Add errorMessage ref
+const errorMessage = ref<string>('')
+
+// onMounted to only run on client
 onMounted(() => {
-  LoadingBar.start()
-  Promise.all([
-    useEventStore().actionGetEventBySlug(route.params.slug as string),
-    loadSimilarEvents(route.params.slug as string)
-  ]).finally(() => {
-    LoadingBar.stop()
-  })
+  if (!import.meta.env.SSR) {
+    LoadingBar.start()
+    useEventStore().actionGetEventBySlug(route.params.slug as string)
+      .catch(error => {
+        errorMessage.value = error.message
+      })
+      .finally(() => LoadingBar.stop())
+  }
 })
 
 // Add this function to load similar events
@@ -443,9 +525,19 @@ onBeforeRouteUpdate(async (to) => {
 })
 
 const spotsLeft = computed(() =>
-  event.value?.maxAttendees
-    ? event.value.maxAttendees - (event.value.attendeesCount || 0)
+  useEventStore().event?.maxAttendees
+    ? (useEventStore().event?.maxAttendees || 0) - (useEventStore().event?.attendeesCount || 0)
     : 0
 )
+
+// Ensure content is rendered during SSR
+onServerPrefetch(async () => {
+  try {
+    await useEventStore().actionGetEventBySlug(route.params.slug as string)
+  } catch (error) {
+    console.error('Failed to load event during SSR:', error)
+    errorMessage.value = (error as Error).message
+  }
+})
 
 </script>

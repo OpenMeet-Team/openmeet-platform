@@ -30,6 +30,7 @@
     "@opentelemetry/web": "^0.24.0",
     "@quasar/extras": "^1.16.13",
     "@types/dompurify": "^3.0.5",
+    "@vueuse/head": "^2.0.0",
     "axios": "^1.2.1",
     "dompurify": "^3.1.7",
     "dotenv": "^16.4.5",

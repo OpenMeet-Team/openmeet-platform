@@ -1,19 +1,29 @@
 import { boot } from 'quasar/wrappers'
-export default boot(async () => {
+import { useConfigStore } from 'stores/config-store'
+
+export default boot(async ({ store, ssrContext }) => {
+  const configStore = useConfigStore(store)
+
   try {
-    const response = await fetch('/config.json')
-    if (!response.ok) {
-      throw new Error('Failed to load config')
+    console.log('ssrContext', ssrContext)
+    console.log('import.meta.env.SSR', import.meta.env.SSR)
+    // In SSR mode, use a different config loading strategy
+    if (import.meta.env.SSR) {
+      // Load config from filesystem in SSR mode
+      const fs = await import('fs')
+      const path = await import('path')
+      const configPath = path.resolve(process.cwd(), 'public/config.json')
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      console.log('config', config)
+      await configStore.setConfig(config)
+    } else {
+      // Client-side config loading
+      const response = await fetch('/config.json')
+      const config = await response.json()
+      await configStore.setConfig(config)
     }
-    window.APP_CONFIG = await response.json()
   } catch (error) {
     console.error('Failed to load configuration:', error)
-    // Fallback values
-    window.APP_CONFIG = {
-      APP_TENANT_DESCRIPTION: 'Building communities',
-      APP_TENANT_NAME: 'OpenMeet',
-      APP_TENANT_IMAGE: '/openmeet/openmeet-logo.png',
-      APP_API_URL: process.env.APP_API_URL as string
-    }
+    throw error
   }
 })

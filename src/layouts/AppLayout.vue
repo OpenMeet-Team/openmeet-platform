@@ -2,13 +2,16 @@
   <q-layout view="hhh LpR ffr">
     <AppHeaderComponent />
     <q-page-container>
-      <router-view />
+      <Suspense>
+        <RouterView />
+      </Suspense>
     </q-page-container>
     <AppFooterComponent />
   </q-layout>
 </template>
 
 <script setup lang="ts">
+import { RouterView } from 'vue-router'
 import AppHeaderComponent from 'components/header/AppHeaderComponent.vue'
 import AppFooterComponent from 'components/footer/AppFooterComponent.vue'
 

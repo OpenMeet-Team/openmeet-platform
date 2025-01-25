@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute } from 'vue-router'
 import { useGroupStore } from 'stores/group-store.ts'
@@ -60,13 +60,19 @@ const hasRightPermission = computed(() => {
   return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
 })
 
-useMeta({
-  title: group.value?.name,
-  meta: {
-    description: { content: group.value?.description },
-    'og:image': { content: getImageSrc(group.value?.image) }
-  }
-})
+watch(() => group.value, (newGroup) => {
+  useMeta({
+    title: newGroup?.name,
+    meta: {
+      description: { content: newGroup?.description?.replace(/<[^>]*>/g, '') || '' }, // Strip HTML
+      'og:image': {
+        content: newGroup?.image
+          ? getImageSrc(newGroup.image)
+          : '/openmeet/icons/android-chrome-512x512.png'
+      }
+    }
+  })
+}, { immediate: true })
 
 onMounted(() => {
   LoadingBar.start()

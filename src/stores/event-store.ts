@@ -143,6 +143,10 @@ export const useEventStore = defineStore('event', {
         console.log(err)
         error('Failed to delete event discussion message')
       }
+    },
+
+    setEvent (event: EventEntity) {
+      this.event = event
     }
   }
 })
