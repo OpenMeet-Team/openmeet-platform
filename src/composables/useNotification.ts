@@ -15,6 +15,7 @@ export function useNotification () {
 
   const error = (message: string, title?: string) => {
     Notify.create({
+      textColor: 'black',
       type: 'negative',
       message,
       icon: 'sym_r_error',

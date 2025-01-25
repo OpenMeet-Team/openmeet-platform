@@ -49,7 +49,7 @@ const onAttendeesClick = () => {
   } else if (!useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)) {
     openNoAttendeesRightsDialog()
   } else {
-    router.push({ name: 'EventAttendeesPage', params: { id: route.params.id } })
+    router.push({ name: 'EventAttendeesPage', params: { slug: route.params.slug } })
   }
 }
 
