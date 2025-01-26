@@ -6,14 +6,10 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, nextTick } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
-import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
-import { onMounted } from 'vue'
 
 const authStore = useAuthStore()
-const router = useRouter()
-const $q = useQuasar()
 
 onMounted(async () => {
   try {
@@ -21,19 +17,19 @@ onMounted(async () => {
     const success = await authStore.handleBlueskyCallback(params)
 
     if (success) {
-      // Clear the token from URL for security
-      window.history.replaceState({}, document.title, window.location.pathname)
-      await router.push({ name: 'HomePage' })
+      // Wait for next tick to ensure page is loaded
+      await nextTick()
+      // Force clean URL and navigate
+      console.log('Clearing URL:', window.location.pathname)
+      window.location.replace(window.location.origin + '/')
+      console.log('Navigated to home')
     } else {
-      throw new Error('Login failed')
+      throw new Error('Auth callback failed')
     }
   } catch (error) {
-    console.error('Bluesky callback error:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to complete Bluesky login'
-    })
-    await router.push({ name: 'AuthLoginPage' })
+    console.error('Auth callback error:', error)
+    window.location.replace(window.location.origin + '/auth/login')
+    console.log('Navigated to login')
   }
 })
 </script>
