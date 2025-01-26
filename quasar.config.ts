@@ -21,8 +21,8 @@ export default configure((ctx) => {
       'tracing',
       'axios',
       'analytics',
-      'global-components'
-      // 'posthog'
+      'global-components',
+      'posthog'
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
