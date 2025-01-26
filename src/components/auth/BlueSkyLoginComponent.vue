@@ -74,8 +74,27 @@ const handleBlueskyLogin = async () => {
           throw new Error('No authorization URL received')
         }
 
-        // Redirect the whole window to the Bluesky auth page
-        window.location.href = url
+        // Open in popup window instead of redirecting
+        const width = 600
+        const height = 700
+        const left = window.screenX + (window.outerWidth - width) / 2
+        const top = window.screenY + (window.outerHeight - height) / 2
+
+        const popup = window.open(
+          url,
+          'bluesky-auth',
+          `width=${width},height=${height},left=${left},top=${top}`
+        )
+
+        if (popup) {
+          // Check periodically if the popup is closed
+          const timer = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(timer)
+              isLoading.value = false
+            }
+          }, 500)
+        }
       } catch (error) {
         console.error('Failed to get auth URL:', error)
         $q.notify({
