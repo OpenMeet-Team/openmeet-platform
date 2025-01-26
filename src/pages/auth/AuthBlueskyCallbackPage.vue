@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, nextTick } from 'vue'
+import { onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 
 const authStore = useAuthStore()
@@ -17,19 +17,25 @@ onMounted(async () => {
     const success = await authStore.handleBlueskyCallback(params)
 
     if (success) {
-      // Wait for next tick to ensure page is loaded
-      await nextTick()
-      // Force clean URL and navigate
-      console.log('Clearing URL:', window.location.pathname)
-      window.location.replace(window.location.origin + '/')
-      console.log('Navigated to home')
+      if (window.opener) {
+        // If opened in popup, reload parent and close
+        window.opener.location.reload()
+        window.close()
+      } else {
+        // If opened directly, redirect to home
+        window.location.replace(window.location.origin + '/')
+      }
     } else {
       throw new Error('Auth callback failed')
     }
   } catch (error) {
     console.error('Auth callback error:', error)
-    window.location.replace(window.location.origin + '/auth/login')
-    console.log('Navigated to login')
+    if (window.opener) {
+      window.opener.postMessage({ error: 'Auth failed' }, window.location.origin)
+      window.close()
+    } else {
+      window.location.replace(window.location.origin + '/auth/login')
+    }
   }
 })
 </script>
