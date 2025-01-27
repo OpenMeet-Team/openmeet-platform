@@ -9,27 +9,34 @@
 import { onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 
+console.log('AuthBlueskyCallbackPage start')
 const authStore = useAuthStore()
 
 onMounted(async () => {
+  console.log('AuthBlueskyCallbackPage onMounted - START')
   try {
     const params = new URLSearchParams(window.location.search)
+    const paramsObj = Object.fromEntries(params.entries())
+    console.log('AuthBlueskyCallbackPage URL:', window.location.href)
+    console.log('AuthBlueskyCallbackPage params object:', paramsObj)
+
     const success = await authStore.handleBlueskyCallback(params)
+    console.log('Bluesky callback success:', success)
 
     if (success) {
       if (window.opener) {
-        // If opened in popup, reload parent and close
+        console.log('Closing popup and reloading parent')
         window.opener.location.reload()
-        window.close()
+        // window.close()
       } else {
-        // If opened directly, redirect to home
+        console.log('Redirecting to home')
         window.location.replace(window.location.origin + '/')
       }
     } else {
       throw new Error('Auth callback failed')
     }
   } catch (error) {
-    console.error('Auth callback error:', error)
+    console.error('Auth callback detailed error:', error)
     if (window.opener) {
       window.opener.postMessage({ error: 'Auth failed' }, window.location.origin)
       window.close()

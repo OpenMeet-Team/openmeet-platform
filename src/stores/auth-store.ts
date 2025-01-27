@@ -24,7 +24,10 @@ export const useAuthStore = defineStore('authStore', {
   }),
   getters: {
     isAuthenticated: state => !!state.token,
-    getUser: state => state.user,
+    getUser: state => {
+      console.log('auth-store.getUser', state.user)
+      return state.user
+    },
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id
@@ -33,6 +36,7 @@ export const useAuthStore = defineStore('authStore', {
     async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
         const response = await authApi.login(credentials)
+        console.log('auth-store.actionLogin login()', response.data)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -53,14 +57,6 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionGithubLogin (code: string) {
       return await authApi.githubLogin(code).then(response => {
-        this.actionSetToken(response.data.token)
-        this.actionSetRefreshToken(response.data.refreshToken)
-        this.actionSetTokenExpires(response.data.tokenExpires)
-        return response.data.token
-      })
-    },
-    async actionBlueskyLogin (handle: string) {
-      return await authApi.blueskyLogin(handle).then(response => {
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -152,16 +148,20 @@ export const useAuthStore = defineStore('authStore', {
     },
     async handleBlueskyCallback (params: URLSearchParams) {
       try {
+        console.log('auth-store.handleBlueskyCallback params', params)
         const token = params.get('token')
         const refreshToken = params.get('refreshToken')
         const tokenExpires = params.get('tokenExpires')
-        const user = params.get('user')
+        const userParam = JSON.parse(params.get('user') || '{}')
+
+        console.log('auth-store.handleBlueskyCallback', token, refreshToken, tokenExpires, userParam.slug)
+        const user = userParam
 
         if (token && refreshToken && tokenExpires && user) {
           this.actionSetToken(token)
           this.actionSetRefreshToken(refreshToken)
           this.actionSetTokenExpires(Number(tokenExpires))
-          this.actionSetUser(JSON.parse(user))
+          this.actionSetUser(user)
           return true
         }
         return false
