@@ -1,45 +1,49 @@
 import { PostHog } from 'posthog-js'
-import { useAuthStore } from '../stores/auth-store'
 import { Router } from 'vue-router'
 
 let posthog: PostHog
 
-export default async ({ router }: { router: Router }) => {
-  // Wait for config with timeout
-  let attempts = 0
-  const maxAttempts = 20 // 1 second total (20 * 50ms)
+export default ({ router }: { router: Router }) => {
+  // Initialize PostHog asynchronously without blocking
+  initPostHogWhenReady(router)
+  return router
+}
 
-  while (!window.APP_CONFIG?.APP_POSTHOG_KEY && attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 50))
-    attempts++
+async function initPostHogWhenReady (router: Router) {
+  try {
+    // Check if config is already available
+    if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
+      await initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
+      return
+    }
+
+    // If not, wait for DOMContentLoaded
+    const onLoad = () => {
+      if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
+        initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
+      } else {
+        console.warn('PostHog key not found. Analytics disabled.')
+      }
+      document.removeEventListener('DOMContentLoaded', onLoad)
+    }
+
+    document.addEventListener('DOMContentLoaded', onLoad)
+  } catch (error) {
+    console.warn('Failed to initialize PostHog:', error)
   }
+}
 
-  const POSTHOG_KEY = window.APP_CONFIG?.APP_POSTHOG_KEY
-
-  if (!POSTHOG_KEY) {
-    console.warn('PostHog key not found in config after timeout. Analytics will be disabled.')
-    return
-  }
-
+async function initPostHog (key: string, router: Router) {
   const module = await import('posthog-js')
   posthog = module.default
-  posthog.init(POSTHOG_KEY, {
-    debug: false,
-    api_host: 'https://us.i.posthog.com',
-    person_profiles: 'identified_only'
+  posthog.init(key, {
+    api_host: 'https://us.i.posthog.com'
   })
-  posthog.group('tenant_id', window.APP_CONFIG?.APP_TENANT_ID as string)
-
-  const authStore = useAuthStore()
-  if (authStore.getUser) {
-    posthog.identify(authStore.getUser.shortId, {
-      email: authStore.getUser.email,
-      name: authStore.getUser.name
-    })
-  }
 
   router.afterEach((to) => {
-    posthog.capture('$pageview', { path: to.path })
+    if (!to.path.includes('/auth/bluesky/callback')) {
+      posthog?.capture('$pageview', { path: to.path })
+    }
   })
 }
 
