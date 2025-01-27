@@ -72,11 +72,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AuthLayout.vue'),
     children: [
       { path: 'github/callback', name: 'AuthGithubCallbackPage', component: () => import('pages/auth/GithubCallbackPage.vue') },
-      {
-        path: 'bluesky/callback',
-        name: 'AuthBlueskyCallbackPage',
-        component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
-      },
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },
       {
@@ -101,6 +96,11 @@ const routes: RouteRecordRaw[] = [
       }
     ],
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/auth/bluesky/callback',
+    name: 'AuthBlueskyCallback',
+    component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
   },
   {
     path: '/auth/error',
