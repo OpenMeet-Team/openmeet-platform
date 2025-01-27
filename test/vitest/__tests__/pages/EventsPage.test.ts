@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import EventsPage from 'src/pages/EventsPage.vue' // Adjust path as needed
+import EventsPage from '../../../../src/pages/EventsPage.vue' // Adjust path as needed
 import { installRouter } from '../../install-router'
 import { installPinia } from '../../install-pinia'
 

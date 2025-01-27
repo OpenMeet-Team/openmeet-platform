@@ -1,7 +1,7 @@
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import AppLayout from 'src/layouts/AppLayout.vue'
+import AppLayout from '../../../../src/layouts/AppLayout.vue'
 
 installQuasarPlugin()
 

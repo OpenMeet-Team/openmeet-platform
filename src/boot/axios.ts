@@ -16,13 +16,8 @@ const api = axios.create()
 const { error } = useNotification()
 
 export default boot(async ({ app, router }) => {
-  // Wait for config to be available
-  while (!window.APP_CONFIG?.APP_API_URL) {
-    await new Promise(resolve => setTimeout(resolve, 50))
-  }
-
   // Now we can safely set the baseURL
-  api.defaults.baseURL = window.APP_CONFIG.APP_API_URL
+  api.defaults.baseURL = process.env.APP_API_URL
 
   // for use inside Vue files (Options API) through this.$axios and this.$api
   app.config.globalProperties.$axios = axios

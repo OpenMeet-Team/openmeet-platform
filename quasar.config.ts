@@ -6,7 +6,10 @@
 import { configure } from 'quasar/wrappers'
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
-import istanbul from 'vite-plugin-istanbul'
+// import istanbul from 'vite-plugin-istanbul'
+import fs from 'fs'
+const config = fs.readFileSync('public/config.json', 'utf8')
+const configJson = JSON.parse(config)
 
 export default configure((ctx) => {
   return {
@@ -17,7 +20,6 @@ export default configure((ctx) => {
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
     boot: [
-      'config',
       'tracing',
       'axios',
       'analytics',
@@ -65,7 +67,8 @@ export default configure((ctx) => {
           "connect-src 'self' blob: http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net https://*.amazonaws.com https://nominatim.openstreetmap.org https://*.posthog.com",
           "object-src 'none'",
           "base-uri 'self'"
-        ].join('; '))
+        ].join('; ')),
+        ...configJson // this is parsed from the config.json file
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
@@ -108,13 +111,13 @@ export default configure((ctx) => {
           eslint: {
             lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}"'
           }
-        }, { server: false }],
-        istanbul({
-          include: 'src/*',
-          exclude: ['node_modules', 'test/'],
-          extension: ['.js', '.ts', '.vue'],
-          requireEnv: false
-        })
+        }, { server: false }]
+        // [istanbul({
+        //   include: 'src/*',
+        //   exclude: ['node_modules', 'test/'],
+        //   extension: ['.js', '.ts', '.vue'],
+        //   requireEnv: false
+        // })]
       ]
     },
 

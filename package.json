@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
     "dev": "QENV=development quasar dev",
+    "ssr": "QENV=development quasar dev -m ssr",
     "build": "QENV=production quasar build",
     "deploy": "vercel --prod",
     "test": "yarn test:unit:ci && yarn test:e2e:ci",

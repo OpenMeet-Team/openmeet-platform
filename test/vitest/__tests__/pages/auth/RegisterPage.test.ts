@@ -1,8 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import RegisterPage from 'src/pages/auth/RegisterPage.vue' // Replace with actual path
-import RegisterComponent from 'src/components/auth/RegisterComponent.vue'
+import RegisterPage from '../../../../../src/pages/auth/RegisterPage.vue' // Replace with actual path
+import RegisterComponent from '../../../../../src/components/auth/RegisterComponent.vue'
 
 installQuasarPlugin()
 

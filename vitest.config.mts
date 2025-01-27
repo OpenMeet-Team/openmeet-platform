@@ -18,10 +18,10 @@ export default defineConfig({
   plugins: [
     vue({
       template: { transformAssetUrls }
-    }),
+    }) as any,
     quasar({
       sassVariables: 'src/quasar-variables.scss'
-    }),
+    }) as any,
     tsconfigPaths() as any
   ]
 })
