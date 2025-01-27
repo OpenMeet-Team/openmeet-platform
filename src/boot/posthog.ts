@@ -3,28 +3,40 @@ import { Router } from 'vue-router'
 
 let posthog: PostHog
 
-export default async ({ router }: { router: Router }) => {
-  // Wait for config to be available
-  const waitForConfig = new Promise<string>((resolve) => {
+export default ({ router }: { router: Router }) => {
+  // Initialize PostHog asynchronously without blocking
+  initPostHogWhenReady(router)
+  return router
+}
+
+async function initPostHogWhenReady (router: Router) {
+  try {
+    // Check if config is already available
     if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
-      resolve(window.APP_CONFIG.APP_POSTHOG_KEY)
+      await initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
       return
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      resolve(window.APP_CONFIG?.APP_POSTHOG_KEY)
-    })
-  })
+    // If not, wait for DOMContentLoaded
+    const onLoad = () => {
+      if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
+        initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
+      } else {
+        console.warn('PostHog key not found. Analytics disabled.')
+      }
+      document.removeEventListener('DOMContentLoaded', onLoad)
+    }
 
-  const POSTHOG_KEY = await waitForConfig
-  if (!POSTHOG_KEY) {
-    console.warn('PostHog key not found. Analytics disabled.')
-    return
+    document.addEventListener('DOMContentLoaded', onLoad)
+  } catch (error) {
+    console.warn('Failed to initialize PostHog:', error)
   }
+}
 
+async function initPostHog (key: string, router: Router) {
   const module = await import('posthog-js')
   posthog = module.default
-  posthog.init(POSTHOG_KEY, {
+  posthog.init(key, {
     api_host: 'https://us.i.posthog.com'
   })
 
