@@ -14,22 +14,21 @@ const authStore = useAuthStore()
 onMounted(async () => {
   try {
     const params = new URLSearchParams(window.location.search)
+
     const success = await authStore.handleBlueskyCallback(params)
 
     if (success) {
       if (window.opener) {
-        // If opened in popup, reload parent and close
         window.opener.location.reload()
         window.close()
       } else {
-        // If opened directly, redirect to home
         window.location.replace(window.location.origin + '/')
       }
     } else {
       throw new Error('Auth callback failed')
     }
   } catch (error) {
-    console.error('Auth callback error:', error)
+    console.error('Auth callback detailed error:', error)
     if (window.opener) {
       window.opener.postMessage({ error: 'Auth failed' }, window.location.origin)
       window.close()

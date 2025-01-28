@@ -13,11 +13,14 @@ export function getImageSrc (image: FileEntity | undefined | string | null, plac
   if (typeof image === 'object' && image?.path) {
     return image.path
   }
+  if (typeof image === 'object') {
+    return placeholder
+  }
   return typeof image === 'string' ? image : placeholder
 }
 
 function generateRandomShape (width: number, height: number): string {
-  const colors = ['#808080', '#0066CC', '#00CC99']
+  const colors = ['#1E1A43', '#7B71DA', '#AF9EEB']
   const shapes = ['circle', 'ellipse']
   const shape = shapes[Math.floor(Math.random() * shapes.length)]
   const color = colors[Math.floor(Math.random() * colors.length)]

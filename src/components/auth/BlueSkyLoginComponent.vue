@@ -74,7 +74,7 @@ const handleBlueskyLogin = async () => {
           throw new Error('No authorization URL received')
         }
 
-        // Open in popup window instead of redirecting
+        // Open in popup window
         const width = 600
         const height = 700
         const left = window.screenX + (window.outerWidth - width) / 2
