@@ -25,7 +25,6 @@ export const useAuthStore = defineStore('authStore', {
   getters: {
     isAuthenticated: state => !!state.token,
     getUser: state => {
-      console.log('auth-store.getUser', state.user)
       return state.user
     },
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
@@ -36,7 +35,6 @@ export const useAuthStore = defineStore('authStore', {
     async actionLogin (credentials: StoreAuthLoginRequest) {
       try {
         const response = await authApi.login(credentials)
-        console.log('auth-store.actionLogin login()', response.data)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -48,20 +46,44 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionGoogleLogin (idToken: string) {
-      return await authApi.googleLogin(idToken).then(response => {
+      try {
+        const response = await authApi.googleLogin(idToken)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
+        this.actionSetUser(response.data.user)
+
+        // Fetch full user profile
+        const meResponse = await authApi.getMe()
+        if (meResponse.data) {
+          this.actionSetUser(meResponse.data)
+        }
+
         return response.data.token
-      })
+      } catch (error) {
+        console.error('Google login error:', error)
+        throw error
+      }
     },
     async actionGithubLogin (code: string) {
-      return await authApi.githubLogin(code).then(response => {
+      try {
+        const response = await authApi.githubLogin(code)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
+        this.actionSetUser(response.data.user)
+
+        // Fetch full user profile
+        const meResponse = await authApi.getMe()
+        if (meResponse.data) {
+          this.actionSetUser(meResponse.data)
+        }
+
         return response.data.token
-      })
+      } catch (error) {
+        console.error('Github login error:', error)
+        throw error
+      }
     },
     async actionRefreshToken () {
       return await authApi.refreshToken(this.refreshToken).then(response => {
@@ -148,23 +170,34 @@ export const useAuthStore = defineStore('authStore', {
     },
     async handleBlueskyCallback (params: URLSearchParams) {
       try {
-        console.log('auth-store.handleBlueskyCallback params', params)
         const token = params.get('token')
         const refreshToken = params.get('refreshToken')
         const tokenExpires = params.get('tokenExpires')
-        const userParam = JSON.parse(params.get('user') || '{}')
+        const userParam = params.get('user')
 
-        console.log('auth-store.handleBlueskyCallback', token, refreshToken, tokenExpires, userParam.slug)
-        const user = userParam
-
-        if (token && refreshToken && tokenExpires && user) {
-          this.actionSetToken(token)
-          this.actionSetRefreshToken(refreshToken)
-          this.actionSetTokenExpires(Number(tokenExpires))
-          this.actionSetUser(user)
-          return true
+        if (!token || !refreshToken || !tokenExpires || !userParam) {
+          console.error('Missing required parameters')
+          return false
         }
-        return false
+
+        const user = JSON.parse(userParam)
+
+        this.actionSetToken(token)
+        this.actionSetRefreshToken(refreshToken)
+        this.actionSetTokenExpires(Number(tokenExpires))
+        this.actionSetUser(user)
+
+        // After setting the user, fetch the full user profile
+        try {
+          const response = await authApi.getMe()
+          if (response.data) {
+            this.actionSetUser(response.data)
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error)
+        }
+
+        return true
       } catch (error) {
         console.error('Bluesky callback error:', error)
         throw error

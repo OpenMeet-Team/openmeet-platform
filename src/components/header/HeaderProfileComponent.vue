@@ -1,12 +1,11 @@
 <template>
-  <div class="bg-purple-200">
-    {{ Object.keys(user.photo)  }}
-    <img :src="getImageSrc(user.photo)" alt="avatar1">
-    <img :src="getImageSrc(user.photo.path)" alt="avatar2">
-  </div>
   <q-avatar class="cursor-pointer" v-if="useAuthStore().isAuthenticated">
-    <img data-cy="header-profile-avatar" :src="getImageSrc(user.photo.path)" alt="avatar">
-    <q-icon size="md" name="sym_r_person" />
+    <template v-if="user?.photo?.path">
+      <img data-cy="header-profile-avatar" :src="getImageSrc(user.photo.path)" alt="avatar">
+    </template>
+    <template v-else>
+      <q-icon size="md" name="sym_r_person" />
+    </template>
     <q-menu>
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>
       <MenuItemComponent label="My groups" icon="sym_r_group" to="/dashboard/groups"/>
@@ -23,12 +22,11 @@ import MenuItemComponent from '../common/MenuItemComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRouter } from 'vue-router'
 import { getImageSrc } from '../../utils/imageUtils'
+import { computed } from 'vue'
 
 const router = useRouter()
-const user = useAuthStore().getUser
-console.log('HeaderProfileComponent user', user)
-console.log('HeaderProfileComponent photo', user.photo)
-console.log('HeaderProfileComponent getImageSrc', getImageSrc(user.photo))
+const authStore = useAuthStore()
+const user = computed(() => authStore.getUser)
 
 defineOptions({
   name: 'HeaderProfileComponent'
