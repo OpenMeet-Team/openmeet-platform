@@ -18,7 +18,7 @@ const { error } = useNotification()
 export default boot(async ({ app, router }) => {
   // Now we can safely set the baseURL
   api.defaults.baseURL = process.env.APP_API_URL
-
+  console.log('api.defaults.baseURL', api.defaults.baseURL, getEnv('APP_TENANT_ID'))
   // for use inside Vue files (Options API) through this.$axios and this.$api
   app.config.globalProperties.$axios = axios
 
