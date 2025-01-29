@@ -37,6 +37,8 @@
     <!-- Attending State -->
     <q-btn
       v-else-if="attendee.status === EventAttendeeStatus.Confirmed"
+      no-caps
+      text-color="black"
       color="negative"
       @click="handleLeave"
     >

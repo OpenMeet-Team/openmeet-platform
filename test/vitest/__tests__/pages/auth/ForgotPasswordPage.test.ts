@@ -1,8 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
-import ForgotPasswordPage from 'src/pages/auth/ForgotPasswordPage.vue' // Replace with actual path
-import ForgotPasswordComponent from 'src/components/auth/ForgotPasswordComponent.vue'
+import ForgotPasswordPage from '../../../../../src/pages/auth/ForgotPasswordPage.vue' // Replace with actual path
+import ForgotPasswordComponent from '../../../../../src/components/auth/ForgotPasswordComponent.vue'
 
 installQuasarPlugin()
 

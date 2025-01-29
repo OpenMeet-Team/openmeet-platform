@@ -10,10 +10,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { validateEmail } from 'src/utils/validation'
+import { validateEmail } from '../../utils/validation'
 import axios from 'axios'
-import { useNotification } from 'src/composables/useNotification'
-import getEnv from 'src/utils/env'
+import { useNotification } from '../../composables/useNotification'
+import getEnv from '../../utils/env'
 
 const formData = ref({
   email: ''

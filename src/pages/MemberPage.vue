@@ -44,7 +44,7 @@ onMounted(async () => {
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                  <img :src="getImageSrc(user.photo)" :alt="user.name || 'avatar'" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
                   {{ user.name }}
@@ -62,7 +62,7 @@ onMounted(async () => {
           >
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
-                <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                <img :src="getImageSrc(user.photo)" :alt="user.name || 'avatar'" />
               </q-avatar>
               <div class="column">
                 <div class="text-bold">{{ user.name }}</div>

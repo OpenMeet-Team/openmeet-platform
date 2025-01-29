@@ -1,10 +1,20 @@
-import { PostHog } from 'posthog-js'
+import { useAuthStore } from '../stores/auth-store'
 import { Router } from 'vue-router'
+import posthog from 'posthog-js'
 
-let posthog: PostHog
+const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
 
-export default ({ router }: { router: Router }) => {
-  // Initialize PostHog asynchronously without blocking
+export default async ({ router }: { router: Router }) => {
+  if (typeof window === 'undefined') {
+    // Exit if not running in a browser environment
+    return
+  }
+
+  if (!POSTHOG_KEY) {
+    console.warn('PostHog key not found in config after timeout. Analytics will be disabled.')
+    return
+  }
+
   initPostHogWhenReady(router)
   return router
 }
@@ -12,15 +22,15 @@ export default ({ router }: { router: Router }) => {
 async function initPostHogWhenReady (router: Router) {
   try {
     // Check if config is already available
-    if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
-      await initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
+    if (POSTHOG_KEY) {
+      await initPostHog(POSTHOG_KEY, router)
       return
     }
 
     // If not, wait for DOMContentLoaded
     const onLoad = () => {
-      if (window.APP_CONFIG?.APP_POSTHOG_KEY) {
-        initPostHog(window.APP_CONFIG.APP_POSTHOG_KEY, router)
+      if (POSTHOG_KEY) {
+        initPostHog(POSTHOG_KEY, router)
       } else {
         console.warn('PostHog key not found. Analytics disabled.')
       }
@@ -34,11 +44,20 @@ async function initPostHogWhenReady (router: Router) {
 }
 
 async function initPostHog (key: string, router: Router) {
-  const module = await import('posthog-js')
-  posthog = module.default
   posthog.init(key, {
-    api_host: 'https://us.i.posthog.com'
+    debug: false,
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'identified_only'
   })
+  posthog.group('tenant_id', process.env.APP_TENANT_ID as string)
+
+  const authStore = useAuthStore()
+  if (authStore.getUser) {
+    posthog.identify(authStore.getUser.shortId, {
+      email: authStore.getUser.email,
+      name: authStore.getUser.name
+    })
+  }
 
   router.afterEach((to) => {
     if (!to.path.includes('/auth/bluesky/callback')) {

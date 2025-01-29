@@ -2,7 +2,7 @@ import { date } from 'quasar'
 import { EventEntity } from '../types'
 
 export function getRoundedHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {
-  return getHumanReadableDateDifference(startDate, endDate).split(', ')[0]
+  return getHumanReadableDateDifference(startDate, endDate).split(', ')[0] || ''
 }
 
 export function getHumanReadableDateDifference (startDate: string | Date, endDate: string | Date): string {

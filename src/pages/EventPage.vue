@@ -313,7 +313,8 @@
 
       <!-- Remove bottom margin by adding q-mb-none -->
       <div
-        class="bg-purple-100 q-py-xl q-mb-none"
+        :class="[Dark.isActive ?? 'bg-dark']"
+        class="q-py-xl q-mb-none"
         style="
           width: 100vw;
           position: relative;

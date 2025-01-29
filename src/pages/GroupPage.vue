@@ -61,7 +61,7 @@ const hasRightPermission = computed(() => {
 })
 
 useMeta({
-  title: group.value?.name,
+  title: group.value?.name || 'Group',
   meta: {
     description: { content: group.value?.description },
     'og:image': { content: getImageSrc(group.value?.image) }

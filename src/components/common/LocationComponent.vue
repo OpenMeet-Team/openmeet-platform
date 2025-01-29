@@ -70,8 +70,8 @@
           <q-card-section>
             <div style="height: 300px">
               <span class="text-body2">Click on the map to set coordinates</span>
-              <LeafletMapComponent @markerLocation="onMarkerLocation" :lat="newLocation.lat"
-                                   :lon="newLocation.lon"/>
+              <LeafletMapComponent @markerLocation="onMarkerLocation" :lat="newLocation.lat || 0"
+                                   :lon="newLocation.lon || 0"/>
             </div>
           </q-card-section>
           <q-card-actions class="q-mt-md" align="right">
