@@ -24,7 +24,9 @@ export const useAuthStore = defineStore('authStore', {
   }),
   getters: {
     isAuthenticated: state => !!state.token,
-    getUser: state => state.user,
+    getUser: state => {
+      return state.user
+    },
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id
@@ -44,28 +46,44 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionGoogleLogin (idToken: string) {
-      return await authApi.googleLogin(idToken).then(response => {
+      try {
+        const response = await authApi.googleLogin(idToken)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
+        this.actionSetUser(response.data.user)
+
+        // Fetch full user profile
+        const meResponse = await authApi.getMe()
+        if (meResponse.data) {
+          this.actionSetUser(meResponse.data)
+        }
+
         return response.data.token
-      })
+      } catch (error) {
+        console.error('Google login error:', error)
+        throw error
+      }
     },
     async actionGithubLogin (code: string) {
-      return await authApi.githubLogin(code).then(response => {
+      try {
+        const response = await authApi.githubLogin(code)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
+        this.actionSetUser(response.data.user)
+
+        // Fetch full user profile
+        const meResponse = await authApi.getMe()
+        if (meResponse.data) {
+          this.actionSetUser(meResponse.data)
+        }
+
         return response.data.token
-      })
-    },
-    async actionBlueskyLogin (handle: string) {
-      return await authApi.blueskyLogin(handle).then(response => {
-        this.actionSetToken(response.data.token)
-        this.actionSetRefreshToken(response.data.refreshToken)
-        this.actionSetTokenExpires(response.data.tokenExpires)
-        return response.data.token
-      })
+      } catch (error) {
+        console.error('Github login error:', error)
+        throw error
+      }
     },
     async actionRefreshToken () {
       return await authApi.refreshToken(this.refreshToken).then(response => {
@@ -155,16 +173,31 @@ export const useAuthStore = defineStore('authStore', {
         const token = params.get('token')
         const refreshToken = params.get('refreshToken')
         const tokenExpires = params.get('tokenExpires')
-        const user = params.get('user')
+        const userParam = params.get('user')
 
-        if (token && refreshToken && tokenExpires && user) {
-          this.actionSetToken(token)
-          this.actionSetRefreshToken(refreshToken)
-          this.actionSetTokenExpires(Number(tokenExpires))
-          this.actionSetUser(JSON.parse(user))
-          return true
+        if (!token || !refreshToken || !tokenExpires || !userParam) {
+          console.error('Missing required parameters')
+          return false
         }
-        return false
+
+        const user = JSON.parse(userParam)
+
+        this.actionSetToken(token)
+        this.actionSetRefreshToken(refreshToken)
+        this.actionSetTokenExpires(Number(tokenExpires))
+        this.actionSetUser(user)
+
+        // After setting the user, fetch the full user profile
+        try {
+          const response = await authApi.getMe()
+          if (response.data) {
+            this.actionSetUser(response.data)
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error)
+        }
+
+        return true
       } catch (error) {
         console.error('Bluesky callback error:', error)
         throw error

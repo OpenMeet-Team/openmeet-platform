@@ -2,9 +2,9 @@ import { useAuthStore } from '../stores/auth-store'
 import { Router } from 'vue-router'
 import posthog from 'posthog-js'
 
-export default async ({ router }: { router: Router }) => {
-  const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
+const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
 
+export default async ({ router }: { router: Router }) => {
   if (typeof window === 'undefined') {
     // Exit if not running in a browser environment
     return
@@ -15,7 +15,36 @@ export default async ({ router }: { router: Router }) => {
     return
   }
 
-  posthog.init(POSTHOG_KEY, {
+  initPostHogWhenReady(router)
+  return router
+}
+
+async function initPostHogWhenReady (router: Router) {
+  try {
+    // Check if config is already available
+    if (POSTHOG_KEY) {
+      await initPostHog(POSTHOG_KEY, router)
+      return
+    }
+
+    // If not, wait for DOMContentLoaded
+    const onLoad = () => {
+      if (POSTHOG_KEY) {
+        initPostHog(POSTHOG_KEY, router)
+      } else {
+        console.warn('PostHog key not found. Analytics disabled.')
+      }
+      document.removeEventListener('DOMContentLoaded', onLoad)
+    }
+
+    document.addEventListener('DOMContentLoaded', onLoad)
+  } catch (error) {
+    console.warn('Failed to initialize PostHog:', error)
+  }
+}
+
+async function initPostHog (key: string, router: Router) {
+  posthog.init(key, {
     debug: false,
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'identified_only'
@@ -31,7 +60,9 @@ export default async ({ router }: { router: Router }) => {
   }
 
   router.afterEach((to) => {
-    posthog.capture('$pageview', { path: to.path })
+    if (!to.path.includes('/auth/bluesky/callback')) {
+      posthog?.capture('$pageview', { path: to.path })
+    }
   })
 }
 
