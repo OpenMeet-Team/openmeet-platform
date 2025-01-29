@@ -48,7 +48,7 @@ export async function apiUploadFileToS3 (file: File): Promise<FileEntity> {
 
 // Helper function to convert base64 string to Blob
 function base64ToBlob (base64: string, mimeType: string): Blob {
-  const byteCharacters = atob(base64.split(',')[1])
+  const byteCharacters = atob(base64.split(',')[1] || '')
   const byteNumbers = new Array(byteCharacters.length)
 
   for (let i = 0; i < byteCharacters.length; i++) {

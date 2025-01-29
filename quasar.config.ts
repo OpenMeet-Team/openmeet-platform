@@ -53,6 +53,13 @@ export default configure((ctx) => {
         browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
         node: 'node20'
       },
+
+      typescript: {
+        strict: false, // TODO:: fix all ts errors in strict mode
+        vueShim: true
+        // extendTsConfig (tsConfig) {}
+      },
+
       env: {
         // This is place to set build time variables
         APP_VERSION: JSON.stringify(process.env.APP_VERSION || 'alpha'),

@@ -5,6 +5,11 @@ import posthog from 'posthog-js'
 export default async ({ router }: { router: Router }) => {
   const POSTHOG_KEY = process.env.APP_POSTHOG_KEY
 
+  if (typeof window === 'undefined') {
+    // Exit if not running in a browser environment
+    return
+  }
+
   if (!POSTHOG_KEY) {
     console.warn('PostHog key not found in config after timeout. Analytics will be disabled.')
     return

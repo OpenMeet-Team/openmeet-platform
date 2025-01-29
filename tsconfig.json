@@ -1,18 +1,8 @@
 {
   "extends": "./.quasar/tsconfig.json",
   "compilerOptions": {
-    // "baseUrl": ".",
     "types": [
       "cypress"
     ],
-  },
-  "exclude": [
-    "./local",
-    "./dist",
-    "./.quasar",
-    "./node_modules",
-    "./src-capacitor",
-    "./src-cordova",
-    "./quasar.config.*.temporary.compiled*"
-  ]
+  }
 }
