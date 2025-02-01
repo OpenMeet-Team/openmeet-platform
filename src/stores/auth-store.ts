@@ -20,7 +20,9 @@ export const useAuthStore = defineStore('authStore', {
     tokenExpires: LocalStorage.getItem('tokenExpires') || '',
     user: JSON.parse(LocalStorage.getItem('user') || '{}') as UserEntity,
     role: UserRole.User,
-    permissions: [] as string[]
+    permissions: [] as string[],
+    blueskyDid: LocalStorage.getItem('blueskyDid') || '',
+    blueskyHandle: LocalStorage.getItem('blueskyHandle') || ''
   }),
   getters: {
     isAuthenticated: state => !!state.token,
@@ -29,7 +31,9 @@ export const useAuthStore = defineStore('authStore', {
     },
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
-    getUserId: state => state.user.id
+    getUserId: state => state.user.id,
+    getBlueskyDid: state => state.blueskyDid,
+    getBlueskyHandle: state => state.blueskyHandle
   },
   actions: {
     async actionLogin (credentials: StoreAuthLoginRequest) {
@@ -67,7 +71,9 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionGithubLogin (code: string) {
       try {
+        console.log('Starting Github login with code:', code)
         const response = await authApi.githubLogin(code)
+        console.log('Github login response:', response.data)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
@@ -81,7 +87,7 @@ export const useAuthStore = defineStore('authStore', {
 
         return response.data.token
       } catch (error) {
-        console.error('Github login error:', error)
+        console.error('Github login error:', error.response?.data || error)
         throw error
       }
     },
@@ -157,16 +163,26 @@ export const useAuthStore = defineStore('authStore', {
       this.token = ''
       this.refreshToken = ''
       this.user = {} as UserEntity
+      this.blueskyDid = ''
+      this.blueskyHandle = ''
       LocalStorage.removeItem('token')
       LocalStorage.removeItem('refreshToken')
       LocalStorage.removeItem('tokenExpires')
       LocalStorage.removeItem('user')
+      LocalStorage.removeItem('blueskyDid')
+      LocalStorage.removeItem('blueskyHandle')
     },
     actionSetRole (role: UserRole) {
       this.role = role
     },
     actionSetPermissions (permissions: string[]) {
       this.permissions = permissions
+    },
+    actionSetBlueskyIdentifiers (did: string, handle: string) {
+      this.blueskyDid = did
+      this.blueskyHandle = handle
+      LocalStorage.setItem('blueskyDid', did)
+      LocalStorage.setItem('blueskyHandle', handle)
     },
     async handleBlueskyCallback (params: URLSearchParams) {
       try {
@@ -187,7 +203,6 @@ export const useAuthStore = defineStore('authStore', {
         this.actionSetTokenExpires(Number(tokenExpires))
         this.actionSetUser(user)
 
-        // After setting the user, fetch the full user profile
         try {
           const response = await authApi.getMe()
           if (response.data) {

@@ -81,12 +81,12 @@ const handleGithubLogin = async () => {
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
 
-      const { code, state: returnedState } = event.data
+      const { code } = event.data
 
-      // Verify state to prevent CSRF attacks
-      if (returnedState !== state) {
-        throw new Error('Invalid state parameter')
-      }
+      // // Verify state to prevent CSRF attacks
+      // if (returnedState !== state) {
+      //   throw new Error('Invalid state parameter')
+      // }
 
       if (code) {
         await authStore.actionGithubLogin(code)

@@ -1,4 +1,4 @@
-import { FileEntity, SubCategoryEntity } from './model'
+import { AuthProvidersEnum, FileEntity, SubCategoryEntity } from './model'
 import { GroupEntity, GroupMemberEntity } from './group'
 import { EventEntity } from './event'
 
@@ -31,6 +31,8 @@ export interface UserEntity {
   slug: string
   email: string
   name?: string
+  provider?: AuthProvidersEnum
+  socialId?: string
   firstName?: string
   lastName?: string
   shortId?: string
