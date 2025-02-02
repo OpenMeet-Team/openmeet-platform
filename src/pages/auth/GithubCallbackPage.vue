@@ -31,13 +31,9 @@ const error = ref<string | null>(null)
 
 const handleCallback = async () => {
   try {
-    console.log('Starting GitHub callback handler')
     const code = route.query.code as string
-    console.log('Received code:', code)
-
     const returnedState = route.query.state as string
     const originalState = sessionStorage.getItem('github_oauth_state')
-    console.log('State verification:', { returnedState, originalState })
 
     if (!code) {
       throw new Error('No authorization code received')
@@ -62,9 +58,8 @@ const handleCallback = async () => {
       router.push('/')
     }
   } catch (err) {
-    console.error('GitHub callback detailed error:', err)
     if (err.response) {
-      console.error('Error response:', err.response.data)
+      console.error('github login error response:', err.response.data)
     }
     error.value = err instanceof Error ? err.message : 'Authentication failed'
 

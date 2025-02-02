@@ -71,9 +71,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionGithubLogin (code: string) {
       try {
-        console.log('Starting Github login with code:', code)
         const response = await authApi.githubLogin(code)
-        console.log('Github login response:', response.data)
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
