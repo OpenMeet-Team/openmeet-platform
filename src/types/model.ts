@@ -1,5 +1,15 @@
 import { UserEntity } from './user'
 
+export enum AuthProvidersEnum {
+  apple = 'apple',
+  bluesky = 'bluesky',
+  email = 'email',
+  facebook = 'facebook',
+  github = 'github',
+  google = 'google',
+  twitter = 'twitter',
+}
+
 export enum SubCategoryType {
   EVENT = 'EVENT',
   GROUP = 'GROUP',

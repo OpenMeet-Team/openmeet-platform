@@ -32,20 +32,24 @@ const error = ref<string | null>(null)
 const handleCallback = async () => {
   try {
     const code = route.query.code as string
+    const returnedState = route.query.state as string
+    const originalState = sessionStorage.getItem('github_oauth_state')
 
     if (!code) {
       throw new Error('No authorization code received')
     }
 
+    // Verify state parameter
+    if (returnedState !== originalState) {
+      throw new Error('Invalid state parameter')
+    }
+
     // Send message to opener window
     if (window.opener) {
       await authStore.actionGithubLogin(code)
-      // reload window opener
       window.opener.location.reload()
-      // window.opener.postMessage({ code }, window.location.origin)
       window.close()
     } else {
-      // Handle case when opened directly (not in popup)
       await authStore.actionGithubLogin(code)
       $q.notify({
         type: 'positive',
@@ -54,7 +58,9 @@ const handleCallback = async () => {
       router.push('/')
     }
   } catch (err) {
-    console.error('GitHub callback error:', err)
+    if (err.response) {
+      console.error('github login error response:', err.response.data)
+    }
     error.value = err instanceof Error ? err.message : 'Authentication failed'
 
     // If in popup, send error to parent

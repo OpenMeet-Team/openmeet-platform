@@ -11,7 +11,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import GroupsItemComponent from '../components/group/GroupsItemComponent.vue'
 import EventsItemComponent from '../components/event/EventsItemComponent.vue'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
-
+import { AuthProvidersEnum } from '../types'
 const route = useRoute()
 
 const user = computed(() => useProfileStore().user)
@@ -24,10 +24,12 @@ const groupMemberships = computed(() =>
   )
 )
 
+const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
+const bskyHandle = computed(() => isBskyUser.value ? user.value?.socialId : null)
+
 onMounted(async () => {
   LoadingBar.start()
-  useProfileStore()
-    .actionGetMemberProfile(route.params.slug as string)
+  await useProfileStore().actionGetMemberProfile(route.params.slug as string)
     .finally(() => LoadingBar.stop())
 })
 </script>
@@ -71,6 +73,25 @@ onMounted(async () => {
                   class="router-link-inherit"
                   >Edit Profile</router-link
                 >
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <!-- Bluesky Info -->
+          <q-card flat bordered class="q-mt-md" v-if="isBskyUser">
+            <q-card-section>
+              <div class="text-center">
+                <q-icon name="fa-brands fa-bluesky" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">Bluesky User</h6>
+                <div class="text-body2 q-mt-sm">
+                  <a
+                    :href="`https://bsky.app/profile/${bskyHandle}`"
+                    target="_blank"
+                    class="text-primary"
+                  >
+                    @{{ bskyHandle }}
+                  </a>
+                </div>
               </div>
             </q-card-section>
           </q-card>
