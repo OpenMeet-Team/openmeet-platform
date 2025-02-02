@@ -2,7 +2,7 @@
   <!-- Attendance Button -->
   <div class="attendance-button">
     <!-- Loading State -->
-    <q-btn v-if="loading" :loading="true" color="primary">
+    <q-btn data-cy="event-attend-button" v-if="loading" :loading="true" color="primary">
       <template v-slot:loading>
         <q-spinner-dots />
       </template>
@@ -10,6 +10,7 @@
 
     <!-- Not Attending or Cancelled State -->
     <q-btn
+      data-cy="event-attend-button"
       v-else-if="!attendee || attendee.status === EventAttendeeStatus.Cancelled"
       color="primary"
       @click="handleAttend"
@@ -18,6 +19,7 @@
 
     <!-- Pending Approval State -->
     <q-btn
+      data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Pending"
       color="warning"
       disable
@@ -26,7 +28,7 @@
     </q-btn>
 
     <!-- Waitlist State -->
-    <q-btn
+    <q-btn data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Waitlist"
       color="orange"
       @click="handleLeave"
@@ -35,7 +37,7 @@
     </q-btn>
 
     <!-- Attending State -->
-    <q-btn
+    <q-btn data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Confirmed"
       color="negative"
       @click="handleLeave"

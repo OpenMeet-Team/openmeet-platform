@@ -41,7 +41,7 @@ const onPageChange = (page: number) => {
 </script>
 
 <template>
-  <div class="groups-list">
+  <div class="groups-list" data-cy="group-item">
     <SubtitleComponent
       v-if="label"
       :label="label"

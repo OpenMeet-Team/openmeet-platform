@@ -325,6 +325,7 @@
       >
         <div class="q-mx-auto" style="max-width: 1201px; padding: 0 24px">
           <EventsListComponent
+            data-cy="similar-events-component"
             label="Similar Events"
             :events="similarEvents"
             :loading="similarEventsLoading"

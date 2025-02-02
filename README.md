@@ -55,3 +55,16 @@ npm run test
 See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js).
 
 `/public/config.json` is configuration for the app.  In k8s we load it from the configmap at runtime, and in `npm run dev` it is served and loaded from `https://.../config.json`
+
+
+## Running end to end tests
+
+```bash
+# edit the .env file to set the correct APP_TESTING_API_URL
+# following env.example
+
+npm run test:e2e
+
+# run against the public site
+npx cypress run --config baseUrl=https://platform-devopenmeet.net
+```

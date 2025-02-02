@@ -36,7 +36,7 @@ describe('GroupsPage', () => {
 
   it('should fetch the list of groups', () => {
     cy.dataCy('groups-page').should('be.visible')
-    cy.dataCy('groups-item').should('be.visible')
+    cy.dataCy('group-item').should('be.visible')
     cy.dataCy('location-filter').should('be.visible')
     cy.dataCy('categories-filter').should('be.visible')
   })
@@ -68,7 +68,7 @@ describe('GroupsPage', () => {
 
   it('should navigate to the group page', () => {
     cy.dataCy('groups-page').should('be.visible')
-    cy.dataCy('groups-item-image').first().click()
+    cy.dataCy('group-item-image').first().click()
     cy.testRoute('/groups/group-one')
   })
 

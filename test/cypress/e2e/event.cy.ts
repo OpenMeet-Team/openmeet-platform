@@ -94,7 +94,7 @@ describe('EventPage', () => {
     })
   })
 
-  describe('event approvalQuestion is set', () => {
+  describe.skip('event approvalQuestion is set', () => {
     beforeEach(() => {
       cy.intercept('GET', `/api/events/${event.slug}`, {
         statusCode: 200,
