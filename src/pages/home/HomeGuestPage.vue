@@ -8,7 +8,7 @@
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
         <!-- Featured Groups -->
-        <GroupsListComponent
+        <GroupsListComponent data-cy="home-featured-groups"
           :groups="featuredGroups as GroupEntity[]"
           label="Featured Groups"
           :show-pagination="false"
@@ -21,7 +21,7 @@
 
       <!-- Upcoming Events Section -->
       <div class="col-12 q-mt-lg">
-        <EventsListComponent
+        <EventsListComponent data-cy="home-upcoming-events"
           :events="upcomingEvents as EventEntity[]"
           label="Upcoming Events"
           :show-pagination="false"

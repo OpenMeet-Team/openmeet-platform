@@ -14,7 +14,7 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="event-item" :class="layout">
+  <div class="event-item" :class="layout" data-cy="events-item">
     <div class="event-image-container">
       <q-img
         loading="lazy"

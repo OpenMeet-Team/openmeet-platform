@@ -4,7 +4,7 @@
       <img data-cy="header-profile-avatar" :src="getImageSrc(user.photo.path)" alt="avatar">
     </template>
     <template v-else>
-      <q-icon size="md" name="sym_r_person" />
+      <q-icon data-cy="header-profile-avatar" size="md" name="sym_r_person" />
     </template>
     <q-menu>
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>

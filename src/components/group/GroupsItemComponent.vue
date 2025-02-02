@@ -19,9 +19,9 @@ const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="group-item" :class="layout">
+  <div class="group-item" :class="layout" data-cy="group-item">
     <!-- Group Image -->
-    <q-img
+    <q-img data-cy="group-item-image"
       :src="getImageSrc(group.image)"
       class="cursor-pointer group-image"
       @click="navigateToGroup(group)"

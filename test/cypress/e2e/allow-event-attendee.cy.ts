@@ -79,7 +79,6 @@ describe('Event Attendee Management', () => {
     })
 
     cy.get('button').contains('Attend').should('be.visible').click()
-    cy.get('button').contains('Confirm').click()
 
     cy.wait('@joinEvent').then((interception) => {
       // Debug log to see the actual response structure

@@ -25,7 +25,7 @@ onMounted(() => {
   <SpinnerComponent v-if="!loaded" />
   <template v-if="loaded">
     <q-separator class="q-my-lg" />
-    <EventsListComponent :events="events"
+    <EventsListComponent data-cy="recommended-events-component" :events="events"
     layout="list"
     />
   </template>
