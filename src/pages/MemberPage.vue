@@ -14,18 +14,20 @@ import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 import { AuthProvidersEnum } from '../types'
 const route = useRoute()
 
-const user = computed(() => useProfileStore().user)
-const interests = computed(() => useProfileStore().user?.interests)
-const ownedGroups = computed(() => useProfileStore().user?.groups)
-const organizedEvents = computed(() => useProfileStore().user?.events)
+const authStore = useAuthStore()
+const user = computed(() => authStore.user)
+const userProfile = computed(() => useProfileStore().user)
+const interests = computed(() => userProfile.value?.interests)
+const ownedGroups = computed(() => userProfile.value?.groups)
+const organizedEvents = computed(() => userProfile.value?.events)
 const groupMemberships = computed(() =>
-  useProfileStore().user?.groupMembers?.filter(
+  userProfile.value?.groupMembers?.filter(
     (member) => member.groupRole?.name !== 'owner'
   )
 )
 
 const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
-const bskyHandle = computed(() => isBskyUser.value ? user.value?.socialId : null)
+const bskyHandle = computed(() => isBskyUser.value ? user.value?. : null)
 const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
 

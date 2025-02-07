@@ -208,6 +208,7 @@ export const useAuthStore = defineStore('authStore', {
         this.actionSetRefreshToken(refreshToken)
         this.actionSetTokenExpires(Number(tokenExpires))
         this.actionSetUser(user)
+        
 
         try {
           const response = await authApi.getMe()
