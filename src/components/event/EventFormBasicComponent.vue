@@ -157,6 +157,8 @@ import { groupsApi } from '../../api/groups'
 import DOMPurify from 'dompurify'
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
+import { useAuthStore } from '../../stores/auth-store'
+import { AtpAgent } from '@atproto/api'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -181,7 +183,12 @@ const eventData = ref<EventEntity>({
   maxAttendees: 0,
   visibility: EventVisibility.Public,
   categories: [],
-  ulid: ''
+  ulid: '',
+  sourceType: null,
+  sourceId: null,
+  sourceUrl: null,
+  sourceData: null,
+  lastSyncedAt: null
 })
 
 const onDescriptionInput = (val: string) => {
@@ -202,6 +209,44 @@ const onUpdateLocation = (address: { lat: string, lon: string, location: string 
   eventData.value.lat = parseFloat(address.lat as string)
   eventData.value.lon = parseFloat(address.lon as string)
   eventData.value.location = address.location
+}
+
+const authStore = useAuthStore()
+
+const createBlueskyPost = async (event: EventEntity) => {
+  const did = authStore.getBlueskyDid
+  const handle = authStore.getBlueskyHandle
+  const endpoint = authStore.getBlueskEndpoint
+
+  if (!did || !handle) throw new Error('Bluesky credentials not found')
+
+  const agent = new AtpAgent({
+    service: endpoint
+  })
+
+  // Create session using stored credentials
+  await agent.resumeSession({
+    did,
+    handle,
+    accessJwt: authStore.token,
+    refreshJwt: authStore.refreshToken,
+    active: true
+  })
+
+  // Create post text
+  const text = `${event.name}\n\n${event.description}\n\nView event details at: ${window.location.origin}/events/${event.slug}`
+
+  // Create post
+  const post = await agent.post({
+    text,
+    createdAt: new Date().toISOString()
+  })
+
+  return {
+    id: post.uri,
+    url: `https://bsky.app/profile/${handle}/post/${post.cid}`,
+    data: post
+  }
 }
 
 onMounted(() => {
@@ -248,6 +293,20 @@ const onSubmit = async () => {
     event.categories = eventData.value.categories.map(category => {
       return typeof category === 'object' ? category.id : category
     }) as number[]
+  }
+
+  if (authStore.getBlueskyDid) {
+    event.sourceType = 'bluesky'
+    try {
+      const blueskyPost = await createBlueskyPost(event)
+      event.sourceId = blueskyPost.id
+      event.sourceUrl = blueskyPost.url
+      event.sourceData = blueskyPost.data
+      event.lastSyncedAt = new Date().toISOString()
+    } catch (err) {
+      console.log(err)
+      error('Failed to create a Bluesky post')
+    }
   }
 
   try {

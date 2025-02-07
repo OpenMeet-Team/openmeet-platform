@@ -26,6 +26,8 @@ const groupMemberships = computed(() =>
 
 const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
 const bskyHandle = computed(() => isBskyUser.value ? user.value?.socialId : null)
+const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
+const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
 
 onMounted(async () => {
   LoadingBar.start()
@@ -95,6 +97,29 @@ onMounted(async () => {
               </div>
             </q-card-section>
           </q-card>
+          <!-- Google Info -->
+          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser">
+            <q-card-section>
+              <div class="text-center">
+                <q-icon name="fa-brands fa-google" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">Google User</h6>
+              </div>
+            </q-card-section>
+          </q-card>
+          <!-- Github Info -->
+          <q-card flat bordered class="q-mt-md" v-if="isGithubUser">
+            <q-card-section>
+              <div class="text-center">
+                <q-icon name="fa-brands fa-github" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">
+                  <a :href="`https://github.com/${user.name}`" target="_blank" class="text-primary">
+                    {{ user.name }}
+                  </a>
+                </h6>
+              </div>
+            </q-card-section>
+          </q-card>
+
         </div>
 
         <div class="col-12 col-sm-8">

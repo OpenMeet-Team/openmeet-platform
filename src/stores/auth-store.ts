@@ -33,7 +33,14 @@ export const useAuthStore = defineStore('authStore', {
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id,
     getBlueskyDid: state => state.blueskyDid,
-    getBlueskyHandle: state => state.blueskyHandle
+    getBlueskyHandle: state => state.blueskyHandle,
+    getBlueskEndpoint: state => {
+      const handle = state.blueskyHandle
+      // alice.bsky.social has an endpoint bsky.social for the agent
+      // remove the first part of the handle
+      const parts = handle.split('.')
+      return 'https://' + parts[parts.length - 1]
+    }
   },
   actions: {
     async actionLogin (credentials: StoreAuthLoginRequest) {
@@ -194,7 +201,8 @@ export const useAuthStore = defineStore('authStore', {
           return false
         }
 
-        const user = JSON.parse(userParam)
+        const decodedUserParam = atob(userParam)
+        const user = JSON.parse(decodedUserParam)
 
         this.actionSetToken(token)
         this.actionSetRefreshToken(refreshToken)
