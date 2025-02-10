@@ -158,7 +158,6 @@ import DOMPurify from 'dompurify'
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
-import { AtpAgent } from '@atproto/api'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -213,42 +212,6 @@ const onUpdateLocation = (address: { lat: string, lon: string, location: string 
 
 const authStore = useAuthStore()
 
-const createBlueskyPost = async (event: EventEntity) => {
-  const did = authStore.getBlueskyDid
-  const handle = authStore.getBlueskyHandle
-  const endpoint = authStore.getBlueskEndpoint
-
-  if (!did || !handle) throw new Error('Bluesky credentials not found')
-
-  const agent = new AtpAgent({
-    service: endpoint
-  })
-
-  // Create session using stored credentials
-  await agent.resumeSession({
-    did,
-    handle,
-    accessJwt: authStore.token,
-    refreshJwt: authStore.refreshToken,
-    active: true
-  })
-
-  // Create post text
-  const text = `${event.name}\n\n${event.description}\n\nView event details at: ${window.location.origin}/events/${event.slug}`
-
-  // Create post
-  const post = await agent.post({
-    text,
-    createdAt: new Date().toISOString()
-  })
-
-  return {
-    id: post.uri,
-    url: `https://bsky.app/profile/${handle}/post/${post.cid}`,
-    data: post
-  }
-}
-
 onMounted(() => {
   const promises = [
     categoriesApi.getAll().then(res => {
@@ -285,6 +248,13 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
+  console.log('Auth store Bluesky state:', {
+    did: authStore.getBlueskyDid,
+    handle: authStore.getBlueskyHandle,
+    hasStore: !!authStore,
+    storeState: authStore.$state
+  })
+
   const event = {
     ...eventData.value
   }
@@ -295,32 +265,56 @@ const onSubmit = async () => {
     }) as number[]
   }
 
-  if (authStore.getBlueskyDid) {
-    event.sourceType = 'bluesky'
-    try {
-      const blueskyPost = await createBlueskyPost(event)
-      event.sourceId = blueskyPost.id
-      event.sourceUrl = blueskyPost.url
-      event.sourceData = blueskyPost.data
-      event.lastSyncedAt = new Date().toISOString()
-    } catch (err) {
-      console.log(err)
-      error('Failed to create a Bluesky post')
-    }
-  }
-
   try {
+    let createdEvent
+
+    // If updating an existing event
     if (event.slug) {
       const res = await eventsApi.update(event.slug, event)
-      emit('updated', res.data)
-      analyticsService.trackEvent('event_updated', { event_id: res.data.id, name: res.data.name })
+      createdEvent = res.data
+      emit('updated', createdEvent)
+      analyticsService.trackEvent('event_updated', {
+        event_id: createdEvent.id,
+        name: createdEvent.name
+      })
     } else {
+      // Creating a new event
+      // If user has Bluesky connected, set source info
+      const blueskyDid = authStore.getBlueskyDid
+      const blueskyHandle = authStore.getBlueskyHandle
+
+      console.log('Checking Bluesky credentials:', { blueskyDid, blueskyHandle })
+
+      // Check that DID is not "undefined" string and handle exists
+      if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
+        console.log('Bluesky user detected:', {
+          did: blueskyDid,
+          handle: blueskyHandle
+        })
+
+        event.sourceType = 'bluesky'
+        event.sourceId = blueskyDid
+        event.sourceData = {
+          handle: blueskyHandle,
+          did: blueskyDid
+        }
+      } else {
+        console.log('No valid Bluesky credentials found:', { blueskyDid, blueskyHandle })
+      }
+
+      // Create event in our system
       const res = await eventsApi.create(event)
-      emit('created', res.data)
-      analyticsService.trackEvent('event_created', { event_id: res.data.id, name: res.data.name })
+      createdEvent = res.data
+      console.log('Created event response:', createdEvent)
+      emit('created', createdEvent)
+      analyticsService.trackEvent('event_created', {
+        event_id: createdEvent.id,
+        name: createdEvent.name,
+        source: event.sourceType || 'web'
+      })
     }
   } catch (err) {
-    console.log(err)
+    console.error('Failed to create/update event:', err)
     error('Failed to create an event')
   }
 }

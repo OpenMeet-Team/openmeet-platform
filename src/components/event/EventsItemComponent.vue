@@ -3,6 +3,7 @@ import { EventEntity } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
 import { useNavigation } from '../../composables/useNavigation'
 import { formatDate } from '../../utils/dateUtils'
+import { getSourceColor } from '../../utils/eventUtils'
 
 interface Props {
   event: EventEntity;
@@ -34,8 +35,21 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       </div>
       <div class="text-caption">{{ formatDate(event.startDate) }}</div>
       <div class="text-caption">{{ event.location }}</div>
-      <div class="text-caption">
+      <div class="text-caption badges-container">
         <q-badge>{{ event.type }}</q-badge>
+        <q-badge
+          v-if="event.sourceType"
+          :color="getSourceColor(event.sourceType)"
+          class="q-ml-sm"
+        >
+          <q-icon
+            v-if="event.sourceType === 'bluesky'"
+            name="fa-brands fa-bluesky"
+            size="xs"
+            class="q-mr-xs"
+          />
+          {{ event.sourceType }}
+        </q-badge>
       </div>
       <div
         v-if="event.group"
@@ -115,5 +129,11 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
       }
     }
   }
+}
+
+.badges-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

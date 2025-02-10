@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { LoadingBar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { useProfileStore } from '../stores/profile-store'
@@ -12,6 +12,8 @@ import GroupsItemComponent from '../components/group/GroupsItemComponent.vue'
 import EventsItemComponent from '../components/event/EventsItemComponent.vue'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 import { AuthProvidersEnum } from '../types'
+import { blueskyApi } from '../api/bluesky'
+
 const route = useRoute()
 
 const authStore = useAuthStore()
@@ -27,15 +29,30 @@ const groupMemberships = computed(() =>
 )
 
 const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
-const bskyHandle = computed(() => isBskyUser.value ? user.value?. : null)
+const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle : null)
 const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
 
+const blueskyEvents = ref([])
+
 onMounted(async () => {
   LoadingBar.start()
-  await useProfileStore().actionGetMemberProfile(route.params.slug as string)
-    .finally(() => LoadingBar.stop())
+  await Promise.all([
+    useProfileStore().actionGetMemberProfile(route.params.slug as string),
+    // Fetch Bluesky events if this is a Bluesky user
+    isBskyUser.value && authStore.getBlueskyDid
+      ? loadBlueskyEvents() : Promise.resolve()
+  ]).finally(() => LoadingBar.stop())
 })
+
+const loadBlueskyEvents = async () => {
+  try {
+    const response = await blueskyApi.listEvents(authStore.getBlueskyDid)
+    blueskyEvents.value = response.data.events
+  } catch (err) {
+    console.error('Failed to load Bluesky events:', err)
+  }
+}
 </script>
 
 <template>
@@ -50,10 +67,10 @@ onMounted(async () => {
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                  <img :src="getImageSrc(user.photo)" :alt="user.firstName + ' ' + user.lastName" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
-                  {{ user.name }}
+                  {{ user.firstName }} {{ user.lastName }}
                 </h4>
                 <div class="text-body2">{{ user.bio }}</div>
               </div>
@@ -98,6 +115,21 @@ onMounted(async () => {
                 </div>
               </div>
             </q-card-section>
+
+            <!-- Add Bluesky Events Section -->
+            <q-card-section v-if="blueskyEvents.length">
+              <div class="text-subtitle2 q-mb-sm">Events on Bluesky</div>
+              <q-list>
+                <q-item v-for="event in blueskyEvents" :key="event.uri" clickable>
+                  <q-item-section>
+                    <q-item-label>{{ event.value.name }}</q-item-label>
+                    <q-item-label caption>
+                      {{ new Date(event.value.startsAt).toLocaleString() }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-card-section>
           </q-card>
           <!-- Google Info -->
           <q-card flat bordered class="q-mt-md" v-if="isGoogleUser">
@@ -113,8 +145,9 @@ onMounted(async () => {
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-github" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">Github User</h6>
                 <h6 class="q-mt-sm q-mb-none">
-                  <a :href="`https://github.com/${user.name}`" target="_blank" class="text-primary">
+                  <a :href="`https://github.com/${user.socialId}`" target="_blank" class="text-primary">
                     {{ user.name }}
                   </a>
                 </h6>
