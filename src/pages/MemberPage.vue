@@ -47,8 +47,10 @@ onMounted(async () => {
 
 const loadBlueskyEvents = async () => {
   try {
+    console.log('Loading Bluesky events for user:', authStore.getBlueskyDid)
     const response = await blueskyApi.listEvents(authStore.getBlueskyDid)
-    blueskyEvents.value = response.data.events
+    console.log('Bluesky events:', response)
+    blueskyEvents.value = response.data
   } catch (err) {
     console.error('Failed to load Bluesky events:', err)
   }
@@ -117,14 +119,14 @@ const loadBlueskyEvents = async () => {
             </q-card-section>
 
             <!-- Add Bluesky Events Section -->
-            <q-card-section v-if="blueskyEvents.length">
+            <q-card-section v-if="blueskyEvents?.length > 0">
               <div class="text-subtitle2 q-mb-sm">Events on Bluesky</div>
               <q-list>
                 <q-item v-for="event in blueskyEvents" :key="event.uri" clickable>
                   <q-item-section>
-                    <q-item-label>{{ event.value.name }}</q-item-label>
+                    <q-item-label>{{ event.value?.name }}</q-item-label>
                     <q-item-label caption>
-                      {{ new Date(event.value.startsAt).toLocaleString() }}
+                      {{ new Date(event.value?.startsAt).toLocaleString() }}
                     </q-item-label>
                   </q-item-section>
                 </q-item>

@@ -88,7 +88,8 @@ const handleBlueskyLogin = async () => {
         const response = await fetch(
           `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
         )
-        const { url } = await response.json()
+        // const { url } = await response.json()
+        const url = await response.text()
 
         if (!url) {
           throw new Error('No authorization URL received')
@@ -107,10 +108,35 @@ const handleBlueskyLogin = async () => {
         )
 
         if (popup) {
+          // Add message event listener to handle auth result
+          const messageHandler = (event: MessageEvent) => {
+            // Verify the origin matches our window
+            if (event.origin !== window.location.origin) return
+
+            // Handle success or error
+            if (event.data.error) {
+              $q.notify({
+                type: 'negative',
+                message: 'Authentication failed'
+              })
+            } else {
+              // Handle successful authentication
+              window.location.reload()
+            }
+
+            // Clean up
+            window.removeEventListener('message', messageHandler)
+            clearInterval(timer)
+            isLoading.value = false
+          }
+
+          window.addEventListener('message', messageHandler)
+
           // Check periodically if the popup is closed
           const timer = setInterval(() => {
             if (popup.closed) {
               clearInterval(timer)
+              window.removeEventListener('message', messageHandler)
               isLoading.value = false
             }
           }, 500)
