@@ -256,7 +256,22 @@
                   />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label>{{ event.type }} event</q-item-label>
+                  <div class="row items-center">
+                    <q-item-label>{{ event.type }} event</q-item-label>
+                    <q-badge
+                      v-if="event.sourceType"
+                      :color="getSourceColor(event.sourceType)"
+                      class="q-ml-sm"
+                    >
+                      <q-icon
+                        v-if="event.sourceType === 'bluesky'"
+                        name="fa-brands fa-bluesky"
+                        size="xs"
+                        class="q-mr-xs"
+                      />
+                      {{ event.sourceType }}
+                    </q-badge>
+                  </div>
                   <q-btn
                     no-caps
                     size="md"
@@ -366,7 +381,7 @@ import { pluralize } from '../utils/stringUtils'
 import ShareComponent from '../components/common/ShareComponent.vue'
 import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
-
+import { getSourceColor } from '../utils/eventUtils'
 const route = useRoute()
 const router = useRouter()
 const { navigateToGroup } = useNavigation()

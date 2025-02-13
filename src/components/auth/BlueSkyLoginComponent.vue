@@ -18,12 +18,24 @@
         <q-spinner-dots color="white" size="24px" />
       </template>
     </q-btn>
+
+    <!-- Dev Mode Quick Login -->
+    <q-btn
+      v-if="isDev"
+      class="q-ml-sm"
+      no-caps
+      color="grey"
+      label="Dev Login"
+      @click="showDevLoginDialog"
+      :loading="isDevLoading"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
+import { useAuthStore } from '../../stores/auth-store'
 import getEnv from '../../utils/env'
 
 const props = withDefaults(defineProps<{
@@ -32,8 +44,16 @@ const props = withDefaults(defineProps<{
   text: 'join_with'
 })
 
+const emits = defineEmits(['success'])
 const isLoading = ref(false)
+const isDevLoading = ref(false)
 const $q = useQuasar()
+const authStore = useAuthStore()
+const isDev = computed(() => process.env.NODE_ENV === 'development')
+
+// Store dev credentials in localStorage for convenience
+const devIdentifier = ref(localStorage.getItem('devBlueskyHandle') || '')
+const devPassword = ref(localStorage.getItem('devBlueskyPassword') || '')
 
 const buttonText = computed(() => {
   const textMap = {
@@ -68,7 +88,8 @@ const handleBlueskyLogin = async () => {
         const response = await fetch(
           `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
         )
-        const { url } = await response.json()
+        // const { url } = await response.json()
+        const url = await response.text()
 
         if (!url) {
           throw new Error('No authorization URL received')
@@ -87,10 +108,35 @@ const handleBlueskyLogin = async () => {
         )
 
         if (popup) {
+          // Add message event listener to handle auth result
+          const messageHandler = (event: MessageEvent) => {
+            // Verify the origin matches our window
+            if (event.origin !== window.location.origin) return
+
+            // Handle success or error
+            if (event.data.error) {
+              $q.notify({
+                type: 'negative',
+                message: 'Authentication failed'
+              })
+            } else {
+              // Handle successful authentication
+              window.location.reload()
+            }
+
+            // Clean up
+            window.removeEventListener('message', messageHandler)
+            clearInterval(timer)
+            isLoading.value = false
+          }
+
+          window.addEventListener('message', messageHandler)
+
           // Check periodically if the popup is closed
           const timer = setInterval(() => {
             if (popup.closed) {
               clearInterval(timer)
+              window.removeEventListener('message', messageHandler)
               isLoading.value = false
             }
           }, 500)
@@ -115,8 +161,53 @@ const handleBlueskyLogin = async () => {
     isLoading.value = false
   }
 }
+
+const showDevLoginDialog = () => {
+  $q.dialog({
+    title: 'Dev Login',
+    message: 'Enter your Bluesky credentials',
+    prompt: {
+      model: devIdentifier.value,
+      type: 'text',
+      label: 'Handle',
+      hint: 'e.g. user.bsky.social'
+    },
+    cancel: true,
+    persistent: true
+  }).onOk(async (identifier) => {
+    // After getting handle, show password prompt
+    $q.dialog({
+      title: 'Enter Password',
+      prompt: {
+        model: devPassword.value,
+        type: 'password',
+        label: 'App Password'
+      },
+      cancel: true,
+      persistent: true
+    }).onOk(async (password) => {
+      try {
+        isDevLoading.value = true
+        localStorage.setItem('devBlueskyHandle', identifier)
+        localStorage.setItem('devBlueskyPassword', password)
+        await authStore.actionDevLogin({ identifier, password })
+        emits('success')
+      } catch (error) {
+        console.error('Dev login failed:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'Dev login failed'
+        })
+      } finally {
+        isDevLoading.value = false
+      }
+    })
+  })
+}
 </script>
 
 <style scoped>
-
+.q-dialog :deep(.q-field) {
+  margin: 8px 0;
+}
 </style>

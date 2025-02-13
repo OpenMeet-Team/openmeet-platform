@@ -116,6 +116,11 @@ export interface EventEntity {
   attendee?: EventAttendeeEntity
   topics?: ZulipTopicEntity[]
   messages?: ZulipMessageEntity[]
+  sourceType?: string
+  sourceId?: string
+  sourceUrl?: string
+  lastSyncedAt?: string
+  sourceData?: Record<string, unknown>
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
