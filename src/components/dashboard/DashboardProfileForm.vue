@@ -82,6 +82,31 @@
 
 <!--    <LocationComponent label="Location" v-model:location="form.location.address" v-model:latitude="form.location.lat" v-model:longitude="form.location.lon"/>-->
 
+    <q-card class="q-mb-md" data-cy="profile-bluesky">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_cloud" class="q-mr-sm" />
+          Bluesky Settings
+        </div>
+        <div class="q-gutter-y-md">
+          <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
+            Connected as: {{ form.preferences.bluesky.handle }}
+          </div>
+          <q-toggle
+            v-model="form.preferences.bluesky.connected"
+            label="Connect to Bluesky"
+            @update:model-value="onBlueskyConnectionToggle"
+          />
+          <q-toggle
+            v-model="form.preferences.bluesky.autoPost"
+            label="Automatically post events to Bluesky"
+            :disable="!form.preferences?.bluesky?.connected"
+            @update:model-value="onBlueskyAutoPostToggle"
+          />
+        </div>
+      </q-card-section>
+    </q-card>
+
     <q-expansion-item
       data-cy="profile-password"
       expand-separator
@@ -158,11 +183,12 @@ import { computed, onMounted, ref } from 'vue'
 import { Dialog, LoadingBar } from 'quasar'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
-import { FileEntity, SubCategoryEntity, UserEntity } from '../../types'
+import { FileEntity, SubCategoryEntity } from '../../types'
 import { useNotification } from '../../composables/useNotification'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
+import { blueskyApi } from '../../api/bluesky'
 
 interface UserLocation {
   lat: number
@@ -170,10 +196,33 @@ interface UserLocation {
   address: string
 }
 
-interface Profile extends UserEntity {
+interface BlueskyPreferences {
+  did?: string
+  handle?: string
+  connected?: boolean
+  autoPost?: boolean
+  disconnectedAt?: Date | null
+  connectedAt?: Date | null
+}
+
+interface UserPreferences {
+  bluesky?: BlueskyPreferences
+}
+
+interface Profile {
+  id: number
+  slug: string
+  ulid: string
+  email: string
+  firstName?: string | null
+  lastName?: string | null
+  bio?: string
+  photo?: FileEntity | null
   oldPassword?: string
   password?: string
   location?: UserLocation
+  preferences?: UserPreferences
+  interests?: SubCategoryEntity[]
 }
 
 const { error, success } = useNotification()
@@ -182,7 +231,17 @@ const form = ref<Profile>({
   id: 0,
   slug: '',
   ulid: '',
-  email: ''
+  email: '',
+  firstName: null,
+  lastName: null,
+  preferences: {
+    bluesky: {
+      connected: false,
+      autoPost: false,
+      disconnectedAt: null,
+      connectedAt: null
+    }
+  }
 })
 
 const subCategories = ref<SubCategoryEntity[]>([])
@@ -222,17 +281,38 @@ const interests = computed(() => {
   return subCategories.value
 })
 
-onMounted(() => {
+onMounted(async () => {
   LoadingBar.start()
 
-  Promise.all([
-    subcategoriesApi.getAll().then(res => {
-      subCategories.value = res.data
-    }),
-    authApi.getMe().then(res => {
-      form.value = res.data
-    })
-  ]).finally(() => LoadingBar.stop())
+  try {
+    const [subcategoriesRes, userRes, blueskyStatus] = await Promise.all([
+      subcategoriesApi.getAll(),
+      authApi.getMe(),
+      blueskyApi.getStatus()
+    ])
+
+    subCategories.value = subcategoriesRes.data
+    const userData = userRes.data as unknown as Profile
+    const status = blueskyStatus.data
+
+    // Initialize form with user data and current Bluesky status
+    form.value = {
+      ...userData,
+      preferences: {
+        bluesky: {
+          ...userData.preferences?.bluesky,
+          connected: status.connected,
+          handle: status.handle,
+          autoPost: userData.preferences?.bluesky?.autoPost || false
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load profile data:', err)
+    error('Failed to load profile data')
+  } finally {
+    LoadingBar.stop()
+  }
 })
 
 const onProfilePhotoSelect = (file: FileEntity) => {
@@ -262,6 +342,50 @@ const openChangeEmailDialog = () => {
   }).onOk((val: string) => {
     form.value.email = val
   })
+}
+
+const onBlueskyConnectionToggle = async (enabled: boolean) => {
+  isLoading.value = true
+  try {
+    if (!enabled) {
+      await blueskyApi.disconnect()
+      form.value.preferences.bluesky = {
+        ...form.value.preferences.bluesky,
+        connected: false,
+        autoPost: false,
+        disconnectedAt: new Date()
+      }
+      success('Disconnected from Bluesky. Events will no longer be posted automatically.')
+    } else {
+      // Get current connection status
+      const status = await blueskyApi.getStatus()
+      form.value.preferences.bluesky = {
+        ...form.value.preferences.bluesky,
+        ...status.data,
+        connected: true,
+        connectedAt: new Date()
+      }
+      success('Connected to Bluesky. You can now enable automatic event posting.')
+    }
+  } catch (err) {
+    console.error(err)
+    error('Failed to update Bluesky connection')
+    form.value.preferences.bluesky.connected = !enabled
+  }
+  isLoading.value = false
+}
+
+const onBlueskyAutoPostToggle = async (enabled: boolean) => {
+  isLoading.value = true
+  try {
+    await blueskyApi.toggleAutoPost(enabled)
+    success(enabled ? 'Events will be automatically posted to Bluesky' : 'Events will not be automatically posted to Bluesky')
+  } catch (err) {
+    console.error(err)
+    error('Failed to update auto-post setting')
+    form.value.preferences.bluesky.autoPost = !enabled
+  }
+  isLoading.value = false
 }
 
 const onDeleteAccount = () => {

@@ -33,7 +33,40 @@ const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle 
 const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
 
-const blueskyEvents = ref([])
+interface BlueskyEvent {
+  uri: string
+  value: {
+    name: string
+    startsAt: string
+  }
+}
+
+const blueskyEvents = ref<BlueskyEvent[]>([])
+const showDeleteConfirm = ref(false)
+const deletingEvent = ref<string | null>(null)
+const eventToDelete = ref<BlueskyEvent | null>(null)
+
+const confirmDelete = (event: BlueskyEvent) => {
+  eventToDelete.value = event
+  showDeleteConfirm.value = true
+}
+
+const deleteEvent = async () => {
+  if (!eventToDelete.value || !authStore.getBlueskyDid) return
+
+  try {
+    deletingEvent.value = eventToDelete.value.uri
+    const rkey = eventToDelete.value.uri.split('/').pop() || ''
+    await blueskyApi.deleteEvent(authStore.getBlueskyDid, rkey)
+    await loadBlueskyEvents()
+    showDeleteConfirm.value = false
+  } catch (err) {
+    console.error('Failed to delete Bluesky event:', err)
+  } finally {
+    deletingEvent.value = null
+    eventToDelete.value = null
+  }
+}
 
 onMounted(async () => {
   LoadingBar.start()
@@ -122,16 +155,48 @@ const loadBlueskyEvents = async () => {
             <q-card-section v-if="blueskyEvents?.length > 0">
               <div class="text-subtitle2 q-mb-sm">Events on Bluesky</div>
               <q-list>
-                <q-item v-for="event in blueskyEvents" :key="event.uri" clickable>
+                <q-item v-for="event in blueskyEvents" :key="event.uri">
                   <q-item-section>
                     <q-item-label>{{ event.value?.name }}</q-item-label>
                     <q-item-label caption>
                       {{ new Date(event.value?.startsAt).toLocaleString() }}
                     </q-item-label>
                   </q-item-section>
+                  <q-item-section side>
+                    <q-btn
+                      flat
+                      round
+                      color="negative"
+                      icon="delete"
+                      :loading="deletingEvent === event.uri"
+                      @click="confirmDelete(event)"
+                    />
+                  </q-item-section>
                 </q-item>
               </q-list>
             </q-card-section>
+
+            <!-- Delete Confirmation Dialog -->
+            <q-dialog v-model="showDeleteConfirm">
+              <q-card>
+                <q-card-section>
+                  <div class="text-h6">Delete Event</div>
+                </q-card-section>
+                <q-card-section>
+                  Are you sure you want to delete "{{ eventToDelete?.value?.name }}"?
+                </q-card-section>
+                <q-card-actions align="right">
+                  <q-btn flat label="Cancel" v-close-popup />
+                  <q-btn
+                    flat
+                    label="Delete"
+                    color="negative"
+                    :loading="!!deletingEvent"
+                    @click="deleteEvent"
+                  />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
           </q-card>
           <!-- Google Info -->
           <q-card flat bordered class="q-mt-md" v-if="isGoogleUser">
