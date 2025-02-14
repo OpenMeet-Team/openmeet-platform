@@ -25,6 +25,20 @@ export interface UserRoleEntity {
   permissions: UserPermissionEntity[]
 }
 
+export interface BlueskyPreferences {
+  did?: string
+  handle?: string
+  connected?: boolean
+  autoPost?: boolean
+  disconnectedAt?: Date | null
+  connectedAt?: Date | null
+}
+
+export interface UserPreferences {
+  bluesky?: BlueskyPreferences
+  // Add other preference types here as needed
+}
+
 export interface UserEntity {
   id: number
   ulid: string
@@ -48,4 +62,5 @@ export interface UserEntity {
   events?: EventEntity[]
   groupMembers?: GroupMemberEntity[]
   interests?: SubCategoryEntity[]
+  preferences?: UserPreferences
 }

@@ -19,23 +19,12 @@
       </template>
     </q-btn>
 
-    <!-- Dev Mode Quick Login -->
-    <q-btn
-      v-if="isDev"
-      class="q-ml-sm"
-      no-caps
-      color="grey"
-      label="Dev Login"
-      @click="showDevLoginDialog"
-      :loading="isDevLoading"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from '../../stores/auth-store'
 import getEnv from '../../utils/env'
 
 const props = withDefaults(defineProps<{
@@ -44,16 +33,8 @@ const props = withDefaults(defineProps<{
   text: 'join_with'
 })
 
-const emits = defineEmits(['success'])
 const isLoading = ref(false)
-const isDevLoading = ref(false)
 const $q = useQuasar()
-const authStore = useAuthStore()
-const isDev = computed(() => process.env.NODE_ENV === 'development')
-
-// Store dev credentials in localStorage for convenience
-const devIdentifier = ref(localStorage.getItem('devBlueskyHandle') || '')
-const devPassword = ref(localStorage.getItem('devBlueskyPassword') || '')
 
 const buttonText = computed(() => {
   const textMap = {
@@ -162,48 +143,6 @@ const handleBlueskyLogin = async () => {
   }
 }
 
-const showDevLoginDialog = () => {
-  $q.dialog({
-    title: 'Dev Login',
-    message: 'Enter your Bluesky credentials',
-    prompt: {
-      model: devIdentifier.value,
-      type: 'text',
-      label: 'Handle',
-      hint: 'e.g. user.bsky.social'
-    },
-    cancel: true,
-    persistent: true
-  }).onOk(async (identifier) => {
-    // After getting handle, show password prompt
-    $q.dialog({
-      title: 'Enter Password',
-      prompt: {
-        model: devPassword.value,
-        type: 'password',
-        label: 'App Password'
-      },
-      cancel: true,
-      persistent: true
-    }).onOk(async (password) => {
-      try {
-        isDevLoading.value = true
-        localStorage.setItem('devBlueskyHandle', identifier)
-        localStorage.setItem('devBlueskyPassword', password)
-        await authStore.actionDevLogin({ identifier, password })
-        emits('success')
-      } catch (error) {
-        console.error('Dev login failed:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Dev login failed'
-        })
-      } finally {
-        isDevLoading.value = false
-      }
-    })
-  })
-}
 </script>
 
 <style scoped>

@@ -94,14 +94,8 @@
           </div>
           <q-toggle
             v-model="form.preferences.bluesky.connected"
-            label="Connect to Bluesky"
+            label="Use Bluesky as event source"
             @update:model-value="onBlueskyConnectionToggle"
-          />
-          <q-toggle
-            v-model="form.preferences.bluesky.autoPost"
-            label="Automatically post events to Bluesky"
-            :disable="!form.preferences?.bluesky?.connected"
-            @update:model-value="onBlueskyAutoPostToggle"
           />
         </div>
       </q-card-section>
@@ -188,7 +182,7 @@ import { useNotification } from '../../composables/useNotification'
 // import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
-import { blueskyApi } from '../../api/bluesky'
+import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 
 interface UserLocation {
   lat: number
@@ -200,7 +194,6 @@ interface BlueskyPreferences {
   did?: string
   handle?: string
   connected?: boolean
-  autoPost?: boolean
   disconnectedAt?: Date | null
   connectedAt?: Date | null
 }
@@ -237,7 +230,6 @@ const form = ref<Profile>({
   preferences: {
     bluesky: {
       connected: false,
-      autoPost: false,
       disconnectedAt: null,
       connectedAt: null
     }
@@ -285,26 +277,19 @@ onMounted(async () => {
   LoadingBar.start()
 
   try {
-    const [subcategoriesRes, userRes, blueskyStatus] = await Promise.all([
+    const [subcategoriesRes, userRes] = await Promise.all([
       subcategoriesApi.getAll(),
-      authApi.getMe(),
-      blueskyApi.getStatus()
+      authApi.getMe()
     ])
 
     subCategories.value = subcategoriesRes.data
     const userData = userRes.data as unknown as Profile
-    const status = blueskyStatus.data
 
-    // Initialize form with user data and current Bluesky status
+    // Initialize form with user data
     form.value = {
       ...userData,
       preferences: {
-        bluesky: {
-          ...userData.preferences?.bluesky,
-          connected: status.connected,
-          handle: status.handle,
-          autoPost: userData.preferences?.bluesky?.autoPost || false
-        }
+        ...userData.preferences
       }
     }
   } catch (err) {
@@ -344,48 +329,14 @@ const openChangeEmailDialog = () => {
   })
 }
 
+const { toggleConnection } = useBlueskyConnection()
+
 const onBlueskyConnectionToggle = async (enabled: boolean) => {
-  isLoading.value = true
-  try {
-    if (!enabled) {
-      await blueskyApi.disconnect()
-      form.value.preferences.bluesky = {
-        ...form.value.preferences.bluesky,
-        connected: false,
-        autoPost: false,
-        disconnectedAt: new Date()
-      }
-      success('Disconnected from Bluesky. Events will no longer be posted automatically.')
-    } else {
-      // Get current connection status
-      const status = await blueskyApi.getStatus()
-      form.value.preferences.bluesky = {
-        ...form.value.preferences.bluesky,
-        ...status.data,
-        connected: true,
-        connectedAt: new Date()
-      }
-      success('Connected to Bluesky. You can now enable automatic event posting.')
-    }
-  } catch (err) {
-    console.error(err)
-    error('Failed to update Bluesky connection')
+  const success = await toggleConnection(enabled)
+  if (!success) {
+    // Revert the toggle if the operation failed
     form.value.preferences.bluesky.connected = !enabled
   }
-  isLoading.value = false
-}
-
-const onBlueskyAutoPostToggle = async (enabled: boolean) => {
-  isLoading.value = true
-  try {
-    await blueskyApi.toggleAutoPost(enabled)
-    success(enabled ? 'Events will be automatically posted to Bluesky' : 'Events will not be automatically posted to Bluesky')
-  } catch (err) {
-    console.error(err)
-    error('Failed to update auto-post setting')
-    form.value.preferences.bluesky.autoPost = !enabled
-  }
-  isLoading.value = false
 }
 
 const onDeleteAccount = () => {

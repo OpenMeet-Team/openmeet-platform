@@ -223,14 +223,22 @@ export const useAuthStore = defineStore('authStore', {
           console.error('Missing Bluesky identifiers:', { did, handle: profile.handle, user })
         }
 
-        try {
-          const response = await authApi.getMe()
-          if (response.data) {
-            this.actionSetUser(response.data)
+        // Update user with Bluesky preferences
+        const updatedUser = {
+          ...user,
+          preferences: {
+            ...user.preferences,
+            bluesky: {
+              did: user.socialId,
+              handle: profile.handle,
+              connected: true,
+              autoPost: false,
+              connectedAt: new Date(),
+              disconnectedAt: null
+            }
           }
-        } catch (error) {
-          console.error('Error fetching user profile:', error)
         }
+        this.actionSetUser(updatedUser)
 
         return true
       } catch (error) {

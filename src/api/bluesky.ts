@@ -9,16 +9,13 @@ export const blueskyApi = {
   deleteEvent: (did: string, rkey: string) => {
     return api.delete(`${BASE_URL}/events/${did}/${encodeURIComponent(rkey)}`)
   },
-  connect: (data: { identifier: string; password: string; tenantId: string }) => {
-    return api.post(`${BASE_URL}/connect`, data)
+  connect: () => {
+    return api.post(`${BASE_URL}/connect`)
   },
   disconnect: () => {
     return api.delete(`${BASE_URL}/disconnect`)
   },
   getStatus: () => {
     return api.get(`${BASE_URL}/status`)
-  },
-  toggleAutoPost: (enabled: boolean) => {
-    return api.post(`${BASE_URL}/auto-post`, { enabled })
   }
 }
