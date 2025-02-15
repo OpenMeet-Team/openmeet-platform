@@ -25,18 +25,39 @@ export interface UserRoleEntity {
   permissions: UserPermissionEntity[]
 }
 
+export interface UserLocation {
+  lat: number
+  lon: number
+  address: string
+}
+
 export interface BlueskyPreferences {
   did?: string
   handle?: string
+  avatar?: string
   connected?: boolean
-  autoPost?: boolean
   disconnectedAt?: Date | null
   connectedAt?: Date | null
 }
 
 export interface UserPreferences {
   bluesky?: BlueskyPreferences
-  // Add other preference types here as needed
+}
+
+export interface Profile {
+  id: number
+  slug: string
+  ulid: string
+  email: string
+  firstName?: string | null
+  lastName?: string | null
+  bio?: string
+  photo?: FileEntity | null
+  oldPassword?: string
+  password?: string
+  location?: UserLocation
+  preferences?: UserPreferences
+  interests?: SubCategoryEntity[]
 }
 
 export interface UserEntity {

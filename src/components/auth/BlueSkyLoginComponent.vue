@@ -1,5 +1,5 @@
-<!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
 <template>
+<!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
   <div class="c-bluesky-login-component row justify-center">
     <q-btn
       :loading="isLoading"
@@ -27,10 +27,16 @@ import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import getEnv from '../../utils/env'
 
-const props = withDefaults(defineProps<{
-  text?: 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
-}>(), {
-  text: 'join_with'
+type LoginText = 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
+
+const props = defineProps({
+  text: {
+    type: String as () => LoginText,
+    default: 'join_with',
+    validator: (value: string): value is LoginText => {
+      return ['join_with', 'signin_with', 'signup_with', 'continue_with'].includes(value)
+    }
+  }
 })
 
 const isLoading = ref(false)
@@ -90,7 +96,7 @@ const handleBlueskyLogin = async () => {
 
         if (popup) {
           // Add message event listener to handle auth result
-          const messageHandler = (event: MessageEvent) => {
+          const messageHandler = (event: MessageEvent<{ error?: string }>) => {
             // Verify the origin matches our window
             if (event.origin !== window.location.origin) return
 

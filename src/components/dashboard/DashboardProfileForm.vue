@@ -64,8 +64,8 @@
     />
 
     <q-img
-      v-if="form && form.photo && form.photo.path"
-      :src="form.photo.path"
+      v-if="avatarUrl"
+      :src="avatarUrl"
       spinner-color="white"
       class="rounded-borders"
       style="height: 100px; max-width: 100px"
@@ -179,44 +179,10 @@ import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
 import { FileEntity, SubCategoryEntity } from '../../types'
 import { useNotification } from '../../composables/useNotification'
-// import LocationComponent from 'components/common/LocationComponent.vue'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
 import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
-
-interface UserLocation {
-  lat: number
-  lon: number
-  address: string
-}
-
-interface BlueskyPreferences {
-  did?: string
-  handle?: string
-  connected?: boolean
-  disconnectedAt?: Date | null
-  connectedAt?: Date | null
-}
-
-interface UserPreferences {
-  bluesky?: BlueskyPreferences
-}
-
-interface Profile {
-  id: number
-  slug: string
-  ulid: string
-  email: string
-  firstName?: string | null
-  lastName?: string | null
-  bio?: string
-  photo?: FileEntity | null
-  oldPassword?: string
-  password?: string
-  location?: UserLocation
-  preferences?: UserPreferences
-  interests?: SubCategoryEntity[]
-}
+import { Profile } from '../../types/user'
 
 const { error, success } = useNotification()
 
@@ -271,6 +237,13 @@ const onSubmit = async () => {
 
 const interests = computed(() => {
   return subCategories.value
+})
+
+const avatarUrl = computed(() => {
+  if (form.value?.photo?.path && typeof form.value.photo.path === 'string') {
+    return form.value.photo.path
+  }
+  return form.value?.preferences?.bluesky?.avatar || null
 })
 
 onMounted(async () => {
