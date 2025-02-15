@@ -13,7 +13,7 @@ import EventsItemComponent from '../components/event/EventsItemComponent.vue'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 import { AuthProvidersEnum } from '../types'
 import { blueskyApi } from '../api/bluesky'
-
+import { BlueskyEvent } from '../types/event'
 const route = useRoute()
 
 const authStore = useAuthStore()
@@ -33,29 +33,6 @@ const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle 
 const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
 
-interface BlueskyEvent {
-  uri: string
-  cid: string
-  value: {
-    $type: string
-    name: string
-    description?: string
-    createdAt: string
-    startsAt: string
-    endsAt?: string
-    mode?: string
-    status?: string
-    locations?: Array<{
-      type: string
-      lat?: number
-      lon?: number
-      description?: string
-      uri?: string
-      name?: string
-    }>
-  }
-}
-
 const blueskyEvents = ref<BlueskyEvent[]>([])
 const showDeleteConfirm = ref(false)
 const deletingEvent = ref<string | null>(null)
@@ -63,7 +40,6 @@ const eventToDelete = ref<BlueskyEvent | null>(null)
 
 const confirmDelete = (event: BlueskyEvent) => {
   if (!event?.value?.name) {
-    console.error('Invalid event data:', event)
     return
   }
   eventToDelete.value = event
@@ -79,21 +55,11 @@ const deleteEvent = async () => {
     const uriParts = eventToDelete.value.uri.split('/')
     const rkey = uriParts[uriParts.length - 1]
 
-    // Validate that we have a valid record key
     if (!rkey) {
       throw new Error('Invalid event URI: Could not extract record key')
     }
 
-    console.log('Deleting Bluesky event:', {
-      uri: eventToDelete.value.uri,
-      did: authStore.getBlueskyDid,
-      rkey,
-      name: eventToDelete.value.value.name,
-      collection: 'community.lexicon.calendar.event'
-    })
-
     await blueskyApi.deleteEvent(authStore.getBlueskyDid, rkey)
-    console.log('Successfully deleted event from Bluesky')
     await loadBlueskyEvents()
     showDeleteConfirm.value = false
   } catch (err) {
@@ -116,23 +82,11 @@ onMounted(async () => {
 
 const loadBlueskyEvents = async () => {
   try {
-    console.log('Loading Bluesky events for user:', authStore.getBlueskyDid)
     const response = await blueskyApi.listEvents(authStore.getBlueskyDid)
-    console.log('Bluesky events response:', response)
 
-    // Filter out any events that don't have the required data
     blueskyEvents.value = (response.data || []).filter(event => {
-      const hasRequiredData = event?.value?.name && event?.value?.startsAt
-      console.log('event.value:', event.value)
-      if (!hasRequiredData) {
-        console.warn('Skipping invalid event:', event)
-      }
-      return hasRequiredData
+      return event?.value?.name && event?.value?.startsAt
     })
-
-    if (blueskyEvents.value.length > 0) {
-      console.log('First valid event:', blueskyEvents.value[0])
-    }
   } catch (err) {
     console.error('Failed to load Bluesky events:', err)
   }
