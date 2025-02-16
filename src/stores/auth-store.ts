@@ -33,7 +33,14 @@ export const useAuthStore = defineStore('authStore', {
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id,
     getBlueskyDid: state => state.blueskyDid,
-    getBlueskyHandle: state => state.blueskyHandle
+    getBlueskyHandle: state => state.blueskyHandle,
+    getBlueskEndpoint: state => {
+      const handle = state.blueskyHandle
+      // alice.bsky.social has an endpoint bsky.social for the agent
+      // remove the first part of the handle
+      const parts = handle.split('.')
+      return 'https://' + parts.slice(1).join('.')
+    }
   },
   actions: {
     async actionLogin (credentials: StoreAuthLoginRequest) {
@@ -177,10 +184,12 @@ export const useAuthStore = defineStore('authStore', {
       this.permissions = permissions
     },
     actionSetBlueskyIdentifiers (did: string, handle: string) {
-      this.blueskyDid = did
-      this.blueskyHandle = handle
-      LocalStorage.setItem('blueskyDid', did)
-      LocalStorage.setItem('blueskyHandle', handle)
+      if (did && did !== 'undefined') {
+        this.blueskyDid = did
+        this.blueskyHandle = handle
+        LocalStorage.setItem('blueskyDid', did)
+        LocalStorage.setItem('blueskyHandle', handle)
+      }
     },
     async handleBlueskyCallback (params: URLSearchParams) {
       try {
@@ -188,31 +197,91 @@ export const useAuthStore = defineStore('authStore', {
         const refreshToken = params.get('refreshToken')
         const tokenExpires = params.get('tokenExpires')
         const userParam = params.get('user')
+        const profileParam = params.get('profile')
 
-        if (!token || !refreshToken || !tokenExpires || !userParam) {
+        if (!token || !refreshToken || !tokenExpires || !userParam || !profileParam) {
           console.error('Missing required parameters')
           return false
         }
 
-        const user = JSON.parse(userParam)
+        const decodedUserParam = atob(userParam)
+        const user = JSON.parse(decodedUserParam)
+        const decodedProfileParam = atob(profileParam)
+        const profile = JSON.parse(decodedProfileParam)
 
         this.actionSetToken(token)
         this.actionSetRefreshToken(refreshToken)
         this.actionSetTokenExpires(Number(tokenExpires))
         this.actionSetUser(user)
 
-        try {
-          const response = await authApi.getMe()
-          if (response.data) {
-            this.actionSetUser(response.data)
-          }
-        } catch (error) {
-          console.error('Error fetching user profile:', error)
+        const did = user.socialId
+        console.log('Setting Bluesky identifiers from callback:', { did, handle: profile.handle, user })
+
+        if (did && profile.handle) {
+          this.actionSetBlueskyIdentifiers(did, profile.handle)
+        } else {
+          console.error('Missing Bluesky identifiers:', { did, handle: profile.handle, user })
         }
+
+        // Update user with Bluesky preferences
+        const updatedUser = {
+          ...user,
+          preferences: {
+            ...user.preferences,
+            bluesky: {
+              did: user.socialId,
+              handle: profile.handle,
+              connected: true,
+              autoPost: false,
+              connectedAt: new Date(),
+              disconnectedAt: null
+            }
+          }
+        }
+        this.actionSetUser(updatedUser)
 
         return true
       } catch (error) {
         console.error('Bluesky callback error:', error)
+        throw error
+      }
+    },
+    async actionDevLogin (credentials: { identifier: string, password: string }) {
+      if (process.env.NODE_ENV !== 'development') {
+        throw new Error('Dev login only available in development')
+      }
+
+      try {
+        const response = await authApi.devLogin(credentials)
+        const { token, refreshToken, tokenExpires, user } = response.data
+
+        // Use socialId directly from user object
+        const did = user.socialId
+        console.log('Dev login: Setting Bluesky identifiers:', {
+          did,
+          handle: credentials.identifier,
+          user
+        })
+
+        if (did) {
+          this.actionSetBlueskyIdentifiers(did, credentials.identifier)
+        }
+
+        const params = new URLSearchParams({
+          token,
+          refreshToken,
+          tokenExpires: tokenExpires.toString(),
+          user: btoa(JSON.stringify(user)),
+          profile: btoa(JSON.stringify({
+            did,
+            handle: credentials.identifier,
+            avatar: `https://cdn.bsky.app/img/avatar/plain/${did}@bsky.social`
+          }))
+        })
+
+        return this.handleBlueskyCallback(params)
+      } catch (error) {
+        console.error('Dev login failed', error)
         throw error
       }
     }

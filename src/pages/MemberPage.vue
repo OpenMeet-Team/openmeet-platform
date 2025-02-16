@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { LoadingBar } from 'quasar'
-import { getImageSrc } from '../utils/imageUtils'
+import { useAvatarUrl } from '../composables/useAvatarUrl'
 import { useProfileStore } from '../stores/profile-store'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
@@ -12,26 +12,87 @@ import GroupsItemComponent from '../components/group/GroupsItemComponent.vue'
 import EventsItemComponent from '../components/event/EventsItemComponent.vue'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 import { AuthProvidersEnum } from '../types'
+import { blueskyApi } from '../api/bluesky'
+import { BlueskyEvent } from '../types/event'
 const route = useRoute()
 
-const user = computed(() => useProfileStore().user)
-const interests = computed(() => useProfileStore().user?.interests)
-const ownedGroups = computed(() => useProfileStore().user?.groups)
-const organizedEvents = computed(() => useProfileStore().user?.events)
+const authStore = useAuthStore()
+const user = computed(() => authStore.user)
+const userProfile = computed(() => useProfileStore().user)
+const interests = computed(() => userProfile.value?.interests)
+const ownedGroups = computed(() => userProfile.value?.groups)
+const organizedEvents = computed(() => userProfile.value?.events)
 const groupMemberships = computed(() =>
-  useProfileStore().user?.groupMembers?.filter(
+  userProfile.value?.groupMembers?.filter(
     (member) => member.groupRole?.name !== 'owner'
   )
 )
 
 const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
-const bskyHandle = computed(() => isBskyUser.value ? user.value?.socialId : null)
+const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle : null)
+const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
+const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
+
+const { avatarUrl } = useAvatarUrl(user)
+
+const blueskyEvents = ref<BlueskyEvent[]>([])
+const showDeleteConfirm = ref(false)
+const deletingEvent = ref<string | null>(null)
+const eventToDelete = ref<BlueskyEvent | null>(null)
+
+const confirmDelete = (event: BlueskyEvent) => {
+  if (!event?.value?.name) {
+    return
+  }
+  eventToDelete.value = event
+  showDeleteConfirm.value = true
+}
+
+const deleteEvent = async () => {
+  if (!eventToDelete.value || !authStore.getBlueskyDid) return
+
+  try {
+    deletingEvent.value = eventToDelete.value.uri
+    // Extract the record key from the URI (format: at://did:plc:xxx/community.lexicon.calendar.event/recordkey)
+    const uriParts = eventToDelete.value.uri.split('/')
+    const rkey = uriParts[uriParts.length - 1]
+
+    if (!rkey) {
+      throw new Error('Invalid event URI: Could not extract record key')
+    }
+
+    await blueskyApi.deleteEvent(authStore.getBlueskyDid, rkey)
+    await loadBlueskyEvents()
+    showDeleteConfirm.value = false
+  } catch (err) {
+    console.error('Failed to delete Bluesky event:', err)
+  } finally {
+    deletingEvent.value = null
+    eventToDelete.value = null
+  }
+}
 
 onMounted(async () => {
   LoadingBar.start()
-  await useProfileStore().actionGetMemberProfile(route.params.slug as string)
-    .finally(() => LoadingBar.stop())
+  await Promise.all([
+    useProfileStore().actionGetMemberProfile(route.params.slug as string),
+    // Fetch Bluesky events if this is a Bluesky user
+    isBskyUser.value && authStore.getBlueskyDid
+      ? loadBlueskyEvents() : Promise.resolve()
+  ]).finally(() => LoadingBar.stop())
 })
+
+const loadBlueskyEvents = async () => {
+  try {
+    const response = await blueskyApi.listEvents(authStore.getBlueskyDid)
+
+    blueskyEvents.value = (response.data || []).filter(event => {
+      return event?.value?.name && event?.value?.startsAt
+    })
+  } catch (err) {
+    console.error('Failed to load Bluesky events:', err)
+  }
+}
 </script>
 
 <template>
@@ -46,10 +107,10 @@ onMounted(async () => {
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                  <img :src="avatarUrl" :alt="user.firstName + ' ' + user.lastName" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
-                  {{ user.name }}
+                  {{ user.firstName }} {{ user.lastName }}
                 </h4>
                 <div class="text-body2">{{ user.bio }}</div>
               </div>
@@ -64,7 +125,7 @@ onMounted(async () => {
           >
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
-                <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                <img :src="avatarUrl" :alt="user.name" />
               </q-avatar>
               <div class="column">
                 <div class="text-bold">{{ user.name }}</div>
@@ -94,7 +155,78 @@ onMounted(async () => {
                 </div>
               </div>
             </q-card-section>
+
+            <!-- Add Bluesky Events Section -->
+            <q-card-section v-if="blueskyEvents?.length > 0">
+              <div class="text-subtitle2 q-mb-sm">Events on Bluesky</div>
+              <q-list>
+                <q-item v-for="event in blueskyEvents" :key="event.uri">
+                  <q-item-section>
+                    <q-item-label>{{ event.value?.name }}</q-item-label>
+                    <q-item-label caption>
+                      {{ new Date(event.value?.startsAt).toLocaleString() }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn
+                      flat
+                      round
+                      color="negative"
+                      icon="delete"
+                      :loading="deletingEvent === event.uri"
+                      @click="confirmDelete(event)"
+                    />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-card-section>
+
+            <!-- Delete Confirmation Dialog -->
+            <q-dialog v-model="showDeleteConfirm">
+              <q-card>
+                <q-card-section>
+                  <div class="text-h6">Delete Event</div>
+                </q-card-section>
+                <q-card-section>
+                  Are you sure you want to delete "{{ eventToDelete?.value?.name || 'this event' }}"?
+                </q-card-section>
+                <q-card-actions align="right">
+                  <q-btn flat label="Cancel" v-close-popup />
+                  <q-btn
+                    flat
+                    label="Delete"
+                    color="negative"
+                    :loading="!!deletingEvent"
+                    @click="deleteEvent"
+                  />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
           </q-card>
+          <!-- Google Info -->
+          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser">
+            <q-card-section>
+              <div class="text-center">
+                <q-icon name="fa-brands fa-google" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">Google User</h6>
+              </div>
+            </q-card-section>
+          </q-card>
+          <!-- Github Info -->
+          <q-card flat bordered class="q-mt-md" v-if="isGithubUser">
+            <q-card-section>
+              <div class="text-center">
+                <q-icon name="fa-brands fa-github" color="primary" size="2rem" />
+                <h6 class="q-mt-sm q-mb-none">Github User</h6>
+                <h6 class="q-mt-sm q-mb-none">
+                  <a :href="`https://github.com/${user.socialId}`" target="_blank" class="text-primary">
+                    {{ user.name }}
+                  </a>
+                </h6>
+              </div>
+            </q-card-section>
+          </q-card>
+
         </div>
 
         <div class="col-12 col-sm-8">
