@@ -5,25 +5,22 @@ import { UserEntity } from '../types'
 export function useAvatarUrl (user: UserEntity | ComputedRef<UserEntity> | null | undefined) {
   const avatarUrl = computed(() => {
     const userValue = unref(user)
-    console.log('user', userValue)
+    if (!userValue) return getImageSrc(null)
 
-    // try Bluesky avatar
-    if (userValue?.preferences?.bluesky?.avatar) {
-      console.log('user.preferences.bluesky.avatar', userValue.preferences.bluesky.avatar)
-      return userValue.preferences.bluesky.avatar
+    // Try Bluesky avatar first
+    const blueskyPrefs = userValue.preferences?.bluesky
+    if (blueskyPrefs?.connected && blueskyPrefs?.avatar) {
+      const avatarUrl = unref(blueskyPrefs.avatar)
+      if (typeof avatarUrl === 'string') return getImageSrc(avatarUrl)
     }
 
-    // try local photo
-    if (userValue?.photo?.path && typeof userValue.photo.path === 'string') {
-      console.log('user.photo.path', userValue.photo.path)
-      return getImageSrc(userValue.photo.path)
-    }
+    // Fallback to local photo
+    const photoPath = unref(userValue.photo?.path)
+    if (typeof photoPath === 'string') return getImageSrc(photoPath)
 
     // Finally fallback to placeholder
     return getImageSrc(null)
   })
 
-  return {
-    avatarUrl
-  }
+  return { avatarUrl }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import { LoadingBar } from 'quasar'
-import { getImageSrc } from '../utils/imageUtils'
+import { useAvatarUrl } from '../composables/useAvatarUrl'
 import { useProfileStore } from '../stores/profile-store'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import { useRoute } from 'vue-router'
@@ -32,6 +32,8 @@ const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.blu
 const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle : null)
 const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
+
+const { avatarUrl } = useAvatarUrl(user)
 
 const blueskyEvents = ref<BlueskyEvent[]>([])
 const showDeleteConfirm = ref(false)
@@ -105,7 +107,7 @@ const loadBlueskyEvents = async () => {
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="getImageSrc(user.photo)" :alt="user.firstName + ' ' + user.lastName" />
+                  <img :src="avatarUrl" :alt="user.firstName + ' ' + user.lastName" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
                   {{ user.firstName }} {{ user.lastName }}
@@ -123,7 +125,7 @@ const loadBlueskyEvents = async () => {
           >
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
-                <img :src="getImageSrc(user.photo)" :alt="user.name" />
+                <img :src="avatarUrl" :alt="user.name" />
               </q-avatar>
               <div class="column">
                 <div class="text-bold">{{ user.name }}</div>

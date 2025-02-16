@@ -1,6 +1,5 @@
 <template>
   <q-form data-cy="profile-form" @submit="onSubmit" class="c-dashboard-profile-form q-gutter-md" style="max-width: 500px">
-
     <div @click="openChangeEmailDialog" class="input-wrapper">
       <q-input
         data-cy="profile-email"
@@ -64,8 +63,8 @@
     />
 
     <q-img
-      v-if="avatarUrl"
-      :src="avatarUrl"
+      v-if="localAvatarUrl"
+      :src="localAvatarUrl"
       spinner-color="white"
       class="rounded-borders"
       style="height: 100px; max-width: 100px"
@@ -79,8 +78,6 @@
         @click="onProfilePhotoDelete"
       />
     </q-img>
-
-<!--    <LocationComponent label="Location" v-model:location="form.location.address" v-model:latitude="form.location.lat" v-model:longitude="form.location.lon"/>-->
 
     <q-card class="q-mb-md" data-cy="profile-bluesky">
       <q-card-section>
@@ -109,8 +106,6 @@
     >
       <q-card>
         <q-card-section>
-          <!-- required password if expansion is open -->
-
           <q-input
             data-cy="profile-old-password"
             v-model="form.oldPassword"
@@ -183,6 +178,7 @@ import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
 import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 import { Profile } from '../../types/user'
+import { getImageSrc } from '../../utils/imageUtils'
 
 const { error, success } = useNotification()
 
@@ -197,53 +193,54 @@ const form = ref<Profile>({
     bluesky: {
       connected: false,
       disconnectedAt: null,
-      connectedAt: null
+      connectedAt: null,
+      did: null,
+      handle: null,
+      avatar: null
     }
   }
 })
 
 const subCategories = ref<SubCategoryEntity[]>([])
-
 const isPwd = ref(true)
 const isLoading = ref(false)
 
 const onSubmit = async () => {
-  const user = {
-    ...form.value
-  }
+  try {
+    isLoading.value = true
+    const user = {
+      ...form.value,
+      photo: form.value.photo?.id ? { id: form.value.photo.id } : null
+    }
 
-  if (form.value.photo && form.value.photo.id) {
-    user.photo = Object.assign({}, { id: form.value.photo.id })
-  }
-
-  isLoading.value = true
-  authApi.updateMe(user).then(res => {
-    useAuthStore().actionSetUser(res.data)
+    const response = await authApi.updateMe(user)
+    useAuthStore().actionSetUser(response.data)
     success('Profile updated successfully')
 
-    if (res.data.email !== form.value.email) {
+    if (response.data.email !== form.value.email) {
       Dialog.create({
         title: 'Confirm Email',
         message: `Please confirm your new email by clicking the link in the email we just sent you to ${form.value.email}.`
       })
     }
-  }).catch(err => {
-    console.log(err)
+  } catch (err) {
+    console.error('Failed to update profile:', err)
     error('Failed to update profile')
-  }).finally(() => {
+  } finally {
     isLoading.value = false
-  })
+  }
 }
 
 const interests = computed(() => {
   return subCategories.value
 })
 
-const avatarUrl = computed(() => {
+// For profile form, we only want to show the local photo being edited
+const localAvatarUrl = computed(() => {
   if (form.value?.photo?.path && typeof form.value.photo.path === 'string') {
-    return form.value.photo.path
+    return getImageSrc(form.value.photo.path)
   }
-  return form.value?.preferences?.bluesky?.avatar || null
+  return null
 })
 
 onMounted(async () => {
@@ -262,7 +259,14 @@ onMounted(async () => {
     form.value = {
       ...userData,
       preferences: {
-        ...userData.preferences
+        bluesky: {
+          connected: userData.preferences?.bluesky?.connected || false,
+          disconnectedAt: userData.preferences?.bluesky?.disconnectedAt || null,
+          connectedAt: userData.preferences?.bluesky?.connectedAt || null,
+          did: userData.preferences?.bluesky?.did || null,
+          handle: userData.preferences?.bluesky?.handle || null,
+          avatar: userData.preferences?.bluesky?.avatar || null
+        }
       }
     }
   } catch (err) {
@@ -278,7 +282,7 @@ const onProfilePhotoSelect = (file: FileEntity) => {
 }
 
 const onProfilePhotoDelete = () => {
-  form.value.photo = { id: 0 }
+  form.value.photo = { id: 0, path: null }
 }
 
 const openChangeEmailDialog = () => {

@@ -257,7 +257,11 @@ export const useAuthStore = defineStore('authStore', {
 
         // Use socialId directly from user object
         const did = user.socialId
-        console.log('Dev login: Setting Bluesky identifiers:', { did, handle: credentials.identifier, user })
+        console.log('Dev login: Setting Bluesky identifiers:', {
+          did,
+          handle: credentials.identifier,
+          user
+        })
 
         if (did) {
           this.actionSetBlueskyIdentifiers(did, credentials.identifier)
@@ -270,7 +274,8 @@ export const useAuthStore = defineStore('authStore', {
           user: btoa(JSON.stringify(user)),
           profile: btoa(JSON.stringify({
             did,
-            handle: credentials.identifier
+            handle: credentials.identifier,
+            avatar: `https://cdn.bsky.app/img/avatar/plain/${did}@bsky.social`
           }))
         })
 
