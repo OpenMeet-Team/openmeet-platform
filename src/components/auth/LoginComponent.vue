@@ -1,5 +1,10 @@
 <template>
   <q-card class="login-card q-pa-sm" data-cy="login-card">
+    <!-- Dev Mode Banner -->
+    <q-banner v-if="isDev" class="bg-grey-3">
+      Development Mode
+    </q-banner>
+
     <q-form @submit.prevent="onSubmit" class="q-gutter-md" data-cy="login-form">
 
       <q-card-section>
@@ -60,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from '../../utils/validation'
@@ -79,6 +84,8 @@ const isPwd = ref<boolean>(true)
 const isLoading = ref<boolean>(false)
 const emits = defineEmits(['login', 'to'])
 const { warning } = useNotification()
+
+const isDev = computed(() => process.env.NODE_ENV === 'development')
 
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {

@@ -98,6 +98,11 @@ const routes: RouteRecordRaw[] = [
         path: 'confirm-new-email',
         component: () => import('pages/auth/ConfirmNewEmailPage.vue'),
         name: 'AuthConfirmNewEmailPage'
+      },
+      {
+        path: 'collect-email',
+        component: () => import('pages/auth/CollectEmailPage.vue'),
+        name: 'AuthCollectEmailPage'
       }
     ],
     meta: { requiresAuth: false }

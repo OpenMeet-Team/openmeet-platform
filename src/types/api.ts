@@ -10,6 +10,11 @@ export interface ApiAuthLoginResponse {
   refreshToken: string
   tokenExpires: number
   user: ApiAuthUser
+  profile?: {
+    did?: string
+    handle?: string
+    [key: string]: unknown
+  }
 }
 
 export interface ApiAuthForgotPasswordRequest {

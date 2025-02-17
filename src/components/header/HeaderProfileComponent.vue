@@ -1,7 +1,7 @@
 <template>
   <q-avatar class="cursor-pointer" v-if="useAuthStore().isAuthenticated">
-    <template v-if="user?.photo?.path">
-      <img data-cy="header-profile-avatar" :src="getImageSrc(user.photo.path)" alt="avatar">
+    <template v-if="avatarUrl">
+      <img data-cy="header-profile-avatar" :src="avatarUrl" alt="avatar">
     </template>
     <template v-else>
       <q-icon data-cy="header-profile-avatar" size="md" name="sym_r_person" />
@@ -21,12 +21,28 @@
 import MenuItemComponent from '../common/MenuItemComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRouter } from 'vue-router'
-import { getImageSrc } from '../../utils/imageUtils'
-import { computed } from 'vue'
+import { useAvatarUrl } from '../../composables/useAvatarUrl'
+import { computed, onMounted } from 'vue'
+import { authApi } from '../../api/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
-const user = computed(() => authStore.getUser)
+const store = useAuthStore()
+
+const user = computed(() => {
+  if (!store.getUser) return null
+  return store.getUser
+})
+
+onMounted(async () => {
+  try {
+    const response = await authApi.getMe()
+    store.actionSetUser(response.data)
+  } catch (err) {
+    console.error('Failed to load user data:', err)
+  }
+})
+
+const { avatarUrl } = useAvatarUrl(user)
 
 defineOptions({
   name: 'HeaderProfileComponent'

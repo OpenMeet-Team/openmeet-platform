@@ -8,7 +8,7 @@ import {
   ApiAuthUser,
   SubCategoryEntity
 } from '../types'
-
+import getEnv from '../utils/env'
 const BASE_URL = '/api/v1/auth'
 
 export const authApi = {
@@ -72,5 +72,20 @@ export const authApi = {
     api.post(`${BASE_URL}/github/login`, { code }),
 
   blueskyLogin: (handle: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/bluesky/authorize`, { handle })
+    api.post(`${BASE_URL}/bluesky/authorize`, { handle }),
+
+  devLogin: (credentials: { identifier: string, password: string }) => {
+    if (getEnv('NODE_ENV') !== 'development') {
+      throw new Error('Dev login only available in development')
+    }
+    const tenantId = getEnv('APP_TENANT_ID') || 'default'
+    return api.post<ApiAuthLoginResponse>(
+      `${BASE_URL}/bluesky/dev-login`,
+      {
+        identifier: credentials.identifier,
+        password: credentials.password,
+        tenantId
+      }
+    )
+  }
 }

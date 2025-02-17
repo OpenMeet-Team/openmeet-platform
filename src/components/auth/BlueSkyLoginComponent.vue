@@ -1,5 +1,5 @@
-<!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
 <template>
+<!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
   <div class="c-bluesky-login-component row justify-center">
     <q-btn
       :loading="isLoading"
@@ -18,6 +18,7 @@
         <q-spinner-dots color="white" size="24px" />
       </template>
     </q-btn>
+
   </div>
 </template>
 
@@ -26,10 +27,16 @@ import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import getEnv from '../../utils/env'
 
-const props = withDefaults(defineProps<{
-  text?: 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
-}>(), {
-  text: 'join_with'
+type LoginText = 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
+
+const props = defineProps({
+  text: {
+    type: String as () => LoginText,
+    default: 'join_with',
+    validator: (value: string): value is LoginText => {
+      return ['join_with', 'signin_with', 'signup_with', 'continue_with'].includes(value)
+    }
+  }
 })
 
 const isLoading = ref(false)
@@ -68,7 +75,8 @@ const handleBlueskyLogin = async () => {
         const response = await fetch(
           `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
         )
-        const { url } = await response.json()
+        // const { url } = await response.json()
+        const url = await response.text()
 
         if (!url) {
           throw new Error('No authorization URL received')
@@ -87,10 +95,38 @@ const handleBlueskyLogin = async () => {
         )
 
         if (popup) {
+          // Add message event listener to handle auth result
+          const messageHandler = (event: MessageEvent<{ error?: string; needsEmail?: boolean; success?: boolean }>) => {
+            // Verify the origin matches our window
+            if (event.origin !== window.location.origin) return
+
+            // Handle success, error, or needsEmail
+            if (event.data.error) {
+              $q.notify({
+                type: 'negative',
+                message: 'Authentication failed'
+              })
+            } else if (event.data.needsEmail) {
+              // Redirect to email collection page
+              window.location.href = '/auth/collect-email'
+            } else if (event.data.success) {
+              // Handle successful authentication
+              window.location.reload()
+            }
+
+            // Clean up
+            window.removeEventListener('message', messageHandler)
+            clearInterval(timer)
+            isLoading.value = false
+          }
+
+          window.addEventListener('message', messageHandler)
+
           // Check periodically if the popup is closed
           const timer = setInterval(() => {
             if (popup.closed) {
               clearInterval(timer)
+              window.removeEventListener('message', messageHandler)
               isLoading.value = false
             }
           }, 500)
@@ -115,8 +151,11 @@ const handleBlueskyLogin = async () => {
     isLoading.value = false
   }
 }
+
 </script>
 
 <style scoped>
-
+.q-dialog :deep(.q-field) {
+  margin: 8px 0;
+}
 </style>
