@@ -96,17 +96,20 @@ const handleBlueskyLogin = async () => {
 
         if (popup) {
           // Add message event listener to handle auth result
-          const messageHandler = (event: MessageEvent<{ error?: string }>) => {
+          const messageHandler = (event: MessageEvent<{ error?: string; needsEmail?: boolean; success?: boolean }>) => {
             // Verify the origin matches our window
             if (event.origin !== window.location.origin) return
 
-            // Handle success or error
+            // Handle success, error, or needsEmail
             if (event.data.error) {
               $q.notify({
                 type: 'negative',
                 message: 'Authentication failed'
               })
-            } else {
+            } else if (event.data.needsEmail) {
+              // Redirect to email collection page
+              window.location.href = '/auth/collect-email'
+            } else if (event.data.success) {
               // Handle successful authentication
               window.location.reload()
             }

@@ -13,7 +13,8 @@ import EventsItemComponent from '../components/event/EventsItemComponent.vue'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
 import { AuthProvidersEnum } from '../types'
 import { blueskyApi } from '../api/bluesky'
-import { BlueskyEvent } from '../types/event'
+import { BlueskyEvent } from '../types/bluesky-event'
+
 const route = useRoute()
 
 const authStore = useAuthStore()
@@ -158,27 +159,67 @@ const loadBlueskyEvents = async () => {
 
             <!-- Add Bluesky Events Section -->
             <q-card-section v-if="blueskyEvents?.length > 0">
-              <div class="text-subtitle2 q-mb-sm">Events on Bluesky</div>
-              <q-list>
-                <q-item v-for="event in blueskyEvents" :key="event.uri">
-                  <q-item-section>
-                    <q-item-label>{{ event.value?.name }}</q-item-label>
-                    <q-item-label caption>
+              <div class="text-h6 q-mb-md">Events on Bluesky</div>
+              <div class="q-gutter-y-md">
+                <q-card flat bordered v-for="event in blueskyEvents" :key="event.uri" class="event-card">
+                  <q-card-section>
+                    <!-- Header with title and delete button -->
+                    <div class="row items-center justify-between q-mb-sm">
+                      <div class="text-h6">{{ event.value?.name }}</div>
+                      <q-btn
+                        flat
+                        round
+                        color="grey-6"
+                        icon="delete"
+                        size="sm"
+                        :loading="deletingEvent === event.uri"
+                        @click="confirmDelete(event)"
+                      />
+                    </div>
+
+                    <!-- Event time -->
+                    <div class="text-subtitle2 text-grey-8 q-mb-md">
                       {{ new Date(event.value?.startsAt).toLocaleString() }}
-                    </q-item-label>
-                  </q-item-section>
-                  <q-item-section side>
-                    <q-btn
-                      flat
-                      round
-                      color="negative"
-                      icon="delete"
-                      :loading="deletingEvent === event.uri"
-                      @click="confirmDelete(event)"
-                    />
-                  </q-item-section>
-                </q-item>
-              </q-list>
+                    </div>
+
+                    <!-- Description -->
+                    <div v-if="event.value?.description" class="text-body1 q-mb-md">
+                      {{ event.value.description }}
+                    </div>
+
+                    <!-- Info section -->
+                    <div class="q-gutter-y-sm">
+                      <!-- Locations -->
+                      <div v-for="(loc, index) in event.value?.locations" :key="'loc-' + index">
+                        <template v-if="loc.type === 'community.lexicon.location.geo'">
+                          <div class="row items-center text-grey-8">
+                            <q-icon name="place" size="18px" class="q-mr-sm" />
+                            <span>{{ loc.description }}</span>
+                          </div>
+                        </template>
+                      </div>
+
+                      <!-- Links -->
+                      <div v-for="(uri, index) in event.value?.uris" :key="'uri-' + index">
+                        <div class="row items-center">
+                          <q-icon
+                            :name="uri.name === 'Event Image' ? 'image' : 'link'"
+                            size="18px"
+                            class="q-mr-sm text-grey-8"
+                          />
+                          <a
+                            :href="uri.uri"
+                            target="_blank"
+                            class="text-primary"
+                          >
+                            {{ uri.name || uri.uri }}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
             </q-card-section>
 
             <!-- Delete Confirmation Dialog -->
@@ -307,3 +348,41 @@ const loadBlueskyEvents = async () => {
     />
   </q-page>
 </template>
+
+<style lang="scss" scoped>
+.event-card {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .text-h6 {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+
+  .text-subtitle2 {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .text-body1 {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+
+  .q-icon {
+    opacity: 0.7;
+  }
+
+  a {
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+</style>

@@ -125,26 +125,3 @@ export interface EventEntity {
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
 export interface EventAttendeePaginationEntity extends Pagination<EventAttendeeEntity> {}
-
-export interface BlueskyEvent {
-  uri: string
-  cid: string
-  value: {
-    $type: string
-    name: string
-    description?: string
-    createdAt: string
-    startsAt: string
-    endsAt?: string
-    mode?: string
-    status?: string
-    locations?: Array<{
-      type: string
-      lat?: number
-      lon?: number
-      description?: string
-      uri?: string
-      name?: string
-    }>
-  }
-}

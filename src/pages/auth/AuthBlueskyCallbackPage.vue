@@ -22,13 +22,23 @@ onMounted(async () => {
     console.log('AuthBlueskyCallbackPage window.opener', window.opener)
 
     if (success) {
-      if (window.opener) {
-        // Send success message to parent window
-        window.opener.postMessage({ success: true }, window.location.origin)
-        window.close()
+      // Check if user needs to provide email
+      const user = authStore.getUser
+      if (!user.email) {
+        if (window.opener) {
+          window.opener.postMessage({ needsEmail: true }, window.location.origin)
+          window.close()
+        } else {
+          window.location.replace('/auth/collect-email')
+        }
       } else {
-        loginError.value = 'No opener found'
-        // window.location.replace(window.location.origin + '/')
+        if (window.opener) {
+          // Send success message to parent window
+          window.opener.postMessage({ success: true }, window.location.origin)
+          window.close()
+        } else {
+          window.location.replace('/')
+        }
       }
     } else {
       throw new Error('Auth callback failed')
