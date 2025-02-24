@@ -56,6 +56,20 @@ Cypress.Commands.add('logout', () => {
   cy.dataCy('header-sign-in-button').should('be.visible')
 })
 
+// New command for Bluesky Login
+Cypress.Commands.add('loginBluesky', (username: string, password: string) => {
+  // Click the dedicated Bluesky login button
+  cy.dataCy('bluesky-login-button').should('be.visible').click()
+
+  // Wait for the Bluesky login form to appear
+  cy.dataCy('bluesky-login-form').should('be.visible')
+
+  // Fill in the Bluesky login form with the provided user and password
+  cy.dataCy('bluesky-login-email').type(username)
+  cy.dataCy('bluesky-login-password').type(password)
+  cy.dataCy('bluesky-login-submit').click()
+})
+
 // DO NOT REMOVE
 // Imports Quasar Cypress AE predefined commands
 import { registerCommands } from '@quasar/quasar-app-extension-testing-e2e-cypress'
