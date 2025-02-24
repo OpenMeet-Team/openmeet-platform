@@ -25,65 +25,7 @@ describe('Bluesky Login Flow', () => {
       cy.stub(win, 'open').as('windowOpen')
     })
 
-    let csrfToken: string | undefined
-    let authorizeData: {
-      clientId: string,
-      clientMetadata: Record<string, unknown>,
-      clientTrusted: boolean,
-      requestUri: string,
-      csrfCookie: string,
-      loginHint: string,
-      newSessionsRequireConsent: boolean,
-      scopeDetails: Array<{scope: string}>,
-      sessions: unknown[]
-    }
-
-    // Common security headers
-    const commonHeaders = {
-      'sec-fetch-mode': 'navigate',
-      'sec-fetch-dest': 'document',
-      'sec-fetch-site': 'none',
-      'upgrade-insecure-requests': '1'
-    }
-
-    // First capture the CSRF token and authorize data
-    cy.intercept('GET', '**/bsky.social/oauth/authorize*', (req) => {
-      req.on('response', (res) => {
-        const cookies = Array.isArray(res.headers['set-cookie']) ? res.headers['set-cookie'] : [res.headers['set-cookie']]
-        const csrfCookie = cookies.find(c => c?.startsWith('csrf-'))
-        csrfToken = csrfCookie?.split(';')[0]?.split('=')[1]
-
-        // Capture window.__authorizeData
-        const bodyStr = res.body as string
-        const match = bodyStr.match(/window\.__authorizeData\s*=\s*({[^;]+});/)
-        if (match) {
-          authorizeData = JSON.parse(match[1])
-        }
-
-        // Now that we have the token, set up the sign-in intercept
-        cy.intercept('POST', '**/bsky.social/oauth/authorize/sign-in', (req) => {
-          req.headers['x-csrf-token'] = csrfToken
-          req.headers['sec-fetch-mode'] = 'same-origin'
-          req.headers['sec-fetch-site'] = 'same-origin'
-          req.headers['content-type'] = 'application/json'
-
-          req.body = {
-            csrf_token: csrfToken,
-            password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
-            requestUri: authorizeData.requestUri
-          }
-          cy.log('Sign-in request headers:', req.headers)
-          cy.log('Sign-in request body:', req.body)
-        }).as('signInRequest')
-      })
-    }).as('initialOAuth')
-
-    // Add common headers to all OAuth requests
-    cy.intercept({ url: '**/bsky.social/oauth/**', middleware: true }, (req) => {
-      Object.assign(req.headers, commonHeaders)
-    }).as('bskyRequests')
-
-    // Intercept the authorize API call
+    // Intercept the authorize API call first
     cy.intercept('GET', '**/api/v1/auth/bluesky/authorize*').as('authorizeRequest')
 
     // Click Bluesky login button
@@ -95,10 +37,89 @@ describe('Bluesky Login Flow', () => {
       cy.contains('button', 'OK').click()
     })
 
-    // Wait for and parse the intercepted request
+    // Wait for and parse the intercepted request to backend authorize endpoint
     cy.wait('@authorizeRequest').then((interception) => {
       const url = new URL(interception.request.url)
       const tenantId = url.searchParams.get('tenantId')
+      url.searchParams.forEach((value, key) => {
+        cy.log('Param:', key, value)
+      })
+
+      let csrfToken: string | undefined
+
+      // Set up OAuth intercepts before making the request
+      cy.intercept('GET', '**/bsky.social/oauth/authorize*', (req) => {
+        req.headers['sec-fetch-mode'] = 'navigate'
+        req.headers['sec-fetch-dest'] = 'document'
+        req.headers['sec-fetch-site'] = 'none'
+
+        // Capture the CSRF token from the response
+        req.on('response', (res) => {
+          const bodyStr = res.body as string
+          cy.log('OAuth page response:', bodyStr)
+
+          // Look for the CSRF token in the response HTML
+          const csrfInputMatch = bodyStr.match(/<input[^>]*name="csrf"[^>]*value="([^"]+)"/)
+          if (csrfInputMatch) {
+            try {
+              csrfToken = csrfInputMatch[1]
+              cy.log('Found CSRF token from input:', csrfToken)
+
+              if (!csrfToken) {
+                throw new Error('CSRF token is empty')
+              }
+            } catch (error) {
+              cy.log('Error processing CSRF token:', error)
+              throw error // Re-throw to fail the test
+            }
+          } else {
+            // Fallback to looking in __authorizeData if not found in input
+            const authDataMatch = bodyStr.match(/window\["__authorizeData"\]=({[^<]+})/)
+            if (authDataMatch) {
+              try {
+                const authorizeData = JSON.parse(authDataMatch[1])
+                csrfToken = authorizeData.csrfCookie
+                cy.log('Found CSRF token from authorizeData:', csrfToken)
+
+                if (!csrfToken) {
+                  throw new Error('CSRF token is empty')
+                }
+              } catch (error) {
+                cy.log('Error processing authorizeData CSRF token:', error)
+                throw error
+              }
+            } else {
+              throw new Error('No CSRF token found in response')
+            }
+          }
+        })
+      }).as('initialOAuth')
+
+      // Handle the sign-in request
+      cy.intercept('POST', '**/bsky.social/oauth/authorize/sign-in', (req) => {
+        if (!csrfToken) {
+          throw new Error('No CSRF token found in OAuth page')
+        }
+
+        req.headers = {
+          ...req.headers,
+          'x-csrf-token': csrfToken,
+          'sec-fetch-mode': 'same-origin',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-dest': 'empty',
+          'content-type': 'application/json',
+          accept: 'application/json'
+        }
+
+        req.body = {
+          csrf_token: csrfToken,
+          username: Cypress.env('APP_TESTING_BLUESKY_HANDLE'),
+          password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD')
+        }
+
+        cy.log('Sign-in request headers:', JSON.stringify(req.headers))
+        cy.log('Sign-in request body:', JSON.stringify(req.body))
+      }).as('signInRequest')
 
       cy.request({
         url: `${Cypress.env('APP_TESTING_API_URL')}/api/v1/auth/bluesky/authorize?handle=${Cypress.env('APP_TESTING_BLUESKY_HANDLE')}&tenantId=${tenantId}`,
@@ -118,26 +139,18 @@ describe('Bluesky Login Flow', () => {
           ({ authUrl, password }) => {
             cy.visit(authUrl)
 
-            // Wait for the page to load and form to be ready
+            // Wait for initial OAuth page to load
             cy.get('input[type="password"]', { timeout: 4000 }).should('be.visible')
             cy.get('input[type="password"]').type(password)
             cy.get('form button[type="submit"]').click()
-
-            // Handle the authorization page if it appears
-            cy.get('body').then($body => {
-              if ($body.find('button:contains("Authorize")').length > 0) {
-                cy.get('button:contains("Authorize")').click()
-              }
-            })
           }
         )
 
         // Wait for all redirects to complete
         cy.wait('@callback', { timeout: 3000 })
-        // cy.wait(1000) // Small delay for client-side processing
 
         // Check final URL
-        cy.url().should('include', '/dashboard', { timeout: 3000 })
+        cy.url().should('include', '/dashboard', { timeout: 5000 })
       })
     })
   })
