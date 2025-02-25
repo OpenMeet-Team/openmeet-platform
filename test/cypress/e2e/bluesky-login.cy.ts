@@ -196,7 +196,7 @@ describe('Bluesky Login Flow', () => {
                   const csrfFromUrl = urlParams.get('csrf_token') || urlParams.get('csrf')
                   if (csrfFromUrl) {
                     csrfToken = csrfFromUrl
-                    cy.log(`Found CSRF token in URL: ${csrfToken}`)
+                    cy.log(`Found CSRF token in URL: ${csrfFromUrl}`)
                   }
                 }
               }
@@ -207,221 +207,174 @@ describe('Bluesky Login Flow', () => {
                 cy.log(`Using requestUri as CSRF token: ${csrfToken}`)
               }
 
-              // Now add or update the CSRF token in the form
-              if (csrfToken) {
-                // First, let's log the token we're going to use
-                cy.log(`Setting CSRF token in form: ${csrfToken}`)
+              cy.log(`Setting CSRF token in form: ${csrfToken}`)
 
-                // Get the form and directly manipulate it to ensure the token is added
-                cy.get('form').then($form => {
-                  // Check if there's already a CSRF input
-                  const existingInput = $form.find('input[name="csrf_token"]')
+              // SIMPLIFIED APPROACH: Focus on getting the native form submission to work
+              cy.get('form').then($form => {
+                // Log form details for debugging
+                cy.log(`Form action: ${$form.attr('action')}`)
+                cy.log(`Form method: ${$form.attr('method')}`)
 
-                  if (existingInput.length === 0) {
-                    // Create and append the input to the form with the exact name from the error message
-                    const input = document.createElement('input')
-                    input.type = 'hidden'
-                    input.name = 'csrf_token'
-                    input.value = csrfToken
-                    $form[0].appendChild(input)
-                    cy.log(`Added csrf_token input with value: ${csrfToken}`)
-                  } else {
-                    // Update existing input with properly formatted token
-                    existingInput.val(csrfToken)
-                    cy.log('Updated existing CSRF token input')
-                  }
+                // Handle username/identifier field - use JavaScript to set value if disabled
+                cy.get('input[name="username"], input[name="identifier"]').then($input => {
+                  if ($input.prop('disabled') || $input.prop('readonly')) {
+                    cy.log('Username field is disabled or readonly, setting value directly')
+                    // Use JavaScript to modify the element directly
+                    cy.window().then(win => {
+                      // Get the DOM element
+                      const inputEl = $input[0] as HTMLInputElement
 
-                  // Verify the token was added
-                  cy.log(`Form now has ${$form.find('input[type="hidden"]').length} hidden inputs`)
-                  $form.find('input[type="hidden"]').each((i, el) => {
-                    cy.log(`Hidden input ${i}: ${el.name} = ${el.value}`)
-                  })
+                      // Store original properties to restore later
+                      const originalDisabled = inputEl.disabled
+                      const originalReadonly = inputEl.readOnly
 
-                  // Try to directly set the form's action attribute to ensure proper submission
-                  if ($form.attr('action') && $form.attr('action').includes('oauth/authorize/sign-in')) {
-                    cy.log(`Form action is already set to: ${$form.attr('action')}`)
-                  } else {
-                    const formAction = 'https://bsky.social/oauth/authorize/sign-in'
-                    $form.attr('action', formAction)
-                    cy.log(`Set form action to: ${formAction}`)
-                  }
+                      // Remove disabled and readonly attributes
+                      inputEl.disabled = false
+                      inputEl.readOnly = false
 
-                  // Also try to set the method
-                  if (!$form.attr('method') || $form.attr('method').toLowerCase() !== 'post') {
-                    $form.attr('method', 'post')
-                    cy.log('Set form method to POST')
-                  }
+                      // Set the value
+                      inputEl.value = handle
 
-                  // COMPLETELY NEW APPROACH: Instead of using cy.request which might not handle
-                  // cross-origin cookies properly, let's use the native form submission
-                  // but prevent the default action and handle it manually
+                      // Trigger input and change events
+                      const inputEvent = new win.Event('input', { bubbles: true })
+                      const changeEvent = new win.Event('change', { bubbles: true })
+                      inputEl.dispatchEvent(inputEvent)
+                      inputEl.dispatchEvent(changeEvent)
 
-                  // First, let's make sure we have all the form data ready
-                  // Extract all form data
-                  const formValues: Record<string, string | Record<string, string>> = {}
-                  const credentials: Record<string, string> = {}
-
-                  // Add all form fields - use jQuery to avoid TypeScript errors
-                  $form.find('input').each(function () {
-                    // Use jQuery properly with Cypress
-                    const name = this.name
-                    const value = this.value
-
-                    if (name === 'username' || name === 'password' || name === 'remember') {
-                      credentials[name] = value
-                    } else if (name) {
-                      formValues[name] = value
-                    }
-                  })
-
-                  // Ensure CSRF token is included
-                  if (!formValues.csrf_token || formValues.csrf_token === '<csrf-token-missing>') {
-                    formValues.csrf_token = csrfToken
-                    cy.log('Fixed csrf_token in form data')
-                  }
-
-                  // Add credentials object
-                  formValues.credentials = credentials
-
-                  // Add request_uri and client_id from the URL if not already in form
-                  if (!formValues.request_uri) {
-                    const urlParams = new URLSearchParams(window.location.search)
-                    const requestUriFromUrl = urlParams.get('request_uri')
-                    if (requestUriFromUrl) {
-                      formValues.request_uri = requestUriFromUrl
-                    } else if (extractedRequestUri) {
-                      formValues.request_uri = extractedRequestUri
-                    }
-                  }
-
-                  if (!formValues.client_id) {
-                    const urlParams = new URLSearchParams(window.location.search)
-                    const clientId = urlParams.get('client_id')
-                    if (clientId) {
-                      formValues.client_id = clientId
-                    }
-                  }
-
-                  // Log what we're about to send
-                  cy.log(`Form data prepared: ${JSON.stringify(formValues)}`)
-
-                  // Now, instead of using cy.request, let's submit the form normally
-                  // but first make sure all our data is in the form
-
-                  // Update or add all form fields
-                  Object.entries(formValues).forEach(([key, value]) => {
-                    if (key === 'credentials') {
-                      // Skip credentials object, we'll handle it separately
-                      return
-                    }
-
-                    // Check if input exists
-                    const existingInput = $form.find(`input[name="${key}"]`)
-                    if (existingInput.length > 0) {
-                      // Update existing input - convert value to string if it's an object
-                      existingInput.val(typeof value === 'object' ? JSON.stringify(value) : value)
-                    } else {
-                      // Create new input
-                      const input = document.createElement('input')
-                      input.type = 'hidden'
-                      input.name = key
-                      input.value = typeof value === 'object' ? JSON.stringify(value) : value as string
-                      $form[0].appendChild(input)
-                    }
-                  })
-
-                  // Handle credentials object
-                  if (credentials) {
-                    Object.entries(credentials).forEach(([key, value]) => {
-                      // Check if input exists
-                      const existingInput = $form.find(`input[name="${key}"]`)
-                      if (existingInput.length > 0) {
-                        // Update existing input
-                        existingInput.val(value)
-                      } else {
-                        // Create new input
-                        const input = document.createElement('input')
-                        input.type = key === 'password' ? 'password' : 'text'
-                        input.name = key
-                        input.value = value
-                        $form[0].appendChild(input)
-                      }
+                      // Restore original properties if needed
+                      if (originalDisabled) inputEl.disabled = originalDisabled
+                      if (originalReadonly) inputEl.readOnly = originalReadonly
                     })
+                  } else {
+                    // Field is enabled, use normal Cypress commands
+                    cy.wrap($input).clear()
+                    cy.wrap($input).type(handle, { force: true })
                   }
-
-                  // Now submit the form using the native submit method
-                  cy.log('Submitting form using native form submission')
-
-                  // Use the submit button to trigger the form submission
-                  cy.get('button[type="submit"], button:contains("Sign in"), button:contains("Log in"), button:contains("Next")')
-                    .should('exist')
-                    .click({ force: true })
-
-                  // After form submission, look for consent page if needed
-                  cy.get('body', { timeout: 10000 }).then($body => {
-                    const bodyText = $body.text().toLowerCase()
-                    if (bodyText.includes('authorize') || bodyText.includes('consent') || bodyText.includes('allow')) {
-                      cy.log('Found consent page, clicking authorize button')
-                      cy.get('button')
-                        .filter((i, el) => {
-                          const text = el.textContent?.toLowerCase() || ''
-                          return text.includes('authorize') || text.includes('allow') || text.includes('continue')
-                        })
-                        .first()
-                        .click({ force: true })
-                    }
-                  })
                 })
-              } else {
-                cy.log('WARNING: No CSRF token found, proceeding without it')
-              }
+
+                // Handle password field - use JavaScript to set value if disabled
+                cy.get('input[name="password"]').then($input => {
+                  if ($input.prop('disabled') || $input.prop('readonly')) {
+                    cy.log('Password field is disabled or readonly, setting value directly')
+                    // Use JavaScript to modify the element directly
+                    cy.window().then(win => {
+                      // Get the DOM element
+                      const inputEl = $input[0] as HTMLInputElement
+
+                      // Store original properties to restore later
+                      const originalDisabled = inputEl.disabled
+                      const originalReadonly = inputEl.readOnly
+
+                      // Remove disabled and readonly attributes
+                      inputEl.disabled = false
+                      inputEl.readOnly = false
+
+                      // Set the value
+                      inputEl.value = password
+
+                      // Trigger input and change events
+                      const inputEvent = new win.Event('input', { bubbles: true })
+                      const changeEvent = new win.Event('change', { bubbles: true })
+                      inputEl.dispatchEvent(inputEvent)
+                      inputEl.dispatchEvent(changeEvent)
+
+                      // Restore original properties if needed
+                      if (originalDisabled) inputEl.disabled = originalDisabled
+                      if (originalReadonly) inputEl.readOnly = originalReadonly
+                    })
+                  } else {
+                    // Field is enabled, use normal Cypress commands
+                    cy.wrap($input).clear()
+                    cy.wrap($input).type(password, { force: true })
+                  }
+                })
+
+                // IMPORTANT: Set the CSRF token in multiple ways to ensure it's included
+
+                // 1. Add or update the CSRF token in the form as a hidden input
+                const existingCsrfInput = $form.find('input[name="csrf_token"]')
+                if (existingCsrfInput.length > 0) {
+                  // Update existing input
+                  existingCsrfInput.val(csrfToken)
+                  cy.log('Updated existing CSRF token input')
+                } else {
+                  // Create and append a new input
+                  $form.append(`<input type="hidden" name="csrf_token" value="${csrfToken}">`)
+                  cy.log('Added new CSRF token input')
+                }
+
+                // 2. Set the CSRF token as a cookie
+                cy.window().then(win => {
+                  win.document.cookie = `csrf_token=${csrfToken}; path=/; secure; samesite=none`
+                  cy.log('Set CSRF token as cookie')
+                })
+
+                // 3. Add it to localStorage and sessionStorage
+                cy.window().then(win => {
+                  win.localStorage.setItem('csrf_token', csrfToken)
+                  win.sessionStorage.setItem('csrf_token', csrfToken)
+                  cy.log('Set CSRF token in storage')
+                })
+
+                // Also add request_uri if it's not already in the form
+                const existingRequestUriInput = $form.find('input[name="request_uri"]')
+                if (existingRequestUriInput.length === 0 && extractedRequestUri) {
+                  $form.append(`<input type="hidden" name="request_uri" value="${extractedRequestUri}">`)
+                  cy.log('Added request_uri input')
+                }
+
+                // Add client_id to the form
+                $form.append(`<input type="hidden" name="client_id" value="https://9a66-70-228-89-215.ngrok-free.app/api/v1/auth/bluesky/client-metadata.json?tenantId=lsdfaopkljdfs">`)
+                cy.log('Added client_id input')
+
+                // Set the form action if needed
+                if (!$form.attr('action') || !$form.attr('action').includes('oauth/authorize/sign-in')) {
+                  $form.attr('action', 'https://bsky.social/oauth/authorize/sign-in')
+                  cy.log('Set form action')
+                }
+
+                // Set the form method if needed
+                if (!$form.attr('method') || $form.attr('method').toLowerCase() !== 'post') {
+                  $form.attr('method', 'POST')
+                  cy.log('Set form method to POST')
+                }
+
+                // Now click the submit button to trigger the native form submission
+                cy.log('Clicking submit button to trigger native form submission')
+                cy.get('button[type="submit"]').click({ force: true })
+              })
+
+              // After form submission, we'll be redirected to bsky.social
+              // We need to use cy.origin() to handle commands on that domain
+              cy.log('Form submitted, handling potential cross-origin navigation')
             })
           }
         )
 
+        // Use cy.origin to handle any interactions on the bsky.social domain
+        cy.origin('https://bsky.social', () => {
+          // Look for consent page if needed
+          cy.get('body', { timeout: 10000 }).then($body => {
+            const bodyText = $body.text().toLowerCase()
+            if (bodyText.includes('authorize') || bodyText.includes('consent') || bodyText.includes('allow')) {
+              cy.log('Found consent page, clicking authorize button')
+              cy.get('button')
+                .filter((i, el) => {
+                  const text = el.textContent?.toLowerCase() || ''
+                  return text.includes('authorize') || text.includes('allow') || text.includes('continue')
+                })
+                .first()
+                .click({ force: true })
+            }
+          })
+        })
+
         // After the Bluesky authentication, we should be redirected back to our app
-        // Wait for the sign-in request to complete (outside of cy.origin)
-        cy.wait('@signInRequest', { timeout: 30000 })
-          .then(interception => {
-            cy.log('request body', JSON.stringify(interception.request?.body))
-            cy.log(`Sign-in response status: ${interception.response?.statusCode}`)
-            if (interception.response?.statusCode >= 400) {
-              cy.log(`Sign-in error: ${JSON.stringify(interception.response?.body)}`)
-            }
-          })
-
-        // Wait for the form submission to complete (outside of cy.origin)
-        cy.wait('@formSubmission', { timeout: 30000 })
-          .then(interception => {
-            cy.log(`Form submission status: ${interception.response?.statusCode}`)
-            cy.log(`Form submission request body: ${JSON.stringify(interception.request?.body)}`)
-            if (interception.response?.statusCode >= 400) {
-              cy.log(`Form submission error: ${JSON.stringify(interception.response?.body)}`)
-            }
-          })
-
-        // Set up a listener for the redirect
-        cy.url({ timeout: 30000 }).then(url => {
-          cy.log(`Current URL after auth flow: ${url}`)
-
-          // If we're already redirected to dashboard, we're done
-          if (url.includes('/dashboard')) {
-            cy.log('Already redirected to dashboard')
-            cy.screenshot('bluesky-login-success')
-          } else {
-            // Otherwise, wait for the callback and check for dashboard redirect
-            cy.wait('@callback', { timeout: 30000 })
-              .then((interception) => {
-                cy.log(`Callback response status: ${interception.response?.statusCode}`)
-              })
-
-            cy.url({ timeout: 30000 })
-              .should('include', '/dashboard')
-              .then((url) => {
-                cy.log(`Successfully redirected to: ${url}`)
-                cy.screenshot('bluesky-login-success')
-              })
-          }
+        // Wait for the callback and check for dashboard redirect
+        cy.log('Waiting for redirect to dashboard')
+        cy.url({ timeout: 30000 }).should('include', '/dashboard').then(url => {
+          cy.log(`Successfully redirected to: ${url}`)
+          cy.screenshot('bluesky-login-success')
         })
       })
     })
