@@ -26,3 +26,7 @@ Cypress.on('uncaught:exception', (err) => {
 })
 
 import './commands'
+import './bluesky-auth-command'
+
+// Alternatively you can use CommonJS syntax:
+// require('./commands')
