@@ -796,13 +796,22 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
 
             // Only run assertions if userData exists and has expected properties
             if (userData) {
-              // expect(userData.isAuthenticated).to.be.true
-              cy.log('User data is authenticated?', userData.isAuthenticated)
-              expect(userData.authProvider).to.equal('bluesky')
-              if (userData.handle) {
-                expect(userData.handle).to.include('.')
+              // The user object doesn't have isAuthenticated property
+              // Instead, check for provider and socialId
+              cy.log('User provider:', userData.provider)
+              expect(userData.provider).to.equal('bluesky')
+
+              if (userData.socialId) {
+                cy.log('User socialId:', userData.socialId)
+                expect(userData.socialId).to.include('did:plc:')
+              }
+
+              // Check for handle in preferences.bluesky
+              if (userData.preferences?.bluesky?.handle) {
+                cy.log('User handle:', userData.preferences.bluesky.handle)
+                expect(userData.preferences.bluesky.handle).to.include('.')
               } else {
-                cy.log('WARNING: User handle not found in userData')
+                cy.log('WARNING: User handle not found in userData.preferences.bluesky')
               }
             }
           } catch (error: unknown) {
@@ -811,7 +820,8 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
           }
 
           // Verify we have a real auth token, not a simulated one
-          const authTokenRaw = win.localStorage.getItem('auth_token')
+          // The token is stored in 'token', not 'auth_token'
+          const authTokenRaw = win.localStorage.getItem('token')
           cy.log(`Auth token raw: ${authTokenRaw}`)
 
           if (authTokenRaw) {
