@@ -34,6 +34,14 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
   })
 
   it('should complete Bluesky authentication with real tokens', () => {
+    // Create variables to store tokens and cookies that will be accessible throughout the test
+    let storedCsrfToken: string | undefined
+    let requestUri: string | undefined
+    let clientId: string | undefined
+    let deviceIdCookie: string | undefined
+    let sessionIdCookie: string | undefined
+    let allCookies: string | undefined
+
     // Visit the login page
     cy.visit('/auth/login', { timeout: 10000 })
 
@@ -64,55 +72,88 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
       const tenantId = url.searchParams.get('tenantId')
       cy.log(`Tenant ID: ${tenantId}`)
 
-      let csrfToken: string | undefined
-
       // Set up OAuth intercepts before making the request
       cy.intercept('GET', '**/bsky.social/oauth/authorize*', (req) => {
         req.headers['sec-fetch-mode'] = 'navigate'
         req.headers['sec-fetch-dest'] = 'document'
         req.headers['sec-fetch-site'] = 'none'
+        req.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
 
         // Capture the CSRF token from the response
         req.on('response', (res) => {
-          const bodyStr = res.body as string
           cy.log('OAuth page response headers:', JSON.stringify(res.headers))
 
-          // Look for the CSRF token in the Set-Cookie header first
+          // Extract request_uri from the URL
+          const urlObj = new URL(req.url)
+          const reqUri = urlObj.searchParams.get('request_uri')
+          const clId = urlObj.searchParams.get('client_id')
+
+          // Safely assign values, handling null
+          requestUri = reqUri || undefined
+          clientId = clId || undefined
+
+          cy.log(`Request URI from URL: ${requestUri || 'Not found'}`)
+          cy.log(`Client ID from URL: ${clientId || 'Not found'}`)
+
+          // Look for the CSRF token and other cookies in the Set-Cookie header
           const setCookieHeader = res.headers['set-cookie']
           if (setCookieHeader) {
             cy.log('Set-Cookie header found:', setCookieHeader)
 
-            // Look for csrf cookie in the header - it's named after the request_uri parameter
-            const cookieStr = Array.isArray(setCookieHeader) ? setCookieHeader.join('; ') : setCookieHeader.toString()
+            // Store all cookies for future requests
+            allCookies = Array.isArray(setCookieHeader) ? setCookieHeader.join('; ') : setCookieHeader.toString()
+            cy.log('All cookies:', allCookies)
+
+            // The cookie name is based on the request_uri parameter
+            // Format: csrf-urn:ietf:params:oauth:request_uri:req-XXXXX
+            const cookieStr = allCookies
             cy.log('Cookie string:', cookieStr)
 
-            // The cookie name starts with 'csrf-' followed by the request_uri value
-            const csrfCookieMatch = cookieStr.match(/csrf-[^=]+=([^;]+)/)
-            if (csrfCookieMatch) {
-              csrfToken = csrfCookieMatch[1]
-              cy.log('Found CSRF token from Set-Cookie header:', csrfToken)
+            // Extract device-id and session-id cookies
+            const deviceIdMatch = cookieStr.match(/device-id=([^;]+)/)
+            if (deviceIdMatch) {
+              deviceIdCookie = deviceIdMatch[1]
+              cy.log(`Device ID cookie: ${deviceIdCookie}`)
             }
-          }
 
-          // If we didn't find the token in cookies, look in the HTML
-          if (!csrfToken) {
-            // Look for the CSRF token in the response HTML
-            const csrfInputMatch = bodyStr.match(/<input[^>]*name="csrf"[^>]*value="([^"]+)"/)
-            if (csrfInputMatch) {
-              try {
-                csrfToken = csrfInputMatch[1]
-                cy.log('Found CSRF token from input:', csrfToken)
+            const sessionIdMatch = cookieStr.match(/session-id=([^;]+)/)
+            if (sessionIdMatch) {
+              sessionIdCookie = sessionIdMatch[1]
+              cy.log(`Session ID cookie: ${sessionIdCookie}`)
+            }
 
-                if (!csrfToken) {
-                  throw new Error('CSRF token is empty')
+            // Log each cookie separately for better visibility
+            if (Array.isArray(setCookieHeader)) {
+              setCookieHeader.forEach((cookie, index) => {
+                cy.log(`Cookie [${index}]: ${cookie}`)
+              })
+            }
+
+            // Look for a cookie that starts with 'csrf-' followed by the request_uri value
+            if (requestUri) {
+              const csrfCookieRegex = new RegExp(`csrf-${requestUri.replace(/:/g, '\\:').replace(/\./g, '\\.').replace(/\//g, '\\/')}=([^;]+)`)
+              const csrfCookieMatch = cookieStr.match(csrfCookieRegex)
+
+              if (csrfCookieMatch) {
+                storedCsrfToken = csrfCookieMatch[1]
+                cy.log('*************************************')
+                cy.log(`***** CSRF TOKEN FOUND (EXACT MATCH): ${storedCsrfToken} *****`)
+                cy.log('*************************************')
+              } else {
+                // Try a more generic pattern if exact match fails
+                const genericCsrfMatch = cookieStr.match(/csrf-([^=]+)=([^;]+)/)
+                if (genericCsrfMatch) {
+                  storedCsrfToken = genericCsrfMatch[2]
+                  cy.log('*************************************')
+                  cy.log(`***** CSRF TOKEN FOUND (GENERIC MATCH): ${storedCsrfToken} *****`)
+                  cy.log('*************************************')
+                } else {
+                  cy.log('No CSRF cookie found in Set-Cookie header')
                 }
-              } catch (error) {
-                cy.log('Error processing CSRF token:', error)
-                throw error // Re-throw to fail the test
               }
-            } else {
-              cy.log('No CSRF token found in response. Will try to extract it in cy.origin')
             }
+          } else {
+            cy.log('No Set-Cookie header found in response')
           }
         })
       }).as('initialOAuth')
@@ -129,8 +170,13 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
 
         // Extract the request_uri and client_id from the auth URL
         const authUrlObj = new URL(authUrl)
-        const requestUri = authUrlObj.searchParams.get('request_uri')
-        const clientId = authUrlObj.searchParams.get('client_id')
+        const reqUri = authUrlObj.searchParams.get('request_uri')
+        const clId = authUrlObj.searchParams.get('client_id')
+
+        // Safely assign values, handling null
+        requestUri = reqUri || undefined
+        clientId = clId || undefined
+
         cy.log(`Request URI from auth URL: ${requestUri || 'Not found'}`)
         cy.log(`Client ID from auth URL: ${clientId || 'Not found'}`)
 
@@ -138,73 +184,224 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
           throw new Error('request_uri not found in auth URL')
         }
 
+        // Make a direct request to the OAuth authorize URL to get the CSRF token
+        cy.request({
+          url: authUrl,
+          headers: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-dest': 'document',
+            'sec-fetch-site': 'none',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
+          }
+        }).then(oauthResponse => {
+          cy.log('Direct OAuth response status:', oauthResponse.status)
+
+          // Extract the CSRF token and cookies from the Set-Cookie header
+          const setCookieHeader = oauthResponse.headers['set-cookie']
+          if (setCookieHeader) {
+            cy.log('Direct OAuth Set-Cookie header:', setCookieHeader)
+
+            // Store all cookies for future requests
+            allCookies = Array.isArray(setCookieHeader) ? setCookieHeader.join('; ') : setCookieHeader.toString()
+            cy.log('All cookies:', allCookies)
+
+            // Extract device-id and session-id cookies if not already set
+            if (!deviceIdCookie) {
+              const deviceIdMatch = allCookies.match(/device-id=([^;]+)/)
+              if (deviceIdMatch) {
+                deviceIdCookie = deviceIdMatch[1]
+                cy.log(`Device ID cookie: ${deviceIdCookie}`)
+              }
+            }
+
+            if (!sessionIdCookie) {
+              const sessionIdMatch = allCookies.match(/session-id=([^;]+)/)
+              if (sessionIdMatch) {
+                sessionIdCookie = sessionIdMatch[1]
+                cy.log(`Session ID cookie: ${sessionIdCookie}`)
+              }
+            }
+
+            // Look for a cookie that starts with 'csrf-' followed by the request_uri
+            if (requestUri) {
+              const csrfCookieRegex = new RegExp(`csrf-${requestUri.replace(/:/g, '\\:').replace(/\./g, '\\.').replace(/\//g, '\\/')}=([^;]+)`)
+              const csrfCookieMatch = allCookies.match(csrfCookieRegex)
+
+              if (csrfCookieMatch) {
+                storedCsrfToken = csrfCookieMatch[1]
+                cy.log('*************************************')
+                cy.log(`***** DIRECT CSRF TOKEN FOUND: ${storedCsrfToken} *****`)
+                cy.log('*************************************')
+              } else {
+                // Try a more generic pattern
+                const genericMatch = allCookies.match(/csrf-([^=]+)=([^;]+)/)
+                if (genericMatch) {
+                  storedCsrfToken = genericMatch[2]
+                  cy.log('*************************************')
+                  cy.log(`***** GENERIC CSRF TOKEN FOUND: ${storedCsrfToken} *****`)
+                  cy.log('*************************************')
+                } else {
+                  cy.log('No CSRF token found in direct OAuth response')
+                }
+              }
+            } else {
+              // If requestUri is undefined, try a generic pattern
+              const genericMatch = allCookies.match(/csrf-([^=]+)=([^;]+)/)
+              if (genericMatch) {
+                storedCsrfToken = genericMatch[2]
+                cy.log('*************************************')
+                cy.log(`***** GENERIC CSRF TOKEN FOUND (NO REQUEST URI): ${storedCsrfToken} *****`)
+                cy.log('*************************************')
+              } else {
+                cy.log('No CSRF token found in direct OAuth response and requestUri is undefined')
+              }
+            }
+          } else {
+            cy.log('No Set-Cookie header in direct OAuth response')
+          }
+        })
+
         // Handle the sign-in request - moved here to have access to requestUri and clientId
         cy.intercept('POST', '**/bsky.social/oauth/authorize/sign-in', (req) => {
-          // Try to get the CSRF token from our cookie if it wasn't found earlier
-          if (!csrfToken) {
-            cy.getCookie('extracted-csrf-token').then(cookie => {
-              if (cookie && cookie.value) {
-                csrfToken = cookie.value
-                cy.log(`Using CSRF token from cookie: ${csrfToken}`)
-              }
-            })
+          cy.log('DEBUG: Sign-in request intercepted')
+
+          // Use the stored CSRF token if available
+          if (storedCsrfToken) {
+            cy.log(`Using stored CSRF token: ${storedCsrfToken}`)
+
+            // Add more prominent logging
+            cy.log('*************************************')
+            cy.log(`***** USING CSRF TOKEN FOR SIGN-IN: ${storedCsrfToken} *****`)
+            cy.log('*************************************')
+          } else {
+            cy.log('WARNING: No CSRF token found for sign-in request, this will likely fail')
+            return
           }
 
-          if (!csrfToken) {
-            throw new Error('No CSRF token found in OAuth page')
+          // Ensure requestUri and clientId are defined
+          if (!requestUri || !clientId) {
+            cy.log('WARNING: requestUri or clientId is undefined')
+            return
           }
 
+          // Build the cookie header using the captured cookies
+          let cookieHeader = ''
+          if (deviceIdCookie) {
+            cookieHeader += `device-id=${deviceIdCookie}; `
+          }
+          if (sessionIdCookie) {
+            cookieHeader += `session-id=${sessionIdCookie}; `
+          }
+          cookieHeader += `csrf-${requestUri}=${storedCsrfToken}`
+
+          cy.log('Using cookie header:', cookieHeader)
+
+          // Ensure the CSRF token is set in both headers and body
           req.headers = {
             ...req.headers,
-            'x-csrf-token': csrfToken,
+            cookie: cookieHeader,
+            'x-csrf-token': storedCsrfToken,
             'sec-fetch-mode': 'same-origin',
             'sec-fetch-site': 'same-origin',
             'sec-fetch-dest': 'empty',
             'content-type': 'application/json',
-            accept: 'application/json'
+            accept: '*/*',
+            'accept-language': 'en-US,en;q=0.5',
+            'accept-encoding': 'gzip, deflate, br, zstd',
+            origin: 'https://bsky.social',
+            referer: `https://bsky.social/oauth/authorize?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(requestUri)}`,
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
           }
 
           // The request body must include both csrf_token and request_uri
           req.body = {
-            csrf_token: csrfToken,
+            csrf_token: storedCsrfToken,
             request_uri: requestUri,
             client_id: clientId,
             credentials: {
               username: Cypress.env('APP_TESTING_BLUESKY_HANDLE'),
               password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
-              remember: true
+              remember: false
             }
           }
 
           cy.log('Sign-in request headers:', JSON.stringify(req.headers))
           cy.log('Sign-in request body:', JSON.stringify(req.body))
+
+          // Log the actual request that will be sent
+          cy.log('*************************************')
+          cy.log(`***** SIGN-IN REQUEST CSRF TOKEN: ${req.body.csrf_token} *****`)
+          cy.log(`***** SIGN-IN REQUEST URI: ${req.body.request_uri} *****`)
+          cy.log('*************************************')
         }).as('signInRequest')
 
         // Handle the accept request
         cy.intercept('POST', '**/bsky.social/oauth/authorize/accept', (req) => {
-          if (!csrfToken) {
-            throw new Error('No CSRF token found for accept request')
+          cy.log('DEBUG: Accept request intercepted')
+
+          // Use the stored CSRF token if available
+          if (storedCsrfToken) {
+            cy.log(`Using stored CSRF token for accept: ${storedCsrfToken}`)
+
+            // Add more prominent logging
+            cy.log('*************************************')
+            cy.log(`***** USING CSRF TOKEN FOR ACCEPT: ${storedCsrfToken} *****`)
+            cy.log('*************************************')
+          } else {
+            cy.log('WARNING: No CSRF token found for accept request, this will likely fail')
+            return
           }
+
+          // Ensure requestUri and clientId are defined
+          if (!requestUri || !clientId) {
+            cy.log('WARNING: requestUri or clientId is undefined')
+            return
+          }
+
+          // Build the cookie header using the captured cookies
+          let cookieHeader = ''
+          if (deviceIdCookie) {
+            cookieHeader += `device-id=${deviceIdCookie}; `
+          }
+          if (sessionIdCookie) {
+            cookieHeader += `session-id=${sessionIdCookie}; `
+          }
+          cookieHeader += `csrf-${requestUri}=${storedCsrfToken}`
+
+          cy.log('Using cookie header for accept:', cookieHeader)
 
           req.headers = {
             ...req.headers,
-            'x-csrf-token': csrfToken,
+            cookie: cookieHeader,
+            'x-csrf-token': storedCsrfToken,
             'sec-fetch-mode': 'same-origin',
             'sec-fetch-site': 'same-origin',
             'sec-fetch-dest': 'empty',
             'content-type': 'application/json',
-            accept: 'application/json'
+            accept: '*/*',
+            'accept-language': 'en-US,en;q=0.5',
+            'accept-encoding': 'gzip, deflate, br, zstd',
+            origin: 'https://bsky.social',
+            referer: `https://bsky.social/oauth/authorize?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(requestUri)}`,
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
           }
 
           // The accept request body must include csrf_token, request_uri, and client_id
           req.body = {
-            csrf_token: csrfToken,
+            csrf_token: storedCsrfToken,
             request_uri: requestUri,
             client_id: clientId
           }
 
           cy.log('Accept request headers:', JSON.stringify(req.headers))
           cy.log('Accept request body:', JSON.stringify(req.body))
+
+          // Log the actual request that will be sent
+          cy.log('*************************************')
+          cy.log(`***** ACCEPT REQUEST CSRF TOKEN: ${req.body.csrf_token} *****`)
+          cy.log(`***** ACCEPT REQUEST URI: ${req.body.request_uri} *****`)
+          cy.log('*************************************')
         }).as('acceptRequest')
 
         // Check if window.open was called and get the URL
@@ -228,65 +425,134 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
             cy.intercept('POST', '**/oauth/authorize/accept').as('accept')
             cy.intercept('GET', '**/api/v1/auth/bluesky/callback**').as('callback')
 
-            cy.origin(authOrigin, { args: { authUrl, password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'), requestUri, clientId } },
-              ({ authUrl, password, requestUri, clientId }) => {
+            // Add an intercept for the GET request to /oauth/authorize/accept
+            cy.intercept('GET', '**/oauth/authorize/accept**', (req) => {
+              // Modify the headers to set sec-fetch-dest to "document"
+              req.headers['sec-fetch-dest'] = 'document'
+              req.headers['sec-fetch-mode'] = 'navigate'
+              req.headers['sec-fetch-site'] = 'same-origin'
+
+              // Build the cookie header using the captured cookies
+              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
+                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
+                req.headers.cookie = cookieHeader
+                cy.log(`Setting cookie header for GET request: ${cookieHeader}`)
+              }
+
+              // Set additional headers that might be needed
+              req.headers.accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+              req.headers['accept-language'] = 'en-US,en;q=0.9'
+              req.headers['upgrade-insecure-requests'] = '1'
+              req.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+              cy.log('Modified headers for GET /oauth/authorize/accept request')
+              cy.log(`sec-fetch-dest: ${req.headers['sec-fetch-dest']}`)
+              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
+            }).as('acceptGet')
+
+            cy.origin(authOrigin, { args: { authUrl, password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'), requestUri, clientId, storedCsrfToken } },
+              ({ authUrl, password, requestUri, clientId, storedCsrfToken }) => {
                 // Visit the auth URL directly in the main window
                 cy.visit(authUrl)
-
-                // Extract CSRF token from the page after it loads
-                cy.window().then(() => {
-                  // Look for the CSRF token in document.cookie
-                  cy.document().then(doc => {
-                    const cookies = doc.cookie.split(';').map(c => c.trim())
-                    cy.log(`Available cookies: ${cookies.join(', ')}`)
-
-                    // Look for a cookie that starts with 'csrf-'
-                    const csrfCookie = cookies.find(c => c.startsWith('csrf-'))
-                    if (csrfCookie) {
-                      const csrfToken = csrfCookie.split('=')[1]
-                      cy.log(`Found CSRF token in cookie: ${csrfToken}`)
-                      cy.setCookie('extracted-csrf-token', csrfToken)
-                    } else {
-                      // If not found in cookies, try to extract it from the HTML
-                      const html = doc.documentElement.outerHTML
-                      const csrfInputMatch = html.match(/<input[^>]*name="csrf"[^>]*value="([^"]+)"/)
-
-                      if (csrfInputMatch) {
-                        const extractedCsrfToken = csrfInputMatch[1]
-                        cy.log(`Found CSRF token in HTML: ${extractedCsrfToken}`)
-                        cy.setCookie('extracted-csrf-token', extractedCsrfToken)
-                      } else {
-                        cy.log('Could not find CSRF token in cookies or HTML')
-                      }
-                    }
-                  })
-                })
 
                 // Wait for initial OAuth page to load and fill in the password
                 cy.get('input[type="password"]', { timeout: 10000 }).should('be.visible')
                 cy.get('input[type="password"]').type(password, { force: true })
 
+                // Log the CSRF token we're using
+                cy.log('*************************************')
+                cy.log(`***** USING CSRF TOKEN IN ORIGIN: ${storedCsrfToken} *****`)
+                cy.log('*************************************')
+
+                // Instead of modifying the onsubmit handler, ensure the CSRF token is set just before clicking the submit button
+                cy.log(`Setting CSRF token in form: ${storedCsrfToken}`)
+
+                // Set the CSRF token again right before clicking the submit button
+                cy.document().then(doc => {
+                  const form = doc.querySelector('form')
+                  if (form && storedCsrfToken) {
+                    // Look for the csrf_token input field
+                    const csrfInput = form.querySelector('input[name="csrf_token"]') as HTMLInputElement
+                    if (csrfInput) {
+                      csrfInput.value = storedCsrfToken
+                      cy.log(`CSRF token set immediately before submission: ${storedCsrfToken}`)
+                    } else {
+                      // If no csrf_token input exists, create one
+                      const newCsrfInput = document.createElement('input')
+                      newCsrfInput.type = 'hidden'
+                      newCsrfInput.name = 'csrf_token'
+                      newCsrfInput.value = storedCsrfToken
+                      form.appendChild(newCsrfInput)
+                      cy.log(`Created and set CSRF token input: ${storedCsrfToken}`)
+                    }
+                  }
+                })
+
                 // Submit the form
                 cy.get('form button[type="submit"]').click()
 
+                // Log the current URL to see if we're redirected
+                cy.url().then(url => {
+                  cy.log(`URL after form submission: ${url}`)
+                })
+
                 // After successful sign-in, we should be redirected to the authorization page
-                // Look for the "Allow" button and click it
-                cy.contains('button', 'Allow', { timeout: 10000 }).should('be.visible').then(() => {
-                  // Get the CSRF token from the cookie we set earlier
-                  cy.getCookie('extracted-csrf-token').then(cookie => {
-                    if (cookie && cookie.value) {
-                      cy.log(`Using CSRF token for accept: ${cookie.value}`)
+                // Look for the "Accept" button and click it
+                cy.contains('button', 'Accept', { timeout: 10000 }).should('be.visible').then(() => {
+                  // Instead of modifying the onsubmit handler, ensure the CSRF token is set just before clicking the allow button
+                  cy.log(`Setting CSRF token in accept form: ${storedCsrfToken}`)
+                })
+
+                // Instead of making a direct request, go back to clicking the Accept button directly
+                cy.document().then(doc => {
+                  const form = doc.querySelector('form')
+                  if (form && storedCsrfToken) {
+                    // Set the CSRF token in the form
+                    const csrfInput = form.querySelector('input[name="csrf_token"]') as HTMLInputElement
+                    if (csrfInput) {
+                      csrfInput.value = storedCsrfToken
+                      cy.log(`CSRF token set in form: ${storedCsrfToken}`)
                     } else {
-                      cy.log('No CSRF token found in cookie for accept request')
+                      // If no csrf_token input exists, create one
+                      const newCsrfInput = document.createElement('input')
+                      newCsrfInput.type = 'hidden'
+                      newCsrfInput.name = 'csrf_token'
+                      newCsrfInput.value = storedCsrfToken
+                      form.appendChild(newCsrfInput)
+                      cy.log(`Created and set CSRF token input: ${storedCsrfToken}`)
                     }
-                    // Click the Allow button without intercepting the request
-                    cy.contains('button', 'Allow').click()
-                  })
+
+                    // Log the form action for debugging
+                    const formAction = form.getAttribute('action') || ''
+                    cy.log(`Form action: ${formAction}`)
+
+                    // Extract hidden fields for logging
+                    const hiddenFields: Record<string, string> = {}
+                    form.querySelectorAll('input[type="hidden"]').forEach((input) => {
+                      const inputElement = input as HTMLInputElement
+                      hiddenFields[inputElement.name] = inputElement.value
+                    })
+                    cy.log(`Hidden fields: ${JSON.stringify(hiddenFields)}`)
+
+                    // Click the Accept button directly
+                    cy.log('Clicking the Accept button directly')
+                    cy.contains('button', 'Accept').click()
+                  } else {
+                    cy.log('Form or CSRF token not found, cannot proceed with authorization')
+                  }
+                })
+
+                // Log the current URL to see if we're redirected
+                cy.url().then(url => {
+                  cy.log(`URL after authorization: ${url}`)
                 })
 
                 // Log the parameters we're using for debugging
                 cy.log(`Using request_uri: ${requestUri}`)
                 cy.log(`Using client_id: ${clientId}`)
+                if (storedCsrfToken) {
+                  cy.log(`Using stored CSRF token: ${storedCsrfToken}`)
+                }
               }
             )
           } else {
@@ -301,65 +567,134 @@ describe('Bluesky Authentication Flow (Fixed)', () => {
             cy.intercept('POST', '**/oauth/authorize/accept').as('accept')
             cy.intercept('GET', '**/api/v1/auth/bluesky/callback**').as('callback')
 
-            cy.origin(authOrigin, { args: { authUrl, password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'), requestUri, clientId } },
-              ({ authUrl, password, requestUri, clientId }) => {
+            // Add an intercept for the GET request to /oauth/authorize/accept
+            cy.intercept('GET', '**/oauth/authorize/accept**', (req) => {
+              // Modify the headers to set sec-fetch-dest to "document"
+              req.headers['sec-fetch-dest'] = 'document'
+              req.headers['sec-fetch-mode'] = 'navigate'
+              req.headers['sec-fetch-site'] = 'same-origin'
+
+              // Build the cookie header using the captured cookies
+              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
+                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
+                req.headers.cookie = cookieHeader
+                cy.log(`Setting cookie header for GET request: ${cookieHeader}`)
+              }
+
+              // Set additional headers that might be needed
+              req.headers.accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+              req.headers['accept-language'] = 'en-US,en;q=0.9'
+              req.headers['upgrade-insecure-requests'] = '1'
+              req.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+              cy.log('Modified headers for GET /oauth/authorize/accept request')
+              cy.log(`sec-fetch-dest: ${req.headers['sec-fetch-dest']}`)
+              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
+            }).as('acceptGet')
+
+            cy.origin(authOrigin, { args: { authUrl, password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'), requestUri, clientId, storedCsrfToken } },
+              ({ authUrl, password, requestUri, clientId, storedCsrfToken }) => {
                 // Visit the auth URL directly in the main window
                 cy.visit(authUrl)
-
-                // Extract CSRF token from the page after it loads
-                cy.window().then(() => {
-                  // Look for the CSRF token in document.cookie
-                  cy.document().then(doc => {
-                    const cookies = doc.cookie.split(';').map(c => c.trim())
-                    cy.log(`Available cookies: ${cookies.join(', ')}`)
-
-                    // Look for a cookie that starts with 'csrf-'
-                    const csrfCookie = cookies.find(c => c.startsWith('csrf-'))
-                    if (csrfCookie) {
-                      const csrfToken = csrfCookie.split('=')[1]
-                      cy.log(`Found CSRF token in cookie: ${csrfToken}`)
-                      cy.setCookie('extracted-csrf-token', csrfToken)
-                    } else {
-                      // If not found in cookies, try to extract it from the HTML
-                      const html = doc.documentElement.outerHTML
-                      const csrfInputMatch = html.match(/<input[^>]*name="csrf"[^>]*value="([^"]+)"/)
-
-                      if (csrfInputMatch) {
-                        const extractedCsrfToken = csrfInputMatch[1]
-                        cy.log(`Found CSRF token in HTML: ${extractedCsrfToken}`)
-                        cy.setCookie('extracted-csrf-token', extractedCsrfToken)
-                      } else {
-                        cy.log('Could not find CSRF token in cookies or HTML')
-                      }
-                    }
-                  })
-                })
 
                 // Wait for initial OAuth page to load and fill in the password
                 cy.get('input[type="password"]', { timeout: 10000 }).should('be.visible')
                 cy.get('input[type="password"]').type(password, { force: true })
 
+                // Log the CSRF token we're using
+                cy.log('*************************************')
+                cy.log(`***** USING CSRF TOKEN IN ORIGIN: ${storedCsrfToken} *****`)
+                cy.log('*************************************')
+
+                // Instead of modifying the onsubmit handler, ensure the CSRF token is set just before clicking the submit button
+                cy.log(`Setting CSRF token in form: ${storedCsrfToken}`)
+
+                // Set the CSRF token again right before clicking the submit button
+                cy.document().then(doc => {
+                  const form = doc.querySelector('form')
+                  if (form && storedCsrfToken) {
+                    // Look for the csrf_token input field
+                    const csrfInput = form.querySelector('input[name="csrf_token"]') as HTMLInputElement
+                    if (csrfInput) {
+                      csrfInput.value = storedCsrfToken
+                      cy.log(`CSRF token set immediately before submission: ${storedCsrfToken}`)
+                    } else {
+                      // If no csrf_token input exists, create one
+                      const newCsrfInput = document.createElement('input')
+                      newCsrfInput.type = 'hidden'
+                      newCsrfInput.name = 'csrf_token'
+                      newCsrfInput.value = storedCsrfToken
+                      form.appendChild(newCsrfInput)
+                      cy.log(`Created and set CSRF token input: ${storedCsrfToken}`)
+                    }
+                  }
+                })
+
                 // Submit the form
                 cy.get('form button[type="submit"]').click()
 
+                // Log the current URL to see if we're redirected
+                cy.url().then(url => {
+                  cy.log(`URL after form submission: ${url}`)
+                })
+
                 // After successful sign-in, we should be redirected to the authorization page
-                // Look for the "Allow" button and click it
-                cy.contains('button', 'Allow', { timeout: 10000 }).should('be.visible').then(() => {
-                  // Get the CSRF token from the cookie we set earlier
-                  cy.getCookie('extracted-csrf-token').then(cookie => {
-                    if (cookie && cookie.value) {
-                      cy.log(`Using CSRF token for accept: ${cookie.value}`)
+                // Look for the "Accept" button and click it
+                cy.contains('button', 'Accept', { timeout: 10000 }).should('be.visible').then(() => {
+                  // Instead of modifying the onsubmit handler, ensure the CSRF token is set just before clicking the allow button
+                  cy.log(`Setting CSRF token in accept form: ${storedCsrfToken}`)
+                })
+
+                // Instead of making a direct request, go back to clicking the Accept button directly
+                cy.document().then(doc => {
+                  const form = doc.querySelector('form')
+                  if (form && storedCsrfToken) {
+                    // Set the CSRF token in the form
+                    const csrfInput = form.querySelector('input[name="csrf_token"]') as HTMLInputElement
+                    if (csrfInput) {
+                      csrfInput.value = storedCsrfToken
+                      cy.log(`CSRF token set in form: ${storedCsrfToken}`)
                     } else {
-                      cy.log('No CSRF token found in cookie for accept request')
+                      // If no csrf_token input exists, create one
+                      const newCsrfInput = document.createElement('input')
+                      newCsrfInput.type = 'hidden'
+                      newCsrfInput.name = 'csrf_token'
+                      newCsrfInput.value = storedCsrfToken
+                      form.appendChild(newCsrfInput)
+                      cy.log(`Created and set CSRF token input: ${storedCsrfToken}`)
                     }
-                    // Click the Allow button without intercepting the request
-                    cy.contains('button', 'Allow').click()
-                  })
+
+                    // Log the form action for debugging
+                    const formAction = form.getAttribute('action') || ''
+                    cy.log(`Form action: ${formAction}`)
+
+                    // Extract hidden fields for logging
+                    const hiddenFields: Record<string, string> = {}
+                    form.querySelectorAll('input[type="hidden"]').forEach((input) => {
+                      const inputElement = input as HTMLInputElement
+                      hiddenFields[inputElement.name] = inputElement.value
+                    })
+                    cy.log(`Hidden fields: ${JSON.stringify(hiddenFields)}`)
+
+                    // Click the Accept button directly
+                    cy.log('Clicking the Accept button directly')
+                    cy.contains('button', 'Accept').click()
+                  } else {
+                    cy.log('Form or CSRF token not found, cannot proceed with authorization')
+                  }
+                })
+
+                // Log the current URL to see if we're redirected
+                cy.url().then(url => {
+                  cy.log(`URL after authorization: ${url}`)
                 })
 
                 // Log the parameters we're using for debugging
                 cy.log(`Using request_uri: ${requestUri}`)
                 cy.log(`Using client_id: ${clientId}`)
+                if (storedCsrfToken) {
+                  cy.log(`Using stored CSRF token: ${storedCsrfToken}`)
+                }
               }
             )
           }
