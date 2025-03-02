@@ -14,6 +14,14 @@ export default defineConfig({
   e2e: {
     setupNodeEvents (on, config) {
       registerCodeCoverageTasks(on, config)
+
+      on('task', {
+        log (message) {
+          console.log(message)
+          return null
+        }
+      })
+
       return config
     },
     env: {
@@ -34,6 +42,14 @@ export default defineConfig({
   component: {
     setupNodeEvents (on, config) {
       registerCodeCoverageTasks(on, config)
+
+      on('task', {
+        log (message) {
+          console.log(message)
+          return null
+        }
+      })
+
       return config
     },
     supportFile: 'test/cypress/support/component.ts',

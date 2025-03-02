@@ -3,6 +3,15 @@
   // It can be removed when https://github.com/cypress-io/cypress/issues/26203 will be fixed
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "sourceMap": false
-  }
+    "target": "es5",
+    "lib": ["es5", "dom"],
+    "types": ["cypress", "node"],
+    "allowJs": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts"]
 }
