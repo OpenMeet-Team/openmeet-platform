@@ -1,19 +1,5 @@
 /// <reference types="cypress" />
 
-// interface AuthWindow extends Window {
-//   __authorizeData: {
-//     clientId: string,
-//     clientMetadata: Record<string, unknown>,
-//     clientTrusted: boolean,
-//     requestUri: string,
-//     csrfCookie: string,
-//     loginHint: string,
-//     newSessionsRequireConsent: boolean,
-//     scopeDetails: Array<{scope: string}>,
-//     sessions: unknown[]
-//   }
-// }
-
 describe('Bluesky Login Flow', () => {
   beforeEach(() => {
     // Reset application state before each test

@@ -62,18 +62,14 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
         allCookies = Array.isArray(setCookieHeader) ? setCookieHeader.join('; ') : setCookieHeader.toString()
         cy.log('All cookies:', allCookies)
 
-        // The cookie name is based on the request_uri parameter
-        const cookieStr = allCookies
-        cy.log('Cookie string:', cookieStr)
-
         // Extract device-id and session-id cookies
-        const deviceIdMatch = cookieStr.match(/device-id=([^;]+)/)
+        const deviceIdMatch = allCookies.match(/device-id=([^;]+)/)
         if (deviceIdMatch) {
           deviceIdCookie = deviceIdMatch[1]
           cy.log(`Device ID cookie: ${deviceIdCookie}`)
         }
 
-        const sessionIdMatch = cookieStr.match(/session-id=([^;]+)/)
+        const sessionIdMatch = allCookies.match(/session-id=([^;]+)/)
         if (sessionIdMatch) {
           sessionIdCookie = sessionIdMatch[1]
           cy.log(`Session ID cookie: ${sessionIdCookie}`)
@@ -82,7 +78,7 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
         // Look for a cookie that starts with 'csrf-' followed by the request_uri value
         if (requestUri) {
           const csrfCookieRegex = new RegExp(`csrf-${requestUri.replace(/:/g, '\\:').replace(/\./g, '\\.').replace(/\//g, '\\/')}=([^;]+)`)
-          const csrfCookieMatch = cookieStr.match(csrfCookieRegex)
+          const csrfCookieMatch = allCookies.match(csrfCookieRegex)
 
           if (csrfCookieMatch) {
             storedCsrfToken = csrfCookieMatch[1]
@@ -91,24 +87,17 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
             cy.log('*************************************')
           } else {
             // Try a more generic pattern if exact match fails
-            const genericCsrfMatch = cookieStr.match(/csrf-([^=]+)=([^;]+)/)
+            const genericCsrfMatch = allCookies.match(/csrf-([^=]+)=([^;]+)/)
             if (genericCsrfMatch) {
               storedCsrfToken = genericCsrfMatch[2]
               cy.log('*************************************')
               cy.log(`***** CSRF TOKEN FOUND (GENERIC MATCH): ${storedCsrfToken} *****`)
               cy.log('*************************************')
-            } else {
-              cy.log('No CSRF cookie found in Set-Cookie header')
             }
           }
         }
-      } else {
-        cy.log('No Set-Cookie header found in response')
       }
     })
-
-    cy.log('Modified headers for GET /oauth/authorize request')
-    cy.log(`Headers: ${JSON.stringify(req.headers)}`)
   }).as('initialOAuth')
 
   cy.intercept('GET', '**/oauth/authorize**').as('oauthAuthorizeRequest')
@@ -117,106 +106,65 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
   cy.intercept('POST', '**/bsky.social/oauth/authorize/sign-in', (req) => {
     cy.log('DEBUG: Sign-in request intercepted')
 
-    // Use the stored CSRF token if available
-    if (storedCsrfToken) {
-      cy.log(`Using stored CSRF token: ${storedCsrfToken}`)
-
-      // Add more prominent logging
-      cy.log('*************************************')
-      cy.log(`***** USING CSRF TOKEN FOR SIGN-IN: ${storedCsrfToken} *****`)
-      cy.log('*************************************')
-    } else {
-      cy.log('WARNING: No CSRF token found for sign-in request, this will likely fail')
-      return
-    }
-
-    // Ensure requestUri and clientId are defined
-    if (!requestUri || !clientId) {
-      cy.log('WARNING: requestUri or clientId is undefined')
-      return
-    }
-
-    // Build the cookie header using the captured cookies
-    let cookieHeader = ''
-    if (deviceIdCookie) {
-      cookieHeader += `device-id=${deviceIdCookie}; `
-    }
-    if (sessionIdCookie) {
-      cookieHeader += `session-id=${sessionIdCookie}; `
-    }
-    cookieHeader += `csrf-${requestUri}=${storedCsrfToken}`
-
-    cy.log('Using cookie header:', cookieHeader)
-
     // Ensure the CSRF token is set in both headers and body
-    req.headers = {
-      ...req.headers,
-      cookie: cookieHeader,
-      'x-csrf-token': storedCsrfToken,
-      'sec-fetch-mode': 'same-origin',
-      'sec-fetch-site': 'same-origin',
-      'sec-fetch-dest': 'empty',
-      'content-type': 'application/json',
-      accept: '*/*',
-      'accept-language': 'en-US,en;q=0.5',
-      'accept-encoding': 'gzip, deflate, br, zstd',
-      origin: 'https://bsky.social',
-      referer: `https://bsky.social/oauth/authorize?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(requestUri)}`,
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
-    }
+    if (storedCsrfToken && requestUri && clientId) {
+      // Build the cookie header
+      const cookieHeader = `device-id=${deviceIdCookie || ''}; session-id=${sessionIdCookie || ''}; csrf-${requestUri}=${storedCsrfToken}`
 
-    // The request body must include both csrf_token and request_uri
-    req.body = {
-      csrf_token: storedCsrfToken,
-      request_uri: requestUri,
-      client_id: clientId,
-      credentials: {
-        username: Cypress.env('APP_TESTING_BLUESKY_HANDLE'),
-        password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
-        remember: false
+      // Set headers
+      req.headers = {
+        ...req.headers,
+        cookie: cookieHeader,
+        'x-csrf-token': storedCsrfToken,
+        'sec-fetch-mode': 'same-origin',
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-dest': 'empty',
+        'content-type': 'application/json',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0',
+        referer: `https://bsky.social/oauth/authorize?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(requestUri)}`
       }
+
+      // Set body
+      req.body = {
+        csrf_token: storedCsrfToken,
+        request_uri: requestUri,
+        client_id: clientId,
+        credentials: {
+          username: Cypress.env('APP_TESTING_BLUESKY_HANDLE'),
+          password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
+          remember: false
+        }
+      }
+
+      cy.log(`***** SIGN-IN REQUEST CSRF TOKEN: ${req.body.csrf_token} *****`)
     }
-
-    cy.log('Sign-in request headers:', JSON.stringify(req.headers))
-    cy.log('Sign-in request body:', JSON.stringify(req.body))
-
-    // Log the actual request that will be sent
-    cy.log('*************************************')
-    cy.log(`***** SIGN-IN REQUEST CSRF TOKEN: ${req.body.csrf_token} *****`)
-    cy.log(`***** SIGN-IN REQUEST URI: ${req.body.request_uri} *****`)
-    cy.log('*************************************')
   }).as('oauthSignInRequest')
 
   // Add intercept for the accept request to set cookies and CSRF token
   cy.intercept('GET', '**/oauth/authorize/accept**', (req) => {
-    // Set required security headers
-    req.headers['sec-fetch-mode'] = 'navigate'
-    req.headers['sec-fetch-dest'] = 'document'
-    req.headers['sec-fetch-site'] = 'same-origin'
-    req.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
-
     // Set cookies if available
-    if (deviceIdCookie) {
-      req.headers.cookie = `device-id=${deviceIdCookie}`
-      if (sessionIdCookie) {
-        req.headers.cookie += `; session-id=${sessionIdCookie}`
-      }
-      if (storedCsrfToken && requestUri) {
-        req.headers.cookie += `; csrf-${requestUri}=${storedCsrfToken}`
-      }
-      cy.log(`Setting cookies for accept request: ${req.headers.cookie}`)
-    }
+    if (storedCsrfToken && requestUri) {
+      // Build cookie header
+      const cookieHeader = `device-id=${deviceIdCookie || ''}; session-id=${sessionIdCookie || ''}; csrf-${requestUri}=${storedCsrfToken}`
 
-    // Add CSRF token to URL if available
-    if (storedCsrfToken) {
+      // Set headers
+      req.headers = {
+        ...req.headers,
+        cookie: cookieHeader,
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
+      }
+
+      // Add CSRF token to URL
       const url = new URL(req.url)
       url.searchParams.set('csrf_token', storedCsrfToken)
       req.url = url.toString()
+
+      cy.log(`Setting cookie header for GET request: ${cookieHeader}`)
       cy.log(`Modified URL to include CSRF token: ${req.url}`)
     }
-
-    cy.log('Modified headers for GET /oauth/authorize/accept request')
-    cy.log(`Headers: ${JSON.stringify(req.headers)}`)
   }).as('acceptGet')
 
   cy.intercept('GET', '**/api/v1/auth/bluesky/callback**').as('callback')
@@ -326,116 +274,21 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
           }
         }
 
-        // Check if window.open was called and get the URL
+        // Get the window.open stub to check if it was called
         cy.get('@windowOpen').then(windowOpen => {
-          // Cast to unknown first to avoid type errors
-          const stub = windowOpen as unknown as { called: boolean; args: Array<Array<string>> }
-
-          // If window.open was called, we need to handle it
-          if (stub.called) {
+          // Check if window.open was called
+          if ((windowOpen as unknown as { called: boolean }).called) {
             cy.log('window.open was called, handling it directly')
-            // Get the URL that window.open was called with
-            const popupUrl = stub.args[0][0]
+
+            // Get the URL that was passed to window.open
+            const popupUrl = (windowOpen as unknown as { args: Array<Array<string>> }).args[0][0]
             cy.log(`Popup URL: ${popupUrl}`)
 
-            // Instead of opening in a popup, we'll visit it directly
-            const authOrigin = new URL(authUrl).origin
+            // Extract the origin from the popup URL
+            const popupUrlObj = new URL(popupUrl)
+            const authOrigin = popupUrlObj.origin
 
-            // Set up all intercepts before cy.origin
-            cy.intercept('POST', '**/oauth/authorize/sign-in', (req) => {
-              // Set required security headers
-              req.headers['sec-fetch-mode'] = 'same-origin'
-              req.headers['sec-fetch-site'] = 'same-origin'
-              req.headers['sec-fetch-dest'] = 'empty'
-
-              // Set the CSRF token in the header
-              if (storedCsrfToken) {
-                req.headers['x-csrf-token'] = storedCsrfToken
-              }
-
-              // Set cookies
-              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
-                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
-                req.headers.cookie = cookieHeader
-              }
-
-              cy.log('Modified headers for POST /oauth/authorize/sign-in request')
-              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
-            }).as('signIn')
-
-            cy.intercept('GET', '**/oauth/authorize/decide', (req) => {
-              // Set required security headers
-              req.headers['sec-fetch-mode'] = 'navigate'
-              req.headers['sec-fetch-site'] = 'same-origin'
-              req.headers['sec-fetch-dest'] = 'document'
-
-              // Set cookies
-              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
-                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
-                req.headers.cookie = cookieHeader
-              }
-
-              cy.log('Modified headers for GET /oauth/authorize/decide request')
-              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
-            }).as('decide')
-
-            cy.intercept('POST', '**/oauth/authorize/accept', (req) => {
-              // Set required security headers
-              req.headers['sec-fetch-mode'] = 'same-origin'
-              req.headers['sec-fetch-site'] = 'same-origin'
-              req.headers['sec-fetch-dest'] = 'empty'
-
-              // Set the CSRF token in the header
-              if (storedCsrfToken) {
-                req.headers['x-csrf-token'] = storedCsrfToken
-              }
-
-              // Set cookies
-              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
-                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
-                req.headers.cookie = cookieHeader
-              }
-
-              cy.log('Modified headers for POST /oauth/authorize/accept request')
-              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
-            }).as('accept')
-
-            cy.intercept('GET', '**/api/v1/auth/bluesky/callback**').as('callback')
-
-            // Add an intercept for the GET request to /oauth/authorize/accept
-            cy.intercept('GET', '**/oauth/authorize/accept**', (req) => {
-              // Modify the headers to set sec-fetch-dest to "document"
-              req.headers['sec-fetch-dest'] = 'document'
-              req.headers['sec-fetch-mode'] = 'navigate'
-              req.headers['sec-fetch-site'] = 'same-origin'
-
-              // Build the cookie header using the captured cookies
-              if (deviceIdCookie && sessionIdCookie && storedCsrfToken && requestUri) {
-                const cookieHeader = `device-id=${deviceIdCookie}; session-id=${sessionIdCookie}; csrf-${requestUri}=${storedCsrfToken}`
-                req.headers.cookie = cookieHeader
-                cy.log(`Setting cookie header for GET request: ${cookieHeader}`)
-              }
-
-              // Set additional headers that might be needed
-              req.headers.accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
-              req.headers['accept-language'] = 'en-US,en;q=0.9'
-              req.headers['upgrade-insecure-requests'] = '1'
-              req.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-
-              // Fix the URL to include the CSRF token properly
-              const url = new URL(req.url)
-              if (storedCsrfToken) {
-                url.searchParams.set('csrf_token', storedCsrfToken)
-                req.url = url.toString()
-                cy.log(`Modified URL to include CSRF token: ${req.url}`)
-              }
-
-              cy.log('Modified headers for GET /oauth/authorize/accept request')
-              cy.log(`sec-fetch-dest: ${req.headers['sec-fetch-dest']}`)
-              cy.log(`Headers: ${JSON.stringify(req.headers)}`)
-            }).as('acceptGet')
-
-            // Define the type for the origin arguments
+            // Define the OriginArgs interface
             interface OriginArgs {
               authUrl: string;
               password: string;
@@ -446,74 +299,10 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
               sessionIdCookie: string | undefined;
             }
 
-            const originArgs: OriginArgs = {
-              authUrl,
-              password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
-              requestUri,
-              clientId,
-              storedCsrfToken,
-              deviceIdCookie,
-              sessionIdCookie
-            }
-
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            // Define the origin callback function
             const originCallback = (args: OriginArgs) => {
-              const { authUrl, password, requestUri, storedCsrfToken, deviceIdCookie, sessionIdCookie } = args
-              // We don't need clientId in this function anymore
-
-              // Set up a beforeEach hook to ensure headers are set for all requests
-              Cypress.on('window:before:load', (win) => {
-                // Override fetch to add headers
-                const originalFetch = win.fetch
-                win.fetch = function (input, init) {
-                  init = init || {}
-                  init.headers = init.headers || {}
-
-                  // Add sec-fetch headers - use type assertion to avoid TypeScript errors
-                  const headers = init.headers as Record<string, string>
-
-                  // Check if this is a POST request to the sign-in endpoint
-                  const url = typeof input === 'string' ? input : input instanceof Request ? input.url : ''
-                  if (url.includes('/oauth/authorize/sign-in')) {
-                    headers['sec-fetch-mode'] = 'same-origin'
-                    headers['sec-fetch-dest'] = 'empty'
-                    headers['sec-fetch-site'] = 'same-origin'
-                  } else {
-                    // For other requests, use navigate
-                    headers['sec-fetch-mode'] = 'navigate'
-                    headers['sec-fetch-dest'] = 'document'
-                    headers['sec-fetch-site'] = 'same-origin'
-                  }
-
-                  // Add cookies if available
-                  if (deviceIdCookie || sessionIdCookie) {
-                    let cookieStr = ''
-                    if (deviceIdCookie) {
-                      cookieStr += `device-id=${deviceIdCookie};`
-                    }
-                    if (sessionIdCookie) {
-                      cookieStr += ` session-id=${sessionIdCookie};`
-                    }
-                    if (storedCsrfToken && requestUri) {
-                      cookieStr += ` csrf-${requestUri}=${storedCsrfToken};`
-                    }
-                    headers.cookie = cookieStr
-                  }
-
-                  return originalFetch.call(this, input, init)
-                }
-
-                // Set cookies directly on the document
-                if (deviceIdCookie) {
-                  win.document.cookie = `device-id=${deviceIdCookie}; path=/; domain=.bsky.social`
-                }
-                if (sessionIdCookie) {
-                  win.document.cookie = `session-id=${sessionIdCookie}; path=/; domain=.bsky.social`
-                }
-                if (storedCsrfToken && requestUri) {
-                  win.document.cookie = `csrf-${requestUri}=${storedCsrfToken}; path=/; domain=.bsky.social`
-                }
-              })
+              const { authUrl, password, storedCsrfToken } = args
+              // We don't need clientId, requestUri, deviceIdCookie, or sessionIdCookie in this function
 
               // Visit the auth URL directly in the main window
               cy.visit(authUrl, {
@@ -522,54 +311,7 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
                   'sec-fetch-dest': 'document',
                   'sec-fetch-site': 'none',
                   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0'
-                },
-                onBeforeLoad: (win) => {
-                  // Override XMLHttpRequest to add headers
-                  const originalOpen = win.XMLHttpRequest.prototype.open
-
-                  // Use a type-safe approach for the open method
-                  win.XMLHttpRequest.prototype.open = function (method: string, url: string, async: boolean = true, username?: string | null, password?: string | null) {
-                    const result = originalOpen.call(this, method, url, async, username || null, password || null)
-
-                    // Set appropriate headers based on the request URL
-                    if (url.includes('/oauth/authorize/sign-in')) {
-                      this.setRequestHeader('sec-fetch-mode', 'same-origin')
-                      this.setRequestHeader('sec-fetch-dest', 'empty')
-                      this.setRequestHeader('sec-fetch-site', 'same-origin')
-                    } else {
-                      this.setRequestHeader('sec-fetch-mode', 'navigate')
-                      this.setRequestHeader('sec-fetch-dest', 'document')
-                      this.setRequestHeader('sec-fetch-site', 'same-origin')
-                    }
-
-                    return result
-                  }
-
-                  // Set cookies directly on the document
-                  if (deviceIdCookie) {
-                    win.document.cookie = `device-id=${deviceIdCookie}; path=/; domain=.bsky.social`
-                  }
-                  if (sessionIdCookie) {
-                    win.document.cookie = `session-id=${sessionIdCookie}; path=/; domain=.bsky.social`
-                  }
-                  if (storedCsrfToken && requestUri) {
-                    win.document.cookie = `csrf-${requestUri}=${storedCsrfToken}; path=/; domain=.bsky.social`
-                  }
                 }
-              })
-
-              // Wait for the page to load and check what elements are available
-              cy.document().then(doc => {
-                // Log all input elements to debug
-                const inputs = doc.querySelectorAll('input')
-                cy.log(`Found ${inputs.length} input elements on the page`)
-                inputs.forEach((input, index) => {
-                  cy.log(`Input ${index}: type=${input.type}, name=${input.name}, id=${input.id}`)
-                })
-
-                // Log all form elements
-                const forms = doc.querySelectorAll('form')
-                cy.log(`Found ${forms.length} form elements on the page`)
               })
 
               // Try different selectors for the password input
@@ -603,27 +345,11 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
                     form.appendChild(input)
                     cy.log(`Created and added CSRF token input to form: ${storedCsrfToken}`)
                   }
-
-                  // Also set cookies directly on the document again
-                  if (deviceIdCookie) {
-                    doc.cookie = `device-id=${deviceIdCookie}; path=/; domain=.bsky.social`
-                  }
-                  if (sessionIdCookie) {
-                    doc.cookie = `session-id=${sessionIdCookie}; path=/; domain=.bsky.social`
-                  }
-                  if (requestUri) {
-                    doc.cookie = `csrf-${requestUri}=${storedCsrfToken}; path=/; domain=.bsky.social`
-                  }
                 }
               })
 
               // Submit the form by clicking the submit button
               cy.get('form button[type="submit"]').click()
-
-              // Log the current URL to see if we're redirected
-              cy.url().then(url => {
-                cy.log(`URL after form submission: ${url}`)
-              })
 
               // After successful sign-in, we should be redirected to the authorization page
               // Look for the "Accept" button and click it
@@ -654,12 +380,18 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
 
                 // Click the Accept button
                 cy.contains('button', 'Accept').click()
-
-                // Log the current URL to see if we're redirected
-                cy.url().then(url => {
-                  cy.log(`URL after authorization: ${url}`)
-                })
               })
+            }
+
+            // Call the origin function with the necessary arguments
+            const originArgs: OriginArgs = {
+              authUrl,
+              password: Cypress.env('APP_TESTING_BLUESKY_PASSWORD'),
+              requestUri,
+              clientId,
+              storedCsrfToken,
+              deviceIdCookie,
+              sessionIdCookie
             }
 
             cy.origin(authOrigin, { args: originArgs }, originCallback)
@@ -676,25 +408,6 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
             // Verify we're redirected to / (root path of any domain)
             cy.url({ timeout: 10000 }).should('match', /^https?:\/\/[^/]+\/?$/).then((url) => {
               cy.log(`Successfully redirected to: ${url}`)
-            })
-
-            // Verify user data is loaded correctly
-            cy.window().then(win => {
-              // Check for user data in localStorage
-              const userDataRaw = win.localStorage.getItem('user')
-              cy.wrap(userDataRaw).should('not.be.null')
-
-              // Check for auth token
-              const authTokenRaw = win.localStorage.getItem('token')
-              cy.wrap(authTokenRaw).should('not.be.null')
-
-              // Handle Quasar's special string format if present
-              if (userDataRaw && userDataRaw.startsWith('__q_strn|')) {
-                // Extract the JSON part after the prefix
-                const userData = JSON.parse(userDataRaw.substring(9))
-                cy.log('Parsed Quasar-formatted user data')
-                cy.log(`User data: ${JSON.stringify(userData)}`)
-              }
             })
           }
         })
