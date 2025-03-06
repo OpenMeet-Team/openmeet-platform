@@ -10,9 +10,10 @@ import { useRouter } from 'vue-router'
 import { getImageSrc } from '../../utils/imageUtils'
 import { useNavigation } from '../../composables/useNavigation'
 import { GroupEntity, EventEntity } from '../../types'
-import { formatDate } from '../../utils/dateUtils'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
+import { useGroupDialog } from '../../composables/useGroupDialog'
+import { useEventDialog } from '../../composables/useEventDialog'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -23,10 +24,11 @@ const userRecentEventDrafts = computed(
 )
 const userUpcomingEvents = computed(() => useHomeStore().userUpcomingEvents)
 const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
-const userInterests = computed(() => useHomeStore().userInterests)
 const router = useRouter()
 
 const { navigateToEvent } = useNavigation()
+const { openCreateGroupDialog } = useGroupDialog()
+const { openCreateEventDialog } = useEventDialog()
 
 onMounted(() => {
   LoadingBar.start()
@@ -43,210 +45,259 @@ const onCreateEvent = (group: GroupEntity) => {
     <SpinnerComponent v-if="useHomeStore().loading" />
 
     <div v-if="!useHomeStore().loading">
-      <!-- Content for authorized users -->
-      <div>
-        <div class="text-h2">
-          {{
-            useAuthStore().getUser.name
-              ? `Welcome back, ${useAuthStore().getUser.name}!`
-              : "Welcome!"
-          }}
+      <!-- Introduction to OpenMeet -->
+      <q-card flat bordered class="q-mb-md bg-purple-100">
+        <q-card-section>
+          <div class="text-h5 q-mb-md text-purple-400">Welcome to OpenMeet, {{ useAuthStore().getUser.name || 'there' }}!</div>
+          <p>
+            OpenMeet is a platform that helps you connect with like-minded people through
+            groups and events. Create your own groups, organize events, or join existing
+            communities to expand your network and share your interests.
+          </p>
+          <p class="q-mt-md">
+            Get started by:
+          </p>
+          <div class="row q-col-gutter-md q-mt-sm">
+            <!-- Browse actions in purple-300 -->
+            <div class="col-auto">
+              <q-btn
+                color="purple-300"
+                to="/groups"
+                label="Browse Groups"
+                icon="sym_r_group"
+                no-caps
+                unelevated
+                class="q-px-md"
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                color="purple-300"
+                to="/events"
+                label="Browse Events"
+                icon="sym_r_event"
+                no-caps
+                unelevated
+                class="q-px-md"
+              />
+            </div>
+
+            <!-- Create actions in purple-400 -->
+            <div class="col-auto">
+              <q-btn
+                color="purple-400"
+                icon="sym_r_add_circle"
+                label="Create Group"
+                no-caps
+                unelevated
+                class="q-px-md"
+                @click="openCreateGroupDialog()"
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                color="purple-400"
+                icon="sym_r_add_circle"
+                label="Create Event"
+                no-caps
+                unelevated
+                class="q-px-md"
+                @click="openCreateEventDialog()"
+              />
+            </div>
+
+            <!-- Profile action in purple-200 -->
+            <div class="col-auto">
+              <q-btn
+                color="purple-200"
+                to="/dashboard/profile"
+                label="Update Profile"
+                icon="sym_r_settings"
+                no-caps
+                unelevated
+                class="q-px-md"
+              />
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Main content area -->
+      <div class="row q-col-gutter-xl q-mt-md">
+        <!-- Left column - Groups -->
+        <div class="col-12 col-md-6">
+          <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Your Groups</div>
+
+          <!-- Groups you organize -->
+          <GroupsListComponent
+            data-cy="home-user-organized-groups-component"
+            :groups="userOrganizedGroups"
+            :show-pagination="false"
+            :current-page="1"
+            empty-message="You have no groups yet"
+            label="Groups you organize"
+            layout="list"
+            :hide-link="true"
+          >
+            <template #item-actions="{ group }">
+              <q-btn
+                dense
+                color="purple-400"
+                size="md"
+                no-caps
+                icon="sym_r_add_circle"
+                @click.stop="onCreateEvent(group)"
+                label="Create event"
+                unelevated
+              />
+            </template>
+          </GroupsListComponent>
+
+          <!-- Groups you're part of -->
+          <GroupsListComponent
+            class="q-mt-xl"
+            data-cy="home-user-member-groups-item-component"
+            :groups="userMemberGroups ?? []"
+            :show-pagination="false"
+            empty-message="You are not a member of any groups"
+            layout="list"
+            :current-page="1"
+            label="Groups you're part of"
+            :hide-link="true"
+            :count="userMemberGroups?.length"
+            :to="{ name: 'DashboardGroupsPage' }"
+          >
+            <template #empty>
+              <NoContentComponent
+                button-label="Browse groups"
+                icon="sym_r_group"
+                label="You are not a member of any groups"
+                :to="{ name: 'GroupsPage' }"
+              />
+            </template>
+          </GroupsListComponent>
         </div>
 
-        <div class="row q-col-gutter-xl q-mt-md">
-          <div class="col-12 col-md-7">
-            <!-- Groups you organize -->
-            <GroupsListComponent
-              data-cy="home-user-organized-groups-component"
-              :groups="userOrganizedGroups"
-              :show-pagination="false"
-              :current-page="1"
-              empty-message="You have no groups yet"
-              label="Groups you organize"
-              layout="list"
-            >
-              <template #item-actions="{ group }">
-                <q-btn
-                  dense
-                  color="primary"
-                  size="md"
-                  no-caps
-                  icon="sym_r_add_circle"
-                  @click.stop="onCreateEvent(group)"
-                  label="Create event"
-                />
-              </template>
-            </GroupsListComponent>
-          </div>
-          <div class="col-12 col-md-5">
-            <!-- Next event you're hosting -->
-            <SubtitleComponent
-              class="q-px-md"
-              label="Next events you're hosting"
-              :to="{ name: 'DashboardEventsPage' }"
-            />
-            <q-card flat bordered class="q-mb-md">
-              <q-card-section v-if="userNextHostedEvent">
-                <q-item
-                  data-cy="next-hosted-event-item-component"
-                  v-ripple
-                  clickable
-                  @click="navigateToEvent(userNextHostedEvent)"
-                >
-                  <q-item-section thumbnail>
-                    <img :src="getImageSrc(userNextHostedEvent.image)" />
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="text-bold">{{
-                      userNextHostedEvent.name
-                    }}</q-item-label>
-                    <q-item-label caption>{{
-                      formatDate(userNextHostedEvent.startDate)
-                    }}</q-item-label>
-                    <q-item-label>{{
-                      userNextHostedEvent.location
-                    }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-card-section>
+        <!-- Right column - Events -->
+        <div class="col-12 col-md-6">
+          <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Your Events</div>
+
+          <!-- Events you're hosting -->
+          <EventsListComponent
+            data-cy="home-user-hosted-events-component"
+            :events="userNextHostedEvent ? [userNextHostedEvent] : []"
+            :show-pagination="false"
+            :current-page="1"
+            empty-message="You have no hosting events"
+            label="Events you're hosting"
+            layout="list"
+            :hide-link="true"
+            :to="{ name: 'DashboardEventsPage' }"
+          >
+            <template #empty>
               <NoContentComponent
-                v-if="!userNextHostedEvent"
                 icon="sym_r_event"
                 button-label="Create your own event"
                 :to="{ name: 'DashboardEventsPage' }"
-                label="You have no hosting event"
+                label="You have no hosting events"
               />
-            </q-card>
-
-            <!-- Recent event drafts -->
-            <template v-if="userRecentEventDrafts?.length">
-              <SubtitleComponent
-                class="q-px-md"
-                label="Recent event drafts"
-                hide-link
-              />
-              <q-card flat bordered class="q-mb-md">
-                <q-card-section v-if="userRecentEventDrafts?.length">
-                  <q-list>
-                    <q-item
-                      data-cy="home-user-recent-event-drafts-item-component"
-                      clickable
-                      v-ripple
-                      v-for="event in userRecentEventDrafts"
-                      :key="event.id"
-                      @click="navigateToEvent(event)"
-                    >
-                      <q-item-section thumbnail>
-                        <q-img :src="getImageSrc(event.image)" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>{{ event.name }}</q-item-label>
-                        <q-item-label caption>{{
-                          event.group?.name
-                        }}</q-item-label>
-                        <q-item-label caption>draft</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-card-section>
-                <NoContentComponent
-                  v-if="!userRecentEventDrafts?.length"
-                  icon="sym_r_event"
-                  button-label="Create your own event"
-                  :to="{ name: 'DashboardEventsPage' }"
-                  label="You have no recent event drafts"
-                />
-              </q-card>
             </template>
-          </div>
-        </div>
+          </EventsListComponent>
 
-        <div class="text-h5 text-bold q-my-xl q-px-md">Upcoming events</div>
-        <div class="row q-col-gutter-xl">
-          <div class="col-12 col-md-4">
-            <!-- Calendar -->
-            <!-- :events="['2024/10/01', '2024/11/05', '2024/09/06', '2024/12/09', '2025/01/23']" -->
-            <q-card flat bordered class="q-mb-xl gt-sm">
-              <q-date
-                mask="YYYY-MM-DD"
-                class="full-width"
-                :model-value="new Date().toISOString().split('T')[0]"
-                :event-color="(date: string) => (date[9] as any % 2 === 0) ? 'teal' : 'orange'"
-              />
-            </q-card>
-
-            <!-- Groups you're part of -->
-            <GroupsListComponent
-              data-cy="home-user-member-groups-item-component"
-              :groups="userMemberGroups ?? []"
-              :show-pagination="false"
-              empty-message="You are not a member of any groups"
-              layout="list"
-              :current-page="1"
-              label="Groups you're part of"
-              :hide-link="!userMemberGroups?.length"
-              :count="userMemberGroups?.length"
-              :to="{ name: 'DashboardGroupsPage' }"
-            >
-              <template #empty>
-                <NoContentComponent
-                  button-label="Browse groups"
-                  icon="sym_r_group"
-                  label="You are not a member of any groups"
-                  :to="{ name: 'GroupsPage' }"
-                />
-              </template>
-            </GroupsListComponent>
-
-            <!-- Your interests -->
+          <!-- Recent event drafts -->
+          <template v-if="userRecentEventDrafts?.length">
             <SubtitleComponent
-              class="q-px-md"
+              class="q-px-md q-mt-xl"
+              label="Recent event drafts"
               hide-link
-              label="Your interests"
             />
-            <q-card
-              flat
-              bordered
-              class="q-mb-md"
-              data-cy="home-user-interests-item-component"
-            >
-              <q-card-section v-if="userInterests?.length">
-                <div class="q-gutter-sm">
-                  <q-chip
-                    v-for="interest in userInterests"
-                    :key="interest.id"
-                    color="primary"
-                    text-color="white"
+            <q-card flat bordered class="q-mb-md">
+              <q-card-section v-if="userRecentEventDrafts?.length">
+                <q-list>
+                  <q-item
+                    data-cy="home-user-recent-event-drafts-item-component"
+                    clickable
+                    v-ripple
+                    v-for="event in userRecentEventDrafts"
+                    :key="event.id"
+                    @click="navigateToEvent(event)"
                   >
-                    {{ interest.title }}
-                  </q-chip>
-                </div>
+                    <q-item-section thumbnail>
+                      <q-img :src="getImageSrc(event.image)" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ event.name }}</q-item-label>
+                      <q-item-label caption>{{
+                        event.group?.name
+                      }}</q-item-label>
+                      <q-item-label caption>draft</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
               </q-card-section>
+            </q-card>
+          </template>
+
+          <!-- Events you're attending -->
+          <EventsListComponent
+            class="q-mt-xl"
+            :events="userUpcomingEvents as EventEntity[]"
+            label="Events you're attending"
+            :show-pagination="false"
+            :current-page="1"
+            :loading="useHomeStore().loading"
+            empty-message="No events found"
+            layout="list"
+            :hide-link="true"
+          >
+            <template #empty>
               <NoContentComponent
-                v-else
-                icon="sym_r_interests"
-                label="No interests added yet"
+                v-if="!userUpcomingEvents?.length"
+                icon="sym_r_event"
+                label="You have no upcoming events"
+                button-label="Browse events"
+                :to="{ name: 'EventsPage' }"
               />
+            </template>
+          </EventsListComponent>
+        </div>
+      </div>
+
+      <!-- Quick actions section -->
+      <div class="q-mt-xl">
+        <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Quick Actions</div>
+        <div class="row q-col-gutter-md">
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'GroupsPage' })">
+              <q-card-section>
+                <q-icon name="sym_r_group" size="3rem" color="purple-300" />
+                <div class="text-h6 q-mt-sm">Find Groups</div>
+              </q-card-section>
             </q-card>
           </div>
-          <div class="col-12 col-md-8">
-            <EventsListComponent
-              :events="userUpcomingEvents as EventEntity[]"
-              label="Upcoming Events"
-              :show-pagination="false"
-              :current-page="1"
-              :loading="useHomeStore().loading"
-              empty-message="No events found"
-              layout="list"
-            >
-              <template #empty>
-                <NoContentComponent
-                  v-if="!userUpcomingEvents?.length"
-                  icon="sym_r_event"
-                  label="You have no upcoming events"
-                />
-              </template>
-            </EventsListComponent>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'EventsPage' })">
+              <q-card-section>
+                <q-icon name="sym_r_event" size="3rem" color="purple-300" />
+                <div class="text-h6 q-mt-sm">Discover Events</div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="openCreateGroupDialog()">
+              <q-card-section>
+                <q-icon name="sym_r_add_circle" size="3rem" color="purple-400" />
+                <div class="text-h6 q-mt-sm">Create Group</div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="openCreateEventDialog()">
+              <q-card-section>
+                <q-icon name="sym_r_edit_calendar" size="3rem" color="purple-400" />
+                <div class="text-h6 q-mt-sm">Create Event</div>
+              </q-card-section>
+            </q-card>
           </div>
         </div>
       </div>
