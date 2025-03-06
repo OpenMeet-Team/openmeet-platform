@@ -40,14 +40,6 @@
         <NoContentComponent v-if="!categories?.length" label="There are no categories yet." icon="sym_r_category" />
       </div>
 
-      <div class="col-12 q-mt-lg">
-        <SubtitleComponent class="q-px-md" hide-link label="Interests" />
-        <div data-cy="home-interests" v-if="interests?.length">
-          <HomeInterestsComponent :interests="interests" />
-        </div>
-        <NoContentComponent v-if="!interests?.length" label="There are no interests yet." icon="sym_r_interests" />
-      </div>
-
       <!-- Additional Information Section -->
       <div class="col-12" v-if="!useAuthStore().isAuthenticated">
         <q-card flat bordered class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-grey-2']">
@@ -92,7 +84,6 @@ import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useAuthDialog } from '../../composables/useAuthDialog'
 import { useAuthStore } from '../../stores/auth-store'
 import HomeCategoryComponent from '../../components/home/HomeCategoryComponent.vue'
-import HomeInterestsComponent from '../../components/home/HomeInterestsComponent.vue'
 import { useHomeStore } from '../../stores/home-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
@@ -102,7 +93,6 @@ const { openRegisterDialog } = useAuthDialog()
 import { GroupEntity } from '../../types/group'
 import { EventEntity } from '../../types'
 const categories = computed(() => useHomeStore().guestCategories)
-const interests = computed(() => useHomeStore().guestInterests)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
