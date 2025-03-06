@@ -7,23 +7,27 @@
 // commands please read more here:
 // https://on.cypress.io/custom-commands
 // ***********************************************
-//
-//
-// -- This is a parent command --
-// Cypress.Commands.add("login", (email, password) => { ... })
-//
-//
-// -- This is a child command --
-// Cypress.Commands.add("drag", { prevSubject: 'element'}, (subject, options) => { ... })
-//
-//
-// -- This is a dual command --
-// Cypress.Commands.add("dismiss", { prevSubject: 'optional'}, (subject, options) => { ... })
-//
-//
-// -- This will overwrite an existing command --
-// Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
+// Add type definitions for Cypress commands
+// eslint-disable-next-line @typescript-eslint/no-namespace
+declare namespace Cypress {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  interface Chainable<Subject = any> {
+    login(username: string, password: string): Chainable<void>
+    loginPage(username: string, password: string): Chainable<void>
+    logout(): Chainable<void>
+    authenticateWithBluesky(): Chainable<void>
+    // Add dataCy command type definition
+    dataCy(value: string): Chainable<Element>
+  }
+}
+
+// DO NOT REMOVE
+// Imports Quasar Cypress AE predefined commands
+import { registerCommands } from '@quasar/quasar-app-extension-testing-e2e-cypress'
+registerCommands()
+
+// Add Cypress commands
 Cypress.Commands.add('login', (username: string, password: string) => {
   // cy.dataCy('header-mobile-menu').click()
   // cy.dataCy('header-mobile-menu-drawer').should('be.visible').within(() => {
@@ -56,7 +60,11 @@ Cypress.Commands.add('logout', () => {
   cy.dataCy('header-sign-in-button').should('be.visible')
 })
 
-// DO NOT REMOVE
-// Imports Quasar Cypress AE predefined commands
-import { registerCommands } from '@quasar/quasar-app-extension-testing-e2e-cypress'
-registerCommands()
+// Command to authenticate with Bluesky using the fixed implementation
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - Ignore the type error for this command
+Cypress.Commands.add('authenticateWithBluesky', () => {
+  // This command has been moved to bluesky-auth-command.ts
+  // We're keeping this stub here for backward compatibility
+  cy.log('Using the improved authenticateWithBluesky command from bluesky-auth-command.ts')
+})

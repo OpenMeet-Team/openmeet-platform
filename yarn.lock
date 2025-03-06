@@ -3102,7 +3102,7 @@ csstype@^3.1.3:
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.1.3.tgz"
   integrity sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==
 
-cypress@*, "cypress@^12.2.0 || ^13.2.0", cypress@^13.15.2:
+cypress@*, "cypress@^12.2.0 || ^13.2.0", cypress@^13.2.0:
   version "13.17.0"
   resolved "https://registry.npmjs.org/cypress/-/cypress-13.17.0.tgz"
   integrity sha512-5xWkaPurwkIljojFidhw8lFScyxhtiFHl/i/3zov+1Z5CmY4t9tjIdvSXfu82Y3w7wt0uR9KkucbhkVvJZLQSA==

@@ -14,6 +14,14 @@ export default defineConfig({
   e2e: {
     setupNodeEvents (on, config) {
       registerCodeCoverageTasks(on, config)
+
+      on('task', {
+        log (message) {
+          console.log(message)
+          return null
+        }
+      })
+
       return config
     },
     env: {
@@ -21,7 +29,11 @@ export default defineConfig({
       APP_TESTING_USER_EMAIL: process.env.APP_TESTING_USER_EMAIL,
       APP_TESTING_USER_PASSWORD: process.env.APP_TESTING_USER_PASSWORD,
       APP_TESTING_ADMIN_EMAIL: process.env.APP_TESTING_ADMIN_EMAIL,
-      APP_TESTING_ADMIN_PASSWORD: process.env.APP_TESTING_ADMIN_PASSWORD
+      APP_TESTING_ADMIN_PASSWORD: process.env.APP_TESTING_ADMIN_PASSWORD,
+      APP_TESTING_BLUESKY_EMAIL: process.env.APP_TESTING_BLUESKY_EMAIL,
+      APP_TESTING_BLUESKY_PASSWORD: process.env.APP_TESTING_BLUESKY_PASSWORD,
+      APP_TESTING_BLUESKY_HANDLE: process.env.APP_TESTING_BLUESKY_HANDLE,
+      APP_TESTING_API_URL: process.env.APP_TESTING_API_URL
     },
     baseUrl: 'http://localhost:8087/',
     supportFile: 'test/cypress/support/e2e.ts',
@@ -30,6 +42,14 @@ export default defineConfig({
   component: {
     setupNodeEvents (on, config) {
       registerCodeCoverageTasks(on, config)
+
+      on('task', {
+        log (message) {
+          console.log(message)
+          return null
+        }
+      })
+
       return config
     },
     supportFile: 'test/cypress/support/component.ts',

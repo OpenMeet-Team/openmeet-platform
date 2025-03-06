@@ -2,6 +2,7 @@
 <!-- platform/src/components/auth/BlueskyLoginComponent.vue -->
   <div class="c-bluesky-login-component row justify-center">
     <q-btn
+      data-cy="bluesky-login-button"
       :loading="isLoading"
       :disable="isLoading"
       no-caps
