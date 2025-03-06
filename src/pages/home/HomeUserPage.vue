@@ -46,22 +46,22 @@ const onCreateEvent = (group: GroupEntity) => {
 
     <div v-if="!useHomeStore().loading">
       <!-- Introduction to OpenMeet -->
-      <q-card flat bordered class="q-mb-md bg-purple-100">
+      <q-card flat bordered class="q-mb-md" :class="$q.dark.isActive ? 'bg-purple-600' : 'bg-purple-100'">
         <q-card-section>
-          <div class="text-h5 q-mb-md text-purple-400">Welcome to OpenMeet, {{ useAuthStore().getUser.firstName || 'there' }}!</div>
-          <p>
+          <div class="text-h5 q-mb-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Welcome to OpenMeet, {{ useAuthStore().getUser.firstName || 'there' }}!</div>
+          <p :class="$q.dark.isActive ? 'text-white' : ''">
             OpenMeet is a platform that helps you connect with like-minded people through
             groups and events. Create your own groups, organize events, or join existing
             communities to expand your network and share your interests.
           </p>
-          <p class="q-mt-md">
+          <p class="q-mt-md" :class="$q.dark.isActive ? 'text-white' : ''">
             Get started by:
           </p>
           <div class="row q-col-gutter-md q-mt-sm">
             <!-- Browse actions in purple-300 -->
             <div class="col-auto">
               <q-btn
-                color="purple-300"
+                :color="$q.dark.isActive ? 'purple-200' : 'purple-300'"
                 to="/groups"
                 label="Browse Groups"
                 icon="sym_r_group"
@@ -72,7 +72,7 @@ const onCreateEvent = (group: GroupEntity) => {
             </div>
             <div class="col-auto">
               <q-btn
-                color="purple-300"
+                :color="$q.dark.isActive ? 'purple-200' : 'purple-300'"
                 to="/events"
                 label="Browse Events"
                 icon="sym_r_event"
@@ -85,7 +85,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <!-- Create actions in purple-400 -->
             <div class="col-auto">
               <q-btn
-                color="purple-400"
+                :color="$q.dark.isActive ? 'purple-300' : 'purple-400'"
                 icon="sym_r_add_circle"
                 label="Create Group"
                 no-caps
@@ -96,7 +96,7 @@ const onCreateEvent = (group: GroupEntity) => {
             </div>
             <div class="col-auto">
               <q-btn
-                color="purple-400"
+                :color="$q.dark.isActive ? 'purple-300' : 'purple-400'"
                 icon="sym_r_add_circle"
                 label="Create Event"
                 no-caps
@@ -109,7 +109,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <!-- Profile action in purple-200 -->
             <div class="col-auto">
               <q-btn
-                color="purple-200"
+                :color="$q.dark.isActive ? 'purple-400' : 'purple-200'"
                 to="/dashboard/profile"
                 label="Update Profile"
                 icon="sym_r_settings"
@@ -126,7 +126,7 @@ const onCreateEvent = (group: GroupEntity) => {
       <div class="row q-col-gutter-xl q-mt-md">
         <!-- Left column - Groups -->
         <div class="col-12 col-md-6">
-          <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Your Groups</div>
+          <div class="text-h5 text-bold q-mb-md q-px-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Your Groups</div>
 
           <!-- Groups you organize -->
           <GroupsListComponent
@@ -142,7 +142,7 @@ const onCreateEvent = (group: GroupEntity) => {
             <template #item-actions="{ group }">
               <q-btn
                 dense
-                color="purple-400"
+                :color="$q.dark.isActive ? 'purple-300' : 'purple-400'"
                 size="md"
                 no-caps
                 icon="sym_r_add_circle"
@@ -180,7 +180,7 @@ const onCreateEvent = (group: GroupEntity) => {
 
         <!-- Right column - Events -->
         <div class="col-12 col-md-6">
-          <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Your Events</div>
+          <div class="text-h5 text-bold q-mb-md q-px-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Your Events</div>
 
           <!-- Events you're hosting -->
           <EventsListComponent
@@ -265,12 +265,12 @@ const onCreateEvent = (group: GroupEntity) => {
 
       <!-- Quick actions section -->
       <div class="q-mt-xl">
-        <div class="text-h5 text-bold q-mb-md q-px-md text-purple-400">Quick Actions</div>
+        <div class="text-h5 text-bold q-mb-md q-px-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Quick Actions</div>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-6 col-md-3">
             <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'GroupsPage' })">
               <q-card-section>
-                <q-icon name="sym_r_group" size="3rem" color="purple-300" />
+                <q-icon name="sym_r_group" size="3rem" :color="$q.dark.isActive ? 'purple-200' : 'purple-300'" />
                 <div class="text-h6 q-mt-sm">Find Groups</div>
               </q-card-section>
             </q-card>
@@ -278,7 +278,7 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-sm-6 col-md-3">
             <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'EventsPage' })">
               <q-card-section>
-                <q-icon name="sym_r_event" size="3rem" color="purple-300" />
+                <q-icon name="sym_r_event" size="3rem" :color="$q.dark.isActive ? 'purple-200' : 'purple-300'" />
                 <div class="text-h6 q-mt-sm">Discover Events</div>
               </q-card-section>
             </q-card>
@@ -286,7 +286,7 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-sm-6 col-md-3">
             <q-card flat bordered class="text-center" clickable @click="openCreateGroupDialog()">
               <q-card-section>
-                <q-icon name="sym_r_add_circle" size="3rem" color="purple-400" />
+                <q-icon name="sym_r_add_circle" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Create Group</div>
               </q-card-section>
             </q-card>
@@ -294,7 +294,7 @@ const onCreateEvent = (group: GroupEntity) => {
           <div class="col-12 col-sm-6 col-md-3">
             <q-card flat bordered class="text-center" clickable @click="openCreateEventDialog()">
               <q-card-section>
-                <q-icon name="sym_r_edit_calendar" size="3rem" color="purple-400" />
+                <q-icon name="sym_r_edit_calendar" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Create Event</div>
               </q-card-section>
             </q-card>
