@@ -48,7 +48,7 @@ const onCreateEvent = (group: GroupEntity) => {
       <!-- Introduction to OpenMeet -->
       <q-card flat bordered class="q-mb-md bg-purple-100">
         <q-card-section>
-          <div class="text-h5 q-mb-md text-purple-400">Welcome to OpenMeet, {{ useAuthStore().getUser.name || 'there' }}!</div>
+          <div class="text-h5 q-mb-md text-purple-400">Welcome to OpenMeet, {{ useAuthStore().getUser.firstName || 'there' }}!</div>
           <p>
             OpenMeet is a platform that helps you connect with like-minded people through
             groups and events. Create your own groups, organize events, or join existing
