@@ -113,7 +113,11 @@ const loadBlueskyEvents = async () => {
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
                   {{ user.firstName }} {{ user.lastName }}
                 </h4>
-                <div class="text-body2">{{ user.bio }}</div>
+                <div
+                  data-cy="user-bio"
+                  class="text-body1 q-mt-md"
+                  v-html="user.bio"
+                ></div>
               </div>
             </q-card-section>
           </q-card>
