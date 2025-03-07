@@ -16,6 +16,14 @@ const hasPermission = computed(() => {
   return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
 })
 
+// Add a computed property to decode HTML entities
+const decodedDescription = computed(() => {
+  if (!group.value?.description) return ''
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = group.value.description
+  return textarea.value
+})
+
 onMounted(() => {
   if (hasPermission.value) {
     isLoading.value = true
@@ -30,10 +38,10 @@ onMounted(() => {
     <div class="col-12 col-sm-6">
 
       <!-- Description -->
-      <SubtitleComponent class="q-px-md" hideLink label="What we’re about" />
+      <SubtitleComponent class="q-px-md" hideLink label="What we're about" />
       <q-card flat>
         <q-card-section>
-          <div class="text-body1" v-html="group.description"></div>
+          <div class="text-body1" v-html="decodedDescription"></div>
         </q-card-section>
       </q-card>
 
