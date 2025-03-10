@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { useNotification } from '../composables/useNotification'
 import { chatApi } from '../api/chat'
 import { ChatEntity } from '../types/model'
+import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 const { error } = useNotification()
 
@@ -24,14 +25,13 @@ export const useChatStore = defineStore('chat', {
       })
     },
 
-    async actionSendMessage (chatUlid: string, data: { content: string, sender_id: number, sender_full_name: string, timestamp: number }) {
+    async actionSendMessage (roomId: string, content: string) {
       this.isSendingMessage = true
       try {
-        await chatApi.sendMessage(chatUlid, data.content).then((res) => {
-          this.activeChat?.messages.push({
-            id: res.data.id,
-            ...data
-          })
+        await chatApi.sendMessage(roomId, content).then(() => {
+          // The backend will handle the message creation and return the event ID
+          // We don't need to manually add the message to the store as it will be fetched
+          // in the next message sync
         })
       } catch (err) {
         error('Failed to send message')
@@ -40,20 +40,44 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async actionSetMessagesRead (messageIds: number[]) {
+    async actionSetMessagesRead (roomId: string, eventId: string) {
       try {
-        await chatApi.setMessagesRead(messageIds).then(res => {
-          if (this.activeChat && this.activeChat.messages) {
-            this.activeChat.messages = this.activeChat.messages.map(message => {
-              if (res.data.messages.includes(message.id)) {
-                return { ...message, flags: ['read'] }
-              }
-              return message
-            })
-          }
-        })
+        await chatApi.setMessagesRead(roomId, eventId)
+        // The backend will handle marking messages as read
       } catch (err) {
         error('Failed to set messages read')
+      }
+    },
+
+    async actionGetMessages (roomId: string, limit: number = 50, from?: string) {
+      try {
+        const response = await chatApi.getMessages(roomId, limit, from)
+        if (this.activeChat) {
+          // Append new messages to the existing ones
+          this.activeChat.messages = [...this.activeChat.messages, ...response.data.chunk] as MatrixMessage[]
+        }
+        return response.data
+      } catch (err) {
+        error('Failed to fetch messages')
+        return null
+      }
+    },
+
+    async actionUpdateMessage (roomId: string, eventId: string, content: string) {
+      try {
+        await chatApi.updateMessage(roomId, eventId, content)
+        // The backend will handle the message update and it will be reflected in the next sync
+      } catch (err) {
+        error('Failed to update message')
+      }
+    },
+
+    async actionDeleteMessage (roomId: string, eventId: string) {
+      try {
+        await chatApi.deleteMessage(roomId, eventId)
+        // The backend will handle the message deletion and it will be reflected in the next sync
+      } catch (err) {
+        error('Failed to delete message')
       }
     }
   }

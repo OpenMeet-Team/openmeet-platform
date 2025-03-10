@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
-import { ZulipTopicEntity, ZulipMessageEntity } from '../types'
+import { MatrixMessage } from '../types/matrix'
 import { useGroupStore } from './group-store'
 import { useEventStore } from './event-store'
 import { useAuthStore } from './auth-store'
 
 interface DiscussionState {
-  messages: ZulipMessageEntity[]
-  topics: ZulipTopicEntity[]
+  messages: MatrixMessage[]
+  topics: { name: string }[]
   contextType: 'event' | 'group' | 'general'
   contextId: string
   permissions: {
@@ -16,10 +16,19 @@ interface DiscussionState {
   }
 }
 
+// Define a custom content type that includes the topic property
+interface MatrixMessageContent {
+  msgtype: string
+  body: string
+  formatted_body?: string
+  format?: string
+  topic?: string
+}
+
 export const useDiscussionStore = defineStore('discussion', {
   state: () => ({
-    messages: [] as ZulipMessageEntity[],
-    topics: [] as ZulipTopicEntity[],
+    messages: [] as MatrixMessage[],
+    topics: [] as { name: string }[],
     contextType: 'general' as 'general' | 'group' | 'event',
     contextId: '' as string,
     permissions: {
@@ -51,48 +60,69 @@ export const useDiscussionStore = defineStore('discussion', {
     async actionSendMessage (message: string, topicName: string) {
       this.isSending = true
 
-      let messageId: number | undefined
+      let eventId: string | undefined
       if (this.contextType === 'group') {
-        messageId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
+        eventId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
       } else if (this.contextType === 'event') {
-        messageId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
+        eventId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
       }
 
-      if (messageId) {
+      if (eventId) {
         const topic = this.topics.find(t => t.name === topicName)
-        if (topic) {
-          this.topics = this.topics.map(t => t.name === topicName ? { ...t, max_id: messageId } : t)
-        } else {
-          this.topics = [{ name: topicName, max_id: messageId }, ...this.topics]
+        if (!topic) {
+          this.topics = [{ name: topicName }, ...this.topics]
         }
-        this.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: `${useAuthStore().user?.firstName || ''} ${useAuthStore().user?.lastName || ''}`.trim() || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...this.messages]
+
+        // Create a new Matrix message
+        const newMessage: MatrixMessage = {
+          event_id: eventId,
+          room_id: this.contextId,
+          sender: useAuthStore().user?.matrixUserId || '',
+          content: {
+            msgtype: 'm.text',
+            body: message,
+            // Add topic as a custom property
+            topic: topicName
+          } as MatrixMessageContent,
+          origin_server_ts: Date.now(),
+          type: 'm.room.message'
+        }
+
+        this.messages = [newMessage, ...this.messages]
       }
       this.isSending = false
     },
 
-    async actionUpdateMessage (messageId: number, newText: string) {
+    async actionUpdateMessage (eventId: string, newText: string) {
       this.isUpdating = true
-      let updatedMessageId: number | undefined
+      let updatedEventId: string | undefined
       if (this.contextType === 'group') {
-        updatedMessageId = await useGroupStore().actionUpdateGroupDiscussionMessage(messageId, newText)
+        updatedEventId = await useGroupStore().actionUpdateGroupDiscussionMessage(eventId, newText)
       } else if (this.contextType === 'event') {
-        updatedMessageId = await useEventStore().actionUpdateEventDiscussionMessage(messageId, newText)
+        updatedEventId = await useEventStore().actionUpdateEventDiscussionMessage(eventId, newText)
       }
-      if (updatedMessageId) {
-        this.messages = this.messages.map(m => m.id === messageId ? { ...m, content: newText } : m)
+      if (updatedEventId) {
+        this.messages = this.messages.map(m => m.event_id === eventId ? {
+          ...m,
+          content: {
+            ...m.content,
+            body: newText
+          }
+        } : m)
       }
       this.isUpdating = false
     },
-    async actionDeleteMessage (messageId: number) {
+
+    async actionDeleteMessage (eventId: string) {
       this.isDeleting = true
-      let deletedMessageId: number | undefined
+      let deletedEventId: string | undefined
       if (this.contextType === 'group') {
-        deletedMessageId = await useGroupStore().actionDeleteGroupDiscussionMessage(messageId)
+        deletedEventId = await useGroupStore().actionDeleteGroupDiscussionMessage(eventId)
       } else if (this.contextType === 'event') {
-        deletedMessageId = await useEventStore().actionDeleteEventDiscussionMessage(messageId)
+        deletedEventId = await useEventStore().actionDeleteEventDiscussionMessage(eventId)
       }
-      if (deletedMessageId) {
-        this.messages = this.messages.filter(m => m.id !== deletedMessageId)
+      if (deletedEventId) {
+        this.messages = this.messages.filter(m => m.event_id !== deletedEventId)
       }
       this.isDeleting = false
     }

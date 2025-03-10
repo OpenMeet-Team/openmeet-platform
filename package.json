@@ -34,6 +34,7 @@
     "dompurify": "^3.1.7",
     "dotenv": "^16.4.5",
     "leaflet": "^1.9.4",
+    "matrix-js-sdk": "^36.2.0",
     "pinia": "^2.2.6",
     "posthog-js": "^1.210.2",
     "qrcode": "^1.5.4",

@@ -1,5 +1,6 @@
 import { api } from '../boot/axios'
-import { EventEntity, ZulipMessageEntity, ZulipTopicEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from '../types'
+import { EventEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from '../types'
+import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 import { AxiosResponse } from 'axios'
 
@@ -16,11 +17,11 @@ export const groupsApi = {
   getAbout: (slug: string) => api.get<{
     events: EventEntity[],
     groupMembers: GroupMemberEntity[],
-    messages: ZulipMessageEntity[],
-    topics: ZulipTopicEntity[]
+    messages: MatrixMessage[],
+    topics: { name: string }[]
   }>(`/api/groups/${slug}/about`, createGroupApiHeaders(slug)),
   getEvents: (slug: string) => api.get<EventEntity[]>(`/api/groups/${slug}/events`, createGroupApiHeaders(slug)),
-  getDiscussions: (slug: string) => api.get<{ topics: ZulipTopicEntity[], messages: ZulipMessageEntity[] }>(`/api/groups/${slug}/discussions`, createGroupApiHeaders(slug)),
+  getDiscussions: (slug: string) => api.get<{ topics: { name: string }[], messages: MatrixMessage[] }>(`/api/groups/${slug}/discussions`, createGroupApiHeaders(slug)),
   create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/groups', groupData),
   update: (slug: string, groupData: Partial<GroupEntity>) => api.patch<GroupEntity>(`/api/groups/${slug}`, groupData, createGroupApiHeaders(slug)),
   delete: (slug: string) => api.delete(`/api/groups/${slug}`, createGroupApiHeaders(slug)),
@@ -32,7 +33,7 @@ export const groupsApi = {
   rejectMember: (slug: string, groupMemberId: number): Promise<AxiosResponse<GroupMemberEntity>> => api.delete(`/api/groups/${slug}/members/${groupMemberId}/reject`, createGroupApiHeaders(slug)),
   removeMember: (slug: string, groupMemberId: number): Promise<AxiosResponse<GroupMemberEntity>> => api.delete(`/api/groups/${slug}/members/${groupMemberId}`, createGroupApiHeaders(slug)),
   similarEvents: (slug: string): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>(`/api/groups/${slug}/recommended-events`, createGroupApiHeaders(slug)),
-  sendDiscussionMessage: (slug: string, message: string, topicName: string): Promise<AxiosResponse<{ id: number }>> => api.post(`/api/groups/${slug}/discussions`, { message, topicName }, createGroupApiHeaders(slug)),
-  deleteDiscussionMessage: (slug: string, messageId: number): Promise<AxiosResponse<{ id: number }>> => api.delete(`/api/groups/${slug}/discussions/${messageId}`, createGroupApiHeaders(slug)),
-  updateDiscussionMessage: (slug: string, messageId: number, message: string): Promise<AxiosResponse<{ id: number }>> => api.patch(`/api/groups/${slug}/discussions/${messageId}`, { message }, createGroupApiHeaders(slug))
+  sendDiscussionMessage: (slug: string, message: string, topicName: string): Promise<AxiosResponse<{ eventId: string }>> => api.post(`/api/groups/${slug}/discussions`, { message, topicName }, createGroupApiHeaders(slug)),
+  deleteDiscussionMessage: (slug: string, eventId: string): Promise<AxiosResponse<{ eventId: string }>> => api.delete(`/api/groups/${slug}/discussions/${eventId}`, createGroupApiHeaders(slug)),
+  updateDiscussionMessage: (slug: string, eventId: string, message: string): Promise<AxiosResponse<{ eventId: string }>> => api.patch(`/api/groups/${slug}/discussions/${eventId}`, { message }, createGroupApiHeaders(slug))
 }

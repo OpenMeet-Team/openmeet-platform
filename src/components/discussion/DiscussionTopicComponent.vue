@@ -9,7 +9,7 @@
     </div>
     <div class="q-pa-md">
       <!-- Edit Form -->
-      <template v-if="editingMessageId === topic.message.id">
+      <template v-if="editingMessageId === topic.message.event_id">
         <q-input :rules="[val => !!val || 'Message is required']" ref="editInput" v-model="editContent" filled autogrow
           class="q-mb-sm" @keyup.enter="onUpdateMessage" />
         <div class="row justify-end q-gutter-x-sm">
@@ -19,7 +19,7 @@
       </template>
 
       <!-- Reply Form -->
-      <template v-else-if="replyingToId === topic.message.id">
+      <template v-else-if="replyingToId === topic.message.event_id">
         <q-input counter maxlength="700" :rules="[val => !!val || 'Message is required']" ref="replyInput" v-model="replyContent" filled
           autogrow placeholder="Write your reply..." @keyup.enter="sendReply" class="q-mb-sm" />
         <div class="row justify-end q-gutter-x-sm">
@@ -34,14 +34,14 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { ZulipMessageEntity } from '../../types'
+import { MatrixMessage } from '../../types/matrix'
 import DiscussionMessageComponent from './DiscussionMessageComponent.vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
 import { useDiscussionDialog } from '../../composables/useDiscussionDialog'
 import DOMPurify from 'dompurify'
 
-const editingMessageId = ref<number | null>(null)
-const replyingToId = ref<number | null>(null)
+const editingMessageId = ref<string | null>(null)
+const replyingToId = ref<string | null>(null)
 const editContent = ref('')
 const replyContent = ref('')
 const editInput = ref<HTMLInputElement | null>(null)
@@ -50,13 +50,13 @@ const replyInput = ref<HTMLInputElement | null>(null)
 interface Props {
   topic: {
     topicName: string
-    message: ZulipMessageEntity
+    message: MatrixMessage
     children: {
-      id: number
+      id: string
       label: string
       content: string
       timestamp: number
-      message: ZulipMessageEntity
+      message: MatrixMessage
     }[]
   }
   canModerate?: boolean
@@ -69,13 +69,13 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 defineEmits<{
-  reply: [parentId: number, message: string]
-  update: [messageId: number, content: string]
-  delete: [messageId: number]
+  reply: [parentId: string, message: string]
+  update: [messageId: string, content: string]
+  delete: [messageId: string]
 }>()
 
 const onReply = () => {
-  replyingToId.value = props.topic.message.id
+  replyingToId.value = props.topic.message.event_id
   replyContent.value = ''
 
   nextTick(() => {
@@ -94,7 +94,7 @@ const sendReply = () => {
   })
 }
 
-const onEdit = (messageId: number, content: string) => {
+const onEdit = (messageId: string, content: string) => {
   editingMessageId.value = messageId
   editContent.value = content
 
@@ -118,7 +118,7 @@ const onUpdateMessage = () => {
   }
 }
 
-const onDelete = (messageId: number) => {
+const onDelete = (messageId: string) => {
   openDeleteMessageDialog().onOk(() => {
     useDiscussionStore().actionDeleteMessage(messageId)
   })

@@ -109,11 +109,11 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
+    async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<string | undefined> {
       try {
         if (this.event?.slug) {
           const res = await api.post(`/api/events/${this.event.slug}/discussion`, { message, topicName })
-          return res.data.id
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)
@@ -121,11 +121,11 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionUpdateEventDiscussionMessage (messageId: number, newText: string): Promise<number | undefined> {
+    async actionUpdateEventDiscussionMessage (eventId: string, newText: string): Promise<string | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await api.put(`/api/events/${this.event.slug}/discussion/${messageId}`, { newText })
-          return res.data.id
+          const res = await api.put(`/api/events/${this.event.slug}/discussion/${eventId}`, { newText })
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)
@@ -133,11 +133,11 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionDeleteEventDiscussionMessage (messageId: number): Promise<number | undefined> {
+    async actionDeleteEventDiscussionMessage (eventId: string): Promise<string | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await api.delete(`/api/events/${this.event.slug}/discussion/${messageId}`)
-          return res.data.id
+          const res = await api.delete(`/api/events/${this.event.slug}/discussion/${eventId}`)
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)

@@ -3,9 +3,9 @@
     <div class="row items-center justify-between full-width">
       <div class="column">
         <div class="row items-center">
-          <span class="text-weight-medium">{{ message.sender_full_name }}</span>
-          <span class="q-ml-md text-caption text-grey" v-if="message.timestamp">
-            {{ getRoundedHumanReadableDateDifference(new Date(message.timestamp * 1000), new Date()) }} ago
+          <span class="text-weight-medium">{{ getSenderDisplayName(message.sender) }}</span>
+          <span class="q-ml-md text-caption text-grey" v-if="message.origin_server_ts">
+            {{ getRoundedHumanReadableDateDifference(new Date(message.origin_server_ts), new Date()) }} ago
           </span>
         </div>
       </div>
@@ -17,37 +17,45 @@
         </template>
       </div>
     </div>
-    <div class="text-body2 q-mt-md" v-html="message.content"></div>
+    <div class="text-body2 q-mt-md" v-html="message.content.body"></div>
   </q-card>
 </template>
 
 <script setup lang="ts">
 import { useDiscussionStore } from '../../stores/discussion-store'
-import { ZulipMessageEntity } from '../../types'
+import { MatrixMessage } from '../../types/matrix'
 import { getRoundedHumanReadableDateDifference } from '../../utils/dateUtils'
 
 interface Props {
-  message: ZulipMessageEntity
+  message: MatrixMessage
 }
 
 interface Emits {
-  (e: 'delete', id: number): void
-  (e: 'edit', id: number, content: string): void
-  (e: 'reply', id: number): void
+  (e: 'delete', id: string): void
+  (e: 'edit', id: string, content: string): void
+  (e: 'reply', id: string): void
 }
 
 const emit = defineEmits<Emits>()
 
 const onDelete = () => {
-  emit('delete', props.message.id)
+  emit('delete', props.message.event_id)
 }
 
 const onReply = () => {
-  emit('reply', props.message.id)
+  emit('reply', props.message.event_id)
 }
 
 const onEdit = () => {
-  emit('edit', props.message.id, props.message.content.replace(/<\/?[^>]+(>|$)/g, ''))
+  emit('edit', props.message.event_id, props.message.content.body)
+}
+
+// Helper function to extract display name from Matrix user ID
+const getSenderDisplayName = (senderId: string) => {
+  // Matrix user IDs are in the format @username:domain.com
+  // Extract the username part
+  const match = senderId.match(/@([^:]+)/)
+  return match ? match[1] : senderId
 }
 
 const props = defineProps<Props>()

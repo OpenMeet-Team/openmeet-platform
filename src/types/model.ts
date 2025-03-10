@@ -1,4 +1,5 @@
 import { UserEntity } from './user'
+import { MatrixMessage } from './matrix'
 
 export enum AuthProvidersEnum {
   apple = 'apple',
@@ -61,7 +62,8 @@ export interface ChatEntity {
   participants: UserEntity[];
   participant: UserEntity;
   user: UserEntity;
-  messages: ZulipMessageEntity[];
+  messages: MatrixMessage[];
+  roomId?: string;
 }
 
 export interface FileEntity {

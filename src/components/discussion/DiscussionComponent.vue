@@ -24,14 +24,14 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ZulipMessageEntity, ZulipTopicEntity } from '../../types/model'
+import { MatrixMessage } from '../../types/matrix'
 import DiscussionTopicComponent from './DiscussionTopicComponent.vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
 import DOMPurify from 'dompurify'
 
 interface Props {
-  messages: ZulipMessageEntity[]
-  topics: ZulipTopicEntity[]
+  messages: MatrixMessage[]
+  topics: { name: string }[]
   contextType: 'event' | 'group'
   contextId: string
   permissions: {
@@ -58,8 +58,8 @@ onBeforeUnmount(() => {
 const messageTree = computed(() => {
   return useDiscussionStore().topics?.map(topic => {
     const topicMessages = useDiscussionStore().messages?.filter(
-      message => message.subject === topic.name
-    ).sort((a, b) => a.id - b.id)
+      message => message.content.topic === topic.name
+    ).sort((a, b) => a.origin_server_ts - b.origin_server_ts)
 
     const [firstMessage, ...restMessages] = topicMessages ?? []
 
@@ -67,10 +67,10 @@ const messageTree = computed(() => {
       topicName: topic.name,
       message: firstMessage,
       children: restMessages.map(message => ({
-        id: message.id,
-        label: message.sender_full_name,
-        content: message.content,
-        timestamp: message.timestamp,
+        id: message.event_id,
+        label: message.sender,
+        content: message.content.body,
+        timestamp: message.origin_server_ts,
         message
       }))
     }
@@ -97,7 +97,11 @@ const sendComment = () => {
 
   newComment.value = ''
 
-  useDiscussionStore().actionSendMessage(message, new Date().toISOString()).catch(error => {
+  // Use the first topic as the default topic for new comments
+  // If no topics exist, create a "General" topic
+  const defaultTopic = props.topics.length > 0 ? props.topics[0].name : 'General'
+
+  useDiscussionStore().actionSendMessage(message, defaultTopic).catch(error => {
     newComment.value = message
     throw error
   })

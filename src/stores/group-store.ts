@@ -155,33 +155,33 @@ export const useGroupStore = defineStore('group', {
         error('Failed to remove group member')
       }
     },
-    async actionSendGroupDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
+    async actionSendGroupDiscussionMessage (message: string, topicName: string): Promise<string | undefined> {
       try {
         if (this.group?.slug) {
           const res = await groupsApi.sendDiscussionMessage(this.group.slug, message, topicName)
-          return res.data.id
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)
         error('Failed to send group discussion message')
       }
     },
-    async actionDeleteGroupDiscussionMessage (messageId: number): Promise<number | undefined> {
+    async actionDeleteGroupDiscussionMessage (eventId: string): Promise<string | undefined> {
       try {
         if (this.group?.slug) {
-          const res = await groupsApi.deleteDiscussionMessage(this.group.slug, messageId)
-          return res.data.id
+          const res = await groupsApi.deleteDiscussionMessage(this.group.slug, eventId)
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)
         error('Failed to delete group discussion message')
       }
     },
-    async actionUpdateGroupDiscussionMessage (messageId: number, message: string): Promise<number | undefined> {
+    async actionUpdateGroupDiscussionMessage (eventId: string, message: string): Promise<string | undefined> {
       try {
         if (this.group?.slug) {
-          const res = await groupsApi.updateDiscussionMessage(this.group.slug, messageId, message)
-          return res.data.id
+          const res = await groupsApi.updateDiscussionMessage(this.group.slug, eventId, message)
+          return res.data.eventId
         }
       } catch (err) {
         console.log(err)
