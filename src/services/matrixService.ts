@@ -3,6 +3,7 @@ import { useChatStore } from '../stores/chat-store'
 import { useDiscussionStore } from '../stores/discussion-store'
 import { ensureMatrixUser } from '../utils/matrixUtils'
 import { MatrixMessage } from '../types'
+import { matrixApi } from '../api/matrix'
 
 /**
  * Service for handling Matrix real-time events and sync
@@ -204,6 +205,44 @@ class MatrixServiceImpl {
   private handleMemberEvent (event: Record<string, unknown>): void {
     // Handle member join/leave events if needed
     console.log('Matrix member event:', event)
+  }
+
+  /**
+   * Send a typing indicator to a room
+   */
+  public async sendTyping (roomId: string, isTyping: boolean): Promise<void> {
+    try {
+      await matrixApi.sendTyping(roomId, isTyping)
+    } catch (error) {
+      console.error('Error sending typing indicator:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get messages for a room
+   */
+  public async getMessages (roomId: string, limit = 50, from?: string): Promise<{ messages: MatrixMessage[], end: string }> {
+    try {
+      const response = await matrixApi.getMessages(roomId, limit, from)
+      return response.data
+    } catch (error) {
+      console.error('Error getting messages:', error)
+      return { messages: [], end: '' }
+    }
+  }
+
+  /**
+   * Send a message to a room
+   */
+  public async sendMessage (roomId: string, message: string): Promise<string | undefined> {
+    try {
+      const response = await matrixApi.sendMessage(roomId, message)
+      return response.data.id
+    } catch (error) {
+      console.error('Error sending message:', error)
+      throw error
+    }
   }
 
   /**

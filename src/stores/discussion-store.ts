@@ -73,10 +73,10 @@ export const useDiscussionStore = defineStore('discussion', {
 
         let eventId: string | undefined
         if (this.contextType === 'group') {
-          const result = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
+          const result = await useGroupStore().actionSendGroupDiscussionMessage(message)
           eventId = result ? String(result) : undefined
         } else if (this.contextType === 'event') {
-          const result = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
+          const result = await useEventStore().actionSendEventDiscussionMessage(message)
           eventId = result ? String(result) : undefined
         }
 
