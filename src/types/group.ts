@@ -1,4 +1,5 @@
-import { CategoryEntity, FileEntity, Pagination, ZulipMessageEntity, ZulipTopicEntity } from './model'
+import { CategoryEntity, FileEntity, Pagination } from './model'
+import { MatrixMessage } from './matrix'
 import { UserEntity } from './user'
 import { EventEntity } from './event'
 
@@ -66,8 +67,9 @@ export interface GroupEntity {
   membersCount?: number
   groupMembers?: GroupMemberEntity[]
   events?: EventEntity[]
-  topics?: ZulipTopicEntity[]
-  messages?: ZulipMessageEntity[]
+  topics?: { name: string }[]
+  messages?: MatrixMessage[]
+  roomId?: string
   visibility: GroupVisibility
   status: GroupStatus,
   createdBy?: UserEntity

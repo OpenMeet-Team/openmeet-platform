@@ -1,12 +1,26 @@
 import { defineStore } from 'pinia'
-import { ZulipTopicEntity, ZulipMessageEntity } from '../types'
+import { MatrixMessage } from '../types/matrix'
 import { useGroupStore } from './group-store'
 import { useEventStore } from './event-store'
 import { useAuthStore } from './auth-store'
 
+// Define a custom content type that includes the topic property
+interface MatrixMessageContent {
+  msgtype: string;
+  body: string;
+  formatted_body?: string;
+  format?: string;
+  topic?: string;
+  [key: string]: unknown; // Add index signature for unknown properties
+}
+
+interface TopicEntity {
+  name: string;
+}
+
 interface DiscussionState {
-  messages: ZulipMessageEntity[]
-  topics: ZulipTopicEntity[]
+  messages: MatrixMessage[]
+  topics: TopicEntity[]
   contextType: 'event' | 'group' | 'general'
   contextId: string
   permissions: {
@@ -18,8 +32,8 @@ interface DiscussionState {
 
 export const useDiscussionStore = defineStore('discussion', {
   state: () => ({
-    messages: [] as ZulipMessageEntity[],
-    topics: [] as ZulipTopicEntity[],
+    messages: [] as MatrixMessage[],
+    topics: [] as TopicEntity[],
     contextType: 'general' as 'general' | 'group' | 'event',
     contextId: '' as string,
     permissions: {
@@ -59,9 +73,11 @@ export const useDiscussionStore = defineStore('discussion', {
 
         let eventId: string | undefined
         if (this.contextType === 'group') {
-          eventId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
+          const result = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
+          eventId = result ? String(result) : undefined
         } else if (this.contextType === 'event') {
-          eventId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
+          const result = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
+          eventId = result ? String(result) : undefined
         }
 
         if (eventId) {

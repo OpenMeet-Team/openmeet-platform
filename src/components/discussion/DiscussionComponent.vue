@@ -13,10 +13,10 @@
       </q-card-section>
 
       <!-- Input Section -->
-      <q-input class="q-px-md q-py-md" ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
+      <q-input data-cy="discussion-input" class="q-px-md q-py-md" ref="newCommentInput" filled v-model="newComment" label="Leave a new comment" @keyup.enter="sendComment" counter
         :disable="!props.permissions?.canWrite" maxlength="700">
         <template v-slot:after>
-          <q-btn :loading="useDiscussionStore().isSending" icon="sym_r_send" round color="primary" @click="sendComment" :disabled="!newComment.trim()" />
+          <q-btn data-cy="discussion-send-button" :loading="useDiscussionStore().isSending" icon="sym_r_send" round color="primary" @click="sendComment" :disabled="!newComment.trim()" />
         </template>
       </q-input>
 
@@ -39,10 +39,11 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ZulipMessageEntity, ZulipTopicEntity } from '../../types/model'
 import DiscussionTopicComponent from './DiscussionTopicComponent.vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
 import DOMPurify from 'dompurify'
+
+import { MatrixMessage } from '../../types/matrix'
 
 interface Props {
   messages?: MatrixMessage[]
@@ -92,9 +93,22 @@ onBeforeUnmount(() => {
 // Compute the message tree structure for display
 const messageTree = computed(() => {
   return useDiscussionStore().topics?.map(topic => {
+    // Filter messages by topic - look for topic in content.topic for Matrix messages
     const topicMessages = useDiscussionStore().messages?.filter(
-      message => message.subject === topic.name
-    ).sort((a, b) => a.id - b.id)
+      message => {
+        // For Matrix messages, check content.topic
+        if ('content' in message && 'topic' in message.content) {
+          return message.content.topic === topic.name
+        }
+        return false
+      }
+    ).sort((a, b) => {
+      // For Matrix messages, sort by timestamp
+      if ('origin_server_ts' in a && 'origin_server_ts' in b) {
+        return a.origin_server_ts - b.origin_server_ts
+      }
+      return 0
+    })
 
     const [firstMessage, ...restMessages] = topicMessages ?? []
 
@@ -102,10 +116,10 @@ const messageTree = computed(() => {
       topicName: topic.name,
       message: firstMessage,
       children: restMessages.map(message => ({
-        id: message.id,
-        label: message.sender_full_name,
-        content: message.content,
-        timestamp: message.timestamp,
+        id: 'event_id' in message ? message.event_id : '',
+        label: 'sender' in message ? message.sender : '',
+        content: 'content' in message && 'body' in message.content ? message.content.body : '',
+        timestamp: 'origin_server_ts' in message ? message.origin_server_ts : 0,
         message
       }))
     }

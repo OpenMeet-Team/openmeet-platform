@@ -109,7 +109,7 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
+    async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<string | number | undefined> {
       try {
         if (this.event?.slug) {
           const res = await eventsApi.sendDiscussionMessage(this.event.slug, message, topicName)

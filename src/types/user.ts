@@ -76,6 +76,10 @@ export interface UserEntity {
   zulipUserId?: number
   zulipUsername?: string
   zulipApiKey?: string
+  // Matrix fields
+  matrixUserId?: string
+  matrixAccessToken?: string
+  matrixDeviceId?: string
   photo?: FileEntity
   bio?: string
   role?: UserRoleEntity

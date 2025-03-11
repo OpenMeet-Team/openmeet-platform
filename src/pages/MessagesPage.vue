@@ -29,37 +29,61 @@ const scrollToEnd = (delay = 0) => {
 }
 
 const markMessagesAsRead = () => {
-  const unreadMessages = activeChat.value?.messages?.filter(message => !message.flags || !message.flags.includes('read'))
+  const unreadMessages = activeChat.value?.messages?.filter(message => {
+    // Type-safe check for flags property and includes method
+    return typeof message === 'object' && message !== null &&
+           (!Array.isArray(message.flags) || !message.flags.includes('read'))
+  })
+
   if (unreadMessages?.length) {
-    useChatStore().actionSetMessagesRead(unreadMessages.map(message => message.id))
+    // Safe type conversion
+    const messageIds = unreadMessages
+      .map(message => message.id)
+      .filter((id): id is number => typeof id === 'number')
+
+    if (messageIds.length > 0) {
+      useChatStore().actionSetMessagesRead(messageIds)
+    }
   }
 }
 
-const updateInterval = ref(10000)
-const chatInterval = ref()
 const { error } = useNotification()
 
 onMounted(async () => {
   LoadingBar.start()
   useChatStore().isLoading = true
-  fetchChat().then(() => {
+
+  try {
+    // Initialize Matrix connection for real-time updates
+    await useChatStore().actionInitializeMatrix()
+
+    // Fetch initial chat data
+    await fetchChat()
+
+    // Scroll to the end of the chat
+    scrollToEnd(0)
+
+    // Mark messages as read
+    markMessagesAsRead()
+  } catch (err) {
+    console.error('Error initializing chat:', err)
+    error('Failed to load chat messages')
+  } finally {
     LoadingBar.stop()
     useChatStore().isLoading = false
-    scrollToEnd(0)
-    markMessagesAsRead()
-  })
+  }
 })
 
-const fetchChat = () => {
-  if (chatInterval.value) {
-    clearInterval(chatInterval.value)
-  }
-  return useChatStore().actionGetChatList(route.query).then(() => {
-    chatInterval.value = setInterval(() => fetchChat(), updateInterval.value)
-  }).catch(() => {
+const fetchChat = async () => {
+  try {
+    // Fetch the chat list data without setting up polling
+    await useChatStore().actionGetChatList(route.query)
+    return true
+  } catch (err) {
+    console.error('Failed to get chat list:', err)
     error('Failed to get chat list')
-    clearInterval(chatInterval.value)
-  })
+    return false
+  }
 }
 
 onBeforeUnmount(() => {
@@ -93,10 +117,45 @@ const avatarSrc = getImageSrc(null)
 
 const { navigateToChat } = useNavigation()
 
+// Debounced typing indicator
+const typingTimeout = ref<number | null>(null)
+
+// Handle typing indicator
+function handleTyping () {
+  if (!activeChat.value || !activeChat.value.roomId) return
+
+  // Send typing indicator (true = is typing)
+  useChatStore().actionSendTyping(activeChat.value.roomId, true)
+
+  // Clear any existing timeout
+  if (typingTimeout.value) {
+    clearTimeout(typingTimeout.value)
+  }
+
+  // Set a new timeout to stop typing indicator after 2 seconds of inactivity
+  typingTimeout.value = window.setTimeout(() => {
+    if (activeChat.value?.roomId) {
+      useChatStore().actionSendTyping(activeChat.value.roomId, false)
+    }
+    typingTimeout.value = null
+  }, 2000)
+}
+
 function sendMessage () {
   if (newMessage.value.trim() && activeChat.value) {
     const message = newMessage.value
     newMessage.value = ''
+
+    // Stop typing indicator when sending a message
+    if (activeChat.value.roomId) {
+      useChatStore().actionSendTyping(activeChat.value.roomId, false)
+    }
+
+    // Clear typing timeout
+    if (typingTimeout.value) {
+      clearTimeout(typingTimeout.value)
+      typingTimeout.value = null
+    }
 
     useChatStore().actionSendMessage(activeChat.value.ulid, {
       content: message.trim(),
@@ -110,7 +169,14 @@ function sendMessage () {
 }
 
 onBeforeUnmount(() => {
-  clearInterval(chatInterval.value)
+  // Clean up typing timeout
+  if (typingTimeout.value) {
+    clearTimeout(typingTimeout.value)
+    typingTimeout.value = null
+  }
+
+  // Clean up Matrix-related resources
+  useChatStore().actionCleanup()
   useChatStore().$reset()
 })
 </script>
@@ -181,22 +247,41 @@ onBeforeUnmount(() => {
 
             <!-- Messages -->
             <q-scroll-area ref="chatScrollArea" class="col q-mt-md" v-if="activeChat.messages?.length">
-              <div v-for="message in activeChat.messages" :key="message.id" class="q-mb-md q-px-md">
+              <div v-for="message in activeChat.messages" :key="typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 0" class="q-mb-md q-px-md">
                 <div style="max-width: 100%;"
                   :class="['flex', message.sender_id !== activeChat.user.zulipUserId ? 'justify-end' : 'justify-start']">
-                  <q-chat-message data-cy="chat-message" :name="message.sender_full_name" :text="[message.content]"
-                    text-html :sent="message.sender_id !== activeChat.user.zulipUserId"
-                    :stamp="new Date(message.timestamp * 1000).toLocaleString()" />
+                  <q-chat-message
+                    data-cy="chat-message"
+                    :name="typeof message.sender_full_name === 'string' ? message.sender_full_name : 'Unknown'"
+                    :text="[typeof message.content === 'string' ? message.content : '']"
+                    text-html
+                    :sent="message.sender_id !== activeChat.user.zulipUserId"
+                    :stamp="typeof message.timestamp === 'number' ? new Date(message.timestamp * 1000).toLocaleString() : new Date().toLocaleString()"
+                  />
                 </div>
               </div>
             </q-scroll-area>
             <NoContentComponent v-else class="col" icon="sym_r_chat" label="No messages yet" />
 
+            <!-- Typing indicators -->
+            <div v-if="useChatStore().getActiveTypingUsers.length" class="text-grey-7 q-px-sm q-mb-xs">
+              <span v-if="useChatStore().getActiveTypingUsers.length === 1">
+                {{ useChatStore().getActiveTypingUsers[0].split(':')[0].substring(1) }} is typing...
+              </span>
+              <span v-else-if="useChatStore().getActiveTypingUsers.length === 2">
+                {{ useChatStore().getActiveTypingUsers[0].split(':')[0].substring(1) }} and
+                {{ useChatStore().getActiveTypingUsers[1].split(':')[0].substring(1) }} are typing...
+              </span>
+              <span v-else>
+                Multiple people are typing...
+              </span>
+            </div>
+
             <!-- Message input -->
-            <q-input data-cy="chat-message-input" :loading="useChatStore().isSendingMessage" v-model="newMessage" filled
-              resi label="Type a message" @keyup.enter="sendMessage">
+            <q-input data-cy="chat-input" :loading="useChatStore().isSendingMessage" v-model="newMessage" filled
+              resi label="Type a message" @keyup.enter="sendMessage" @input="handleTyping">
               <template v-slot:after>
-                <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
+                <q-btn data-cy="send-message-button" round dense flat icon="sym_r_send" @click="sendMessage" />
               </template>
             </q-input>
           </div>
