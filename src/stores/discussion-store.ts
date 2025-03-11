@@ -87,10 +87,16 @@ export const useDiscussionStore = defineStore('discussion', {
           }
 
           // Create a new Matrix message
+          const currentUser = useAuthStore().user
+          const displayName = currentUser
+            ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ') || currentUser.email?.split('@')[0] || 'OpenMeet User'
+            : 'OpenMeet User'
+
           const newMessage: MatrixMessage = {
             event_id: eventId,
             room_id: this.contextId,
             sender: useAuthStore().user?.matrixUserId,
+            sender_name: displayName, // Add OpenMeet username
             content: {
               msgtype: 'm.text',
               body: message,
