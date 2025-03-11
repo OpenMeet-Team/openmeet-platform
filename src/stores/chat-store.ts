@@ -5,6 +5,7 @@ import { ChatEntity } from '../types/model'
 import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 import { matrixService } from '../services/matrixService'
+import { getMatrixDisplayName } from '../utils/matrixUtils'
 const { error } = useNotification()
 
 // Typing indicator debounce time (ms)
@@ -101,7 +102,8 @@ export const useChatStore = defineStore('chat', {
 
           // Handle sender with appropriate type checking
           const sender = message.sender && typeof message.sender === 'string' ? message.sender : '@unknown:matrix.org'
-          const senderName = sender.split(':')[0].substring(1) // Extract username from @username:server.com
+          // Use sender_name if available, otherwise extract from Matrix ID
+          const senderName = message.sender_name || getMatrixDisplayName(sender)
 
           // Handle timestamp with appropriate type checking
           const timestamp = message.origin_server_ts && typeof message.origin_server_ts === 'number'

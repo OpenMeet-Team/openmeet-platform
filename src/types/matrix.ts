@@ -2,6 +2,7 @@ export interface MatrixMessage {
   event_id: string;
   room_id: string;
   sender: string;
+  sender_name?: string; // Added field for OpenMeet display name
   content: {
     body: string;
     msgtype: string;

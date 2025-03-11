@@ -50,7 +50,12 @@ const getMessageContent = computed(() => {
 })
 
 const getSenderName = computed(() => {
-  // Extract username from Matrix ID
+  // Use Matrix display name if available (this is the OpenMeet username)
+  if (props.message.sender_name) {
+    return props.message.sender_name
+  }
+
+  // If no display name, extract from Matrix ID as fallback
   if (props.message.sender) {
     return props.message.sender.split(':')[0].substring(1)
   }

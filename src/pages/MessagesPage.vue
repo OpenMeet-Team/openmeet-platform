@@ -10,6 +10,7 @@ import { getImageSrc } from '../utils/imageUtils'
 import { useNavigation } from '../composables/useNavigation'
 import { nextTick } from 'process'
 import { useNotification } from '../composables/useNotification'
+import { getMatrixDisplayName } from '../utils/matrixUtils'
 
 const route = useRoute()
 const chatList = computed(() => useChatStore().chatList)
@@ -116,6 +117,11 @@ const filteredChatList = computed(() => {
 const avatarSrc = getImageSrc(null)
 
 const { navigateToChat } = useNavigation()
+
+// Helper function to extract display name from Matrix ID
+function getDisplayNameFromMatrixId (matrixId: string): string {
+  return getMatrixDisplayName(matrixId)
+}
 
 // Debounced typing indicator
 const typingTimeout = ref<number | null>(null)
@@ -266,11 +272,11 @@ onBeforeUnmount(() => {
             <!-- Typing indicators -->
             <div v-if="useChatStore().getActiveTypingUsers.length" class="text-grey-7 q-px-sm q-mb-xs">
               <span v-if="useChatStore().getActiveTypingUsers.length === 1">
-                {{ useChatStore().getActiveTypingUsers[0].split(':')[0].substring(1) }} is typing...
+                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[0]) }} is typing...
               </span>
               <span v-else-if="useChatStore().getActiveTypingUsers.length === 2">
-                {{ useChatStore().getActiveTypingUsers[0].split(':')[0].substring(1) }} and
-                {{ useChatStore().getActiveTypingUsers[1].split(':')[0].substring(1) }} are typing...
+                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[0]) }} and
+                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[1]) }} are typing...
               </span>
               <span v-else>
                 Multiple people are typing...
