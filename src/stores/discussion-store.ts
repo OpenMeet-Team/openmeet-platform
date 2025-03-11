@@ -51,50 +51,127 @@ export const useDiscussionStore = defineStore('discussion', {
     async actionSendMessage (message: string, topicName: string) {
       this.isSending = true
 
-      let messageId: number | undefined
-      if (this.contextType === 'group') {
-        messageId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
-      } else if (this.contextType === 'event') {
-        messageId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
-      }
-
-      if (messageId) {
-        const topic = this.topics.find(t => t.name === topicName)
-        if (topic) {
-          this.topics = this.topics.map(t => t.name === topicName ? { ...t, max_id: messageId } : t)
-        } else {
-          this.topics = [{ name: topicName, max_id: messageId }, ...this.topics]
+      try {
+        // Check if user has Matrix ID
+        if (!useAuthStore().user?.matrixUserId) {
+          throw new Error('Matrix user ID missing. Please refresh the page and try again.')
         }
-        this.messages = [{ id: messageId, content: message, subject: topicName, sender_full_name: `${useAuthStore().user?.firstName || ''} ${useAuthStore().user?.lastName || ''}`.trim() || 'Anonymous', sender_id: useAuthStore().user?.zulipUserId || 0, timestamp: Date.now() }, ...this.messages]
+
+        let eventId: string | undefined
+        if (this.contextType === 'group') {
+          eventId = await useGroupStore().actionSendGroupDiscussionMessage(message, topicName)
+        } else if (this.contextType === 'event') {
+          eventId = await useEventStore().actionSendEventDiscussionMessage(message, topicName)
+        }
+
+        if (eventId) {
+          const topic = this.topics.find(t => t.name === topicName)
+          if (!topic) {
+            this.topics = [{ name: topicName }, ...this.topics]
+          }
+
+          // Create a new Matrix message
+          const newMessage: MatrixMessage = {
+            event_id: eventId,
+            room_id: this.contextId,
+            sender: useAuthStore().user?.matrixUserId,
+            content: {
+              msgtype: 'm.text',
+              body: message,
+              // Add topic as a custom property
+              topic: topicName
+            } as MatrixMessageContent,
+            origin_server_ts: Date.now(),
+            type: 'm.room.message'
+          }
+
+          this.messages = [newMessage, ...this.messages]
+        }
+      } catch (err) {
+        console.error('Error sending Matrix message:', err)
+        throw err
+      } finally {
+        this.isSending = false
       }
-      this.isSending = false
     },
 
-    async actionUpdateMessage (messageId: number, newText: string) {
-      this.isUpdating = true
-      let updatedMessageId: number | undefined
-      if (this.contextType === 'group') {
-        updatedMessageId = await useGroupStore().actionUpdateGroupDiscussionMessage(messageId, newText)
-      } else if (this.contextType === 'event') {
-        updatedMessageId = await useEventStore().actionUpdateEventDiscussionMessage(messageId, newText)
+    async actionLoadMessages (limit = 50, from?: string) {
+      if (this.contextType === 'event') {
+        const result = await useEventStore().actionGetEventDiscussionMessages(limit, from)
+        if (result && result.messages) {
+          // Process messages and add topic property if not present
+          const processedMessages = result.messages.map(message => {
+            // Make sure each message has a topic (use 'General' as default)
+            if (!message.content.topic) {
+              return {
+                ...message,
+                content: {
+                  ...message.content,
+                  topic: 'General'
+                }
+              }
+            }
+            return message
+          })
+
+          // Append or replace messages
+          if (from) {
+            // Append more messages (pagination)
+            this.messages = [...this.messages, ...processedMessages]
+          } else {
+            // Initial load
+            this.messages = processedMessages
+          }
+
+          // Extract topics from messages
+          const uniqueTopics = new Set<string>()
+          this.messages.forEach(message => {
+            if (message.content.topic) {
+              uniqueTopics.add(message.content.topic)
+            }
+          })
+
+          // Update topics
+          this.topics = [...uniqueTopics].map(name => ({ name }))
+
+          return {
+            messages: processedMessages,
+            end: result.end
+          }
+        }
       }
-      if (updatedMessageId) {
-        this.messages = this.messages.map(m => m.id === messageId ? { ...m, content: newText } : m)
+      return {
+        messages: [],
+        end: ''
       }
-      this.isUpdating = false
     },
-    async actionDeleteMessage (messageId: number) {
-      this.isDeleting = true
-      let deletedMessageId: number | undefined
-      if (this.contextType === 'group') {
-        deletedMessageId = await useGroupStore().actionDeleteGroupDiscussionMessage(messageId)
-      } else if (this.contextType === 'event') {
-        deletedMessageId = await useEventStore().actionDeleteEventDiscussionMessage(messageId)
-      }
-      if (deletedMessageId) {
-        this.messages = this.messages.filter(m => m.id !== deletedMessageId)
-      }
+
+    async actionUpdateMessage (eventId: string, newText: string) {
+      // Matrix doesn't support message editing directly through our API yet
+      // This would be implemented in a future version
+      this.isUpdating = false
+
+      // For now, just update the local state
+      this.messages = this.messages.map(m => m.event_id === eventId ? {
+        ...m,
+        content: {
+          ...m.content,
+          body: newText
+        }
+      } : m)
+
+      return eventId
+    },
+
+    async actionDeleteMessage (eventId: string) {
+      // Matrix doesn't support message deletion directly through our API yet
+      // This would be implemented in a future version
       this.isDeleting = false
+
+      // For now, just update the local state
+      this.messages = this.messages.filter(m => m.event_id !== eventId)
+
+      return eventId
     }
   }
 })

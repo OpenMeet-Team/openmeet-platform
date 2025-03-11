@@ -10,6 +10,7 @@ import {
 } from '../types'
 import getEnv from '../utils/env'
 const BASE_URL = '/api/v1/auth'
+const MATRIX_BASE_URL = '/api/matrix'
 
 export const authApi = {
   login: (credentials: {
@@ -25,6 +26,9 @@ export const authApi = {
     lastName?: string
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/email/register`, credentials),
+
+  provisionMatrixUser: (): Promise<AxiosResponse<{ matrixUserId: string, matrixAccessToken: string, matrixDeviceId: string }>> =>
+    api.post(`${MATRIX_BASE_URL}/provision-user`),
 
   forgotPassword: (data: ApiAuthForgotPasswordRequest): Promise<AxiosResponse<void>> =>
     api.post(`${BASE_URL}/forgot/password`, data),

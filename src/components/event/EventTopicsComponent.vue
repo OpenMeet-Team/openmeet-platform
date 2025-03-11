@@ -8,19 +8,27 @@ import { useAuthStore } from '../../stores/auth-store'
 
 const event = computed(() => useEventStore().event)
 
+// Permissions for the discussion
+const discussionPermissions = computed(() => ({
+  canRead: Boolean(
+    useEventStore().getterIsPublicEvent ||
+    (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) ||
+    useEventStore().getterUserHasPermission(EventAttendeePermission.ViewDiscussion)
+  ),
+  canWrite: !!useEventStore().getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
+  canManage: !!useEventStore().getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
+}))
+
 </script>
 
 <template>
   <div class="c-event-topics-component" v-if="event">
-    <SubtitleComponent :count="event.topics?.length" label="Comments" class="q-mt-lg q-px-md c-event-topics-component" hide-link />
+    <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" hide-link />
 
-    <DiscussionComponent v-if="event.messages && event.topics" :messages="event?.messages ?? []" :topics="event?.topics ?? []" :context-type="'event'"
-      :context-id="event?.slug ?? ''" :permissions="{
-      canRead: Boolean(useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserHasPermission(EventAttendeePermission.ViewDiscussion)),
-      canWrite: !!useEventStore().getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
-      canManage: !!useEventStore().getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
-    }" />
-
-    <NoContentComponent v-else icon="sym_r_error" label="No comments yet" />
+    <DiscussionComponent
+      :context-type="'event'"
+      :context-id="event?.slug ?? ''"
+      :permissions="discussionPermissions"
+    />
   </div>
 </template>

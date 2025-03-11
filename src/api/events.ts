@@ -1,6 +1,7 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity } from '../types'
+import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 
 const createEventApiHeaders = (eventSlug: string) => ({
@@ -23,7 +24,8 @@ export const eventsApi = {
   edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/edit`, createEventApiHeaders(slug)),
   getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
-  sendDiscussionMessage: (slug: string, message: string, topicName: string): Promise<AxiosResponse<{ id: number }>> => api.post(`/api/events/${slug}/discussions`, { message, topicName }, createEventApiHeaders(slug)),
-  deleteDiscussionMessage: (slug: string, messageId: number): Promise<AxiosResponse<{ id: number }>> => api.delete(`/api/events/${slug}/discussions/${messageId}`, createEventApiHeaders(slug)),
-  updateDiscussionMessage: (slug: string, messageId: number, message: string): Promise<AxiosResponse<{ id: number }>> => api.patch(`/api/events/${slug}/discussions/${messageId}`, { message }, createEventApiHeaders(slug))
+  sendDiscussionMessage: (slug: string, message: string, topicName: string): Promise<AxiosResponse<{ id: string }>> => api.post(`/api/events/${slug}/discussions`, { message, topicName }, createEventApiHeaders(slug)),
+  getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> => api.get(`/api/events/${slug}/discussions`, { params: { limit, from }, ...createEventApiHeaders(slug) }),
+  addMemberToDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.post(`/api/events/${slug}/discussions/members/${userId}`, {}, createEventApiHeaders(slug)),
+  removeMemberFromDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${slug}/discussions/members/${userId}`, createEventApiHeaders(slug))
 }

@@ -112,7 +112,7 @@ export const useEventStore = defineStore('event', {
     async actionSendEventDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
       try {
         if (this.event?.slug) {
-          const res = await api.post(`/api/events/${this.event.slug}/discussion`, { message, topicName })
+          const res = await eventsApi.sendDiscussionMessage(this.event.slug, message, topicName)
           return res.data.id
         }
       } catch (err) {
@@ -121,27 +121,45 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionUpdateEventDiscussionMessage (messageId: number, newText: string): Promise<number | undefined> {
+    async actionGetEventDiscussionMessages (limit = 50, from?: string) {
       try {
         if (this.event?.slug) {
-          const res = await api.put(`/api/events/${this.event.slug}/discussion/${messageId}`, { newText })
-          return res.data.id
+          const res = await eventsApi.getDiscussionMessages(this.event.slug, limit, from)
+          return res.data
         }
+        return { messages: [], end: '' }
       } catch (err) {
         console.log(err)
-        error('Failed to update event discussion message')
+        error('Failed to get event discussion messages')
+        return { messages: [], end: '' }
       }
     },
 
-    async actionDeleteEventDiscussionMessage (messageId: number): Promise<number | undefined> {
+    async actionAddMemberToEventDiscussion (userId: number) {
       try {
         if (this.event?.slug) {
-          const res = await api.delete(`/api/events/${this.event.slug}/discussion/${messageId}`)
-          return res.data.id
+          await eventsApi.addMemberToDiscussion(this.event.slug, userId)
+          return true
         }
+        return false
       } catch (err) {
         console.log(err)
-        error('Failed to delete event discussion message')
+        error('Failed to add member to event discussion')
+        return false
+      }
+    },
+
+    async actionRemoveMemberFromEventDiscussion (userId: number) {
+      try {
+        if (this.event?.slug) {
+          await eventsApi.removeMemberFromDiscussion(this.event.slug, userId)
+          return true
+        }
+        return false
+      } catch (err) {
+        console.log(err)
+        error('Failed to remove member from event discussion')
+        return false
       }
     }
   }
