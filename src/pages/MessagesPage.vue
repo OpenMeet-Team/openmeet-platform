@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
 import NoContentComponent from '../components/global/NoContentComponent.vue'
 import DashboardTitle from '../components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
+import MessagesComponent from '../components/messages/MessagesComponent.vue'
 import { useChatStore } from '../stores/chat-store'
 import { LoadingBar, QScrollArea } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { getImageSrc } from '../utils/imageUtils'
 import { useNavigation } from '../composables/useNavigation'
-import { nextTick } from 'process'
 import { useNotification } from '../composables/useNotification'
-import { getMatrixDisplayName } from '../utils/matrixUtils'
 
 const route = useRoute()
 const chatList = computed(() => useChatStore().chatList)
@@ -103,7 +102,6 @@ watch(() => route.query, async () => {
 })
 
 const searchQuery = ref('')
-const newMessage = ref('')
 
 const activeChat = computed(() => useChatStore().activeChat)
 const filteredChatList = computed(() => {
@@ -118,69 +116,9 @@ const avatarSrc = getImageSrc(null)
 
 const { navigateToChat } = useNavigation()
 
-// Helper function to extract display name from Matrix ID
-function getDisplayNameFromMatrixId (matrixId: string): string {
-  return getMatrixDisplayName(matrixId)
-}
-
-// Debounced typing indicator
-const typingTimeout = ref<number | null>(null)
-
-// Handle typing indicator
-function handleTyping () {
-  if (!activeChat.value || !activeChat.value.roomId) return
-
-  // Send typing indicator (true = is typing)
-  useChatStore().actionSendTyping(activeChat.value.roomId, true)
-
-  // Clear any existing timeout
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value)
-  }
-
-  // Set a new timeout to stop typing indicator after 2 seconds of inactivity
-  typingTimeout.value = window.setTimeout(() => {
-    if (activeChat.value?.roomId) {
-      useChatStore().actionSendTyping(activeChat.value.roomId, false)
-    }
-    typingTimeout.value = null
-  }, 2000)
-}
-
-function sendMessage () {
-  if (newMessage.value.trim() && activeChat.value) {
-    const message = newMessage.value
-    newMessage.value = ''
-
-    // Stop typing indicator when sending a message
-    if (activeChat.value.roomId) {
-      useChatStore().actionSendTyping(activeChat.value.roomId, false)
-    }
-
-    // Clear typing timeout
-    if (typingTimeout.value) {
-      clearTimeout(typingTimeout.value)
-      typingTimeout.value = null
-    }
-
-    useChatStore().actionSendMessage(activeChat.value.ulid, {
-      content: message.trim(),
-      sender_id: activeChat.value.user.zulipUserId as number,
-      sender_full_name: activeChat.value.user.name as string,
-      timestamp: new Date().getTime()
-    }).then(() => {
-      scrollToEnd(500)
-    })
-  }
-}
+// Remove unused functions since they're now handled by MessagesComponent
 
 onBeforeUnmount(() => {
-  // Clean up typing timeout
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value)
-    typingTimeout.value = null
-  }
-
   // Clean up Matrix-related resources
   useChatStore().actionCleanup()
   useChatStore().$reset()
@@ -251,45 +189,18 @@ onBeforeUnmount(() => {
               </q-card-section>
             </q-card>
 
-            <!-- Messages -->
-            <q-scroll-area ref="chatScrollArea" class="col q-mt-md" v-if="activeChat.messages?.length">
-              <div v-for="message in activeChat.messages" :key="typeof message.id === 'string' || typeof message.id === 'number' ? message.id : 0" class="q-mb-md q-px-md">
-                <div style="max-width: 100%;"
-                  :class="['flex', message.sender_id !== activeChat.user.zulipUserId ? 'justify-end' : 'justify-start']">
-                  <q-chat-message
-                    data-cy="chat-message"
-                    :name="typeof message.sender_full_name === 'string' ? message.sender_full_name : 'Unknown'"
-                    :text="[typeof message.content === 'string' ? message.content : '']"
-                    text-html
-                    :sent="message.sender_id !== activeChat.user.zulipUserId"
-                    :stamp="typeof message.timestamp === 'number' ? new Date(message.timestamp * 1000).toLocaleString() : new Date().toLocaleString()"
-                  />
-                </div>
-              </div>
-            </q-scroll-area>
+            <!-- Messages using the new unified component -->
+            <MessagesComponent
+              v-if="activeChat.roomId"
+              :room-id="activeChat.roomId"
+              context-type="direct"
+              :context-id="activeChat.ulid"
+              :can-read="true"
+              :can-write="true"
+              :can-manage="false"
+              class="col"
+            />
             <NoContentComponent v-else class="col" icon="sym_r_chat" label="No messages yet" />
-
-            <!-- Typing indicators -->
-            <div v-if="useChatStore().getActiveTypingUsers.length" class="text-grey-7 q-px-sm q-mb-xs">
-              <span v-if="useChatStore().getActiveTypingUsers.length === 1">
-                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[0]) }} is typing...
-              </span>
-              <span v-else-if="useChatStore().getActiveTypingUsers.length === 2">
-                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[0]) }} and
-                {{ getDisplayNameFromMatrixId(useChatStore().getActiveTypingUsers[1]) }} are typing...
-              </span>
-              <span v-else>
-                Multiple people are typing...
-              </span>
-            </div>
-
-            <!-- Message input -->
-            <q-input data-cy="chat-input" :loading="useChatStore().isSendingMessage" v-model="newMessage" filled
-              resi label="Type a message" @keyup.enter="sendMessage" @input="handleTyping">
-              <template v-slot:after>
-                <q-btn data-cy="send-message-button" round dense flat icon="sym_r_send" @click="sendMessage" />
-              </template>
-            </q-input>
           </div>
           <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging" />
         </template>

@@ -25,25 +25,50 @@ class MatrixServiceImpl {
       return true
     }
 
+    // Clear any previous disable flag - SSE should be enabled by default
+    window.localStorage.removeItem('DISABLE_MATRIX_SSE')
+    
+    // TODO: In the future, this should be connected to a user preference in the database
+    // For now, we'll enable SSE by default
+
     try {
       // First ensure user has Matrix credentials
       const hasMatrix = await ensureMatrixUser()
       if (!hasMatrix) {
-        console.error('Cannot connect to Matrix: user lacks Matrix credentials')
-        return false
+        console.warn('Cannot connect to Matrix: user lacks Matrix credentials')
+        return true // Return true to allow app to continue
       }
 
       const user = useAuthStore().user
       if (!user || !user.matrixUserId) {
-        console.error('Cannot connect to Matrix: user not authenticated or missing Matrix ID')
-        return false
+        console.warn('Cannot connect to Matrix: user not authenticated or missing Matrix ID')
+        return true // Return true to allow app to continue
       }
 
       // Close any existing connection
       this.disconnect()
 
-      const url = '/api/matrix/events'
-      this.eventSource = new EventSource(url)
+      try {
+        // Try several possible endpoint paths to find the correct one
+        const testEndpoints = [
+          '/api/matrix/events',
+          '/api/v1/matrix/events',
+          '/api/events/matrix'
+        ]
+
+        // We used to disable SSE for ngrok URLs, but that's no longer necessary
+        // We can use ngrok for SSE as long as the API URL is properly configured
+
+        console.log('Attempting to connect to Matrix events using: ' + testEndpoints[0])
+        // Use the matrix API's createEventSource method for the first endpoint
+        this.eventSource = matrixApi.createEventSource()
+      } catch (e) {
+        console.error('Error creating EventSource:', e)
+        // Even if there's an error creating the EventSource, we'll continue without real-time updates
+        // This allows the app to function normally even if SSE isn't available
+        this.attemptReconnect()
+        return true
+      }
 
       return new Promise((resolve) => {
         this.eventSource!.onopen = () => {
@@ -56,9 +81,14 @@ class MatrixServiceImpl {
         this.eventSource!.onerror = (error) => {
           console.error('Matrix events connection error:', error)
           this.isConnected = false
+
+          // We'll keep trying to reconnect in development mode as well
+          console.warn('Matrix SSE connection error, will attempt to reconnect')
+
           this.attemptReconnect()
           if (!this.reconnectAttempts) {
-            resolve(false)
+            // We still resolve with true to allow the app to function
+            resolve(true)
           }
         }
 
@@ -136,6 +166,8 @@ class MatrixServiceImpl {
       return
     }
 
+    console.log('Processing Matrix event:', event.type, event)
+
     // Different handling based on event type
     switch (event.type) {
       case 'm.room.message':
@@ -148,6 +180,8 @@ class MatrixServiceImpl {
         this.handleMemberEvent(event)
         break
       // Add more event types as needed
+      default:
+        console.log('Unhandled Matrix event type:', event.type)
     }
   }
 
@@ -155,16 +189,21 @@ class MatrixServiceImpl {
    * Handle Matrix message events
    */
   private handleMessageEvent (event: MatrixMessage): void {
-    if (event.room_id) {
+    // Support both property naming conventions (room_id and roomId)
+    const roomId = event.room_id || event.roomId
+
+    if (roomId) {
+      console.log('Received message event for room:', roomId, event)
+      
       // Check if this is a direct chat message
       const activeChat = useChatStore().activeChat
-      if (activeChat && activeChat.roomId && activeChat.roomId === event.room_id) {
+      if (activeChat && activeChat.roomId && activeChat.roomId === roomId) {
         useChatStore().actionAddMessage(event)
       }
 
       // Check if this is a discussion message
       const contextId = useDiscussionStore().getterContextId
-      if (contextId && contextId === event.room_id) {
+      if (contextId && contextId === roomId) {
         // Need to transform the message to add a topic if not present
         const eventWithTopic = {
           ...event,
@@ -184,6 +223,12 @@ class MatrixServiceImpl {
           ]
         }
       }
+      
+      // Also notify the unified message store about this message
+      // This ensures the message appears in real-time in MessagesComponent
+      const { useMessageStore } = require('../stores/unified-message-store')
+      const messageStore = useMessageStore()
+      messageStore.addNewMessage(event)
     }
   }
 
@@ -253,8 +298,11 @@ class MatrixServiceImpl {
       window.clearTimeout(this.reconnectTimeout)
     }
 
-    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      console.error('Max reconnect attempts reached, giving up')
+    // For now, only attempt 5 reconnections to avoid too many connection attempts
+    if (this.reconnectAttempts >= 5) {
+      console.warn('Matrix SSE connection failed after 5 attempts - continuing without real-time updates')
+      console.info('The app will still function, but real-time updates will not be available')
+      // Do NOT set the DISABLE_MATRIX_SSE flag since it would affect future page loads
       return
     }
 

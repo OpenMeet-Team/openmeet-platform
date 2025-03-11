@@ -25,7 +25,7 @@ export const eventsApi = {
   getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
   sendDiscussionMessage: (slug: string, message: string): Promise<AxiosResponse<{ id: string }>> => api.post(`/api/events/${slug}/discussions`, { message }, createEventApiHeaders(slug)),
-  getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> => api.get(`/api/events/${slug}/discussions`, { params: { limit, from }, ...createEventApiHeaders(slug) }),
+  getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> => api.get(`/api/events/${slug}/discussions`, { params: { limit, from }, ...createEventApiHeaders(slug) }),
   addMemberToDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.post(`/api/events/${slug}/discussions/members/${userId}`, {}, createEventApiHeaders(slug)),
   removeMemberFromDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${slug}/discussions/members/${userId}`, createEventApiHeaders(slug))
 }

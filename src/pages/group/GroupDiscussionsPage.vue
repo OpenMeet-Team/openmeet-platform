@@ -5,8 +5,9 @@ import { useGroupStore } from '../../stores/group-store'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import { GroupPermission } from '../../types'
-import DiscussionComponent from '../../components/discussion/DiscussionComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
+import MessagesComponent from '../../components/messages/MessagesComponent.vue'
+import NoContentComponent from '../../components/global/NoContentComponent.vue'
 
 const group = computed(() => useGroupStore().group)
 const hasPermission = computed(() => {
@@ -29,12 +30,16 @@ onMounted(async () => {
   <div data-cy="group-discussions-page" v-if="!isLoading && group && hasPermission">
     <SubtitleComponent class="q-mt-lg q-px-md" label="Discussions" :count="group?.topics?.length" hide-link />
 
-    <!-- Discussions Section -->
-    <DiscussionComponent v-if="group.topics && group.messages" :messages="group?.messages || []" :topics="group?.topics || []" :context-type="'group'" :context-id="group?.slug || ''" :permissions="{
-      canRead: Boolean(useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeDiscussions)),
-      canWrite: Boolean(useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion)),
-      canManage: Boolean(useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions))
-    }" />
+    <!-- Discussions Section using new unified MessagesComponent -->
+    <MessagesComponent
+      v-if="group"
+      :room-id="group.roomId"
+      context-type="group"
+      :context-id="group?.slug || ''"
+      :can-read="Boolean(useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeDiscussions))"
+      :can-write="Boolean(useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion))"
+      :can-manage="Boolean(useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions))"
+    />
   </div>
   <NoContentComponent data-cy="no-permission-group-discussions-page" v-if="!isLoading && group && !hasPermission" label="You don't have permission to see this page" icon="sym_r_group"/>
 </template>

@@ -1,6 +1,9 @@
 export interface MatrixMessage {
-  event_id: string;
-  room_id: string;
+  // Support both naming conventions since API is in transition
+  event_id?: string;
+  eventId?: string;
+  room_id?: string;
+  roomId?: string;
   sender: string;
   sender_name?: string; // Added field for OpenMeet display name
   content: {
@@ -8,8 +11,9 @@ export interface MatrixMessage {
     msgtype: string;
     [key: string]: unknown;
   };
-  origin_server_ts: number;
-  type: string;
+  origin_server_ts?: number;
+  timestamp?: number; // Alternative naming for timestamp
+  type?: string;
   unsigned?: {
     age?: number;
     transaction_id?: string;

@@ -11,3 +11,8 @@ declare namespace NodeJS {
     APP_VERSION: string
   }
 }
+
+// Global window extensions for Matrix integration
+interface Window {
+  __MATRIX_API_URL__?: string;
+}

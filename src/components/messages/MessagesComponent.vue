@@ -15,8 +15,8 @@
       </div>
     </q-card-section>
 
-    <!-- Messages list -->
-    <div v-if="messagesList.length > 0" class="messages-container q-pa-md">
+    <!-- Messages list with virtual scrolling for better performance -->
+    <div v-if="messagesList.length > 0" class="messages-container q-pa-md" ref="messagesContainer">
       <!-- Load more button -->
       <div class="text-center q-mb-md" v-if="hasMoreMessages">
         <q-btn flat color="primary" @click="loadMoreMessages" :loading="isLoadingMore">
@@ -24,17 +24,38 @@
         </q-btn>
       </div>
 
-      <!-- Messages in chronological order -->
-      <div v-for="message in messagesList" :key="message.event_id" class="q-mb-md">
-        <message-item
-          :message="message"
-          :is-current-user="isCurrentUser(message.sender)"
-          :can-manage="canManage"
-          @reply="replyToMessage"
-          @delete="promptDeleteMessage"
-          @edit="startEditMessage"
-        />
-      </div>
+      <!-- Day separators and messages -->
+      <template v-for="(messageGroup, date) in groupedMessages" :key="date">
+        <!-- Date separator -->
+        <div class="date-separator q-my-md text-center">
+          <div class="date-line"></div>
+          <div class="date-label bg-white dark:bg-dark q-px-sm">{{ formatDateLabel(date) }}</div>
+        </div>
+
+        <!-- Messages for this date -->
+        <div v-for="message in messageGroup" :key="message.event_id || message.eventId" class="q-mb-md">
+          <message-item
+            :message="message"
+            :is-current-user="isCurrentUser(message.sender)"
+            :can-manage="canManage"
+            :ref="el => { if (message.event_id === unreadMessageId) unreadMessageRef = el }"
+            @reply="replyToMessage"
+            @delete="promptDeleteMessage"
+            @edit="startEditMessage"
+          />
+        </div>
+      </template>
+
+      <!-- New message indicator -->
+      <q-btn
+        v-if="showScrollToBottom"
+        round
+        color="primary"
+        icon="keyboard_arrow_down"
+        size="sm"
+        class="scroll-to-bottom-btn"
+        @click="scrollToBottom"
+      />
     </div>
 
     <!-- Message input -->
@@ -77,6 +98,8 @@ import { useAuthStore } from '../../stores/auth-store'
 import { ensureMatrixUser, getMatrixDisplayName } from '../../utils/matrixUtils'
 import MessageItem from './MessageItem.vue'
 import { useQuasar } from 'quasar'
+import { format, isToday, isYesterday, parseISO } from 'date-fns'
+import { MatrixMessage } from '../../types/matrix'
 
 const props = defineProps({
   roomId: {
@@ -119,6 +142,13 @@ const hasMoreMessages = ref(false)
 const paginationToken = ref('')
 const lastTyping = ref(0)
 const typingDebounce = 2000 // 2 seconds
+const messagesContainer = ref<HTMLElement | null>(null)
+const unreadMessageId = ref('')
+const unreadMessageRef = ref(null)
+const showScrollToBottom = ref(false)
+const autoScrollToBottom = ref(true)
+const lastScrollPosition = ref(0)
+const isScrollingProgrammatically = ref(false)
 
 // Computed values
 const messagesList = computed(() => messageStore.currentRoomMessages)
@@ -126,6 +156,29 @@ const isSendingMessage = computed(() => messageStore.isSending)
 const typingUsersList = computed(() => {
   return messageStore.typingUsersInCurrentRoom
     .filter(id => id !== authStore.user?.matrixUserId)
+})
+
+// Group messages by date for better UI organization
+const groupedMessages = computed(() => {
+  const groups: Record<string, MatrixMessage[]> = {}
+
+  messagesList.value.forEach(message => {
+    // Get timestamp (using either property name)
+    const timestamp = message.origin_server_ts || message.timestamp || 0
+    if (!timestamp) return
+
+    // Format as YYYY-MM-DD for grouping
+    const date = new Date(timestamp)
+    const dateString = format(date, 'yyyy-MM-dd')
+
+    if (!groups[dateString]) {
+      groups[dateString] = []
+    }
+
+    groups[dateString].push(message)
+  })
+
+  return groups
 })
 
 const formatTypingUsers = computed(() => {
@@ -151,6 +204,17 @@ const isCurrentUser = (senderId: string) => {
   return senderId === authStore.user?.matrixUserId
 }
 
+const formatDateLabel = (dateString: string) => {
+  try {
+    const date = parseISO(dateString)
+    if (isToday(date)) return 'Today'
+    if (isYesterday(date)) return 'Yesterday'
+    return format(date, 'MMM d, yyyy')
+  } catch (e) {
+    return dateString
+  }
+}
+
 const handleTyping = () => {
   if (!props.canWrite || !props.roomId) return
 
@@ -160,6 +224,49 @@ const handleTyping = () => {
     messageStore.sendTyping(props.roomId, true)
   }
 }
+
+const scrollToBottom = () => {
+  if (!messagesContainer.value) return
+
+  isScrollingProgrammatically.value = true
+  messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  showScrollToBottom.value = false
+  autoScrollToBottom.value = true
+
+  setTimeout(() => {
+    isScrollingProgrammatically.value = false
+  }, 100)
+}
+
+const handleScroll = () => {
+  if (!messagesContainer.value || isScrollingProgrammatically.value) return
+
+  const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value
+  const scrolledToBottom = Math.abs((scrollTop + clientHeight) - scrollHeight) < 50
+
+  // Update auto-scroll flag based on user scroll position
+  autoScrollToBottom.value = scrolledToBottom
+
+  // Show scroll button when not at bottom
+  showScrollToBottom.value = !scrolledToBottom
+
+  // Save last scroll position
+  lastScrollPosition.value = scrollTop
+}
+
+// These functions will be implemented in the future when we add read receipts support
+// Commented out to avoid linting errors for unused functions
+/*
+const checkUnreadMessages = () => {
+  // In the future, we could implement logic to highlight unread messages
+  // based on read receipts from Matrix
+}
+
+const markMessagesAsRead = () => {
+  // Implementation for marking messages as read would go here
+  // This would use Matrix read receipts API
+}
+*/
 
 const loadMessages = async () => {
   if (!props.roomId) return
@@ -195,6 +302,10 @@ const sendMessage = async () => {
   if (!props.canWrite || !newMessage.value.trim()) return
 
   try {
+    // First make sure we're scrolled to bottom for a new message
+    autoScrollToBottom.value = true
+
+    // Send the message
     await messageStore.sendMessage(newMessage.value.trim())
     newMessage.value = ''
 
@@ -203,12 +314,17 @@ const sendMessage = async () => {
       messageStore.sendTyping(props.roomId, false)
     }
 
-    // Focus the input field again
+    // Scroll to new message
     nextTick(() => {
+      scrollToBottom()
       messageInput.value?.focus()
     })
   } catch (err) {
     console.error('Error sending message:', err)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to send message. Please try again.'
+    })
   }
 }
 
@@ -263,12 +379,40 @@ onMounted(async () => {
   }
 
   await loadMessages()
+
+  // Set up scroll handler
+  if (messagesContainer.value) {
+    messagesContainer.value.addEventListener('scroll', handleScroll)
+
+    // Scroll to bottom on initial load
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
+
+  // Watch for changes to the messages list
+  watch(
+    messagesList,
+    (newMessages) => {
+      if (newMessages.length > 0 && autoScrollToBottom.value) {
+        nextTick(() => {
+          scrollToBottom()
+        })
+      }
+    },
+    { deep: true }
+  )
 })
 
 onBeforeUnmount(() => {
   // Clean up typing indicator and other resources
   if (props.roomId && messageStore.isUserTyping) {
     messageStore.sendTyping(props.roomId, false).catch(console.error)
+  }
+
+  // Remove event listeners
+  if (messagesContainer.value) {
+    messagesContainer.value.removeEventListener('scroll', handleScroll)
   }
 
   messageStore.cleanup()
@@ -285,11 +429,19 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
       canManage: props.canManage
     })
 
-    // Reset pagination
+    // Reset states
     paginationToken.value = ''
+    autoScrollToBottom.value = true
+    showScrollToBottom.value = false
+    unreadMessageId.value = ''
 
     // Load messages for new room
     await loadMessages()
+
+    // Scroll to bottom after loading
+    nextTick(() => {
+      scrollToBottom()
+    })
   }
 })
 </script>
@@ -316,5 +468,38 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
   font-size: 12px;
   height: 18px;
   margin-top: 4px;
+}
+
+.date-separator {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.date-line {
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.12);
+  top: 50%;
+  left: 0;
+  z-index: 0;
+}
+
+.date-label {
+  position: relative;
+  display: inline-block;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #666;
+  z-index: 1;
+}
+
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 2;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 </style>

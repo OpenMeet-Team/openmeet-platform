@@ -20,8 +20,29 @@ export const chatApi = {
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-  // Create SSE connection for Matrix events
+  // Import and use the matrix API's createEventSource to ensure consistency
   createEventSource: (): EventSource => {
-    return new EventSource('/api/matrix/events', { withCredentials: true })
+    // We'll use the matrixApi.createEventSource method to avoid duplication
+    // But since we can't import directly, we need to implement it here again
+
+    // Use the API URL from the app config
+    const apiBaseUrl = window.APP_CONFIG?.APP_API_URL || ''
+
+    // Check for overridden API URL (ngrok or other proxy)
+    const overrideUrl = window.__MATRIX_API_URL__ || ''
+
+    // Use override if available, otherwise use the configured API URL
+    const baseUrl = overrideUrl || apiBaseUrl
+
+    if (!baseUrl) {
+      console.error('No API URL found. Make sure APP_API_URL is configured in config.json')
+      throw new Error('Cannot connect to Matrix: API URL not configured')
+    }
+
+    // Use the same endpoint path as matrix.ts
+    const endpoint = `${baseUrl}/api/matrix/events`
+    console.log('Chat API creating EventSource connection to:', endpoint)
+
+    return new EventSource(endpoint, { withCredentials: true })
   }
 }

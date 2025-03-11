@@ -77,6 +77,8 @@ export const useMessageStore = defineStore('messages', {
       this.matrixConnectionAttempted = true
 
       try {
+        console.log('Initializing Matrix connection for real-time updates')
+        
         // Connect to Matrix events service
         const success = await matrixService.connect()
         this.matrixConnected = success
@@ -86,6 +88,9 @@ export const useMessageStore = defineStore('messages', {
 
           // Add event handler for Matrix events
           matrixService.addEventHandler(this.handleMatrixEvent.bind(this))
+          
+          // Log that we're ready to receive events
+          console.log('Event handler registered, ready to receive real-time updates')
         } else {
           console.error('Failed to connect to Matrix events')
         }
@@ -102,6 +107,8 @@ export const useMessageStore = defineStore('messages', {
       if (!event || !event.type) return
 
       try {
+        console.log('Unified message store received Matrix event:', event)
+        
         // Handle different event types
         if (event.type === 'm.typing') {
           this.updateTypingUsers(
@@ -109,6 +116,7 @@ export const useMessageStore = defineStore('messages', {
             event.user_ids as string[]
           )
         } else if (event.type === 'm.room.message') {
+          console.log('Processing incoming message event in unified store')
           this.addNewMessage(event as unknown as MatrixMessage)
         }
       } catch (err) {
@@ -124,19 +132,41 @@ export const useMessageStore = defineStore('messages', {
 
     // Add a new message from real-time events
     addNewMessage (message: MatrixMessage) {
-      if (!message || !message.room_id || !message.event_id) return
+      // Support both property naming conventions
+      const roomId = message.room_id || message.roomId
+      const eventId = message.event_id || message.eventId
+
+      if (!message || !roomId || !eventId) {
+        console.warn('Received invalid message:', message)
+        return
+      }
+
+      console.log(`Adding message ${eventId} to room ${roomId}`)
 
       // Initialize room messages if needed
-      if (!this.messages[message.room_id]) {
-        this.messages[message.room_id] = []
+      if (!this.messages[roomId]) {
+        this.messages[roomId] = []
       }
 
       // Add the message to the messages array if it doesn't already exist
-      if (!this.messages[message.room_id].some(m => m.event_id === message.event_id)) {
-        this.messages[message.room_id].push(message)
+      if (!this.messages[roomId].some(m => (m.event_id === eventId || m.eventId === eventId))) {
+        console.log('Adding new message to room', roomId, message)
+        this.messages[roomId].push(message)
 
-        // Sort messages by timestamp
-        this.messages[message.room_id].sort((a, b) => a.origin_server_ts - b.origin_server_ts)
+        // Sort messages by timestamp (supporting both naming conventions)
+        this.messages[roomId].sort((a, b) => {
+          const aTime = a.origin_server_ts || a.timestamp || 0
+          const bTime = b.origin_server_ts || b.timestamp || 0
+          return aTime - bTime
+        })
+        
+        // Force reactivity update if this is the active room
+        if (this.activeRoomId === roomId) {
+          // Trigger a reactive update by creating a new array
+          this.messages = { ...this.messages }
+        }
+      } else {
+        console.log(`Message ${eventId} already exists in room ${roomId}`)
       }
     },
 
@@ -177,6 +207,17 @@ export const useMessageStore = defineStore('messages', {
       try {
         let result: { messages: MatrixMessage[], end: string }
 
+        // Special handling for constructed roomIds (temporary room IDs constructed from event_id)
+        if (this.activeRoomId.startsWith('constructed:')) {
+          // This is a fallback room ID that we constructed because the API didn't provide one
+          // Extract the event_id and use that to help identify the room on the backend
+          const eventId = this.activeRoomId.replace('constructed:', '')
+          console.log('Using constructed room ID with event ID:', eventId)
+
+          // For now, we just log this scenario, but in the future, we could
+          // make a special API call to the backend to resolve the actual room ID
+        }
+
         // Use different API methods based on context type
         if (this.contextType === 'event') {
           result = await useEventStore().actionGetEventDiscussionMessages(limit, from)
@@ -197,8 +238,12 @@ export const useMessageStore = defineStore('messages', {
             this.messages[this.activeRoomId] = result.messages
           }
 
-          // Sort messages by timestamp
-          this.messages[this.activeRoomId].sort((a, b) => a.origin_server_ts - b.origin_server_ts)
+          // Sort messages by timestamp (supporting both naming conventions)
+          this.messages[this.activeRoomId].sort((a, b) => {
+            const aTime = a.origin_server_ts || a.timestamp || 0
+            const bTime = b.origin_server_ts || b.timestamp || 0
+            return aTime - bTime
+          })
         }
 
         return result
@@ -267,8 +312,12 @@ export const useMessageStore = defineStore('messages', {
           }
           this.messages[this.activeRoomId].push(newMessage)
 
-          // Sort messages by timestamp
-          this.messages[this.activeRoomId].sort((a, b) => a.origin_server_ts - b.origin_server_ts)
+          // Sort messages by timestamp (supporting both naming conventions)
+          this.messages[this.activeRoomId].sort((a, b) => {
+            const aTime = a.origin_server_ts || a.timestamp || 0
+            const bTime = b.origin_server_ts || b.timestamp || 0
+            return aTime - bTime
+          })
         }
 
         return eventId
