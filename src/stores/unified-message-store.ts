@@ -78,7 +78,7 @@ export const useMessageStore = defineStore('messages', {
 
       try {
         console.log('Initializing Matrix connection for real-time updates')
-        
+
         // Connect to Matrix events service
         const success = await matrixService.connect()
         this.matrixConnected = success
@@ -88,7 +88,7 @@ export const useMessageStore = defineStore('messages', {
 
           // Add event handler for Matrix events
           matrixService.addEventHandler(this.handleMatrixEvent.bind(this))
-          
+
           // Log that we're ready to receive events
           console.log('Event handler registered, ready to receive real-time updates')
         } else {
@@ -108,7 +108,7 @@ export const useMessageStore = defineStore('messages', {
 
       try {
         console.log('Unified message store received Matrix event:', event)
-        
+
         // Handle different event types
         if (event.type === 'm.typing') {
           this.updateTypingUsers(
@@ -159,7 +159,7 @@ export const useMessageStore = defineStore('messages', {
           const bTime = b.origin_server_ts || b.timestamp || 0
           return aTime - bTime
         })
-        
+
         // Force reactivity update if this is the active room
         if (this.activeRoomId === roomId) {
           // Trigger a reactive update by creating a new array

@@ -27,7 +27,7 @@ export const authApi = {
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/email/register`, credentials),
 
-  provisionMatrixUser: (): Promise<AxiosResponse<{ matrixUserId: string, matrixAccessToken: string, matrixDeviceId: string }>> =>
+  provisionMatrixUser: (): Promise<AxiosResponse<{ matrixUserId: string }>> =>
     api.post(`${MATRIX_BASE_URL}/provision-user`),
 
   forgotPassword: (data: ApiAuthForgotPasswordRequest): Promise<AxiosResponse<void>> =>

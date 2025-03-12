@@ -40,8 +40,15 @@ export interface BlueskyPreferences {
   connectedAt?: Date | null
 }
 
+export interface MatrixPreferences {
+  connected?: boolean
+  disconnectedAt?: Date | null
+  connectedAt?: Date | null
+}
+
 export interface UserPreferences {
   bluesky?: BlueskyPreferences
+  matrix?: MatrixPreferences
 }
 
 export interface Profile {
@@ -76,10 +83,9 @@ export interface UserEntity {
   zulipUserId?: number
   zulipUsername?: string
   zulipApiKey?: string
-  // Matrix fields
+  // Matrix fields - only matrixUserId is needed client-side
+  // Server now manages credentials securely
   matrixUserId?: string
-  matrixAccessToken?: string
-  matrixDeviceId?: string
   photo?: FileEntity
   bio?: string
   role?: UserRoleEntity

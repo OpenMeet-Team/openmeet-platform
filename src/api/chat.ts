@@ -2,6 +2,8 @@ import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { ChatEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
+import { matrixApi } from './matrix'
+import { Socket } from 'socket.io-client'
 
 export const chatApi = {
   // Get list of chat rooms for the current user
@@ -20,29 +22,15 @@ export const chatApi = {
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-  // Import and use the matrix API's createEventSource to ensure consistency
+  // Create WebSocket connection for chat events (reuse Matrix WebSocket)
+  createSocketConnection: (): Socket => {
+    // Reuse the matrix API's createSocketConnection method to ensure consistency
+    return matrixApi.createSocketConnection()
+  },
+
+  // Legacy method for backward compatibility - throws error to identify usage
   createEventSource: (): EventSource => {
-    // We'll use the matrixApi.createEventSource method to avoid duplication
-    // But since we can't import directly, we need to implement it here again
-
-    // Use the API URL from the app config
-    const apiBaseUrl = window.APP_CONFIG?.APP_API_URL || ''
-
-    // Check for overridden API URL (ngrok or other proxy)
-    const overrideUrl = window.__MATRIX_API_URL__ || ''
-
-    // Use override if available, otherwise use the configured API URL
-    const baseUrl = overrideUrl || apiBaseUrl
-
-    if (!baseUrl) {
-      console.error('No API URL found. Make sure APP_API_URL is configured in config.json')
-      throw new Error('Cannot connect to Matrix: API URL not configured')
-    }
-
-    // Use the same endpoint path as matrix.ts
-    const endpoint = `${baseUrl}/api/matrix/events`
-    console.log('Chat API creating EventSource connection to:', endpoint)
-
-    return new EventSource(endpoint, { withCredentials: true })
+    console.error('EventSource is no longer supported - please update your code to use WebSocket')
+    throw new Error('EventSource is deprecated in favor of WebSockets for chat events')
   }
 }

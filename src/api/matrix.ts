@@ -1,14 +1,16 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { MatrixMessage } from '../types/matrix'
+import { useAuthStore } from '../stores/auth-store'
+import { io, Socket } from 'socket.io-client'
 
 export const matrixApi = {
   // Send typing indicator to a room
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-  // Create SSE connection for Matrix events
-  createEventSource: (): EventSource => {
+  // Create WebSocket connection for Matrix events
+  createSocketConnection: (): Socket => {
     // Use the API URL from the app config
     // This ensures we connect to the backend API, not the frontend webapp
     const apiBaseUrl = window.APP_CONFIG?.APP_API_URL || ''
@@ -16,16 +18,19 @@ export const matrixApi = {
     // Check for overridden API URL (ngrok or other proxy)
     const overrideUrl = window.__MATRIX_API_URL__ || ''
 
-    // Use override if available, otherwise use the configured API URL
-    let baseUrl = overrideUrl || apiBaseUrl
+    // Get Matrix API URL from config
+    const matrixApiUrl = window.APP_CONFIG?.APP_MATRIX_API_URL
+
+    // Use override if available, otherwise use the Matrix API URL from config, then fall back to regular API URL
+    let baseUrl = overrideUrl || matrixApiUrl || apiBaseUrl
 
     // Log the API URL we're using
-    console.log('Using API URL for Matrix connection:', baseUrl)
-    
+    console.log('Using Matrix API URL for connection:', baseUrl)
+
     // If we're in development and no baseUrl is configured, try localhost
     if (!baseUrl && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       baseUrl = window.location.origin
-      console.log('No API URL configured, defaulting to current origin for SSE:', baseUrl)
+      console.log('No API URL configured, defaulting to current origin for WebSocket:', baseUrl)
     }
 
     if (!baseUrl) {
@@ -33,25 +38,128 @@ export const matrixApi = {
       throw new Error('Cannot connect to Matrix: API URL not configured')
     }
 
-    // Found the endpoint in the controller code!
-    // In the MatrixController, we have @Sse('events') which means the
-    // endpoint is /api/matrix/events (matrix is the controller path)
-    const endpoint = `${baseUrl}/api/matrix/events`
-    console.log('Creating EventSource connection to Matrix at:', endpoint)
+    // WebSocket namespace for Matrix events
+    const endpoint = `${baseUrl}/matrix`
+    console.log('Creating WebSocket connection to Matrix at:', endpoint)
 
-    // Log that we're attempting to establish an SSE connection
-    console.log('Attempting to establish SSE connection for real-time Matrix events')
-    
-    // Set up an EventSource with needed parameters
-    const tenantId = window.APP_CONFIG?.APP_TENANT_ID || ''
-    
-    // Append tenant ID as a query parameter since EventSource doesn't support custom headers
-    // SSE should work with cookies for auth, so we don't need to explicitly pass the token
-    
-    const endpointWithParams = `${endpoint}?tenantId=${tenantId}`;
-    console.log('Updated endpoint with params:', endpointWithParams)
-    
-    return new EventSource(endpointWithParams, { withCredentials: true })
+    // Log that we're attempting to establish a WebSocket connection
+    console.log('Attempting to establish WebSocket connection for real-time Matrix events')
+
+    // Get token from the auth store
+    let token = ''
+    try {
+      const authStore = useAuthStore()
+
+      if (!authStore.isAuthenticated) {
+        console.warn('Auth store reports user is not authenticated')
+      }
+
+      token = authStore.token
+      console.log('Token from authStore:', token ? `Length: ${token.length}` : 'No token in store')
+
+      // Validate that we have a non-empty token
+      if (!token || token.length < 10) {
+        // Try localStorage as backup
+        const localToken = localStorage.getItem('token')
+        if (localToken && localToken.length > 10) {
+          console.log('Using token from localStorage instead of empty store token')
+          token = localToken
+        } else {
+          console.warn('No valid token found in authStore or localStorage')
+        }
+      }
+    } catch (e) {
+      console.warn('Error accessing auth store, falling back to localStorage', e)
+      token = localStorage.getItem('token') || ''
+      console.log('Token from localStorage:', token ? `Length: ${token.length}` : 'No token in localStorage')
+    }
+
+    // Get tenant ID from config - this is CRITICAL for the server to work properly
+    let effectiveTenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId') || ''
+
+    // Debug the tenant ID value - this is critical for debugging connection issues
+    console.log('Using tenant ID for WebSocket connection:', effectiveTenantId || 'No tenant ID found')
+
+    if (!effectiveTenantId) {
+      console.error('NO TENANT ID FOUND - WebSocket connection will likely fail')
+      console.error('Attempting to load tenant ID from other sources...')
+
+      // Try to extract tenant ID from token if it's a JWT
+      if (token && token.includes('.')) {
+        try {
+          const tokenParts = token.split('.')
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]))
+            if (payload && payload.tenantId) {
+              console.log('Extracted tenant ID from JWT payload:', payload.tenantId)
+              localStorage.setItem('tenantId', payload.tenantId)
+              window.APP_CONFIG = window.APP_CONFIG || {}
+              window.APP_CONFIG.APP_TENANT_ID = payload.tenantId
+              // Update our variable to use the extracted tenant ID
+              effectiveTenantId = payload.tenantId
+            }
+          }
+        } catch (e) {
+          console.error('Failed to extract tenant ID from token:', e)
+        }
+      }
+    }
+
+    // If tenant ID is not explicitly set, look for default tenant ID in the app config
+    // Most OpenMeet installations use a default tenant ID when not specified
+    if (!effectiveTenantId) {
+      // If using OpenMeet's default multi-tenant setup, use the default tenant ID
+      effectiveTenantId = 'default'
+      console.warn('No tenant ID found, using fallback default tenant ID:', effectiveTenantId)
+      localStorage.setItem('tenantId', effectiveTenantId)
+      window.APP_CONFIG = window.APP_CONFIG || {}
+      window.APP_CONFIG.APP_TENANT_ID = effectiveTenantId
+    }
+
+    // Add tenant ID as a header and query parameter as well
+    // to cover all possible extraction methods on the server
+    const socketOptions = {
+      auth: {
+        token: `Bearer ${token}`,
+        tenantId: effectiveTenantId
+      },
+      extraHeaders: {
+        'X-Tenant-ID': effectiveTenantId
+      },
+      query: {
+        tenantId: effectiveTenantId
+      },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 3000,
+      timeout: 10000
+    }
+
+    console.log('Creating Socket.IO connection with options:', JSON.stringify({
+      endpoint,
+      auth: {
+        token: token ? 'Bearer <token>' : 'none',
+        tenantId: effectiveTenantId || 'none'
+      },
+      headers: {
+        'X-Tenant-ID': effectiveTenantId || 'none'
+      },
+      query: {
+        tenantId: effectiveTenantId || 'none'
+      }
+    }))
+
+    // Create socket.io connection with auth headers (JWT only)
+    // Matrix credentials are now managed server-side
+    const socket = io(endpoint, socketOptions)
+
+    console.log('WebSocket connection created with JWT authentication')
+    return socket
+  },
+
+  // Legacy method for backward compatibility - throw error to identify usage
+  createEventSource: (): EventSource => {
+    console.error('EventSource is no longer supported - please update your code to use WebSocket')
+    throw new Error('EventSource is deprecated in favor of WebSockets for Matrix events')
   },
 
   // Get messages for a room

@@ -4,27 +4,28 @@ import { useNotification } from '../composables/useNotification'
 
 /**
  * Ensures the current user has a Matrix user ID, attempting to provision one if missing
+ * With server-side credential management, we just need to ensure the user has a matrixUserId
  * @returns true if user has or was assigned a Matrix user ID, false otherwise
  */
 export const ensureMatrixUser = async (): Promise<boolean> => {
   const authStore = useAuthStore()
 
-  // Check if user is already authenticated with Matrix
+  // Check if user already has a Matrix ID
   if (authStore.user?.matrixUserId) {
     return true
   }
 
   try {
     // Request Matrix user provisioning from the backend
+    // The server will create and store the Matrix credentials
     const response = await authApi.provisionMatrixUser()
 
-    if (response.data) {
-      // Update the user record with Matrix credentials
+    if (response.data && response.data.matrixUserId) {
+      // Update the user record with just the Matrix ID
+      // Credentials are now securely managed server-side
       const updatedUser = {
         ...authStore.user,
-        matrixUserId: response.data.matrixUserId,
-        matrixAccessToken: response.data.matrixAccessToken,
-        matrixDeviceId: response.data.matrixDeviceId
+        matrixUserId: response.data.matrixUserId
       }
 
       // Update the auth store with the new user data
