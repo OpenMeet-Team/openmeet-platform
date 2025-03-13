@@ -70,6 +70,7 @@
         counter
         :disable="!canWrite"
         maxlength="700"
+        data-cy="chat-input"
       >
         <template v-slot:after>
           <q-btn
@@ -79,6 +80,7 @@
             color="primary"
             @click="sendMessage"
             :disabled="!newMessage.trim()"
+            data-cy="send-message-button"
           />
         </template>
       </q-input>
@@ -96,6 +98,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useMessageStore } from '../../stores/unified-message-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { ensureMatrixUser, getMatrixDisplayName } from '../../utils/matrixUtils'
+import { matrixService } from '../../services/matrixService'
 import MessageItem from './MessageItem.vue'
 import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
@@ -378,6 +381,16 @@ onMounted(async () => {
     await messageStore.initializeMatrix()
   }
 
+  // Explicitly join this specific room to ensure we receive messages for it
+  // This is critical to fix the issue where some users don't receive messages
+  try {
+    console.log('!!!DEBUG!!! Explicitly joining room in MessagesComponent:', props.roomId)
+    await matrixService.joinRoom(props.roomId)
+    console.log('!!!DEBUG!!! Room joined successfully')
+  } catch (err) {
+    console.error('Error joining room:', err)
+  }
+
   await loadMessages()
 
   // Set up scroll handler
@@ -434,6 +447,15 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     autoScrollToBottom.value = true
     showScrollToBottom.value = false
     unreadMessageId.value = ''
+
+    // Explicitly join the new room to make sure we receive events
+    try {
+      console.log('!!!DEBUG!!! Explicitly joining new room after change:', newRoomId)
+      await matrixService.joinRoom(newRoomId)
+      console.log('!!!DEBUG!!! New room joined successfully')
+    } catch (err) {
+      console.error('Error joining new room:', err)
+    }
 
     // Load messages for new room
     await loadMessages()

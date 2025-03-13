@@ -30,14 +30,25 @@ export const useMessageStore = defineStore('messages', {
     typingTimer: null as number | null, // Timer for debouncing typing notifications
     isUserTyping: false, // Whether the current user is typing
     matrixConnected: false, // Whether we're connected to Matrix events
-    matrixConnectionAttempted: false // Whether we've tried to connect to Matrix
+    matrixConnectionAttempted: false, // Whether we've tried to connect to Matrix
+    processedBroadcastIds: new Set<string>() // Track broadcast IDs we've already processed
   }),
 
   getters: {
     // Get messages for active room
     currentRoomMessages: (state) => {
-      if (!state.activeRoomId) return []
-      return state.messages[state.activeRoomId] || []
+      if (!state.activeRoomId) {
+        console.log('!!!DEBUG!!! currentRoomMessages getter: No active room ID set')
+        return []
+      }
+
+      console.log(`!!!DEBUG!!! currentRoomMessages getter: Getting messages for room ${state.activeRoomId}`)
+      console.log(`!!!DEBUG!!! Available room IDs: ${Object.keys(state.messages).join(', ')}`)
+
+      const messages = state.messages[state.activeRoomId] || []
+      console.log(`!!!DEBUG!!! Found ${messages.length} messages for room ${state.activeRoomId}`)
+
+      return messages
     },
 
     // Get typing users for the active room
@@ -141,32 +152,131 @@ export const useMessageStore = defineStore('messages', {
         return
       }
 
-      console.log(`Adding message ${eventId} to room ${roomId}`)
+      // Check if we've already processed this broadcast by the broadcast ID
+      // @ts-expect-error - _broadcastId is added by our server
+      const broadcastId = message._broadcastId
+      if (broadcastId && this.processedBroadcastIds.has(broadcastId)) {
+        console.log(`!!!DEBUG!!! Already processed broadcast ID ${broadcastId}, skipping duplicate`)
+        return
+      }
+
+      // Also track by event ID - necessary because the same event might come through multiple matrix sync responses
+      // and not all may have the same broadcastId
+      const trackingKey = `${roomId}:${eventId}`
+      if (eventId && this.processedBroadcastIds.has(trackingKey)) {
+        console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
+        return
+      }
+      
+      // Also check for messages with a client message ID (used by optimistic messages)
+      // @ts-expect-error - _clientMsgId might be added by our client
+      const clientMsgId = message.content?._clientMsgId || message._clientMsgId
+      if (clientMsgId) {
+        const clientKey = `${roomId}:${clientMsgId}`
+        if (this.processedBroadcastIds.has(clientKey)) {
+          console.log(`!!!DEBUG!!! Already processed client message ID ${clientMsgId}, skipping duplicate`)
+          return
+        }
+      }
 
       // Initialize room messages if needed
       if (!this.messages[roomId]) {
         this.messages[roomId] = []
+        console.log(`!!!DEBUG!!! Initialized empty message array for room ${roomId}`)
       }
 
       // Add the message to the messages array if it doesn't already exist
-      if (!this.messages[roomId].some(m => (m.event_id === eventId || m.eventId === eventId))) {
-        console.log('Adding new message to room', roomId, message)
-        this.messages[roomId].push(message)
-
-        // Sort messages by timestamp (supporting both naming conventions)
-        this.messages[roomId].sort((a, b) => {
-          const aTime = a.origin_server_ts || a.timestamp || 0
-          const bTime = b.origin_server_ts || b.timestamp || 0
-          return aTime - bTime
-        })
-
-        // Force reactivity update if this is the active room
-        if (this.activeRoomId === roomId) {
-          // Trigger a reactive update by creating a new array
-          this.messages = { ...this.messages }
+      // Use a very robust check for duplicate messages
+      const isDuplicate = this.messages[roomId].some(m => {
+        // Check by event ID
+        if (m.event_id === eventId || m.eventId === eventId) {
+          console.log('!!!DEBUG!!! Exact event ID match found, ignoring duplicate')
+          return true
         }
+
+        // Check for sender+content+timestamp pattern (to catch duplicate broadcasts)
+        if (m.sender === message.sender && m.content?.body === message.content?.body) {
+          const mTime = m.origin_server_ts || m.timestamp || 0
+          const msgTime = message.origin_server_ts || message.timestamp || 0
+          const timeDiff = Math.abs(mTime - msgTime)
+
+          // If same content from same sender within 30 seconds, consider it a duplicate
+          if (timeDiff < 30000) {
+            console.log('!!!DEBUG!!! Found similar message from same sender with same content within 30 seconds, treating as duplicate')
+            return true
+          }
+        }
+
+        // Also check for different senders but identical content in very close time proximity
+        // This might be the case for test broadcasts that get attributed to different users
+        if (m.content?.body === message.content?.body) {
+          const mTime = m.origin_server_ts || m.timestamp || 0
+          const msgTime = message.origin_server_ts || message.timestamp || 0
+          const timeDiff = Math.abs(mTime - msgTime)
+
+          // If exactly same content within 5 seconds even from different users, might be a duplicate broadcast
+          if (timeDiff < 5000) {
+            console.log('!!!DEBUG!!! Messages with identical content from different senders arrived within 5 seconds, likely duplicate broadcast, ignoring')
+            return true
+          }
+        }
+
+        return false
+      })
+
+      // If it's a duplicate, return early before adding to the processed sets
+      if (isDuplicate) {
+        console.log(`!!!DEBUG!!! Message ${eventId} already exists in room ${roomId} or is a duplicate`)
+        return
+      }
+
+      // Since we confirmed it's not a duplicate, now add to processed sets
+      if (broadcastId) {
+        this.processedBroadcastIds.add(broadcastId)
+        // Clean up old broadcast IDs after 30 seconds to avoid memory leaks
+        setTimeout(() => {
+          this.processedBroadcastIds.delete(broadcastId)
+        }, 30000)
+      }
+
+      if (eventId) {
+        this.processedBroadcastIds.add(trackingKey)
+        // Clean up old event IDs after 30 seconds to avoid memory leaks
+        setTimeout(() => {
+          this.processedBroadcastIds.delete(trackingKey)
+        }, 30000)
+      }
+
+      // Simple logging for test messages
+      if (eventId.toString().startsWith('test-')) {
+        console.log(`!!!DEBUG!!! Received test message ${eventId} for room ${roomId}`)
+      }
+
+      console.log(`!!!DEBUG!!! Adding message ${eventId} to room ${roomId}`)
+
+      // Add topic if not present (critical for message grouping)
+      if (message.content && !message.content.topic) {
+        message.content.topic = 'General'
+        console.log('!!!DEBUG!!! Added default General topic to message')
+      }
+
+      this.messages[roomId].push(message)
+      console.log(`!!!DEBUG!!! Room ${roomId} now has ${this.messages[roomId].length} messages`)
+
+      // Sort messages by timestamp (supporting both naming conventions)
+      this.messages[roomId].sort((a, b) => {
+        const aTime = a.origin_server_ts || a.timestamp || 0
+        const bTime = b.origin_server_ts || b.timestamp || 0
+        return aTime - bTime
+      })
+
+      // Force reactivity update if this is the active room
+      if (this.activeRoomId === roomId) {
+        console.log('!!!DEBUG!!! Triggering reactive update for active room')
+        // Trigger a reactive update by creating a new array
+        this.messages = { ...this.messages }
       } else {
-        console.log(`Message ${eventId} already exists in room ${roomId}`)
+        console.log(`!!!DEBUG!!! Not triggering update because active room (${this.activeRoomId}) != message room (${roomId})`)
       }
     },
 
@@ -271,27 +381,64 @@ export const useMessageStore = defineStore('messages', {
           throw new Error('Matrix user ID missing. Please refresh the page and try again.')
         }
 
-        let eventId: string | undefined
+        // Check if we already have a message with this content from this user in the last 2 seconds
+        // This would indicate that the message has already come through via Matrix WebSocket
+        const recentTime = Date.now() - 2000;
+        const existingMessage = this.activeRoomId && this.messages[this.activeRoomId]?.find(m => {
+          return (
+            m.sender === useAuthStore().user?.matrixUserId &&
+            m.content?.body === message &&
+            (m.origin_server_ts || m.timestamp || 0) > recentTime
+          )
+        });
+
+        if (existingMessage) {
+          console.log('!!!DEBUG!!! Message already exists in room, skipping optimistic update', message);
+          // Return the existing event ID
+          return existingMessage.event_id || existingMessage.eventId;
+        }
+
+        let eventId: string | undefined;
 
         // Use different methods based on context type
         if (this.contextType === 'group') {
-          const result = await useGroupStore().actionSendGroupDiscussionMessage(message)
-          eventId = result ? String(result) : undefined
+          const result = await useGroupStore().actionSendGroupDiscussionMessage(message);
+          eventId = result ? String(result) : undefined;
         } else if (this.contextType === 'event') {
-          const result = await useEventStore().actionSendEventDiscussionMessage(message)
-          eventId = result ? String(result) : undefined
+          const result = await useEventStore().actionSendEventDiscussionMessage(message);
+          eventId = result ? String(result) : undefined;
         } else {
           // Direct messages or other types
-          const result = await matrixService.sendMessage(this.activeRoomId, message)
-          eventId = result ? String(result) : undefined
+          const result = await matrixService.sendMessage(this.activeRoomId, message);
+          eventId = result ? String(result) : undefined;
         }
 
         if (eventId) {
+          // After getting eventId, check again if the message has already been added via WebSocket
+          // This prevents adding optimistic messages after matrix events have been received
+          const updatedRecentTime = Date.now() - 2000;
+          const updatedExistingMessage = this.activeRoomId && this.messages[this.activeRoomId]?.find(m => {
+            return (
+              (m.event_id === eventId || m.eventId === eventId) ||
+              (m.sender === useAuthStore().user?.matrixUserId &&
+               m.content?.body === message &&
+               (m.origin_server_ts || m.timestamp || 0) > updatedRecentTime)
+            )
+          });
+
+          if (updatedExistingMessage) {
+            console.log('!!!DEBUG!!! Message has been received via WebSocket while waiting for API response, skipping optimistic message');
+            return eventId;
+          }
+
           // Create optimistic message
           const currentUser = useAuthStore().user
           const displayName = currentUser
             ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ') || currentUser.email?.split('@')[0] || 'OpenMeet User'
             : 'OpenMeet User'
+
+          // Generate a client-specific ID for deduplication
+          const clientMsgId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
           const newMessage: MatrixMessage = {
             event_id: eventId,
@@ -300,11 +447,30 @@ export const useMessageStore = defineStore('messages', {
             sender_name: displayName, // Add OpenMeet username
             content: {
               msgtype: 'm.text',
-              body: message
+              body: message,
+              // Add a special field to mark this as an optimistic message and track it
+              _clientMsgId: clientMsgId
             },
             origin_server_ts: Date.now(),
-            type: 'm.room.message'
+            type: 'm.room.message',
+            // @ts-expect-error - custom properties
+            _optimistic: true,
+            _clientMsgId: clientMsgId
           }
+
+          // Track this message in our deduplication system
+          const trackingKey = `${this.activeRoomId}:${clientMsgId}`
+          this.processedBroadcastIds.add(trackingKey)
+          
+          // Also track by event ID to ensure we don't get duplicates when the real message arrives
+          const eventTrackingKey = `${this.activeRoomId}:${eventId}`
+          this.processedBroadcastIds.add(eventTrackingKey)
+          
+          // Clean up tracking after 30 seconds to avoid memory leaks
+          setTimeout(() => {
+            this.processedBroadcastIds.delete(trackingKey)
+            this.processedBroadcastIds.delete(eventTrackingKey)
+          }, 30000)
 
           // Add to message list
           if (!this.messages[this.activeRoomId]) {
@@ -318,6 +484,8 @@ export const useMessageStore = defineStore('messages', {
             const bTime = b.origin_server_ts || b.timestamp || 0
             return aTime - bTime
           })
+
+          console.log(`!!!DEBUG!!! Added optimistic message with client ID ${clientMsgId} and event ID ${eventId}`)
         }
 
         return eventId

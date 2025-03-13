@@ -41,6 +41,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import DiscussionTopicComponent from './DiscussionTopicComponent.vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
+import { useMessageStore } from '../../stores/unified-message-store'
 import DOMPurify from 'dompurify'
 
 import { MatrixMessage } from '../../types/matrix'
@@ -64,11 +65,14 @@ const isLoading = ref<boolean>(false)
 const isLoadingMore = ref<boolean>(false)
 const hasMoreMessages = ref<boolean>(false)
 const paginationToken = ref<string>('')
+const messageStore = useMessageStore()
 
 import { ensureMatrixUser } from '../../utils/matrixUtils'
 
 // Initialize the discussion state and load messages
 onMounted(async () => {
+  console.log('DiscussionComponent mounted for', props.contextType, props.contextId)
+
   useDiscussionStore().actionSetDiscussionState({
     messages: props.messages || [],
     topics: props.topics || [],
@@ -77,9 +81,62 @@ onMounted(async () => {
     permissions: props.permissions
   })
 
+  // Initialize unified message store with the same context
+  if (props.contextId) {
+    // The first parameter should be the Matrix room ID which is the same as contextId for events/groups
+    console.log('Setting unified message store context:', props.contextId, props.contextType)
+    messageStore.setContext(
+      props.contextId,
+      props.contextType,
+      props.contextId
+    )
+    messageStore.setPermissions(props.permissions)
+
+    // Specifically request to join this room for real-time updates
+    // We need this because the auto-join from join-user-rooms might miss rooms
+    import('../../services/matrixService').then(({ matrixService }) => {
+      // Try multiple times with increasing delays to ensure we join the room
+      const joinRoom = async (attempt = 1) => {
+        try {
+          if (matrixService.isConnected) {
+            console.log(`!!!DEBUG!!! Attempt ${attempt}: Explicitly joining discussion room:`, props.contextId)
+            const result = await matrixService.joinRoom(props.contextId)
+            console.log('!!!DEBUG!!! Join room result:', result)
+
+            // Force reload messages after joining
+            if (result) {
+              console.log('!!!DEBUG!!! Room joined successfully, loading messages')
+              setTimeout(() => loadMessages(), 500)
+            }
+          } else if (attempt < 5) {
+            console.log(`!!!DEBUG!!! Matrix not connected yet on attempt ${attempt}, will try again`)
+            // Try again after delay
+            setTimeout(() => joinRoom(attempt + 1), 1000 * attempt)
+          }
+        } catch (err) {
+          console.error('!!!DEBUG!!! Error joining discussion room:', err)
+          if (attempt < 5) {
+            console.log(`!!!DEBUG!!! Will retry (attempt ${attempt + 1}/5) after delay`)
+            setTimeout(() => joinRoom(attempt + 1), 1000 * attempt)
+          }
+        }
+      }
+
+      // Start the join attempt sequence after a short delay
+      setTimeout(() => joinRoom(), 1000)
+    }).catch(err => {
+      console.error('!!!DEBUG!!! Error importing matrixService:', err)
+    })
+  }
+
   // Ensure user has Matrix credentials before loading messages
-  if (props.permissions?.canWrite) {
+  if (props.permissions?.canRead) {
     await ensureMatrixUser()
+
+    // Initialize Matrix connection for real-time events
+    if (!messageStore.matrixConnected) {
+      await messageStore.initializeMatrix()
+    }
   }
 
   // Load initial messages
@@ -87,27 +144,52 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  // Clean up both stores properly
   useDiscussionStore().$reset()
+
+  // Clean up the message store but don't disconnect from Matrix
+  // as other components might be using it
+  messageStore.cleanup()
 })
 
 // Compute the message tree structure for display
 const messageTree = computed(() => {
-  return useDiscussionStore().topics?.map(topic => {
-    // Filter messages by topic - look for topic in content.topic for Matrix messages
-    const topicMessages = useDiscussionStore().messages?.filter(
+  // Get topics from discussion store
+  const topics = useDiscussionStore().topics || []
+
+  // Get messages from the unified message store for this context
+  // Create reactive dependency by accessing through computed getter
+  const messages = props.contextId
+    ? messageStore.currentRoomMessages || [] : []
+
+  console.log('!!!DEBUG!!! Recomputing message tree with', messages.length, 'messages in room', props.contextId)
+  console.log('!!!DEBUG!!! Active room ID in messageStore:', messageStore.activeRoomId)
+
+  // Log all messages for debugging
+  if (messages.length > 0) {
+    console.log('!!!DEBUG!!! All messages in unified store:', JSON.stringify(messages))
+  }
+
+  return topics?.map(topic => {
+    // Filter messages by topic from the unified store
+    const topicMessages = messages.filter(
       message => {
         // For Matrix messages, check content.topic
         if ('content' in message && 'topic' in message.content) {
           return message.content.topic === topic.name
         }
+        // Add default topic for messages without one
+        if ('content' in message && !message.content.topic) {
+          message.content.topic = 'General'
+          return topic.name === 'General'
+        }
         return false
       }
     ).sort((a, b) => {
-      // For Matrix messages, sort by timestamp
-      if ('origin_server_ts' in a && 'origin_server_ts' in b) {
-        return a.origin_server_ts - b.origin_server_ts
-      }
-      return 0
+      // Sort by timestamp
+      const aTime = a.origin_server_ts || a.timestamp || 0
+      const bTime = b.origin_server_ts || b.timestamp || 0
+      return aTime - bTime
     })
 
     const [firstMessage, ...restMessages] = topicMessages ?? []
@@ -142,10 +224,20 @@ const loadMessages = async () => {
 
   isLoading.value = true
   try {
-    const result = await useDiscussionStore().actionLoadMessages()
+    // Load messages from the unified message store
+    const result = await messageStore.loadMessages()
+
+    // Still load from discussion store to get topics
+    // This will eventually be replaced once unified store fully supports topics
+    const discussionResult = await useDiscussionStore().actionLoadMessages()
+
+    // Use pagination token from either result
     if (result) {
       hasMoreMessages.value = !!result.end
       paginationToken.value = result.end
+    } else if (discussionResult) {
+      hasMoreMessages.value = !!discussionResult.end
+      paginationToken.value = discussionResult.end
     }
   } catch (err) {
     console.error('Error loading messages:', err)
@@ -160,7 +252,13 @@ const loadMoreMessages = async () => {
 
   isLoadingMore.value = true
   try {
-    const result = await useDiscussionStore().actionLoadMessages(50, paginationToken.value)
+    // Load more messages from the unified message store
+    const result = await messageStore.loadMessages(50, paginationToken.value)
+
+    // Also load from discussion store to ensure all topics are loaded
+    await useDiscussionStore().actionLoadMessages(50, paginationToken.value)
+
+    // Update pagination state
     if (result) {
       hasMoreMessages.value = !!result.end
       paginationToken.value = result.end
@@ -199,16 +297,15 @@ const sendComment = async () => {
     return
   }
 
-  // Use the first topic as the default topic for new comments
-  // If no topics exist, create a "General" topic
-  const defaultTopic = useDiscussionStore().topics.length > 0
-    ? useDiscussionStore().topics[0].name
-    : 'General'
-
-  useDiscussionStore().actionSendMessage(message, defaultTopic).catch(error => {
+  try {
+    // Send message through the unified message store only
+    // This will ensure real-time updates for all users
+    await messageStore.sendMessage(message)
+    console.log('Message sent successfully through unified message store')
+  } catch (error) {
     console.error('Failed to send message:', error)
     newComment.value = message
-  })
+  }
 }
 
 </script>

@@ -1,6 +1,7 @@
 import { useAuthStore } from '../stores/auth-store'
 import { useChatStore } from '../stores/chat-store'
 import { useDiscussionStore } from '../stores/discussion-store'
+import { useMessageStore } from '../stores/unified-message-store'
 import { ensureMatrixUser } from '../utils/matrixUtils'
 import { MatrixMessage } from '../types'
 import { matrixApi } from '../api/matrix'
@@ -17,7 +18,7 @@ interface Socket extends SocketIOSocket {
  */
 class MatrixServiceImpl {
   private socket: Socket | null = null
-  private isConnected = false
+  public isConnected = false
   private eventHandlers: Set<(event: Record<string, unknown>) => void> = new Set()
   private reconnectTimeout: number | null = null
   private reconnectAttempts = 0
@@ -161,16 +162,34 @@ class MatrixServiceImpl {
             // Use our cached tenant ID or ensure we have one
             const tenantId = this.tenantId || this.ensureTenantId()
 
+            console.log('!!!DEBUG!!! Sending join-user-rooms WebSocket event to join all rooms')
             // Include tenant ID in multiple places to ensure the backend sees it
+            interface JoinRoomsResponse {
+              success: boolean;
+              roomCount: number;
+              rooms: { id: string; name: string }[];
+              error?: string;
+            }
+
             this.socket!.emit('join-user-rooms', {
               userId: currentUser.matrixUserId,
               tenantId
+            }, (response: JoinRoomsResponse) => {
+              console.log('!!!DEBUG!!! join-user-rooms response:', response)
+              if (response && response.roomCount > 0) {
+                console.log('!!!DEBUG!!! Successfully joined', response.roomCount, 'Matrix rooms')
+                console.log('!!!DEBUG!!! Room IDs:', response.rooms.map(r => r.id).join(', '))
+              } else {
+                console.warn('!!!DEBUG!!! Failed to join any Matrix rooms or no rooms available')
+              }
             })
 
             // Set the tenant ID as a property on the socket object as well
             this.socket!.tenantId = tenantId
 
-            console.log('Joining Matrix rooms for user:', currentUser.matrixUserId, 'with tenant ID:', tenantId)
+            console.log('!!!DEBUG!!! Joining Matrix rooms for user:', currentUser.matrixUserId, 'with tenant ID:', tenantId)
+          } else {
+            console.error('!!!DEBUG!!! Cannot join Matrix rooms - user or matrixUserId missing')
           }
 
           resolve(true)
@@ -226,7 +245,17 @@ class MatrixServiceImpl {
         // Listen for matrix events
         this.socket!.on('matrix-event', (event) => {
           try {
-            console.log('Received Matrix event via WebSocket:', event)
+            console.log('!!!DEBUG!!! Received Matrix event via WebSocket:', event)
+
+            // Add more detailed logging for message events
+            if (event.type === 'm.room.message') {
+              console.log(
+                '!!!DEBUG!!! Message event details:',
+                'Room:', event.room_id,
+                'Sender:', event.sender,
+                'Content:', event.content
+              )
+            }
 
             // Dispatch to handlers
             this.notifyHandlers(event)
@@ -273,6 +302,38 @@ class MatrixServiceImpl {
    */
   public removeEventHandler (handler: (event: Record<string, unknown>) => void): void {
     this.eventHandlers.delete(handler)
+  }
+
+  /**
+   * Explicitly join a specific Matrix room
+   * This ensures the WebSocket connection subscribes to this room's events
+   */
+  public joinRoom (roomId: string): Promise<boolean> {
+    if (!this.socket || !this.isConnected) {
+      console.error('!!!DEBUG!!! Cannot join room - not connected to WebSocket')
+      return Promise.resolve(false)
+    }
+
+    console.log(`!!!DEBUG!!! Explicitly joining room: ${roomId}`)
+    return new Promise((resolve) => {
+      interface JoinRoomResponse {
+        success: boolean;
+        error?: string;
+      }
+
+      this.socket!.emit('join-room', {
+        roomId,
+        tenantId: this.tenantId || this.ensureTenantId()
+      }, (response: JoinRoomResponse) => {
+        if (response?.success) {
+          console.log(`!!!DEBUG!!! Successfully joined room: ${roomId}`)
+          resolve(true)
+        } else {
+          console.error(`!!!DEBUG!!! Failed to join room: ${roomId}`, response?.error)
+          resolve(false)
+        }
+      })
+    })
   }
 
   /**
@@ -331,17 +392,19 @@ class MatrixServiceImpl {
     const roomId = event.room_id || event.roomId
 
     if (roomId) {
-      console.log('Received message event for room:', roomId, event)
+      console.log('!!!DEBUG!!! MatrixService: Received message event for room:', roomId, event)
 
       // Check if this is a direct chat message
       const activeChat = useChatStore().activeChat
       if (activeChat && activeChat.roomId && activeChat.roomId === roomId) {
+        console.log('!!!DEBUG!!! Routing to chat store (direct message)')
         useChatStore().actionAddMessage(event)
       }
 
       // Check if this is a discussion message
       const contextId = useDiscussionStore().getterContextId
       if (contextId && contextId === roomId) {
+        console.log('!!!DEBUG!!! Routing to discussion store (discussion message)')
         // Need to transform the message to add a topic if not present
         const eventWithTopic = {
           ...event,
@@ -364,9 +427,23 @@ class MatrixServiceImpl {
 
       // Also notify the unified message store about this message
       // This ensures the message appears in real-time in MessagesComponent
-      const { useMessageStore } = require('../stores/unified-message-store')
-      const messageStore = useMessageStore()
-      messageStore.addNewMessage(event)
+      console.log('!!!DEBUG!!! Routing to unified message store')
+
+      try {
+        // Use the imported useMessageStore directly (already imported at the top)
+        const messageStore = useMessageStore()
+
+        // Ensure topic is set
+        if (event.content && !event.content.topic) {
+          event.content.topic = 'General'
+          console.log('!!!DEBUG!!! Added default General topic to message for unified store')
+        }
+
+        messageStore.addNewMessage(event)
+        console.log('!!!DEBUG!!! Message sent to unified store')
+      } catch (e) {
+        console.error('Error adding message to unified store:', e)
+      }
     }
   }
 

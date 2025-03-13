@@ -140,13 +140,22 @@ const isFileMessage = computed(() => {
 })
 
 const senderName = computed(() => {
-  // Use sender_name if available, otherwise extract from Matrix ID
+  // Always show "You" for current user messages
+  if (props.isCurrentUser) {
+    return 'You'
+  }
+
+  // Use sender_name if available - this is the display name from Matrix
+  // It should contain the user's actual name from OpenMeet
   if (props.message.sender_name) {
     return props.message.sender_name
   }
 
+  // Use generic "Other User" for any Matrix IDs
   if (props.message.sender) {
-    return props.message.sender.split(':')[0].substring(1)
+    // This is a fallback that should ideally never be used, since we should always
+    // have a sender_name from the Matrix server with the user's real name
+    return 'Other User'
   }
 
   return 'Unknown User'

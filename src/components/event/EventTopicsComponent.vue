@@ -4,7 +4,10 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
+import { useMessageStore } from '../../stores/unified-message-store'
 import MessagesComponent from '../messages/MessagesComponent.vue'
+import getEnv from '../../utils/env'
+import { api } from '../../boot/axios'
 
 // Check if in development mode
 const isDev = ref(false)
@@ -15,7 +18,14 @@ try {
   isDev.value = false
 }
 
+// Removed unused useQuasar
 const event = computed(() => useEventStore().event)
+const messageStore = useMessageStore()
+
+// Debug state variables
+const showMatrixConfigDetails = ref(false)
+const matrixSocketConnected = ref(false)
+const isTestingBroadcast = ref(false)
 
 // Get the Matrix room ID from the event - try different properties
 const matrixRoomId = computed(() => {
@@ -54,6 +64,110 @@ const discussionPermissions = computed(() => ({
 // Loading states
 const isLoading = ref(false)
 const isInitializing = ref(false)
+
+// Matrix debug functions
+const resetMatrixConnection = async () => {
+  console.log('Resetting Matrix connection...')
+  messageStore.matrixConnectionAttempted = false
+
+  // Ensure tenant ID is set in localStorage
+  const tenantId = getEnv('APP_TENANT_ID') as string | undefined
+  if (tenantId) {
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem('tenantId')) {
+      localStorage.setItem('tenantId', tenantId)
+      console.log('Set tenant ID in localStorage:', tenantId)
+    }
+  }
+
+  try {
+    const result = await messageStore.initializeMatrix()
+    console.log('Matrix connection reset result:', result)
+    return result
+  } catch (err) {
+    console.error('Error resetting Matrix connection:', err)
+    return false
+  }
+}
+
+const injectTestMessage = () => {
+  if (!matrixRoomId.value) {
+    console.error('No room ID available for test message')
+    return
+  }
+
+  console.log('Injecting test message into room:', matrixRoomId.value)
+
+  const testEvent = {
+    type: 'm.room.message',
+    room_id: matrixRoomId.value,
+    event_id: 'debug-test-' + Date.now(),
+    sender: '@test:openmeet.net',
+    sender_name: 'Debug Test User',
+    origin_server_ts: Date.now(),
+    content: {
+      msgtype: 'm.text',
+      body: '🔧 This is a test message injected at ' + new Date().toISOString()
+    }
+  }
+
+  // First try dispatching an event
+  window.dispatchEvent(new CustomEvent('matrix-event', { detail: testEvent }))
+
+  // Then try adding directly to the store
+  setTimeout(() => {
+    try {
+      console.log('Calling store.addNewMessage directly as a secondary test...')
+      messageStore.addNewMessage(testEvent)
+    } catch (e) {
+      console.error('Error calling addNewMessage directly:', e)
+    }
+  }, 1000)
+}
+
+const testWebSocketBroadcast = async () => {
+  if (!matrixRoomId.value) {
+    console.error('No room ID available for test broadcast')
+    return
+  }
+
+  isTestingBroadcast.value = true
+  try {
+    console.log('Testing WebSocket broadcast to room:', matrixRoomId.value)
+
+    // Call the test-broadcast endpoint
+    const response = await api.post('/api/matrix/test-broadcast', {
+      roomId: matrixRoomId.value,
+      message: '🔄 Test WebSocket broadcast message at ' + new Date().toISOString()
+    })
+
+    console.log('Test broadcast API response:', response.data)
+
+    if (response.data.success) {
+      console.log('Test broadcast sent successfully, waiting for WebSocket reception...')
+      // The message should arrive via WebSocket and be handled by the message store
+    } else {
+      console.error('Test broadcast failed:', response.data.message || 'Unknown error')
+    }
+  } catch (error) {
+    console.error('Error sending test broadcast:', error)
+  } finally {
+    isTestingBroadcast.value = false
+  }
+}
+
+const showMatrixConfig = () => {
+  showMatrixConfigDetails.value = !showMatrixConfigDetails.value
+
+  // Check socket connection
+  try {
+    // Access the connection state directly from the store
+    matrixSocketConnected.value = messageStore.matrixConnected
+    console.log('Socket connection status:', matrixSocketConnected.value)
+  } catch (e) {
+    console.error('Error checking socket connection:', e)
+    matrixSocketConnected.value = false
+  }
+}
 
 // Function to automatically initialize the chat room
 const ensureChatRoomExists = async () => {
@@ -160,6 +274,71 @@ onMounted(async () => {
         <div>Matrix User ID: {{ useAuthStore().user?.matrixUserId }}</div>
         <div>Permissions: Read: {{ discussionPermissions.canRead }}, Write: {{ discussionPermissions.canWrite }}, Manage: {{ discussionPermissions.canManage }}</div>
         <div>Attendee Status: {{ event.attendee?.status }}</div>
+
+        <!-- Matrix Debugging Tools -->
+        <div class="q-mt-md q-pa-md bg-blue-1 rounded-borders">
+          <div class="text-subtitle2 text-weight-bold">Matrix Debugging</div>
+
+          <div class="q-mt-sm">
+            <div>Matrix Connection State:</div>
+            <div class="text-caption">
+              {{ messageStore?.matrixConnected ? '✅ Connected' : '❌ Disconnected' }}
+              (Attempted: {{ messageStore?.matrixConnectionAttempted ? 'Yes' : 'No' }})
+            </div>
+          </div>
+
+          <div class="q-mt-sm">
+            <div>Message Count: {{ messageStore?.messages[matrixRoomId]?.length || 0 }}</div>
+            <div v-if="matrixRoomId && messageStore?.messages[matrixRoomId]?.length">
+              Last message: {{ messageStore?.messages[matrixRoomId]?.[messageStore?.messages[matrixRoomId]?.length - 1]?.content?.body || 'None' }}
+            </div>
+          </div>
+
+          <div class="row q-col-gutter-sm q-mt-md">
+            <div class="col-auto">
+              <q-btn
+                size="sm"
+                color="primary"
+                label="Reset Connection"
+                @click="resetMatrixConnection"
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                size="sm"
+                color="secondary"
+                label="Inject Test Message"
+                @click="injectTestMessage"
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                size="sm"
+                color="accent"
+                label="Show Matrix Config"
+                @click="showMatrixConfig"
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                size="sm"
+                color="deep-purple"
+                label="Test WS Broadcast"
+                :loading="isTestingBroadcast"
+                @click="testWebSocketBroadcast"
+              />
+            </div>
+          </div>
+
+          <!-- Matrix Config Details (toggled via button) -->
+          <div v-if="showMatrixConfigDetails" class="q-mt-md q-pa-sm bg-grey-1 rounded-borders text-caption">
+            <div><b>API URL:</b> {{ getEnv('APP_API_URL') || 'Not set' }}</div>
+            <div><b>Matrix API URL:</b> {{ getEnv('APP_MATRIX_API_URL') || 'Not set' }}</div>
+            <div><b>Matrix WebSocket URL:</b> {{ getEnv('APP_MATRIX_WEBSOCKET_URL') || 'Not set' }}</div>
+            <div><b>Tenant ID:</b> {{ getEnv('APP_TENANT_ID') || 'Not set' }}</div>
+            <div><b>Matrix Socket Connection:</b> {{ matrixSocketConnected ? 'Active' : 'Inactive' }}</div>
+          </div>
+        </div>
       </div>
     </div>
 
