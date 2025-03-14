@@ -216,7 +216,7 @@ const ensureChatRoomExists = async () => {
         // If user is already an attendee with a proper role, try adding them
         if (event.value.attendee &&
             ['host', 'moderator'].includes(event.value.attendee.role?.name || '')) {
-          await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.id)
+          await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
 
           // Reload messages to check for roomId
           await useEventStore().actionGetEventDiscussionMessages()

@@ -1,10 +1,10 @@
 <template>
-  <q-card flat bordered class="q-pa-md c-discussion-message-component">
+  <q-card flat bordered class="q-pa-md c-discussion-message-component message-card">
     <div class="row items-center justify-between full-width">
       <div class="column">
         <div class="row items-center">
-          <span class="text-weight-medium">{{ getSenderName }}</span>
-          <span class="q-ml-md text-caption text-grey" v-if="getTimestamp">
+          <span class="text-weight-medium sender-name">{{ getSenderName }}</span>
+          <span class="q-ml-md text-caption timestamp" v-if="getTimestamp">
             {{ getRoundedHumanReadableDateDifference(new Date(getTimestamp), new Date()) }} ago
           </span>
         </div>
@@ -17,7 +17,7 @@
         </template>
       </div>
     </div>
-    <div class="text-body2 q-mt-md" v-html="getMessageContent"></div>
+    <div class="text-body2 q-mt-md message-content" v-html="getMessageContent"></div>
   </q-card>
 </template>
 
@@ -109,3 +109,9 @@ const onEdit = () => {
   emit('edit', getMessageId.value, content)
 }
 </script>
+
+<style scoped>
+.message-card {
+  background-color: white;
+}
+</style>

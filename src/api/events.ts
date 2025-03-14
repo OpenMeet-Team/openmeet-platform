@@ -24,8 +24,9 @@ export const eventsApi = {
   edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/edit`, createEventApiHeaders(slug)),
   getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
-  sendDiscussionMessage: (slug: string, message: string): Promise<AxiosResponse<{ id: string }>> => api.post(`/api/events/${slug}/discussions`, { message }, createEventApiHeaders(slug)),
-  getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> => api.get(`/api/events/${slug}/discussions`, { params: { limit, from }, ...createEventApiHeaders(slug) }),
-  addMemberToDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.post(`/api/events/${slug}/discussions/members/${userId}`, {}, createEventApiHeaders(slug)),
-  removeMemberFromDiscussion: (slug: string, userId: number): Promise<AxiosResponse<void>> => api.delete(`/api/events/${slug}/discussions/members/${userId}`, createEventApiHeaders(slug))
+  // Discussion endpoints now in ChatController
+  sendDiscussionMessage: (slug: string, message: string): Promise<AxiosResponse<{ id: string }>> => api.post(`/api/chat/event/${slug}/message`, { message }),
+  getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> => api.get(`/api/chat/event/${slug}/messages`, { params: { limit, from } }),
+  addMemberToDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
+  removeMemberFromDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`)
 }

@@ -83,12 +83,13 @@ onMounted(async () => {
 
   // Initialize unified message store with the same context
   if (props.contextId) {
-    // The first parameter should be the Matrix room ID which is the same as contextId for events/groups
+    // For consistency, we'll use the same context ID for matrix room ID
+    // This should be a slug for event/group discussions
     console.log('Setting unified message store context:', props.contextId, props.contextType)
     messageStore.setContext(
-      props.contextId,
+      props.contextId, // matrixRoomId parameter - may be updated later when we get real room ID
       props.contextType,
-      props.contextId
+      props.contextId // contextId parameter - always the entity slug
     )
     messageStore.setPermissions(props.permissions)
 
@@ -309,3 +310,4 @@ const sendComment = async () => {
 }
 
 </script>
+

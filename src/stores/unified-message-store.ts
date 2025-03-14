@@ -153,7 +153,6 @@ export const useMessageStore = defineStore('messages', {
       }
 
       // Check if we've already processed this broadcast by the broadcast ID
-      // @ts-expect-error - _broadcastId is added by our server
       const broadcastId = message._broadcastId
       if (broadcastId && this.processedBroadcastIds.has(broadcastId)) {
         console.log(`!!!DEBUG!!! Already processed broadcast ID ${broadcastId}, skipping duplicate`)
@@ -167,9 +166,8 @@ export const useMessageStore = defineStore('messages', {
         console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
         return
       }
-      
+
       // Also check for messages with a client message ID (used by optimistic messages)
-      // @ts-expect-error - _clientMsgId might be added by our client
       const clientMsgId = message.content?._clientMsgId || message._clientMsgId
       if (clientMsgId) {
         const clientKey = `${roomId}:${clientMsgId}`
@@ -383,40 +381,40 @@ export const useMessageStore = defineStore('messages', {
 
         // Check if we already have a message with this content from this user in the last 2 seconds
         // This would indicate that the message has already come through via Matrix WebSocket
-        const recentTime = Date.now() - 2000;
+        const recentTime = Date.now() - 2000
         const existingMessage = this.activeRoomId && this.messages[this.activeRoomId]?.find(m => {
           return (
             m.sender === useAuthStore().user?.matrixUserId &&
             m.content?.body === message &&
             (m.origin_server_ts || m.timestamp || 0) > recentTime
           )
-        });
+        })
 
         if (existingMessage) {
-          console.log('!!!DEBUG!!! Message already exists in room, skipping optimistic update', message);
+          console.log('!!!DEBUG!!! Message already exists in room, skipping optimistic update', message)
           // Return the existing event ID
-          return existingMessage.event_id || existingMessage.eventId;
+          return existingMessage.event_id || existingMessage.eventId
         }
 
-        let eventId: string | undefined;
+        let eventId: string | undefined
 
         // Use different methods based on context type
         if (this.contextType === 'group') {
-          const result = await useGroupStore().actionSendGroupDiscussionMessage(message);
-          eventId = result ? String(result) : undefined;
+          const result = await useGroupStore().actionSendGroupDiscussionMessage(message)
+          eventId = result ? String(result) : undefined
         } else if (this.contextType === 'event') {
-          const result = await useEventStore().actionSendEventDiscussionMessage(message);
-          eventId = result ? String(result) : undefined;
+          const result = await useEventStore().actionSendEventDiscussionMessage(message)
+          eventId = result ? String(result) : undefined
         } else {
           // Direct messages or other types
-          const result = await matrixService.sendMessage(this.activeRoomId, message);
-          eventId = result ? String(result) : undefined;
+          const result = await matrixService.sendMessage(this.activeRoomId, message)
+          eventId = result ? String(result) : undefined
         }
 
         if (eventId) {
           // After getting eventId, check again if the message has already been added via WebSocket
           // This prevents adding optimistic messages after matrix events have been received
-          const updatedRecentTime = Date.now() - 2000;
+          const updatedRecentTime = Date.now() - 2000
           const updatedExistingMessage = this.activeRoomId && this.messages[this.activeRoomId]?.find(m => {
             return (
               (m.event_id === eventId || m.eventId === eventId) ||
@@ -424,11 +422,11 @@ export const useMessageStore = defineStore('messages', {
                m.content?.body === message &&
                (m.origin_server_ts || m.timestamp || 0) > updatedRecentTime)
             )
-          });
+          })
 
           if (updatedExistingMessage) {
-            console.log('!!!DEBUG!!! Message has been received via WebSocket while waiting for API response, skipping optimistic message');
-            return eventId;
+            console.log('!!!DEBUG!!! Message has been received via WebSocket while waiting for API response, skipping optimistic message')
+            return eventId
           }
 
           // Create optimistic message
@@ -453,7 +451,6 @@ export const useMessageStore = defineStore('messages', {
             },
             origin_server_ts: Date.now(),
             type: 'm.room.message',
-            // @ts-expect-error - custom properties
             _optimistic: true,
             _clientMsgId: clientMsgId
           }
@@ -461,11 +458,11 @@ export const useMessageStore = defineStore('messages', {
           // Track this message in our deduplication system
           const trackingKey = `${this.activeRoomId}:${clientMsgId}`
           this.processedBroadcastIds.add(trackingKey)
-          
+
           // Also track by event ID to ensure we don't get duplicates when the real message arrives
           const eventTrackingKey = `${this.activeRoomId}:${eventId}`
           this.processedBroadcastIds.add(eventTrackingKey)
-          
+
           // Clean up tracking after 30 seconds to avoid memory leaks
           setTimeout(() => {
             this.processedBroadcastIds.delete(trackingKey)

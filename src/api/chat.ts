@@ -1,6 +1,7 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { ChatEntity } from '../types'
+import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 import { matrixApi } from './matrix'
 import { Socket } from 'socket.io-client'
@@ -11,8 +12,28 @@ export const chatApi = {
     api.get('/api/chat', { params: query }),
 
   // Send a message to a specific room
-  sendMessage: (ulid: string, message: string) =>
-    api.post(`/api/chat/${ulid}/message`, { content: message }),
+  sendMessage: (slug: string, message: string) =>
+    api.post(`/api/chat/${slug}/message`, { message }),
+
+  // Event discussion endpoints
+  sendEventMessage: (eventSlug: string, message: string): Promise<AxiosResponse<{ id: string }>> =>
+    api.post(`/api/chat/event/${eventSlug}/message`, { message }),
+
+  getEventMessages: (eventSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
+    api.get(`/api/chat/event/${eventSlug}/messages`, { params: { limit, from } }),
+
+  addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
+    api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
+
+  removeMemberFromEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
+    api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`),
+
+  // Group discussion endpoints
+  sendGroupMessage: (groupSlug: string, message: string): Promise<AxiosResponse<{ id: string }>> =>
+    api.post(`/api/chat/group/${groupSlug}/message`, { message }),
+
+  getGroupMessages: (groupSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
+    api.get(`/api/chat/group/${groupSlug}/messages`, { params: { limit, from } }),
 
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>

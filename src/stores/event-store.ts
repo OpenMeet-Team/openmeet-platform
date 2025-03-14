@@ -4,6 +4,7 @@ import { useNotification } from '../composables/useNotification'
 import { api } from '../boot/axios'
 import { AxiosError } from 'axios'
 import { eventsApi } from '../api/events'
+import { chatApi } from '../api/chat'
 const { error } = useNotification()
 export const useEventStore = defineStore('event', {
   state: () => ({
@@ -118,7 +119,8 @@ export const useEventStore = defineStore('event', {
             // Get current time for debugging
             console.log(`Sending message at ${new Date().toISOString()}`)
 
-            const res = await eventsApi.sendDiscussionMessage(this.event.slug, message)
+            // Use the new chatApi endpoint instead of eventsApi
+            const res = await chatApi.sendEventMessage(this.event.slug, message)
             console.log('Discussion message sent successfully, ID:', res.data.id)
 
             // After sending a message, check if we can get the roomId
@@ -184,8 +186,8 @@ export const useEventStore = defineStore('event', {
         if (this.event?.slug) {
           console.log('Getting event discussion messages for:', this.event.slug)
 
-          // Make the API call
-          const res = await eventsApi.getDiscussionMessages(this.event.slug, limit, from)
+          // Make the API call using the new chatApi endpoint
+          const res = await chatApi.getEventMessages(this.event.slug, limit, from)
 
           // Log the full response for debugging
           console.log('Raw API response:', res.data)
@@ -252,12 +254,12 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionAddMemberToEventDiscussion (userId: number) {
+    async actionAddMemberToEventDiscussion (userSlug: string) {
       try {
         if (this.event?.slug) {
-          console.log(`Attempting to add user ${userId} to discussion for event ${this.event.slug}`)
-          await eventsApi.addMemberToDiscussion(this.event.slug, userId)
-          console.log(`Successfully added user ${userId} to discussion`)
+          console.log(`Attempting to add user ${userSlug} to discussion for event ${this.event.slug}`)
+          await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
+          console.log(`Successfully added user ${userSlug} to discussion`)
           return true
         }
         return false
@@ -276,10 +278,10 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionRemoveMemberFromEventDiscussion (userId: number) {
+    async actionRemoveMemberFromEventDiscussion (userSlug: string) {
       try {
         if (this.event?.slug) {
-          await eventsApi.removeMemberFromDiscussion(this.event.slug, userId)
+          await chatApi.removeMemberFromEventDiscussion(this.event.slug, userSlug)
           return true
         }
         return false
