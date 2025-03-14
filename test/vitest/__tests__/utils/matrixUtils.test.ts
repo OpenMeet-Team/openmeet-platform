@@ -62,9 +62,7 @@ describe('Matrix Utils', () => {
 
     it('should provision a Matrix user if not already present', async () => {
       const matrixData = {
-        matrixUserId: '@newuser:matrix.org',
-        matrixAccessToken: 'token123',
-        matrixDeviceId: 'device123'
+        matrixUserId: '@newuser:matrix.org'
       }
 
       vi.mocked(authApi.provisionMatrixUser).mockResolvedValueOnce({
@@ -81,8 +79,7 @@ describe('Matrix Utils', () => {
       expect(mockAuthApi.provisionMatrixUser).toHaveBeenCalledTimes(1)
       expect(mockAuthStore.actionSetUser).toHaveBeenCalledWith({
         id: 1,
-        matrixUserId: null,
-        ...matrixData
+        matrixUserId: '@newuser:matrix.org'
       })
     })
 

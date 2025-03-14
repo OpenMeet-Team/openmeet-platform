@@ -289,13 +289,16 @@ const addReaction = (emoji: string) => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '../../css/quasar.variables.scss';
+
 .message-item {
   border-radius: 8px;
   background-color: #f5f5f5;
   margin-bottom: 8px;
   transition: all 0.2s;
   position: relative;
+  color: rgba(0, 0, 0, 0.87);
 }
 
 .my-message {
@@ -365,5 +368,27 @@ const addReaction = (emoji: string) => {
 
 .system-message-content {
   font-style: italic;
+}
+
+/* Dark mode styling */
+.body--dark .message-item {
+  background-color: $purple-600;
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.body--dark .my-message {
+  background-color: $purple-500;
+}
+
+.body--dark .timestamp {
+  color: rgba(255, 255, 255, 0.54) !important;
+}
+
+.body--dark .message-body :deep(a) {
+  color: $purple-200;
+}
+
+.body--dark .date-label {
+  background-color: $dark-page !important;
 }
 </style>

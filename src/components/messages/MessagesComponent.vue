@@ -468,7 +468,9 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import '../../css/quasar.variables.scss';
+
 .messages-component {
   display: flex;
   flex-direction: column;
@@ -515,6 +517,7 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
   font-size: 12px;
   color: #666;
   z-index: 1;
+  background-color: white;
 }
 
 .scroll-to-bottom-btn {
@@ -523,5 +526,19 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
   right: 16px;
   z-index: 2;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Dark mode styling */
+.body--dark .message-input-container {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.body--dark .date-line {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.body--dark .date-label {
+  background-color: $purple-500 !important;
+  color: rgba(255, 255, 255, 0.7);
 }
 </style>
