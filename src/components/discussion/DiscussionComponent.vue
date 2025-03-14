@@ -310,4 +310,3 @@ const sendComment = async () => {
 }
 
 </script>
-
