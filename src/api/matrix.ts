@@ -116,22 +116,20 @@ export const matrixApi = {
       window.APP_CONFIG.APP_TENANT_ID = effectiveTenantId
     }
 
-    // Add tenant ID as a header and query parameter as well
-    // to cover all possible extraction methods on the server
+    // Only use x-tenant-id header, not query parameter
+    // This avoids CORS issues with custom headers
     const socketOptions = {
       auth: {
         token: `Bearer ${token}`,
         tenantId: effectiveTenantId
       },
       extraHeaders: {
-        'X-Tenant-ID': effectiveTenantId
-      },
-      query: {
-        tenantId: effectiveTenantId
+        'x-tenant-id': effectiveTenantId
       },
       reconnectionAttempts: 5,
       reconnectionDelay: 3000,
-      timeout: 10000
+      timeout: 10000,
+      transports: ['websocket', 'polling'] // Try WebSocket first
     }
 
     console.log('Creating Socket.IO connection with options:', JSON.stringify({
@@ -141,10 +139,7 @@ export const matrixApi = {
         tenantId: effectiveTenantId || 'none'
       },
       headers: {
-        'X-Tenant-ID': effectiveTenantId || 'none'
-      },
-      query: {
-        tenantId: effectiveTenantId || 'none'
+        'x-tenant-id': effectiveTenantId || 'none'
       }
     }))
 
