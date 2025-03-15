@@ -1,8 +1,15 @@
 <template>
   <!-- Attendance Button -->
   <div class="attendance-button">
-    <!-- Loading State -->
-    <q-btn data-cy="event-attend-button" v-if="loading" :loading="true" color="primary">
+    <!-- Store Loading State -->
+    <q-btn data-cy="event-attend-button" v-if="eventStore.isLoading" :loading="true" color="primary">
+      <template v-slot:loading>
+        <q-spinner-dots />
+      </template>
+    </q-btn>
+
+    <!-- Component Loading State -->
+    <q-btn data-cy="event-attend-button" v-else-if="loading" :loading="true" color="primary">
       <template v-slot:loading>
         <q-spinner-dots />
       </template>
