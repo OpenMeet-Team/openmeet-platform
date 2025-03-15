@@ -263,8 +263,8 @@ describe.skip('MatrixService', () => {
     })
 
     it('should process and route Matrix message events to the unified message store', async () => {
-      // Create a mock function that will be called to verify the store update
-      const setMessages = vi.fn()
+      // Create a mock function for store verification
+      // We'll use the custom message store with mocked addNewMessage below
 
       // Create a custom mock message store
       const customMessageStore = {

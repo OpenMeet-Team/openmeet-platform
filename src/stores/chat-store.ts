@@ -13,13 +13,13 @@ const { error } = useNotification()
  * This store is planned to be merged with unified-message-store in the future.
  * The unified-message-store will be enhanced to handle all types of messaging
  * (direct messages, group discussions, event discussions) using a consistent API.
- * 
+ *
  * Steps for migration:
  * 1. First ensure no duplicate messages by fixing event routing (DONE)
  * 2. Add direct messaging capabilities to unified-message-store
  * 3. Update MessagesPage.vue to use unified-message-store
  * 4. Remove chat-store.ts when no longer needed
- * 
+ *
  * Current fix implements step 1 by centralizing event routing in matrixService
  * and removing direct event handler registration that caused duplicates.
  */
@@ -119,11 +119,11 @@ export const useChatStore = defineStore('chat', {
       if (this.activeChat && this.activeChat.roomId === message.room_id) {
         // Add the message to the messages array if it doesn't already exist
         const messages = this.activeChat.messages || []
-        
+
         // Check if we already have this message
         if (!messages.some(m => m.id === message.event_id)) {
           console.log('!!!DEBUG!!! Adding message to chat store, event_id:', message.event_id)
-          
+
           // Handle content with appropriate type checking
           const content = message.content && typeof message.content === 'object' && 'body' in message.content &&
             typeof message.content.body === 'string' ? message.content.body : 'Message'

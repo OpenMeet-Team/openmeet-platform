@@ -5,32 +5,91 @@ import { useGroupStore } from './group-store'
 import { useEventStore } from './event-store'
 import { useAuthStore } from './auth-store'
 import { matrixService } from '../services/matrixService'
+import { ChatEntity } from '../types/model'
+import { chatApi } from '../api/chat'
+import { RouteQueryAndHash } from 'vue-router'
 
 const { error } = useNotification()
 
 // Typing indicator debounce time (ms)
 const TYPING_DEBOUNCE = 2000
 
+/**
+ * Unified Message Store
+ *
+ * This store handles all types of messaging:
+ * - Direct messages between users (previously in chat-store)
+ * - Group discussions
+ * - Event discussions
+ *
+ * The API is designed to be consistent across all message types.
+ *
+ * ----------------------------------------------------------------------------------
+ * MIGRATION GUIDE - Using Unified Store for Direct Messages
+ * ----------------------------------------------------------------------------------
+ *
+ * To migrate from chat-store to unified-message-store for direct messaging:
+ *
+ * 1. Replace imports:
+ *    - Before: import { useChatStore } from '@/stores/chat-store'
+ *    - After:  import { useMessageStore } from '@/stores/unified-message-store'
+ *
+ * 2. Function mapping:
+ *    - chatStore.actionInitializeMatrix() → messageStore.initializeMatrix()
+ *    - chatStore.actionGetChatList() → messageStore.actionGetChatList()
+ *    - chatStore.actionSetActiveChat() → messageStore.actionSetActiveChat()
+ *    - chatStore.chatList → messageStore.directChats
+ *    - chatStore.activeChat → messageStore.activeDirectChat
+ *
+ * 3. Component updates:
+ *    - For MessagesComponent, just set context-type="direct"
+ *    - Update references to chat-store getters/actions
+ *
+ * 4. Sending messages:
+ *    - Use messageStore.sendMessage() with any context type
+ *    - The store handles routing to the appropriate API based on context
+ *
+ * This unified store handles all message types with a consistent API, making
+ * it easier to maintain and extend messaging functionality across the application.
+ */
 export const useMessageStore = defineStore('messages', {
   state: () => ({
+    // Shared message storage for all contexts
     messages: {} as Record<string, MatrixMessage[]>,
+
+    // Room and context information
     activeRoomId: null as string | null,
     contextType: 'general' as 'general' | 'group' | 'event' | 'direct',
     contextId: '' as string,
+
+    // Direct message support (migrated from chat-store)
+    directChats: [] as ChatEntity[], // List of direct message chats
+    activeDirectChat: null as ChatEntity | null, // Currently active direct chat
+
+    // Permission controls
     permissions: {
       canRead: false,
       canWrite: false,
       canManage: false
     },
+
+    // UI state flags
     isLoading: false,
+    isLoadingChats: false, // For direct chat list loading
     isSending: false,
     isDeleting: false,
     isUpdating: false,
+
+    // Typing indicators
     typingUsers: {} as Record<string, string[]>, // roomId -> array of userIds who are typing
     typingTimer: null as number | null, // Timer for debouncing typing notifications
     isUserTyping: false, // Whether the current user is typing
+
+    // Connection state
     matrixConnected: false, // Whether we're connected to Matrix events
     matrixConnectionAttempted: false, // Whether we've tried to connect to Matrix
+
+    // Deduplication tracking
     processedBroadcastIds: new Set<string>() // Track broadcast IDs we've already processed
   }),
 
@@ -57,6 +116,27 @@ export const useMessageStore = defineStore('messages', {
       return state.typingUsers[state.activeRoomId] || []
     },
 
+    // Direct messaging getters (migrated from chat-store)
+
+    // Get all direct chats
+    allDirectChats: (state) => {
+      return state.directChats
+    },
+
+    // Get active direct chat
+    activeChat: (state) => {
+      return state.activeDirectChat
+    },
+
+    // Get typing users for the active direct chat
+    activeTypingUsers: (state) => {
+      if (!state.activeDirectChat || !state.activeDirectChat.roomId) {
+        return []
+      }
+      return state.typingUsers[state.activeDirectChat.roomId] || []
+    },
+
+    // Existing context getters
     getterPermissions: (state) => state.permissions,
     getterContextId: (state) => state.contextId,
     getterContextType: (state) => state.contextType
@@ -73,11 +153,94 @@ export const useMessageStore = defineStore('messages', {
       if (!this.messages[roomId]) {
         this.messages[roomId] = []
       }
+
+      // If this is a direct chat, also update the activeDirectChat
+      if (contextType === 'direct') {
+        const directChat = this.directChats.find(chat => chat.roomId === roomId)
+        if (directChat) {
+          this.activeDirectChat = directChat
+        }
+      }
     },
 
     // Set permissions
     setPermissions (permissions: { canRead: boolean, canWrite: boolean, canManage: boolean }) {
       this.permissions = permissions
+    },
+
+    // Direct messaging actions (migrated from chat-store)
+
+    // Load the list of direct message chats
+    async actionGetChatList (query: RouteQueryAndHash = {}) {
+      this.isLoadingChats = true
+
+      try {
+        console.log('Loading direct message chat list')
+        // Since DM endpoints might not be implemented yet, we need to handle 404 errors gracefully
+        try {
+          const response = await chatApi.getChatList(query)
+
+          // Update the direct chats list
+          this.directChats = response.data.chats
+
+          // If there's an active chat returned from the API, update it
+          if (response.data.chat) {
+            this.activeDirectChat = response.data.chat
+
+            // Also update context to ensure consistent state
+            this.setContext(
+              response.data.chat.roomId,
+              'direct',
+              response.data.chat.ulid
+            )
+          }
+
+          return response.data
+        } catch (apiError) {
+          if (apiError.response && apiError.response.status === 404) {
+            // Endpoint not implemented yet - provide empty data
+            console.log('Direct messages API not yet implemented - using empty data')
+            this.directChats = []
+            return { chats: [], chat: null }
+          }
+          throw apiError // Re-throw other errors
+        }
+      } catch (err) {
+        console.error('Error loading chat list:', err)
+        error('Failed to load chats')
+        throw err
+      } finally {
+        this.isLoadingChats = false
+      }
+    },
+
+    // Set active direct chat
+    actionSetActiveChat (chat: ChatEntity | null) {
+      // Update active direct chat
+      this.activeDirectChat = chat
+
+      // Also update context to ensure consistent state
+      if (chat) {
+        this.setContext(chat.roomId, 'direct', chat.ulid)
+      } else {
+        // If clearing active chat, maintain existing context if not direct
+        if (this.contextType === 'direct') {
+          this.activeRoomId = null
+          this.contextType = 'general'
+          this.contextId = ''
+        }
+      }
+    },
+
+    // Mark messages as read
+    async actionSetMessagesRead (messageIds: number[]) {
+      if (!messageIds.length) return
+
+      try {
+        await chatApi.setMessagesRead(messageIds)
+      } catch (err) {
+        console.error('Error marking messages as read:', err)
+      }
     },
 
     // Initialize Matrix connection
@@ -113,7 +276,7 @@ export const useMessageStore = defineStore('messages', {
     },
 
     // Handle Matrix events from SSE
-    // WARNING: This method should NOT be called directly! 
+    // WARNING: This method should NOT be called directly!
     // This is kept for backward compatibility but will log warnings to identify duplicate event handling.
     // Since message delivery is working correctly now, we'll keep this warning but ensure typing events still work.
     handleMatrixEvent (event: Record<string, unknown>) {
@@ -158,36 +321,36 @@ export const useMessageStore = defineStore('messages', {
       // Debug the message we're processing
       const isTemporaryId = eventId?.startsWith('~') || false
       const isPermanentId = eventId?.startsWith('$') || false
-      console.log(`!!!DEBUG!!! Processing message in unified-message-store:`, { 
-        eventId, 
-        roomId, 
+      console.log('!!!DEBUG!!! Processing message in unified-message-store:', {
+        eventId,
+        roomId,
         idType: isTemporaryId ? 'temporary (~)' : isPermanentId ? 'permanent ($)' : 'unknown',
-        broadcastId: message._broadcastId, 
+        broadcastId: message._broadcastId,
         clientMsgId: message.content?._clientMsgId || message._clientMsgId,
         sender: message.sender,
         body: message.content?.body?.substring(0, 20) + (message.content?.body?.length > 20 ? '...' : '')
       })
-      
+
       // Define tracking key early for use throughout the function
       const trackingKey = `${roomId}:${eventId}`
-      
+
       // TEMPORARY FIX: Disable stringent duplicate checking while we debug
       // Only check for exact duplicates with the same event ID
-      const exactDuplicate = this.messages[roomId]?.some(m => 
+      const exactDuplicate = this.messages[roomId]?.some(m =>
         (m.event_id === eventId || m.eventId === eventId)
-      );
-      
+      )
+
       if (exactDuplicate) {
         console.log(`!!!DEBUG!!! Found exact duplicate with event ID ${eventId} in room ${roomId}, skipping`)
         return
       }
-      
+
       // Regular duplicate check
-      if (false && eventId && this.processedBroadcastIds.has(trackingKey)) {
+      if (eventId && this.processedBroadcastIds.has(trackingKey)) {
         console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
         return
       }
-      
+
       // Special handling for Matrix's temporary/permanent ID system
       // If this is a permanent ID (starts with $), look for matching temporary IDs
       if (isPermanentId && this.messages[roomId]) {
@@ -195,19 +358,18 @@ export const useMessageStore = defineStore('messages', {
         for (let i = 0; i < this.messages[roomId].length; i++) {
           const m = this.messages[roomId][i]
           const mEventId = m.event_id || m.eventId || ''
-          
-          if (mEventId.startsWith('~') && 
-              m.sender === message.sender && 
+
+          if (mEventId.startsWith('~') &&
+              m.sender === message.sender &&
               m.content?.body === message.content?.body) {
-            
             console.log(`!!!DEBUG!!! Found matching temp/perm pair - updating ID ${mEventId} to ${eventId}`)
-            
+
             // Update the existing message with the permanent ID
             this.messages[roomId][i].event_id = eventId
-            
+
             // Add this permanent ID to our tracking to prevent duplicates
             this.processedBroadcastIds.add(trackingKey)
-            
+
             // Don't add a new message - this is just updating an existing one
             return
           }
@@ -236,7 +398,7 @@ export const useMessageStore = defineStore('messages', {
         this.messages[roomId] = []
         console.log(`!!!DEBUG!!! Initialized empty message array for room ${roomId}`)
       }
-      
+
       // Use a very robust check for duplicate messages
       const isDuplicate = this.messages[roomId].some(m => {
         // Check by event ID
@@ -247,18 +409,18 @@ export const useMessageStore = defineStore('messages', {
 
         // Special case for Matrix: Check if one ID starts with ~ and the other with $
         // This handles the case where Matrix first sends a temporary event ID and then the permanent one
-        if ((m.event_id?.startsWith('~') && eventId?.startsWith('$')) || 
+        if ((m.event_id?.startsWith('~') && eventId?.startsWith('$')) ||
             (m.event_id?.startsWith('$') && eventId?.startsWith('~'))) {
           // If sender and content match, it's likely the same message with different IDs
           if (m.sender === message.sender && m.content?.body === message.content?.body) {
             console.log('!!!DEBUG!!! Found message with temporary/permanent ID pair, updating ID and treating as duplicate')
-            
+
             // Update the existing message with the permanent ID (starts with $) if needed
             if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
               console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
               m.event_id = eventId
             }
-            
+
             return true
           }
         }
@@ -272,13 +434,13 @@ export const useMessageStore = defineStore('messages', {
           // If same content from same sender within 30 seconds, consider it a duplicate
           if (timeDiff < 30000) {
             console.log('!!!DEBUG!!! Found similar message from same sender with same content within 30 seconds, treating as duplicate')
-            
+
             // If this message has a permanent ID and the existing one has a temporary ID, update it
             if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
               console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
               m.event_id = eventId
             }
-            
+
             return true
           }
         }
@@ -443,12 +605,12 @@ export const useMessageStore = defineStore('messages', {
 
     // Send a message
     async sendMessage (message: string) {
-      console.log('!!!DEBUG!!! unified-message-store.sendMessage called', { 
-        message, 
+      console.log('!!!DEBUG!!! unified-message-store.sendMessage called', {
+        message,
         activeRoomId: this.activeRoomId,
-        contextType: this.contextType 
+        contextType: this.contextType
       })
-      
+
       if (!this.activeRoomId || !this.permissions.canWrite) {
         console.error('!!!DEBUG!!! Cannot send message: no active room or insufficient permissions', {
           activeRoomId: this.activeRoomId,
@@ -468,8 +630,8 @@ export const useMessageStore = defineStore('messages', {
           console.error('!!!DEBUG!!! Matrix user ID missing', { user: authStore.user })
           throw new Error('Matrix user ID missing. Please refresh the page and try again.')
         }
-        
-        console.log('!!!DEBUG!!! User authorized to send message', { 
+
+        console.log('!!!DEBUG!!! User authorized to send message', {
           matrixUserId: authStore.user.matrixUserId,
           room: this.activeRoomId
         })
@@ -500,8 +662,19 @@ export const useMessageStore = defineStore('messages', {
         } else if (this.contextType === 'event') {
           const result = await useEventStore().actionSendEventDiscussionMessage(message)
           eventId = result ? String(result) : undefined
+        } else if (this.contextType === 'direct' && this.activeDirectChat) {
+          // For direct messages, use the chat API with the slug from activeDirectChat
+          console.log('!!!DEBUG!!! Sending direct message through chat API', {
+            chatId: this.activeDirectChat.ulid,
+            roomId: this.activeDirectChat.roomId
+          })
+          const result = await chatApi.sendMessage(this.activeDirectChat.ulid, message)
+          eventId = result.data.id ? String(result.data.id) : undefined
         } else {
-          // Direct messages or other types
+          // General context type or fallback for unknown types
+          console.log('!!!DEBUG!!! Sending message through matrixService', {
+            roomId: this.activeRoomId
+          })
           const result = await matrixService.sendMessage(this.activeRoomId, message)
           eventId = result ? String(result) : undefined
         }

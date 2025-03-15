@@ -4,124 +4,167 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import DashboardTitle from '../components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import MessagesComponent from '../components/messages/MessagesComponent.vue'
-import { useChatStore } from '../stores/chat-store'
-import { LoadingBar, QScrollArea } from 'quasar'
+import { useMessageStore } from '../stores/unified-message-store'
+import { useGroupStore } from '../stores/group-store'
+import { useEventStore } from '../stores/event-store'
+import { LoadingBar, QScrollArea, QTabs, QTab, QTabPanels, QTabPanel } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { getImageSrc } from '../utils/imageUtils'
 import { useNavigation } from '../composables/useNavigation'
 import { useNotification } from '../composables/useNotification'
+import { eventsApi } from '../api/events'
+import { groupsApi } from '../api/groups'
 
 const route = useRoute()
-const chatList = computed(() => useChatStore().chatList)
-const chatScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
 const router = useRouter()
-
-const scrollToEnd = (delay = 0) => {
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (chatScrollArea.value) {
-          chatScrollArea.value.setScrollPercentage('vertical', 1, delay)
-        }
-      })
-    })
-  })
-}
-
-const markMessagesAsRead = () => {
-  const unreadMessages = activeChat.value?.messages?.filter(message => {
-    // Type-safe check for flags property and includes method
-    return typeof message === 'object' && message !== null &&
-           (!Array.isArray(message.flags) || !message.flags.includes('read'))
-  })
-
-  if (unreadMessages?.length) {
-    // Safe type conversion
-    const messageIds = unreadMessages
-      .map(message => message.id)
-      .filter((id): id is number => typeof id === 'number')
-
-    if (messageIds.length > 0) {
-      useChatStore().actionSetMessagesRead(messageIds)
-    }
-  }
-}
-
+const messageStore = useMessageStore()
+const messageScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
 const { error } = useNotification()
 
-onMounted(async () => {
-  LoadingBar.start()
-  useChatStore().isLoading = true
+// UI state
+const isLoading = ref(false)
+const isLoadingGroups = ref(false)
+const isLoadingEvents = ref(false)
+const activeTab = ref('direct')
 
-  try {
-    // Initialize Matrix connection for real-time updates
-    await useChatStore().actionInitializeMatrix()
-
-    // Fetch initial chat data
-    await fetchChat()
-
-    // Scroll to the end of the chat
-    scrollToEnd(0)
-
-    // Mark messages as read
-    markMessagesAsRead()
-  } catch (err) {
-    console.error('Error initializing chat:', err)
-    error('Failed to load chat messages')
-  } finally {
-    LoadingBar.stop()
-    useChatStore().isLoading = false
-  }
-})
-
-const fetchChat = async () => {
-  try {
-    // Fetch the chat list data without setting up polling
-    await useChatStore().actionGetChatList(route.query)
-    return true
-  } catch (err) {
-    console.error('Failed to get chat list:', err)
-    error('Failed to get chat list')
-    return false
-  }
-}
-
-onBeforeUnmount(() => {
-  useChatStore().$reset()
-})
-
-watch(() => route.query, async () => {
-  useChatStore().isLoadingChat = true
-  fetchChat().then(() => {
-    scrollToEnd(0)
-
-    markMessagesAsRead()
-  }).finally(() => {
-    useChatStore().isLoadingChat = false
-  })
-})
-
+// Search state
 const searchQuery = ref('')
 
-const activeChat = computed(() => useChatStore().activeChat)
-const filteredChatList = computed(() => {
-  return chatList.value?.filter(chat =>
+// Get all chat lists
+const directChats = computed(() => messageStore.directChats)
+const avatarSrc = getImageSrc(null)
+
+// Navigation
+const { navigateToChat } = useNavigation()
+
+// Filtered chats for search functionality
+const filteredDirectChats = computed(() => {
+  return directChats.value?.filter(chat =>
     searchQuery.value
       ? chat.participant?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
       : true
   )
 })
 
-const avatarSrc = getImageSrc(null)
+// Get active chat
+const activeChat = computed(() => messageStore.activeDirectChat)
 
-const { navigateToChat } = useNavigation()
+// Fetch Lists
+const fetchDirectChats = async () => {
+  isLoading.value = true
+  try {
+    // Fetch the direct chat list
+    try {
+      await messageStore.actionGetChatList(route.query)
+    } catch (chatError) {
+      // If we get 404, it means the DM endpoints aren't implemented yet
+      // Just set an empty array and don't show an error to the user
+      console.log('Direct messages API not yet implemented:', chatError)
+      messageStore.directChats = []
+    }
+    return true
+  } catch (err) {
+    console.error('Failed to get direct chat list:', err)
+    // Don't show error to user for now since this endpoint isn't implemented yet
+    // error('Failed to load messages')
+    return false
+  } finally {
+    isLoading.value = false
+  }
+}
 
-// Remove unused functions since they're now handled by MessagesComponent
+// Fetch recent groups with discussions
+const groupStore = useGroupStore()
+const recentGroups = ref([])
 
+const fetchRecentGroups = async () => {
+  isLoadingGroups.value = true
+  try {
+    // Use the groupsApi.getAllMe() endpoint through the API
+    const response = await groupsApi.getAllMe()
+    if (response?.data) {
+      recentGroups.value = response.data.slice(0, 10) // Limit to 10 most recent
+    }
+    return true
+  } catch (err) {
+    console.error('Failed to get recent groups:', err)
+    return false
+  } finally {
+    isLoadingGroups.value = false
+  }
+}
+
+// Fetch recent events with discussions
+const eventStore = useEventStore()
+const recentEvents = ref([])
+
+const fetchRecentEvents = async () => {
+  isLoadingEvents.value = true
+  try {
+    // Use eventsApi.getDashboardEvents() through the API
+    const response = await eventsApi.getDashboardEvents()
+    if (response?.data) {
+      recentEvents.value = response.data.slice(0, 10) // Limit to 10 most recent
+    }
+    return true
+  } catch (err) {
+    console.error('Failed to get recent events:', err)
+    return false
+  } finally {
+    isLoadingEvents.value = false
+  }
+}
+
+// Navigation to specific chats
+const navigateToGroupChat = (groupSlug) => {
+  router.push({ name: 'GroupDiscussionsPage', params: { slug: groupSlug } })
+}
+
+const navigateToEventChat = (eventSlug) => {
+  router.push({ name: 'EventPage', params: { slug: eventSlug }, query: { tab: 'discussion' } })
+}
+
+// Select chat view
+const selectChat = (chat) => {
+  messageStore.actionSetActiveChat(chat)
+}
+
+// Lifecycle
+onMounted(async () => {
+  LoadingBar.start()
+  try {
+    // Initialize Matrix connection for real-time updates
+    await messageStore.initializeMatrix()
+
+    // Fetch all message types in parallel
+    await Promise.all([
+      fetchDirectChats(),
+      fetchRecentGroups(),
+      fetchRecentEvents()
+    ])
+  } catch (err) {
+    console.error('Error initializing messages:', err)
+    error('Failed to load messages')
+  } finally {
+    LoadingBar.stop()
+  }
+})
+
+// Setup route watcher for query changes
+watch(() => route.query, async () => {
+  // If navigating to a specific chat
+  if (route.query.chat) {
+    isLoading.value = true
+    await fetchDirectChats().finally(() => {
+      isLoading.value = false
+    })
+  }
+})
+
+// Cleanup 
 onBeforeUnmount(() => {
   // Clean up Matrix-related resources
-  useChatStore().actionCleanup()
-  useChatStore().$reset()
+  messageStore.cleanup()
 })
 </script>
 
@@ -129,80 +172,236 @@ onBeforeUnmount(() => {
   <q-page padding style="max-width: 1024px;" class="q-mx-auto c-messages-page q-pb-xl">
     <DashboardTitle defaultBack label="Messages" />
 
-    <SpinnerComponent v-if="useChatStore().isLoading" />
+    <SpinnerComponent v-if="isLoading && !messageStore.directChats.length" />
 
     <div v-else class="messages-page row q-col-gutter-md">
+      <!-- Left sidebar with tabs for different message types -->
       <div class="col-4">
         <q-card flat bordered class="full-height">
-          <q-input v-model="searchQuery" @clear="searchQuery = ''" filled type="search" label="Search people" clearable
-            class="q-ma-md">
+          <!-- Tab navigation -->
+          <q-tabs
+            v-model="activeTab"
+            class="text-primary"
+            indicator-color="primary"
+            align="justify"
+            narrow-indicator
+          >
+            <q-tab name="direct" icon="sym_r_chat" label="Direct" />
+            <q-tab name="groups" icon="sym_r_group" label="Groups" />
+            <q-tab name="events" icon="sym_r_event" label="Events" />
+          </q-tabs>
+
+          <!-- Search box (only for direct chats) -->
+          <q-input 
+            v-if="activeTab === 'direct'"
+            v-model="searchQuery" 
+            @clear="searchQuery = ''" 
+            filled 
+            type="search" 
+            label="Search people" 
+            clearable
+            class="q-ma-md"
+          >
             <template v-slot:append>
               <q-icon name="sym_r_search" />
             </template>
           </q-input>
 
-          <q-list separator v-if="filteredChatList?.length" style="max-height: 100%;">
-            <q-item v-for="chat in filteredChatList" :key="chat.id" clickable v-ripple
-              :active="activeChat && activeChat.id === chat.id" @click="navigateToChat({ chat: chat.ulid })"
-              data-cy="chat-item">
-              <q-item-section avatar>
-                <q-avatar>
-                  <img :src="chat.participant.photo ? getImageSrc(chat.participant.photo) : avatarSrc" />
-                </q-avatar>
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ chat.participant.firstName }} {{ chat.participant.lastName }}</q-item-label>
-                <q-item-label caption>{{ chat.participant.name }}</q-item-label>
-              </q-item-section>
-              <q-item-section side v-if="chat.messages">
-                <!-- <q-item-label caption>{{ new Date(chat.messages[0].timestamp * 1000).toLocaleString() }}</q-item-label> -->
-                <q-badge v-if="chat.messages?.length" color="red">{{ chat.messages.length }}</q-badge>
-              </q-item-section>
-            </q-item>
-          </q-list>
-          <NoContentComponent v-else icon="sym_r_chat" label="No chats yet" />
+          <!-- Tab content panels -->
+          <q-tab-panels v-model="activeTab" animated class="full-height">
+            <!-- Direct Messages Tab -->
+            <q-tab-panel name="direct" class="q-pa-none">
+              <!-- Coming Soon message since direct message API isn't implemented yet -->
+              <div class="column items-center justify-center q-pa-lg">
+                <q-icon name="sym_r_chat" size="64px" color="grey-5" />
+                <div class="text-h6 q-mt-md">Direct Messages</div>
+                <p class="text-body1 q-mt-sm text-center">
+                  Direct messaging functionality is coming soon. <br>
+                  Please check back later!
+                </p>
+              </div>
+              
+              <!-- This will be enabled once the API is implemented -->
+              <div v-if="false">
+                <q-list separator v-if="filteredDirectChats?.length" style="max-height: 100%;">
+                  <q-item 
+                    v-for="chat in filteredDirectChats" 
+                    :key="chat.id" 
+                    clickable 
+                    v-ripple
+                    :active="activeChat && activeChat.id === chat.id" 
+                    @click="navigateToChat({ chat: chat.ulid })"
+                    data-cy="chat-item"
+                  >
+                    <q-item-section avatar>
+                      <q-avatar>
+                        <img :src="chat.participant.photo ? getImageSrc(chat.participant.photo) : avatarSrc" />
+                      </q-avatar>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ chat.participant.firstName }} {{ chat.participant.lastName }}</q-item-label>
+                      <q-item-label caption>{{ chat.participant.name }}</q-item-label>
+                    </q-item-section>
+                    <q-item-section side v-if="chat.unreadCount">
+                      <q-badge color="red">{{ chat.unreadCount }}</q-badge>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+                <NoContentComponent v-else icon="sym_r_chat" label="No direct messages yet" />
+              </div>
+            </q-tab-panel>
+
+            <!-- Groups Tab -->
+            <q-tab-panel name="groups" class="q-pa-none">
+              <div v-if="isLoadingGroups" class="q-pa-md text-center">
+                <q-spinner-dots color="primary" size="40px" />
+              </div>
+              <q-list separator v-else-if="recentGroups.length" style="max-height: 100%;">
+                <q-item 
+                  v-for="group in recentGroups" 
+                  :key="group.id" 
+                  clickable 
+                  v-ripple
+                  @click="navigateToGroupChat(group.slug)"
+                >
+                  <q-item-section avatar>
+                    <q-avatar>
+                      <img :src="group.photo ? getImageSrc(group.photo) : avatarSrc" />
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ group.name }}</q-item-label>
+                    <q-item-label caption>{{ group.members?.length || 0 }} members</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+              <NoContentComponent v-else icon="sym_r_group" label="No group discussions yet" />
+            </q-tab-panel>
+
+            <!-- Events Tab -->
+            <q-tab-panel name="events" class="q-pa-none">
+              <div v-if="isLoadingEvents" class="q-pa-md text-center">
+                <q-spinner-dots color="primary" size="40px" />
+              </div>
+              <q-list separator v-else-if="recentEvents.length" style="max-height: 100%;">
+                <q-item 
+                  v-for="event in recentEvents" 
+                  :key="event.id" 
+                  clickable 
+                  v-ripple
+                  @click="navigateToEventChat(event.slug)"
+                >
+                  <q-item-section avatar>
+                    <q-avatar>
+                      <img :src="event.photo ? getImageSrc(event.photo) : avatarSrc" />
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ event.name }}</q-item-label>
+                    <q-item-label caption>{{ new Date(event.startDate).toLocaleDateString() }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+              <NoContentComponent v-else icon="sym_r_event" label="No event discussions yet" />
+            </q-tab-panel>
+          </q-tab-panels>
         </q-card>
       </div>
 
-      <!-- Chat area -->
+      <!-- Right panel: Chat display area -->
       <div class="col relative-position">
-        <SpinnerComponent v-if="useChatStore().isLoadingChat" />
-        <template v-else>
-          <div class="full-height column" data-cy="chat-messages" v-if="activeChat">
-            <!-- Chat header -->
-            <q-card flat bordered>
-              <q-card-section class="row items-center col">
-                <div class="row items-center">
-                  <div class="row col items-center">
-                    <q-avatar size="48px" class="q-mr-md">
-                      <img
-                        :src="activeChat.participant.photo ? getImageSrc(activeChat.participant.photo) : avatarSrc" />
-                    </q-avatar>
-                    <div class="text-h6">{{ activeChat.participant?.firstName }} {{ activeChat.participant?.lastName }}
+        <template v-if="activeTab === 'direct'">
+          <!-- Coming Soon message for direct chat feature -->
+          <q-card flat bordered class="full-height">
+            <q-card-section class="text-center column items-center justify-center">
+              <q-icon name="sym_r_forum" size="64px" color="grey-5" />
+              <div class="text-h6 q-mt-md">Direct Messaging</div>
+              <p class="text-body1 q-mt-sm">
+                The ability to send direct messages to other users is coming soon!
+              </p>
+              <p class="text-caption q-mt-md">
+                In the meantime, you can use group discussions and event comments to communicate with other users.
+              </p>
+            </q-card-section>
+          </q-card>
+          
+          <!-- This will be enabled once the API is implemented -->
+          <div v-if="false">
+            <div class="full-height column" data-cy="chat-messages" v-if="activeChat">
+              <!-- Chat header -->
+              <q-card flat bordered>
+                <q-card-section class="row items-center col">
+                  <div class="row items-center">
+                    <div class="row col items-center">
+                      <q-avatar size="48px" class="q-mr-md">
+                        <img
+                          :src="activeChat.participant.photo ? getImageSrc(activeChat.participant.photo) : avatarSrc" />
+                      </q-avatar>
+                      <div class="text-h6">{{ activeChat.participant?.firstName }} {{ activeChat.participant?.lastName }}
+                      </div>
                     </div>
+
+                    <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
+                      <q-tooltip>Close chat</q-tooltip>
+                    </q-btn>
                   </div>
+                </q-card-section>
+              </q-card>
 
-                  <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
-                    <q-tooltip>Close chat</q-tooltip>
-                  </q-btn>
-                </div>
-              </q-card-section>
-            </q-card>
-
-            <!-- Messages using the new unified component -->
-            <MessagesComponent
-              v-if="activeChat.roomId"
-              :room-id="activeChat.roomId"
-              context-type="direct"
-              :context-id="activeChat.ulid"
-              :can-read="true"
-              :can-write="true"
-              :can-manage="false"
-              class="col"
-            />
-            <NoContentComponent v-else class="col" icon="sym_r_chat" label="No messages yet" />
+              <!-- Messages using the unified component -->
+              <MessagesComponent
+                v-if="activeChat.roomId"
+                :room-id="activeChat.roomId"
+                context-type="direct"
+                :context-id="activeChat.ulid"
+                :can-read="true"
+                :can-write="true"
+                :can-manage="false"
+                class="col"
+              />
+              <NoContentComponent v-else class="col" icon="sym_r_chat" label="No messages yet" />
+            </div>
+            <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging" />
           </div>
-          <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging" />
+        </template>
+
+        <!-- Information displays for group and event tabs -->
+        <template v-else-if="activeTab === 'groups'">
+          <q-card flat bordered class="full-height">
+            <q-card-section class="text-center column items-center justify-center">
+              <q-icon name="sym_r_group" size="64px" color="grey-5" />
+              <div class="text-h6 q-mt-md">Group Discussions</div>
+              <p class="text-body1 q-mt-sm">
+                Select a group from the sidebar to view its discussions.
+              </p>
+              <q-btn 
+                color="primary" 
+                label="Browse Groups" 
+                icon="sym_r_group" 
+                class="q-mt-md"
+                to="/groups"
+              />
+            </q-card-section>
+          </q-card>
+        </template>
+
+        <template v-else-if="activeTab === 'events'">
+          <q-card flat bordered class="full-height">
+            <q-card-section class="text-center column items-center justify-center">
+              <q-icon name="sym_r_event" size="64px" color="grey-5" />
+              <div class="text-h6 q-mt-md">Event Discussions</div>
+              <p class="text-body1 q-mt-sm">
+                Select an event from the sidebar to view its discussion area.
+              </p>
+              <q-btn 
+                color="primary" 
+                label="Browse Events" 
+                icon="sym_r_event" 
+                class="q-mt-md"
+                to="/events"
+              />
+            </q-card-section>
+          </q-card>
         </template>
       </div>
     </div>
@@ -212,7 +411,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .messages-page {
   min-height: calc(100vh - 260px);
-  /* height: calc(100vh - 165px); */
-  /* Adjust based on your layout */
+}
+
+/* Make sure tabs fill available height */
+.q-tab-panels {
+  height: calc(100% - 100px); /* Adjust based on the height of the tabs + search box */
+}
+
+.q-tab-panel {
+  height: 100%;
+  overflow-y: auto;
 }
 </style>

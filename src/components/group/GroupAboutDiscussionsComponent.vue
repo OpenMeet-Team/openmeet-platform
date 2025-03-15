@@ -21,7 +21,7 @@ defineProps<Props>()
   <SubtitleComponent class="q-px-md q-mt-lg" label="Discussions" :to="{ name: 'GroupDiscussionsPage' }" />
 
   <q-card class="q-mt-md q-pb-sm" flat>
-      <MessagesComponent v-if="group" 
+      <MessagesComponent v-if="group"
         :room-id="group.roomId || group.slug || ''"
         context-type="group"
         :context-id="group?.slug || ''"
