@@ -155,15 +155,29 @@ export const useGroupStore = defineStore('group', {
         error('Failed to remove group member')
       }
     },
-    async actionSendGroupDiscussionMessage (message: string, topicName: string): Promise<number | undefined> {
+    async actionSendGroupDiscussionMessage (message: string): Promise<number | undefined> {
       try {
         if (this.group?.slug) {
-          const res = await groupsApi.sendDiscussionMessage(this.group.slug, message, topicName)
+          const res = await groupsApi.sendDiscussionMessage(this.group.slug, message)
           return res.data.id
         }
       } catch (err) {
         console.log(err)
         error('Failed to send group discussion message')
+      }
+    },
+
+    async actionGetGroupDiscussionMessages (limit = 50, from?: string) {
+      try {
+        if (this.group?.slug) {
+          const res = await groupsApi.getDiscussionMessages(this.group.slug, limit, from)
+          return { messages: res.data.messages, end: res.data.end }
+        }
+        return { messages: [], end: '' }
+      } catch (err) {
+        console.log(err)
+        error('Failed to get group discussion messages')
+        return { messages: [], end: '' }
       }
     },
     async actionDeleteGroupDiscussionMessage (messageId: number): Promise<number | undefined> {

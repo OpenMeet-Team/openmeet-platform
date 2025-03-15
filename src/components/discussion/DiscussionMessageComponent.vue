@@ -1,11 +1,11 @@
 <template>
-  <q-card flat bordered class="q-pa-md c-discussion-message-component">
+  <q-card flat bordered class="q-pa-md c-discussion-message-component message-card">
     <div class="row items-center justify-between full-width">
       <div class="column">
         <div class="row items-center">
-          <span class="text-weight-medium">{{ message.sender_full_name }}</span>
-          <span class="q-ml-md text-caption text-grey" v-if="message.timestamp">
-            {{ getRoundedHumanReadableDateDifference(new Date(message.timestamp * 1000), new Date()) }} ago
+          <span class="text-weight-medium sender-name">{{ getSenderName }}</span>
+          <span class="q-ml-md text-caption timestamp" v-if="getTimestamp">
+            {{ getRoundedHumanReadableDateDifference(new Date(getTimestamp), new Date()) }} ago
           </span>
         </div>
       </div>
@@ -17,38 +17,101 @@
         </template>
       </div>
     </div>
-    <div class="text-body2 q-mt-md" v-html="message.content"></div>
+    <div class="text-body2 q-mt-md message-content" v-html="getMessageContent"></div>
   </q-card>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
-import { ZulipMessageEntity } from '../../types'
+import { MatrixMessage } from '../../types/matrix'
 import { getRoundedHumanReadableDateDifference } from '../../utils/dateUtils'
 
 interface Props {
-  message: ZulipMessageEntity
+  message: MatrixMessage
 }
 
 interface Emits {
-  (e: 'delete', id: number): void
-  (e: 'edit', id: number, content: string): void
-  (e: 'reply', id: number): void
+  (e: 'delete', id: string): void
+  (e: 'edit', id: string, content: string): void
+  (e: 'reply', id: string): void
 }
 
 const emit = defineEmits<Emits>()
+const props = defineProps<Props>()
+
+const getMessageContent = computed(() => {
+  if (typeof props.message.content === 'string') {
+    return props.message.content
+  } else if (props.message.content && typeof props.message.content.body === 'string') {
+    return props.message.content.body
+  }
+  return ''
+})
+
+const getSenderName = computed(() => {
+  // Use Matrix display name if available (this is the OpenMeet username)
+  if (props.message.sender_name) {
+    return props.message.sender_name
+  }
+
+  // If no display name, extract from Matrix ID as fallback
+  if (props.message.sender) {
+    return props.message.sender.split(':')[0].substring(1)
+  }
+  return 'Unknown User'
+})
+
+const getTimestamp = computed(() => {
+  return props.message.origin_server_ts
+    ? new Date(props.message.origin_server_ts)
+    : null
+})
+
+const getMessageId = computed(() => {
+  return props.message.event_id
+})
 
 const onDelete = () => {
-  emit('delete', props.message.id)
+  emit('delete', getMessageId.value)
 }
 
 const onReply = () => {
-  emit('reply', props.message.id)
+  emit('reply', getMessageId.value)
+}
+
+const stripHtml = (str: string): string => {
+  return str.replace(/<\/?[^>]+(>|$)/g, '')
 }
 
 const onEdit = () => {
-  emit('edit', props.message.id, props.message.content.replace(/<\/?[^>]+(>|$)/g, ''))
-}
+  let content = ''
 
-const props = defineProps<Props>()
+  // Handle different content types safely
+  try {
+    // Use type assertion to safely work with content
+    const messageContent = props.message.content as Record<string, unknown> | string
+
+    if (messageContent === null || messageContent === undefined) {
+      content = ''
+    } else if (typeof messageContent === 'object') {
+      if ('body' in messageContent && typeof messageContent.body === 'string') {
+        content = stripHtml(messageContent.body)
+      }
+    } else if (typeof messageContent === 'string') {
+      content = stripHtml(messageContent)
+    }
+  } catch (e) {
+    console.error('Error processing message content:', e)
+    content = ''
+  }
+
+  emit('edit', getMessageId.value, content)
+}
 </script>
+
+<style scoped>
+.message-card {
+  background-color: white;
+}
+</style>

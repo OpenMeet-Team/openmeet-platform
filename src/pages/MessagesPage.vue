@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
 import NoContentComponent from '../components/global/NoContentComponent.vue'
 import DashboardTitle from '../components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
+import MessagesComponent from '../components/messages/MessagesComponent.vue'
 import { useChatStore } from '../stores/chat-store'
 import { LoadingBar, QScrollArea } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { getImageSrc } from '../utils/imageUtils'
 import { useNavigation } from '../composables/useNavigation'
-import { nextTick } from 'process'
 import { useNotification } from '../composables/useNotification'
 
 const route = useRoute()
@@ -29,37 +29,61 @@ const scrollToEnd = (delay = 0) => {
 }
 
 const markMessagesAsRead = () => {
-  const unreadMessages = activeChat.value?.messages?.filter(message => !message.flags || !message.flags.includes('read'))
+  const unreadMessages = activeChat.value?.messages?.filter(message => {
+    // Type-safe check for flags property and includes method
+    return typeof message === 'object' && message !== null &&
+           (!Array.isArray(message.flags) || !message.flags.includes('read'))
+  })
+
   if (unreadMessages?.length) {
-    useChatStore().actionSetMessagesRead(unreadMessages.map(message => message.id))
+    // Safe type conversion
+    const messageIds = unreadMessages
+      .map(message => message.id)
+      .filter((id): id is number => typeof id === 'number')
+
+    if (messageIds.length > 0) {
+      useChatStore().actionSetMessagesRead(messageIds)
+    }
   }
 }
 
-const updateInterval = ref(10000)
-const chatInterval = ref()
 const { error } = useNotification()
 
 onMounted(async () => {
   LoadingBar.start()
   useChatStore().isLoading = true
-  fetchChat().then(() => {
+
+  try {
+    // Initialize Matrix connection for real-time updates
+    await useChatStore().actionInitializeMatrix()
+
+    // Fetch initial chat data
+    await fetchChat()
+
+    // Scroll to the end of the chat
+    scrollToEnd(0)
+
+    // Mark messages as read
+    markMessagesAsRead()
+  } catch (err) {
+    console.error('Error initializing chat:', err)
+    error('Failed to load chat messages')
+  } finally {
     LoadingBar.stop()
     useChatStore().isLoading = false
-    scrollToEnd(0)
-    markMessagesAsRead()
-  })
+  }
 })
 
-const fetchChat = () => {
-  if (chatInterval.value) {
-    clearInterval(chatInterval.value)
-  }
-  return useChatStore().actionGetChatList(route.query).then(() => {
-    chatInterval.value = setInterval(() => fetchChat(), updateInterval.value)
-  }).catch(() => {
+const fetchChat = async () => {
+  try {
+    // Fetch the chat list data without setting up polling
+    await useChatStore().actionGetChatList(route.query)
+    return true
+  } catch (err) {
+    console.error('Failed to get chat list:', err)
     error('Failed to get chat list')
-    clearInterval(chatInterval.value)
-  })
+    return false
+  }
 }
 
 onBeforeUnmount(() => {
@@ -78,7 +102,6 @@ watch(() => route.query, async () => {
 })
 
 const searchQuery = ref('')
-const newMessage = ref('')
 
 const activeChat = computed(() => useChatStore().activeChat)
 const filteredChatList = computed(() => {
@@ -93,24 +116,11 @@ const avatarSrc = getImageSrc(null)
 
 const { navigateToChat } = useNavigation()
 
-function sendMessage () {
-  if (newMessage.value.trim() && activeChat.value) {
-    const message = newMessage.value
-    newMessage.value = ''
-
-    useChatStore().actionSendMessage(activeChat.value.ulid, {
-      content: message.trim(),
-      sender_id: activeChat.value.user.zulipUserId as number,
-      sender_full_name: activeChat.value.user.name as string,
-      timestamp: new Date().getTime()
-    }).then(() => {
-      scrollToEnd(500)
-    })
-  }
-}
+// Remove unused functions since they're now handled by MessagesComponent
 
 onBeforeUnmount(() => {
-  clearInterval(chatInterval.value)
+  // Clean up Matrix-related resources
+  useChatStore().actionCleanup()
   useChatStore().$reset()
 })
 </script>
@@ -179,26 +189,18 @@ onBeforeUnmount(() => {
               </q-card-section>
             </q-card>
 
-            <!-- Messages -->
-            <q-scroll-area ref="chatScrollArea" class="col q-mt-md" v-if="activeChat.messages?.length">
-              <div v-for="message in activeChat.messages" :key="message.id" class="q-mb-md q-px-md">
-                <div style="max-width: 100%;"
-                  :class="['flex', message.sender_id !== activeChat.user.zulipUserId ? 'justify-end' : 'justify-start']">
-                  <q-chat-message data-cy="chat-message" :name="message.sender_full_name" :text="[message.content]"
-                    text-html :sent="message.sender_id !== activeChat.user.zulipUserId"
-                    :stamp="new Date(message.timestamp * 1000).toLocaleString()" />
-                </div>
-              </div>
-            </q-scroll-area>
+            <!-- Messages using the new unified component -->
+            <MessagesComponent
+              v-if="activeChat.roomId"
+              :room-id="activeChat.roomId"
+              context-type="direct"
+              :context-id="activeChat.ulid"
+              :can-read="true"
+              :can-write="true"
+              :can-manage="false"
+              class="col"
+            />
             <NoContentComponent v-else class="col" icon="sym_r_chat" label="No messages yet" />
-
-            <!-- Message input -->
-            <q-input data-cy="chat-message-input" :loading="useChatStore().isSendingMessage" v-model="newMessage" filled
-              resi label="Type a message" @keyup.enter="sendMessage">
-              <template v-slot:after>
-                <q-btn round dense flat icon="sym_r_send" @click="sendMessage" />
-              </template>
-            </q-input>
           </div>
           <NoContentComponent v-else class="full-height" icon="sym_r_chat" label="Select a chat to start messaging" />
         </template>

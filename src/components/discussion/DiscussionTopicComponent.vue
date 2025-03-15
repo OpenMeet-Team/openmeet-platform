@@ -34,14 +34,14 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { ZulipMessageEntity } from '../../types'
+import { MatrixMessage } from '../../types/matrix'
 import DiscussionMessageComponent from './DiscussionMessageComponent.vue'
 import { useDiscussionStore } from '../../stores/discussion-store'
 import { useDiscussionDialog } from '../../composables/useDiscussionDialog'
 import DOMPurify from 'dompurify'
 
-const editingMessageId = ref<number | null>(null)
-const replyingToId = ref<number | null>(null)
+const editingMessageId = ref<string | null>(null)
+const replyingToId = ref<string | null>(null)
 const editContent = ref('')
 const replyContent = ref('')
 const editInput = ref<HTMLInputElement | null>(null)
@@ -50,13 +50,13 @@ const replyInput = ref<HTMLInputElement | null>(null)
 interface Props {
   topic: {
     topicName: string
-    message: ZulipMessageEntity
+    message: MatrixMessage
     children: {
-      id: number
+      id: string
       label: string
       content: string
       timestamp: number
-      message: ZulipMessageEntity
+      message: MatrixMessage
     }[]
   }
   canModerate?: boolean
@@ -69,13 +69,16 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 defineEmits<{
-  reply: [parentId: number, message: string]
-  update: [messageId: number, content: string]
-  delete: [messageId: number]
+  reply: [parentId: string, message: string]
+  update: [messageId: string, content: string]
+  delete: [messageId: string]
 }>()
 
 const onReply = () => {
-  replyingToId.value = props.topic.message.id
+  // Get Matrix message event_id
+  const messageId = props.topic.message.event_id
+
+  replyingToId.value = messageId
   replyContent.value = ''
 
   nextTick(() => {
@@ -94,7 +97,7 @@ const sendReply = () => {
   })
 }
 
-const onEdit = (messageId: number, content: string) => {
+const onEdit = (messageId: string, content: string) => {
   editingMessageId.value = messageId
   editContent.value = content
 
@@ -118,7 +121,7 @@ const onUpdateMessage = () => {
   }
 }
 
-const onDelete = (messageId: number) => {
+const onDelete = (messageId: string) => {
   openDeleteMessageDialog().onOk(() => {
     useDiscussionStore().actionDeleteMessage(messageId)
   })

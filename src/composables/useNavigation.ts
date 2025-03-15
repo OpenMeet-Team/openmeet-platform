@@ -9,6 +9,11 @@ export function useNavigation () {
   }
 
   const navigateToEvent = (event: EventEntity) => {
+    console.log('Navigating to event:', event)
+    if (!event || !event.slug) {
+      console.error('Cannot navigate to event: missing event or slug property', event)
+      return
+    }
     router.push({ name: 'EventPage', params: { slug: event.slug } })
   }
 

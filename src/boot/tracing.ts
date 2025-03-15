@@ -1,13 +1,77 @@
 import { boot } from 'quasar/wrappers'
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web'
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base'
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+import { BatchSpanProcessor, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-base'
+// Using simple fetch-based exporter instead of protobuf-based OTLPTraceExporter
 import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load'
 import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction'
 import { registerInstrumentations } from '@opentelemetry/instrumentation'
 import { Resource } from '@opentelemetry/resources'
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { ZoneContextManager } from '@opentelemetry/context-zone'
+
+// Create a simple exporter that uses fetch instead of protobufjs
+class FetchTraceExporter {
+  private url: string
+  private headers: Record<string, string>
+
+  constructor (options: { url: string, headers?: Record<string, string> }) {
+    this.url = options.url
+    this.headers = options.headers || {}
+  }
+
+  // Define a basic span type
+  export (spans: Array<{
+    name: string;
+    kind: string | number;
+    startTime: number;
+    endTime: number;
+    attributes?: Record<string, unknown>;
+    events?: Array<unknown>;
+    links?: Array<unknown>;
+    status?: Record<string, unknown>;
+  }>, resultCallback: (result: { code: number }) => void) {
+    // Transform spans to the format expected by the server
+    const payload = {
+      resourceSpans: [{
+        resource: { attributes: {} },
+        scopeSpans: [{
+          scope: {},
+          spans: spans.map(span => ({
+            name: span.name,
+            kind: span.kind,
+            startTimeUnixNano: span.startTime,
+            endTimeUnixNano: span.endTime,
+            attributes: Object.entries(span.attributes || {}).map(([key, value]) => ({ key, value })),
+            events: span.events || [],
+            links: span.links || [],
+            status: span.status || {}
+          }))
+        }]
+      }]
+    }
+
+    fetch(this.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.headers
+      },
+      body: JSON.stringify(payload)
+    })
+      .then(response => {
+        resultCallback({ code: response.status })
+      })
+      .catch(error => {
+        console.error('Failed to export spans:', error)
+        resultCallback({ code: 500 })
+      })
+  }
+
+  shutdown () {
+    // Nothing to do here
+    return Promise.resolve()
+  }
+}
 
 export default boot(() => {
   if (process.env.VITE_ENABLE_TRACING !== 'true') {
@@ -25,19 +89,21 @@ export default boot(() => {
     })
   })
 
+  // Use our fetch-based exporter instead of OTLPTraceExporter
+  const exporter = process.env.NODE_ENV === 'production'
+    ? new FetchTraceExporter({
+      url: endpoint,
+      headers: {}
+    })
+    : new ConsoleSpanExporter() // Use console in dev for debugging
+
   provider.addSpanProcessor(
-    new BatchSpanProcessor(
-      new OTLPTraceExporter({
-        url: endpoint,
-        headers: {},
-        timeoutMillis: 5000
-      }),
-      {
-        maxQueueSize: 1000,
-        scheduledDelayMillis: 5000,
-        exportTimeoutMillis: 5000
-      }
-    )
+    // @ts-expect-error - BatchSpanProcessor expects SpanExporter type but our custom FetchTraceExporter doesn't match exactly
+    new BatchSpanProcessor(exporter, {
+      maxQueueSize: 1000,
+      scheduledDelayMillis: 5000,
+      exportTimeoutMillis: 5000
+    })
   )
 
   provider.addSpanProcessor({

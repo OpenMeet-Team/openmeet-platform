@@ -11,6 +11,12 @@ body {
   border-radius: 10px;
 }
 
+// Dark mode cards - ensure consistent styling
+body.body--dark .q-card {
+  background-color: $purple-600;
+  color: rgba(255, 255, 255, 0.87);
+}
+
 // Quasar Button
 .q-btn {
   font-weight: bold

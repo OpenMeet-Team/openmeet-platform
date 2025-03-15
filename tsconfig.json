@@ -4,8 +4,12 @@
     "baseUrl": ".",
     "types": [
       "cypress"
-    ],
+    ]
   },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
   "exclude": [
     "./local",
     "./dist",
