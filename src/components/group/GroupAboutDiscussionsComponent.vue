@@ -3,7 +3,7 @@
 import { GroupEntity, GroupPermission } from '../../types'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useGroupStore } from '../../stores/group-store'
-import DiscussionComponent from '../discussion/DiscussionComponent.vue'
+import MessagesComponent from '../messages/MessagesComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { computed } from 'vue'
 interface Props {
@@ -21,11 +21,14 @@ defineProps<Props>()
   <SubtitleComponent class="q-px-md q-mt-lg" label="Discussions" :to="{ name: 'GroupDiscussionsPage' }" />
 
   <q-card class="q-mt-md q-pb-sm" flat>
-      <DiscussionComponent v-if="group && group.topics && group.messages" :messages="group?.messages || []" :topics="group?.topics || []" :context-type="'group'" :context-id="group?.slug || ''" :permissions="{
-        canRead: !!canRead,
-        canWrite: !!useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion),
-        canManage: !!useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions)
-      }" />
+      <MessagesComponent v-if="group" 
+        :room-id="group.roomId || group.slug || ''"
+        context-type="group"
+        :context-id="group?.slug || ''"
+        :can-read="!!canRead"
+        :can-write="!!useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion)"
+        :can-manage="!!useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions)"
+      />
   </q-card>
 
 </template>

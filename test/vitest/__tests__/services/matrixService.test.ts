@@ -31,12 +31,12 @@ vi.mock('../../../../src/stores/chat-store', () => ({
   })
 }))
 
-vi.mock('../../../../src/stores/discussion-store', () => ({
-  useDiscussionStore: vi.fn().mockReturnValue({
-    getterContextId: 'room456',
-    messages: [],
-    topics: [{ name: 'General' }],
-    actionAddMessage: vi.fn()
+vi.mock('../../../../src/stores/unified-message-store', () => ({
+  useMessageStore: vi.fn().mockReturnValue({
+    activeRoomId: 'room456',
+    currentRoomMessages: [],
+    addNewMessage: vi.fn(),
+    setContext: vi.fn()
   })
 }))
 
@@ -118,12 +118,12 @@ global.EventSource = MockEventSource as unknown as typeof EventSource
 
 // Import dependencies after mocking
 import { useChatStore } from '../../../../src/stores/chat-store'
-import { useDiscussionStore } from '../../../../src/stores/discussion-store'
+import { useMessageStore } from '../../../../src/stores/unified-message-store'
 
 describe.skip('MatrixService', () => {
   // Get store instances - these are mocked above
   const mockChatStore = useChatStore()
-  const mockDiscussionStore = useDiscussionStore()
+  const mockMessageStore = useMessageStore()
   let eventSource: MockEventSource
 
   // Setup for each test
@@ -262,23 +262,22 @@ describe.skip('MatrixService', () => {
       expect(mockChatStore.actionAddMessage).toHaveBeenCalledWith(testMessage)
     })
 
-    it('should process and route Matrix message events to the discussion store', async () => {
+    it('should process and route Matrix message events to the unified message store', async () => {
       // Create a mock function that will be called to verify the store update
       const setMessages = vi.fn()
 
-      // Create a custom mock discussion store
-      const customDiscussionStore = {
-        ...mockDiscussionStore,
-        messages: [],
-        topics: [{ name: 'General' }],
+      // Create a custom mock message store
+      const customMessageStore = {
+        ...mockMessageStore,
+        currentRoomMessages: [],
         // Replace the original store's functions with our mock
-        actionAddMessage: vi.fn()
+        addNewMessage: vi.fn()
       }
 
       // Override the store getter to return our custom version with proper typing
-      vi.mocked(useDiscussionStore).mockReturnValueOnce({
-        ...mockDiscussionStore,
-        ...customDiscussionStore
+      vi.mocked(useMessageStore).mockReturnValueOnce({
+        ...mockMessageStore,
+        ...customMessageStore
       })
 
       const testMessage: MatrixMessage = {
@@ -299,16 +298,12 @@ describe.skip('MatrixService', () => {
       // The handler should be called
       expect(messageHandler).toHaveBeenCalledWith(testMessage)
 
-      // The discussion store should have received the message
-      expect(setMessages).toHaveBeenCalledWith([
+      // The message store should have received the message
+      expect(customMessageStore.addNewMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          event_id: 'evt456',
-          content: expect.objectContaining({
-            topic: 'General' // Should add default topic
-          })
-        }),
-        ...mockDiscussionStore.messages
-      ])
+          event_id: 'evt456'
+        })
+      )
     })
 
     it('should handle Matrix typing events', async () => {

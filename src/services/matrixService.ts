@@ -1,6 +1,5 @@
 import { useAuthStore } from '../stores/auth-store'
 import { useChatStore } from '../stores/chat-store'
-import { useDiscussionStore } from '../stores/discussion-store'
 import { useMessageStore } from '../stores/unified-message-store'
 import { ensureMatrixUser } from '../utils/matrixUtils'
 import { MatrixMessage } from '../types'
@@ -138,7 +137,12 @@ class MatrixServiceImpl {
           apiBaseUrl: window.APP_CONFIG?.APP_API_URL || 'not set'
         })
 
+        console.log('!!!DEBUG!!! Creating Socket.IO connection for Matrix events')
         this.socket = matrixApi.createSocketConnection()
+        console.log('!!!DEBUG!!! Socket.IO connection created:', { 
+          socketId: this.socket?.id,
+          connected: this.socket?.connected
+        })
       } catch (e) {
         console.error('Error creating WebSocket connection:', e)
         // Even if there's an error creating the WebSocket, we'll continue without real-time updates
@@ -245,16 +249,41 @@ class MatrixServiceImpl {
         // Listen for matrix events
         this.socket!.on('matrix-event', (event) => {
           try {
-            console.log('!!!DEBUG!!! Received Matrix event via WebSocket:', event)
+            const eventId = event.event_id || 'unknown'
+            const roomId = event.room_id || 'unknown'
+            const sender = event.sender || 'unknown'
+            const type = event.type || 'unknown'
+            
+            console.log(`!!!DEBUG!!! Received Matrix event via WebSocket:`, {
+              eventId,
+              roomId,
+              sender,
+              type,
+              timestamp: new Date().toISOString()
+            })
 
             // Add more detailed logging for message events
             if (event.type === 'm.room.message') {
+              const isTemporaryId = (eventId?.toString() || '').startsWith('~')
+              const isPermanentId = (eventId?.toString() || '').startsWith('$')
+              
               console.log(
                 '!!!DEBUG!!! Message event details:',
-                'Room:', event.room_id,
-                'Sender:', event.sender,
-                'Content:', event.content
+                {
+                  roomId,
+                  eventId,
+                  idType: isTemporaryId ? 'temporary (~)' : isPermanentId ? 'permanent ($)' : 'unknown',
+                  sender,
+                  body: event.content?.body?.substring(0, 30) + (event.content?.body?.length > 30 ? '...' : '')
+                }
               )
+              
+              // For new messages, check if this room is a direct message room
+              const chatStore = useChatStore()
+              const messageStore = useMessageStore()
+              const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+              
+              console.log(`!!!DEBUG!!! Message will be routed to: ${isDMRoom ? 'chat-store (DM)' : 'unified-message-store (group/event)'}`)
             }
 
             // Dispatch to handlers
@@ -386,53 +415,78 @@ class MatrixServiceImpl {
 
   /**
    * Handle Matrix message events
+   * 
+   * IMPORTANT FIX: The key issue with duplicate messages is that our logic for 
+   * routing messages between chat-store and unified-message-store isn't reliable.
+   * We're currently checking based on activeChat, which doesn't properly identify
+   * all DM rooms. We need a more reliable way to determine which store should
+   * handle a given message.
    */
   private handleMessageEvent (event: MatrixMessage): void {
     // Support both property naming conventions (room_id and roomId)
     const roomId = event.room_id || event.roomId
 
-    if (roomId) {
-      console.log('!!!DEBUG!!! MatrixService: Received message event for room:', roomId, event)
+    if (!roomId) {
+      console.warn('!!!DEBUG!!! Received message event with no roomId:', event)
+      return
+    }
 
-      // Check if this is a direct chat message
-      const activeChat = useChatStore().activeChat
-      if (activeChat && activeChat.roomId && activeChat.roomId === roomId) {
-        console.log('!!!DEBUG!!! Routing to chat store (direct message)')
-        useChatStore().actionAddMessage(event)
+    // Add a unique broadcast ID to the event if it doesn't already have one
+    // This helps with deduplication across handlers
+    if (!event._broadcastId) {
+      event._broadcastId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    }
+
+    // Determine if this is a permanent or temporary ID for enhanced logging
+    const eventId = event.event_id || event.eventId || ''
+    const isTemporaryId = eventId?.startsWith('~') || false
+    const isPermanentId = eventId?.startsWith('$') || false
+      
+    console.log('!!!DEBUG!!! MatrixService: Received message event:', { 
+      roomId,
+      eventId,
+      idType: isTemporaryId ? 'temporary (~)' : isPermanentId ? 'permanent ($)' : 'unknown',
+      sender: event.sender,
+      body: event.content?.body?.substring(0, 20) + (event.content?.body?.length > 20 ? '...' : ''),
+      broadcastId: event._broadcastId
+    })
+
+    // CRITICAL FIX: Here's the core problem causing duplicate messages...
+    // First, we need to reliably determine the message type (DM or group/event room)
+    // Add a property to track which store has processed this message
+    const chatStore = useChatStore()
+    const messageStore = useMessageStore()
+    
+    // To reliably identify direct message rooms, check if this room is in the chat list
+    // This is much more reliable than checking against activeChat or room prefixes
+    const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+    
+    // Determine which store should handle the message
+    if (isDMRoom) {
+      // This is a direct message room - only chat store should handle it
+      console.log('!!!DEBUG!!! Routing to chat store (direct message room)', {
+        eventId,
+        roomId,
+        chatCount: chatStore.chatList.length,
+        activeChat: chatStore.activeChat?.roomId
+      })
+      
+      try {
+        chatStore.actionAddMessage(event)
+        console.log('!!!DEBUG!!! Message successfully sent to chat store')
+      } catch (e) {
+        console.error('!!!ERROR!!! Failed to add message to chat store:', e)
       }
-
-      // Check if this is a discussion message
-      const contextId = useDiscussionStore().getterContextId
-      if (contextId && contextId === roomId) {
-        console.log('!!!DEBUG!!! Routing to discussion store (discussion message)')
-        // Need to transform the message to add a topic if not present
-        const eventWithTopic = {
-          ...event,
-          content: {
-            ...event.content,
-            topic: event.content.topic || 'General'
-          }
-        }
-        useDiscussionStore().messages = [eventWithTopic, ...useDiscussionStore().messages]
-
-        // Make sure the topic exists in the list
-        const topicName = event.content.topic as string || 'General'
-        if (!useDiscussionStore().topics.some(topic => topic.name === topicName)) {
-          useDiscussionStore().topics = [
-            { name: topicName },
-            ...useDiscussionStore().topics
-          ]
-        }
-      }
-
-      // Also notify the unified message store about this message
-      // This ensures the message appears in real-time in MessagesComponent
-      console.log('!!!DEBUG!!! Routing to unified message store')
+    } else {
+      // This is a group/event discussion room - only unified store should handle it
+      console.log('!!!DEBUG!!! Routing to unified message store (group/event room)', {
+        eventId,
+        roomId,
+        activeRoom: messageStore.activeRoomId,
+        contextType: messageStore.contextType
+      })
 
       try {
-        // Use the imported useMessageStore directly (already imported at the top)
-        const messageStore = useMessageStore()
-
         // Ensure topic is set
         if (event.content && !event.content.topic) {
           event.content.topic = 'General'
@@ -440,9 +494,9 @@ class MatrixServiceImpl {
         }
 
         messageStore.addNewMessage(event)
-        console.log('!!!DEBUG!!! Message sent to unified store')
+        console.log('!!!DEBUG!!! Message successfully sent to unified store')
       } catch (e) {
-        console.error('Error adding message to unified store:', e)
+        console.error('!!!ERROR!!! Failed to add message to unified store:', e)
       }
     }
   }
@@ -508,10 +562,22 @@ class MatrixServiceImpl {
    * Send a message to a room
    */
   public async sendMessage (roomId: string, message: string): Promise<string | undefined> {
+    console.log('!!!DEBUG!!! matrixService.sendMessage called', { roomId, message })
+    
+    // Check if this is a direct message room for our routing logic
+    const chatStore = useChatStore()
+    const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+    console.log('!!!DEBUG!!! Room type check:', { 
+      roomId, 
+      isDMRoom, 
+      availableRooms: chatStore.chatList.map(c => c.roomId).join(', ')
+    })
+    
     if (this.socket && this.isConnected) {
       // Use WebSocket for sending messages when available
       // Include tenant ID in the event
       const tenantId = this.tenantId || this.ensureTenantId()
+      console.log('!!!DEBUG!!! Sending message via WebSocket', { roomId, tenantId })
 
       return new Promise((resolve, reject) => {
         this.socket!.emit('message', {
@@ -519,19 +585,27 @@ class MatrixServiceImpl {
           message,
           tenantId
         }, (response: { id?: string, error?: string }) => {
+          console.log('!!!DEBUG!!! WebSocket message response:', response)
+          
           if (response.error) {
+            console.error('!!!DEBUG!!! Error sending message via WebSocket:', response.error)
             reject(new Error(response.error))
           } else if (response.id) {
+            console.log('!!!DEBUG!!! Message sent successfully, ID:', response.id)
             resolve(response.id)
           } else {
+            console.error('!!!DEBUG!!! Unknown error sending message via WebSocket')
             reject(new Error('Unknown error sending message via WebSocket'))
           }
         })
       })
     } else {
       // Fall back to REST API if WebSocket is not available
+      console.log('!!!DEBUG!!! Sending message via REST API (WebSocket not available)')
+      
       try {
         const response = await matrixApi.sendMessage(roomId, message)
+        console.log('!!!DEBUG!!! REST API message response:', response.data)
         return response.data.id
       } catch (error) {
         console.error('Error sending message:', error)

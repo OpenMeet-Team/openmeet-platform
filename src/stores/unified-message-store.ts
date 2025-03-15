@@ -97,11 +97,10 @@ export const useMessageStore = defineStore('messages', {
         if (success) {
           console.log('Successfully connected to Matrix events')
 
-          // Add event handler for Matrix events
-          matrixService.addEventHandler(this.handleMatrixEvent.bind(this))
-
-          // Log that we're ready to receive events
-          console.log('Event handler registered, ready to receive real-time updates')
+          // We don't need to register a handler here anymore as matrixService
+          // will directly call our addNewMessage method when handling events
+          // This prevents duplicate event processing
+          console.log('Using centralized event routing through matrixService')
         } else {
           console.error('Failed to connect to Matrix events')
         }
@@ -114,21 +113,25 @@ export const useMessageStore = defineStore('messages', {
     },
 
     // Handle Matrix events from SSE
+    // WARNING: This method should NOT be called directly! 
+    // This is kept for backward compatibility but will log warnings to identify duplicate event handling.
+    // Since message delivery is working correctly now, we'll keep this warning but ensure typing events still work.
     handleMatrixEvent (event: Record<string, unknown>) {
       if (!event || !event.type) return
 
       try {
-        console.log('Unified message store received Matrix event:', event)
-
-        // Handle different event types
+        // Only process typing events directly, route everything else through matrixService
         if (event.type === 'm.typing') {
+          // We still process typing events directly
           this.updateTypingUsers(
             event.room_id as string,
             event.user_ids as string[]
           )
         } else if (event.type === 'm.room.message') {
-          console.log('Processing incoming message event in unified store')
-          this.addNewMessage(event as unknown as MatrixMessage)
+          console.warn('!!!WARNING!!! Unified message store directly received Matrix message event - this should now be routed through matrixService')
+          // Keep disabled to prevent duplicates: this.addNewMessage(event as unknown as MatrixMessage)
+        } else {
+          console.warn('!!!WARNING!!! Unified message store directly received Matrix event of type', event.type)
         }
       } catch (err) {
         console.error('Error handling Matrix event:', err)
@@ -152,18 +155,69 @@ export const useMessageStore = defineStore('messages', {
         return
       }
 
+      // Debug the message we're processing
+      const isTemporaryId = eventId?.startsWith('~') || false
+      const isPermanentId = eventId?.startsWith('$') || false
+      console.log(`!!!DEBUG!!! Processing message in unified-message-store:`, { 
+        eventId, 
+        roomId, 
+        idType: isTemporaryId ? 'temporary (~)' : isPermanentId ? 'permanent ($)' : 'unknown',
+        broadcastId: message._broadcastId, 
+        clientMsgId: message.content?._clientMsgId || message._clientMsgId,
+        sender: message.sender,
+        body: message.content?.body?.substring(0, 20) + (message.content?.body?.length > 20 ? '...' : '')
+      })
+      
+      // Define tracking key early for use throughout the function
+      const trackingKey = `${roomId}:${eventId}`
+      
+      // TEMPORARY FIX: Disable stringent duplicate checking while we debug
+      // Only check for exact duplicates with the same event ID
+      const exactDuplicate = this.messages[roomId]?.some(m => 
+        (m.event_id === eventId || m.eventId === eventId)
+      );
+      
+      if (exactDuplicate) {
+        console.log(`!!!DEBUG!!! Found exact duplicate with event ID ${eventId} in room ${roomId}, skipping`)
+        return
+      }
+      
+      // Regular duplicate check
+      if (false && eventId && this.processedBroadcastIds.has(trackingKey)) {
+        console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
+        return
+      }
+      
+      // Special handling for Matrix's temporary/permanent ID system
+      // If this is a permanent ID (starts with $), look for matching temporary IDs
+      if (isPermanentId && this.messages[roomId]) {
+        // Find any existing messages with temporary IDs from same sender and same content
+        for (let i = 0; i < this.messages[roomId].length; i++) {
+          const m = this.messages[roomId][i]
+          const mEventId = m.event_id || m.eventId || ''
+          
+          if (mEventId.startsWith('~') && 
+              m.sender === message.sender && 
+              m.content?.body === message.content?.body) {
+            
+            console.log(`!!!DEBUG!!! Found matching temp/perm pair - updating ID ${mEventId} to ${eventId}`)
+            
+            // Update the existing message with the permanent ID
+            this.messages[roomId][i].event_id = eventId
+            
+            // Add this permanent ID to our tracking to prevent duplicates
+            this.processedBroadcastIds.add(trackingKey)
+            
+            // Don't add a new message - this is just updating an existing one
+            return
+          }
+        }
+      }
+
       // Check if we've already processed this broadcast by the broadcast ID
       const broadcastId = message._broadcastId
       if (broadcastId && this.processedBroadcastIds.has(broadcastId)) {
         console.log(`!!!DEBUG!!! Already processed broadcast ID ${broadcastId}, skipping duplicate`)
-        return
-      }
-
-      // Also track by event ID - necessary because the same event might come through multiple matrix sync responses
-      // and not all may have the same broadcastId
-      const trackingKey = `${roomId}:${eventId}`
-      if (eventId && this.processedBroadcastIds.has(trackingKey)) {
-        console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
         return
       }
 
@@ -182,14 +236,31 @@ export const useMessageStore = defineStore('messages', {
         this.messages[roomId] = []
         console.log(`!!!DEBUG!!! Initialized empty message array for room ${roomId}`)
       }
-
-      // Add the message to the messages array if it doesn't already exist
+      
       // Use a very robust check for duplicate messages
       const isDuplicate = this.messages[roomId].some(m => {
         // Check by event ID
         if (m.event_id === eventId || m.eventId === eventId) {
           console.log('!!!DEBUG!!! Exact event ID match found, ignoring duplicate')
           return true
+        }
+
+        // Special case for Matrix: Check if one ID starts with ~ and the other with $
+        // This handles the case where Matrix first sends a temporary event ID and then the permanent one
+        if ((m.event_id?.startsWith('~') && eventId?.startsWith('$')) || 
+            (m.event_id?.startsWith('$') && eventId?.startsWith('~'))) {
+          // If sender and content match, it's likely the same message with different IDs
+          if (m.sender === message.sender && m.content?.body === message.content?.body) {
+            console.log('!!!DEBUG!!! Found message with temporary/permanent ID pair, updating ID and treating as duplicate')
+            
+            // Update the existing message with the permanent ID (starts with $) if needed
+            if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
+              console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
+              m.event_id = eventId
+            }
+            
+            return true
+          }
         }
 
         // Check for sender+content+timestamp pattern (to catch duplicate broadcasts)
@@ -201,6 +272,13 @@ export const useMessageStore = defineStore('messages', {
           // If same content from same sender within 30 seconds, consider it a duplicate
           if (timeDiff < 30000) {
             console.log('!!!DEBUG!!! Found similar message from same sender with same content within 30 seconds, treating as duplicate')
+            
+            // If this message has a permanent ID and the existing one has a temporary ID, update it
+            if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
+              console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
+              m.event_id = eventId
+            }
+            
             return true
           }
         }
@@ -365,7 +443,17 @@ export const useMessageStore = defineStore('messages', {
 
     // Send a message
     async sendMessage (message: string) {
+      console.log('!!!DEBUG!!! unified-message-store.sendMessage called', { 
+        message, 
+        activeRoomId: this.activeRoomId,
+        contextType: this.contextType 
+      })
+      
       if (!this.activeRoomId || !this.permissions.canWrite) {
+        console.error('!!!DEBUG!!! Cannot send message: no active room or insufficient permissions', {
+          activeRoomId: this.activeRoomId,
+          permissions: this.permissions
+        })
         throw new Error('Cannot send message: no active room or insufficient permissions')
       }
 
@@ -375,9 +463,16 @@ export const useMessageStore = defineStore('messages', {
         await this.sendTyping(this.activeRoomId, false)
 
         // Check if user has Matrix ID
-        if (!useAuthStore().user?.matrixUserId) {
+        const authStore = useAuthStore()
+        if (!authStore.user?.matrixUserId) {
+          console.error('!!!DEBUG!!! Matrix user ID missing', { user: authStore.user })
           throw new Error('Matrix user ID missing. Please refresh the page and try again.')
         }
+        
+        console.log('!!!DEBUG!!! User authorized to send message', { 
+          matrixUserId: authStore.user.matrixUserId,
+          room: this.activeRoomId
+        })
 
         // Check if we already have a message with this content from this user in the last 2 seconds
         // This would indicate that the message has already come through via Matrix WebSocket
