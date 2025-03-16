@@ -280,7 +280,7 @@ class MatrixServiceImpl {
 
               // For new messages, check if this room is a direct message room
               const chatStore = useChatStore()
-              const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+              const isDMRoom = chatStore.chatList && chatStore.chatList.some(chat => chat.roomId === roomId)
 
               console.log(`!!!DEBUG!!! Message will be routed to: ${isDMRoom ? 'chat-store (DM)' : 'unified-message-store (group/event)'}`)
             }
@@ -458,7 +458,8 @@ class MatrixServiceImpl {
 
     // To reliably identify direct message rooms, check if this room is in the chat list
     // This is much more reliable than checking against activeChat or room prefixes
-    const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+    // Also check if chatList exists to prevent errors
+    const isDMRoom = chatStore.chatList && chatStore.chatList.some(chat => chat.roomId === roomId)
 
     // Determine which store should handle the message
     if (isDMRoom) {
@@ -466,7 +467,7 @@ class MatrixServiceImpl {
       console.log('!!!DEBUG!!! Routing to chat store (direct message room)', {
         eventId,
         roomId,
-        chatCount: chatStore.chatList.length,
+        chatCount: chatStore.chatList ? chatStore.chatList.length : 0,
         activeChat: chatStore.activeChat?.roomId
       })
 
@@ -565,11 +566,11 @@ class MatrixServiceImpl {
 
     // Check if this is a direct message room for our routing logic
     const chatStore = useChatStore()
-    const isDMRoom = chatStore.chatList.some(chat => chat.roomId === roomId)
+    const isDMRoom = chatStore.chatList && chatStore.chatList.some(chat => chat.roomId === roomId)
     console.log('!!!DEBUG!!! Room type check:', {
       roomId,
       isDMRoom,
-      availableRooms: chatStore.chatList.map(c => c.roomId).join(', ')
+      availableRooms: chatStore.chatList ? chatStore.chatList.map(c => c.roomId).join(', ') : 'none'
     })
 
     if (this.socket && this.isConnected) {

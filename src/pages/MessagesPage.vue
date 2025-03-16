@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import NoContentComponent from '../components/global/NoContentComponent.vue'
 import DashboardTitle from '../components/dashboard/DashboardTitle.vue'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import MessagesComponent from '../components/messages/MessagesComponent.vue'
 import { useMessageStore } from '../stores/unified-message-store'
-import { useGroupStore } from '../stores/group-store'
-import { useEventStore } from '../stores/event-store'
-import { LoadingBar, QScrollArea, QTabs, QTab, QTabPanels, QTabPanel } from 'quasar'
+// import { useGroupStore } from '../stores/group-store'
+// import { useEventStore } from '../stores/event-store'
+import { LoadingBar, QTabs, QTab, QTabPanels, QTabPanel } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { getImageSrc } from '../utils/imageUtils'
 import { useNavigation } from '../composables/useNavigation'
@@ -18,7 +18,7 @@ import { groupsApi } from '../api/groups'
 const route = useRoute()
 const router = useRouter()
 const messageStore = useMessageStore()
-const messageScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
+// const messageScrollArea = ref<InstanceType<typeof QScrollArea> | null>(null)
 const { error } = useNotification()
 
 // UI state
@@ -74,7 +74,7 @@ const fetchDirectChats = async () => {
 }
 
 // Fetch recent groups with discussions
-const groupStore = useGroupStore()
+// const groupStore = useGroupStore()
 const recentGroups = ref([])
 
 const fetchRecentGroups = async () => {
@@ -95,7 +95,7 @@ const fetchRecentGroups = async () => {
 }
 
 // Fetch recent events with discussions
-const eventStore = useEventStore()
+// const eventStore = useEventStore()
 const recentEvents = ref([])
 
 const fetchRecentEvents = async () => {
@@ -125,9 +125,9 @@ const navigateToEventChat = (eventSlug) => {
 }
 
 // Select chat view
-const selectChat = (chat) => {
-  messageStore.actionSetActiveChat(chat)
-}
+// const selectChat = (chat) => {
+//   messageStore.actionSetActiveChat(chat)
+// }
 
 // Lifecycle
 onMounted(async () => {
@@ -161,7 +161,7 @@ watch(() => route.query, async () => {
   }
 })
 
-// Cleanup 
+// Cleanup
 onBeforeUnmount(() => {
   // Clean up Matrix-related resources
   messageStore.cleanup()
@@ -192,13 +192,13 @@ onBeforeUnmount(() => {
           </q-tabs>
 
           <!-- Search box (only for direct chats) -->
-          <q-input 
+          <q-input
             v-if="activeTab === 'direct'"
-            v-model="searchQuery" 
-            @clear="searchQuery = ''" 
-            filled 
-            type="search" 
-            label="Search people" 
+            v-model="searchQuery"
+            @clear="searchQuery = ''"
+            filled
+            type="search"
+            label="Search people"
             clearable
             class="q-ma-md"
           >
@@ -220,16 +220,16 @@ onBeforeUnmount(() => {
                   Please check back later!
                 </p>
               </div>
-              
+
               <!-- This will be enabled once the API is implemented -->
               <div v-if="false">
                 <q-list separator v-if="filteredDirectChats?.length" style="max-height: 100%;">
-                  <q-item 
-                    v-for="chat in filteredDirectChats" 
-                    :key="chat.id" 
-                    clickable 
+                  <q-item
+                    v-for="chat in filteredDirectChats"
+                    :key="chat.id"
+                    clickable
                     v-ripple
-                    :active="activeChat && activeChat.id === chat.id" 
+                    :active="activeChat && activeChat.id === chat.id"
                     @click="navigateToChat({ chat: chat.ulid })"
                     data-cy="chat-item"
                   >
@@ -257,10 +257,10 @@ onBeforeUnmount(() => {
                 <q-spinner-dots color="primary" size="40px" />
               </div>
               <q-list separator v-else-if="recentGroups.length" style="max-height: 100%;">
-                <q-item 
-                  v-for="group in recentGroups" 
-                  :key="group.id" 
-                  clickable 
+                <q-item
+                  v-for="group in recentGroups"
+                  :key="group.id"
+                  clickable
                   v-ripple
                   @click="navigateToGroupChat(group.slug)"
                 >
@@ -284,10 +284,10 @@ onBeforeUnmount(() => {
                 <q-spinner-dots color="primary" size="40px" />
               </div>
               <q-list separator v-else-if="recentEvents.length" style="max-height: 100%;">
-                <q-item 
-                  v-for="event in recentEvents" 
-                  :key="event.id" 
-                  clickable 
+                <q-item
+                  v-for="event in recentEvents"
+                  :key="event.id"
+                  clickable
                   v-ripple
                   @click="navigateToEventChat(event.slug)"
                 >
@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
               </p>
             </q-card-section>
           </q-card>
-          
+
           <!-- This will be enabled once the API is implemented -->
           <div v-if="false">
             <div class="full-height column" data-cy="chat-messages" v-if="activeChat">
@@ -374,10 +374,10 @@ onBeforeUnmount(() => {
               <p class="text-body1 q-mt-sm">
                 Select a group from the sidebar to view its discussions.
               </p>
-              <q-btn 
-                color="primary" 
-                label="Browse Groups" 
-                icon="sym_r_group" 
+              <q-btn
+                color="primary"
+                label="Browse Groups"
+                icon="sym_r_group"
                 class="q-mt-md"
                 to="/groups"
               />
@@ -393,10 +393,10 @@ onBeforeUnmount(() => {
               <p class="text-body1 q-mt-sm">
                 Select an event from the sidebar to view its discussion area.
               </p>
-              <q-btn 
-                color="primary" 
-                label="Browse Events" 
-                icon="sym_r_event" 
+              <q-btn
+                color="primary"
+                label="Browse Events"
+                icon="sym_r_event"
                 class="q-mt-md"
                 to="/events"
               />
