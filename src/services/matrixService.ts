@@ -24,6 +24,7 @@ class MatrixServiceImpl {
   private readonly MAX_RECONNECT_ATTEMPTS = 5
   private readonly RECONNECT_DELAY = 3000 // 3 seconds
   private tenantId: string = '' // Store tenant ID for use in socket events
+  private joinedRooms: Set<string> = new Set<string>() // Cache of joined room IDs
 
   // Ensure we always have a tenant ID available for Matrix operations
   private ensureTenantId (): string {
@@ -33,6 +34,26 @@ class MatrixServiceImpl {
                       'default' // Fallback to default tenant
     }
     return this.tenantId
+  }
+
+  /**
+   * Check if a room is already joined
+   * @param roomId The room ID to check
+   * @returns true if the room is already joined
+   */
+  public isRoomJoined (roomId: string): boolean {
+    return this.joinedRooms.has(roomId)
+  }
+
+  /**
+   * Mark a room as joined in the cache
+   * @param roomId The room ID to mark as joined
+   */
+  public markRoomAsJoined (roomId: string): void {
+    if (roomId) {
+      console.log(`!!!DEBUG!!! Marking room as joined: ${roomId}`)
+      this.joinedRooms.add(roomId)
+    }
   }
 
   /**
@@ -183,6 +204,16 @@ class MatrixServiceImpl {
               if (response && response.roomCount > 0) {
                 console.log('!!!DEBUG!!! Successfully joined', response.roomCount, 'Matrix rooms')
                 console.log('!!!DEBUG!!! Room IDs:', response.rooms.map(r => r.id).join(', '))
+
+                // Mark all rooms as joined in our cache
+                if (response.rooms && response.rooms.length > 0) {
+                  response.rooms.forEach(room => {
+                    if (room.id) {
+                      this.markRoomAsJoined(room.id)
+                    }
+                  })
+                  console.log('!!!DEBUG!!! Updated joined rooms cache with', response.rooms.length, 'rooms')
+                }
               } else {
                 console.warn('!!!DEBUG!!! Failed to join any Matrix rooms or no rooms available')
               }
@@ -236,6 +267,10 @@ class MatrixServiceImpl {
         this.socket!.on('disconnect', (reason) => {
           console.warn('Disconnected from Matrix WebSocket:', reason)
           this.isConnected = false
+
+          // Clear the joined rooms cache on disconnect
+          console.log('!!!DEBUG!!! Clearing joined rooms cache on socket disconnect')
+          this.joinedRooms.clear()
 
           if (reason === 'io server disconnect' || reason === 'io client disconnect') {
             // The disconnection was initiated by the server or client, so we won't reconnect
@@ -312,6 +347,11 @@ class MatrixServiceImpl {
       this.socket = null
     }
     this.isConnected = false
+
+    // Clear the joined rooms cache when disconnecting
+    console.log('!!!DEBUG!!! Clearing joined rooms cache on disconnect')
+    this.joinedRooms.clear()
+
     if (this.reconnectTimeout) {
       window.clearTimeout(this.reconnectTimeout)
       this.reconnectTimeout = null
@@ -335,11 +375,18 @@ class MatrixServiceImpl {
   /**
    * Explicitly join a specific Matrix room
    * This ensures the WebSocket connection subscribes to this room's events
+   * Uses a local cache to prevent redundant join requests for rooms already joined
    */
   public joinRoom (roomId: string): Promise<boolean> {
     if (!this.socket || !this.isConnected) {
       console.error('!!!DEBUG!!! Cannot join room - not connected to WebSocket')
       return Promise.resolve(false)
+    }
+
+    // Check if room is already joined, return early if it is
+    if (this.isRoomJoined(roomId)) {
+      console.log(`!!!DEBUG!!! Room already joined, skipping redundant join request: ${roomId}`)
+      return Promise.resolve(true)
     }
 
     console.log(`!!!DEBUG!!! Explicitly joining room: ${roomId}`)
@@ -355,6 +402,8 @@ class MatrixServiceImpl {
       }, (response: JoinRoomResponse) => {
         if (response?.success) {
           console.log(`!!!DEBUG!!! Successfully joined room: ${roomId}`)
+          // Mark the room as joined in our cache to prevent redundant joins
+          this.markRoomAsJoined(roomId)
           resolve(true)
         } else {
           console.error(`!!!DEBUG!!! Failed to join room: ${roomId}`, response?.error)
@@ -415,11 +464,8 @@ class MatrixServiceImpl {
   /**
    * Handle Matrix message events
    *
-   * IMPORTANT FIX: The key issue with duplicate messages is that our logic for
-   * routing messages between chat-store and unified-message-store isn't reliable.
-   * We're currently checking based on activeChat, which doesn't properly identify
-   * all DM rooms. We need a more reliable way to determine which store should
-   * handle a given message.
+   * UPDATED: Now using only the unified-message-store for all messages.
+   * The chat-store is deprecated and will be removed in a future update.
    */
   private handleMessageEvent (event: MatrixMessage): void {
     // Support both property naming conventions (room_id and roomId)
@@ -450,66 +496,63 @@ class MatrixServiceImpl {
       broadcastId: event._broadcastId
     })
 
-    // CRITICAL FIX: Here's the core problem causing duplicate messages...
-    // First, we need to reliably determine the message type (DM or group/event room)
-    // Add a property to track which store has processed this message
-    const chatStore = useChatStore()
+    // Use the unified message store for all message types
     const messageStore = useMessageStore()
 
+    // Get the chat store only to check if it's a direct message (will be removed in future)
+    const chatStore = useChatStore()
+
     // To reliably identify direct message rooms, check if this room is in the chat list
-    // This is much more reliable than checking against activeChat or room prefixes
     // Also check if chatList exists to prevent errors
     const isDMRoom = chatStore.chatList && chatStore.chatList.some(chat => chat.roomId === roomId)
 
-    // Determine which store should handle the message
+    // Log routing information
     if (isDMRoom) {
-      // This is a direct message room - only chat store should handle it
-      console.log('!!!DEBUG!!! Routing to chat store (direct message room)', {
+      console.log('!!!DEBUG!!! Processing direct message room with unified message store', {
         eventId,
         roomId,
         chatCount: chatStore.chatList ? chatStore.chatList.length : 0,
-        activeChat: chatStore.activeChat?.roomId
+        activeDirectChat: messageStore.activeDirectChat?.roomId
       })
-
-      try {
-        chatStore.actionAddMessage(event)
-        console.log('!!!DEBUG!!! Message successfully sent to chat store')
-      } catch (e) {
-        console.error('!!!ERROR!!! Failed to add message to chat store:', e)
-      }
     } else {
-      // This is a group/event discussion room - only unified store should handle it
-      console.log('!!!DEBUG!!! Routing to unified message store (group/event room)', {
+      console.log('!!!DEBUG!!! Processing group/event discussion with unified message store', {
         eventId,
         roomId,
         activeRoom: messageStore.activeRoomId,
         contextType: messageStore.contextType
       })
+    }
 
-      try {
-        // Ensure topic is set
-        if (event.content && !event.content.topic) {
-          event.content.topic = 'General'
-          console.log('!!!DEBUG!!! Added default General topic to message for unified store')
-        }
-
-        messageStore.addNewMessage(event)
-        console.log('!!!DEBUG!!! Message successfully sent to unified store')
-      } catch (e) {
-        console.error('!!!ERROR!!! Failed to add message to unified store:', e)
+    try {
+      // Ensure topic is set for backward compatibility
+      if (event.content && !event.content.topic) {
+        event.content.topic = 'General'
+        console.log('!!!DEBUG!!! Added default General topic to message for unified store')
       }
+
+      // Send to unified message store
+      messageStore.addNewMessage(event)
+      console.log('!!!DEBUG!!! Message successfully sent to unified message store')
+    } catch (e) {
+      console.error('!!!ERROR!!! Failed to add message to unified message store:', e)
     }
   }
 
   /**
    * Handle Matrix typing events
+   *
+   * UPDATED: Now using only the unified-message-store for typing events.
+   * The chat-store is deprecated and will be removed in a future update.
    */
   private handleTypingEvent (event: Record<string, unknown>): void {
     if (event.room_id && Array.isArray(event.typing)) {
-      useChatStore().typingUsers = {
-        ...useChatStore().typingUsers,
-        [event.room_id as string]: event.typing as string[]
-      }
+      // Send to unified message store
+      const messageStore = useMessageStore()
+      messageStore.updateTypingUsers(event.room_id as string, event.typing as string[])
+
+      // Also update chat store for backward compatibility, to be removed in future
+      const chatStore = useChatStore()
+      chatStore.updateTypingUsers(event.room_id as string, event.typing as string[])
     }
   }
 
@@ -519,6 +562,25 @@ class MatrixServiceImpl {
   private handleMemberEvent (event: Record<string, unknown>): void {
     // Handle member join/leave events if needed
     console.log('Matrix member event:', event)
+
+    // If this is a membership event for the current user, update our cache
+    const authStore = useAuthStore()
+    const currentUserId = authStore.user?.matrixUserId
+
+    // TypeScript-safe check for membership property
+    const isMembershipJoin = typeof event.content === 'object' &&
+                            event.content !== null &&
+                            'membership' in event.content &&
+                            event.content.membership === 'join'
+
+    if (event.room_id &&
+        event.sender === currentUserId &&
+        isMembershipJoin) {
+      // This is a join event for the current user, mark the room as joined
+      const roomId = event.room_id as string
+      console.log(`!!!DEBUG!!! Current user joined room from membership event: ${roomId}`)
+      this.markRoomAsJoined(roomId)
+    }
   }
 
   /**

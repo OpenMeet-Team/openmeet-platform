@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vites
 import { matrixService } from '../../../../src/services/matrixService'
 import { ensureMatrixUser } from '../../../../src/utils/matrixUtils'
 import { MatrixMessage, MatrixTypingIndicator } from '../../../../src/types/matrix'
+import { Socket } from 'socket.io-client'
 
 // Mock dependencies
 vi.mock('../../../../src/utils/matrixUtils', () => ({
@@ -120,7 +121,7 @@ global.EventSource = MockEventSource as unknown as typeof EventSource
 import { useChatStore } from '../../../../src/stores/chat-store'
 import { useMessageStore } from '../../../../src/stores/unified-message-store'
 
-describe.skip('MatrixService', () => {
+describe('MatrixService', () => {
   // Get store instances - these are mocked above
   const mockChatStore = useChatStore()
   const mockMessageStore = useMessageStore()
@@ -491,6 +492,147 @@ describe.skip('MatrixService', () => {
 
       // First reconnect attempt should be at 3000ms again (not using exponential backoff from previous attempts)
       expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000)
+    })
+  })
+
+  // Tests for joined rooms cache functionality
+  describe('joined rooms cache', () => {
+    let mockSocketEmit: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      // Create a mock socket with emit method for testing
+      // Create a Socket.io client mock
+      const mockSocket = {
+        emit: vi.fn().mockImplementation((event, data, callback) => {
+          if (event === 'join-room' && typeof callback === 'function') {
+            // Simulate a successful response
+            // To avoid no-callback-literal error, construct response properly
+            const response = { success: true }
+            callback(response)
+          }
+        }),
+        on: vi.fn(),
+        id: 'mock-socket-id',
+        connected: true,
+        disconnect: vi.fn(),
+        // Add additional Socket.io client properties
+        io: {},
+        nsp: '',
+        auth: {},
+        recovered: false,
+        receiveBuffer: [],
+        sendBuffer: [],
+        active: true,
+        volatile: {}
+      } as Socket // Properly typed as Socket
+
+      // Set up the service with a mock socket and connected state
+      matrixService.disconnect() // Reset first
+      // @ts-expect-error - Access private properties for testing
+      matrixService.socket = mockSocket
+      // @ts-expect-error - Access private properties for testing
+      matrixService.isConnected = true
+
+      // Create spy on the socket emit method
+      mockSocketEmit = vi.spyOn(mockSocket, 'emit')
+    })
+
+    it('should mark a room as joined when joining for the first time', async () => {
+      const roomId = 'test-room-123'
+
+      // First check that the room is not in cache
+      // @ts-expect-error - Access private method for testing
+      expect(matrixService.isRoomJoined(roomId)).toBe(false)
+
+      // Join the room
+      const result = await matrixService.joinRoom(roomId)
+
+      // Verify join request was sent
+      expect(mockSocketEmit).toHaveBeenCalledWith(
+        'join-room',
+        expect.objectContaining({ roomId }),
+        expect.any(Function)
+      )
+
+      // Verify room is now in cache
+      // @ts-expect-error - Access private method for testing
+      expect(matrixService.isRoomJoined(roomId)).toBe(true)
+
+      // Verify join was successful
+      expect(result).toBe(true)
+    })
+
+    it('should not send join request for already joined rooms', async () => {
+      const roomId = 'test-room-456'
+
+      // Join the room first time
+      await matrixService.joinRoom(roomId)
+
+      // Reset the mock to check if it gets called again
+      mockSocketEmit.mockClear()
+
+      // Try to join the same room again
+      const result = await matrixService.joinRoom(roomId)
+
+      // Verify no socket emit was called
+      expect(mockSocketEmit).not.toHaveBeenCalled()
+
+      // Verify result is still successful
+      expect(result).toBe(true)
+    })
+
+    it('should clear joined rooms cache on disconnect', async () => {
+      const roomId = 'test-room-789'
+
+      // Join the room first
+      await matrixService.joinRoom(roomId)
+
+      // Verify room is in cache
+      // @ts-expect-error - Access private method for testing
+      expect(matrixService.isRoomJoined(roomId)).toBe(true)
+
+      // Disconnect
+      matrixService.disconnect()
+
+      // Verify cache is cleared
+      // @ts-expect-error - Access private method for testing
+      expect(matrixService.isRoomJoined(roomId)).toBe(false)
+    })
+
+    it('should mark multiple rooms as joined from join-user-rooms response', async () => {
+      const roomIds = ['room-1', 'room-2', 'room-3']
+
+      // Manually trigger the join-user-rooms success handler
+      const joinRoomsResponse = {
+        success: true,
+        roomCount: roomIds.length,
+        rooms: roomIds.map(id => ({ id, name: `Room ${id}` }))
+      }
+
+      // Directly call the markRoomAsJoined method to simulate the behavior
+      // that would happen when the join-user-rooms response is received
+      for (const room of joinRoomsResponse.rooms) {
+        // @ts-expect-error - Access private method for testing
+        matrixService.markRoomAsJoined(room.id)
+      }
+
+      // Verify all rooms are marked as joined
+      for (const roomId of roomIds) {
+        // @ts-expect-error - Access private method for testing
+        expect(matrixService.isRoomJoined(roomId)).toBe(true)
+      }
+    })
+
+    it('should mark a room as joined manually', async () => {
+      const roomId = 'member-event-room-id'
+
+      // Directly call the markRoomAsJoined method
+      // @ts-expect-error - Access private method for testing
+      matrixService.markRoomAsJoined(roomId)
+
+      // Verify room is marked as joined
+      // @ts-expect-error - Access private method for testing
+      expect(matrixService.isRoomJoined(roomId)).toBe(true)
     })
   })
 })

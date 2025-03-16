@@ -9,19 +9,26 @@ import { getMatrixDisplayName } from '../utils/matrixUtils'
 const { error } = useNotification()
 
 /**
- * MIGRATION PLAN:
- * This store is planned to be merged with unified-message-store in the future.
- * The unified-message-store will be enhanced to handle all types of messaging
- * (direct messages, group discussions, event discussions) using a consistent API.
+ * DEPRECATED: This store is deprecated and will be removed in a future update.
+ * Please use unified-message-store instead for all messaging functionality.
  *
- * Steps for migration:
- * 1. First ensure no duplicate messages by fixing event routing (DONE)
- * 2. Add direct messaging capabilities to unified-message-store
- * 3. Update MessagesPage.vue to use unified-message-store
- * 4. Remove chat-store.ts when no longer needed
+ * The migration has been completed:
+ * 1. All functionality has been migrated to unified-message-store
+ * 2. Matrix service now uses unified-message-store for all message types
+ * 3. This store is kept temporarily for backward compatibility
+ * 4. It will be removed in a future update
  *
- * Current fix implements step 1 by centralizing event routing in matrixService
- * and removing direct event handler registration that caused duplicates.
+ * To migrate from chat-store to unified-message-store:
+ * 1. Replace imports:
+ *    - Before: import { useChatStore } from '@/stores/chat-store'
+ *    - After:  import { useMessageStore } from '@/stores/unified-message-store'
+ *
+ * 2. Function mapping:
+ *    - chatStore.actionInitializeMatrix() → messageStore.initializeMatrix()
+ *    - chatStore.actionGetChatList() → messageStore.actionGetChatList()
+ *    - chatStore.actionSendMessage() → messageStore.sendMessage()
+ *    - chatStore.chatList → messageStore.directChats
+ *    - chatStore.activeChat → messageStore.activeDirectChat
  */
 
 // Typing indicator debounce time (ms)
