@@ -64,6 +64,7 @@ export interface ChatEntity {
   participant: UserEntity;
   user: UserEntity;
   messages: MatrixMessage[];
+  unreadCount?: number;
 }
 
 export interface FileEntity {

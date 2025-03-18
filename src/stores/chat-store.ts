@@ -8,6 +8,29 @@ import { matrixService } from '../services/matrixService'
 import { getMatrixDisplayName } from '../utils/matrixUtils'
 const { error } = useNotification()
 
+/**
+ * DEPRECATED: This store is deprecated and will be removed in a future update.
+ * Please use unified-message-store instead for all messaging functionality.
+ *
+ * The migration has been completed:
+ * 1. All functionality has been migrated to unified-message-store
+ * 2. Matrix service now uses unified-message-store for all message types
+ * 3. This store is kept temporarily for backward compatibility
+ * 4. It will be removed in a future update
+ *
+ * To migrate from chat-store to unified-message-store:
+ * 1. Replace imports:
+ *    - Before: import { useChatStore } from '@/stores/chat-store'
+ *    - After:  import { useMessageStore } from '@/stores/unified-message-store'
+ *
+ * 2. Function mapping:
+ *    - chatStore.actionInitializeMatrix() → messageStore.initializeMatrix()
+ *    - chatStore.actionGetChatList() → messageStore.actionGetChatList()
+ *    - chatStore.actionSendMessage() → messageStore.sendMessage()
+ *    - chatStore.chatList → messageStore.directChats
+ *    - chatStore.activeChat → messageStore.activeDirectChat
+ */
+
 // Typing indicator debounce time (ms)
 const TYPING_DEBOUNCE = 2000
 
@@ -49,8 +72,9 @@ export const useChatStore = defineStore('chat', {
         if (success) {
           console.log('Successfully connected to Matrix events')
 
-          // Add event handler for Matrix events
-          matrixService.addEventHandler(this.handleMatrixEvent.bind(this))
+          // IMPORTANT FIX: We no longer register an event handler directly here
+          // Instead, matrixService handles all event routing to prevent duplicates
+          console.log('Using centralized event routing through matrixService')
         } else {
           console.error('Failed to connect to Matrix events')
         }
@@ -63,18 +87,25 @@ export const useChatStore = defineStore('chat', {
     },
 
     // Handle Matrix events from SSE
+    // WARNING: This method should no longer be called directly!
+    // It's kept for backward compatibility but now logs warnings.
+    // Since message delivery is working correctly now, we'll keep this warning but ensure typing events still work.
     handleMatrixEvent (event: Record<string, unknown>) {
       if (!event || !event.type) return
 
       try {
-        // Handle different event types
+        // Only process typing events directly, route everything else through matrixService
         if (event.type === 'm.typing') {
+          // We still process typing events directly
           this.updateTypingUsers(
             event.room_id as string,
             event.user_ids as string[]
           )
         } else if (event.type === 'm.room.message') {
-          this.addNewMessage(event as Record<string, unknown>)
+          console.warn('!!!WARNING!!! Chat store directly received Matrix message event - this should now be routed through matrixService')
+          // Keep disabled to prevent duplicates: this.addNewMessage(event as Record<string, unknown>)
+        } else {
+          console.warn('!!!WARNING!!! Chat store directly received Matrix event of type', event.type)
         }
       } catch (err) {
         console.error('Error handling Matrix event:', err)
@@ -95,7 +126,11 @@ export const useChatStore = defineStore('chat', {
       if (this.activeChat && this.activeChat.roomId === message.room_id) {
         // Add the message to the messages array if it doesn't already exist
         const messages = this.activeChat.messages || []
+
+        // Check if we already have this message
         if (!messages.some(m => m.id === message.event_id)) {
+          console.log('!!!DEBUG!!! Adding message to chat store, event_id:', message.event_id)
+
           // Handle content with appropriate type checking
           const content = message.content && typeof message.content === 'object' && 'body' in message.content &&
             typeof message.content.body === 'string' ? message.content.body : 'Message'
@@ -116,6 +151,8 @@ export const useChatStore = defineStore('chat', {
             sender_full_name: senderName,
             timestamp
           })
+        } else {
+          console.log('!!!DEBUG!!! Skipping duplicate message in chat store, event_id:', message.event_id)
         }
       }
     },
