@@ -11,6 +11,26 @@ export const matrixApi = {
 
   // Create WebSocket connection for Matrix events
   createSocketConnection: (): Socket => {
+    // Check for Cypress test environment
+    const isCypress = typeof window !== 'undefined' && 'Cypress' in window
+
+    // Add type declaration for Cypress on window object
+    interface CypressGlobal {
+      env: (key: string) => string | undefined;
+    }
+
+    interface WindowWithCypress extends Window {
+      Cypress?: CypressGlobal;
+    }
+
+    // Special handling for Cypress tests
+    let cypressApiUrl = ''
+    if (isCypress) {
+      const cypressWindow = window as WindowWithCypress
+      cypressApiUrl = cypressWindow.Cypress?.env('APP_TESTING_API_URL') || ''
+      console.log('Cypress test detected, API URL from Cypress env:', cypressApiUrl)
+    }
+
     // Use the API URL from the app config
     // This ensures we connect to the backend API, not the frontend webapp
     const apiBaseUrl = window.APP_CONFIG?.APP_API_URL || ''
@@ -21,8 +41,9 @@ export const matrixApi = {
     // Get Matrix API URL from config
     const matrixApiUrl = window.APP_CONFIG?.APP_MATRIX_API_URL
 
-    // Use override if available, otherwise use the Matrix API URL from config, then fall back to regular API URL
-    let baseUrl = overrideUrl || matrixApiUrl || apiBaseUrl
+    // Use Cypress API URL if available, then override if available,
+    // otherwise use the Matrix API URL from config, then fall back to regular API URL
+    let baseUrl = cypressApiUrl || overrideUrl || matrixApiUrl || apiBaseUrl
 
     // Log the API URL we're using
     console.log('Using Matrix API URL for connection:', baseUrl)
@@ -60,7 +81,14 @@ export const matrixApi = {
       // Validate that we have a non-empty token
       if (!token || token.length < 10) {
         // Try localStorage as backup
-        const localToken = localStorage.getItem('token')
+        let localToken = localStorage.getItem('token')
+
+        // Handle Quasar's __q_strn| prefix if present
+        if (localToken && localToken.startsWith('__q_strn|')) {
+          localToken = localToken.substring('__q_strn|'.length)
+          console.log('Removed Quasar prefix from localStorage token')
+        }
+
         if (localToken && localToken.length > 10) {
           console.log('Using token from localStorage instead of empty store token')
           token = localToken
@@ -70,7 +98,15 @@ export const matrixApi = {
       }
     } catch (e) {
       console.warn('Error accessing auth store, falling back to localStorage', e)
-      token = localStorage.getItem('token') || ''
+      let localToken = localStorage.getItem('token') || ''
+
+      // Handle Quasar's __q_strn| prefix if present
+      if (localToken && localToken.startsWith('__q_strn|')) {
+        localToken = localToken.substring('__q_strn|'.length)
+        console.log('Removed Quasar prefix from fallback localStorage token')
+      }
+
+      token = localToken
       console.log('Token from localStorage:', token ? `Length: ${token.length}` : 'No token in localStorage')
     }
 

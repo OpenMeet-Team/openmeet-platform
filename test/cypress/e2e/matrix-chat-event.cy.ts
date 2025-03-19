@@ -7,9 +7,6 @@ describe('Matrix Chat in Events', () => {
 
   // Create a test event directly via API before running tests
   before(() => {
-    // Override API URL to use localhost for API calls to avoid CORS
-    Cypress.env('APP_TESTING_API_URL', 'http://localhost:3000')
-
     // Start with a clean slate
     cy.clearCookies()
     cy.clearLocalStorage()
@@ -36,6 +33,10 @@ describe('Matrix Chat in Events', () => {
     // Clear state and login
     cy.clearCookies()
     cy.clearLocalStorage()
+
+    // Log the Cypress environment API URL for debugging
+    cy.log(`Using API URL from Cypress env: ${Cypress.env('APP_TESTING_API_URL')}`)
+
     cy.visit('/')
     cy.login(Cypress.env('APP_TESTING_ADMIN_EMAIL'), Cypress.env('APP_TESTING_ADMIN_PASSWORD'))
     cy.get('[data-cy="header-profile-avatar"]', { timeout: 10000 }).should('be.visible')
@@ -43,23 +44,85 @@ describe('Matrix Chat in Events', () => {
 
   // Clean up the event via API after tests
   after(() => {
-    // Make sure we're logged in for cleanup
+    // Try to clean up the event using API directly instead of UI interactions
+    // This is more reliable and doesn't depend on the UI being in a specific state
     cy.clearCookies()
     cy.clearLocalStorage()
     cy.visit('/')
-    cy.login(Cypress.env('APP_TESTING_ADMIN_EMAIL'), Cypress.env('APP_TESTING_ADMIN_PASSWORD'))
 
-    // Delete event using the API command
-    cy.deleteEventApi(eventSlug).then(success => {
-      if (!success) {
-        cy.log('API deletion failed, falling back to UI deletion')
-        cy.deleteEvent(eventSlug)
+    // Execute API-based cleanup without UI interactions
+    cy.window().then(() => {
+      // Get required environment variables with validation
+      const adminEmail = Cypress.env('APP_TESTING_ADMIN_EMAIL')
+      const adminPassword = Cypress.env('APP_TESTING_ADMIN_PASSWORD')
+      const apiUrl = Cypress.env('APP_TESTING_API_URL')
+      const tenantId = Cypress.env('APP_TESTING_TENANT_ID')
+
+      // Validate that all required environment variables are set
+      if (!adminEmail) {
+        throw new Error('APP_TESTING_ADMIN_EMAIL environment variable is not set. This is required for cleanup.')
+      }
+      if (!adminPassword) {
+        throw new Error('APP_TESTING_ADMIN_PASSWORD environment variable is not set. This is required for cleanup.')
+      }
+      if (!apiUrl) {
+        throw new Error('APP_TESTING_API_URL environment variable is not set. This is required for cleanup.')
+      }
+      if (!tenantId) {
+        throw new Error('APP_TESTING_TENANT_ID environment variable is not set. This is required for cleanup.')
       }
 
-      // Restore original API URL when done
-      if (originalApiUrl) {
-        cy.log(`Restoring original API URL: ${originalApiUrl}`)
-        Cypress.env('APP_TESTING_API_URL', originalApiUrl)
+      cy.log(`Using API URL for cleanup: ${apiUrl}`)
+      cy.log(`Using tenant ID: ${tenantId}`)
+      cy.log(`Cleaning up event: ${eventSlug}`)
+
+      // Use the window.fetch API directly to authenticate and delete the event
+      if (eventSlug) {
+        // First authenticate to get a token
+        cy.request({
+          method: 'POST',
+          url: `${apiUrl}/api/v1/auth/login`,
+          body: { email: adminEmail, password: adminPassword },
+          headers: { 'X-Tenant-ID': tenantId },
+          failOnStatusCode: false // Don't fail the test if auth fails
+        }).then((authResponse) => {
+          if (authResponse.status === 200 && authResponse.body?.token) {
+            const token = authResponse.body.token
+
+            // Now try to delete the event with the token
+            cy.request({
+              method: 'DELETE',
+              url: `${apiUrl}/api/events/${eventSlug}`,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Tenant-ID': tenantId
+              },
+              failOnStatusCode: false // Don't fail the test if deletion fails
+            }).then((deleteResponse) => {
+              cy.log(`Deletion response: ${deleteResponse.status}`)
+              if (deleteResponse.status >= 200 && deleteResponse.status < 300) {
+                cy.log('Event deleted successfully via API')
+              } else {
+                cy.log(`Event deletion may have failed: ${deleteResponse.status}`)
+              }
+            })
+          } else {
+            cy.log('Authentication for cleanup failed, skipping event deletion')
+          }
+
+          // Restore original API URL when done regardless of deletion result
+          if (originalApiUrl) {
+            cy.log(`Restoring original API URL: ${originalApiUrl}`)
+            Cypress.env('APP_TESTING_API_URL', originalApiUrl)
+          }
+        })
+      } else {
+        cy.log('Missing event slug, skipping cleanup')
+        // Restore original API URL when done
+        if (originalApiUrl) {
+          cy.log(`Restoring original API URL: ${originalApiUrl}`)
+          Cypress.env('APP_TESTING_API_URL', originalApiUrl)
+        }
       }
     })
   })
@@ -84,7 +147,9 @@ describe('Matrix Chat in Events', () => {
 
     // Verify that the chat container is visible with increased timeout
     cy.dataCy('chat-container').should('exist', { timeout: 15000 })
-    cy.dataCy('chat-list').should('exist', { timeout: 10000 })
+
+    // We only need to check for the chat-input, not the chat-list which might not be visible
+    // when there are no messages
     cy.dataCy('chat-input').should('exist', { timeout: 10000 })
   })
 

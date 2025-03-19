@@ -20,14 +20,28 @@ Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
     cleanup: true,
     latitude: 12.3456,
     longitude: 12.3456,
+    // Add required fields that were missing and caused 422 errors
+    type: 'in-person', // Required field
+    categories: [4], // Required field
     ...options
   }
 
   // Get the authentication token from local storage with better error logging
   cy.window().then((win) => {
-    // First try 'token' which is used by the application
-    const authToken = win.localStorage.getItem('token')
-    const refreshToken = win.localStorage.getItem('refreshToken')
+    // Get token from localStorage, handling Quasar's prefix format if present
+    let authToken = win.localStorage.getItem('token')
+    let refreshToken = win.localStorage.getItem('refreshToken')
+
+    // Check if the token has Quasar's __q_strn| prefix and remove it
+    if (authToken && authToken.startsWith('__q_strn|')) {
+      authToken = authToken.substring('__q_strn|'.length)
+      cy.log('Removed Quasar prefix from token')
+    }
+
+    if (refreshToken && refreshToken.startsWith('__q_strn|')) {
+      refreshToken = refreshToken.substring('__q_strn|'.length)
+      cy.log('Removed Quasar prefix from refresh token')
+    }
 
     // Log token state without exposing actual token values
     cy.log(`Authentication token status: ${authToken ? 'Present' : 'Missing'}`)
@@ -40,13 +54,19 @@ Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
       return cy.wrap('')
     }
 
-    // Get tenant ID from the environment variables configured in cypress.config.ts
-    const tenantId = Cypress.env('APP_TESTING_TENANT_ID') || 'testing'
+    // Get tenant ID from Cypress env var with no fallback
+    const tenantId = Cypress.env('APP_TESTING_TENANT_ID')
+    if (!tenantId) {
+      throw new Error('APP_TESTING_TENANT_ID environment variable is not set. This is required for tests.')
+    }
     cy.log(`Using tenant ID: ${tenantId}`)
 
-    // Create the event with API request - use backend API host from environment
-    // Get API URL from APP_TESTING_API_URL environment variable
-    const apiBaseUrl = Cypress.env('APP_TESTING_API_URL') || 'http://localhost:3000'
+    // Use the API URL from Cypress env var with no fallback
+    // This is important for JWT tokens which are often bound to specific domains
+    const apiBaseUrl = Cypress.env('APP_TESTING_API_URL')
+    if (!apiBaseUrl) {
+      throw new Error('APP_TESTING_API_URL environment variable is not set. This is required for tests.')
+    }
     const apiUrl = `${apiBaseUrl}/api/events`
     cy.log(`Using API URL: ${apiUrl}`)
 
@@ -70,7 +90,10 @@ Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
         maxAttendees: eventOptions.maxAttendees,
         requireApproval: eventOptions.requireApproval,
         approvalQuestion: eventOptions.approvalQuestion,
-        visibility: eventOptions.visibility
+        visibility: eventOptions.visibility,
+        // Add required fields that were missing
+        type: eventOptions.type,
+        categories: eventOptions.categories
       }
     }).then((response) => {
       // Check for a successful API response (status 201-Created)
@@ -216,8 +239,20 @@ Cypress.Commands.add('createEvent', (name: string, options = {}) => {
 Cypress.Commands.add('deleteEventApi', (slug: string) => {
   // Get the authentication token from local storage with better error logging
   cy.window().then((win) => {
-    const authToken = win.localStorage.getItem('accessToken')
-    const refreshToken = win.localStorage.getItem('refreshToken')
+    // Get token from localStorage, handling Quasar's prefix format if present
+    let authToken = win.localStorage.getItem('token')
+    let refreshToken = win.localStorage.getItem('refreshToken')
+
+    // Check if the token has Quasar's __q_strn| prefix and remove it
+    if (authToken && authToken.startsWith('__q_strn|')) {
+      authToken = authToken.substring('__q_strn|'.length)
+      cy.log('Removed Quasar prefix from token for deletion')
+    }
+
+    if (refreshToken && refreshToken.startsWith('__q_strn|')) {
+      refreshToken = refreshToken.substring('__q_strn|'.length)
+      cy.log('Removed Quasar prefix from refresh token for deletion')
+    }
 
     // Log token state without exposing actual token values
     cy.log(`Authentication token status for deletion: ${authToken ? 'Present' : 'Missing'}`)
@@ -230,12 +265,18 @@ Cypress.Commands.add('deleteEventApi', (slug: string) => {
       return cy.wrap(false)
     }
 
-    // Get tenant ID from the environment variables configured in cypress.config.ts
-    const tenantId = Cypress.env('APP_TESTING_TENANT_ID') || 'testing'
+    // Get tenant ID from Cypress env var with no fallback
+    const tenantId = Cypress.env('APP_TESTING_TENANT_ID')
+    if (!tenantId) {
+      throw new Error('APP_TESTING_TENANT_ID environment variable is not set. This is required for deletion.')
+    }
+    cy.log(`Using tenant ID for deletion: ${tenantId}`)
 
-    // Delete the event with API request - use backend API host from environment
-    // Get API URL from APP_TESTING_API_URL environment variable
-    const apiBaseUrl = Cypress.env('APP_TESTING_API_URL') || 'http://localhost:3000'
+    // Use the API URL from Cypress env var with no fallback
+    const apiBaseUrl = Cypress.env('APP_TESTING_API_URL')
+    if (!apiBaseUrl) {
+      throw new Error('APP_TESTING_API_URL environment variable is not set. This is required for deletion.')
+    }
     const apiUrl = `${apiBaseUrl}/api/events/${slug}`
     cy.log(`Using API URL for deletion: ${apiUrl}`)
 
