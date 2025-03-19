@@ -62,7 +62,8 @@ export default configure((ctx) => {
           "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
           "font-src 'self' https://fonts.gstatic.com",
           "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com",
-          "connect-src 'self' blob: http://localhost:* https://localhost:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net wss://api-dev.openmeet.net wss://api.openmeet.net https://*.amazonaws.com https://nominatim openstreetmap.org https://*.posthog.com https://api.hsforms.com https://8953-70-228-89-215.ngrok-free.app wss://8953-70-228-89-215.ngrok-free.app https://matrix-dev.openmeet.net wss://matrix-dev.openmeet.net",
+          // Add localhost:8087 to allow API connections from the test framework
+          "connect-src 'self' blob: http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0:* https://0.0.0.0:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net wss://api-dev.openmeet.net wss://api.openmeet.net https://*.amazonaws.com https://nominatim openstreetmap.org https://*.posthog.com https://api.hsforms.com https://8a42-70-228-89-215.ngrok-free.app wss://8a42-70-228-89-215.ngrok-free.app https://matrix-dev.openmeet.net wss://matrix-dev.openmeet.net *",
           "object-src 'none'",
           "base-uri 'self'"
         ].join('; '))
