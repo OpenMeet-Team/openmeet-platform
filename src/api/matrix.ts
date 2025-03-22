@@ -5,6 +5,10 @@ import { useAuthStore } from '../stores/auth-store'
 import { io, Socket } from 'socket.io-client'
 
 export const matrixApi = {
+  // Set Matrix password for direct client access
+  setPassword: (password: string): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    api.post('/api/matrix/set-password', { password }),
+
   // Send typing indicator to a room
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),

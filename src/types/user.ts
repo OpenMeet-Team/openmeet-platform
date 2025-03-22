@@ -44,6 +44,13 @@ export interface MatrixPreferences {
   connected?: boolean
   disconnectedAt?: Date | null
   connectedAt?: Date | null
+  // We don't store the Matrix password, but we use this property
+  // for setting a new password via the API
+  password?: string
+  lastPasswordChanged?: Date | null
+
+  // Flag to indicate if the user has set a direct client password
+  hasDirectAccess?: boolean
 }
 
 export interface UserPreferences {

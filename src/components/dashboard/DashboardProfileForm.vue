@@ -98,6 +98,102 @@
       </q-card-section>
     </q-card>
 
+    <q-card class="q-mb-md" data-cy="profile-matrix" v-if="hasMatrixAccount">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_chat" class="q-mr-sm" />
+          Matrix Chat Settings
+        </div>
+        <div class="q-gutter-y-md">
+          <div class="text-subtitle2" v-if="matrixUserId">
+            Matrix ID: {{ matrixUserId }}
+          </div>
+
+          <div v-if="hasDirectAccess" class="text-caption q-mb-md">
+            <q-icon name="sym_r_check_circle" color="positive" size="sm" />
+            Direct Matrix access is enabled. Last password set: {{ getLastPasswordChangedFormatted }}
+          </div>
+
+          <q-expansion-item
+            data-cy="matrix-password-section"
+            expand-separator
+            icon="sym_r_vpn_key"
+            :label="hasDirectAccess ? 'Change Matrix Password' : 'Set Matrix Password for Direct Access'"
+            caption="Allows you to use third-party Matrix clients"
+          >
+            <q-card>
+              <q-card-section>
+                <p class="text-caption">
+                  This password enables you to access your Matrix account directly using third-party
+                  Matrix clients like Element, FluffyChat, or SchildiChat.
+                </p>
+
+                <q-input
+                  data-cy="matrix-password"
+                  v-model="matrixPassword"
+                  filled
+                  maxlength="255"
+                  minlength="8"
+                  :type="isMatrixPwdVisible ? 'text' : 'password'"
+                  label="Matrix Password"
+                  hint="At least 8 characters"
+                  :rules="[(val) => val.length >= 8 || 'Password must be at least 8 characters']"
+                >
+                  <template v-slot:append>
+                    <q-icon
+                      :name="isMatrixPwdVisible ? 'sym_r_visibility' : 'sym_r_visibility_off'"
+                      class="cursor-pointer"
+                      @click="isMatrixPwdVisible = !isMatrixPwdVisible"
+                    />
+                  </template>
+                </q-input>
+
+                <q-input
+                  data-cy="matrix-password-confirm"
+                  v-model="matrixPasswordConfirm"
+                  filled
+                  maxlength="255"
+                  :type="isMatrixPwdVisible ? 'text' : 'password'"
+                  label="Confirm Matrix Password"
+                  class="q-mt-md"
+                  :rules="[
+                    (val) => val === matrixPassword || 'Passwords do not match',
+                    (val) => val.length >= 8 || 'Password must be at least 8 characters'
+                  ]"
+                >
+                  <template v-slot:append>
+                    <q-icon
+                      :name="isMatrixPwdVisible ? 'sym_r_visibility' : 'sym_r_visibility_off'"
+                      class="cursor-pointer"
+                      @click="isMatrixPwdVisible = !isMatrixPwdVisible"
+                    />
+                  </template>
+                </q-input>
+
+                <div class="q-mt-md">
+                  <q-btn
+                    data-cy="matrix-set-password"
+                    no-caps
+                    :loading="isSettingMatrixPassword"
+                    :disable="matrixPassword.length < 8 || matrixPassword !== matrixPasswordConfirm"
+                    label="Set Matrix Password"
+                    color="primary"
+                    @click="onSetMatrixPassword"
+                  />
+                </div>
+              </q-card-section>
+            </q-card>
+          </q-expansion-item>
+
+          <div class="text-caption q-mt-md">
+            <q-icon name="sym_r_info" color="info" size="sm" class="q-mr-xs" />
+            Matrix passwords are managed separately from your OpenMeet account password.
+            This password is only used for direct Matrix client access.
+          </div>
+        </div>
+      </q-card-section>
+    </q-card>
+
     <q-expansion-item
       data-cy="profile-password"
       expand-separator
@@ -169,7 +265,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Dialog, LoadingBar } from 'quasar'
+import { Dialog, LoadingBar, date } from 'quasar'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
 import { FileEntity, SubCategoryEntity } from '../../types'
@@ -177,6 +273,7 @@ import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
 import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
+import { useMatrixAccess } from '../../composables/useMatrixAccess'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 
@@ -197,13 +294,45 @@ const form = ref<Profile>({
       did: null,
       handle: null,
       avatar: null
+    },
+    matrix: {
+      connected: false,
+      disconnectedAt: null,
+      connectedAt: null,
+      hasDirectAccess: false,
+      lastPasswordChanged: null
     }
   }
 })
 
 const subCategories = ref<SubCategoryEntity[]>([])
 const isPwd = ref(true)
+const isMatrixPwdVisible = ref(false)
 const isLoading = ref(false)
+const matrixPassword = ref('')
+const matrixPasswordConfirm = ref('')
+
+// Matrix integration
+const {
+  isSettingPassword: isSettingMatrixPassword,
+  setMatrixPassword,
+  hasMatrixAccount: checkHasMatrixAccount,
+  hasDirectAccess: checkHasDirectAccess,
+  getMatrixUserId
+} = useMatrixAccess()
+
+// Computed properties for Matrix integration
+const hasMatrixAccount = computed(() => checkHasMatrixAccount())
+const hasDirectAccess = computed(() => checkHasDirectAccess())
+const matrixUserId = computed(() => getMatrixUserId())
+
+// Format the last password change date
+const getLastPasswordChangedFormatted = computed(() => {
+  const lastChanged = form.value.preferences?.matrix?.lastPasswordChanged
+  if (!lastChanged) return 'Never'
+
+  return date.formatDate(new Date(lastChanged), 'MMMM D, YYYY')
+})
 
 const onSubmit = async () => {
   try {
@@ -266,6 +395,13 @@ onMounted(async () => {
           did: userData.preferences?.bluesky?.did || null,
           handle: userData.preferences?.bluesky?.handle || null,
           avatar: userData.preferences?.bluesky?.avatar || null
+        },
+        matrix: {
+          connected: userData.preferences?.matrix?.connected || false,
+          disconnectedAt: userData.preferences?.matrix?.disconnectedAt || null,
+          connectedAt: userData.preferences?.matrix?.connectedAt || null,
+          hasDirectAccess: userData.preferences?.matrix?.hasDirectAccess || false,
+          lastPasswordChanged: userData.preferences?.matrix?.lastPasswordChanged || null
         }
       }
     }
@@ -313,6 +449,25 @@ const onBlueskyConnectionToggle = async (enabled: boolean) => {
   if (!success) {
     // Revert the toggle if the operation failed
     form.value.preferences.bluesky.connected = !enabled
+  }
+}
+
+const onSetMatrixPassword = async () => {
+  if (matrixPassword.value !== matrixPasswordConfirm.value) {
+    error('Passwords do not match')
+    return
+  }
+
+  if (matrixPassword.value.length < 8) {
+    error('Password must be at least 8 characters')
+    return
+  }
+
+  const success = await setMatrixPassword(matrixPassword.value)
+  if (success) {
+    // Clear the password fields for security
+    matrixPassword.value = ''
+    matrixPasswordConfirm.value = ''
   }
 }
 
