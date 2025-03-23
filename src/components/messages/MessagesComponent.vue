@@ -1,5 +1,5 @@
 <template>
-  <div class="messages-component">
+  <div class="messages-component" data-cy="chat-container">
     <!-- Loading state -->
     <q-inner-loading :showing="isLoading">
       <q-spinner-dots size="40px" color="primary" />

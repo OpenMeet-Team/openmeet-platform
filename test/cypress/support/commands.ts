@@ -19,6 +19,12 @@ declare namespace Cypress {
     authenticateWithBluesky(): Chainable<void>
     // Add dataCy command type definition
     dataCy(value: string): Chainable<Element>
+
+    // Event commands - full definitions are in event-commands.ts
+    createEvent(name: string, options?: object): Chainable<string>
+    deleteEvent(slug: string): Chainable<void>
+    createEventApi(name: string, options?: object): Chainable<string>
+    deleteEventApi(slug: string): Chainable<boolean>
   }
 }
 
@@ -29,16 +35,38 @@ registerCommands()
 
 // Add Cypress commands
 Cypress.Commands.add('login', (username: string, password: string) => {
-  // cy.dataCy('header-mobile-menu').click()
-  // cy.dataCy('header-mobile-menu-drawer').should('be.visible').within(() => {
-  //   cy.dataCy('sign-in-button').click()
-  // })
-  cy.dataCy('header-sign-in-button').should('be.visible').click()
+  // Try to close any modals or overlays that might be blocking the UI
+  cy.get('body').then($body => {
+    // If there's a modal backdrop, try to dismiss it
+    if ($body.find('.q-dialog__backdrop').length > 0) {
+      cy.get('.q-dialog__backdrop').click({ force: true })
+    }
+  })
 
+  // Click sign in button with force option to bypass any overlays
+  cy.dataCy('header-sign-in-button').should('exist').click({ force: true })
+
+  // Wait for login form and fill in credentials
   cy.dataCy('login-form').should('be.visible')
+
+  // Safe way to chain commands by breaking after type()
+  cy.dataCy('login-email').should('be.visible')
+  cy.dataCy('login-email').clear()
   cy.dataCy('login-email').type(username)
+
+  cy.dataCy('login-password').should('be.visible')
+  cy.dataCy('login-password').clear()
   cy.dataCy('login-password').type(password)
-  cy.dataCy('login-submit').click()
+
+  cy.dataCy('login-submit').click({ force: true })
+
+  // Wait for login process to complete by checking for avatar
+  cy.dataCy('header-profile-avatar', { timeout: 10000 }).should('be.visible')
+
+  // Wait for the auth token to be set in localStorage
+  cy.window().should((win: Window) => {
+    assert.isNotNull(win.localStorage.getItem('token'))
+  }, { timeout: 10000 })
 })
 
 Cypress.Commands.add('loginPage', (username: string, password: string) => {
@@ -68,3 +96,6 @@ Cypress.Commands.add('authenticateWithBluesky', () => {
   // We're keeping this stub here for backward compatibility
   cy.log('Using the improved authenticateWithBluesky command from bluesky-auth-command.ts')
 })
+
+// Import event related commands
+import './event-commands'

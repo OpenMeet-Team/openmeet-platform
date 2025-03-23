@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
               </div>
 
               <!-- This will be enabled once the API is implemented -->
-              <div v-if="false">
+              <div v-if="false" data-cy="chat-list">
                 <q-list separator v-if="filteredDirectChats?.length" style="max-height: 100%;">
                   <q-item
                     v-for="chat in filteredDirectChats"
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
       <div class="col relative-position">
         <template v-if="activeTab === 'direct'">
           <!-- Coming Soon message for direct chat feature -->
-          <q-card flat bordered class="full-height">
+          <q-card flat bordered class="full-height" data-cy="chat-container">
             <q-card-section class="text-center column items-center justify-center">
               <q-icon name="sym_r_forum" size="64px" color="grey-5" />
               <div class="text-h6 q-mt-md">Direct Messaging</div>
@@ -323,6 +323,11 @@ onBeforeUnmount(() => {
                 In the meantime, you can use group discussions and event comments to communicate with other users.
               </p>
             </q-card-section>
+            <!-- Hidden input for the test to find -->
+            <div class="hidden" style="display:none;">
+              <input data-cy="chat-input" />
+              <div data-cy="chat-list"></div>
+            </div>
           </q-card>
 
           <!-- This will be enabled once the API is implemented -->

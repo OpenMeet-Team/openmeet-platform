@@ -169,7 +169,7 @@ const showMatrixConfig = () => {
   }
 }
 
-// Function to automatically initialize the chat room
+// Function to automatically initialize the chat room without sending a welcome message
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
@@ -184,14 +184,14 @@ const ensureChatRoomExists = async () => {
       return true
     }
 
-    // Try sending a message to initialize the room - this seems to work better than adding members
-    if (discussionPermissions.value.canWrite) {
-      console.log('No room ID found - attempting to initialize chat room with message...')
-
-      // Send the initial message
+    // Directly initialize the room by adding the user to the discussion
+    // This will create the room without sending a welcome message
+    if (discussionPermissions.value.canWrite && useAuthStore().user?.id) {
       try {
-        const messageId = await useEventStore().actionSendEventDiscussionMessage('Chat room initialized. Welcome!')
-        console.log('Message sent successfully, ID:', messageId)
+        console.log('No room ID found - attempting to initialize chat room by joining...')
+
+        // Add the current user to the event discussion
+        await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
 
         // Reload messages to get the room ID
         await useEventStore().actionGetEventDiscussionMessages()
@@ -200,23 +200,25 @@ const ensureChatRoomExists = async () => {
           console.log('Successfully initialized chat room:', event.value.roomId)
           return true
         } else {
-          console.log('Message was sent but still no room ID available')
+          console.log('User was added but still no room ID available')
         }
-      } catch (messageError) {
-        console.error('Error sending initial message:', messageError)
+      } catch (joinError) {
+        console.error('Error initializing chat room by joining:', joinError)
       }
     }
 
-    // As a last resort, try the addMember approach - but only for event owners or organizers
+    // If joining didn't work and user has management permissions, try another approach
     if (!event.value.roomId &&
         discussionPermissions.value.canManage && // Only try this for users who can manage discussions
         useAuthStore().user?.id) {
       try {
-        console.log('Trying to add user to discussion:', useAuthStore().user.id)
-        // If user is already an attendee with a proper role, try adding them
+        console.log('Trying special initialization for hosts/moderators:', useAuthStore().user.id)
+        // If user is already an attendee with a proper role, try a special initialization
         if (event.value.attendee &&
             ['host', 'moderator'].includes(event.value.attendee.role?.name || '')) {
-          await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
+          // This API call should initialize the room without posting a message
+          // We'll call the backend endpoint that just creates the room
+          await api.post(`/api/chat/event/${event.value.slug}/join`)
 
           // Reload messages to check for roomId
           await useEventStore().actionGetEventDiscussionMessages()
@@ -224,7 +226,7 @@ const ensureChatRoomExists = async () => {
           console.log('User lacks appropriate role to initialize chat room')
         }
       } catch (memberError) {
-        console.log('Could not add member to discussion:', memberError.message)
+        console.log('Could not initialize discussion room:', memberError.message)
       }
     }
 
