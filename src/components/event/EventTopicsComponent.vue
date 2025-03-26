@@ -173,14 +173,20 @@ const showMatrixConfig = () => {
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
+  // Check if we already have a roomId to avoid unnecessary API calls
+  if (event.value.roomId) {
+    console.log('Room ID already exists, no need to initialize:', event.value.roomId)
+    return true
+  }
+
   isInitializing.value = true
   try {
     // Load messages first to check if a roomId already exists
     await useEventStore().actionGetEventDiscussionMessages()
 
-    // If we already have a roomId, no need to continue
+    // If we already have a roomId after loading messages, no need to continue
     if (event.value.roomId) {
-      console.log('Room ID already exists:', event.value.roomId)
+      console.log('Room ID exists after loading messages:', event.value.roomId)
       return true
     }
 
@@ -239,13 +245,22 @@ const ensureChatRoomExists = async () => {
   }
 }
 
+// Track initialization state to prevent redundant calls
+const roomInitialized = ref(false)
+
 // Load discussion messages and ensure chat room exists
 onMounted(async () => {
-  if (event.value && event.value.slug) {
+  if (event.value && event.value.slug && !roomInitialized.value) {
     isLoading.value = true
+    roomInitialized.value = true
     try {
-      // Attempt to automatically initialize the chat room or load existing messages
-      await ensureChatRoomExists()
+      // First check if roomId already exists to avoid unnecessary calls
+      if (event.value.roomId) {
+        console.log('Room ID already exists on component mount:', event.value.roomId)
+      } else {
+        // Attempt to automatically initialize the chat room or load existing messages
+        await ensureChatRoomExists()
+      }
     } catch (err) {
       console.error('Error loading event discussion:', err)
     } finally {

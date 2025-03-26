@@ -361,8 +361,19 @@ const replyToMessage = (/* messageId: string */) => {
   messageInput.value?.focus()
 }
 
+// Track if we've already initialized this component to prevent duplicate operations
+const initialized = ref(false)
+
 // Lifecycle
 onMounted(async () => {
+  // Skip if we've already initialized or no roomId
+  if (initialized.value || !props.roomId) {
+    return
+  }
+
+  // Mark as initialized to prevent duplicate operations
+  initialized.value = true
+
   // Initialize store with context
   messageStore.setContext(props.roomId, props.contextType as 'general' | 'group' | 'event' | 'direct', props.contextId)
   messageStore.setPermissions({
@@ -385,12 +396,19 @@ onMounted(async () => {
   // This is critical to fix the issue where some users don't receive messages
   try {
     console.log('!!!DEBUG!!! Explicitly joining room in MessagesComponent:', props.roomId)
-    await matrixService.joinRoom(props.roomId)
-    console.log('!!!DEBUG!!! Room joined successfully')
+
+    // Check if the room is already joined before making the API call
+    if (!matrixService.isRoomJoined(props.roomId)) {
+      await matrixService.joinRoom(props.roomId)
+      console.log('!!!DEBUG!!! Room joined successfully')
+    } else {
+      console.log('!!!DEBUG!!! Room already joined, skipping join request')
+    }
   } catch (err) {
     console.error('Error joining room:', err)
   }
 
+  // Load messages
   await loadMessages()
 
   // Set up scroll handler
@@ -450,9 +468,16 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
 
     // Explicitly join the new room to make sure we receive events
     try {
-      console.log('!!!DEBUG!!! Explicitly joining new room after change:', newRoomId)
-      await matrixService.joinRoom(newRoomId)
-      console.log('!!!DEBUG!!! New room joined successfully')
+      console.log('!!!DEBUG!!! Checking if we need to join new room after change:', newRoomId)
+
+      // Check if the room is already joined before making the API call
+      if (!matrixService.isRoomJoined(newRoomId)) {
+        console.log('!!!DEBUG!!! Room not yet joined, explicitly joining now')
+        await matrixService.joinRoom(newRoomId)
+        console.log('!!!DEBUG!!! New room joined successfully')
+      } else {
+        console.log('!!!DEBUG!!! Room already joined, skipping redundant join request')
+      }
     } catch (err) {
       console.error('Error joining new room:', err)
     }
