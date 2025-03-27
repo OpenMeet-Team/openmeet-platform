@@ -107,9 +107,21 @@ watch(() => authStore.isAuthenticated, async (isAuth) => {
 // Track if we've already fetched data
 const hasCheckedAttendance = ref(false)
 
+// Add type declaration for global window property
+declare global {
+  interface Window {
+    lastEventAttendanceCheck?: Record<string, number>;
+  }
+}
+
 // Initialize the component properly
 onMounted(async () => {
   console.log('EventAttendanceButton mounted, checking auth status')
+
+  // Initialize global tracker if needed
+  if (!window.lastEventAttendanceCheck) {
+    window.lastEventAttendanceCheck = {}
+  }
 
   try {
     // Always start in loading state to prevent UI flicker
@@ -120,15 +132,29 @@ onMounted(async () => {
     console.log('Auth status result:', isAuthenticated)
 
     if (isAuthenticated) {
-      // If authenticated, we should always force a fresh check for attendance status
-      // This ensures we have the latest data from the server
-      loading.value = true
-      hasCheckedAttendance.value = true
-      console.log('Authenticated, fetching fresh event data for:', props.event.slug)
+      // If authenticated, we should check if we need a fresh check for attendance status
+      const eventSlug = props.event.slug
+      const now = Date.now()
+      const lastCheck = window.lastEventAttendanceCheck[eventSlug] || 0
+      const timeSinceLastCheck = now - lastCheck
 
-      // Always get fresh data from the server to ensure we have latest attendance status
-      await eventStore.actionGetEventBySlug(props.event.slug)
-      console.log('Updated attendee status:', eventStore.event?.attendee?.status)
+      // Only refresh if it's been more than 3 seconds since the last check
+      // This prevents multiple components from triggering redundant API calls
+      if (timeSinceLastCheck > 3000) {
+        loading.value = true
+        hasCheckedAttendance.value = true
+        console.log('Authenticated, fetching fresh event data for:', eventSlug)
+
+        // Update our tracking timestamp
+        window.lastEventAttendanceCheck[eventSlug] = now
+
+        // Get fresh data from the server to ensure we have latest attendance status
+        await eventStore.actionGetEventBySlug(eventSlug)
+        console.log('Updated attendee status:', eventStore.event?.attendee?.status)
+      } else {
+        console.log(`Skipping redundant attendance check (last check was ${timeSinceLastCheck}ms ago)`)
+        hasCheckedAttendance.value = true
+      }
     } else {
       console.log('User not authenticated, skipping attendance check')
     }
@@ -162,7 +188,10 @@ const handleAttend = async () => {
     await eventStore.actionAttendEvent(props.event.slug, { status })
 
     // Force a refresh of event data to ensure UI reflects the latest state
-    await eventStore.actionGetEventBySlug(props.event.slug)
+    // This is a user-initiated action, so we always want to refresh
+    const eventSlug = props.event.slug
+    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    await eventStore.actionGetEventBySlug(eventSlug)
     console.log('Updated event data after attending:', eventStore.event?.attendee?.status)
 
     $q.notify({
@@ -188,7 +217,8 @@ const handleLeave = async () => {
     // Verify auth status again to ensure token is valid
     await authSession.checkAuthStatus()
 
-    console.log('Cancelling attendance for event:', props.event.slug)
+    const eventSlug = props.event.slug
+    console.log('Cancelling attendance for event:', eventSlug)
     await eventStore.actionCancelAttending(props.event)
 
     $q.notify({
@@ -197,8 +227,10 @@ const handleLeave = async () => {
     })
 
     // Force a refresh of the event data to ensure we have the latest state
+    // This is a user-initiated action, so we always want to refresh
     console.log('Refreshing event data after cancellation')
-    await eventStore.actionGetEventBySlug(props.event.slug)
+    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    await eventStore.actionGetEventBySlug(eventSlug)
     console.log('Updated event data after cancellation:', eventStore.event?.attendee?.status)
   } catch (error) {
     console.error('Error leaving event:', error)
