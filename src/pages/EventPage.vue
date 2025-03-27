@@ -382,6 +382,7 @@ import ShareComponent from '../components/common/ShareComponent.vue'
 import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
+import { useAuthSession } from '../boot/auth-session'
 const route = useRoute()
 const router = useRouter()
 const { navigateToGroup } = useNavigation()
@@ -414,14 +415,24 @@ const loaded = ref(false)
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
   LoadingBar.start()
-  Promise.all([
-    useEventStore().actionGetEventBySlug(route.params.slug as string),
-    loadSimilarEvents(route.params.slug as string)
-  ]).finally(() => {
+
+  // First check auth status to ensure we have latest token
+  const authSession = useAuthSession()
+  await authSession.checkAuthStatus()
+
+  // Now load event data with latest auth state
+  try {
+    await Promise.all([
+      useEventStore().actionGetEventBySlug(route.params.slug as string),
+      loadSimilarEvents(route.params.slug as string)
+    ])
+  } catch (error) {
+    console.error('Error loading event data:', error)
+  } finally {
     LoadingBar.stop()
-  })
+  }
 })
 
 // Add this function to load similar events
