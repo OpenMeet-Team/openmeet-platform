@@ -173,27 +173,52 @@ const showMatrixConfig = () => {
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
-  isInitializing.value = true
-  try {
-    // Load messages first to check if a roomId already exists
-    await useEventStore().actionGetEventDiscussionMessages()
+  // Create a unique key for this event to prevent concurrent initializations
+  const initKey = `initializing-chat-room-${event.value.slug}`
 
-    // If we already have a roomId, no need to continue
+  // Check if initialization is already in progress for this event
+  if (window[initKey]) {
+    console.log('Room initialization already in progress, skipping duplicate request')
+    return false
+  }
+
+  isInitializing.value = true
+  // Set flag to prevent concurrent initialization
+  window[initKey] = true
+
+  try {
+    console.log('Starting chat room initialization for:', event.value.slug)
+
+    // Check if we already have a roomId in the event object
     if (event.value.roomId) {
-      console.log('Room ID already exists:', event.value.roomId)
+      console.log('Room ID already exists in event object:', event.value.roomId)
       return true
     }
 
-    // Directly initialize the room by adding the user to the discussion
-    // This will create the room without sending a welcome message
-    if (discussionPermissions.value.canWrite && useAuthStore().user?.id) {
+    // Load messages first to check if a roomId already exists
+    // Only make this call once - it's where the infinite loop was happening
+    console.log('Checking for existing room ID by loading messages once')
+    await useEventStore().actionGetEventDiscussionMessages()
+
+    // If we now have a roomId after that first call, we're done
+    if (event.value.roomId) {
+      console.log('Room ID found after loading messages:', event.value.roomId)
+      return true
+    }
+
+    // Only proceed with initialization if user has permission and is authenticated
+    if (discussionPermissions.value.canWrite && useAuthStore().isAuthenticated && useAuthStore().user?.id) {
       try {
         console.log('No room ID found - attempting to initialize chat room by joining...')
 
         // Add the current user to the event discussion
         await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
 
-        // Reload messages to get the room ID
+        // Add a small delay to let the server process
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Reload messages ONLY ONCE to get the room ID
+        console.log('User added to discussion, checking for room ID')
         await useEventStore().actionGetEventDiscussionMessages()
 
         if (event.value.roomId) {
@@ -205,36 +230,20 @@ const ensureChatRoomExists = async () => {
       } catch (joinError) {
         console.error('Error initializing chat room by joining:', joinError)
       }
+    } else {
+      console.log('User lacks required permissions or authentication to initialize chat room')
     }
 
-    // If joining didn't work and user has management permissions, try another approach
-    if (!event.value.roomId &&
-        discussionPermissions.value.canManage && // Only try this for users who can manage discussions
-        useAuthStore().user?.id) {
-      try {
-        console.log('Trying special initialization for hosts/moderators:', useAuthStore().user.id)
-        // If user is already an attendee with a proper role, try a special initialization
-        if (event.value.attendee &&
-            ['host', 'moderator'].includes(event.value.attendee.role?.name || '')) {
-          // This API call should initialize the room without posting a message
-          // We'll call the backend endpoint that just creates the room
-          await api.post(`/api/chat/event/${event.value.slug}/join`)
-
-          // Reload messages to check for roomId
-          await useEventStore().actionGetEventDiscussionMessages()
-        } else {
-          console.log('User lacks appropriate role to initialize chat room')
-        }
-      } catch (memberError) {
-        console.log('Could not initialize discussion room:', memberError.message)
-      }
-    }
+    // Skip the special initialization for hosts/moderators to avoid potential loops
+    // We'll only try the initial basic approach for now
 
     return !!event.value.roomId
   } catch (err) {
     console.error('Error ensuring chat room exists:', err)
     return false
   } finally {
+    // Always clear initialization flag when done
+    window[initKey] = false
     isInitializing.value = false
   }
 }
@@ -244,13 +253,23 @@ onMounted(async () => {
   if (event.value && event.value.slug) {
     isLoading.value = true
     try {
-      // Attempt to automatically initialize the chat room or load existing messages
-      await ensureChatRoomExists()
+      console.log('EventTopicsComponent mounted for event:', event.value.slug)
+
+      // First check if we already have a room ID before trying initialization
+      if (event.value.roomId) {
+        console.log('Already have room ID at mount:', event.value.roomId)
+      } else {
+        // Only attempt to initialize if we don't already have a room ID
+        console.log('No room ID at mount, trying initialization once')
+        await ensureChatRoomExists()
+      }
     } catch (err) {
       console.error('Error loading event discussion:', err)
     } finally {
       isLoading.value = false
     }
+  } else {
+    console.log('EventTopicsComponent mounted without valid event data')
   }
 })
 
