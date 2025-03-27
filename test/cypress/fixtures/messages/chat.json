@@ -14,7 +14,7 @@
           "id": 1,
           "ulid": "1234567890",
           "email": "test@test.com",
-          "zulipUserId": 1,
+          "matrixUserId": "@test:openmeet.net",
           "name": "Test User",
           "photo": { "path": "test.jpg" }
         },
@@ -22,7 +22,7 @@
           "id": 1,
           "ulid": "1234567890",
           "email": "test@test.com",
-          "zulipUserId": 1,
+          "matrixUserId": "@test:openmeet.net",
           "name": "Test User",
           "photo": { "path": "test.jpg" }
         },
@@ -37,7 +37,7 @@
       "id": 1,
       "ulid": "1234567890",
       "email": "test@test.com",
-      "zulipUserId": 1,
+      "matrixUserId": "@test:openmeet.net",
       "name": "Test User",
       "photo": { "path": "test.jpg" }
     },
@@ -45,7 +45,7 @@
       "id": 1,
       "ulid": "1234567890",
       "email": "test@test.com",
-      "zulipUserId": 1,
+      "matrixUserId": "@test:openmeet.net",
       "name": "Test User",
       "photo": { "path": "test.jpg" }
     },

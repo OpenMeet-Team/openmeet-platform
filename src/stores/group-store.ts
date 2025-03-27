@@ -59,7 +59,6 @@ export const useGroupStore = defineStore('group', {
           this.group.events = res.data.events
           this.group.groupMembers = res.data.groupMembers
           this.group.messages = res.data.messages
-          this.group.topics = res.data.topics
         }
       } catch (err) {
         console.log(err)
@@ -93,7 +92,6 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.getDiscussions(slug)
         if (this.group) {
           this.group.messages = res.data.messages
-          this.group.topics = res.data.topics
         }
       } catch (err) {
         console.log(err)

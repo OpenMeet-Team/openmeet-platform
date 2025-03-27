@@ -67,7 +67,6 @@ export interface GroupEntity {
   membersCount?: number
   groupMembers?: GroupMemberEntity[]
   events?: EventEntity[]
-  topics?: { name: string }[]
   messages?: MatrixMessage[]
   roomId?: string
   visibility: GroupVisibility

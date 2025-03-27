@@ -16,46 +16,6 @@ export enum SubCategoryType {
   GROUP = 'GROUP',
 }
 
-export interface ZulipTopicEntity {
-  name: string;
-  max_id: number;
-}
-
-export interface ZulipMessageEntity {
-  id: number;
-  sender_id: number;
-  content: string;
-  recipient_id?: number;
-  timestamp: number;
-  client?: string;
-  subject?: string;
-  topic_links?: [];
-  is_me_message?: boolean;
-  reactions?: [];
-  submessages?: [];
-  flags?: string[];
-  sender_full_name: string;
-  sender_email?: string;
-  sender_realm_str?: string;
-  display_recipient?: [
-      {
-          email: string;
-          full_name: string;
-          id: number;
-          is_mirror_dummy: boolean;
-      },
-      {
-          id: number;
-          email: string;
-          full_name: string;
-          is_mirror_dummy: boolean;
-      }
-  ];
-  type?: string;
-  avatar_url?: string;
-  content_type?: string;
-}
-
 export interface ChatEntity {
   id: number;
   ulid: string;

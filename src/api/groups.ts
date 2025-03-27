@@ -1,5 +1,5 @@
 import { api } from '../boot/axios'
-import { EventEntity, ZulipMessageEntity, ZulipTopicEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from '../types'
+import { EventEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 import { AxiosResponse } from 'axios'
 import { MatrixMessage } from '../types/matrix'
@@ -21,11 +21,10 @@ export const groupsApi = {
   getAbout: (slug: string) => api.get<{
     events: EventEntity[],
     groupMembers: GroupMemberEntity[],
-    messages: ZulipMessageEntity[],
-    topics: ZulipTopicEntity[]
+    messages: MatrixMessage[]
   }>(`/api/groups/${slug}/about`, createGroupApiHeaders(slug)),
   getEvents: (slug: string) => api.get<EventEntity[]>(`/api/groups/${slug}/events`, createGroupApiHeaders(slug)),
-  getDiscussions: (slug: string) => api.get<{ topics: ZulipTopicEntity[], messages: ZulipMessageEntity[] }>(`/api/groups/${slug}/discussions`, createGroupApiHeaders(slug)),
+  getDiscussions: (slug: string) => api.get<{ messages: MatrixMessage[] }>(`/api/groups/${slug}/discussions`, createGroupApiHeaders(slug)),
   create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/groups', groupData),
   update: (slug: string, groupData: Partial<GroupEntity>) => api.patch<GroupEntity>(`/api/groups/${slug}`, groupData, createGroupApiHeaders(slug)),
   delete: (slug: string) => api.delete(`/api/groups/${slug}`, createGroupApiHeaders(slug)),

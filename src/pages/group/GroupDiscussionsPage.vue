@@ -101,7 +101,7 @@ watch(() => groupStore.group?.slug, async (newSlug, oldSlug) => {
   </div>
 
   <div data-cy="group-discussions-page" v-else-if="group && hasPermission">
-    <SubtitleComponent class="q-mt-lg q-px-md" label="Discussions" :count="group?.topics?.length" hide-link />
+    <SubtitleComponent class="q-mt-lg q-px-md" label="Discussions" hide-link />
 
     <!-- Discussions Section using unified MessagesComponent -->
     <MessagesComponent
