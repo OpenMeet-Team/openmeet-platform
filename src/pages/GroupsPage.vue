@@ -39,6 +39,7 @@ import CategoriesFilterComponent from '../components/common/CategoriesFilterComp
 import RadiusFilterComponent from '../components/common/RadiusFilterComponent.vue'
 import { useGroupsStore } from '../stores/groups-store'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
+import { useAuthSession } from '../boot/auth-session'
 
 const router = useRouter()
 const route = useRoute()
@@ -51,9 +52,21 @@ useMeta({
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 const groups = computed(() => useGroupsStore().groups)
 
-onMounted(() => {
+onMounted(async () => {
   LoadingBar.start()
-  useGroupsStore().actionGetGroupsState(route.query).finally(LoadingBar.stop)
+
+  // First check auth status to ensure we have latest token
+  const authSession = useAuthSession()
+  await authSession.checkAuthStatus()
+
+  // Now load groups data with latest auth state
+  try {
+    await useGroupsStore().actionGetGroupsState(route.query)
+  } catch (error) {
+    console.error('Error loading groups data:', error)
+  } finally {
+    LoadingBar.stop()
+  }
 })
 
 onBeforeUnmount(() => {

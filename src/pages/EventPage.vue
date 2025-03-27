@@ -382,6 +382,7 @@ import ShareComponent from '../components/common/ShareComponent.vue'
 import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
+import { useAuthSession } from '../boot/auth-session'
 const route = useRoute()
 const router = useRouter()
 const { navigateToGroup } = useNavigation()
@@ -414,14 +415,52 @@ const loaded = ref(false)
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 
-onMounted(() => {
+// Add type declaration for global window property
+declare global {
+  interface Window {
+    lastEventPageLoad?: Record<string, number>;
+  }
+}
+
+onMounted(async () => {
+  const eventSlug = route.params.slug as string
   LoadingBar.start()
-  Promise.all([
-    useEventStore().actionGetEventBySlug(route.params.slug as string),
-    loadSimilarEvents(route.params.slug as string)
-  ]).finally(() => {
+  console.log('EventPage mounted, loading data for:', eventSlug)
+
+  // Initialize global tracker if needed
+  if (!window.lastEventPageLoad) {
+    window.lastEventPageLoad = {}
+  }
+
+  // First check auth status to ensure we have latest token
+  const authSession = useAuthSession()
+  await authSession.checkAuthStatus()
+
+  // Check if we've recently loaded this event to avoid duplicate/competing loads
+  const now = Date.now()
+  const lastLoad = window.lastEventPageLoad[eventSlug] || 0
+  const timeSinceLastLoad = now - lastLoad
+
+  // Now load event data with latest auth state
+  try {
+    // Always track when we load this event
+    window.lastEventPageLoad[eventSlug] = now
+
+    await Promise.all([
+      // Only reload event data if it's been more than 2 seconds since the last load
+      // or if the event store doesn't have this event yet
+      (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000)
+        ? useEventStore().actionGetEventBySlug(eventSlug)
+        : Promise.resolve(console.log('Using existing event data from store, skipping reload')),
+
+      // Always load similar events
+      loadSimilarEvents(eventSlug)
+    ])
+  } catch (error) {
+    console.error('Error loading event data:', error)
+  } finally {
     LoadingBar.stop()
-  })
+  }
 })
 
 // Add this function to load similar events

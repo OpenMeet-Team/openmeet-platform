@@ -9,6 +9,14 @@ import MessagesComponent from '../messages/MessagesComponent.vue'
 import getEnv from '../../utils/env'
 import { api } from '../../boot/axios'
 
+// Add type declaration for global window property
+declare global {
+  interface Window {
+    chatRoomInitializations?: Record<string, 'in-progress' | 'completed' | null>;
+    lastEventDiscussionCheck?: number;
+  }
+}
+
 // Check if in development mode
 const isDev = ref(false)
 try {
@@ -173,18 +181,37 @@ const showMatrixConfig = () => {
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
-  // Create a unique key for this event to prevent concurrent initializations
-  const initKey = `initializing-chat-room-${event.value.slug}`
+  // Global initialization tracking
+  if (!window.chatRoomInitializations) {
+    window.chatRoomInitializations = {}
+  }
 
-  // Check if initialization is already in progress for this event
-  if (window[initKey]) {
-    console.log('Room initialization already in progress, skipping duplicate request')
+  const eventSlug = event.value.slug
+
+  // Check if initialization has been completed before
+  if (window.chatRoomInitializations[eventSlug] === 'completed') {
+    console.log(`Room ${eventSlug} was already fully initialized in this session, skipping`)
+    return true
+  }
+
+  // Check if initialization is already in progress
+  if (window.chatRoomInitializations[eventSlug] === 'in-progress') {
+    console.log(`Room ${eventSlug} initialization already in progress, skipping duplicate request`)
     return false
   }
 
   isInitializing.value = true
-  // Set flag to prevent concurrent initialization
-  window[initKey] = true
+  // Set global flag to prevent concurrent initialization across components
+  window.chatRoomInitializations[eventSlug] = 'in-progress'
+  console.log(`Starting initialization for ${eventSlug}, setting global flag`)
+
+  // Automatically clean up stale locks after 10 seconds
+  setTimeout(() => {
+    if (window.chatRoomInitializations[eventSlug] === 'in-progress') {
+      console.log(`Clearing stale initialization lock for ${eventSlug} after timeout`)
+      window.chatRoomInitializations[eventSlug] = null
+    }
+  }, 10000)
 
   try {
     console.log('Starting chat room initialization for:', event.value.slug)
@@ -192,17 +219,33 @@ const ensureChatRoomExists = async () => {
     // Check if we already have a roomId in the event object
     if (event.value.roomId) {
       console.log('Room ID already exists in event object:', event.value.roomId)
+      // Mark as completed in the global registry since we already have a room ID
+      window.chatRoomInitializations[eventSlug] = 'completed'
       return true
     }
 
-    // Load messages first to check if a roomId already exists
-    // Only make this call once - it's where the infinite loop was happening
-    console.log('Checking for existing room ID by loading messages once')
-    await useEventStore().actionGetEventDiscussionMessages()
+    // IMPORTANT: Only check for room ID if there hasn't been a recent check
+    // This is to avoid infinite loops with multiple components refreshing the event data
+    const lastEventCheck = window.lastEventDiscussionCheck || 0
+    const now = Date.now()
+    const timeSinceLastCheck = now - lastEventCheck
+
+    // If it's been less than 3 seconds since we last checked, skip the check
+    if (timeSinceLastCheck < 3000) {
+      console.log(`Skipping discussion check as one was performed ${timeSinceLastCheck}ms ago`)
+    } else {
+      // Load messages first to check if a roomId already exists
+      // Only make this call once - it's where the infinite loop was happening
+      console.log('Checking for existing room ID by loading messages once')
+      window.lastEventDiscussionCheck = now
+      await useEventStore().actionGetEventDiscussionMessages()
+    }
 
     // If we now have a roomId after that first call, we're done
     if (event.value.roomId) {
       console.log('Room ID found after loading messages:', event.value.roomId)
+      // Mark as completed in the global registry
+      window.chatRoomInitializations[eventSlug] = 'completed'
       return true
     }
 
@@ -219,10 +262,13 @@ const ensureChatRoomExists = async () => {
 
         // Reload messages ONLY ONCE to get the room ID
         console.log('User added to discussion, checking for room ID')
+        window.lastEventDiscussionCheck = Date.now()
         await useEventStore().actionGetEventDiscussionMessages()
 
         if (event.value.roomId) {
           console.log('Successfully initialized chat room:', event.value.roomId)
+          // Mark as completed in the global registry
+          window.chatRoomInitializations[eventSlug] = 'completed'
           return true
         } else {
           console.log('User was added but still no room ID available')
@@ -237,13 +283,25 @@ const ensureChatRoomExists = async () => {
     // Skip the special initialization for hosts/moderators to avoid potential loops
     // We'll only try the initial basic approach for now
 
-    return !!event.value.roomId
+    const success = !!event.value.roomId
+
+    // If we found a room ID, mark this initialization as completed in the global registry
+    if (success) {
+      window.chatRoomInitializations[eventSlug] = 'completed'
+      console.log(`Room ${eventSlug} initialization completed successfully, marking as 'completed'`)
+    } else {
+      // Mark as failed but allow future attempts
+      window.chatRoomInitializations[eventSlug] = null
+      console.log(`Room ${eventSlug} initialization did not succeed, clearing flag to allow retry`)
+    }
+
+    return success
   } catch (err) {
     console.error('Error ensuring chat room exists:', err)
+    // Clear global initialization flag on error
+    window.chatRoomInitializations[eventSlug] = null
     return false
   } finally {
-    // Always clear initialization flag when done
-    window[initKey] = false
     isInitializing.value = false
   }
 }
