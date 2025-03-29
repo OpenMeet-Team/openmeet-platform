@@ -1,103 +1,146 @@
 <template>
-  <q-form data-cy="profile-form" @submit="onSubmit" class="c-dashboard-profile-form q-gutter-md" style="max-width: 500px">
-    <div @click="openChangeEmailDialog" class="input-wrapper">
-      <q-input
-        data-cy="profile-email"
-        filled
-        readonly
-        v-model="form.email"
-        label="Email"
-        type="email"
-        :rules="[(val: string) => !!val || 'Email is required']"
-      >
-        <template v-slot:append>
-          <q-icon name="sym_r_email" />
-        </template>
-      </q-input>
-    </div>
-
-    <q-input
-      data-cy="profile-first-name"
-      filled
-      v-model="form.firstName"
-      label="First Name"
-      :rules="[(val: string) => !!val || 'First name is required']"
-    />
-
-    <q-input
-      data-cy="profile-last-name"
-      filled
-      v-model="form.lastName"
-      label="Last Name"
-      :rules="[(val: string) => !!val || 'Last name is required']"
-    />
-
-    <q-input
-      data-cy="profile-bio"
-      filled
-      type="textarea"
-      v-model="form.bio"
-      label="Your bio"
-      counter
-      maxlength="255"
-    />
-
-    <q-select
-      data-cy="profile-interests"
-      v-model="form.interests"
-      label="Interests"
-      multiple
-      clearable
-      filled
-      :options="interests"
-      option-label="title"
-      option-value="id"
-    />
-
-    <UploadComponent
-      data-cy="profile-photo"
-      class="q-mt-xl"
-      label="Profile picture"
-      :crop-options="{autoZoom: true, aspectRatio: 1}"
-      @upload="onProfilePhotoSelect"
-    />
-
-    <q-img
-      v-if="localAvatarUrl"
-      :src="localAvatarUrl"
-      spinner-color="white"
-      class="rounded-borders"
-      style="height: 100px; max-width: 100px"
-    >
-      <q-btn
-        data-cy="profile-photo-delete"
-        color="primary"
-        size="md"
-        icon="sym_r_delete"
-        class="all-pointer-events absolute-top-right"
-        @click="onProfilePhotoDelete"
-      />
-    </q-img>
-
-    <q-card class="q-mb-md" data-cy="profile-bluesky">
-      <q-card-section>
-        <div class="text-h6 q-mb-md">
-          <q-icon name="sym_r_cloud" class="q-mr-sm" />
-          Bluesky Settings
-        </div>
-        <div class="q-gutter-y-md">
-          <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
-            Connected as: {{ form.preferences.bluesky.handle }}
+  <div class="c-dashboard-profile-form q-gutter-md" style="max-width: 500px">
+    <!-- Main profile form -->
+    <q-form data-cy="profile-form" @submit="onSubmit">
+      <!-- Basic profile information section -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_person" class="q-mr-sm" />
+            Basic Information
           </div>
-          <q-toggle
-            v-model="form.preferences.bluesky.connected"
-            label="Use Bluesky as event source"
-            @update:model-value="onBlueskyConnectionToggle"
-          />
-        </div>
-      </q-card-section>
-    </q-card>
 
+          <div class="q-gutter-md">
+            <div @click="openChangeEmailDialog" class="input-wrapper">
+              <q-input
+                data-cy="profile-email"
+                filled
+                readonly
+                v-model="form.email"
+                label="Email"
+                type="email"
+                :rules="[(val: string) => !!val || 'Email is required']"
+              >
+                <template v-slot:append>
+                  <q-icon name="sym_r_email" />
+                </template>
+              </q-input>
+            </div>
+
+            <q-input
+              data-cy="profile-first-name"
+              filled
+              v-model="form.firstName"
+              label="First Name"
+              :rules="[(val: string) => !!val || 'First name is required']"
+            />
+
+            <q-input
+              data-cy="profile-last-name"
+              filled
+              v-model="form.lastName"
+              label="Last Name"
+              :rules="[(val: string) => !!val || 'Last name is required']"
+            />
+
+            <q-input
+              data-cy="profile-bio"
+              filled
+              type="textarea"
+              v-model="form.bio"
+              label="Your bio"
+              counter
+              maxlength="255"
+            />
+
+            <q-select
+              data-cy="profile-interests"
+              v-model="form.interests"
+              label="Interests"
+              multiple
+              clearable
+              filled
+              :options="interests"
+              option-label="title"
+              option-value="id"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Profile photo section -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_photo_camera" class="q-mr-sm" />
+            Profile Photo
+          </div>
+
+          <div class="row items-center q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <UploadComponent
+                data-cy="profile-photo"
+                label="Profile picture"
+                :crop-options="{autoZoom: true, aspectRatio: 1}"
+                @upload="onProfilePhotoSelect"
+              />
+            </div>
+
+            <div class="col-12 col-sm-6" v-if="localAvatarUrl">
+              <q-img
+                :src="localAvatarUrl"
+                spinner-color="white"
+                class="rounded-borders"
+                style="height: 100px; max-width: 100px"
+              >
+                <q-btn
+                  data-cy="profile-photo-delete"
+                  color="primary"
+                  size="md"
+                  icon="sym_r_delete"
+                  class="all-pointer-events absolute-top-right"
+                  @click="onProfilePhotoDelete"
+                />
+              </q-img>
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Bluesky integration section -->
+      <q-card class="q-mb-md" data-cy="profile-bluesky">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_cloud" class="q-mr-sm" />
+            Bluesky Settings
+          </div>
+          <div class="q-gutter-y-md">
+            <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
+              Connected as: {{ form.preferences.bluesky.handle }}
+            </div>
+            <q-toggle
+              v-model="form.preferences.bluesky.connected"
+              label="Use Bluesky as event source"
+              @update:model-value="onBlueskyConnectionToggle"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Main profile update button -->
+      <q-card-actions align="right" class="q-mb-lg">
+        <q-btn
+          data-cy="profile-update"
+          no-caps
+          :loading="isLoading"
+          label="Update Profile"
+          type="submit"
+          color="primary"
+        />
+      </q-card-actions>
+    </q-form>
+
+    <!-- Matrix settings (separate section) -->
     <q-card class="q-mb-md" data-cy="profile-matrix" v-if="hasMatrixAccount">
       <q-card-section>
         <div class="text-h6 q-mb-md">
@@ -194,73 +237,85 @@
       </q-card-section>
     </q-card>
 
-    <q-expansion-item
-      data-cy="profile-password"
-      expand-separator
-      icon="sym_r_vpn_key"
-      label="Change Password"
-    >
-      <q-card>
-        <q-card-section>
-          <q-input
-            data-cy="profile-old-password"
-            v-model="form.oldPassword"
-            filled
-            maxlength="255"
-            :type="isPwd ? 'password' : 'text'"
-            label="Current Password"
-          >
-            <template v-slot:append>
-              <q-icon
-                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                class="cursor-pointer"
-                @click="isPwd = !isPwd"
-              />
-            </template>
-          </q-input>
+    <!-- Account password section (separate from main profile) -->
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <q-expansion-item
+          data-cy="profile-password"
+          expand-separator
+          icon="sym_r_vpn_key"
+          label="Change Account Password"
+        >
+          <q-card>
+            <q-card-section>
+              <q-input
+                data-cy="profile-old-password"
+                v-model="form.oldPassword"
+                filled
+                maxlength="255"
+                :type="isPwd ? 'password' : 'text'"
+                label="Current Password"
+              >
+                <template v-slot:append>
+                  <q-icon
+                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                    class="cursor-pointer"
+                    @click="isPwd = !isPwd"
+                  />
+                </template>
+              </q-input>
 
-          <q-input
-            minlength="8"
-            maxlength="255"
-            data-cy="profile-new-password"
-            v-model="form.password"
-            filled
-            :type="isPwd ? 'password' : 'text'"
-            label="New Password"
-            class="q-mt-md"
-          >
-            <template v-slot:append>
-              <q-icon
-                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                class="cursor-pointer"
-                @click="isPwd = !isPwd"
-              />
-            </template>
-          </q-input>
-        </q-card-section>
-      </q-card>
-    </q-expansion-item>
+              <q-input
+                minlength="8"
+                maxlength="255"
+                data-cy="profile-new-password"
+                v-model="form.password"
+                filled
+                :type="isPwd ? 'password' : 'text'"
+                label="New Password"
+                class="q-mt-md"
+              >
+                <template v-slot:append>
+                  <q-icon
+                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                    class="cursor-pointer"
+                    @click="isPwd = !isPwd"
+                  />
+                </template>
+              </q-input>
 
-    <q-card-actions align="right">
-      <q-btn
-        data-cy="profile-delete-account"
-        no-caps
-        label="Delete account"
-        color="negative"
-        flat
-        class="q-ml-sm"
-        @click="onDeleteAccount"
-      />
-      <q-btn
-        data-cy="profile-update"
-        no-caps
-        :loading="isLoading"
-        label="Update"
-        type="submit"
-        color="primary"
-      />
-    </q-card-actions>
-  </q-form>
+              <div class="q-mt-md">
+                <q-btn
+                  data-cy="profile-change-password"
+                  no-caps
+                  label="Change Password"
+                  color="primary"
+                  @click="onChangePassword"
+                />
+              </div>
+            </q-card-section>
+          </q-card>
+        </q-expansion-item>
+      </q-card-section>
+    </q-card>
+
+    <!-- Account deletion section -->
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md text-negative">
+          <q-icon name="sym_r_warning" class="q-mr-sm" />
+          Danger Zone
+        </div>
+        <q-btn
+          data-cy="profile-delete-account"
+          no-caps
+          label="Delete my account"
+          color="negative"
+          @click="onDeleteAccount"
+        />
+      </q-card-section>
+    </q-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -334,15 +389,31 @@ const getLastPasswordChangedFormatted = computed(() => {
   return date.formatDate(new Date(lastChanged), 'MMMM D, YYYY')
 })
 
+// Main profile form submission - handles basic profile data only (not passwords)
 const onSubmit = async () => {
   try {
     isLoading.value = true
-    const user = {
-      ...form.value,
-      photo: form.value.photo?.id ? { id: form.value.photo.id } : null
+
+    // Create a user object with only the basic profile properties
+    // No password fields here - those are handled separately
+    const profileData = {
+      firstName: form.value.firstName,
+      lastName: form.value.lastName,
+      email: form.value.email,
+      bio: form.value.bio,
+      interests: form.value.interests,
+
+      // Only send the ID of the photo to avoid Vue warnings
+      // If we have a photo object but no ID (a newly uploaded photo), send the whole photo
+      photo: form.value.photo ? (form.value.photo.id ? { id: form.value.photo.id } : form.value.photo) : null,
+
+      // Include preferences for integration settings
+      ...(form.value.preferences ? {
+        preferences: form.value.preferences
+      } : {})
     }
 
-    const response = await authApi.updateMe(user)
+    const response = await authApi.updateMe(profileData)
     useAuthStore().actionSetUser(response.data)
     success('Profile updated successfully')
 
@@ -357,6 +428,38 @@ const onSubmit = async () => {
     error('Failed to update profile')
   } finally {
     isLoading.value = false
+  }
+}
+
+// Separate function to handle password changes
+const onChangePassword = async () => {
+  try {
+    if (!form.value.password || form.value.password.length < 8) {
+      error('New password must be at least 8 characters')
+      return
+    }
+
+    if (!form.value.oldPassword) {
+      error('Current password is required')
+      return
+    }
+
+    // Create an object with just the password fields
+    const passwordData = {
+      password: form.value.password,
+      oldPassword: form.value.oldPassword
+    }
+
+    const response = await authApi.updateMe(passwordData)
+    useAuthStore().actionSetUser(response.data)
+    success('Password updated successfully')
+
+    // Clear password fields for security
+    form.value.password = ''
+    form.value.oldPassword = ''
+  } catch (err) {
+    console.error('Failed to update password:', err)
+    error('Failed to update password. Please check your current password is correct.')
   }
 }
 
@@ -414,11 +517,14 @@ onMounted(async () => {
 })
 
 const onProfilePhotoSelect = (file: FileEntity) => {
+  // Assign to form.value.photo directly without enumerating properties
   form.value.photo = file
 }
 
 const onProfilePhotoDelete = () => {
-  form.value.photo = { id: 0, path: null }
+  // Set photo to an object with just ID = 0, which indicates deletion
+  // The API only needs the ID, not the full FileEntity structure
+  form.value.photo = { id: 0 }
 }
 
 const openChangeEmailDialog = () => {
@@ -463,11 +569,29 @@ const onSetMatrixPassword = async () => {
     return
   }
 
-  const success = await setMatrixPassword(matrixPassword.value)
-  if (success) {
-    // Clear the password fields for security
+  const result = await setMatrixPassword(matrixPassword.value)
+  if (result) {
+    // Clear the password fields for security (do this immediately)
     matrixPassword.value = ''
     matrixPasswordConfirm.value = ''
+
+    // Update the UI to reflect direct access
+    const userData = useAuthStore().user
+    if (userData) {
+      // Update the form preferences properly
+      if (!form.value.preferences) {
+        form.value.preferences = {}
+      }
+
+      // Create matrix preferences object if it doesn't exist
+      if (!form.value.preferences.matrix) {
+        form.value.preferences.matrix = {}
+      }
+
+      // Set the necessary fields without replacing the entire object
+      form.value.preferences.matrix.hasDirectAccess = true
+      form.value.preferences.matrix.lastPasswordChanged = new Date()
+    }
   }
 }
 
