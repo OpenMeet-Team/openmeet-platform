@@ -75,7 +75,8 @@ export function useMatrixAccess () {
    */
   const hasMatrixAccount = (): boolean => {
     const userData = authStore.user
-    return !!userData?.matrixUserId
+    // Check for direct Matrix user ID or Matrix preferences
+    return !!userData?.matrixUserId || !!userData?.preferences?.matrix
   }
 
   /**
