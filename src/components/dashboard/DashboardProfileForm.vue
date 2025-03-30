@@ -107,8 +107,8 @@
         </q-card-section>
       </q-card>
 
-      <!-- Bluesky integration section -->
-      <q-card class="q-mb-md" data-cy="profile-bluesky">
+      <!-- Bluesky integration section - only shown for Bluesky users -->
+      <q-card class="q-mb-md" data-cy="profile-bluesky" v-if="isBlueskyUser">
         <q-card-section>
           <div class="text-h6 q-mb-md">
             <q-icon name="sym_r_cloud" class="q-mr-sm" />
@@ -323,7 +323,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Dialog, LoadingBar, date } from 'quasar'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
-import { FileEntity, SubCategoryEntity } from '../../types'
+import { FileEntity, SubCategoryEntity, AuthProvidersEnum } from '../../types'
 import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
@@ -473,6 +473,12 @@ const localAvatarUrl = computed(() => {
     return getImageSrc(form.value.photo.path)
   }
   return null
+})
+
+// Only show Bluesky settings for Bluesky-authenticated users
+const isBlueskyUser = computed(() => {
+  const authStore = useAuthStore()
+  return authStore.user.provider === AuthProvidersEnum.bluesky
 })
 
 onMounted(async () => {
