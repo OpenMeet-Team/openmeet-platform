@@ -9,5 +9,8 @@
     "options": [
       "code-coverage"
     ]
+  },
+  "@quasar/qmarkdown": {
+    "import_md": true
   }
 }

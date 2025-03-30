@@ -51,6 +51,7 @@
     "@pinia/testing": "^0.1.7",
     "@quasar/app-vite": "^2.0.0-beta.12",
     "@quasar/quasar-app-extension-qcalendar": "^4.0.0-beta.16",
+    "@quasar/quasar-app-extension-qmarkdown": "^2.0.5",
     "@quasar/quasar-app-extension-testing-e2e-cypress": "^6.1.0",
     "@quasar/quasar-app-extension-testing-unit-vitest": "^1.1.0",
     "@types/leaflet": "^1.9.12",

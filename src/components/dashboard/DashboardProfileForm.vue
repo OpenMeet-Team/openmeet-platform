@@ -43,15 +43,52 @@
               :rules="[(val: string) => !!val || 'Last name is required']"
             />
 
-            <q-input
-              data-cy="profile-bio"
-              filled
-              type="textarea"
-              v-model="form.bio"
-              label="Your bio"
-              counter
-              maxlength="255"
-            />
+            <div class="bio-editor q-mb-md">
+              <div class="text-subtitle2 q-mb-sm">Your bio <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+
+              <q-tabs
+                v-model="bioTab"
+                class="text-primary"
+                active-color="primary"
+                indicator-color="primary"
+                narrow-indicator
+              >
+                <q-tab name="edit" label="Edit" />
+                <q-tab name="preview" label="Preview" />
+              </q-tabs>
+
+              <q-separator />
+
+              <q-tab-panels v-model="bioTab" animated>
+                <q-tab-panel name="edit" class="q-pa-none">
+                  <q-input
+                    data-cy="profile-bio"
+                    filled
+                    type="textarea"
+                    v-model="form.bio"
+                    label="Your bio"
+                    hint="Supports Markdown formatting"
+                    counter
+                    maxlength="1000"
+                    autogrow
+                    class="q-mt-sm"
+                  />
+                  <div class="text-caption q-mt-xs">
+                    <span class="text-weight-medium">Markdown tip:</span>
+                    Use **bold**, *italic*, [links](url), and other Markdown syntax
+                  </div>
+                </q-tab-panel>
+
+                <q-tab-panel name="preview" class="q-pa-none">
+                  <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
+                    <q-markdown
+                      :src="form.bio || '*No content yet*'"
+                      class="text-body1"
+                    />
+                  </div>
+                </q-tab-panel>
+              </q-tab-panels>
+            </div>
 
             <q-select
               data-cy="profile-interests"
@@ -366,6 +403,7 @@ const isMatrixPwdVisible = ref(false)
 const isLoading = ref(false)
 const matrixPassword = ref('')
 const matrixPasswordConfirm = ref('')
+const bioTab = ref('edit') // Tab for bio editor (edit/preview)
 
 // Matrix integration
 const {
@@ -618,3 +656,45 @@ const onDeleteAccount = () => {
   })
 }
 </script>
+
+<style lang="scss" scoped>
+.bio-editor {
+  .markdown-preview {
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+
+    :deep(a) {
+      color: var(--q-primary);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+
+      &::after {
+        display: none;
+      }
+    }
+
+    :deep(img) {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+
+    :deep(code) {
+      background-color: rgba(0, 0, 0, 0.05);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    :deep(blockquote) {
+      border-left: 4px solid var(--q-primary);
+      margin-left: 0;
+      padding-left: 16px;
+      color: rgba(0, 0, 0, 0.7);
+    }
+  }
+}
+</style>
