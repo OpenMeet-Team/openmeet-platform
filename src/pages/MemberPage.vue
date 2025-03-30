@@ -16,26 +16,42 @@ import { blueskyApi } from '../api/bluesky'
 import { BlueskyEvent } from '../types/bluesky-event'
 
 const route = useRoute()
-
+const profileStore = useProfileStore()
 const authStore = useAuthStore()
-const user = computed(() => authStore.user)
-const userProfile = computed(() => useProfileStore().user)
-const interests = computed(() => userProfile.value?.interests)
-const ownedGroups = computed(() => userProfile.value?.groups)
-const organizedEvents = computed(() => userProfile.value?.events)
+
+// The active profile being viewed
+const profileUser = computed(() => profileStore.user)
+
+// Computed properties for the profile
+const interests = computed(() => profileUser.value?.interests || [])
+const ownedGroups = computed(() => profileUser.value?.groups || [])
+const organizedEvents = computed(() => profileUser.value?.events || [])
 const groupMemberships = computed(() =>
-  userProfile.value?.groupMembers?.filter(
+  profileUser.value?.groupMembers?.filter(
     (member) => member.groupRole?.name !== 'owner'
-  )
+  ) || []
 )
 
-const isBskyUser = computed(() => user.value?.provider === AuthProvidersEnum.bluesky)
-const bskyHandle = computed(() => isBskyUser.value ? authStore.getBlueskyHandle : null)
-const isGoogleUser = computed(() => user.value?.provider === AuthProvidersEnum.google)
-const isGithubUser = computed(() => user.value?.provider === AuthProvidersEnum.github)
+// Auth provider flags
+const isBskyUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.bluesky)
+const bskyHandle = computed(() => profileUser.value?.preferences?.bluesky?.handle || null)
+const isGoogleUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.google)
+const isGithubUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.github)
 
-const { avatarUrl } = useAvatarUrl(user)
+// Profile avatar
+const avatarUrl = computed(() => {
+  if (profileUser.value && profileUser.value.photo && profileUser.value.photo.path) {
+    return useAvatarUrl(profileUser).avatarUrl.value
+  }
+  return ''
+})
 
+// Check if this is the current user's profile
+const isOwnProfile = computed(() => {
+  return profileUser.value && authStore.user && profileUser.value.id === authStore.user.id
+})
+
+// Bluesky events
 const blueskyEvents = ref<BlueskyEvent[]>([])
 const showDeleteConfirm = ref(false)
 const deletingEvent = ref<string | null>(null)
@@ -76,9 +92,9 @@ const deleteEvent = async () => {
 onMounted(async () => {
   LoadingBar.start()
   await Promise.all([
-    useProfileStore().actionGetMemberProfile(route.params.slug as string),
-    // Fetch Bluesky events if this is a Bluesky user
-    isBskyUser.value && authStore.getBlueskyDid
+    profileStore.actionGetMemberProfile(route.params.slug as string),
+    // Fetch Bluesky events if this is a Bluesky user and it's the current user viewing their own profile
+    isBskyUser.value && isOwnProfile.value && authStore.getBlueskyDid
       ? loadBlueskyEvents() : Promise.resolve()
   ]).finally(() => LoadingBar.stop())
 })
@@ -98,42 +114,48 @@ const loadBlueskyEvents = async () => {
 
 <template>
   <q-page padding class="q-pb-xl q-mx-auto" style="max-width: 1201px">
-    <SpinnerComponent v-if="useProfileStore().isLoading" />
+    <SpinnerComponent v-if="profileStore.isLoading" />
 
-    <div v-if="!useProfileStore().isLoading && user">
+    <div v-if="!profileStore.isLoading && profileUser">
       <div class="row q-col-gutter-md">
         <div class="col-12 col-sm-4">
           <!-- User Info -->
-          <q-card flat bordered>
+          <q-card flat bordered v-if="profileUser">
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="avatarUrl" :alt="user.firstName + ' ' + user.lastName" />
+                  <img :src="avatarUrl" :alt="`${profileUser.firstName || ''} ${profileUser.lastName || ''}`" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
-                  {{ user.firstName }} {{ user.lastName }}
+                  {{ profileUser.firstName || '' }} {{ profileUser.lastName || '' }}
                 </h4>
                 <div
                   data-cy="user-bio"
-                  class="text-body1 q-mt-md"
-                  v-html="user.bio"
-                ></div>
+                  class="text-body1 q-mt-md bio-content"
+                >
+                  <q-markdown
+                    v-if="profileUser.bio"
+                    :src="profileUser.bio"
+                  />
+                  <div v-else class="text-grey-6 text-italic">No bio provided</div>
+                </div>
               </div>
             </q-card-section>
           </q-card>
 
+          <!-- Edit Profile Link (only shown if viewing your own profile) -->
           <q-card
             flat
             bordered
             class="q-mt-xl"
-            v-if="user.id === useAuthStore().user?.id"
+            v-if="isOwnProfile"
           >
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
-                <img :src="avatarUrl" :alt="user.name" />
+                <img :src="avatarUrl" :alt="profileUser?.name || ''" />
               </q-avatar>
               <div class="column">
-                <div class="text-bold">{{ user.name }}</div>
+                <div class="text-bold">{{ profileUser?.name || '' }}</div>
                 <router-link
                   :to="{ name: 'DashboardProfilePage' }"
                   class="router-link-inherit"
@@ -144,12 +166,12 @@ const loadBlueskyEvents = async () => {
           </q-card>
 
           <!-- Bluesky Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isBskyUser">
+          <q-card flat bordered class="q-mt-md" v-if="isBskyUser && profileUser">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-bluesky" color="primary" size="2rem" />
                 <h6 class="q-mt-sm q-mb-none">Bluesky User</h6>
-                <div class="text-body2 q-mt-sm">
+                <div class="text-body2 q-mt-sm" v-if="bskyHandle">
                   <a
                     :href="`https://bsky.app/profile/${bskyHandle}`"
                     target="_blank"
@@ -161,8 +183,8 @@ const loadBlueskyEvents = async () => {
               </div>
             </q-card-section>
 
-            <!-- Add Bluesky Events Section -->
-            <q-card-section v-if="blueskyEvents?.length > 0">
+            <!-- Add Bluesky Events Section (only shown if this is the user's own profile) -->
+            <q-card-section v-if="blueskyEvents?.length > 0 && isOwnProfile">
               <div class="text-h6 q-mb-md">Events on Bluesky</div>
               <div class="q-gutter-y-md">
                 <q-card flat bordered v-for="event in blueskyEvents" :key="event.uri" class="event-card">
@@ -249,7 +271,7 @@ const loadBlueskyEvents = async () => {
             </q-dialog>
           </q-card>
           <!-- Google Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser">
+          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser && profileUser">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-google" color="primary" size="2rem" />
@@ -258,14 +280,14 @@ const loadBlueskyEvents = async () => {
             </q-card-section>
           </q-card>
           <!-- Github Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isGithubUser">
+          <q-card flat bordered class="q-mt-md" v-if="isGithubUser && profileUser">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-github" color="primary" size="2rem" />
                 <h6 class="q-mt-sm q-mb-none">Github User</h6>
-                <h6 class="q-mt-sm q-mb-none">
-                  <a :href="`https://github.com/${user.socialId}`" target="_blank" class="text-primary">
-                    {{ user.name }}
+                <h6 class="q-mt-sm q-mb-none" v-if="profileUser.socialId">
+                  <a :href="`https://github.com/${profileUser.socialId}`" target="_blank" class="text-primary">
+                    {{ profileUser.name }}
                   </a>
                 </h6>
               </div>
@@ -302,7 +324,7 @@ const loadBlueskyEvents = async () => {
                 :groups="ownedGroups"
                 :show-pagination="false"
                 :current-page="1"
-                :loading="useProfileStore().isLoading"
+                :loading="profileStore.isLoading"
                 empty-message="There are no groups yet."
                 layout="grid"
               />
@@ -344,7 +366,7 @@ const loadBlueskyEvents = async () => {
       </div>
     </div>
     <NoContentComponent
-      v-else
+      v-else-if="!profileStore.isLoading"
       label="Profile not found"
       icon="sym_r_info"
       :to="{ name: 'HomePage' }"
@@ -387,6 +409,42 @@ const loadBlueskyEvents = async () => {
     &:hover {
       text-decoration: underline;
     }
+  }
+}
+
+.bio-content {
+  max-width: 100%;
+
+  :deep(a) {
+    color: var(--q-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  :deep(code) {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid var(--q-primary);
+    margin-left: 0;
+    padding-left: 16px;
+    color: rgba(0, 0, 0, 0.7);
   }
 }
 </style>

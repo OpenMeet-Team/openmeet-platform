@@ -215,9 +215,11 @@
               <q-card-section>
                 <div
                   data-cy="event-description"
-                  class="text-body1 q-mt-md"
-                  v-html="event.description"
-                ></div>
+                  class="text-body1 q-mt-md bio-content"
+                >
+                  <q-markdown v-if="event.description" :src="event.description" />
+                  <div v-else class="text-grey-6 text-italic">No description provided</div>
+                </div>
               </q-card-section>
             </q-card-section>
             <q-card-section>
@@ -504,3 +506,41 @@ const spotsLeft = computed(() =>
 )
 
 </script>
+
+<style scoped lang="scss">
+.bio-content {
+  max-width: 100%;
+
+  :deep(a) {
+    color: var(--q-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  :deep(code) {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid var(--q-primary);
+    margin-left: 0;
+    padding-left: 16px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+}
+</style>

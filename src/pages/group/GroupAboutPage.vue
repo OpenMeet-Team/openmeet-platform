@@ -16,13 +16,7 @@ const hasPermission = computed(() => {
   return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
 })
 
-// Add a computed property to decode HTML entities
-const decodedDescription = computed(() => {
-  if (!group.value?.description) return ''
-  const textarea = document.createElement('textarea')
-  textarea.innerHTML = group.value.description
-  return textarea.value
-})
+// No longer need to decode HTML entities with markdown
 
 onMounted(() => {
   if (hasPermission.value) {
@@ -41,7 +35,10 @@ onMounted(() => {
       <SubtitleComponent class="q-px-md" hideLink label="What we're about" />
       <q-card flat>
         <q-card-section>
-          <div class="text-body1" v-html="decodedDescription"></div>
+          <div class="text-body1 bio-content">
+            <q-markdown v-if="group.description" :src="group.description" />
+            <div v-else class="text-grey-6 text-italic">No description provided</div>
+          </div>
         </q-card-section>
       </q-card>
 
@@ -60,4 +57,40 @@ onMounted(() => {
   <SpinnerComponent v-else />
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.bio-content {
+  max-width: 100%;
+
+  :deep(a) {
+    color: var(--q-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  :deep(code) {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid var(--q-primary);
+    margin-left: 0;
+    padding-left: 16px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+}
+</style>
