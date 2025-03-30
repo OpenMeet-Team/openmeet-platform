@@ -76,62 +76,18 @@ const handleBlueskyLogin = async () => {
         const response = await fetch(
           `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
         )
-        // const { url } = await response.json()
         const url = await response.text()
 
         if (!url) {
           throw new Error('No authorization URL received')
         }
 
-        // Open in popup window
-        const width = 600
-        const height = 700
-        const left = window.screenX + (window.outerWidth - width) / 2
-        const top = window.screenY + (window.outerHeight - height) / 2
+        // Redirect to Bluesky auth in the same window
+        // Store the current URL to return to after authentication
+        localStorage.setItem('bluesky_auth_return_url', window.location.href)
 
-        const popup = window.open(
-          url,
-          'bluesky-auth',
-          `width=${width},height=${height},left=${left},top=${top}`
-        )
-
-        if (popup) {
-          // Add message event listener to handle auth result
-          const messageHandler = (event: MessageEvent<{ error?: string; needsEmail?: boolean; success?: boolean }>) => {
-            // Verify the origin matches our window
-            if (event.origin !== window.location.origin) return
-
-            // Handle success, error, or needsEmail
-            if (event.data.error) {
-              $q.notify({
-                type: 'negative',
-                message: 'Authentication failed'
-              })
-            } else if (event.data.needsEmail) {
-              // Redirect to email collection page
-              window.location.href = '/auth/collect-email'
-            } else if (event.data.success) {
-              // Handle successful authentication
-              window.location.reload()
-            }
-
-            // Clean up
-            window.removeEventListener('message', messageHandler)
-            clearInterval(timer)
-            isLoading.value = false
-          }
-
-          window.addEventListener('message', messageHandler)
-
-          // Check periodically if the popup is closed
-          const timer = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(timer)
-              window.removeEventListener('message', messageHandler)
-              isLoading.value = false
-            }
-          }, 500)
-        }
+        // Redirect the main window to the auth URL
+        window.location.href = url
       } catch (error) {
         console.error('Failed to get auth URL:', error)
         $q.notify({
