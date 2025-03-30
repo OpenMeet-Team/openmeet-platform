@@ -3,161 +3,231 @@
     <SpinnerComponent v-if="isLoading" class="c-event-form-basic-component" />
     <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="!isLoading">
 
-      <!-- Event Name -->
-      <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title" filled maxlength="80" counter
-        :rules="[(val: string) => !!val || 'Title is required']" />
-
-      <!-- Event Group -->
-      <q-select data-cy="event-group" v-if="groupsOptions && groupsOptions.length" :readonly="!!eventData.id" v-model="eventData.group"
-        :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
-        label="Group" />
-
-      <!-- Event Start Date -->
-      <DatetimeComponent data-cy="event-start-date" class="q-mt-xl" required label="Starting date and time"
-        v-model="eventData.startDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-        <template v-slot:after>
-          <div class="text-overline text-bold">
-            {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
+      <!-- Basic Information Card -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_event" class="q-mr-sm" />
+            Basic Information
           </div>
-        </template>
-      </DatetimeComponent>
 
-      <!-- Event End Date -->
-      <template v-if="eventData.startDate">
-        <q-checkbox data-cy="event-set-end-time" class="q-mt-none" :model-value="!!eventData.endDate"
-          @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set en end time..." />
+          <!-- Event Name -->
+          <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title" filled maxlength="80" counter
+            :rules="[(val: string) => !!val || 'Title is required']" class="q-mb-md" />
 
-        <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time"
-          v-model="eventData.endDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-          <!-- (val: string) => (new Date(val) > new Date(eventData.startDate)) || 'End date must be later than the start date.' -->
-          <template v-slot:hint>
-            <div class="text-bold">
-              {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+          <!-- Event Group -->
+          <div v-if="groupsOptions && groupsOptions.length" class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Group Association</div>
+            <q-select data-cy="event-group" :readonly="!!eventData.id" v-model="eventData.group"
+              :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
+              label="Group" />
+          </div>
+
+          <!-- Event Date and Time -->
+          <div class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Date and Time</div>
+
+            <!-- Event Start Date -->
+            <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
+              v-model="eventData.startDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+              <template v-slot:after>
+                <div class="text-overline text-bold">
+                  {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
+                </div>
+              </template>
+            </DatetimeComponent>
+
+            <!-- Event End Date -->
+            <template v-if="eventData.startDate">
+              <q-checkbox data-cy="event-set-end-time" class="q-mt-md" :model-value="!!eventData.endDate"
+                @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set an end time..." />
+
+              <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time"
+                v-model="eventData.endDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+                <template v-slot:hint>
+                  <div class="text-bold">
+                    {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+                  </div>
+                </template>
+              </DatetimeComponent>
+            </template>
+          </div>
+
+          <!-- Event Image -->
+          <div class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Event Image</div>
+
+            <div class="row items-center q-col-gutter-md">
+              <div class="col-12 col-sm-6">
+                <UploadComponent data-cy="event-image" label="Event image" @upload="onEventImageSelect" />
+              </div>
+
+              <div class="col-12 col-sm-6" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path">
+                <q-img ratio="16/9" :src="eventData.image.path" spinner-color="white"
+                  class="rounded-borders" style="height: 120px; max-width: 220px" />
+              </div>
             </div>
-          </template>
-        </DatetimeComponent>
-      </template>
-
-      <!-- <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" /> -->
-      <UploadComponent data-cy="event-image" label="Event image" @upload="onEventImageSelect" />
-      <q-img ratio="16/9" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path"
-        :src="eventData.image.path" spinner-color="white" class="rounded-borders" style="height: 120px; max-width: 220px" />
-
-      <!-- Event Description (Markdown) -->
-      <div class="text-body1 q-mt-md">Event Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
-
-      <q-tabs
-        v-model="descriptionTab"
-        class="text-primary"
-        active-color="primary"
-        indicator-color="primary"
-        narrow-indicator
-      >
-        <q-tab name="edit" label="Edit" />
-        <q-tab name="preview" label="Preview" />
-      </q-tabs>
-
-      <q-separator />
-
-      <q-tab-panels v-model="descriptionTab" animated>
-        <q-tab-panel name="edit" class="q-pa-none">
-          <q-input
-            data-cy="event-description"
-            filled
-            type="textarea"
-            v-model="eventData.description"
-            label="Event description"
-            hint="Supports Markdown formatting"
-            counter
-            maxlength="2000"
-            autogrow
-            class="q-mt-sm"
-            :rules="[val => !!val || 'Description is required']"
-          />
-          <div class="text-caption q-mt-xs">
-            <span class="text-weight-medium">Markdown tip:</span>
-            Use **bold**, *italic*, [links](url), and other Markdown syntax
           </div>
-        </q-tab-panel>
 
-        <q-tab-panel name="preview" class="q-pa-none">
-          <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
-            <q-markdown
-              :src="eventData.description || '*No content yet*'"
-              class="text-body1 description-preview"
-            />
+          <!-- Event Description (Markdown) -->
+          <div class="q-mt-lg">
+            <div class="text-subtitle2 q-mb-sm">Event Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+
+            <q-tabs
+              v-model="descriptionTab"
+              class="text-primary"
+              active-color="primary"
+              indicator-color="primary"
+              narrow-indicator
+            >
+              <q-tab name="edit" label="Edit" />
+              <q-tab name="preview" label="Preview" />
+            </q-tabs>
+
+            <q-separator />
+
+            <q-tab-panels v-model="descriptionTab" animated>
+              <q-tab-panel name="edit" class="q-pa-none">
+                <q-input
+                  data-cy="event-description"
+                  filled
+                  type="textarea"
+                  v-model="eventData.description"
+                  label="Event description"
+                  hint="Supports Markdown formatting"
+                  counter
+                  maxlength="2000"
+                  autogrow
+                  class="q-mt-sm"
+                  :rules="[val => !!val || 'Description is required']"
+                />
+                <div class="text-caption q-mt-xs">
+                  <span class="text-weight-medium">Markdown tip:</span>
+                  Use **bold**, *italic*, [links](url), and other Markdown syntax
+                </div>
+              </q-tab-panel>
+
+              <q-tab-panel name="preview" class="q-pa-none">
+                <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
+                  <q-markdown
+                    :src="eventData.description || '*No content yet*'"
+                    class="text-body1 description-preview"
+                  />
+                </div>
+              </q-tab-panel>
+            </q-tab-panels>
           </div>
-        </q-tab-panel>
-      </q-tab-panels>
+        </q-card-section>
+      </q-card>
 
-      <!-- Event Type -->
-      <q-tabs data-cy="event-type" no-caps v-model="eventData.type" align="left" indicator-color="primary">
-        <q-tab data-cy="event-type-in-person" label="In person" icon="sym_r_person_pin_circle" name="in-person" />
-        <q-tab data-cy="event-type-online" label="Online" name="online" icon="sym_r_videocam" />
-        <q-tab data-cy="event-type-hybrid" label="Hybrid" name="hybrid" icon="sym_r_diversity_2" />
-      </q-tabs>
+      <!-- Event Type and Location -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_location_on" class="q-mr-sm" />
+            Event Type & Location
+          </div>
 
-      <!-- Event Location Online -->
-      <q-input data-cy="event-location-online" v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)"
-        filled v-model="eventData.locationOnline" type="url" label="Link to the event" />
+          <!-- Event Type -->
+          <q-tabs data-cy="event-type" no-caps v-model="eventData.type" align="left" indicator-color="primary">
+            <q-tab data-cy="event-type-in-person" label="In person" icon="sym_r_person_pin_circle" name="in-person" />
+            <q-tab data-cy="event-type-online" label="Online" name="online" icon="sym_r_videocam" />
+            <q-tab data-cy="event-type-hybrid" label="Hybrid" name="hybrid" icon="sym_r_diversity_2" />
+          </q-tabs>
 
-      <!-- Event Location -->
-      <LocationComponent data-cy="event-location" :location="eventData.location as string"
-        :lat="eventData.lat as number" :lon="eventData.lon as number"
-        v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)" @update:model-value="onUpdateLocation"
-        label="Address or location" />
+          <!-- Event Location Online -->
+          <q-input data-cy="event-location-online" v-if="eventData.type && ['online', 'hybrid'].includes(eventData.type)"
+            filled v-model="eventData.locationOnline" type="url" label="Link to the event" class="q-mt-md" />
+
+          <!-- Event Location -->
+          <LocationComponent data-cy="event-location" :location="eventData.location as string"
+            :lat="eventData.lat as number" :lon="eventData.lon as number"
+            v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)" @update:model-value="onUpdateLocation"
+            label="Address or location" class="q-mt-md" />
+        </q-card-section>
+      </q-card>
 
       <!-- Event Category -->
-      <q-select data-cy="event-categories" class="q-mt-xl" v-model="eventData.categories" :options="categoryOptions"
-        filled multiple use-chips option-value="id" option-label="name" label="Event Category" />
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_category" class="q-mr-sm" />
+            Categories
+          </div>
+          <q-select data-cy="event-categories" v-model="eventData.categories" :options="categoryOptions"
+            filled multiple use-chips option-value="id" option-label="name" label="Event Categories" />
+        </q-card-section>
+      </q-card>
 
-      <!-- Event Visibility -->
-      <q-select data-cy="event-visibility" v-model="eventData.visibility" label="Event Viewable By" option-value="value"
-        option-label="label" emit-value map-options :options="[
-          { label: 'The World', value: 'public' },
-          { label: 'Authenticated Users', value: 'authenticated' },
-          { label: 'People You Invite', value: 'private' }
-        ]" filled />
-      <p class="text-caption" v-if="eventData.visibility === EventVisibility.Private">
-        If private, the event is hidden from search and accessible only by direct link or group members.
-      </p>
-      <p class="text-caption" v-if="eventData.visibility === EventVisibility.Public">
-        If public, the event is visible to everyone and searchable.
-      </p>
-      <p class="text-caption" v-if="eventData.visibility === EventVisibility.Authenticated">
-        If authenticated, the event is visible to authenticated users and searchable.
-      </p>
+      <!-- Event Settings -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_settings" class="q-mr-sm" />
+            Event Settings
+          </div>
 
-      <div>
-        <!-- Max Attendees -->
-        <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
-          @update:model-value="eventData.maxAttendees = Number($event)" label="Limit number of attendees?" />
-        <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees"
-          v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled type="number" :rules="[
-            (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
-          ]" />
-        <!-- Event Waitlist -->
-        <div>
-          <q-checkbox v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
-            @update:model-value="eventData.allowWaitlist = $event" label="Enable waitlist?" />
-        </div>
-      </div>
+          <!-- Event Visibility -->
+          <div class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Visibility</div>
+            <q-select data-cy="event-visibility" v-model="eventData.visibility" label="Event Viewable By" option-value="value"
+              option-label="label" emit-value map-options :options="[
+                { label: 'The World', value: 'public' },
+                { label: 'Authenticated Users', value: 'authenticated' },
+                { label: 'People You Invite', value: 'private' }
+              ]" filled />
+            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
+              If private, the event is hidden from search and accessible only by direct link or group members.
+            </p>
+            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Public">
+              If public, the event is visible to everyone and searchable.
+            </p>
+            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Authenticated">
+              If authenticated, the event is visible to authenticated users and searchable.
+            </p>
+          </div>
 
-      <div class="row">
-        <!-- Require group membership -->
-        <q-checkbox v-if="eventData.group" data-cy="event-require-group-membership"
-          :model-value="!!eventData.requireGroupMembership"
-          @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
-      </div>
+          <!-- Attendee Settings -->
+          <q-separator spaced />
+          <div class="text-subtitle2 q-my-sm">Attendee Settings</div>
 
-      <!-- Require attendee approval -->
-      <div class="row">
-        <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
-          @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
-      </div>
-      <!-- If require approval, show approval question -->
-      <q-input type="textarea" counter maxlength="255" v-if="eventData.requireApproval"
-        data-cy="event-approval-question" v-model="eventData.approvalQuestion" label="Approval Question" filled />
+          <div class="q-mb-md">
+            <!-- Max Attendees -->
+            <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
+              @update:model-value="eventData.maxAttendees = Number($event)" label="Limit number of attendees?" />
+            <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees"
+              v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled type="number" class="q-mt-sm" :rules="[
+                (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
+              ]" />
+            <!-- Event Waitlist -->
+            <div class="q-mt-sm">
+              <q-checkbox v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
+                @update:model-value="eventData.allowWaitlist = $event" label="Enable waitlist?" />
+            </div>
+          </div>
+
+          <!-- Group Membership -->
+          <div class="q-mb-md" v-if="eventData.group">
+            <q-checkbox data-cy="event-require-group-membership"
+              :model-value="!!eventData.requireGroupMembership"
+              @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
+          </div>
+
+          <!-- Approval Settings -->
+          <q-separator spaced />
+          <div class="text-subtitle2 q-my-sm">Approval Settings</div>
+
+          <div>
+            <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
+              @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
+
+            <!-- If require approval, show approval question -->
+            <q-input type="textarea" counter maxlength="255" v-if="eventData.requireApproval"
+              data-cy="event-approval-question" v-model="eventData.approvalQuestion" label="Approval Question"
+              filled class="q-mt-sm" />
+          </div>
+        </q-card-section>
+      </q-card>
 
       <!-- Action buttons -->
       <div class="row justify-end q-gutter-md">
@@ -357,6 +427,7 @@ const onSubmit = async () => {
   min-height: 100px;
   max-height: 400px;
   overflow-y: auto;
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .description-preview {

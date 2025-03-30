@@ -1,81 +1,135 @@
 <template>
   <SpinnerComponent v-if="loading" />
   <q-form v-else @submit="onSubmit" class="q-gutter-md" data-cy="group-form">
-    <q-input data-cy="group-name" filled v-model="group.name" label="Group Name" counter maxlength="60"
-      :rules="[(val: string) => !!val || 'Group name is required']" />
-
-    <div class="text-body1 q-mt-md">Group Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
-
-    <q-tabs
-      v-model="descriptionTab"
-      class="text-primary"
-      active-color="primary"
-      indicator-color="primary"
-      narrow-indicator
-    >
-      <q-tab name="edit" label="Edit" />
-      <q-tab name="preview" label="Preview" />
-    </q-tabs>
-
-    <q-separator />
-
-    <q-tab-panels v-model="descriptionTab" animated>
-      <q-tab-panel name="edit" class="q-pa-none">
-        <q-input
-          data-cy="group-description"
-          filled
-          type="textarea"
-          v-model="group.description"
-          label="Group description"
-          hint="Supports Markdown formatting"
-          counter
-          maxlength="2000"
-          autogrow
-          class="q-mt-sm"
-          :rules="[val => !!val || 'Description is required']"
-        />
-        <div class="text-caption q-mt-xs">
-          <span class="text-weight-medium">Markdown tip:</span>
-          Use **bold**, *italic*, [links](url), and other Markdown syntax
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_group" class="q-mr-sm" />
+          Basic Information
         </div>
-      </q-tab-panel>
 
-      <q-tab-panel name="preview" class="q-pa-none">
-        <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
-          <q-markdown
-            :src="group.description || '*No content yet*'"
-            class="text-body1 description-preview"
-          />
+        <!-- Group Name -->
+        <q-input data-cy="group-name" filled v-model="group.name" label="Group Name" counter maxlength="60"
+          :rules="[(val: string) => !!val || 'Group name is required']" class="q-mb-md" />
+
+        <!-- Group Description -->
+        <div class="q-mb-md">
+          <div class="text-subtitle2 q-mb-sm">Group Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+
+          <q-tabs
+            v-model="descriptionTab"
+            class="text-primary"
+            active-color="primary"
+            indicator-color="primary"
+            narrow-indicator
+          >
+            <q-tab name="edit" label="Edit" />
+            <q-tab name="preview" label="Preview" />
+          </q-tabs>
+
+          <q-separator />
+
+          <q-tab-panels v-model="descriptionTab" animated>
+            <q-tab-panel name="edit" class="q-pa-none">
+              <q-input
+                data-cy="group-description"
+                filled
+                type="textarea"
+                v-model="group.description"
+                label="Group description"
+                hint="Supports Markdown formatting"
+                counter
+                maxlength="2000"
+                autogrow
+                class="q-mt-sm"
+                :rules="[val => !!val || 'Description is required']"
+              />
+              <div class="text-caption q-mt-xs">
+                <span class="text-weight-medium">Markdown tip:</span>
+                Use **bold**, *italic*, [links](url), and other Markdown syntax
+              </div>
+            </q-tab-panel>
+
+            <q-tab-panel name="preview" class="q-pa-none">
+              <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
+                <q-markdown
+                  :src="group.description || '*No content yet*'"
+                  class="text-body1 description-preview"
+                />
+              </div>
+            </q-tab-panel>
+          </q-tab-panels>
         </div>
-      </q-tab-panel>
-    </q-tab-panels>
 
-    <q-select data-cy="group-categories" v-model="group.categories" :options="categoryOptions" filled multiple use-chips
-      emit-value map-options option-value="id" option-label="name" label="Categories (press Enter after each)" />
+        <!-- Group Categories -->
+        <div class="q-mb-md">
+          <div class="text-subtitle2 q-mb-sm">Categories</div>
+          <q-select data-cy="group-categories" v-model="group.categories" :options="categoryOptions" filled multiple use-chips
+            emit-value map-options option-value="id" option-label="name" label="Categories (press Enter after each)" />
+        </div>
 
-    <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number"
-      :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location"
-      placeholder="Neighborhood, city or zip" />
+        <!-- Group Location -->
+        <div class="q-mb-md">
+          <div class="text-subtitle2 q-mb-sm">Group Location</div>
+          <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number"
+            :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location"
+            placeholder="Neighborhood, city or zip" />
+        </div>
 
-    <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
-      @upload="onGroupImageSelect" />
+        <!-- Group Image -->
+        <div class="q-mb-md">
+          <div class="text-subtitle2 q-mb-sm">Group Image</div>
 
-    <q-img ratio="16/9" v-if="group && group.image && group.image.path" :src="group.image.path" spinner-color="white"
-      class="rounded-borders" style="height: 120px; max-width: 220px" />
+          <div class="row items-center q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
+                @upload="onGroupImageSelect" />
+            </div>
 
-    <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value"
-      option-label="label" emit-value map-options :options="[
-        { label: 'The World', value: 'public' },
-        { label: 'Authenticated Users', value: 'authenticated' },
-        { label: 'People You Invite', value: 'private' }
-      ]" filled />
-    <div>
-      <p v-if="group.visibility === GroupVisibility.Private">Require approval for new group members. Not found in search and membership availabe only with group invite. </p>
-      <p v-if="group.visibility === GroupVisibility.Authenticated">Members must be authenticated. Found in search for authenticated users and can be joined by anyone with the link.</p>
-      <p v-if="group.visibility === GroupVisibility.Public">Everyone can join. Found in search.</p>
-    </div>
+            <div class="col-12 col-sm-6" v-if="group && group.image && group.image.path">
+              <q-img ratio="16/9" :src="group.image.path" spinner-color="white"
+                class="rounded-borders" style="height: 120px; max-width: 220px" />
+            </div>
+          </div>
+        </div>
+      </q-card-section>
+    </q-card>
 
-    <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
+    <!-- Group Settings -->
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_settings" class="q-mr-sm" />
+          Group Settings
+        </div>
+
+        <!-- Group Visibility -->
+        <div class="q-mb-md">
+          <div class="text-subtitle2 q-mb-sm">Visibility</div>
+          <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value"
+            option-label="label" emit-value map-options :options="[
+              { label: 'The World', value: 'public' },
+              { label: 'Authenticated Users', value: 'authenticated' },
+              { label: 'People You Invite', value: 'private' }
+            ]" filled />
+          <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Private">
+            Require approval for new group members. Not found in search and membership availabe only with group invite.
+          </p>
+          <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Authenticated">
+            Members must be authenticated. Found in search for authenticated users and can be joined by anyone with the link.
+          </p>
+          <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Public">
+            Everyone can join. Found in search.
+          </p>
+        </div>
+
+        <!-- Membership Approval -->
+        <q-separator spaced />
+        <div class="text-subtitle2 q-my-sm">Membership Settings</div>
+
+        <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
+      </q-card-section>
+    </q-card>
 
     <div class="row justify-end q-gutter-sm">
       <q-btn data-cy="group-cancel" flat label="Cancel" no-caps @click="$emit('close')" />
@@ -215,6 +269,7 @@ const onSubmit = async () => {
   min-height: 100px;
   max-height: 400px;
   overflow-y: auto;
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .description-preview {
