@@ -43,22 +43,52 @@
       <q-img ratio="16/9" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path"
         :src="eventData.image.path" spinner-color="white" class="rounded-borders" style="height: 120px; max-width: 220px" />
 
-      <!-- Event Description -->
-      <div class="text-body1 q-mt-md">Event Description</div>
-      <q-field class="q-mb-lg q-pa-none" flat :no-error-icon="true" filled ref="description"
-        v-model="eventData.description" :rules="[val => (!!val && val !== '<br>') || 'Description is required']">
-        <template #control>
-          <q-editor data-cy="event-description" flat class="bg-transparent full-width"
-            :style="descriptionRef && descriptionRef.hasError ? 'border-color: var(--q-negative)' : ''"
-            :model-value="eventData.description as string" @update:model-value="onDescriptionInput"
-            :dense="Screen.lt.md" :toolbar="[
-              ['bold', 'italic'],
-              ['link', 'custom_btn'],
-              ['unordered', 'ordered'],
-              ['undo', 'redo'],
-            ]" />
-        </template>
-      </q-field>
+      <!-- Event Description (Markdown) -->
+      <div class="text-body1 q-mt-md">Event Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+
+      <q-tabs
+        v-model="descriptionTab"
+        class="text-primary"
+        active-color="primary"
+        indicator-color="primary"
+        narrow-indicator
+      >
+        <q-tab name="edit" label="Edit" />
+        <q-tab name="preview" label="Preview" />
+      </q-tabs>
+
+      <q-separator />
+
+      <q-tab-panels v-model="descriptionTab" animated>
+        <q-tab-panel name="edit" class="q-pa-none">
+          <q-input
+            data-cy="event-description"
+            filled
+            type="textarea"
+            v-model="eventData.description"
+            label="Event description"
+            hint="Supports Markdown formatting"
+            counter
+            maxlength="2000"
+            autogrow
+            class="q-mt-sm"
+            :rules="[val => !!val || 'Description is required']"
+          />
+          <div class="text-caption q-mt-xs">
+            <span class="text-weight-medium">Markdown tip:</span>
+            Use **bold**, *italic*, [links](url), and other Markdown syntax
+          </div>
+        </q-tab-panel>
+
+        <q-tab-panel name="preview" class="q-pa-none">
+          <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
+            <q-markdown
+              :src="eventData.description || '*No content yet*'"
+              class="text-body1 description-preview"
+            />
+          </div>
+        </q-tab-panel>
+      </q-tab-panels>
 
       <!-- Event Type -->
       <q-tabs data-cy="event-type" no-caps v-model="eventData.type" align="left" indicator-color="primary">
@@ -152,9 +182,9 @@ import { eventsApi } from '../../api/events'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
 import { categoriesApi } from '../../api/categories'
 import { getHumanReadableDateDifference } from '../../utils/dateUtils'
-import { QField, QForm, Screen } from 'quasar'
+import { QForm } from 'quasar'
 import { groupsApi } from '../../api/groups'
-import DOMPurify from 'dompurify'
+// DOMPurify import removed
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
@@ -170,7 +200,6 @@ const groupsOptions = ref<GroupEntity[]>([])
 const emit = defineEmits(['created', 'updated', 'close'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
-const descriptionRef = ref<QField | null>(null)
 
 const eventData = ref<EventEntity>({
   name: '',
@@ -190,9 +219,8 @@ const eventData = ref<EventEntity>({
   lastSyncedAt: null
 })
 
-const onDescriptionInput = (val: string) => {
-  eventData.value.description = DOMPurify.sanitize(val)
-}
+// Tab for description editor (edit/preview)
+const descriptionTab = ref('edit')
 
 const onSaveDraft = () => {
   eventData.value.status = EventStatus.Draft
@@ -319,3 +347,49 @@ const onSubmit = async () => {
   }
 }
 </script>
+
+<style scoped lang="scss">
+.c-event-form-basic-component {
+  max-width: 900px;
+}
+
+.markdown-preview {
+  min-height: 100px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.description-preview {
+  :deep(a) {
+    color: var(--q-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  :deep(code) {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid var(--q-primary);
+    margin-left: 0;
+    padding-left: 16px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+}
+</style>

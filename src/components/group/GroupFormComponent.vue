@@ -4,22 +4,51 @@
     <q-input data-cy="group-name" filled v-model="group.name" label="Group Name" counter maxlength="60"
       :rules="[(val: string) => !!val || 'Group name is required']" />
 
-    <div class="text-body1 q-mt-md">Group Description</div>
+    <div class="text-body1 q-mt-md">Group Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
 
-    <q-field class="q-mb-lg q-pa-none" flat :no-error-icon="true" filled ref="description"
-      v-model="group.description" :rules="[val => (!!val && val !== '<br>') || 'Description is required']">
-      <template #control>
-        <q-editor data-cy="group-description" flat class="bg-transparent full-width"
-          :style="descriptionRef && descriptionRef.hasError ? 'border-color: var(--q-negative)' : ''"
-          :model-value="group.description as string" @update:model-value="onDescriptionInput" :dense="Screen.lt.md"
-          :toolbar="[
-            ['bold', 'italic'],
-            ['link', 'custom_btn'],
-            ['unordered', 'ordered'],
-            ['undo', 'redo'],
-          ]" />
-      </template>
-    </q-field>
+    <q-tabs
+      v-model="descriptionTab"
+      class="text-primary"
+      active-color="primary"
+      indicator-color="primary"
+      narrow-indicator
+    >
+      <q-tab name="edit" label="Edit" />
+      <q-tab name="preview" label="Preview" />
+    </q-tabs>
+
+    <q-separator />
+
+    <q-tab-panels v-model="descriptionTab" animated>
+      <q-tab-panel name="edit" class="q-pa-none">
+        <q-input
+          data-cy="group-description"
+          filled
+          type="textarea"
+          v-model="group.description"
+          label="Group description"
+          hint="Supports Markdown formatting"
+          counter
+          maxlength="2000"
+          autogrow
+          class="q-mt-sm"
+          :rules="[val => !!val || 'Description is required']"
+        />
+        <div class="text-caption q-mt-xs">
+          <span class="text-weight-medium">Markdown tip:</span>
+          Use **bold**, *italic*, [links](url), and other Markdown syntax
+        </div>
+      </q-tab-panel>
+
+      <q-tab-panel name="preview" class="q-pa-none">
+        <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
+          <q-markdown
+            :src="group.description || '*No content yet*'"
+            class="text-body1 description-preview"
+          />
+        </div>
+      </q-tab-panel>
+    </q-tab-panels>
 
     <q-select data-cy="group-categories" v-model="group.categories" :options="categoryOptions" filled multiple use-chips
       emit-value map-options option-value="id" option-label="name" label="Categories (press Enter after each)" />
@@ -64,8 +93,8 @@ import { categoriesApi } from '../../api/categories'
 import { groupsApi } from '../../api/groups'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import LocationComponent from '../../components/common/LocationComponent.vue'
-import { Loading, LoadingBar, QField, Screen } from 'quasar'
-import DOMPurify from 'dompurify'
+import { Loading, LoadingBar } from 'quasar'
+// DOMPurify import removed
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import analyticsService from '../../services/analyticsService'
 import { useNavigation } from '../../composables/useNavigation'
@@ -84,7 +113,6 @@ const group = ref<GroupEntity>({
 })
 
 const loading = ref(false)
-const descriptionRef = ref<QField | null>(null)
 
 const onUpdateLocation = (address: { lat: string, lon: string, location: string }) => {
   group.value.lat = parseFloat(address.lat as string)
@@ -96,9 +124,11 @@ const onGroupImageSelect = (file: FileEntity) => {
   group.value.image = file
 }
 
-const onDescriptionInput = (val: string) => {
-  group.value.description = DOMPurify.sanitize(val)
-}
+// No longer need the description input handler for HTML sanitization with Markdown
+// Markdown content will be sanitized server-side
+
+// Tab for description editor (edit/preview)
+const descriptionTab = ref('edit')
 
 const categoryOptions = ref<CategoryEntity[]>([])
 
@@ -180,4 +210,44 @@ const onSubmit = async () => {
 
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.markdown-preview {
+  min-height: 100px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.description-preview {
+  :deep(a) {
+    color: var(--q-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  :deep(code) {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid var(--q-primary);
+    margin-left: 0;
+    padding-left: 16px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+}
+</style>
