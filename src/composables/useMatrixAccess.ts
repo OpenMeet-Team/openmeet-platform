@@ -33,6 +33,7 @@ export function useMatrixAccess () {
       const response = await matrixApi.setPassword(password)
 
       if (response.data.success) {
+        // Success message
         success(response.data.message || 'Matrix password set successfully')
 
         // Update user preferences to reflect that they have direct access
@@ -49,6 +50,7 @@ export function useMatrixAccess () {
               }
             }
           }
+          // Update the user in the store
           authStore.actionSetUser(updatedUser)
         }
 
