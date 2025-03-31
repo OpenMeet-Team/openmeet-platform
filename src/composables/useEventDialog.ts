@@ -89,7 +89,7 @@ export function useEventDialog () {
       cancel: true,
       persistent: true
     }).onOk(() => {
-      return eventsApi.update(event.slug, { status: EventStatus.Cancelled }).then(() => {
+      return eventsApi.update(event.slug, { status: EventStatus.Cancelled } as Partial<EventEntity>).then(() => {
         success('Event cancelled!')
       })
     })

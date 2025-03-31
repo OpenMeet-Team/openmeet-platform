@@ -8,7 +8,33 @@ const createEventApiHeaders = (eventSlug: string) => ({
   headers: { 'x-event-slug': eventSlug }
 })
 
-export const eventsApi = {
+export interface EventApiType {
+  getAll: (query: RouteQueryAndHash) => Promise<AxiosResponse<EventPaginationEntity>>
+  getByUlid: (ulid: string) => Promise<AxiosResponse<EventEntity>>
+  getBySlug: (slug: string) => Promise<AxiosResponse<EventEntity>>
+  edit: (slug: string) => Promise<AxiosResponse<EventEntity>>
+  create: (eventData: Partial<EventEntity>) => Promise<AxiosResponse<EventEntity>>
+  update: (slug: string, eventData: Partial<EventEntity>) => Promise<AxiosResponse<EventEntity>>
+  delete: (slug: string) => Promise<AxiosResponse<void>>
+  attend: (slug: string, data: Partial<EventAttendeeEntity>) => Promise<AxiosResponse<EventAttendeeEntity>>
+  cancelAttending: (slug: string) => Promise<AxiosResponse<EventAttendeeEntity>>
+  updateAttendee: (slug: string, attendeeId: number, data: Partial<{ role: string, status: string }>) => Promise<AxiosResponse<EventAttendeeEntity>>
+  deleteAttendee: (slug: string, attendeeId: number) => Promise<AxiosResponse<EventAttendeeEntity>>
+  similarEvents: (slug: string) => Promise<AxiosResponse<EventEntity[]>>
+  getAttendees: (slug: string, query: { page: number, limit: number }) => Promise<AxiosResponse<EventAttendeePaginationEntity>>
+  getDashboardEvents: () => Promise<AxiosResponse<EventEntity[]>>
+  topics: (slug: string) => Promise<AxiosResponse<EventEntity>>
+  sendDiscussionMessage: (slug: string, message: string) => Promise<AxiosResponse<{ id: string }>>
+  getDiscussionMessages: (slug: string, limit?: number, from?: string) => Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>>
+  addMemberToDiscussion: (eventSlug: string, userSlug: string) => Promise<AxiosResponse<void>>
+  removeMemberFromDiscussion: (eventSlug: string, userSlug: string) => Promise<AxiosResponse<void>>
+  getICalendar: (slug: string) => Promise<AxiosResponse<string>>
+  uploadImage?: (slug: string, file: File) => Promise<AxiosResponse<unknown>>
+  cancel?: (slug: string) => Promise<AxiosResponse<unknown>>
+  remove?: (slug: string) => Promise<AxiosResponse<unknown>>
+}
+
+export const eventsApi: EventApiType = {
   getAll: (query: RouteQueryAndHash): Promise<AxiosResponse<EventPaginationEntity>> => api.get<EventPaginationEntity>('/api/events', { params: query }),
   getByUlid: (ulid: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${ulid}`, createEventApiHeaders(ulid)),
   getBySlug: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}`),
@@ -28,5 +54,9 @@ export const eventsApi = {
   sendDiscussionMessage: (slug: string, message: string): Promise<AxiosResponse<{ id: string }>> => api.post(`/api/chat/event/${slug}/message`, { message }),
   getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> => api.get(`/api/chat/event/${slug}/messages`, { params: { limit, from } }),
   addMemberToDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
-  removeMemberFromDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`)
+  removeMemberFromDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`),
+  getICalendar: (slug: string): Promise<AxiosResponse<string>> => api.get(`/api/events/${slug}/calendar`, {
+    responseType: 'text',
+    headers: { Accept: 'text/calendar' }
+  })
 }

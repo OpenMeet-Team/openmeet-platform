@@ -29,13 +29,8 @@
 
             <!-- Event Start Date -->
             <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
-              v-model="eventData.startDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-              <template v-slot:after>
-                <div class="text-overline text-bold">
-                  {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
-                </div>
-              </template>
-            </DatetimeComponent>
+              v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+              reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
 
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
@@ -43,15 +38,29 @@
                 @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set an end time..." />
 
               <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time"
-                v-model="eventData.endDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+                v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
                 <template v-slot:hint>
                   <div class="text-bold">
                     {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
                   </div>
                 </template>
               </DatetimeComponent>
+
             </template>
+
+            <!-- Recurrence Component -->
+            <RecurrenceComponent
+              v-if="eventData.startDate"
+              v-model="eventData.recurrenceRule"
+              v-model:is-recurring="eventData.isRecurring"
+              v-model:time-zone="eventData.timeZone"
+              :start-date="eventData.startDate"
+            />
           </div>
+
+          <!-- Section Separator (between Recurrence and Image) -->
+          <q-separator class="q-my-md" v-if="eventData.isRecurring" />
 
           <!-- Event Image -->
           <div class="q-mb-md">
@@ -250,6 +259,7 @@ import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../common/UploadComponent.vue'
 import { eventsApi } from '../../api/events'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
+import RecurrenceComponent from './RecurrenceComponent.vue'
 import { categoriesApi } from '../../api/categories'
 import { getHumanReadableDateDifference } from '../../utils/dateUtils'
 import { QForm } from 'quasar'
@@ -258,6 +268,7 @@ import { groupsApi } from '../../api/groups'
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
+import { RecurrenceService } from '../../services/recurrenceService'
 
 const { error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -286,7 +297,11 @@ const eventData = ref<EventEntity>({
   sourceId: null,
   sourceUrl: null,
   sourceData: null,
-  lastSyncedAt: null
+  lastSyncedAt: null,
+  timeZone: RecurrenceService.getUserTimezone(),
+  isRecurring: false,
+  recurrenceRule: undefined,
+  recurrenceExceptions: []
 })
 
 // Tab for description editor (edit/preview)

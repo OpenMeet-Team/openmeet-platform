@@ -236,8 +236,14 @@
                   <q-item-label v-if="event.endDate">{{
                     formatDate(event.endDate)
                   }}</q-item-label>
+                  <q-item-label v-if="event.timeZone" caption>
+                    {{ event.timeZone }}
+                  </q-item-label>
                 </q-item-section>
               </q-item>
+
+              <!-- Recurrence information -->
+              <RecurrenceDisplayComponent v-if="event.isRecurring" :event="event" />
               <q-item>
                 <q-item-section side>
                   <q-icon
@@ -384,6 +390,7 @@ import ShareComponent from '../components/common/ShareComponent.vue'
 import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
+import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthSession } from '../boot/auth-session'
 const route = useRoute()
 const router = useRouter()

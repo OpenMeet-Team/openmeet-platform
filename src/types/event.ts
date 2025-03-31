@@ -85,6 +85,23 @@ export interface EventTopicCommentEntity {
   // topic?: string
 }
 
+export interface RecurrenceRule {
+  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY'
+  interval?: number
+  count?: number
+  until?: string
+  bysecond?: number[]
+  byminute?: number[]
+  byhour?: number[]
+  byday?: string[]
+  bymonthday?: number[]
+  byyearday?: number[]
+  byweekno?: number[]
+  bymonth?: number[]
+  bysetpos?: number[]
+  wkst?: 'SU' | 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA'
+}
+
 export interface EventEntity {
   id: number
   ulid: string
@@ -92,6 +109,7 @@ export interface EventEntity {
   name: string
   startDate: string
   endDate?: string
+  timeZone?: string
   type: EventType
   location?: string
   locationOnline?: string
@@ -123,6 +141,25 @@ export interface EventEntity {
   sourceUrl?: string
   lastSyncedAt?: string
   sourceData?: Record<string, unknown>
+
+  // Recurrence fields
+  isRecurring?: boolean
+  recurrenceRule?: RecurrenceRule
+  recurrenceExceptions?: string[]
+  recurrenceUntil?: string
+  recurrenceCount?: number
+  parentEventId?: number
+  isRecurrenceException?: boolean
+  originalDate?: string
+
+  // RFC 5545/7986 additional fields
+  securityClass?: string
+  priority?: number
+  blocksTime?: boolean
+  isAllDay?: boolean
+  resources?: string
+  color?: string
+  conferenceData?: Record<string, unknown>
 }
 
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
