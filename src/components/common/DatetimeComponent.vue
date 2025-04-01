@@ -35,14 +35,14 @@
       <div class="text-caption text-bold cursor-pointer" @click="showTimezonePicker = true">
         {{ formatTimeZone }} <q-icon name="sym_r_edit" size="xs" />
       </div>
-      
+
       <!-- Timezone Selector Dialog -->
       <q-dialog v-model="showTimezonePicker">
         <q-card style="min-width: 350px">
           <q-card-section class="q-pb-none">
             <div class="text-h6">Select Timezone</div>
           </q-card-section>
-          
+
           <q-card-section>
             <q-select
               v-model="selectedTimezone"
@@ -65,7 +65,7 @@
               </template>
             </q-select>
           </q-card-section>
-          
+
           <q-card-actions align="right">
             <q-btn flat label="Cancel" color="primary" v-close-popup />
             <q-btn flat label="Apply" color="primary" @click="applyTimezone" v-close-popup />
@@ -144,7 +144,7 @@ const applyTimezone = () => {
   if (selectedTimezone.value !== props.timeZone) {
     // Emit the new timezone to the parent
     emit('update:timeZone', selectedTimezone.value)
-    
+
     // Update the date with the new timezone
     if (date.value) {
       updateDateTime()

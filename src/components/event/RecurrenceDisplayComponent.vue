@@ -74,6 +74,17 @@
         </q-list>
       </q-expansion-item>
     </div>
+
+    <!-- Calendar View -->
+    <div class="q-mt-md">
+      <q-expansion-item
+        label="View calendar"
+        icon="sym_r_calendar_month"
+        header-class="text-primary"
+      >
+        <RecurrenceCalendarComponent :event="event" />
+      </q-expansion-item>
+    </div>
   </div>
 </template>
 
@@ -84,6 +95,7 @@ import { RecurrenceService } from '../../services/recurrenceService'
 import { format } from 'date-fns'
 import { useNotification } from '../../composables/useNotification'
 import { eventsApi } from '../../api/events'
+import RecurrenceCalendarComponent from './RecurrenceCalendarComponent.vue'
 
 const props = defineProps({
   event: {
@@ -104,12 +116,12 @@ const humanReadablePattern = computed(() => {
     recurrenceRule: props.event?.recurrenceRule,
     timeZone: props.event?.timeZone
   })
-  
+
   // Use the server-provided description if available
   if (props.event?.recurrenceDescription) {
     return props.event.recurrenceDescription
   }
-  
+
   // Fall back to client-side generation
   if (!props.event?.recurrenceRule) return 'Does not repeat'
   return RecurrenceService.getHumanReadablePattern(props.event)

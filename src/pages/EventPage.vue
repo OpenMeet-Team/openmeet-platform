@@ -158,6 +158,21 @@
                     icon="sym_r_event_busy"
                     @click="onCancelEvent"
                   />
+
+                  <!-- Split recurring event series option - temporarily disabled -->
+                  <!-- 
+                  <MenuItemComponent
+                    v-if="
+                      event.isRecurring &&
+                      useEventStore().getterUserHasPermission(
+                        EventAttendeePermission.ManageEvent
+                      )
+                    "
+                    label="Split recurring series"
+                    icon="sym_r_event_repeat"
+                    @click="splitDialogVisible = true"
+                  /> 
+                  -->
                   <q-separator />
                   <MenuItemComponent
                     label="Delete event"
@@ -244,6 +259,12 @@
 
               <!-- Recurrence information -->
               <RecurrenceDisplayComponent v-if="event.isRecurring" :event="event" />
+
+              <!-- Recurrence Management (for event organizers only) -->
+              <RecurrenceManagementComponent
+                v-if="event.isRecurring && useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)"
+                :event="event"
+                @update:event="updateEventData" />
               <q-item>
                 <q-item-section side>
                   <q-icon
@@ -358,6 +379,15 @@
         </div>
       </div>
     </template>
+
+    <!-- Recurring Event Split Dialog -->
+    <RecurrenceSplitDialogComponent
+      v-if="event?.isRecurring"
+      :is-open="splitDialogVisible"
+      :event="event"
+      @update:is-open="splitDialogVisible = $event"
+      @series-split="onSeriesSplit"
+    />
   </q-page>
 </template>
 
@@ -391,6 +421,8 @@ import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
+import RecurrenceManagementComponent from '../components/event/RecurrenceManagementComponent.vue'
+import RecurrenceSplitDialogComponent from '../components/event/RecurrenceSplitDialogComponent.vue'
 import { useAuthSession } from '../boot/auth-session'
 const route = useRoute()
 const router = useRouter()
@@ -423,6 +455,9 @@ const loaded = ref(false)
 // Add these for similar events
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
+
+// Recurring event split dialog
+const splitDialogVisible = ref(false)
 
 // Add type declaration for global window property
 declare global {
@@ -511,6 +546,17 @@ const spotsLeft = computed(() =>
     ? event.value.maxAttendees - (event.value.attendeesCount || 0)
     : 0
 )
+
+// Update event data in the store when child components update it
+const updateEventData = (updatedEvent: EventEntity) => {
+  useEventStore().event = updatedEvent
+}
+
+// Handle after series split
+const onSeriesSplit = (newSeries: EventEntity) => {
+  // Nothing to do here - navigation already happens in the component
+  console.log('Series split successfully, new series:', newSeries.slug)
+}
 
 </script>
 

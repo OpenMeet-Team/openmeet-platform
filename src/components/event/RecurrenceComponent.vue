@@ -163,7 +163,7 @@
       <!-- Recurrence Preview -->
       <div v-if="props.isRecurring" class="q-mt-lg">
         <q-separator class="q-my-md" />
-        
+
         <!-- Pattern Summary Section -->
         <div class="text-subtitle2">Pattern Summary</div>
         <div class="text-body2 q-my-md">
@@ -252,7 +252,7 @@ const rule = computed<Partial<RecurrenceRule> | undefined>(() => {
 
   try {
     isGeneratingRule = true
-    
+
     // Create base rule
     const options: Partial<RecurrenceRule> = {
       freq: frequency.value as RecurrenceRule['freq'],
@@ -283,14 +283,14 @@ const rule = computed<Partial<RecurrenceRule> | undefined>(() => {
     } else if (endType.value === 'until' && until.value) {
       options.until = new Date(until.value).toISOString()
     }
-    
+
     // Only trigger updates if something actually changed
     const ruleString = JSON.stringify(options)
     if (ruleString === lastRuleString) {
       // No change, return the same object to avoid triggering watchers
       return options
     }
-    
+
     // Update cache
     lastRuleString = ruleString
     return options
@@ -307,7 +307,7 @@ const patternDescriptionCache = ref('')
 const humanReadablePattern = computed(() => {
   if (!props.isRecurring) return 'Does not repeat'
   if (isCalculatingPattern.value) return 'Calculating...'
-  
+
   return patternDescriptionCache.value || 'Please select a frequency type'
 })
 
@@ -323,12 +323,12 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
     if (ruleObj && 'freq' in ruleObj) {
       // Create a deep copy to prevent reactive issues
       const completeRule = JSON.parse(JSON.stringify(ruleObj)) as RecurrenceRule
-      
+
       // Try to get description from rrule library first
       try {
-        const rrule = RecurrenceService.toRRule(completeRule, props.startDate, tzValue)
+        const rrule = RecurrenceService.toRRule(completeRule, props.startDate)
         const description = rrule.toText()
-        
+
         if (description) {
           patternDescriptionCache.value = description
           return
@@ -336,7 +336,7 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
       } catch (rruleError) {
         console.warn('Error in RRule.toText():', rruleError)
       }
-      
+
       // Fallback to our service
       try {
         const backupDescription = RecurrenceService.getHumanReadablePattern({
@@ -344,7 +344,7 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
           recurrenceRule: completeRule,
           timeZone: tzValue
         } as EventEntity)
-        
+
         patternDescriptionCache.value = backupDescription || `Repeats ${completeRule.freq.toLowerCase()}`
       } catch (fallbackError) {
         console.error('Error in fallback description:', fallbackError)
@@ -383,7 +383,7 @@ const toggleRecurrence = (value: boolean) => {
 const toggleDay = (day: string) => {
   // Create a new array instead of modifying in place
   const currentDays = [...selectedDays.value]
-  
+
   if (currentDays.includes(day)) {
     // Filter out the day
     selectedDays.value = currentDays.filter(d => d !== day)
@@ -391,7 +391,7 @@ const toggleDay = (day: string) => {
     // Add the day to a new array
     selectedDays.value = [...currentDays, day]
   }
-  
+
   // Wait until the next tick before allowing updates
   setTimeout(() => {
     // No op - just to ensure the UI renders before next update
@@ -424,16 +424,16 @@ let lastRuleUpdateHash = ''
 watch([rule, timezone], async ([newRule, newTimezone]) => {
   // Don't proceed if we're already processing an update
   if (isProcessingUpdate.value) return
-  
+
   // Don't recalculate if rule hasn't substantially changed
   const ruleHash = JSON.stringify(newRule) + newTimezone
   if (ruleHash === lastRuleUpdateHash) return
   lastRuleUpdateHash = ruleHash
-  
+
   try {
     // Set the processing flag to prevent recursive updates
     isProcessingUpdate.value = true
-  
+
     // Emit updates to parent - clone the rule to avoid reactivity issues
     if (newRule) {
       emit('update:model-value', JSON.parse(JSON.stringify(newRule)))
@@ -441,21 +441,21 @@ watch([rule, timezone], async ([newRule, newTimezone]) => {
       emit('update:model-value', undefined)
     }
     emit('update:time-zone', newTimezone)
-  
+
     // Clear any previous debounce
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer)
     }
-  
+
     // Set loading states
     isCalculatingPattern.value = true
     isCalculatingOccurrences.value = true
-    
+
     // Debounce to prevent excessive calculations - longer timeout for better UI experience
     debounceTimer = window.setTimeout(() => {
       // Use a separate function for the update to break the reactivity chain
       updateOccurrences(
-        newRule ? JSON.parse(JSON.stringify(newRule)) : undefined, 
+        newRule ? JSON.parse(JSON.stringify(newRule)) : undefined,
         newTimezone
       )
     }, 700)
@@ -470,11 +470,11 @@ watch([rule, timezone], async ([newRule, newTimezone]) => {
 // Separate function to calculate occurrences to reduce watch complexity
 const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTimezone: string) => {
   isProcessingUpdate.value = true
-  
+
   try {
     // First update the pattern description - this is fast and should be done first
     updatePatternDescription(newRule, newTimezone)
-    
+
     // Update occurrences preview
     if (newRule && props.startDate && props.isRecurring) {
       // Create a copy to avoid modifying the reactive state
@@ -483,7 +483,7 @@ const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTime
         recurrenceRule: JSON.parse(JSON.stringify(newRule)), // Copy to prevent reactive issues
         timeZone: newTimezone
       }
-      
+
       // Make sure eventWithRule has a recurrenceRule with a freq property
       if (eventData.recurrenceRule && 'freq' in eventData.recurrenceRule) {
         try {
@@ -508,7 +508,7 @@ const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTime
     // Update loading states when done
     isCalculatingPattern.value = false
     isCalculatingOccurrences.value = false
-    
+
     // Short delay before clearing processing flag to prevent immediate re-processing
     setTimeout(() => {
       isProcessingUpdate.value = false
@@ -556,13 +556,13 @@ let isUpdatingSelectedDays = false
 watch(() => props.startDate, (newStartDate) => {
   // Skip if we're already updating or if days are already selected
   if (isUpdatingSelectedDays || selectedDays.value.length > 0) return
-  
+
   if (newStartDate) {
     isUpdatingSelectedDays = true
     try {
       const dayOfWeek = new Date(newStartDate).getDay()
       const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
-      
+
       // Create a new array instead of modifying in place
       selectedDays.value = [weekdayValue]
     } finally {
@@ -585,7 +585,7 @@ onMounted(() => {
     timezone.value = RecurrenceService.getUserTimezone()
     emit('update:time-zone', timezone.value)
   }
-  
+
   // Initialize pattern description and occurrences if we already have rule data
   if (props.isRecurring && props.modelValue && props.startDate) {
     // Slight delay to ensure component is fully mounted

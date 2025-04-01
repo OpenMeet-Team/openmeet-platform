@@ -1,7 +1,8 @@
-import { RRule } from 'rrule'
+import { RRule, Options, Weekday } from 'rrule'
 import { format, formatInTimeZone } from 'date-fns-tz'
-import { parseISO } from 'date-fns'
+import { parseISO, addMilliseconds } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
+import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
 
 interface FrequencyOption {
   label: string;
@@ -36,78 +37,96 @@ export class RecurrenceService {
   ]
 
   // Convert RecurrenceRule to RRule for use with the rrule library
-  static toRRule (rule: RecurrenceRule, startDate: string, timeZone?: string): RRule {
+  static toRRule (rule: RecurrenceRule, startDate: string): RRule {
     // Validate that required freq property exists
     if (!rule.freq) {
       throw new Error('Recurrence rule must have a frequency')
     }
-    
+
     // Get the RRule frequency constant (needs to be a number)
-    let freq: number;
+    let freq: number
     if (typeof rule.freq === 'string') {
       switch (rule.freq) {
-        case 'YEARLY': freq = RRule.YEARLY; break;
-        case 'MONTHLY': freq = RRule.MONTHLY; break;
-        case 'WEEKLY': freq = RRule.WEEKLY; break;
-        case 'DAILY': freq = RRule.DAILY; break;
-        case 'HOURLY': freq = RRule.HOURLY; break;
-        case 'MINUTELY': freq = RRule.MINUTELY; break;
-        case 'SECONDLY': freq = RRule.SECONDLY; break;
-        default: 
-          console.error('Unknown frequency:', rule.freq);
-          throw new Error(`Unknown frequency: ${rule.freq}`);
+        case 'YEARLY': freq = RRule.YEARLY; break
+        case 'MONTHLY': freq = RRule.MONTHLY; break
+        case 'WEEKLY': freq = RRule.WEEKLY; break
+        case 'DAILY': freq = RRule.DAILY; break
+        case 'HOURLY': freq = RRule.HOURLY; break
+        case 'MINUTELY': freq = RRule.MINUTELY; break
+        case 'SECONDLY': freq = RRule.SECONDLY; break
+        default:
+          console.error('Unknown frequency:', rule.freq)
+          throw new Error(`Unknown frequency: ${rule.freq}`)
       }
     } else {
-      freq = rule.freq as number;
+      freq = rule.freq as number
     }
 
     // Parse the start date correctly
-    const dtstart = parseISO(startDate);
+    const dtstart = parseISO(startDate)
 
     // Create options object with the correct format for RRule
-    const options: any = {
+    const options: Partial<Options> = {
       freq,
       dtstart
-    };
+    }
 
     // Add optional parameters
-    if (rule.interval) options.interval = rule.interval;
-    if (rule.count) options.count = rule.count;
-    if (rule.until) options.until = new Date(rule.until);
-    
+    if (rule.interval) options.interval = rule.interval
+    if (rule.count) options.count = rule.count
+    if (rule.until) options.until = new Date(rule.until)
+
     // Convert day names to RRule constants
     if (rule.byday && rule.byday.length > 0) {
+      // Type assertion needed to handle RRule's complex typing for byweekday
       options.byweekday = rule.byday.map(day => {
         // Handle prefixed weekdays like "1MO" (first Monday)
-        const match = String(day).match(/^([+-]?\d+)?([A-Z]{2})$/);
+        const match = String(day).match(/^([+-]?\d+)?([A-Z]{2})$/)
         if (match) {
-          const [, prefix, weekday] = match;
-          const dayConstant = RRule[weekday as keyof typeof RRule];
-          
-          if (prefix) {
-            return dayConstant.nth(parseInt(prefix, 10));
+          const [, prefix, weekday] = match
+          // Get the weekday constant using direct property access
+          const weekdayName = weekday as 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
+          const dayConstant = RRule[weekdayName]
+
+          if (prefix && dayConstant instanceof Weekday) {
+            return dayConstant.nth(parseInt(prefix, 10))
           }
-          return dayConstant;
+          return dayConstant
         }
-        return RRule[day as keyof typeof RRule]; // For simple "MO", "TU", etc.
-      });
-    }
-    
-    // Add other byXXX properties
-    if (rule.bymonth) options.bymonth = rule.bymonth;
-    if (rule.bymonthday) options.bymonthday = rule.bymonthday;
-    if (rule.byhour) options.byhour = rule.byhour;
-    if (rule.byminute) options.byminute = rule.byminute;
-    if (rule.bysecond) options.bysecond = rule.bysecond;
-    if (rule.bysetpos) options.bysetpos = rule.bysetpos;
-    
-    // Handle week start
-    if (rule.wkst) {
-      options.wkst = RRule[rule.wkst as keyof typeof RRule];
+
+        // Direct access for simple weekday values
+        const simpleDayName = day as 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
+        return RRule[simpleDayName]
+      }) as Weekday[]
     }
 
-    console.log('Creating RRule with options:', options);
-    return new RRule(options);
+    // Add other byXXX properties
+    if (rule.bymonth) options.bymonth = rule.bymonth
+    if (rule.bymonthday) options.bymonthday = rule.bymonthday
+    if (rule.byhour) options.byhour = rule.byhour
+    if (rule.byminute) options.byminute = rule.byminute
+    if (rule.bysecond) options.bysecond = rule.bysecond
+    if (rule.bysetpos) options.bysetpos = rule.bysetpos
+
+    // Handle week start
+    if (rule.wkst) {
+      // RRule.MO is a Weekday object, but wkst expects a number
+      // We need to find the weekday index
+      const weekdayMap = {
+        MO: 0,
+        TU: 1,
+        WE: 2,
+        TH: 3,
+        FR: 4,
+        SA: 5,
+        SU: 6
+      }
+      // Map our string value to a number for the day of the week
+      options.wkst = weekdayMap[rule.wkst as keyof typeof weekdayMap]
+    }
+
+    console.log('Creating RRule with options:', options)
+    return new RRule(options)
   }
 
   // Convert RRule to RecurrenceRule for API usage
@@ -175,7 +194,7 @@ export class RecurrenceService {
     }
   }
 
-  // Generate occurrence dates based on a recurrence rule
+  // Generate occurrence dates based on a recurrence rule (client-side)
   static getOccurrences (
     event: EventEntity,
     count: number = 10
@@ -187,8 +206,7 @@ export class RecurrenceService {
     try {
       const rrule = this.toRRule(
         event.recurrenceRule,
-        event.startDate,
-        event.timeZone
+        event.startDate
       )
 
       // Generate occurrences
@@ -212,8 +230,182 @@ export class RecurrenceService {
     }
   }
 
+  // Fetch occurrences from API (server-side)
+  static async fetchOccurrences (
+    eventSlug: string,
+    query: OccurrencesQueryParams = {}
+  ): Promise<EventOccurrence[]> {
+    console.log('RecurrenceService.fetchOccurrences called with slug:', eventSlug, 'query:', query)
+    
+    try {
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
+      const response = await eventsApi.getEventOccurrences(eventSlug, query)
+      console.log('API response successful:', response.status, response.statusText)
+      console.log('Occurrences returned:', response.data?.length || 0)
+      console.log('Occurrences data type:', typeof response.data)
+      console.log('First occurrence type:', response.data && response.data.length > 0 ? typeof response.data[0] : 'N/A')
+      
+      if (response.data && Array.isArray(response.data)) {
+        if (response.data.length > 0 && typeof response.data[0] === 'string') {
+          console.error('API ERROR: Expected objects with date and isExcluded properties, but received array of strings')
+          console.error('This indicates a backend issue that needs to be fixed')
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching occurrences from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
+  // Fetch expanded occurrences with event objects from API
+  static async fetchExpandedOccurrences (
+    eventSlug: string,
+    query: OccurrencesQueryParams = {}
+  ): Promise<ExpandedEventOccurrence[]> {
+    console.log('RecurrenceService.fetchExpandedOccurrences called with slug:', eventSlug, 'query:', query)
+    
+    try {
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/expanded-occurrences')
+      const response = await eventsApi.getExpandedEventOccurrences(eventSlug, query)
+      console.log('API response successful:', response.status, response.statusText)
+      console.log('Expanded occurrences returned:', response.data?.length || 0)
+      return response.data
+    } catch (error) {
+      console.error('Error fetching expanded occurrences from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
+  // Get the effective event for a specific date
+  static async getEffectiveEventForDate (
+    eventSlug: string,
+    date: string
+  ): Promise<EventEntity | null> {
+    console.log('RecurrenceService.getEffectiveEventForDate called with slug:', eventSlug, 'date:', date)
+    
+    try {
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/effective')
+      const response = await eventsApi.getEffectiveEventForDate(eventSlug, date)
+      console.log('API response successful:', response.status, response.statusText)
+      return response.data
+    } catch (error) {
+      console.error('Error fetching effective event from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
+  // Split a recurring series at a specific date
+  static async splitSeriesAt (
+    eventSlug: string,
+    splitDate: string,
+    modifications: Partial<EventEntity>
+  ): Promise<EventEntity | null> {
+    console.log('RecurrenceService.splitSeriesAt called with slug:', eventSlug, 'splitDate:', splitDate)
+    console.log('Modifications:', modifications)
+    
+    try {
+      const params: SplitSeriesParams = {
+        splitDate,
+        modifications
+      }
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/split')
+      const response = await eventsApi.splitSeriesAt(eventSlug, params)
+      console.log('API response successful:', response.status, response.statusText)
+      console.log('New event from split:', response.data?.slug)
+      return response.data
+    } catch (error) {
+      console.error('Error splitting series from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
+  // Add an exclusion date to a recurring event
+  static async addExclusionDate (
+    eventSlug: string,
+    exclusionDate: string
+  ): Promise<boolean> {
+    console.log('RecurrenceService.addExclusionDate called with slug:', eventSlug, 'exclusionDate:', exclusionDate)
+    
+    try {
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/exclusions')
+      await eventsApi.addExclusionDate(eventSlug, exclusionDate)
+      console.log('Exclusion date added successfully')
+      return true
+    } catch (error) {
+      console.error('Error adding exclusion date from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
+  // Remove an exclusion date from a recurring event
+  static async removeExclusionDate (
+    eventSlug: string,
+    date: string
+  ): Promise<boolean> {
+    console.log('RecurrenceService.removeExclusionDate called with slug:', eventSlug, 'date:', date)
+    
+    try {
+      console.log('Making API request to /api/recurrence/' + eventSlug + '/inclusions')
+      await eventsApi.removeExclusionDate(eventSlug, date)
+      console.log('Exclusion date removed successfully')
+      return true
+    } catch (error) {
+      console.error('Error removing exclusion date from API:', error)
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+      }
+      throw error // Throw error to allow components to handle fallback
+    }
+  }
+
   // Get a human-readable description of the recurrence pattern
   static getHumanReadablePattern (event: EventEntity): string {
+    // Use the server-provided description if available
+    if (event.recurrenceDescription) {
+      return event.recurrenceDescription
+    }
+
     if (!event.recurrenceRule) {
       return 'Does not repeat'
     }
@@ -221,8 +413,7 @@ export class RecurrenceService {
     try {
       const rrule = this.toRRule(
         event.recurrenceRule,
-        event.startDate,
-        event.timeZone
+        event.startDate
       )
 
       return rrule.toText()
@@ -233,20 +424,34 @@ export class RecurrenceService {
   }
 
   // Format date with timezone
-  static formatWithTimezone (date: string | Date, format: string, timeZone?: string): string {
+  static formatWithTimezone (date: string | Date, formatStr: string, timeZone?: string): string {
     if (!date) return ''
 
     const dateObj = typeof date === 'string' ? parseISO(date) : date
 
     if (timeZone) {
-      return formatInTimeZone(dateObj, timeZone, format)
+      return formatInTimeZone(dateObj, timeZone, formatStr)
     } else {
       return formatInTimeZone(
         dateObj,
         Intl.DateTimeFormat().resolvedOptions().timeZone,
-        format
+        formatStr
       )
     }
+  }
+
+  // Adjust date for timezone by adding the timezone offset
+  static adjustDateForTimezone (date: string | Date, timeZone?: string): Date {
+    const dateObj = typeof date === 'string' ? parseISO(date) : date
+
+    if (!timeZone) return dateObj
+
+    // Calculate the timezone offset
+    const targetTzOffset = new Date(dateObj).getTimezoneOffset() * 60000
+    const localTzOffset = new Date().getTimezoneOffset() * 60000
+
+    // Adjust the date for timezone difference
+    return addMilliseconds(dateObj, targetTzOffset - localTzOffset)
   }
 
   // Get the timezone display name

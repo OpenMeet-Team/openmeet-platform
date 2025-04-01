@@ -8,6 +8,29 @@ const createEventApiHeaders = (eventSlug: string) => ({
   headers: { 'x-event-slug': eventSlug }
 })
 
+// Type definitions for recurrence API parameters
+export interface SplitSeriesParams {
+  splitDate: string
+  modifications: Partial<EventEntity>
+}
+
+export interface OccurrencesQueryParams {
+  startDate?: string
+  endDate?: string
+  count?: number
+  includeExcluded?: boolean
+}
+
+export interface EventOccurrence {
+  date: string
+  isExcluded: boolean
+}
+
+export interface ExpandedEventOccurrence {
+  date: string
+  event: EventEntity
+}
+
 export interface EventApiType {
   getAll: (query: RouteQueryAndHash) => Promise<AxiosResponse<EventPaginationEntity>>
   getByUlid: (ulid: string) => Promise<AxiosResponse<EventEntity>>
@@ -32,6 +55,14 @@ export interface EventApiType {
   uploadImage?: (slug: string, file: File) => Promise<AxiosResponse<unknown>>
   cancel?: (slug: string) => Promise<AxiosResponse<unknown>>
   remove?: (slug: string) => Promise<AxiosResponse<unknown>>
+
+  // Recurrence-related methods
+  getEventOccurrences: (slug: string, query?: OccurrencesQueryParams) => Promise<AxiosResponse<EventOccurrence[]>>
+  getExpandedEventOccurrences: (slug: string, query?: OccurrencesQueryParams) => Promise<AxiosResponse<ExpandedEventOccurrence[]>>
+  getEffectiveEventForDate: (slug: string, date: string) => Promise<AxiosResponse<EventEntity>>
+  splitSeriesAt: (slug: string, params: SplitSeriesParams) => Promise<AxiosResponse<EventEntity>>
+  addExclusionDate: (slug: string, exclusionDate: string) => Promise<AxiosResponse<void>>
+  removeExclusionDate: (slug: string, date: string) => Promise<AxiosResponse<void>>
 }
 
 export const eventsApi: EventApiType = {
@@ -58,5 +89,24 @@ export const eventsApi: EventApiType = {
   getICalendar: (slug: string): Promise<AxiosResponse<string>> => api.get(`/api/events/${slug}/calendar`, {
     responseType: 'text',
     headers: { Accept: 'text/calendar' }
-  })
+  }),
+
+  // Recurrence API methods
+  getEventOccurrences: (slug: string, query?: OccurrencesQueryParams): Promise<AxiosResponse<EventOccurrence[]>> =>
+    api.get<EventOccurrence[]>(`/api/recurrence/${slug}/occurrences`, { params: query }),
+
+  getExpandedEventOccurrences: (slug: string, query?: OccurrencesQueryParams): Promise<AxiosResponse<ExpandedEventOccurrence[]>> =>
+    api.get<ExpandedEventOccurrence[]>(`/api/recurrence/${slug}/expanded-occurrences`, { params: query }),
+
+  getEffectiveEventForDate: (slug: string, date: string): Promise<AxiosResponse<EventEntity>> =>
+    api.get<EventEntity>(`/api/recurrence/${slug}/effective`, { params: { date } }),
+
+  splitSeriesAt: (slug: string, params: SplitSeriesParams): Promise<AxiosResponse<EventEntity>> =>
+    api.post<EventEntity>(`/api/recurrence/${slug}/split`, params),
+
+  addExclusionDate: (slug: string, exclusionDate: string): Promise<AxiosResponse<void>> =>
+    api.patch<void>(`/api/recurrence/${slug}/exclusions`, { exclusionDate }),
+
+  removeExclusionDate: (slug: string, date: string): Promise<AxiosResponse<void>> =>
+    api.patch<void>(`/api/recurrence/${slug}/inclusions`, null, { params: { date } })
 }

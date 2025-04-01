@@ -151,6 +151,7 @@ export interface EventEntity {
   parentEventId?: number
   isRecurrenceException?: boolean
   originalDate?: string
+  recurrenceDescription?: string
 
   // RFC 5545/7986 additional fields
   securityClass?: string
