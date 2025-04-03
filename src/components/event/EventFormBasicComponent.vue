@@ -49,18 +49,57 @@
 
             </template>
 
-            <!-- Recurrence Component -->
-            <RecurrenceComponent
-              v-if="eventData.startDate"
-              v-model="eventData.recurrenceRule"
-              v-model:is-recurring="eventData.isRecurring"
-              v-model:time-zone="eventData.timeZone"
-              :start-date="eventData.startDate"
-            />
+            <!-- Recurrence Component with Series Creation -->
+            <div v-if="eventData.startDate" class="q-mt-md">
+              <div class="text-subtitle2 q-mb-sm">Recurrence</div>
+
+              <q-checkbox
+                data-cy="event-recurring-toggle"
+                v-model="isRecurring"
+                label="Make this a recurring event"
+              />
+
+              <!-- Series Options shown when recurrence is enabled -->
+              <template v-if="isRecurring">
+                <div class="q-pa-md q-mt-sm bg-grey-1 rounded-borders">
+                  <!-- Series Name -->
+                  <q-input
+                    data-cy="series-name-input"
+                    v-model="seriesData.name"
+                    label="Series Title"
+                    filled
+                    maxlength="80"
+                    counter
+                    class="q-mb-md"
+                    :rules="[(val) => !!val || 'Series title is required']"
+                  />
+
+                  <!-- Series Description -->
+                  <q-input
+                    data-cy="series-description-input"
+                    v-model="seriesData.description"
+                    label="Series Description (optional)"
+                    filled
+                    type="textarea"
+                    autogrow
+                    class="q-mb-md"
+                  />
+
+                  <!-- Recurrence Pattern -->
+                  <RecurrenceComponent
+                    v-model="recurrenceRule"
+                    :is-recurring="true"
+                    v-model:time-zone="eventData.timeZone"
+                    :start-date="eventData.startDate"
+                    :hide-toggle="true"
+                  />
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- Section Separator (between Recurrence and Image) -->
-          <q-separator class="q-my-md" v-if="eventData.isRecurring" />
+          <q-separator class="q-my-md" v-if="isRecurring" />
 
           <!-- Event Image -->
           <div class="q-mb-md">
@@ -252,8 +291,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity } from '../../types'
+import { onMounted, ref, watch } from 'vue'
+import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../common/UploadComponent.vue'
@@ -264,13 +303,14 @@ import { categoriesApi } from '../../api/categories'
 import { getHumanReadableDateDifference } from '../../utils/dateUtils'
 import { QForm } from 'quasar'
 import { groupsApi } from '../../api/groups'
-// DOMPurify import removed
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { RecurrenceService } from '../../services/recurrenceService'
+import { eventSeriesApi, CreateEventSeriesDto } from '../../api/event-series'
+import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 
-const { error } = useNotification()
+const { success, error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
   eventData.value.image = file
 }
@@ -278,9 +318,23 @@ const onEventImageSelect = (file: FileEntity) => {
 const categoryOptions = ref<CategoryEntity[]>([])
 const groupsOptions = ref<GroupEntity[]>([])
 
-const emit = defineEmits(['created', 'updated', 'close'])
+const emit = defineEmits(['created', 'updated', 'close', 'series-created'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
+
+// Recurrence and series controls
+const isRecurring = ref(false)
+const recurrenceRule = ref<Partial<RecurrenceRule>>({
+  frequency: 'WEEKLY',
+  interval: 1
+})
+
+// Series data kept separate from event data
+const seriesData = ref({
+  name: '',
+  description: '',
+  timeZone: RecurrenceService.getUserTimezone()
+})
 
 const eventData = ref<EventEntity>({
   name: '',
@@ -298,10 +352,22 @@ const eventData = ref<EventEntity>({
   sourceUrl: null,
   sourceData: null,
   lastSyncedAt: null,
-  timeZone: RecurrenceService.getUserTimezone(),
-  isRecurring: false,
-  recurrenceRule: undefined,
-  recurrenceExceptions: []
+  timeZone: RecurrenceService.getUserTimezone()
+  // Removed recurrence-related fields
+})
+
+// Watch for event name changes to sync with series name
+watch(() => eventData.value.name, (newName) => {
+  if (!seriesData.value.name || seriesData.value.name === '') {
+    seriesData.value.name = newName
+  }
+})
+
+// Watch for description changes to sync with series description
+watch(() => eventData.value.description, (newDesc) => {
+  if (!seriesData.value.description || seriesData.value.description === '') {
+    seriesData.value.description = newDesc || ''
+  }
 })
 
 // Tab for description editor (edit/preview)
@@ -368,6 +434,7 @@ const onSubmit = async () => {
     storeState: authStore.$state
   })
 
+  // Always remove recurrence fields from event data
   const event = {
     ...eventData.value
   }
@@ -379,6 +446,23 @@ const onSubmit = async () => {
   }
 
   try {
+    // Check if user wants to create a recurring series
+    if (isRecurring.value && recurrenceRule.value.frequency) {
+      // This is a series creation path
+      await createEventSeries(event)
+    } else {
+      // This is the standard single event path
+      await createOrUpdateSingleEvent(event)
+    }
+  } catch (err) {
+    console.error('Failed to create/update event:', err)
+    error('Failed to create event')
+  }
+}
+
+// Function to handle creating or updating a single event
+const createOrUpdateSingleEvent = async (event: EventEntity) => {
+  try {
     let createdEvent
 
     // If updating an existing event
@@ -386,40 +470,22 @@ const onSubmit = async () => {
       const res = await eventsApi.update(event.slug, event)
       createdEvent = res.data
       emit('updated', createdEvent)
+      success('Event updated successfully')
       analyticsService.trackEvent('event_updated', {
         event_id: createdEvent.id,
         name: createdEvent.name
       })
     } else {
       // Creating a new event
-      // If user has Bluesky connected, set source info
-      const blueskyDid = authStore.getBlueskyDid
-      const blueskyHandle = authStore.getBlueskyHandle
-
-      console.log('Checking Bluesky credentials:', { blueskyDid, blueskyHandle })
-
-      // Check that DID is not "undefined" string and handle exists
-      if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
-        console.log('Bluesky user detected:', {
-          did: blueskyDid,
-          handle: blueskyHandle
-        })
-
-        event.sourceType = 'bluesky'
-        event.sourceId = blueskyDid
-        event.sourceData = {
-          handle: blueskyHandle,
-          did: blueskyDid
-        }
-      } else {
-        console.log('No valid Bluesky credentials found:', { blueskyDid, blueskyHandle })
-      }
+      // Add Bluesky source info if user has Bluesky connected
+      addBlueskySourceInfo(event)
 
       // Create event in our system
       const res = await eventsApi.create(event)
       createdEvent = res.data
       console.log('Created event response:', createdEvent)
       emit('created', createdEvent)
+      success('Event created successfully')
       analyticsService.trackEvent('event_created', {
         event_id: createdEvent.id,
         name: createdEvent.name,
@@ -427,8 +493,89 @@ const onSubmit = async () => {
       })
     }
   } catch (err) {
-    console.error('Failed to create/update event:', err)
-    error('Failed to create an event')
+    console.error('Failed to create/update single event:', err)
+    error('Failed to create/update event')
+    throw err
+  }
+}
+
+// Function to handle creating a recurring event series
+const createEventSeries = async (event: EventEntity) => {
+  try {
+    // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
+    const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
+
+    // Prepare template event data from the event form
+    const templateEvent = {
+      startDate: event.startDate,
+      endDate: event.endDate,
+      type: event.type,
+      location: event.location,
+      locationOnline: event.locationOnline,
+      maxAttendees: event.maxAttendees,
+      requireApproval: event.requireApproval,
+      approvalQuestion: event.approvalQuestion,
+      allowWaitlist: event.allowWaitlist,
+      categories: event.categories
+    }
+
+    // Create the event series DTO (use the existing seriesData from ref)
+    const seriesDataDto: CreateEventSeriesDto = {
+      name: seriesData.value.name || event.name,
+      description: seriesData.value.description || event.description,
+      timeZone: event.timeZone,
+      recurrenceRule: mappedRule,
+      templateEvent
+    }
+
+    // Add group ID if selected
+    if (event.group) {
+      seriesDataDto.groupId = typeof event.group === 'object' ? event.group.id : event.group
+    }
+
+    // Add image if available
+    if (event.image && typeof event.image === 'object' && event.image.id) {
+      seriesDataDto.imageId = event.image.id
+    }
+
+    // Add Bluesky info to template event data
+    addBlueskySourceInfo(event)
+
+    // Create the series
+    const response = await eventSeriesApi.create(seriesDataDto)
+    const createdSeries = response.data
+
+    // Notify user and emit series created event
+    success(`Event series "${createdSeries.name}" created successfully`)
+    emit('series-created', createdSeries)
+
+    // Track analytics
+    analyticsService.trackEvent('event_series_created', {
+      series_id: createdSeries.id,
+      name: createdSeries.name,
+      source: event.sourceType || 'web'
+    })
+  } catch (err) {
+    console.error('Failed to create event series:', err)
+    error('Failed to create event series')
+    throw err
+  }
+}
+
+// Helper to add Bluesky source information
+const addBlueskySourceInfo = (event: EventEntity) => {
+  const blueskyDid = authStore.getBlueskyDid
+  const blueskyHandle = authStore.getBlueskyHandle
+
+  // Check that DID is not "undefined" string and handle exists
+  if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
+    console.log('Bluesky user detected, adding source info')
+    event.sourceType = 'bluesky'
+    event.sourceId = blueskyDid
+    event.sourceData = {
+      handle: blueskyHandle,
+      did: blueskyDid
+    }
   }
 }
 </script>

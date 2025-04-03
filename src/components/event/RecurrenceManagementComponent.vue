@@ -356,13 +356,13 @@ const humanReadablePattern = computed(() => {
 const formatDate = (date: string) => {
   try {
     if (!date) return 'N/A'
-    
+
     const dateObj = new Date(date)
     if (isNaN(dateObj.getTime())) {
       console.error('Invalid date:', date)
       return 'Invalid date'
     }
-    
+
     return RecurrenceService.formatWithTimezone(
       dateObj,
       'EEE, MMM d, yyyy h:mm a',
@@ -377,13 +377,13 @@ const formatDate = (date: string) => {
 const formatExclusionDate = (date: string) => {
   try {
     if (!date) return 'N/A'
-    
+
     const dateObj = new Date(date)
     if (isNaN(dateObj.getTime())) {
       console.error('Invalid exclusion date:', date)
       return 'Invalid date'
     }
-    
+
     return format(dateObj, 'EEE, MMM d, yyyy')
   } catch (e) {
     console.error('Error formatting exclusion date:', e)
@@ -696,7 +696,7 @@ const splitSeries = async () => {
       if (result) {
         console.log('Series split successful, new series:', result.slug)
         success('Series split successfully')
-  
+
         // Navigate to the new series
         router.push({ name: 'EventPage', params: { slug: result.slug } })
       } else {

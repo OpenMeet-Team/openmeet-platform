@@ -245,58 +245,35 @@ const occurrences = ref<Date[]>([])
 let isGeneratingRule = false
 let lastRuleString = ''
 
-// Generate the rule based on form values in a way that minimizes reactivity issues
-const rule = computed<Partial<RecurrenceRule> | undefined>(() => {
-  // Skip if not recurring or if we're already processing
-  if (!props.isRecurring || isGeneratingRule) return undefined
-
+// Compute the complete rule object to send to the parent
+const rule = computed<Partial<RecurrenceRule>>(() => {
   try {
-    isGeneratingRule = true
-
-    // Create base rule
-    const options: Partial<RecurrenceRule> = {
-      freq: frequency.value as RecurrenceRule['freq'],
-      interval: interval.value
+    // Create a type-safe result object with known properties from RecurrenceRule
+    const result: Partial<RecurrenceRule> = {
+      frequency: frequency.value as RecurrenceRule['frequency']
     }
 
-    // Weekly options - create a new array to avoid reactive modification
-    if (frequency.value === 'WEEKLY' && selectedDays.value.length > 0) {
-      options.byday = [...selectedDays.value]
+    // Only add interval if it's greater than 1
+    if (interval.value && interval.value > 1) {
+      result.interval = interval.value
     }
 
-    // Monthly options
-    if (frequency.value === 'MONTHLY') {
-      if (monthlyRepeatType.value === 'dayOfMonth' && props.startDate) {
-        const day = new Date(props.startDate).getDate()
-        options.bymonthday = [day]
-      } else if (monthlyRepeatType.value === 'dayOfWeek' && props.startDate) {
-        const date = new Date(props.startDate)
-        const dayOfWeek = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][date.getDay()]
-        const nth = Math.ceil(date.getDate() / 7)
-        options.byday = [`${nth}${dayOfWeek}`]
-      }
+    // Add weekdays if daily or weekly frequency
+    if ((frequency.value === 'DAILY' || frequency.value === 'WEEKLY') && selectedDays.value.length > 0) {
+      result.byweekday = selectedDays.value
     }
 
-    // End options
-    if (endType.value === 'count') {
-      options.count = count.value
+    // Add count or until based on end type
+    if (endType.value === 'count' && count.value) {
+      result.count = count.value
     } else if (endType.value === 'until' && until.value) {
-      options.until = new Date(until.value).toISOString()
+      result.until = new Date(until.value).toISOString()
     }
 
-    // Only trigger updates if something actually changed
-    const ruleString = JSON.stringify(options)
-    if (ruleString === lastRuleString) {
-      // No change, return the same object to avoid triggering watchers
-      return options
-    }
-
-    // Update cache
-    lastRuleString = ruleString
-    return options
-  } finally {
-    // Always ensure flag is reset
-    isGeneratingRule = false
+    return result
+  } catch (e) {
+    console.error('Error in rule computed property:', e)
+    return { frequency: 'WEEKLY' as const }
   }
 })
 
@@ -319,8 +296,8 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
   }
 
   try {
-    // Ensure the rule has required 'freq' field
-    if (ruleObj && 'freq' in ruleObj) {
+    // Ensure the rule has required 'frequency' field
+    if (ruleObj && 'frequency' in ruleObj) {
       // Create a deep copy to prevent reactive issues
       const completeRule = JSON.parse(JSON.stringify(ruleObj)) as RecurrenceRule
 
@@ -345,7 +322,7 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
           timeZone: tzValue
         } as EventEntity)
 
-        patternDescriptionCache.value = backupDescription || `Repeats ${completeRule.freq.toLowerCase()}`
+        patternDescriptionCache.value = backupDescription || `Repeats ${completeRule.frequency?.toLowerCase() || 'regularly'}`
       } catch (fallbackError) {
         console.error('Error in fallback description:', fallbackError)
         patternDescriptionCache.value = `Custom recurrence pattern (${tzValue})`
@@ -484,8 +461,8 @@ const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTime
         timeZone: newTimezone
       }
 
-      // Make sure eventWithRule has a recurrenceRule with a freq property
-      if (eventData.recurrenceRule && 'freq' in eventData.recurrenceRule) {
+      // Make sure eventWithRule has a recurrenceRule with a frequency property
+      if (eventData.recurrenceRule && 'frequency' in eventData.recurrenceRule) {
         try {
           // Generating occurrences can be expensive, especially for complex rules
           const result = RecurrenceService.getOccurrences(eventData as EventEntity, 5)
@@ -520,17 +497,22 @@ const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTime
 const initFromModelValue = () => {
   if (!props.modelValue) return
 
-  frequency.value = props.modelValue.freq
+  // Set frequency from modelValue
+  frequency.value = props.modelValue.frequency
+
+  // Set interval (default to 1 if not provided)
   interval.value = props.modelValue.interval || 1
 
-  if (props.modelValue.byday && props.modelValue.byday.length > 0) {
+  // Set selected days (byweekday in RecurrenceRule)
+  if (props.modelValue.byweekday && props.modelValue.byweekday.length > 0) {
     // Extract simple weekdays (without position prefixes)
-    selectedDays.value = props.modelValue.byday.map(day => {
+    selectedDays.value = props.modelValue.byweekday.map(day => {
       const match = day.match(/(?:\d+)?([A-Z]{2})$/)
       return match ? match[1] : day
     })
   }
 
+  // Set end type and related fields
   if (props.modelValue.count) {
     endType.value = 'count'
     count.value = props.modelValue.count

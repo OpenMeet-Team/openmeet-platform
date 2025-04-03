@@ -191,7 +191,7 @@ const copyGoogleCalendarLink = () => {
   // If recurring, add basic recurrence information
   if (props.event.isRecurring && props.event.recurrenceRule) {
     const rule = props.event.recurrenceRule
-    let recur = `RRULE:FREQ=${rule.freq}`
+    let recur = `RRULE:FREQ=${rule.frequency}`
 
     if (rule.interval && rule.interval > 1) {
       recur += `;INTERVAL=${rule.interval}`

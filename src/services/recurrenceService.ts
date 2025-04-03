@@ -1,4 +1,4 @@
-import { RRule, Options, Weekday } from 'rrule'
+import { RRule, Options, Weekday, Frequency } from 'rrule'
 import { format, formatInTimeZone } from 'date-fns-tz'
 import { parseISO, addMilliseconds } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
@@ -38,105 +38,100 @@ export class RecurrenceService {
 
   // Convert RecurrenceRule to RRule for use with the rrule library
   static toRRule (rule: RecurrenceRule, startDate: string): RRule {
-    // Validate that required freq property exists
-    if (!rule.freq) {
-      throw new Error('Recurrence rule must have a frequency')
-    }
-
-    // Get the RRule frequency constant (needs to be a number)
-    let freq: number
-    if (typeof rule.freq === 'string') {
-      switch (rule.freq) {
-        case 'YEARLY': freq = RRule.YEARLY; break
-        case 'MONTHLY': freq = RRule.MONTHLY; break
-        case 'WEEKLY': freq = RRule.WEEKLY; break
-        case 'DAILY': freq = RRule.DAILY; break
-        case 'HOURLY': freq = RRule.HOURLY; break
-        case 'MINUTELY': freq = RRule.MINUTELY; break
-        case 'SECONDLY': freq = RRule.SECONDLY; break
-        default:
-          console.error('Unknown frequency:', rule.freq)
-          throw new Error(`Unknown frequency: ${rule.freq}`)
+    try {
+      if (!rule || !rule.frequency) {
+        throw new Error('Invalid recurrence rule: missing frequency')
       }
-    } else {
-      freq = rule.freq as number
-    }
 
-    // Parse the start date correctly
-    const dtstart = parseISO(startDate)
+      // Parse the start date
+      let dtstart
+      try {
+        dtstart = typeof startDate === 'string'
+          ? parseISO(startDate)
+          : new Date(startDate)
+      } catch (e) {
+        console.error('Error parsing start date:', e)
+        dtstart = new Date()
+      }
 
-    // Create options object with the correct format for RRule
-    const options: Partial<Options> = {
-      freq,
-      dtstart
-    }
+      // Create RRule options with proper typing
+      const options: Partial<Options> = {
+        freq: RRule[rule.frequency as keyof typeof RRule] as unknown as Frequency,
+        interval: rule.interval || 1,
+        dtstart
+      }
 
-    // Add optional parameters
-    if (rule.interval) options.interval = rule.interval
-    if (rule.count) options.count = rule.count
-    if (rule.until) options.until = new Date(rule.until)
-
-    // Convert day names to RRule constants
-    if (rule.byday && rule.byday.length > 0) {
-      // Type assertion needed to handle RRule's complex typing for byweekday
-      options.byweekday = rule.byday.map(day => {
-        // Handle prefixed weekdays like "1MO" (first Monday)
-        const match = String(day).match(/^([+-]?\d+)?([A-Z]{2})$/)
-        if (match) {
-          const [, prefix, weekday] = match
-          // Get the weekday constant using direct property access
-          const weekdayName = weekday as 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
-          const dayConstant = RRule[weekdayName]
-
-          if (prefix && dayConstant instanceof Weekday) {
-            return dayConstant.nth(parseInt(prefix, 10))
-          }
-          return dayConstant
+      // Add count or until if present
+      if (rule.count) {
+        options.count = rule.count
+      } else if (rule.until) {
+        try {
+          options.until = typeof rule.until === 'string'
+            ? parseISO(rule.until)
+            : new Date(rule.until)
+        } catch (e) {
+          console.error('Error parsing until date:', e)
         }
-
-        // Direct access for simple weekday values
-        const simpleDayName = day as 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
-        return RRule[simpleDayName]
-      }) as Weekday[]
-    }
-
-    // Add other byXXX properties
-    if (rule.bymonth) options.bymonth = rule.bymonth
-    if (rule.bymonthday) options.bymonthday = rule.bymonthday
-    if (rule.byhour) options.byhour = rule.byhour
-    if (rule.byminute) options.byminute = rule.byminute
-    if (rule.bysecond) options.bysecond = rule.bysecond
-    if (rule.bysetpos) options.bysetpos = rule.bysetpos
-
-    // Handle week start
-    if (rule.wkst) {
-      // RRule.MO is a Weekday object, but wkst expects a number
-      // We need to find the weekday index
-      const weekdayMap = {
-        MO: 0,
-        TU: 1,
-        WE: 2,
-        TH: 3,
-        FR: 4,
-        SA: 5,
-        SU: 6
       }
-      // Map our string value to a number for the day of the week
-      options.wkst = weekdayMap[rule.wkst as keyof typeof weekdayMap]
-    }
 
-    console.log('Creating RRule with options:', options)
-    return new RRule(options)
+      // Add byweekday if present (RRule requires special handling)
+      if (rule.byweekday && rule.byweekday.length > 0) {
+        options.byweekday = rule.byweekday.map(day => {
+          // Check if day has a position prefix like "1MO" for first Monday
+          const match = day.match(/^([+-]?\d+)([A-Z]{2})$/)
+          if (match) {
+            const pos = parseInt(match[1], 10)
+            const weekday = match[2]
+            return new Weekday(RRule[weekday as keyof typeof RRule] as unknown as number, pos)
+          }
+          // Regular weekday without position
+          return RRule[day as keyof typeof RRule] as unknown as number
+        })
+      }
+
+      // Add other byX rules as needed
+      if (rule.bymonth && rule.bymonth.length > 0) {
+        options.bymonth = rule.bymonth
+      }
+
+      if (rule.bymonthday && rule.bymonthday.length > 0) {
+        options.bymonthday = rule.bymonthday
+      }
+
+      if (rule.wkst) {
+        options.wkst = RRule[rule.wkst as keyof typeof RRule] as Weekday
+      }
+
+      // Create and return the RRule
+      return new RRule(options)
+    } catch (error) {
+      console.error('Error creating RRule:', error)
+      throw error
+    }
   }
 
   // Convert RRule to RecurrenceRule for API usage
   static fromRRule (rrule: RRule): RecurrenceRule {
     const options = rrule.options
+
+    // Map the frequency from RRule's numeric constant to our string format
+    let frequency: RecurrenceRule['frequency'] = 'WEEKLY' // Default
+
+    if (options.freq === RRule.YEARLY) frequency = 'YEARLY'
+    else if (options.freq === RRule.MONTHLY) frequency = 'MONTHLY'
+    else if (options.freq === RRule.WEEKLY) frequency = 'WEEKLY'
+    else if (options.freq === RRule.DAILY) frequency = 'DAILY'
+    else if (options.freq === RRule.HOURLY) frequency = 'HOURLY'
+    else if (options.freq === RRule.MINUTELY) frequency = 'MINUTELY'
+    else if (options.freq === RRule.SECONDLY) frequency = 'SECONDLY'
+
+    // Create the base rule
     const rule: RecurrenceRule = {
-      freq: String(options.freq) as RecurrenceRule['freq']
+      frequency
     }
 
-    if (options.interval && options.interval > 1) {
+    // Add optional properties
+    if (options.interval) {
       rule.interval = options.interval
     }
 
@@ -149,7 +144,7 @@ export class RecurrenceService {
     }
 
     if (options.byweekday && options.byweekday.length > 0) {
-      rule.byday = options.byweekday.map((day: unknown) => String(day))
+      rule.byweekday = options.byweekday.map((day: unknown) => String(day))
     }
 
     if (options.bymonth && options.bymonth.length > 0) {
@@ -177,18 +172,18 @@ export class RecurrenceService {
 
   // Create a new recurrence rule
   static createRule (
-    freq: string,
+    frequency: string,
     interval: number = 1,
     options: {
       count?: number,
       until?: string,
-      byday?: string[],
+      byweekday?: string[],
       bymonthday?: number[],
       bymonth?: number[]
     } = {}
   ): RecurrenceRule {
     return {
-      freq: freq as RecurrenceRule['freq'],
+      frequency: frequency as RecurrenceRule['frequency'],
       interval,
       ...options
     }
@@ -236,7 +231,7 @@ export class RecurrenceService {
     query: OccurrencesQueryParams = {}
   ): Promise<EventOccurrence[]> {
     console.log('RecurrenceService.fetchOccurrences called with slug:', eventSlug, 'query:', query)
-    
+
     try {
       console.log('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
       const response = await eventsApi.getEventOccurrences(eventSlug, query)
@@ -244,15 +239,15 @@ export class RecurrenceService {
       console.log('Occurrences returned:', response.data?.length || 0)
       console.log('Occurrences data type:', typeof response.data)
       console.log('First occurrence type:', response.data && response.data.length > 0 ? typeof response.data[0] : 'N/A')
-      
+
       if (response.data && Array.isArray(response.data)) {
         if (response.data.length > 0 && typeof response.data[0] === 'string') {
           console.error('API ERROR: Expected objects with date and isExcluded properties, but received array of strings')
           console.error('This indicates a backend issue that needs to be fixed')
         }
       }
-      
-      return response.data;
+
+      return response.data
     } catch (error) {
       console.error('Error fetching occurrences from API:', error)
       if (error.response) {
@@ -272,7 +267,7 @@ export class RecurrenceService {
     query: OccurrencesQueryParams = {}
   ): Promise<ExpandedEventOccurrence[]> {
     console.log('RecurrenceService.fetchExpandedOccurrences called with slug:', eventSlug, 'query:', query)
-    
+
     try {
       console.log('Making API request to /api/recurrence/' + eventSlug + '/expanded-occurrences')
       const response = await eventsApi.getExpandedEventOccurrences(eventSlug, query)
@@ -298,7 +293,7 @@ export class RecurrenceService {
     date: string
   ): Promise<EventEntity | null> {
     console.log('RecurrenceService.getEffectiveEventForDate called with slug:', eventSlug, 'date:', date)
-    
+
     try {
       console.log('Making API request to /api/recurrence/' + eventSlug + '/effective')
       const response = await eventsApi.getEffectiveEventForDate(eventSlug, date)
@@ -325,7 +320,7 @@ export class RecurrenceService {
   ): Promise<EventEntity | null> {
     console.log('RecurrenceService.splitSeriesAt called with slug:', eventSlug, 'splitDate:', splitDate)
     console.log('Modifications:', modifications)
-    
+
     try {
       const params: SplitSeriesParams = {
         splitDate,
@@ -355,7 +350,7 @@ export class RecurrenceService {
     exclusionDate: string
   ): Promise<boolean> {
     console.log('RecurrenceService.addExclusionDate called with slug:', eventSlug, 'exclusionDate:', exclusionDate)
-    
+
     try {
       console.log('Making API request to /api/recurrence/' + eventSlug + '/exclusions')
       await eventsApi.addExclusionDate(eventSlug, exclusionDate)
@@ -380,7 +375,7 @@ export class RecurrenceService {
     date: string
   ): Promise<boolean> {
     console.log('RecurrenceService.removeExclusionDate called with slug:', eventSlug, 'date:', date)
-    
+
     try {
       console.log('Making API request to /api/recurrence/' + eventSlug + '/inclusions')
       await eventsApi.removeExclusionDate(eventSlug, date)

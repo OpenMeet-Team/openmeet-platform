@@ -19,6 +19,13 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       {
+        path: 'event-series',
+        children: [
+          { path: 'create', name: 'CreateEventSeriesPage', component: () => import('pages/CreateEventSeriesPage.vue') },
+          { path: ':slug', name: 'EventSeriesPage', component: () => import('pages/EventSeriesPage.vue') }
+        ]
+      },
+      {
         path: 'groups',
         children: [
           { path: '', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },

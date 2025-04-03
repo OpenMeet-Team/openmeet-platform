@@ -159,8 +159,21 @@
                     @click="onCancelEvent"
                   />
 
+                  <!-- Promote event to series -->
+                  <MenuItemComponent
+                    v-if="
+                      (!event.isRecurring || !event.seriesId) &&
+                      useEventStore().getterUserHasPermission(
+                        EventAttendeePermission.ManageEvent
+                      )
+                    "
+                    label="Make recurring series"
+                    icon="sym_r_event_repeat"
+                    @click="openPromoteDialog"
+                  />
+
                   <!-- Split recurring event series option - temporarily disabled -->
-                  <!-- 
+                  <!--
                   <MenuItemComponent
                     v-if="
                       event.isRecurring &&
@@ -171,7 +184,7 @@
                     label="Split recurring series"
                     icon="sym_r_event_repeat"
                     @click="splitDialogVisible = true"
-                  /> 
+                  />
                   -->
                   <q-separator />
                   <MenuItemComponent
@@ -380,6 +393,15 @@
       </div>
     </template>
 
+    <!-- Promote to Series Dialog -->
+    <PromoteToSeriesComponent
+      v-if="event && (!event.isRecurring || !event.seriesId)"
+      :is-open="promoteToSeriesDialogVisible"
+      :event="event"
+      @update:is-open="promoteToSeriesDialogVisible = $event"
+      @series-created="onSeriesCreated"
+    />
+
     <!-- Recurring Event Split Dialog -->
     <RecurrenceSplitDialogComponent
       v-if="event?.isRecurring"
@@ -423,6 +445,7 @@ import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import RecurrenceManagementComponent from '../components/event/RecurrenceManagementComponent.vue'
 import RecurrenceSplitDialogComponent from '../components/event/RecurrenceSplitDialogComponent.vue'
+import PromoteToSeriesComponent from '../components/event/PromoteToSeriesComponent.vue'
 import { useAuthSession } from '../boot/auth-session'
 const route = useRoute()
 const router = useRouter()
@@ -458,6 +481,9 @@ const similarEventsLoading = ref(false)
 
 // Recurring event split dialog
 const splitDialogVisible = ref(false)
+
+// Promote to series dialog
+const promoteToSeriesDialogVisible = ref(false)
 
 // Add type declaration for global window property
 declare global {
@@ -556,6 +582,18 @@ const updateEventData = (updatedEvent: EventEntity) => {
 const onSeriesSplit = (newSeries: EventEntity) => {
   // Nothing to do here - navigation already happens in the component
   console.log('Series split successfully, new series:', newSeries.slug)
+}
+
+// Opens the promote to series dialog with debug logging
+const openPromoteDialog = () => {
+  console.log('Opening promote dialog, isRecurring =', event.value?.isRecurring, 'seriesId =', event.value?.seriesId)
+  promoteToSeriesDialogVisible.value = true
+}
+
+// Handle after promoting to series
+const onSeriesCreated = (seriesSlug: string) => {
+  // Nothing to do here - navigation already happens in the component
+  console.log('Event promoted to series successfully, new series:', seriesSlug)
 }
 
 </script>

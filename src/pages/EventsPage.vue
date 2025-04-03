@@ -5,8 +5,25 @@
     class="q-mx-auto"
     data-cy="events-page"
   >
-    <div class="row text-h4">
-      <span class="text-bold q-mr-xs">Events list</span>
+    <div class="row justify-between items-center q-mb-md">
+      <div class="text-h4">
+        <span class="text-bold q-mr-xs">Events list</span>
+      </div>
+      <div>
+        <q-btn
+          color="primary"
+          icon="sym_r_event_repeat"
+          label="Create Event Series"
+          to="/event-series/create"
+          class="q-mr-sm"
+        />
+        <q-btn
+          color="primary"
+          icon="sym_r_add"
+          label="Create Event"
+          to="/dashboard/events/create"
+        />
+      </div>
     </div>
 
     <div class="row q-col-gutter-md q-mb-lg q-mt-md">

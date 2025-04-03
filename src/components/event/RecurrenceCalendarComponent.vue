@@ -72,7 +72,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameMonth, parseISO } from 'date-fns'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { EventEntity } from '../../types/event'
-import { EventOccurrence, eventsApi } from '../../api/events'
+import { EventOccurrence } from '../../api/events'
 
 const props = defineProps<{
   event: EventEntity

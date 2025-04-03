@@ -86,14 +86,14 @@ export interface EventTopicCommentEntity {
 }
 
 export interface RecurrenceRule {
-  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY'
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY'
   interval?: number
   count?: number
   until?: string
   bysecond?: number[]
   byminute?: number[]
   byhour?: number[]
-  byday?: string[]
+  byweekday?: string[]
   bymonthday?: number[]
   byyearday?: number[]
   byweekno?: number[]
@@ -142,15 +142,19 @@ export interface EventEntity {
   lastSyncedAt?: string
   sourceData?: Record<string, unknown>
 
-  // Recurrence fields
+  // Series reference - replaces recurrence fields
+  seriesId?: number
+  seriesSlug?: string
+  isRecurrenceException?: boolean
+  originalDate?: string
+
+  // Legacy recurrence fields - needed for backwards compatibility with components
+  // These fields might be deprecated in the future as they're moved to EventSeriesEntity
   isRecurring?: boolean
   recurrenceRule?: RecurrenceRule
   recurrenceExceptions?: string[]
   recurrenceUntil?: string
   recurrenceCount?: number
-  parentEventId?: number
-  isRecurrenceException?: boolean
-  originalDate?: string
   recurrenceDescription?: string
 
   // RFC 5545/7986 additional fields
