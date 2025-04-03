@@ -528,9 +528,9 @@ describe('MatrixService', () => {
 
       // Set up the service with a mock socket and connected state
       matrixService.disconnect() // Reset first
-      // @ts-expect-error - Access private properties for testing
-      matrixService.socket = mockSocket
-      // @ts-expect-error - Access private properties for testing
+      // Access private properties for testing
+      matrixService.socket = mockSocket as any
+      // Access private properties for testing
       matrixService.isConnected = true
 
       // Create spy on the socket emit method
@@ -541,7 +541,7 @@ describe('MatrixService', () => {
       const roomId = 'test-room-123'
 
       // First check that the room is not in cache
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(false)
 
       // Join the room
@@ -555,7 +555,7 @@ describe('MatrixService', () => {
       )
 
       // Verify room is now in cache
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(true)
 
       // Verify join was successful
@@ -588,14 +588,14 @@ describe('MatrixService', () => {
       await matrixService.joinRoom(roomId)
 
       // Verify room is in cache
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(true)
 
       // Disconnect
       matrixService.disconnect()
 
       // Verify cache is cleared
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(false)
     })
 
@@ -612,13 +612,13 @@ describe('MatrixService', () => {
       // Directly call the markRoomAsJoined method to simulate the behavior
       // that would happen when the join-user-rooms response is received
       for (const room of joinRoomsResponse.rooms) {
-        // @ts-expect-error - Access private method for testing
+        // Access private method for testing
         matrixService.markRoomAsJoined(room.id)
       }
 
       // Verify all rooms are marked as joined
       for (const roomId of roomIds) {
-        // @ts-expect-error - Access private method for testing
+        // Access private method for testing
         expect(matrixService.isRoomJoined(roomId)).toBe(true)
       }
     })
@@ -627,11 +627,11 @@ describe('MatrixService', () => {
       const roomId = 'member-event-room-id'
 
       // Directly call the markRoomAsJoined method
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       matrixService.markRoomAsJoined(roomId)
 
       // Verify room is marked as joined
-      // @ts-expect-error - Access private method for testing
+      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(true)
     })
   })

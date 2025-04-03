@@ -7,6 +7,28 @@
           {{ humanReadablePattern }}
         </div>
 
+        <!-- Migration notice -->
+        <q-banner rounded class="bg-yellow-1 q-mb-md">
+          <template v-slot:avatar>
+            <q-icon name="sym_r_info" color="warning" />
+          </template>
+          <div>
+            <div class="text-weight-medium">Event series migration in progress</div>
+            <p class="q-mt-sm q-mb-none">
+              Recurring event functionality is being migrated to the new event series platform.
+              For best results, please use the "Make recurring series" option from the events menu
+              to create a new event series from this event.
+            </p>
+            <q-btn
+              flat
+              color="primary"
+              label="Convert to Event Series"
+              class="q-mt-sm"
+              @click="openPromoteDialog"
+            />
+          </div>
+        </q-banner>
+
         <!-- Tabs for management options -->
         <q-tabs
           v-model="activeTab"
@@ -302,7 +324,7 @@ const props = defineProps<{
   event: EventEntity
 }>()
 
-const emit = defineEmits(['update:event'])
+const emit = defineEmits(['update:event', 'open-promote-dialog'])
 
 const router = useRouter()
 const { success, error, warning } = useNotification()
@@ -713,6 +735,11 @@ const splitSeries = async () => {
     isSplittingSeries.value = false
     confirmSplit.value.show = false
   }
+}
+
+// Function to open promote to series dialog
+const openPromoteDialog = () => {
+  emit('open-promote-dialog')
 }
 
 // Initialization

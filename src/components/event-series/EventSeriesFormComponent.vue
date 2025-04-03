@@ -252,7 +252,7 @@ const seriesData = ref({
 
 // Recurrence Rule
 const recurrenceRule = ref({
-  frequency: 'WEEKLY',
+  frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY',
   interval: 1,
   count: 10,
   byweekday: undefined,

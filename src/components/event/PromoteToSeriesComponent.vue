@@ -108,7 +108,7 @@ const timeZone = ref(props.event.timeZone || Intl.DateTimeFormat().resolvedOptio
 
 // Default recurrence rule to weekly
 const recurrenceRule = ref<Partial<RecurrenceRule>>({
-  frequency: 'WEEKLY',
+  frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY',
   interval: 1
 })
 

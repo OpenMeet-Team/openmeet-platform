@@ -62,6 +62,12 @@
               <!-- Series Options shown when recurrence is enabled -->
               <template v-if="isRecurring">
                 <div class="q-pa-md q-mt-sm bg-grey-1 rounded-borders">
+                  <!-- Info about event series -->
+                  <div class="text-body2 q-mb-md bg-blue-1 q-pa-sm rounded-borders">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This will create an event series. All occurrences will share the same basic information.
+                  </div>
+
                   <!-- Series Name -->
                   <q-input
                     data-cy="series-name-input"
@@ -282,7 +288,7 @@
         <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
         <q-btn data-cy="event-save-draft" no-caps label="Save as draft"
           v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft" />
-        <q-btn data-cy="event-publish" no-caps label="Publish" color="primary"
+        <q-btn data-cy="event-publish" no-caps :label="isRecurring ? 'Publish Series' : 'Publish'" color="primary"
           @click="onPublish" />
       </div>
     </q-form>
@@ -325,7 +331,7 @@ const isLoading = ref<boolean>(false)
 // Recurrence and series controls
 const isRecurring = ref(false)
 const recurrenceRule = ref<Partial<RecurrenceRule>>({
-  frequency: 'WEEKLY',
+  frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY',
   interval: 1
 })
 
@@ -516,7 +522,7 @@ const createEventSeries = async (event: EventEntity) => {
       requireApproval: event.requireApproval,
       approvalQuestion: event.approvalQuestion,
       allowWaitlist: event.allowWaitlist,
-      categories: event.categories
+      categories: event.categories as number[]
     }
 
     // Create the event series DTO (use the existing seriesData from ref)

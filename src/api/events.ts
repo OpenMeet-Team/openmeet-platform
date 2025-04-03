@@ -56,12 +56,35 @@ export interface EventApiType {
   cancel?: (slug: string) => Promise<AxiosResponse<unknown>>
   remove?: (slug: string) => Promise<AxiosResponse<unknown>>
 
-  // Recurrence-related methods
+  // Recurrence-related methods (deprecated)
+  /**
+   * @deprecated Use eventSeriesApi.getOccurrences instead
+   */
   getEventOccurrences: (slug: string, query?: OccurrencesQueryParams) => Promise<AxiosResponse<EventOccurrence[]>>
+
+  /**
+   * @deprecated Use eventSeriesApi.getOccurrences instead with expanded option
+   */
   getExpandedEventOccurrences: (slug: string, query?: OccurrencesQueryParams) => Promise<AxiosResponse<ExpandedEventOccurrence[]>>
+
+  /**
+   * @deprecated Use eventSeriesApi.getOccurrence instead
+   */
   getEffectiveEventForDate: (slug: string, date: string) => Promise<AxiosResponse<EventEntity>>
+
+  /**
+   * @deprecated Use eventSeriesApi.updateFutureOccurrences instead
+   */
   splitSeriesAt: (slug: string, params: SplitSeriesParams) => Promise<AxiosResponse<EventEntity>>
+
+  /**
+   * @deprecated No direct equivalent in event series API
+   */
   addExclusionDate: (slug: string, exclusionDate: string) => Promise<AxiosResponse<void>>
+
+  /**
+   * @deprecated No direct equivalent in event series API
+   */
   removeExclusionDate: (slug: string, date: string) => Promise<AxiosResponse<void>>
 }
 

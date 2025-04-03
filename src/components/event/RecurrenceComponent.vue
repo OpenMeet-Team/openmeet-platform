@@ -1,13 +1,19 @@
 <template>
   <div class="q-mt-md">
-    <div class="text-subtitle2 q-mb-sm">Recurrence</div>
+    <div class="text-subtitle2 q-mb-sm">{{ hideToggle ? 'Series Pattern' : 'Recurrence' }}</div>
 
     <!-- Recurrence Toggle -->
     <q-checkbox data-cy="event-recurring-toggle" :model-value="isRecurring"
       @update:model-value="toggleRecurrence"
-      label="Make this a recurring event" />
+      label="Make this a recurring event" v-if="!hideToggle" />
 
     <div v-if="isRecurring" class="q-mt-md q-gutter-y-md">
+      <!-- Information about event series if not hidden -->
+      <div class="text-body2 q-mb-md" v-if="!hideToggle">
+        <q-icon name="sym_r_info" size="sm" class="q-mr-xs" color="info" />
+        This pattern will be used to create an event series.
+      </div>
+
       <!-- Frequency -->
       <q-select
         data-cy="recurrence-frequency"
@@ -220,6 +226,10 @@ const props = defineProps({
   timeZone: {
     type: String,
     default: ''
+  },
+  hideToggle: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -230,7 +240,7 @@ const frequencyOptions = RecurrenceService.frequencyOptions
 const weekdayOptions = RecurrenceService.weekdayOptions
 
 // Form state
-const frequency = ref('WEEKLY')
+const frequency = ref<'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY'>('WEEKLY')
 const interval = ref(1)
 const selectedDays = ref<string[]>([])
 const monthlyRepeatType = ref('dayOfMonth')
@@ -242,15 +252,15 @@ const timezoneOptions = ref(RecurrenceService.getTimezones())
 const occurrences = ref<Date[]>([])
 
 // Track rule generation to prevent recursion
-let isGeneratingRule = false
-let lastRuleString = ''
+const isGeneratingRule = false
+const lastRuleString = ''
 
 // Compute the complete rule object to send to the parent
 const rule = computed<Partial<RecurrenceRule>>(() => {
   try {
     // Create a type-safe result object with known properties from RecurrenceRule
     const result: Partial<RecurrenceRule> = {
-      frequency: frequency.value as RecurrenceRule['frequency']
+      frequency: frequency.value
     }
 
     // Only add interval if it's greater than 1
@@ -273,7 +283,7 @@ const rule = computed<Partial<RecurrenceRule>>(() => {
     return result
   } catch (e) {
     console.error('Error in rule computed property:', e)
-    return { frequency: 'WEEKLY' as const }
+    return { frequency: 'WEEKLY' }
   }
 })
 

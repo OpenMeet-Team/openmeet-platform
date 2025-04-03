@@ -277,7 +277,8 @@
               <RecurrenceManagementComponent
                 v-if="event.isRecurring && useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)"
                 :event="event"
-                @update:event="updateEventData" />
+                @update:event="updateEventData"
+                @open-promote-dialog="openPromoteDialog" />
               <q-item>
                 <q-item-section side>
                   <q-icon
