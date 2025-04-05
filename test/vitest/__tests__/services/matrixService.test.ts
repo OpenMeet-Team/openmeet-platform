@@ -524,12 +524,13 @@ describe('MatrixService', () => {
         sendBuffer: [],
         active: true,
         volatile: {}
-      } as Socket // Properly typed as Socket
+      }
 
       // Set up the service with a mock socket and connected state
       matrixService.disconnect() // Reset first
       // Access private properties for testing
-      matrixService.socket = mockSocket as any
+      // @ts-expect-error Accessing private property for testing purposes
+      matrixService.socket = mockSocket as unknown as Socket
       // Access private properties for testing
       matrixService.isConnected = true
 

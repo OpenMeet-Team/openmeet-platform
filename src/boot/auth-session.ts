@@ -2,17 +2,17 @@ import { boot } from 'quasar/wrappers'
 import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
 import { ref, readonly } from 'vue'
+import { Router } from 'vue-router'
 import { useRouter } from 'vue-router'
 
 // Create reactive state
 const isRefreshing = ref(false)
 const refreshPromise = ref<Promise<string> | null>(null)
 
-// Create auth session management
-export const useAuthSession = () => {
+// Create auth session factory that takes router as a parameter
+export const createAuthSession = (router: Router) => {
   const authStore = useAuthStore()
   const { error } = useNotification()
-  const router = useRouter()
 
   const checkAuthStatus = async () => {
     if (!authStore.isAuthenticated) {
@@ -75,14 +75,24 @@ export const useAuthSession = () => {
   }
 }
 
+// Composable for use in Vue components
+export const useAuthSession = () => {
+  // This will throw an error if called outside of a setup function
+  // Import and use the global $authSession instead in services
+  const router = useRouter()
+  return createAuthSession(router)
+}
+
 export default boot(({ app, router }) => {
-  // Make useAuthSession available globally
-  app.config.globalProperties.$authSession = useAuthSession()
+  // Create an instance with the router and store it globally
+  const authSession = createAuthSession(router)
+
+  // Make authSession available globally
+  app.config.globalProperties.$authSession = authSession
 
   // Enhance router navigation guard
   router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
-    const authSession = useAuthSession()
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 

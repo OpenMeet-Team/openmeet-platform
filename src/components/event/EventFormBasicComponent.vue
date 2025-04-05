@@ -57,7 +57,14 @@
                 data-cy="event-recurring-toggle"
                 v-model="isRecurring"
                 label="Make this a recurring event"
+                :disable="!!eventData.seriesSlug"
               />
+
+              <!-- Add warning message when event is part of a series -->
+              <div v-if="eventData.seriesSlug" class="text-caption text-negative q-mt-xs">
+                <q-icon name="sym_r_warning" size="xs" class="q-mr-xs" />
+                This event is already part of a series and cannot be made recurring again.
+              </div>
 
               <!-- Series Options shown when recurrence is enabled -->
               <template v-if="isRecurring">
@@ -330,9 +337,8 @@ const isLoading = ref<boolean>(false)
 
 // Recurrence and series controls
 const isRecurring = ref(false)
-const recurrenceRule = ref<Partial<RecurrenceRule>>({
-  frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY',
-  interval: 1
+const recurrenceRule = ref<RecurrenceRule>({
+  frequency: 'WEEKLY'
 })
 
 // Series data kept separate from event data
@@ -508,6 +514,14 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 // Function to handle creating a recurring event series
 const createEventSeries = async (event: EventEntity) => {
   try {
+    // Debug log to see what's in the event object
+    console.log('Event data being used for series template:', JSON.stringify(event, null, 2))
+
+    // Make sure recurrenceRule has the required frequency property
+    if (!recurrenceRule.value.frequency) {
+      recurrenceRule.value.frequency = 'WEEKLY'
+    }
+
     // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
     const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
 
@@ -525,6 +539,9 @@ const createEventSeries = async (event: EventEntity) => {
       categories: event.categories as number[]
     }
 
+    // Debug log the templateEvent object
+    console.log('Template event created:', JSON.stringify(templateEvent, null, 2))
+
     // Create the event series DTO (use the existing seriesData from ref)
     const seriesDataDto: CreateEventSeriesDto = {
       name: seriesData.value.name || event.name,
@@ -533,6 +550,9 @@ const createEventSeries = async (event: EventEntity) => {
       recurrenceRule: mappedRule,
       templateEvent
     }
+
+    // Debug log the final seriesDataDto being sent
+    console.log('Series data being sent to API:', JSON.stringify(seriesDataDto, null, 2))
 
     // Add group ID if selected
     if (event.group) {
@@ -551,9 +571,24 @@ const createEventSeries = async (event: EventEntity) => {
     const response = await eventSeriesApi.create(seriesDataDto)
     const createdSeries = response.data
 
-    // Notify user and emit series created event
+    console.log('Created series response:', createdSeries)
+
+    // Check if the series has a template event with a slug
+    if (createdSeries.templateEvent && createdSeries.templateEvent.slug) {
+      console.log('Emitting template event for navigation:', createdSeries.templateEvent)
+      emit('created', createdSeries.templateEvent)
+    } else if (createdSeries.events && createdSeries.events.length > 0) {
+      // Fallback to the first event in the events array if available
+      console.log('Emitting first event for navigation:', createdSeries.events[0])
+      emit('created', createdSeries.events[0])
+    } else {
+      // Last resort, emit the series for the parent to handle
+      console.log('No events found in series, emitting series-created')
+      emit('series-created', createdSeries)
+    }
+
+    // Notify user
     success(`Event series "${createdSeries.name}" created successfully`)
-    emit('series-created', createdSeries)
 
     // Track analytics
     analyticsService.trackEvent('event_series_created', {

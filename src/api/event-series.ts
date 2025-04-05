@@ -2,7 +2,6 @@ import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { EventEntity } from '../types'
 import { EventOccurrence, EventSeriesEntity } from '../types/event-series'
-import { RouteQueryAndHash } from 'vue-router'
 
 export interface TemplateEventDto {
   startDate: string
@@ -71,7 +70,7 @@ export interface PromoteToSeriesDto {
 }
 
 export interface EventSeriesApiType {
-  getAll: (query: RouteQueryAndHash) => Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>>
+  getAll: (query: { params: { page: number, limit: number } }) => Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>>
   getBySlug: (slug: string) => Promise<AxiosResponse<EventSeriesEntity>>
   create: (seriesData: CreateEventSeriesDto) => Promise<AxiosResponse<EventSeriesEntity>>
   update: (slug: string, seriesData: UpdateEventSeriesDto) => Promise<AxiosResponse<EventSeriesEntity>>
@@ -84,14 +83,16 @@ export interface EventSeriesApiType {
 }
 
 export const eventSeriesApi: EventSeriesApiType = {
-  getAll: (query: RouteQueryAndHash): Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>> =>
-    api.get('/api/event-series', { params: query }),
+  getAll: (query: { params: { page: number, limit: number } }): Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>> =>
+    api.get('/api/event-series', { params: query.params }),
 
   getBySlug: (slug: string): Promise<AxiosResponse<EventSeriesEntity>> =>
     api.get(`/api/event-series/${slug}`),
 
-  create: (seriesData: CreateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> =>
-    api.post('/api/event-series', seriesData),
+  create: (seriesData: CreateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> => {
+    console.log('eventSeriesApi.create called with:', JSON.stringify(seriesData, null, 2))
+    return api.post('/api/event-series', seriesData)
+  },
 
   update: (slug: string, seriesData: UpdateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> =>
     api.patch(`/api/event-series/${slug}`, seriesData),

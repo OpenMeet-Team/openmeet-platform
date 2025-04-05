@@ -252,8 +252,8 @@ const timezoneOptions = ref(RecurrenceService.getTimezones())
 const occurrences = ref<Date[]>([])
 
 // Track rule generation to prevent recursion
-const isGeneratingRule = false
-const lastRuleString = ''
+// const isGeneratingRule = ref(false)
+// const lastRuleString = ref('')
 
 // Compute the complete rule object to send to the parent
 const rule = computed<Partial<RecurrenceRule>>(() => {
@@ -330,7 +330,7 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
           startDate: props.startDate,
           recurrenceRule: completeRule,
           timeZone: tzValue
-        } as EventEntity)
+        } as unknown as EventEntity)
 
         patternDescriptionCache.value = backupDescription || `Repeats ${completeRule.frequency?.toLowerCase() || 'regularly'}`
       } catch (fallbackError) {
@@ -475,7 +475,7 @@ const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTime
       if (eventData.recurrenceRule && 'frequency' in eventData.recurrenceRule) {
         try {
           // Generating occurrences can be expensive, especially for complex rules
-          const result = RecurrenceService.getOccurrences(eventData as EventEntity, 5)
+          const result = RecurrenceService.getOccurrences(eventData as unknown as EventEntity, 5)
           occurrences.value = result
           console.log('Generated occurrences:', result.length)
         } catch (e) {

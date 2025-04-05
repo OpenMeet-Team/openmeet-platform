@@ -8,6 +8,15 @@
       </template>
     </q-btn>
 
+    <!-- Template View State -->
+    <q-btn
+      data-cy="event-template-materialize-button"
+      v-else-if="isTemplateView"
+      color="primary"
+      @click="handleTemplateAttend"
+      :label="'Schedule & Attend'"
+    />
+
     <!-- Not Attending or Cancelled State -->
     <q-btn
       data-cy="event-attend-button"
@@ -69,6 +78,8 @@ const authSession = useAuthSession()
 const props = defineProps<{
   event: EventEntity;
   attendee?: EventAttendeeEntity | null;
+  isTemplateView?: boolean;
+  templateDate?: string;
 }>()
 
 const loading = ref(false)
@@ -165,6 +176,68 @@ onMounted(async () => {
     initialLoading.value = false
   }
 })
+
+// Handle attendance for template view (unmaterialized event)
+const handleTemplateAttend = async () => {
+  if (!authStore.isAuthenticated) {
+    // Save the intent to attend after login
+    console.log('User not authenticated, opening login dialog')
+    authDialog.openLoginDialog()
+    return
+  }
+
+  try {
+    loading.value = true
+
+    // First, verify auth status to ensure token is valid
+    await authSession.checkAuthStatus()
+
+    // Check if we have all required data
+    if (!props.event.seriesSlug || !props.templateDate) {
+      throw new Error('Missing series slug or template date for materialization')
+    }
+
+    console.log('Materializing occurrence before attending:', {
+      seriesSlug: props.event.seriesSlug,
+      templateDate: props.templateDate
+    })
+
+    // Materialize the occurrence first using the centralized function
+    // Pass false to prevent auto-navigation
+    const materializedEvent = await eventStore.actionMaterializeOccurrence(
+      props.event.seriesSlug,
+      props.templateDate,
+      false // Don't auto-navigate
+    )
+
+    // Then attend the newly materialized event
+    const status = materializedEvent.requireApproval
+      ? EventAttendeeStatus.Pending
+      : EventAttendeeStatus.Confirmed
+
+    console.log('Attending newly materialized event:', materializedEvent.slug)
+    await eventStore.actionAttendEvent(materializedEvent.slug, { status })
+
+    // Show success notification
+    $q.notify({
+      type: 'positive',
+      message: materializedEvent.requireApproval
+        ? 'Event scheduled! Request sent for attendance approval.'
+        : 'Event scheduled! You are now attending this event.'
+    })
+
+    // Navigate to the materialized event using window.location
+    window.location.href = `/events/${materializedEvent.slug}`
+  } catch (error) {
+    console.error('Error materializing and attending event:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to schedule and join event. Please try again.'
+    })
+  } finally {
+    loading.value = false
+  }
+}
 
 const handleAttend = async () => {
   if (!authStore.isAuthenticated) {

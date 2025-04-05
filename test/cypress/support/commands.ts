@@ -8,11 +8,14 @@
 // https://on.cypress.io/custom-commands
 // ***********************************************
 
-// Add type definitions for Cypress commands
-// eslint-disable-next-line @typescript-eslint/no-namespace
-declare namespace Cypress {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  interface Chainable<Subject = any> {
+// Use import for Cypress types instead of triple-slash reference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import cypress = require('cypress');
+
+// Add type definitions for custom commands using module augmentation
+// This avoids using namespace syntax
+declare module 'cypress' {
+  interface Chainable {
     login(username: string, password: string): Chainable<void>
     loginPage(username: string, password: string): Chainable<void>
     logout(): Chainable<void>
@@ -20,7 +23,7 @@ declare namespace Cypress {
     // Add dataCy command type definition
     dataCy(value: string): Chainable<Element>
 
-    // Event commands - full definitions are in event-commands.ts
+    // Event commands
     createEvent(name: string, options?: object): Chainable<string>
     deleteEvent(slug: string): Chainable<void>
     createEventApi(name: string, options?: object): Chainable<string>
@@ -64,9 +67,9 @@ Cypress.Commands.add('login', (username: string, password: string) => {
   cy.dataCy('header-profile-avatar', { timeout: 10000 }).should('be.visible')
 
   // Wait for the auth token to be set in localStorage
-  cy.window().should((win: Window) => {
-    assert.isNotNull(win.localStorage.getItem('token'))
-  }, { timeout: 10000 })
+  cy.window({ timeout: 10000 }).then((win: Window) => {
+    assert.isNotNull(win.localStorage.getItem('token'), 'Auth token should exist')
+  })
 })
 
 Cypress.Commands.add('loginPage', (username: string, password: string) => {

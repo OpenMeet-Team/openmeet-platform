@@ -348,8 +348,8 @@ const onSubmit = async () => {
 
     // Reset form
     if (formRef.value) {
-      // @ts-expect-error formRef.value.reset() exists but TypeScript doesn't know about it
-      formRef.value.reset()
+      // TypeScript doesn't know about reset() method, but it exists at runtime
+      (formRef.value as { reset: () => void }).reset()
     }
   } catch (error) {
     console.error('Error creating event series:', error)

@@ -73,7 +73,7 @@ interface Emits {
   (e: 'error', error: Error): void;
 }
 
-const emit = defineEmits < Emits >()
+const emit = defineEmits<Emits>()
 
 // State
 const isLoading = ref(false)

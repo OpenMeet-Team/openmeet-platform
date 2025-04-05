@@ -1,6 +1,6 @@
 <template>
   <div>
-    <q-card v-if="event?.isRecurring" flat bordered class="q-mb-md">
+    <q-card v-if="event?.seriesSlug" flat bordered class="q-mb-md">
       <q-card-section>
         <div class="text-h6">Manage Recurring Event</div>
         <div class="text-subtitle2 q-mb-md">
@@ -8,7 +8,7 @@
         </div>
 
         <!-- Migration notice -->
-        <q-banner rounded class="bg-yellow-1 q-mb-md">
+        <q-banner rounded class="bg-yellow-1 q-mb-md" v-if="event.isRecurring && !event.seriesSlug">
           <template v-slot:avatar>
             <q-icon name="sym_r_info" color="warning" />
           </template>
@@ -25,7 +25,22 @@
               label="Convert to Event Series"
               class="q-mt-sm"
               @click="openPromoteDialog"
+              :disable="!!event.seriesSlug"
             />
+          </div>
+        </q-banner>
+
+        <!-- Warning if the event is already part of a series -->
+        <q-banner rounded class="bg-blue-1 q-mb-md" v-if="event.seriesSlug">
+          <template v-slot:avatar>
+            <q-icon name="sym_r_info" color="info" />
+          </template>
+          <div>
+            <div class="text-weight-medium">This event is part of a series</div>
+            <p class="q-mt-sm q-mb-none">
+              This event is already part of an event series. It cannot be converted to a new series.
+              You can manage this event series from this interface.
+            </p>
           </div>
         </q-banner>
 
@@ -739,12 +754,18 @@ const splitSeries = async () => {
 
 // Function to open promote to series dialog
 const openPromoteDialog = () => {
+  // Check if the event is already part of a series
+  if (props.event.seriesSlug) {
+    error('This event is already part of a series and cannot be promoted to a new series.')
+    return
+  }
+
   emit('open-promote-dialog')
 }
 
 // Initialization
 onMounted(async () => {
-  if (props.event?.isRecurring) {
+  if (props.event?.seriesSlug) {
     console.log('Loading occurrences for event:', props.event.slug)
     await loadOccurrences()
   }
@@ -752,7 +773,7 @@ onMounted(async () => {
 
 // Watch for changes in the event
 watch(() => props.event, async (newEvent) => {
-  if (newEvent?.isRecurring) {
+  if (newEvent?.seriesSlug) {
     await loadOccurrences()
   }
 }, { deep: true })

@@ -5,7 +5,8 @@ import { api } from '../boot/axios'
 import { AxiosError } from 'axios'
 import { eventsApi } from '../api/events'
 import { chatApi } from '../api/chat'
-const { error } = useNotification()
+import { EventSeriesService } from '../services/eventSeriesService'
+const { error, success } = useNotification()
 export const useEventStore = defineStore('event', {
   state: () => ({
     event: null as EventEntity | null,
@@ -289,6 +290,53 @@ export const useEventStore = defineStore('event', {
         console.log(err)
         error('Failed to remove member from event discussion')
         return false
+      }
+    },
+
+    /**
+     * Centralized function to materialize an event occurrence
+     *
+     * This function handles the materialization logic across the application to ensure
+     * consistent behavior. Materialization should happen when:
+     * - A user tries to edit the event details
+     * - A user tries to attend/join the event
+     * - A user adds attendees to the event
+     * - Any other action that would modify the event's state
+     *
+     * @param seriesSlug - The slug of the event series
+     * @param occurrenceDate - The date of the occurrence to materialize (ISO string)
+     * @param navigateToEvent - Whether to navigate to the newly materialized event (using window.location)
+     * @returns The materialized event entity
+     */
+    async actionMaterializeOccurrence (
+      seriesSlug: string,
+      occurrenceDate: string,
+      navigateToEvent: boolean = true
+    ): Promise<EventEntity> {
+      this.isLoading = true
+
+      try {
+        console.log(`Materializing occurrence: series=${seriesSlug}, date=${occurrenceDate}`)
+
+        // Call the API to materialize the occurrence
+        const event = await EventSeriesService.getOccurrence(seriesSlug, occurrenceDate)
+
+        // Show success message
+        success('Event was successfully scheduled')
+
+        // Navigate to the materialized event if requested
+        // Use window.location instead of router to avoid injection context issues
+        if (navigateToEvent && event.slug) {
+          window.location.href = `/events/${event.slug}`
+        }
+
+        return event
+      } catch (err) {
+        console.error('Error materializing occurrence:', err)
+        error('Failed to materialize event: ' + (err.message || 'Unknown error'))
+        throw err
+      } finally {
+        this.isLoading = false
       }
     }
   }

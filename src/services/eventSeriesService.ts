@@ -1,5 +1,6 @@
-import { eventSeriesApi, CreateEventSeriesDto, UpdateEventSeriesDto, EventSeriesEntity, EventOccurrence } from '../api/event-series'
+import { eventSeriesApi, CreateEventSeriesDto, UpdateEventSeriesDto } from '../api/event-series'
 import { EventEntity } from '../types'
+import { EventSeriesEntity, EventOccurrence } from '../types/event-series'
 
 export class EventSeriesService {
   /**
@@ -50,7 +51,7 @@ export class EventSeriesService {
    */
   static async getAll (page: number = 1, limit: number = 10): Promise<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }> {
     try {
-      const response = await eventSeriesApi.getAll({ page, limit })
+      const response = await eventSeriesApi.getAll({ params: { page, limit } })
       return response.data
     } catch (error) {
       console.error('Error getting all event series:', error)
@@ -106,7 +107,8 @@ export class EventSeriesService {
   /**
    * Deletes an event series
    */
-  static async delete (slug: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static async delete (slug: string, _deleteEvents: boolean = false): Promise<void> {
     try {
       await eventSeriesApi.delete(slug)
       console.log('Event series deleted successfully')

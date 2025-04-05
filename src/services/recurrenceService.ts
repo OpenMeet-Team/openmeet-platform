@@ -475,34 +475,8 @@ export class RecurrenceService {
 
   // Get all IANA timezones
   static getTimezones (): string[] {
-    // This is a simplified list - a complete list would be too long
-    return [
-      'Africa/Cairo',
-      'Africa/Johannesburg',
-      'Africa/Lagos',
-      'America/Chicago',
-      'America/Denver',
-      'America/Los_Angeles',
-      'America/New_York',
-      'America/Sao_Paulo',
-      'America/Toronto',
-      'Asia/Dubai',
-      'Asia/Hong_Kong',
-      'Asia/Jerusalem',
-      'Asia/Seoul',
-      'Asia/Shanghai',
-      'Asia/Singapore',
-      'Asia/Tokyo',
-      'Australia/Melbourne',
-      'Australia/Sydney',
-      'Europe/Berlin',
-      'Europe/London',
-      'Europe/Moscow',
-      'Europe/Paris',
-      'Pacific/Auckland',
-      'Pacific/Honolulu',
-      'UTC'
-    ]
+    // Use the full list of supported timezones
+    return Intl.supportedValuesOf('timeZone')
   }
 
   // Get filtered timezone list matching search term

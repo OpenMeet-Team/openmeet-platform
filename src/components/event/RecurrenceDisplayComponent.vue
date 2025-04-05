@@ -1,5 +1,5 @@
 <template>
-  <div v-if="event?.isRecurring && event?.recurrenceRule" class="q-my-md">
+  <div v-if="event?.seriesSlug || (event?.isRecurring && event?.recurrenceRule)" class="q-my-md">
     <!-- Recurrence Pattern -->
     <q-item dense>
       <q-item-section side>
@@ -14,7 +14,7 @@
     </q-item>
 
     <!-- Occurrence Navigation -->
-    <div v-if="event.isRecurring && occurrences.length > 0" class="q-mt-md">
+    <div v-if="event.seriesSlug || (event.isRecurring && occurrences.length > 0)" class="q-mt-md">
       <q-expansion-item
         label="Upcoming occurrences"
         icon="sym_r_calendar_month"
@@ -112,7 +112,8 @@ const humanReadablePattern = computed(() => {
   // Log the event to see what's coming from the API
   console.log('Event recurrence info:', {
     recurrenceDescription: props.event?.recurrenceDescription,
-    isRecurring: props.event?.isRecurring,
+    seriesSlug: props.event?.seriesSlug,
+    isRecurring: props.event?.isRecurring, // Legacy support
     recurrenceRule: props.event?.recurrenceRule,
     timeZone: props.event?.timeZone
   })
@@ -189,7 +190,7 @@ const copyGoogleCalendarLink = () => {
   params.append('dates', `${formatForGCal(props.event.startDate)}/${formatForGCal(props.event.endDate || props.event.startDate)}`)
 
   // If recurring, add basic recurrence information
-  if (props.event.isRecurring && props.event.recurrenceRule) {
+  if ((props.event.seriesSlug || props.event.isRecurring) && props.event.recurrenceRule) {
     const rule = props.event.recurrenceRule
     let recur = `RRULE:FREQ=${rule.frequency}`
 
@@ -216,7 +217,7 @@ const copyGoogleCalendarLink = () => {
 
 // Load occurrences on mount
 onMounted(() => {
-  if (props.event?.isRecurring && props.event?.recurrenceRule) {
+  if (props.event?.seriesSlug || (props.event?.isRecurring && props.event?.recurrenceRule)) {
     occurrences.value = RecurrenceService.getOccurrences(props.event, 5)
   }
 })

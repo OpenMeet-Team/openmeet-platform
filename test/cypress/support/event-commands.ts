@@ -1,7 +1,9 @@
 // Custom Cypress commands for event creation and management
+/// <reference types="cypress" />
+/// <reference types="jquery" />
 
 // Note: Type definitions for these commands are in commands.ts
-// to avoid linting errors with namespace declarations
+// to avoid linting errors with type declarations
 
 // Create a new event directly using the backend API
 Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
@@ -159,7 +161,7 @@ Cypress.Commands.add('createEvent', (name: string, options = {}) => {
 
     // Event group selection may not be visible depending on user groups
     // Check if it exists first and only interact with it if found
-    cy.dataCy('event-group').then($group => {
+    cy.dataCy('event-group').then(($group) => {
       if ($group.length > 0) {
         cy.wrap($group).should('be.visible')
       } else {
@@ -283,25 +285,15 @@ Cypress.Commands.add('deleteEventApi', (slug: string) => {
     cy.request({
       method: 'DELETE',
       url: apiUrl,
-      failOnStatusCode: false, // Don't fail on non-2xx response
       headers: {
         Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json',
         'x-tenant-id': tenantId
       }
     }).then((response) => {
-      // Check for any 2xx status code for success (200, 204, etc.)
-      if (!response.status.toString().startsWith('2')) {
-        cy.log(`Delete API call failed with status ${response.status}`)
+      // Check for a successful API response (status 204-No Content)
+      if (response.status !== 204) {
+        cy.log(`API call failed with status ${response.status}`)
         cy.log(`Response body: ${JSON.stringify(response.body)}`)
-
-        // If status is 404, the event might already be deleted
-        if (response.status === 404) {
-          cy.log('Event not found (404) - it may have already been deleted')
-          return cy.wrap(true)
-        }
-
-        // Any other non-2xx status code is considered a failure
         return cy.wrap(false)
       }
 
@@ -310,22 +302,3 @@ Cypress.Commands.add('deleteEventApi', (slug: string) => {
     })
   })
 })
-
-// Legacy delete event through UI - kept for reference
-Cypress.Commands.add('deleteEvent', (slug: string) => {
-  // Listen for the delete API call using real API
-  cy.intercept('DELETE', `/api/events/${slug}`).as('deleteEvent')
-
-  // Navigate to the dashboard to delete the event
-  cy.visit('/dashboard/events')
-
-  // Find the event in the list and delete it
-  cy.contains(slug).parent().find('[data-cy="event-delete-button"]').click()
-  cy.dataCy('confirm-delete-button').click()
-
-  // Wait for the delete API call to complete
-  cy.wait('@deleteEvent')
-})
-
-// Import this file in commands.ts to make the commands available
-export {}
