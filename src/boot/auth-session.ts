@@ -2,8 +2,7 @@ import { boot } from 'quasar/wrappers'
 import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
 import { ref, readonly } from 'vue'
-import { Router } from 'vue-router'
-import { useRouter } from 'vue-router'
+import { Router, useRouter } from 'vue-router'
 
 // Create reactive state
 const isRefreshing = ref(false)

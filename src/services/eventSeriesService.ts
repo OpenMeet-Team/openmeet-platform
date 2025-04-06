@@ -62,9 +62,9 @@ export class EventSeriesService {
   /**
    * Gets upcoming occurrences for an event series
    */
-  static async getOccurrences (slug: string, count: number = 10): Promise<EventOccurrence[]> {
+  static async getOccurrences (slug: string, count: number = 10, includePast: boolean = false): Promise<EventOccurrence[]> {
     try {
-      const response = await eventSeriesApi.getOccurrences(slug, count)
+      const response = await eventSeriesApi.getOccurrences(slug, count, includePast)
       return response.data
     } catch (error) {
       console.error('Error getting event series occurrences:', error)

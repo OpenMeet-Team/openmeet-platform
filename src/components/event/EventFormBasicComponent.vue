@@ -78,7 +78,7 @@
                   <!-- Series Name -->
                   <q-input
                     data-cy="series-name-input"
-                    v-model="seriesData.name"
+                    v-model="seriesFormData.name"
                     label="Series Title"
                     filled
                     maxlength="80"
@@ -90,7 +90,7 @@
                   <!-- Series Description -->
                   <q-input
                     data-cy="series-description-input"
-                    v-model="seriesData.description"
+                    v-model="seriesFormData.description"
                     label="Series Description (optional)"
                     filled
                     type="textarea"
@@ -320,7 +320,7 @@ import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { RecurrenceService } from '../../services/recurrenceService'
-import { eventSeriesApi, CreateEventSeriesDto } from '../../api/event-series'
+import { eventSeriesApi, CreateSeriesFromEventDto } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 
 const { success, error } = useNotification()
@@ -342,7 +342,7 @@ const recurrenceRule = ref<RecurrenceRule>({
 })
 
 // Series data kept separate from event data
-const seriesData = ref({
+const seriesFormData = ref({
   name: '',
   description: '',
   timeZone: RecurrenceService.getUserTimezone()
@@ -370,15 +370,15 @@ const eventData = ref<EventEntity>({
 
 // Watch for event name changes to sync with series name
 watch(() => eventData.value.name, (newName) => {
-  if (!seriesData.value.name || seriesData.value.name === '') {
-    seriesData.value.name = newName
+  if (!seriesFormData.value.name || seriesFormData.value.name === '') {
+    seriesFormData.value.name = newName
   }
 })
 
 // Watch for description changes to sync with series description
 watch(() => eventData.value.description, (newDesc) => {
-  if (!seriesData.value.description || seriesData.value.description === '') {
-    seriesData.value.description = newDesc || ''
+  if (!seriesFormData.value.description || seriesFormData.value.description === '') {
+    seriesFormData.value.description = newDesc || ''
   }
 })
 
@@ -542,33 +542,22 @@ const createEventSeries = async (event: EventEntity) => {
     // Debug log the templateEvent object
     console.log('Template event created:', JSON.stringify(templateEvent, null, 2))
 
-    // Create the event series DTO (use the existing seriesData from ref)
-    const seriesDataDto: CreateEventSeriesDto = {
-      name: seriesData.value.name || event.name,
-      description: seriesData.value.description || event.description,
-      timeZone: event.timeZone,
-      recurrenceRule: mappedRule,
-      templateEvent
-    }
-
-    // Debug log the final seriesDataDto being sent
-    console.log('Series data being sent to API:', JSON.stringify(seriesDataDto, null, 2))
-
-    // Add group ID if selected
-    if (event.group) {
-      seriesDataDto.groupId = typeof event.group === 'object' ? event.group.id : event.group
-    }
-
-    // Add image if available
-    if (event.image && typeof event.image === 'object' && event.image.id) {
-      seriesDataDto.imageId = event.image.id
-    }
-
     // Add Bluesky info to template event data
     addBlueskySourceInfo(event)
 
-    // Create the series
-    const response = await eventSeriesApi.create(seriesDataDto)
+    // First create the event
+    const eventResponse = await eventsApi.create(event)
+    const createdEvent = eventResponse.data
+
+    // Create the series using the new method name
+    const seriesCreationData: CreateSeriesFromEventDto = {
+      recurrenceRule: mappedRule,
+      timeZone: event.timeZone,
+      name: seriesFormData.value.name || event.name,
+      description: seriesFormData.value.description || event.description
+    }
+
+    const response = await eventSeriesApi.createSeriesFromEvent(createdEvent.slug, seriesCreationData)
     const createdSeries = response.data
 
     console.log('Created series response:', createdSeries)

@@ -47,6 +47,7 @@ export interface UpdateEventSeriesDto {
   propagateChanges?: boolean
   imageId?: number
   groupId?: number
+  templateEventSlug?: string
 }
 
 export interface UpdateTemplateEventDto {
@@ -69,16 +70,29 @@ export interface PromoteToSeriesDto {
   description?: string
 }
 
+export interface CreateSeriesFromEventDto {
+  recurrenceRule: RecurrenceRuleDto
+  timeZone: string
+  name?: string
+  description?: string
+}
+
+export interface AddEventToSeriesDto {
+  seriesSlug: string
+  eventSlug: string
+}
+
 export interface EventSeriesApiType {
   getAll: (query: { params: { page: number, limit: number } }) => Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>>
   getBySlug: (slug: string) => Promise<AxiosResponse<EventSeriesEntity>>
   create: (seriesData: CreateEventSeriesDto) => Promise<AxiosResponse<EventSeriesEntity>>
   update: (slug: string, seriesData: UpdateEventSeriesDto) => Promise<AxiosResponse<EventSeriesEntity>>
   delete: (slug: string) => Promise<AxiosResponse<void>>
-  getOccurrences: (slug: string, count?: number) => Promise<AxiosResponse<EventOccurrence[]>>
+  getOccurrences: (slug: string, count?: number, includePast?: boolean) => Promise<AxiosResponse<EventOccurrence[]>>
   getOccurrence: (seriesSlug: string, date: string) => Promise<AxiosResponse<EventEntity>>
   updateFutureOccurrences: (seriesSlug: string, fromDate: string, updates: UpdateEventSeriesDto) => Promise<AxiosResponse<{ message: string, count: number }>>
-  promoteToSeries: (eventSlug: string, data: PromoteToSeriesDto) => Promise<AxiosResponse<EventSeriesEntity>>
+  createSeriesFromEvent: (eventSlug: string, data: CreateSeriesFromEventDto) => Promise<AxiosResponse<EventSeriesEntity>>
+  addEventToSeries: (data: AddEventToSeriesDto) => Promise<AxiosResponse<EventEntity>>
   updateTemplateEvent: (seriesSlug: string, updates: UpdateTemplateEventDto) => Promise<AxiosResponse<EventEntity>>
 }
 
@@ -100,8 +114,8 @@ export const eventSeriesApi: EventSeriesApiType = {
   delete: (slug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/event-series/${slug}`),
 
-  getOccurrences: (slug: string, count: number = 10): Promise<AxiosResponse<EventOccurrence[]>> =>
-    api.get(`/api/event-series/${slug}/occurrences`, { params: { count } }),
+  getOccurrences: (slug: string, count: number = 10, includePast: boolean = false): Promise<AxiosResponse<EventOccurrence[]>> =>
+    api.get(`/api/event-series/${slug}/occurrences`, { params: { count, includePast } }),
 
   getOccurrence: (seriesSlug: string, date: string): Promise<AxiosResponse<EventEntity>> =>
     api.get(`/api/event-series/${seriesSlug}/${date}`),
@@ -109,8 +123,11 @@ export const eventSeriesApi: EventSeriesApiType = {
   updateFutureOccurrences: (seriesSlug: string, fromDate: string, updates: UpdateEventSeriesDto): Promise<AxiosResponse<{ message: string, count: number }>> =>
     api.patch(`/api/event-series/${seriesSlug}/future-from/${fromDate}`, updates),
 
-  promoteToSeries: (eventSlug: string, data: PromoteToSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> =>
-    api.post(`/api/event-series/promote/${eventSlug}`, data),
+  createSeriesFromEvent: (eventSlug: string, data: CreateSeriesFromEventDto): Promise<AxiosResponse<EventSeriesEntity>> =>
+    api.post(`/api/event-series/create-from-event/${eventSlug}`, data),
+
+  addEventToSeries: (data: AddEventToSeriesDto): Promise<AxiosResponse<EventEntity>> =>
+    api.post(`/api/event-series/${data.seriesSlug}/add-event/${data.eventSlug}`),
 
   updateTemplateEvent: (seriesSlug: string, updates: UpdateTemplateEventDto): Promise<AxiosResponse<EventEntity>> =>
     api.patch(`/api/event-series/${seriesSlug}/template`, updates)

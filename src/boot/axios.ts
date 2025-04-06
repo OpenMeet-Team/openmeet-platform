@@ -2,7 +2,6 @@ import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
-import { useAuthSession } from './auth-session'
 import getEnv from '../utils/env'
 
 declare module 'vue' {
@@ -46,9 +45,6 @@ export default boot(async ({ app, router }) => {
     async (err) => {
       const originalRequest = err.config
       const authStore = useAuthStore()
-
-      // Create auth session with direct router access instead of using useRouter()
-      const authSession = app.config.globalProperties.$authSession
 
       if (err.response && err.response.status === 422) {
         Object.values(err.response.data.errors).forEach(message => error(message as string))
