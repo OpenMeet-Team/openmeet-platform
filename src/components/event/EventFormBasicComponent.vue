@@ -321,7 +321,7 @@ import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { RecurrenceService } from '../../services/recurrenceService'
-import { eventSeriesApi, CreateSeriesFromEventDto } from '../../api/event-series'
+import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 
 const { success, error } = useNotification()
@@ -526,39 +526,23 @@ const createEventSeries = async (event: EventEntity) => {
     // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
     const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
 
-    // Prepare template event data from the event form
-    const templateEvent = {
-      startDate: event.startDate,
-      endDate: event.endDate,
-      type: event.type,
-      location: event.location,
-      locationOnline: event.locationOnline,
-      maxAttendees: event.maxAttendees,
-      requireApproval: event.requireApproval,
-      approvalQuestion: event.approvalQuestion,
-      allowWaitlist: event.allowWaitlist,
-      categories: event.categories as number[]
-    }
-
-    // Debug log the templateEvent object
-    console.log('Template event created:', JSON.stringify(templateEvent, null, 2))
-
-    // Add Bluesky info to template event data
+    // Add Bluesky info to event data
     addBlueskySourceInfo(event)
 
-    // First create the event
+    // Create just a template event first - no special flag needed
     const eventResponse = await eventsApi.create(event)
-    const createdEvent = eventResponse.data
+    const templateEvent = eventResponse.data
+    console.log('Created template event:', templateEvent)
 
-    // Create the series using the new method name
-    const seriesCreationData: CreateSeriesFromEventDto = {
+    // Create the series from the template
+    const seriesCreationData = {
       recurrenceRule: mappedRule,
       timeZone: event.timeZone,
       name: seriesFormData.value.name || event.name,
       description: seriesFormData.value.description || event.description
     }
 
-    const response = await eventSeriesApi.createSeriesFromEvent(createdEvent.slug, seriesCreationData)
+    const response = await eventSeriesApi.createSeriesFromEvent(templateEvent.slug, seriesCreationData)
     const createdSeries = response.data
 
     console.log('Created series response:', createdSeries)
