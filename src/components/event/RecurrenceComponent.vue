@@ -204,7 +204,7 @@
 import { ref, computed, watch, defineProps, defineEmits, onMounted } from 'vue'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { RecurrenceRule, EventEntity } from '../../types/event'
-import { format } from 'date-fns'
+import { format, addDays } from 'date-fns'
 
 // Loading state indicators
 const isCalculatingPattern = ref(false)
@@ -233,7 +233,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:model-value', 'update:is-recurring', 'update:time-zone'])
+const emit = defineEmits(['update:model-value', 'update:is-recurring', 'update:time-zone', 'update:start-date'])
 
 // Recurrence options
 const frequencyOptions = RecurrenceService.frequencyOptions
@@ -377,6 +377,35 @@ const toggleDay = (day: string) => {
   } else {
     // Add the day to a new array
     selectedDays.value = [...currentDays, day]
+  }
+
+  // Check if we need to update the start date to match the first selected weekday
+  if (selectedDays.value.length > 0 && props.startDate) {
+    const startDateObj = new Date(props.startDate)
+    const currentDayOfWeek = startDateObj.getDay()
+    const weekdayMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }
+
+    // Check if current start date day matches any selected weekday
+    const currentWeekdayCode = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][currentDayOfWeek]
+    const currentDayIsSelected = selectedDays.value.includes(currentWeekdayCode)
+
+    if (!currentDayIsSelected && selectedDays.value.length > 0) {
+      // Get the first selected weekday
+      const firstSelectedDay = selectedDays.value[0]
+      const targetDayNum = weekdayMap[firstSelectedDay as keyof typeof weekdayMap]
+
+      // Calculate days to add to get to the target weekday
+      let daysToAdd = (targetDayNum - currentDayOfWeek + 7) % 7
+      if (daysToAdd === 0) daysToAdd = 7 // If same day of week, go to next week
+
+      // Create the new date by adding days
+      const newStartDate = addDays(startDateObj, daysToAdd)
+
+      // Emit the new start date while preserving the time
+      const newDateISOString = newStartDate.toISOString()
+      console.log('Updating start date to match selected weekday:', newDateISOString)
+      emit('update:start-date', newDateISOString)
+    }
   }
 
   // Wait until the next tick before allowing updates
@@ -545,18 +574,21 @@ watch(() => props.timeZone, (newTimeZone) => {
 let isUpdatingSelectedDays = false
 
 // Initialize weekday selection based on the start date
-watch(() => props.startDate, (newStartDate) => {
-  // Skip if we're already updating or if days are already selected
-  if (isUpdatingSelectedDays || selectedDays.value.length > 0) return
+watch(() => props.startDate, (newStartDate, oldStartDate) => {
+  // Skip if we're already updating
+  if (isUpdatingSelectedDays) return
 
-  if (newStartDate) {
+  // Check if the date has actually changed (different day)
+  if (newStartDate && (!oldStartDate || new Date(newStartDate).toDateString() !== new Date(oldStartDate).toDateString())) {
     isUpdatingSelectedDays = true
     try {
       const dayOfWeek = new Date(newStartDate).getDay()
       const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
 
-      // Create a new array instead of modifying in place
+      // Always reset selected days when date changes
       selectedDays.value = [weekdayValue]
+
+      console.log('Date changed, reset selected days to:', weekdayValue)
     } finally {
       // Use setTimeout to break the reactivity chain
       setTimeout(() => {

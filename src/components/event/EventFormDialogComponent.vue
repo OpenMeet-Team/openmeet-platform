@@ -33,18 +33,24 @@ const onEventCreated = (event: EventEntity) => {
 }
 
 const onSeriesCreated = (series: EventSeriesEntity) => {
-  console.log('Series created in dialog, trying to navigate to first event:', series)
+  console.log('Series created in dialog, trying to navigate to template event:', series.templateEventSlug)
 
   if (dialogRef.value) {
     dialogRef.value.hide()
-    // If the series has events, navigate to the first one
-    if (series.events && series.events.length > 0) {
+
+    // If series has a templateEventSlug, navigate directly to it
+    if (series.templateEventSlug) {
+      console.log('Navigating directly to template event:', series.templateEventSlug)
+      router.push({ name: 'EventPage', params: { slug: series.templateEventSlug } })
+    } else if (series.events && series.events.length > 0) {
+      // Fallback to first event if available
       const firstEvent = series.events[0]
       console.log('Navigating to first event of series:', firstEvent)
-      if (firstEvent.slug) {
-        // Use direct router navigation for reliability
-        router.push({ name: 'EventPage', params: { slug: firstEvent.slug } })
-      }
+      router.push({ name: 'EventPage', params: { slug: firstEvent.slug } })
+    } else {
+      // Final fallback to series page
+      console.log('No template event or events found, navigating to series page')
+      router.push({ name: 'EventSeriesPage', params: { slug: series.slug } })
     }
   }
 }

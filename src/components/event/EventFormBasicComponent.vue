@@ -105,6 +105,7 @@
                     v-model:time-zone="eventData.timeZone"
                     :start-date="eventData.startDate"
                     :hide-toggle="true"
+                    @update:start-date="updateStartDate"
                   />
                 </div>
               </template>
@@ -607,6 +608,10 @@ const addBlueskySourceInfo = (event: EventEntity) => {
       did: blueskyDid
     }
   }
+}
+
+const updateStartDate = (newStartDate: string) => {
+  eventData.value.startDate = newStartDate
 }
 </script>
 
