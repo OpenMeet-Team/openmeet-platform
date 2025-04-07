@@ -13,7 +13,13 @@
             <div class="row items-center justify-between">
               <div class="col-12 col-sm-6">
                 <div class="text-body2 text-bold">
-                  {{ formatDate(event.startDate) }}
+                  <template v-if="isTemplateView && templateDate">
+                    <q-badge color="blue" class="q-mr-sm">Template View</q-badge>
+                    {{ formatDate(templateDate) }}
+                  </template>
+                  <template v-else>
+                    {{ formatDate(event.startDate) }}
+                  </template>
                 </div>
                 <span v-if="event.maxAttendees">
                   <span class="text-red">{{
@@ -23,6 +29,10 @@
                   }}</span>
                 </span>
                 <div class="text-h6 text-bold">{{ event.name }}</div>
+                <div v-if="isTemplateView" class="text-caption text-blue">
+                  <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
+                  This is a future occurrence of this event. Editing or adding attendees will create a scheduled event.
+                </div>
               </div>
               <!-- Attendance status -->
               <div class="col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
@@ -81,7 +91,12 @@
                   <ShareComponent class="col-4" />
 
                   <!-- Attend button -->
-                  <EventAttendanceButton :event="event" :attendee="event.attendee" />
+                  <EventAttendanceButton
+                    :event="event"
+                    :attendee="event.attendee"
+                    :is-template-view="isTemplateView"
+                    :template-date="templateDate"
+                  />
 
                   <QRCodeComponent class="" />
                 </div>
@@ -104,7 +119,8 @@
               ) ||
               useEventStore().getterUserHasPermission(
                 EventAttendeePermission.ManageEvent
-              )
+              ) ||
+              isOwnerOrAdmin
             "
           >
             <q-card-section>
@@ -128,14 +144,10 @@
                     v-if="
                       useEventStore().getterUserHasPermission(
                         EventAttendeePermission.ManageEvent
-                      )
+                      ) ||
+                      isOwnerOrAdmin
                     "
-                    @click="
-                      router.push({
-                        name: 'DashboardEventPage',
-                        params: { slug: event.slug },
-                      })
-                    "
+                    @click="handleEditEvent"
                   />
                   <MenuItemComponent
                     label="Manage attendees"
@@ -158,13 +170,16 @@
                     icon="sym_r_event_busy"
                     @click="onCancelEvent"
                   />
+
+                  <!-- We're keeping only the future events component and pointer to series, so removing management options -->
                   <q-separator />
                   <MenuItemComponent
                     label="Delete event"
                     v-if="
                       useEventStore().getterUserHasPermission(
                         EventAttendeePermission.DeleteEvent
-                      )
+                      ) ||
+                      isOwnerOrAdmin
                     "
                     icon="sym_r_delete"
                     @click="onDeleteEvent"
@@ -212,6 +227,12 @@
               >
                 {{ event.name }}
               </div>
+              <!-- Series Information -->
+              <div v-if="event.seriesSlug" class="q-mb-md">
+                <q-badge color="primary" class="q-mb-sm">Part of a Series</q-badge>
+                <div class="text-h6 text-bold">{{ event.series?.name }}</div>
+                <div class="text-body2 q-mt-sm">{{ event.series?.description }}</div>
+              </div>
               <q-card-section>
                 <div
                   data-cy="event-description"
@@ -236,8 +257,72 @@
                   <q-item-label v-if="event.endDate">{{
                     formatDate(event.endDate)
                   }}</q-item-label>
+                  <q-item-label v-if="event.timeZone" caption>
+                    {{ event.timeZone }}
+                  </q-item-label>
                 </q-item-section>
               </q-item>
+
+              <!-- Recurrence information -->
+              <RecurrenceDisplayComponent v-if="event.isRecurring" :event="event" />
+
+              <!-- Enhanced Recurrence Display - Not hidden in expansion panel -->
+              <q-item v-if="event.seriesSlug" class="q-mt-md series-occurrences">
+                <q-item-section>
+                  <q-item-label class="text-weight-medium q-mb-sm">Upcoming Occurrences</q-item-label>
+
+                  <q-list bordered separator class="rounded-borders">
+                    <q-item
+                      v-for="(occurrence, index) in upcomingOccurrences"
+                      :key="index"
+                      @click="occurrence.eventSlug ? navigateToEvent(occurrence.eventSlug) : handleUnmaterializedEvent(occurrence)"
+                      clickable
+                      v-ripple
+                    >
+                      <q-item-section avatar>
+                        <q-avatar size="28px" color="primary" text-color="white">
+                          {{ index + 1 }}
+                        </q-avatar>
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                        <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
+                          <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
+                        </q-item-label>
+                        <q-item-label caption v-else class="text-grey-7">
+                          <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Future occurrence
+                        </q-item-label>
+                      </q-item-section>
+                      <q-item-section side>
+                        <q-icon
+                          :name="occurrence.eventSlug ? 'sym_r_arrow_forward' : 'sym_r_event_available'"
+                          :color="occurrence.eventSlug ? 'primary' : 'grey-7'"
+                        />
+                      </q-item-section>
+                    </q-item>
+
+                    <q-item v-if="upcomingOccurrences.length === 0">
+                      <q-item-section>
+                        <q-item-label>No upcoming occurrences found</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+
+                  <div class="text-right q-mt-sm">
+                    <q-btn
+                      flat
+                      color="primary"
+                      label="View Series"
+                      @click="navigateToEventSeries"
+                      icon-right="sym_r_arrow_forward"
+                    />
+                  </div>
+                </q-item-section>
+              </q-item>
+
+              <!-- Regular Recurrence Display Component (if event doesn't have seriesSlug) -->
+              <RecurrenceDisplayComponent v-else-if="event.isRecurring" :event="event" />
+
               <q-item>
                 <q-item-section side>
                   <q-icon
@@ -294,7 +379,7 @@
                       >
                         <LeafletMapComponent
                           disabled
-                          style="height: 300px; width: 300px"
+                          style="height: 450px; width: 450px"
                           :lat="event.lat"
                           :lon="event.lon"
                         />
@@ -304,13 +389,6 @@
                 </q-item-section>
               </q-item>
             </q-card-section>
-            <LeafletMapComponent
-              v-if="event"
-              disabled
-              style="height: 300px; width: 300px"
-              :lat="event.lat"
-              :lon="event.lon"
-            />
           </q-card>
         </div>
       </div>
@@ -352,13 +430,15 @@
         </div>
       </div>
     </template>
+
+    <!-- We're keeping only the future events component and pointer to series, so removing the management dialogs -->
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
-import { Dark, LoadingBar, useMeta } from 'quasar'
+import { Dark, LoadingBar, useMeta, useQuasar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { eventsApi } from '../api/events'
 import { formatDate } from '../utils/dateUtils'
@@ -384,13 +464,29 @@ import ShareComponent from '../components/common/ShareComponent.vue'
 import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
+import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthSession } from '../boot/auth-session'
+import { EventSeriesService } from '../services/eventSeriesService'
+import { useAuthStore } from '../stores/auth-store'
+
+// Define global window property
+declare global {
+  interface Window {
+    lastEventPageLoad?: Record<string, number>;
+  }
+}
+
 const route = useRoute()
 const router = useRouter()
+const $q = useQuasar()
 const { navigateToGroup } = useNavigation()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
+const similarEvents = ref<EventEntity[]>([])
+const similarEventsLoading = ref(false)
+const upcomingOccurrences = ref([])
+
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
 }
@@ -412,17 +508,6 @@ useMeta({
 })
 
 const loaded = ref(false)
-
-// Add these for similar events
-const similarEvents = ref<EventEntity[]>([])
-const similarEventsLoading = ref(false)
-
-// Add type declaration for global window property
-declare global {
-  interface Window {
-    lastEventPageLoad?: Record<string, number>;
-  }
-}
 
 onMounted(async () => {
   const eventSlug = route.params.slug as string
@@ -458,6 +543,15 @@ onMounted(async () => {
       // Always load similar events
       loadSimilarEvents(eventSlug)
     ])
+
+    // After loading event data, check for series and load occurrences
+    if (useEventStore().event?.seriesSlug) {
+      console.log('Event has seriesSlug:', useEventStore().event.seriesSlug)
+      await loadUpcomingOccurrences()
+    } else if (useEventStore().event?.seriesId) {
+      console.log('Event has seriesId but no seriesSlug:', useEventStore().event.seriesId)
+      console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
+    }
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
@@ -504,6 +598,171 @@ const spotsLeft = computed(() =>
     ? event.value.maxAttendees - (event.value.attendeesCount || 0)
     : 0
 )
+
+// Navigate to the event series page
+const navigateToEventSeries = async () => {
+  // Add more detailed logging
+  console.log('-----SERIES NAVIGATION DEBUG-----')
+  console.log('Event data:', event.value)
+  console.log('Series info:', {
+    seriesSlug: event.value?.seriesSlug,
+    seriesId: event.value?.seriesId,
+    isRecurring: event.value?.isRecurring
+  })
+
+  // Primary navigation approach - using seriesSlug
+  if (event.value?.seriesSlug) {
+    const url = `/event-series/${event.value.seriesSlug}`
+    console.log('Navigating to:', url)
+    router.push(url)
+    return
+  }
+
+  // Fallback - if somehow we have seriesId but no seriesSlug, use the event name
+  // This should rarely happen if the API is working correctly
+  if (event.value?.seriesId && event.value?.name) {
+    console.warn('No seriesSlug found but seriesId exists - using fallback navigation')
+
+    // Create a simple slug from the event name
+    const fallbackSlug = event.value.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+
+    console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
+
+    const url = `/event-series/${fallbackSlug}`
+    console.log('Navigating to fallback URL:', url)
+    router.push(url)
+    return
+  }
+
+  // As a last resort, go to the events list
+  console.warn('Unable to navigate to series - missing seriesSlug')
+  router.push('/events')
+}
+
+// Load upcoming occurrences only when we have a seriesSlug
+const loadUpcomingOccurrences = async () => {
+  if (event.value?.seriesSlug) {
+    try {
+      const seriesSlug = event.value.seriesSlug
+      console.log('Loading upcoming occurrences for series:', seriesSlug)
+
+      // Load upcoming occurrences from the series
+      const response = await EventSeriesService.getOccurrences(seriesSlug, 5)
+      console.log('Received occurrences:', response)
+
+      // Filter out only future occurrences
+      const now = new Date()
+      upcomingOccurrences.value = response
+        .filter(occurrence => new Date(occurrence.date) > now)
+        .map(occurrence => ({
+          date: new Date(occurrence.date),
+          eventSlug: occurrence.event?.slug || null
+        }))
+        .slice(0, 5) // Limit to next 5 occurrences
+
+      console.log('Processed upcoming occurrences:', upcomingOccurrences.value)
+    } catch (error) {
+      console.error('Failed to load upcoming occurrences:', error)
+    }
+  }
+}
+
+// Define the type for occurrence
+interface SeriesOccurrence {
+  date: Date;
+  eventSlug: string | null;
+}
+
+const navigateToEvent = (eventSlug: string) => {
+  router.push(`/events/${eventSlug}`)
+}
+
+// Handle click on unmaterialized event
+const handleUnmaterializedEvent = (occurrence: SeriesOccurrence) => {
+  // If the event is unmaterialized (no eventSlug), we'll show a temporary view
+  // with option to materialize
+  if (event.value) {
+    // Use query parameter approach for template views
+    router.push({
+      name: 'EventPage',
+      params: { slug: event.value.slug },
+      query: {
+        templateView: 'true',
+        occurrenceDate: occurrence.date.toISOString()
+      }
+    })
+  }
+}
+
+// Check if we're in template view mode (showing a future unmaterialized occurrence)
+const isTemplateView = computed(() => {
+  return route.query.templateView === 'true' && !!route.query.occurrenceDate
+})
+
+// Get the projected date for template view
+const templateDate = computed(() => {
+  if (isTemplateView.value && route.query.occurrenceDate) {
+    return route.query.occurrenceDate as string
+  }
+  return null
+})
+
+const handleEditEvent = async () => {
+  // If in template view, we need to materialize this event instance first
+  if (isTemplateView.value && templateDate.value && event.value) {
+    try {
+      LoadingBar.start()
+
+      // Use the centralized materialization function with false for auto-navigation
+      const materializedEvent = await useEventStore().actionMaterializeOccurrence(
+        event.value.seriesSlug as string,
+        new Date(templateDate.value).toISOString(),
+        false // Don't navigate automatically, we'll handle it here
+      )
+
+      // Navigate to the newly materialized event edit page
+      if (materializedEvent && materializedEvent.slug) {
+        // Use window.location for consistent navigation approach
+        window.location.href = `/dashboard/events/${materializedEvent.slug}`
+      } else {
+        console.error('Failed to materialize event occurrence: No slug returned')
+      }
+    } catch (error) {
+      console.error('Error materializing event occurrence:', error)
+      // Show error notification
+      $q.notify({
+        type: 'negative',
+        message: 'Failed to materialize event: ' + (error.message || 'Unknown error')
+      })
+    } finally {
+      LoadingBar.stop()
+    }
+  } else {
+    // Regular edit for already materialized events
+    router.push({
+      name: 'DashboardEventPage',
+      params: { slug: event.value?.slug }
+    })
+  }
+}
+
+// Update the isOwnerOrAdmin computed property
+const isOwnerOrAdmin = computed(() => {
+  if (!event.value?.series?.user) return false
+
+  const authStore = useAuthStore()
+
+  // Check if user is owner
+  const isOwner = event.value.series.user.id === authStore.getUserId
+
+  // Check if user is admin (has manage events permission)
+  const isAdmin = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+
+  return isOwner || isAdmin
+})
 
 </script>
 

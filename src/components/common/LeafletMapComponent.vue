@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import type { Map as LMap, Marker, TileLayer } from 'leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -18,6 +18,8 @@ const map = ref<LMap | null>(null)
 const tileLayer = ref<TileLayer | null>(null)
 const markers = ref<Marker[]>([])
 const loaded = ref<boolean>(false)
+const initAttempts = ref<number>(0)
+const MAX_INIT_ATTEMPTS = 3
 
 const emit = defineEmits(['markerLocation'])
 
@@ -62,9 +64,37 @@ const getUserLocation = (): Promise<[number, number]> => {
   })
 }
 
-// Initialize map
+// Check if container is visible in DOM
+const isContainerVisible = (): boolean => {
+  if (!mapContainer.value) return false
+
+  // Check if element has dimensions and is in the DOM
+  const rect = mapContainer.value.getBoundingClientRect()
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    mapContainer.value.offsetParent !== null
+  )
+}
+
+// Initialize map with retry logic
 const initializeMap = async () => {
-  if (!mapContainer.value) return
+  // Skip if already initialized
+  if (map.value) return
+
+  // Check if container is ready
+  if (!mapContainer.value || !isContainerVisible()) {
+    // If we've attempted too many times, log error and stop trying
+    if (initAttempts.value >= MAX_INIT_ATTEMPTS) {
+      console.warn('LeafletMap: Container not visible after multiple attempts, will retry when shown')
+      return
+    }
+
+    // Increment attempts and try again after a delay
+    initAttempts.value++
+    setTimeout(initializeMap, 500)
+    return
+  }
 
   let center: [number, number] = defaultMapOptions.center
 
@@ -79,21 +109,28 @@ const initializeMap = async () => {
     }
   }
 
-  // Create map instance
-  map.value = L.map(mapContainer.value).setView(center, props.zoom)
+  try {
+    // Create map instance
+    map.value = L.map(mapContainer.value).setView(center, props.zoom)
 
-  // Add tile layer
-  tileLayer.value = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value as LMap)
+    // Add tile layer
+    tileLayer.value = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value as LMap)
 
-  addMarker(center, 'Initial location')
+    addMarker(center, 'Initial location')
 
-  loaded.value = true
+    loaded.value = true
 
-  if (!props.disabled) {
-    map.value.on('click', handleMapClick)
+    if (!props.disabled) {
+      map.value.on('click', handleMapClick)
+    }
+
+    window.addEventListener('resize', handleResize)
+  } catch (error) {
+    console.error('Error initializing map:', error)
+    // Reset for potential retry
+    map.value = null
+    tileLayer.value = null
   }
-
-  window.addEventListener('resize', handleResize)
 }
 
 // Handle map click
@@ -145,12 +182,46 @@ const cleanup = () => {
 // Watch for changes in lat and lon props
 watch(() => [props.lat, props.lon], ([newLat, newLon]) => {
   if (newLat && newLon) {
-    updateMapView(newLat, newLon)
+    if (map.value) {
+      updateMapView(newLat, newLon)
+    } else {
+      // If map isn't initialized yet, try initializing it
+      nextTick(initializeMap)
+    }
   }
 })
 
+// Watch for changes in the visibility of the container
+const setupVisibilityObserver = () => {
+  if (!mapContainer.value) return
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !map.value) {
+        // Element is now visible, try initializing map
+        nextTick(initializeMap)
+      }
+    })
+  }, { threshold: 0.1 })
+
+  observer.observe(mapContainer.value)
+
+  // Cleanup observer on unmount
+  onUnmounted(() => {
+    observer.disconnect()
+  })
+}
+
 // Lifecycle hooks
-onMounted(initializeMap)
+onMounted(() => {
+  // First try initializing directly
+  nextTick(() => {
+    initializeMap()
+    // Also set up visibility observer to detect when container becomes visible
+    setupVisibilityObserver()
+  })
+})
+
 onUnmounted(cleanup)
 
 // Expose methods for parent components

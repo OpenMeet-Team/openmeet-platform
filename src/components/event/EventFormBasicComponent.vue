@@ -29,13 +29,8 @@
 
             <!-- Event Start Date -->
             <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
-              v-model="eventData.startDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-              <template v-slot:after>
-                <div class="text-overline text-bold">
-                  {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
-                </div>
-              </template>
-            </DatetimeComponent>
+              v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+              reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
 
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
@@ -43,15 +38,82 @@
                 @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set an end time..." />
 
               <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time"
-                v-model="eventData.endDate" reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+                v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
                 <template v-slot:hint>
                   <div class="text-bold">
                     {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
                   </div>
                 </template>
               </DatetimeComponent>
+
             </template>
+
+            <!-- Recurrence Component with Series Creation -->
+            <div v-if="eventData.startDate" class="q-mt-md">
+              <div class="text-subtitle2 q-mb-sm">Recurrence</div>
+
+              <q-checkbox
+                data-cy="event-recurring-toggle"
+                v-model="isRecurring"
+                label="Make this a recurring event"
+                :disable="!!eventData.seriesSlug"
+              />
+
+              <!-- Add warning message when event is part of a series -->
+              <div v-if="eventData.seriesSlug" class="text-caption text-negative q-mt-xs">
+                <q-icon name="sym_r_warning" size="xs" class="q-mr-xs" />
+                This event is already part of a series and cannot be made recurring again.
+              </div>
+
+              <!-- Series Options shown when recurrence is enabled -->
+              <template v-if="isRecurring">
+                <div class="q-pa-md q-mt-sm bg-grey-1 rounded-borders">
+                  <!-- Info about event series -->
+                  <div class="text-body2 q-mb-md bg-blue-1 q-pa-sm rounded-borders">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This will create an event series. All occurrences will share the same basic information.
+                  </div>
+
+                  <!-- Series Name -->
+                  <q-input
+                    data-cy="series-name-input"
+                    v-model="seriesFormData.name"
+                    label="Series Title"
+                    filled
+                    maxlength="80"
+                    counter
+                    class="q-mb-md"
+                    :rules="[(val) => !!val || 'Series title is required']"
+                  />
+
+                  <!-- Series Description -->
+                  <q-input
+                    data-cy="series-description-input"
+                    v-model="seriesFormData.description"
+                    label="Series Description (optional)"
+                    filled
+                    type="textarea"
+                    autogrow
+                    class="q-mb-md"
+                  />
+
+                  <!-- Recurrence Pattern -->
+                  <RecurrenceComponent
+                    v-model="recurrenceRule"
+                    :is-recurring="true"
+                    v-model:time-zone="eventData.timeZone"
+                    :start-date="eventData.startDate"
+                    :hide-toggle="true"
+                    @update:start-date="updateStartDate"
+                  />
+                </div>
+              </template>
+            </div>
           </div>
+
+          <!-- Section Separator (between Recurrence and Image) -->
+          <q-separator class="q-my-md" v-if="isRecurring" />
 
           <!-- Event Image -->
           <div class="q-mb-md">
@@ -234,7 +296,7 @@
         <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
         <q-btn data-cy="event-save-draft" no-caps label="Save as draft"
           v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft" />
-        <q-btn data-cy="event-publish" no-caps label="Publish" color="primary"
+        <q-btn data-cy="event-publish" no-caps :label="isRecurring ? 'Publish Series' : 'Publish'" color="primary"
           @click="onPublish" />
       </div>
     </q-form>
@@ -243,23 +305,26 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity } from '../../types'
+import { onMounted, ref, watch } from 'vue'
+import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../common/UploadComponent.vue'
 import { eventsApi } from '../../api/events'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
+import RecurrenceComponent from './RecurrenceComponent.vue'
 import { categoriesApi } from '../../api/categories'
 import { getHumanReadableDateDifference } from '../../utils/dateUtils'
 import { QForm } from 'quasar'
 import { groupsApi } from '../../api/groups'
-// DOMPurify import removed
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
+import { RecurrenceService } from '../../services/recurrenceService'
+import { eventSeriesApi } from '../../api/event-series'
+import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 
-const { error } = useNotification()
+const { success, error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
   eventData.value.image = file
 }
@@ -267,9 +332,22 @@ const onEventImageSelect = (file: FileEntity) => {
 const categoryOptions = ref<CategoryEntity[]>([])
 const groupsOptions = ref<GroupEntity[]>([])
 
-const emit = defineEmits(['created', 'updated', 'close'])
+const emit = defineEmits(['created', 'updated', 'close', 'series-created'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
+
+// Recurrence and series controls
+const isRecurring = ref(false)
+const recurrenceRule = ref<RecurrenceRule>({
+  frequency: 'WEEKLY'
+})
+
+// Series data kept separate from event data
+const seriesFormData = ref({
+  name: '',
+  description: '',
+  timeZone: RecurrenceService.getUserTimezone()
+})
 
 const eventData = ref<EventEntity>({
   name: '',
@@ -286,7 +364,23 @@ const eventData = ref<EventEntity>({
   sourceId: null,
   sourceUrl: null,
   sourceData: null,
-  lastSyncedAt: null
+  lastSyncedAt: null,
+  timeZone: RecurrenceService.getUserTimezone()
+  // Removed recurrence-related fields
+})
+
+// Watch for event name changes to sync with series name
+watch(() => eventData.value.name, (newName) => {
+  if (!seriesFormData.value.name || seriesFormData.value.name === '') {
+    seriesFormData.value.name = newName
+  }
+})
+
+// Watch for description changes to sync with series description
+watch(() => eventData.value.description, (newDesc) => {
+  if (!seriesFormData.value.description || seriesFormData.value.description === '') {
+    seriesFormData.value.description = newDesc || ''
+  }
 })
 
 // Tab for description editor (edit/preview)
@@ -353,6 +447,7 @@ const onSubmit = async () => {
     storeState: authStore.$state
   })
 
+  // Always remove recurrence fields from event data
   const event = {
     ...eventData.value
   }
@@ -364,6 +459,23 @@ const onSubmit = async () => {
   }
 
   try {
+    // Check if user wants to create a recurring series
+    if (isRecurring.value && recurrenceRule.value.frequency) {
+      // This is a series creation path
+      await createEventSeries(event)
+    } else {
+      // This is the standard single event path
+      await createOrUpdateSingleEvent(event)
+    }
+  } catch (err) {
+    console.error('Failed to create/update event:', err)
+    error('Failed to create event')
+  }
+}
+
+// Function to handle creating or updating a single event
+const createOrUpdateSingleEvent = async (event: EventEntity) => {
+  try {
     let createdEvent
 
     // If updating an existing event
@@ -371,40 +483,22 @@ const onSubmit = async () => {
       const res = await eventsApi.update(event.slug, event)
       createdEvent = res.data
       emit('updated', createdEvent)
+      success('Event updated successfully')
       analyticsService.trackEvent('event_updated', {
         event_id: createdEvent.id,
         name: createdEvent.name
       })
     } else {
       // Creating a new event
-      // If user has Bluesky connected, set source info
-      const blueskyDid = authStore.getBlueskyDid
-      const blueskyHandle = authStore.getBlueskyHandle
-
-      console.log('Checking Bluesky credentials:', { blueskyDid, blueskyHandle })
-
-      // Check that DID is not "undefined" string and handle exists
-      if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
-        console.log('Bluesky user detected:', {
-          did: blueskyDid,
-          handle: blueskyHandle
-        })
-
-        event.sourceType = 'bluesky'
-        event.sourceId = blueskyDid
-        event.sourceData = {
-          handle: blueskyHandle,
-          did: blueskyDid
-        }
-      } else {
-        console.log('No valid Bluesky credentials found:', { blueskyDid, blueskyHandle })
-      }
+      // Add Bluesky source info if user has Bluesky connected
+      addBlueskySourceInfo(event)
 
       // Create event in our system
       const res = await eventsApi.create(event)
       createdEvent = res.data
       console.log('Created event response:', createdEvent)
       emit('created', createdEvent)
+      success('Event created successfully')
       analyticsService.trackEvent('event_created', {
         event_id: createdEvent.id,
         name: createdEvent.name,
@@ -412,9 +506,96 @@ const onSubmit = async () => {
       })
     }
   } catch (err) {
-    console.error('Failed to create/update event:', err)
-    error('Failed to create an event')
+    console.error('Failed to create/update single event:', err)
+    error('Failed to create/update event')
+    throw err
   }
+}
+
+// Function to handle creating a recurring event series
+const createEventSeries = async (event: EventEntity) => {
+  try {
+    // Debug log to see what's in the event object
+    console.log('Event data being used for series template:', JSON.stringify(event, null, 2))
+
+    // Make sure recurrenceRule has the required frequency property
+    if (!recurrenceRule.value.frequency) {
+      recurrenceRule.value.frequency = 'WEEKLY'
+    }
+
+    // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
+    const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
+
+    // Add Bluesky info to event data
+    addBlueskySourceInfo(event)
+
+    // Create just a template event first - no special flag needed
+    const eventResponse = await eventsApi.create(event)
+    const templateEvent = eventResponse.data
+    console.log('Created template event:', templateEvent)
+
+    // Create the series from the template
+    const seriesCreationData = {
+      recurrenceRule: mappedRule,
+      timeZone: event.timeZone,
+      name: seriesFormData.value.name || event.name,
+      description: seriesFormData.value.description || event.description
+    }
+
+    const response = await eventSeriesApi.createSeriesFromEvent(templateEvent.slug, seriesCreationData)
+    const createdSeries = response.data
+
+    console.log('Created series response:', createdSeries)
+
+    // Check if the series has a template event with a slug
+    if (createdSeries.templateEvent && createdSeries.templateEvent.slug) {
+      console.log('Emitting template event for navigation:', createdSeries.templateEvent)
+      emit('created', createdSeries.templateEvent)
+    } else if (createdSeries.events && createdSeries.events.length > 0) {
+      // Fallback to the first event in the events array if available
+      console.log('Emitting first event for navigation:', createdSeries.events[0])
+      emit('created', createdSeries.events[0])
+    } else {
+      // Last resort, emit the series for the parent to handle
+      console.log('No events found in series, emitting series-created')
+      emit('series-created', createdSeries)
+    }
+
+    // Notify user
+    success(`Event series "${createdSeries.name}" created successfully`)
+
+    // Track analytics
+    analyticsService.trackEvent('event_series_created', {
+      series_id: createdSeries.id,
+      name: createdSeries.name,
+      source: event.sourceType || 'web'
+    })
+  } catch (err) {
+    console.error('Failed to create event series:', err)
+    error('Failed to create event series')
+    throw err
+  }
+}
+
+// Helper to add Bluesky source information
+const addBlueskySourceInfo = (event: EventEntity) => {
+  const blueskyDid = authStore.getBlueskyDid
+  const blueskyHandle = authStore.getBlueskyHandle
+
+  // Check that DID is not "undefined" string and handle exists
+  if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
+    console.log('Bluesky user detected, adding source info')
+    event.sourceType = 'bluesky'
+    event.sourceId = blueskyDid
+    event.sourceData = {
+      handle: blueskyHandle,
+      did: blueskyDid
+    }
+  }
+}
+
+const updateStartDate = (newStartDate: string) => {
+  eventData.value.startDate = newStartDate
 }
 </script>
 

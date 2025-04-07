@@ -12,6 +12,17 @@ interface Props {
 
 defineProps<Props>()
 const { navigateToEvent, navigateToGroup } = useNavigation()
+
+/**
+ * Format a series slug to be more readable
+ */
+const formatSeriesSlug = (slug: string): string => {
+  // Convert slug to title case (e.g., "my-event-series" → "My Event Series")
+  return slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
 </script>
 
 <template>
@@ -49,6 +60,14 @@ const { navigateToEvent, navigateToGroup } = useNavigation()
             class="q-mr-xs"
           />
           {{ event.sourceType }}
+        </q-badge>
+        <q-badge
+          v-if="event.seriesSlug"
+          color="teal"
+          class="q-ml-sm"
+        >
+          <q-icon name="sym_r_event_repeat" size="xs" class="q-mr-xs" />
+          {{ event.series?.name || formatSeriesSlug(event.seriesSlug) }}
         </q-badge>
       </div>
       <div

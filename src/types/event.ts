@@ -3,6 +3,10 @@ import { MatrixMessage } from './matrix'
 import { GroupEntity, GroupMemberEntity } from './group'
 import { UserEntity } from './user'
 
+// Forward declare necessary interfaces
+interface EventCategory extends CategoryEntity {}
+
+// ======= Enums =======
 export enum EventType {
   Online = 'online',
   InPerson = 'in-person',
@@ -29,12 +33,14 @@ export enum EventVisibility {
   Authenticated = 'authenticated',
   Private = 'private'
 }
+
 export enum EventStatus {
   Draft = 'draft',
   Pending = 'pending',
   Published = 'published',
   Cancelled = 'cancelled'
 }
+
 export enum EventAttendeeRole {
   Participant = 'participant',
   Host = 'host',
@@ -42,6 +48,7 @@ export enum EventAttendeeRole {
   Moderator = 'moderator',
   Guest = 'guest'
 }
+
 export enum EventAttendeeStatus {
   Invited = 'invited',
   Confirmed = 'confirmed',
@@ -53,6 +60,7 @@ export enum EventAttendeeStatus {
   Waitlist = 'waitlist'
 }
 
+// ======= Core Entities =======
 export interface EventAttendeePermissionEntity {
   id: number
   name: EventAttendeePermission
@@ -64,18 +72,21 @@ export interface EventAttendeeRoleEntity {
   permissions: EventAttendeePermissionEntity[]
 }
 
-interface EventCategory extends CategoryEntity {}
-
-export interface EventAttendeeEntity {
-  id: number
-  userId: number
-  // eslint-disable-next-line no-use-before-define
-  event: EventEntity
-  user: UserEntity
-  role: EventAttendeeRoleEntity
-  status: EventAttendeeStatus
-  approvalAnswer?: string
-  createdAt?: string
+export interface RecurrenceRule {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY'
+  interval?: number
+  count?: number
+  until?: string
+  bysecond?: number[]
+  byminute?: number[]
+  byhour?: number[]
+  byweekday?: string[]
+  bymonthday?: number[]
+  byyearday?: number[]
+  byweekno?: number[]
+  bymonth?: number[]
+  bysetpos?: number[]
+  wkst?: 'SU' | 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA'
 }
 
 export interface EventTopicCommentEntity {
@@ -85,6 +96,44 @@ export interface EventTopicCommentEntity {
   // topic?: string
 }
 
+// Define a minimal event reference to break circular dependencies
+export interface EventReference {
+  id: number;
+  slug: string;
+  name: string;
+}
+
+// Define interfaces using the reference type
+export interface EventAttendeeEntity {
+  id: number;
+  userId: number;
+  event?: EventReference; // Use reference to break circular dependency
+  user: UserEntity;
+  role: EventAttendeeRoleEntity;
+  status: EventAttendeeStatus;
+  approvalAnswer?: string;
+  createdAt?: string;
+}
+
+// Forward declaration
+export interface EventSeriesEntity {
+  id: number;
+  name: string;
+  description?: string;
+  slug: string;
+  events?: EventReference[]; // Use reference to break circular dependency
+  recurrenceRule: Record<string, unknown>;
+  recurrenceExceptions?: string[];
+  recurrenceDescription?: string;
+  timeZone?: string;
+  user?: UserEntity;
+  templateEventSlug?: string;
+  templateEvent?: EventReference; // Use reference to break circular dependency
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Primary interface definition
 export interface EventEntity {
   id: number
   ulid: string
@@ -92,6 +141,7 @@ export interface EventEntity {
   name: string
   startDate: string
   endDate?: string
+  timeZone?: string
   type: EventType
   location?: string
   locationOnline?: string
@@ -123,7 +173,33 @@ export interface EventEntity {
   sourceUrl?: string
   lastSyncedAt?: string
   sourceData?: Record<string, unknown>
+
+  // Series reference - replaces recurrence fields
+  seriesId?: number
+  seriesSlug?: string
+  series?: EventSeriesEntity
+  isRecurrenceException?: boolean
+  originalDate?: string
+
+  // Legacy recurrence fields - needed for backwards compatibility with components
+  // These fields might be deprecated in the future as they're moved to EventSeriesEntity
+  isRecurring?: boolean
+  recurrenceRule?: RecurrenceRule
+  recurrenceExceptions?: string[]
+  recurrenceUntil?: string
+  recurrenceCount?: number
+  recurrenceDescription?: string
+
+  // RFC 5545/7986 additional fields
+  securityClass?: string
+  priority?: number
+  blocksTime?: boolean
+  isAllDay?: boolean
+  resources?: string
+  color?: string
+  conferenceData?: Record<string, unknown>
 }
 
+// ======= Pagination Entities =======
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
 export interface EventAttendeePaginationEntity extends Pagination<EventAttendeeEntity> {}
