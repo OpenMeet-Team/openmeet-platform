@@ -1,0 +1,211 @@
+name: Deploy Platform to Dev Environment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.20.4
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm run lint
+
+      # Uncomment when unit tests are ready
+      # - name: Run unit tests
+      #   run: npm run test:unit:ci
+
+  build-deploy-to-dev:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout Platform repository
+        uses: actions/checkout@v4
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: openmeet-team/openmeet-infrastructure
+          path: openmeet-infrastructure
+          token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Set image tags
+        run: |
+          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$(echo ${{ github.head_ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
+          echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: openmeet-ecr/openmeet-platform
+          GIT_REVISION: ${{ github.sha }}
+          GIT_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Building image with tag: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          APP_VERSION=$(node -p "require('./package.json').version")
+          docker buildx build --load \
+            --build-arg APP_VERSION="${APP_VERSION}" \
+            --build-arg COMMIT_SHA="${GITHUB_SHA}" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+          # Tag with PR-specific tag for reference
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:pr-$PR_NUMBER
+
+          # Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:pr-$PR_NUMBER
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.30.1'
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name openmeet-prod --region ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy to dev environment
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: openmeet-ecr/openmeet-platform
+        run: |
+          # Apply the patch to the dev environment
+          cd openmeet-infrastructure
+
+          # First ensure namespace exists
+          kubectl apply -f k8s/environments/dev/namespace.yaml --validate=false
+
+          # Update the deployment with the new image
+          kubectl set image deployment/platform platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
+
+          # Update the infrastructure repository with the new image tag
+          sed -i "s|image: .*openmeet-ecr/openmeet-platform:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" k8s/environments/dev/kustomization.yaml
+
+          # Configure Git
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # Commit and push the changes
+          git add k8s/environments/dev/kustomization.yaml
+          git commit -m "Update Platform image to $IMAGE_TAG for PR #$PR_NUMBER"
+          git push origin main
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/platform -n dev
+
+  deploy-to-main:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Platform repository
+        uses: actions/checkout@v4
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: openmeet-team/openmeet-infrastructure
+          path: openmeet-infrastructure
+          ref: main
+          token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: openmeet-ecr/openmeet-platform
+          IMAGE_TAG: ${{ github.sha }}
+          GIT_REVISION: ${{ github.sha }}
+          GIT_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Building image with tag: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          APP_VERSION=$(node -p "require('./package.json').version")
+          docker buildx build --load \
+            --build-arg APP_VERSION="${APP_VERSION}" \
+            --build-arg COMMIT_SHA="${GITHUB_SHA}" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+          # Also tag as latest for main branch
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          # Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.30.1'
+
+      - name: Update kubeconfig and deploy to EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: openmeet-ecr/openmeet-platform
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws eks update-kubeconfig --name openmeet-dev --region ${{ vars.AWS_REGION || 'us-east-1' }}
+
+          # Apply the patch to the dev environment
+          cd openmeet-infrastructure
+
+          # First ensure namespace exists
+          kubectl apply -f k8s/environments/dev/namespace.yaml --validate=false
+
+          # Update the deployment with the new image
+          kubectl set image deployment/platform platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
+
+          # Update the infrastructure repository with the new image tag
+          sed -i "s|image: .*openmeet-ecr/openmeet-platform:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" k8s/environments/dev/kustomization.yaml
+
+          # Configure Git
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # Commit and push the changes
+          git add k8s/environments/dev/kustomization.yaml
+          git commit -m "Update Platform image to $IMAGE_TAG from main branch"
+          git push origin main
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/platform -n dev

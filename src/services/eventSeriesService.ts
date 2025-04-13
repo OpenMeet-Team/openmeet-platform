@@ -1,6 +1,7 @@
 import { eventSeriesApi, CreateEventSeriesDto, UpdateEventSeriesDto } from '../api/event-series'
 import { EventEntity } from '../types'
 import { EventSeriesEntity, EventOccurrence } from '../types/event-series'
+import { eventsApi } from '../api/events'
 
 export class EventSeriesService {
   /**
@@ -144,6 +145,21 @@ export class EventSeriesService {
       frequency,
       interval,
       ...options
+    }
+  }
+
+  /**
+   * Gets all events that belong to a specific series by slug
+   */
+  static async getEventsBySeriesSlug (slug: string, options?: { page: number, limit: number }): Promise<EventEntity[]> {
+    try {
+      console.log(`Getting all events for series ${slug}`)
+      const response = await eventsApi.getEventsBySeries(slug, options)
+      console.log(`Found ${response.data.length} events for series ${slug}`)
+      return response.data
+    } catch (error) {
+      console.error('Error getting events for series:', error)
+      return [] // Return empty array instead of throwing to avoid breaking the UI
     }
   }
 }

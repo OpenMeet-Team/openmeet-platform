@@ -372,7 +372,7 @@ const eventData = ref<EventEntity>({
 // Watch for event name changes to sync with series name
 watch(() => eventData.value.name, (newName) => {
   if (!seriesFormData.value.name || seriesFormData.value.name === '') {
-    seriesFormData.value.name = newName
+    seriesFormData.value.name = newName ? `${newName} Series` : ''
   }
 })
 
@@ -380,6 +380,13 @@ watch(() => eventData.value.name, (newName) => {
 watch(() => eventData.value.description, (newDesc) => {
   if (!seriesFormData.value.description || seriesFormData.value.description === '') {
     seriesFormData.value.description = newDesc || ''
+  }
+})
+
+// Watch for recurrence toggle to update series name when enabled
+watch(() => isRecurring.value, (isEnabled) => {
+  if (isEnabled && eventData.value.name) {
+    seriesFormData.value.name = `${eventData.value.name} Series`
   }
 })
 
