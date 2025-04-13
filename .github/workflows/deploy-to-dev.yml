@@ -106,7 +106,7 @@ jobs:
           kubectl apply -f k8s/environments/dev/namespace.yaml --validate=false
 
           # Update the deployment with the new image
-          kubectl set image deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
+          kubectl set image deployment/platform platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
 
           # Update the infrastructure repository with the new image tag
           sed -i "s|image: .*openmeet-ecr/openmeet-platform:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" k8s/environments/dev/kustomization.yaml
@@ -121,7 +121,7 @@ jobs:
           git push origin main
 
           # Wait for rollout to complete
-          kubectl rollout status deployment/openmeet-platform -n dev
+          kubectl rollout status deployment/platform -n dev
 
   deploy-to-main:
     runs-on: ubuntu-latest
@@ -192,7 +192,7 @@ jobs:
           kubectl apply -f k8s/environments/dev/namespace.yaml --validate=false
 
           # Update the deployment with the new image
-          kubectl set image deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
+          kubectl set image deployment/platform platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
 
           # Update the infrastructure repository with the new image tag
           sed -i "s|image: .*openmeet-ecr/openmeet-platform:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" k8s/environments/dev/kustomization.yaml
@@ -207,4 +207,4 @@ jobs:
           git push origin main
 
           # Wait for rollout to complete
-          kubectl rollout status deployment/openmeet-platform -n dev
+          kubectl rollout status deployment/platform -n dev
