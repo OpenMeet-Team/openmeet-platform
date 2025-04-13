@@ -16,7 +16,15 @@ jobs:
           echo "Event name: ${{ github.event_name }}"
           env | sort
 
-      - uses: actions/checkout@v4
+      - name: Checkout platform repository
+        uses: actions/checkout@v4
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: openmeet-team/openmeet-infrastructure
+          path: openmeet-infrastructure
+          token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -34,21 +42,22 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
           IMAGE_TAG: ${{ github.sha }}
+          GIT_REVISION: ${{ github.sha }}
+          GIT_BRANCH: ${{ github.ref_name }}
         run: |-
-          set -e
-          env | sort
-          echo "Building image $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Building image with tag: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
           APP_VERSION=$(node -p "require('./package.json').version")
-          docker --version
           docker buildx build --load \
             --build-arg APP_VERSION="${APP_VERSION}" \
             --build-arg COMMIT_SHA="${GITHUB_SHA}" \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
 
-          echo "Pushing image to ECR as $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG and :latest"
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # Also tag as latest for main branch
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          # Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Install kubectl
@@ -62,7 +71,28 @@ jobs:
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws eks get-token --cluster-name openmeet-dev
           aws eks update-kubeconfig --name openmeet-dev --region ${{ vars.AWS_REGION }}
-          kubectl set image --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          kubectl rollout status --namespace ${{ vars.DEPLOYMENT_NAMESPACE }} deployment/openmeet-platform
+
+          # Apply the patch to the dev environment
+          cd openmeet-infrastructure
+
+          # First ensure namespace exists
+          kubectl apply -f k8s/environments/dev/namespace.yaml --validate=false
+
+          # Update the deployment with the new image
+          kubectl set image deployment/openmeet-platform openmeet-platform=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -n dev
+
+          # Update the infrastructure repository with the new image tag
+          sed -i "s|image: .*openmeet-ecr/openmeet-platform:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" k8s/environments/dev/kustomization.yaml
+
+          # Configure Git
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # Commit and push the changes
+          git add k8s/environments/dev/kustomization.yaml
+          git commit -m "Update Platform image to $IMAGE_TAG from main branch"
+          git push origin main
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/openmeet-platform -n dev

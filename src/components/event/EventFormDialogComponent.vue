@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import EventFormComponent from '../event/EventFormBasicComponent.vue'
-import { ref } from 'vue'
+import { ref, defineEmits } from 'vue'
 import { QDialog } from 'quasar'
 import { EventEntity, GroupEntity } from '../../types'
 import { EventSeriesEntity } from '../../types/event-series'
@@ -12,6 +12,7 @@ interface Props {
 }
 
 defineProps<Props>()
+const emit = defineEmits(['ok', 'hide'])
 
 const dialogRef = ref<QDialog | null>(null)
 const router = useRouter()
@@ -22,13 +23,9 @@ const onEventCreated = (event: EventEntity) => {
   if (dialogRef.value) {
     dialogRef.value.hide()
 
-    // Ensure we have a slug before navigating
-    if (event && event.slug) {
-      // Use direct router navigation for reliability
-      router.push({ name: 'EventPage', params: { slug: event.slug } })
-    } else {
-      console.error('Cannot navigate: event is missing slug property', event)
-    }
+    // Emit the event to parent component instead of navigating directly
+    // This allows the parent to handle linking to series or other actions
+    emit('ok', event)
   }
 }
 
@@ -38,6 +35,7 @@ const onSeriesCreated = (series: EventSeriesEntity) => {
   if (dialogRef.value) {
     dialogRef.value.hide()
 
+    // For series, we still navigate directly as before
     // If series has a templateEventSlug, navigate directly to it
     if (series.templateEventSlug) {
       console.log('Navigating directly to template event:', series.templateEventSlug)
@@ -56,7 +54,10 @@ const onSeriesCreated = (series: EventSeriesEntity) => {
 }
 
 const onClose = () => {
-  if (dialogRef.value) dialogRef.value.hide()
+  if (dialogRef.value) {
+    dialogRef.value.hide()
+    emit('hide')
+  }
 }
 </script>
 

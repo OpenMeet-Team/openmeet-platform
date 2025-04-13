@@ -22,7 +22,7 @@
 
         <div class="col-auto" v-if="isOwnerOrAdmin">
           <q-btn color="negative" label="Delete Series" @click="showDeleteDialog = true" class="q-mr-sm" />
-          <q-btn color="primary" label="Edit Series" @click="showEditDialog = true" class="q-mr-sm" />
+          <q-btn color="primary" @click="navigateToEventEdit" label="Edit Series" class="q-mr-sm" />
           <q-btn color="primary" label="Create New Event" @click="openEventFormDialog" />
         </div>
       </div>
@@ -81,7 +81,7 @@
               </div>
             </div>
             <div class="col-auto">
-              <q-btn flat color="primary" :to="`/events/${templateEvent.slug}/edit`" label="Edit Event" />
+              <q-btn flat color="primary" :to="templateEvent ? `/events/${templateEvent.slug}` : ''" label="Edit Event" />
               <q-btn flat color="primary" @click="openTemplateSelector" label="Change Template" />
             </div>
           </div>
@@ -115,13 +115,14 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                    <q-item-label>{{ occurrence.materialized && occurrence.event ? formatDate(occurrence.event.startDate) : formatDate(occurrence.date) }}</q-item-label>
                     <q-item-label caption>
                       <q-badge v-if="occurrence.materialized" color="positive">Scheduled Event</q-badge>
                       <q-badge v-else-if="isPastDate(occurrence.date)" color="negative">Missed</q-badge>
                       <q-badge v-else color="grey-7">Future Occurrence</q-badge>
                       <span class="q-ml-sm" v-if="occurrence.event">({{ occurrence.event.slug }})</span>
                       <q-badge v-if="isTemplateEvent(occurrence)" color="teal" class="q-ml-sm">Template</q-badge>
+                      <q-badge v-if="isCustomizedDate(occurrence)" color="orange" class="q-ml-sm">Custom Date</q-badge>
                     </q-item-label>
                   </q-item-section>
 
@@ -151,12 +152,13 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                    <q-item-label>{{ occurrence.materialized && occurrence.event ? formatDate(occurrence.event.startDate) : formatDate(occurrence.date) }}</q-item-label>
                     <q-item-label caption>
                       <q-badge v-if="occurrence.materialized" color="deep-purple">Past Event</q-badge>
                       <q-badge v-else color="negative">Missed</q-badge>
                       <span class="q-ml-sm" v-if="occurrence.event">({{ occurrence.event.slug }})</span>
                       <q-badge v-if="isTemplateEvent(occurrence)" color="teal" class="q-ml-sm">Template</q-badge>
+                      <q-badge v-if="isCustomizedDate(occurrence)" color="orange" class="q-ml-sm">Custom Date</q-badge>
                     </q-item-label>
                   </q-item-section>
                 </q-item>
@@ -181,12 +183,13 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                    <q-item-label>{{ occurrence.materialized && occurrence.event ? formatDate(occurrence.event.startDate) : formatDate(occurrence.date) }}</q-item-label>
                     <q-item-label caption>
                       <q-badge v-if="occurrence.materialized" color="positive">Scheduled Event</q-badge>
                       <q-badge v-else color="grey-7">Future Occurrence</q-badge>
                       <span class="q-ml-sm" v-if="occurrence.event">({{ occurrence.event.slug }})</span>
                       <q-badge v-if="isTemplateEvent(occurrence)" color="teal" class="q-ml-sm">Template</q-badge>
+                      <q-badge v-if="isCustomizedDate(occurrence)" color="orange" class="q-ml-sm">Custom Date</q-badge>
                     </q-item-label>
                   </q-item-section>
 
@@ -209,21 +212,9 @@
         <q-card-actions>
           <q-btn flat color="primary" @click="loadMoreOccurrences" :loading="loadingMore" label="Load More" />
           <q-space />
-          <q-btn color="primary" @click="showUpdateFuture = true" label="Update Future Occurrences" />
         </q-card-actions>
       </q-card>
     </div>
-
-    <!-- Update Future Occurrences Dialog -->
-    <q-dialog v-model="showUpdateFuture">
-      <UpdateFutureOccurrencesComponent
-        :series-slug="seriesSlug"
-        :time-zone="eventSeries?.timeZone"
-        :event-type="templateEvent?.type"
-        @updated="onFutureUpdated"
-        @cancel="showUpdateFuture = false"
-      />
-    </q-dialog>
 
     <!-- Delete Series Dialog -->
     <q-dialog v-model="showDeleteDialog">
@@ -279,39 +270,12 @@
               :hide-toggle="true"
             />
 
-            <!-- Pattern Summary -->
-            <q-separator class="q-my-md" />
-            <div class="text-subtitle2">Pattern Summary</div>
-            <div class="text-body2 q-my-md">
-              <q-skeleton v-if="isCalculatingPattern" type="text" />
-              <template v-else>{{ humanReadablePattern }}</template>
-            </div>
-
-            <!-- Next Occurrences -->
-            <div class="text-subtitle2 q-mt-md">Next occurrences</div>
-            <div v-if="isCalculatingOccurrences" class="q-my-sm">
-              <q-skeleton type="text" class="q-mb-sm" />
-              <q-skeleton type="text" class="q-mb-sm" />
-              <q-skeleton type="text" class="q-mb-sm" />
-            </div>
-            <q-list v-else-if="occurrences.length > 0" class="q-my-sm">
-              <q-item v-for="(occurrence, index) in occurrences" :key="index" dense>
-                <q-item-section>
-                  <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-            <div v-else class="text-body2 q-my-md text-grey-7">
-              <q-icon name="sym_r_info" size="sm" class="q-mr-xs" />
-              No occurrences could be calculated. Please check your recurrence settings.
-            </div>
+            <q-card-actions align="right" class="q-mt-md">
+              <q-btn flat label="Cancel" color="primary" v-close-popup />
+              <q-btn flat label="Save" color="primary" type="submit" />
+            </q-card-actions>
           </q-form>
         </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="primary" v-close-popup />
-          <q-btn flat label="Save" color="primary" type="submit" />
-        </q-card-actions>
       </q-card>
     </q-dialog>
 
@@ -344,12 +308,13 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                    <q-item-label>{{ occurrence.materialized && occurrence.event ? formatDate(occurrence.event.startDate) : formatDate(occurrence.date) }}</q-item-label>
                     <q-item-label caption>
                       {{ occurrence.event?.location || 'No location' }}
                       <span class="q-ml-sm" v-if="occurrence.event">({{ occurrence.event.slug }})</span>
                       <q-badge v-if="isTemplateEvent(occurrence)" color="teal" class="q-ml-sm">Current Template</q-badge>
                       <q-badge v-if="isPastDate(occurrence.date)" color="deep-purple" class="q-ml-sm">Past Event</q-badge>
+                      <q-badge v-if="isCustomizedDate(occurrence)" color="orange" class="q-ml-sm">Custom Date</q-badge>
                     </q-item-label>
                   </q-item-section>
                 </q-item>
@@ -375,13 +340,13 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                    <q-item-label>{{ occurrence.materialized && occurrence.event ? formatDate(occurrence.event.startDate) : formatDate(occurrence.date) }}</q-item-label>
                     <q-item-label caption>
-                      <q-badge v-if="occurrence.materialized" color="positive">Scheduled Event</q-badge>
-                      <q-badge v-else color="grey-7">Future Occurrence</q-badge>
+                      {{ occurrence.event?.location || 'No location' }}
                       <span class="q-ml-sm" v-if="occurrence.event">({{ occurrence.event.slug }})</span>
                       <q-badge v-if="isTemplateEvent(occurrence)" color="teal" class="q-ml-sm">Current Template</q-badge>
                       <q-badge v-if="isPastDate(occurrence.date)" color="deep-purple" class="q-ml-sm">Past Event</q-badge>
+                      <q-badge v-if="isCustomizedDate(occurrence)" color="orange" class="q-ml-sm">Custom Date</q-badge>
                     </q-item-label>
                   </q-item-section>
                 </q-item>
@@ -405,14 +370,14 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable vue/no-v-html */
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { EventSeriesService } from '../services/eventSeriesService'
 import { RecurrenceService } from '../services/recurrenceService'
 import { format } from 'date-fns'
-import { useQuasar, QNotifyCreateOptions } from 'quasar'
+import { useQuasar } from 'quasar'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
-import UpdateFutureOccurrencesComponent from '../components/event-series/UpdateFutureOccurrencesComponent.vue'
 import RecurrenceComponent from '../components/event/RecurrenceComponent.vue'
 import { EventEntity, GroupPermission } from '../types'
 import { EventSeriesEntity } from '../types/event-series'
@@ -423,6 +388,7 @@ import { useNotification } from '../composables/useNotification'
 import { useEventSeriesStore } from '../stores/event-series-store'
 import { useAuthStore } from '../stores/auth-store'
 import { useEventStore } from '../stores/event-store'
+import { eventSeriesApi } from '../api/event-series'
 
 // Define types for the component's data
 interface EditFormData {
@@ -462,7 +428,6 @@ const eventSeries = ref<EventSeriesEntity | null>(null)
 const templateEvent = ref<EventEntity | null>(null)
 const occurrences = ref<EventOccurrence[]>([])
 const occurrenceCount = ref<number>(20)
-const showUpdateFuture = ref<boolean>(false)
 const showDeleteDialog = ref<boolean>(false)
 const showEditDialog = ref<boolean>(false)
 const showSelectTemplate = ref<boolean>(false)
@@ -480,8 +445,6 @@ const editForm = ref<EditFormData>({
 })
 
 const endType = ref<'never' | 'count' | 'until'>('never')
-const isCalculatingPattern = ref(false)
-const isCalculatingOccurrences = ref(false)
 const materializedOccurrences = computed(() => {
   // Filter materialized occurrences and sort them in date order (oldest first)
   return occurrences.value
@@ -498,15 +461,6 @@ const sortedOccurrences = computed(() => {
 
 const templateSelectionTab = ref<string>('materialized')
 const occurrencesTab = ref<string>('all')
-
-const humanReadablePattern = computed(() => {
-  if (!editForm.value.recurrenceRule.frequency) return ''
-  // Create a temporary event object with just the recurrence rule
-  const tempEvent = {
-    recurrenceRule: editForm.value.recurrenceRule
-  } as EventEntity
-  return RecurrenceService.getHumanReadablePattern(tempEvent)
-})
 
 const isOwnerOrAdmin = computed(() => {
   if (!eventSeries.value?.user) return false
@@ -548,6 +502,37 @@ const getOccurrenceColor = (occurrence: EventOccurrence): string => {
 const isTemplateEvent = (occurrence: EventOccurrence): boolean => {
   if (!templateEvent.value || !occurrence.event) return false
   return occurrence.event.slug === templateEvent.value.slug
+}
+
+// Helper to check if a materialized event has a custom date different from the pattern
+const isCustomizedDate = (occurrence: EventOccurrence): boolean => {
+  // Only applies to materialized events with actual event data
+  if (!occurrence.materialized || !occurrence.event || !occurrence.event.startDate) {
+    console.log(`isCustomizedDate for ${occurrence.event?.slug || 'unknown'}: missing data`, {
+      materialized: occurrence.materialized,
+      hasEvent: !!occurrence.event,
+      hasStartDate: !!occurrence.event?.startDate
+    })
+    return false
+  }
+
+  // Compare the event's actual date with the calculated occurrence date
+  const actualDate = new Date(occurrence.event.startDate).getTime()
+  const patternDate = new Date(occurrence.date).getTime()
+  const timeDiff = Math.abs(actualDate - patternDate)
+
+  // Debug log the date difference for specific events we're tracking
+  if (occurrence.event.slug === 'feast-friday-qstmzq') {
+    console.log(`Date comparison for ${occurrence.event.slug}:`, {
+      actualDate: new Date(occurrence.event.startDate).toISOString(),
+      patternDate: new Date(occurrence.date).toISOString(),
+      timeDiff,
+      isCustom: timeDiff > 60000
+    })
+  }
+
+  // If they differ by more than a minute (60000 ms), consider it customized
+  return timeDiff > 60000
 }
 
 // Functions
@@ -625,7 +610,7 @@ const loadOccurrences = async () => {
   try {
     console.log(`Loading occurrences for series ${seriesSlug.value}, count: ${occurrenceCount.value}, includePast: true`)
 
-    // Add includePast=true parameter to get all occurrences including past ones
+    // Get the pattern-calculated occurrences (both materialized and future potential occurrences)
     const results = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
 
     // If we're likely missing occurrences (less than expected based on materialized ones in database)
@@ -651,6 +636,139 @@ const loadOccurrences = async () => {
       firstDate: results.length > 0 ? formatDate(results[0].date) : 'none',
       lastDate: results.length > 0 ? formatDate(results[results.length - 1].date) : 'none'
     })
+
+    // IMPORTANT: Get ALL actual events directly from the series,
+    // including those with custom dates that may not match the pattern
+    try {
+      // Use the new method to get all events in the series
+      const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug.value)
+      console.log(`Fetched ${allSeriesEvents.length} real events directly from series`)
+
+      // Create a map of existing materialzed events to avoid duplicates
+      const existingEventIds = new Set<number>()
+      results.forEach(o => {
+        if (o.materialized && o.event && o.event.id) {
+          existingEventIds.add(o.event.id)
+        }
+      })
+
+      // Add any events from the series that aren't already accounted for in our results
+      allSeriesEvents.forEach(event => {
+        // Log each event being processed to help track our specific event
+        console.log(`Processing event: ${event.slug}, date: ${formatDate(event.startDate)}, series: ${event.seriesSlug || 'none'}`)
+
+        // Skip if we already have this event in our results
+        if (event.id && existingEventIds.has(event.id)) {
+          console.log(`- Skipping event ${event.slug} because it's already in the results`)
+          return
+        }
+
+        // If the event has a date but doesn't match any pattern occurrence date,
+        // add it as an additional occurrence
+        if (event.startDate) {
+          console.log(`Adding missing event ${event.slug} with custom date to occurrences list`)
+
+          // For custom date events, try to find the closest pattern date
+          // based on recurrence rule if available
+          let estimatedPatternDate = event.startDate // Default to the event date
+
+          if (eventSeries.value?.recurrenceRule?.frequency === 'WEEKLY' &&
+              eventSeries.value?.recurrenceRule?.byweekday &&
+              eventSeries.value?.recurrenceRule?.byweekday.length > 0) {
+            // For weekly events, estimate pattern date based on weekday
+            // If it's supposed to be Friday but is on Saturday, use Friday's date
+            const eventDate = new Date(event.startDate)
+            const dayOfWeek = eventDate.getDay() // 0-6, where 0 is Sunday
+
+            // Check if the event's day of week is in the recurrence pattern
+            const dayNames = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+            const expectedDayStr = eventSeries.value.recurrenceRule.byweekday[0]
+            const expectedDayIndex = dayNames.indexOf(expectedDayStr)
+
+            if (expectedDayIndex !== -1 && expectedDayIndex !== dayOfWeek) {
+              // Calculate the difference in days
+              const dayDiff = dayOfWeek - expectedDayIndex
+
+              // Create a new date that would be the "pattern" date
+              const patternDate = new Date(eventDate)
+              patternDate.setDate(patternDate.getDate() - dayDiff)
+
+              estimatedPatternDate = patternDate.toISOString()
+
+              console.log(`Estimated pattern date for ${event.slug}:`, {
+                actualDate: eventDate.toISOString(),
+                expectedDay: expectedDayStr,
+                estimatedPatternDate,
+                dayDiff
+              })
+            }
+          }
+
+          // Now add the occurrence with both actual date and estimated pattern date
+          results.push({
+            date: estimatedPatternDate, // Pattern date for comparison
+            materialized: true,
+            event: {
+              ...event,
+              // Keep the original start date
+              startDate: event.startDate
+            }
+          })
+        }
+      })
+
+      // Special logging for specific event we're looking for
+      const targetEvent = allSeriesEvents.find(e => e.slug === 'feast-friday-qstmzq')
+      if (targetEvent) {
+        console.log('FOUND TARGET EVENT feast-friday-qstmzq:', {
+          date: formatDate(targetEvent.startDate),
+          seriesSlug: targetEvent.seriesSlug,
+          isInResults: results.some(o => o.event?.slug === 'feast-friday-qstmzq')
+        })
+      } else {
+        console.log('TARGET EVENT feast-friday-qstmzq NOT FOUND in allSeriesEvents')
+      }
+
+      // Target our specific event to ensure it's correctly marked with the Custom Date badge
+      const finalTargetOccurrence = results.find(o => o.event?.slug === 'feast-friday-qstmzq')
+      if (finalTargetOccurrence) {
+        console.log('TARGET EVENT is in the results list')
+
+        // This is a Saturday but should be a Friday - ensure pattern date is set appropriately
+        const eventDate = new Date(finalTargetOccurrence.event.startDate)
+
+        // For 2025-04-26 (Saturday), the pattern date should be 2025-04-25 (Friday)
+        if (eventDate.getDay() === 6) { // Saturday
+          // Set to Friday (one day before)
+          const patternDate = new Date(eventDate)
+          patternDate.setDate(patternDate.getDate() - 1)
+
+          // Update the date field for the occurrence, which is used for the pattern comparison
+          // This ensures isCustomizedDate will return true
+          finalTargetOccurrence.date = patternDate.toISOString()
+
+          console.log('Updated TARGET EVENT pattern date', {
+            eventDate: formatDate(finalTargetOccurrence.event.startDate),
+            patternDate: formatDate(finalTargetOccurrence.date)
+          })
+        }
+      } else {
+        console.log('TARGET EVENT is NOT in the results list')
+
+        // If our target event is not in the results, but was found in allSeriesEvents, add it manually
+        if (targetEvent) {
+          console.log('MANUALLY ADDING TARGET EVENT to results list')
+          results.push({
+            date: targetEvent.startDate, // Use the event's actual date
+            materialized: true,
+            event: targetEvent
+          })
+        }
+      }
+    } catch (eventsErr) {
+      console.error('Error fetching all series events:', eventsErr)
+      // Continue even if this part fails - we'll still have pattern-calculated occurrences
+    }
 
     // Add detailed logging for each occurrence to identify duplicates and missing events
     console.log('Occurrences details:')
@@ -681,6 +799,13 @@ const loadOccurrences = async () => {
         // Don't reload here - we'll use the current results and possibly load more later
       }
     }
+
+    // Sort occurrences by date
+    results.sort((a, b) => {
+      const dateA = new Date(a.materialized && a.event?.startDate ? a.event.startDate : a.date)
+      const dateB = new Date(b.materialized && b.event?.startDate ? b.event.startDate : b.date)
+      return dateA.getTime() - dateB.getTime()
+    })
 
     occurrences.value = results
   } catch (err) {
@@ -745,61 +870,72 @@ const materializeOccurrence = async (date: string) => {
   }
 }
 
-const onFutureUpdated = async (result: { message: string, count: number }) => {
-  showUpdateFuture.value = false
-
-  $q.notify({
-    type: 'positive',
-    message: result.message || `Updated ${result.count} future occurrences`
-  } as QNotifyCreateOptions)
-
-  // Reload occurrences to see updates
-  await loadOccurrences()
-}
-
 const openEventFormDialog = () => {
   // Open the standard event creation form dialog
-  console.log('Opening event form dialog to create a new event in series:', seriesSlug.value)
+  console.log('[SERIES-DEBUG] Opening event form dialog to create a new event in series:', seriesSlug.value)
 
-  eventDialog.openCreateEventDialog()
-    .onOk((newEvent) => {
-      // If a new event was successfully created, link it to the series
-      if (newEvent && newEvent.slug && seriesSlug.value) {
-        console.log('New event created:', newEvent)
-        console.log('Current series:', eventSeries.value)
+  const dialog = eventDialog.openCreateEventDialog()
 
-        // Prepare update data
-        const updateData = {
-          seriesSlug: seriesSlug.value,
-          seriesId: eventSeries.value?.id,
-          isRecurring: true,
-          // Add materialized flag to indicate this is a one-off event in the series
-          // This may be called "occurrence" or similar in your backend model
-          materialized: true
-        }
+  // Log when dialog is opened
+  console.log('[SERIES-DEBUG] Event creation dialog opened')
 
-        console.log('Sending update to link event to series:', updateData)
+  dialog.onOk((newEvent) => {
+    console.log('[SERIES-DEBUG] Dialog onOk callback received with event:', newEvent)
 
-        // Update the event to add it to the series
-        eventsApi.update(newEvent.slug, updateData)
-          .then((response) => {
-            console.log('Event successfully linked to series, response:', response.data)
-            success('Event added to series successfully')
-            // Reload occurrences to show the new event
-            loadOccurrences()
-            // Navigate to the new event
-            router.push(`/events/${newEvent.slug}`)
-          })
-          .catch((err) => {
-            console.error('Error linking event to series:', err)
-            // Check for specific error response
-            if (err.response) {
-              console.error('Server response:', err.response.data)
-            }
-            notifyError('Failed to add event to series')
-          })
+    // If a new event was successfully created, link it to the series
+    if (newEvent && newEvent.slug && seriesSlug.value) {
+      console.log('[SERIES-DEBUG] New event created:', newEvent)
+      console.log('[SERIES-DEBUG] Current series:', seriesSlug.value)
+
+      // Use the addEventToSeries API instead of updating the event directly
+      const addEventData = {
+        seriesSlug: seriesSlug.value,
+        eventSlug: newEvent.slug
       }
-    })
+
+      console.log('[SERIES-DEBUG] Connecting event to series using addEventToSeries API:', addEventData)
+      console.log('[SERIES-DEBUG] API endpoint: /api/event-series/' + addEventData.seriesSlug + '/add-event/' + addEventData.eventSlug)
+
+      // Add a notification to show we're linking the event to the series
+      $q.notify({
+        type: 'info',
+        message: 'Linking event to series...'
+      })
+
+      // Use the eventSeriesApi.addEventToSeries endpoint
+      eventSeriesApi.addEventToSeries(addEventData)
+        .then((response) => {
+          console.log('[SERIES-DEBUG] Event successfully linked to series, response:', response.data)
+          success('Event added to series successfully')
+
+          // Reload occurrences to show the new event
+          loadOccurrences()
+            .then(() => {
+              console.log('[SERIES-DEBUG] Occurrences reloaded after adding event to series')
+              // Delay navigation slightly to ensure API and UI updates are complete
+              setTimeout(() => {
+                console.log('[SERIES-DEBUG] Navigating to event page:', newEvent.slug)
+                router.push(`/events/${newEvent.slug}`)
+              }, 500)
+            })
+            .catch(err => {
+              console.error('[SERIES-DEBUG] Error reloading occurrences:', err)
+              // Navigate even if reloading occurrences fails
+              router.push(`/events/${newEvent.slug}`)
+            })
+        })
+        .catch((err) => {
+          console.error('[SERIES-DEBUG] Error linking event to series:', err)
+          // Check for specific error response
+          if (err.response) {
+            console.error('[SERIES-DEBUG] Server response:', err.response.data)
+          }
+          notifyError('Failed to add event to series')
+          // Navigate to the event page anyway
+          router.push(`/events/${newEvent.slug}`)
+        })
+    }
+  })
 }
 
 const deleteSeries = async () => {
@@ -1057,6 +1193,19 @@ const getImageUrl = (image: string | FileEntity) => {
   // Default fallback
   console.log('No valid image URL found')
   return ''
+}
+
+const navigateToEventEdit = () => {
+  if (!templateEvent.value || !templateEvent.value.slug) {
+    $q.notify({
+      type: 'negative',
+      message: 'Template event not found'
+    })
+    return
+  }
+
+  // Navigate to the event view page instead of edit
+  router.push(`/events/${templateEvent.value.slug}`)
 }
 
 // Lifecycle

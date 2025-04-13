@@ -55,6 +55,8 @@ export interface EventApiType {
   uploadImage?: (slug: string, file: File) => Promise<AxiosResponse<unknown>>
   cancel?: (slug: string) => Promise<AxiosResponse<unknown>>
   remove?: (slug: string) => Promise<AxiosResponse<unknown>>
+  // New endpoint to get all events in a series
+  getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => Promise<AxiosResponse<EventEntity[]>>
 
   // Recurrence-related methods (deprecated)
   /**
@@ -131,5 +133,8 @@ export const eventsApi: EventApiType = {
     api.patch<void>(`/api/recurrence/${slug}/exclusions`, { exclusionDate }),
 
   removeExclusionDate: (slug: string, date: string): Promise<AxiosResponse<void>> =>
-    api.patch<void>(`/api/recurrence/${slug}/inclusions`, null, { params: { date } })
+    api.patch<void>(`/api/recurrence/${slug}/inclusions`, null, { params: { date } }),
+
+  // New endpoint to get all events in a series
+  getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => api.get<EventEntity[]>(`/api/events/series/${seriesSlug}/events`, { params: query })
 }
