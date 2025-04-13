@@ -184,7 +184,7 @@ jobs:
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws eks update-kubeconfig --name openmeet-dev --region ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws eks update-kubeconfig --name openmeet-prod --region ${{ vars.AWS_REGION || 'us-east-1' }}
 
           # Apply the patch to the dev environment
           cd openmeet-infrastructure
