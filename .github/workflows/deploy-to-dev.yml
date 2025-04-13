@@ -136,6 +136,7 @@ jobs:
         with:
           repository: openmeet-team/openmeet-infrastructure
           path: openmeet-infrastructure
+          ref: main
           token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
 
       - name: Configure AWS credentials
