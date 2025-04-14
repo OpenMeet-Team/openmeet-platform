@@ -60,7 +60,8 @@ export default boot(async ({ app, router }) => {
           return Promise.reject(err)
         }
 
-        if (!originalRequest._retry) {
+        // Only attempt to refresh if we have a refresh token and we're not already retrying
+        if (!originalRequest._retry && authStore.refreshToken) {
           originalRequest._retry = true
           try {
             // Use the refreshToken from authStore directly
@@ -77,7 +78,20 @@ export default boot(async ({ app, router }) => {
             })
             return Promise.reject(refreshError)
           }
+        } else if (originalRequest.url.includes('/api/v1/auth/')) {
+          // Don't show error for auth-related endpoints
+          return Promise.reject(err)
+        } else if (originalRequest.headers.Authorization) {
+          // If we had an Authorization header but got 401 and can't refresh
+          error('Authentication required for this action')
+          router.push({
+            name: 'AuthLoginPage',
+            query: { redirect: router.currentRoute.value.fullPath }
+          })
+          return Promise.reject(err)
         }
+        // For requests without Authorization that get 401, just pass through the error
+        // This allows public pages to handle auth requirements gracefully
       }
 
       return Promise.reject(err)
