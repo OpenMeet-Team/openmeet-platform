@@ -5,28 +5,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-const version = ref('dev')
-const commitHash = ref('local')
+import { ref } from 'vue'
 
-onMounted(async () => {
-  try {
-    const versionResponse = await fetch('/app-version.txt')
-    const commitResponse = await fetch('/commit-sha.txt')
+// Import version information from the file that's generated during the Docker build
+// This approach ensures the version is "baked into" the image
+import { APP_VERSION, COMMIT_SHA } from '../../version.js'
 
-    if (versionResponse.ok && commitResponse.ok) {
-      const versionText = await versionResponse.text()
-      const commitText = await commitResponse.text()
-
-      if (!versionText.match(/DOCTYPE/)) {
-        version.value = versionText
-        commitHash.value = commitText
-      }
-    }
-  } catch (error) {
-    console.error('Error loading version information:', error)
-  }
-})
+const version = ref(APP_VERSION)
+const commitHash = ref(COMMIT_SHA)
 </script>
 
 <style scoped>
