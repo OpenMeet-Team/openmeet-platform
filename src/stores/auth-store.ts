@@ -206,6 +206,11 @@ export const useAuthStore = defineStore('authStore', {
 
         const decodedUserParam = atob(userParam)
         const user = JSON.parse(decodedUserParam)
+        // Check for null/undefined email and convert to empty string to avoid issues
+        if (user.email === null || user.email === undefined || user.email === 'null') {
+          user.email = ''
+        }
+
         const decodedProfileParam = atob(profileParam)
         const profile = JSON.parse(decodedProfileParam)
 
@@ -215,17 +220,18 @@ export const useAuthStore = defineStore('authStore', {
         this.actionSetUser(user)
 
         const did = user.socialId
-        console.log('Setting Bluesky identifiers from callback:', { did, handle: profile.handle, user })
-
         if (did && profile.handle) {
           this.actionSetBlueskyIdentifiers(did, profile.handle)
         } else {
-          console.error('Missing Bluesky identifiers:', { did, handle: profile.handle, user })
+          console.error('Missing Bluesky identifiers:', { did, handle: profile.handle })
         }
 
         // Update user with Bluesky preferences
+        const userEmail = user.email !== null && user.email !== undefined && user.email !== 'null' ? user.email : ''
+
         const updatedUser = {
           ...user,
+          email: userEmail,
           preferences: {
             ...user.preferences,
             bluesky: {

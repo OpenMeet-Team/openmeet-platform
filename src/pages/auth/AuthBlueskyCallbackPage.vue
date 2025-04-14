@@ -23,12 +23,12 @@ onMounted(async () => {
     if (success) {
       // Check if user needs to provide email
       const user = authStore.getUser
-      console.log('User data:', user)
-      if (!user.email || user.email === '') {
-        console.log('No email found, redirecting to collect email page')
+
+      const hasValidEmail = user.email && user.email !== '' && user.email !== null && user.email !== 'null'
+
+      if (!hasValidEmail) {
         window.location.replace('/auth/collect-email')
       } else {
-        console.log('Email found:', user.email)
         // Get the return URL from localStorage, or default to home
         const returnUrl = localStorage.getItem('bluesky_auth_return_url') || '/'
         localStorage.removeItem('bluesky_auth_return_url') // Clean up
