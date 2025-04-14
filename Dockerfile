@@ -27,6 +27,10 @@ ARG COMMIT_SHA
 ENV APP_VERSION=${APP_VERSION}
 ENV COMMIT_SHA=${COMMIT_SHA}
 
+# Create a version.js file that can be imported directly
+RUN echo "export const APP_VERSION = '${APP_VERSION}';" > /usr/src/app/src/version.js
+RUN echo "export const COMMIT_SHA = '${COMMIT_SHA}';" >> /usr/src/app/src/version.js
+
 RUN quasar build
 
 RUN echo "$APP_VERSION" > /usr/src/app/dist/spa/app-version.txt && \

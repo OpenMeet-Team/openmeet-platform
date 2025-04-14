@@ -23,7 +23,10 @@ onMounted(async () => {
     if (success) {
       // Check if user needs to provide email
       const user = authStore.getUser
-      if (!user.email) {
+
+      const hasValidEmail = user.email && user.email !== '' && user.email !== null && user.email !== 'null'
+
+      if (!hasValidEmail) {
         window.location.replace('/auth/collect-email')
       } else {
         // Get the return URL from localStorage, or default to home
