@@ -40,39 +40,43 @@
         <NoContentComponent v-if="!categories?.length" label="There are no categories yet." icon="sym_r_category" />
       </div>
 
-      <!-- Additional Information Section -->
-      <div class="col-12" v-if="!useAuthStore().isAuthenticated">
-        <q-card flat bordered class="q-mt-lg" :class="[Dark.isActive ? 'bg-dark-gray text-white' : 'bg-grey-2']">
-          <q-card-section>
-            <div class="row q-col-gutter-md">
-              <div class="col-12 col-md-4">
-                <h3 class="text-h5">Why Join OpenMeet?</h3>
-                <q-list>
-                  <q-item v-for="(reason, index) in reasons" :key="index">
-                    <q-item-section avatar>
-                      <q-icon :name="reason.icon" color="primary" />
-                    </q-item-section>
-                    <q-item-section>
-                      <q-item-label>{{ reason.text }}</q-item-label>
-                    </q-item-section>
-                  </q-item>
-                </q-list>
-              </div>
-              <div class="col-12 col-md-4">
-                <h3 class="text-h5">How It Works</h3>
-                <q-timeline color="secondary">
-                  <q-timeline-entry v-for="(step, index) in howItWorks" :key="index" :title="step.title"
-                    :subtitle="step.subtitle" :icon="step.icon" />
-                </q-timeline>
-              </div>
-              <div class="col-12 col-md-4">
-                <h3 class="text-h5">Get Started Now</h3>
-                <p>Join our community today and start connecting with people who share your interests!</p>
-                <q-btn @click="openRegisterDialog" color="primary" label="Create an Account" class="q-mt-md" />
-              </div>
-            </div>
-          </q-card-section>
-        </q-card>
+      <!-- Quick actions section similar to logged-in view -->
+      <div class="col-12 q-mt-xl">
+        <div class="text-h5 text-bold q-mb-md q-px-md" :class="Dark.isActive ? 'text-purple-200' : 'text-purple-400'">Explore OpenMeet</div>
+        <div class="row q-col-gutter-md">
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="$router.push({ name: 'GroupsPage' })">
+              <q-card-section>
+                <q-icon name="sym_r_group" size="3rem" :color="Dark.isActive ? 'purple-200' : 'purple-300'" />
+                <div class="text-h6 q-mt-sm">Find Groups</div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="$router.push({ name: 'EventsPage' })">
+              <q-card-section>
+                <q-icon name="sym_r_event" size="3rem" :color="Dark.isActive ? 'purple-200' : 'purple-300'" />
+                <div class="text-h6 q-mt-sm">Discover Events</div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="openRegisterDialog">
+              <q-card-section>
+                <q-icon name="sym_r_person_add" size="3rem" :color="Dark.isActive ? 'purple-300' : 'purple-400'" />
+                <div class="text-h6 q-mt-sm">Create Account</div>
+              </q-card-section>
+            </q-card>
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <q-card flat bordered class="text-center" clickable @click="openLoginDialog()">
+              <q-card-section>
+                <q-icon name="sym_r_login" size="3rem" :color="Dark.isActive ? 'purple-300' : 'purple-400'" />
+                <div class="text-h6 q-mt-sm">Sign In</div>
+              </q-card-section>
+            </q-card>
+          </div>
+        </div>
       </div>
     </div>
   </q-page>
@@ -82,34 +86,21 @@
 import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useAuthDialog } from '../../composables/useAuthDialog'
-import { useAuthStore } from '../../stores/auth-store'
 import HomeCategoryComponent from '../../components/home/HomeCategoryComponent.vue'
 import { useHomeStore } from '../../stores/home-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
+import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import HomeHeroComponent from '../../components/home/HomeHeroComponent.vue'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
-const { openRegisterDialog } = useAuthDialog()
 import { GroupEntity } from '../../types/group'
 import { EventEntity } from '../../types'
+import EventsListComponent from '../../components/event/EventsListComponent.vue'
+
+const { openRegisterDialog, openLoginDialog } = useAuthDialog()
 const categories = computed(() => useHomeStore().guestCategories)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
-import EventsListComponent from '../../components/event/EventsListComponent.vue'
-
-const reasons = [
-  { icon: 'sym_r_people', text: 'Connect with like-minded individuals' },
-  { icon: 'sym_r_event', text: 'Attend exciting events and meetups' },
-  { icon: 'sym_r_school', text: 'Learn and grow through shared experiences' },
-  { icon: 'sym_r_public', text: 'Expand your social and professional network' }
-]
-
-const howItWorks = [
-  { title: 'Create an Account', subtitle: 'Sign up and set up your profile', icon: 'sym_r_person_add' },
-  { title: 'Join Groups', subtitle: 'Find groups that match your interests', icon: 'sym_r_group_add' },
-  { title: 'Attend Events', subtitle: 'Participate in group activities and meetups', icon: 'sym_r_event_available' },
-  { title: 'Connect and Share', subtitle: 'Engage with other members and share experiences', icon: 'sym_r_chat' }
-]
 
 useMeta({
   title: 'Home'
