@@ -68,9 +68,9 @@
 
               <!-- Series Options shown when recurrence is enabled -->
               <template v-if="isRecurring">
-                <div class="q-pa-md q-mt-sm bg-grey-1 rounded-borders">
+                <div class="q-pa-md q-mt-sm rounded-borders recurrence-container">
                   <!-- Info about event series -->
-                  <div class="text-body2 q-mb-md bg-blue-1 q-pa-sm rounded-borders">
+                  <div class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
                     This will create an event series. All occurrences will share the same basic information.
                   </div>
@@ -649,6 +649,27 @@ const updateStartDate = (newStartDate: string) => {
     margin-left: 0;
     padding-left: 16px;
     color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+.recurrence-container {
+  background-color: rgba(0, 0, 0, 0.03);
+
+  :deep(.q-dark) &, .body--dark & {
+    background-color: rgba(255, 255, 255, 0.07);
+  }
+
+  :deep(.q-field__native), :deep(.q-field__prefix), :deep(.q-field__suffix), :deep(.q-field__input) {
+    color: inherit;
+  }
+}
+
+.recurrence-info {
+  background-color: rgba(0, 100, 255, 0.08);
+
+  :deep(.q-dark) &, .body--dark & {
+    background-color: rgba(0, 100, 255, 0.15);
+    color: white;
   }
 }
 </style>
