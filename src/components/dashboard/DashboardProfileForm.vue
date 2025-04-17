@@ -155,6 +155,13 @@
             <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
               Connected as: {{ form.preferences.bluesky.handle }}
             </div>
+
+            <!-- Display error message if there are Bluesky connection issues -->
+            <div v-if="blueskyErrorMessage" class="text-negative q-mb-md">
+              <q-icon name="sym_r_error" size="sm" class="q-mr-xs" />
+              {{ blueskyErrorMessage }}
+            </div>
+
             <q-toggle
               v-model="form.preferences.bluesky.connected"
               label="Use Bluesky as event source"
@@ -593,12 +600,21 @@ const openChangeEmailDialog = () => {
 }
 
 const { toggleConnection } = useBlueskyConnection()
+const blueskyErrorMessage = ref<string | null>(null)
 
 const onBlueskyConnectionToggle = async (enabled: boolean) => {
   const success = await toggleConnection(enabled)
   if (!success) {
-    // Revert the toggle if the operation failed
+    // Reset the toggle to the previous state if the operation failed
     form.value.preferences.bluesky.connected = !enabled
+  } else {
+    form.value.preferences.bluesky.connected = enabled
+    if (enabled) {
+      form.value.preferences.bluesky.connectedAt = new Date()
+      form.value.preferences.bluesky.disconnectedAt = null
+    } else {
+      form.value.preferences.bluesky.disconnectedAt = new Date()
+    }
   }
 }
 

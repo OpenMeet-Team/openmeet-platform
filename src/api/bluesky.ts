@@ -17,5 +17,9 @@ export const blueskyApi = {
   },
   getStatus: () => {
     return api.get(`${BASE_URL}/status`)
+  },
+  adminResetSession: (did: string) => {
+    // This endpoint is only accessible to admin users
+    return api.post(`${BASE_URL}/admin/session/reset/${encodeURIComponent(did)}`)
   }
 }

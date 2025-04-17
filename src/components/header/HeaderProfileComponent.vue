@@ -10,6 +10,7 @@
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>
       <MenuItemComponent label="My groups" icon="sym_r_group" to="/dashboard/groups"/>
       <MenuItemComponent label="My chats" icon="sym_r_chat" to="/messages"/>
+      <MenuItemComponent v-if="isAdmin" label="Admin" icon="sym_r_admin_panel_settings" to="/admin"/>
       <q-separator/>
       <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {slug: useAuthStore().getUser.slug }}"/>
       <MenuItemComponent label="Account settings" icon="sym_r_settings" to="/dashboard/profile"/>
@@ -24,6 +25,7 @@ import { useRouter } from 'vue-router'
 import { useAvatarUrl } from '../../composables/useAvatarUrl'
 import { computed, onMounted } from 'vue'
 import { authApi } from '../../api/auth'
+import { UserRole } from '../../types'
 
 const router = useRouter()
 const store = useAuthStore()
@@ -31,6 +33,10 @@ const store = useAuthStore()
 const user = computed(() => {
   if (!store.getUser) return null
   return store.getUser
+})
+
+const isAdmin = computed(() => {
+  return store.hasRole(UserRole.Admin)
 })
 
 onMounted(async () => {
