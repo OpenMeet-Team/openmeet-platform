@@ -74,6 +74,15 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/admin',
+    component: () => import('layouts/AppLayout.vue'),
+    children: [
+      { path: '', name: 'AdminPage', component: () => import('pages/admin/AdminPage.vue') },
+      { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') }
+    ],
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/auth',
     name: 'Auth',
     component: () => import('layouts/AuthLayout.vue'),

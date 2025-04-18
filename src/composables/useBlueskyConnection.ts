@@ -21,6 +21,10 @@ export const useBlueskyConnection = () => {
     return user.value?.preferences?.bluesky?.handle
   })
 
+  const did = computed(() => {
+    return user.value?.preferences?.bluesky?.did
+  })
+
   const toggleConnection = async (enabled: boolean) => {
     isLoading.value = true
     try {
@@ -59,6 +63,7 @@ export const useBlueskyConnection = () => {
     isLoading,
     isConnected,
     handle,
+    did,
     toggleConnection
   }
 }
