@@ -536,10 +536,23 @@ const createEventSeries = async (event: EventEntity) => {
     // Add Bluesky info to event data
     addBlueskySourceInfo(event)
 
-    // Create just a template event first - no special flag needed
-    const eventResponse = await eventsApi.create(event)
-    const templateEvent = eventResponse.data
-    console.log('Created template event:', templateEvent)
+    let templateEvent
+
+    // When converting an existing event to a recurring event:
+    // 1. If event.slug exists, we're in edit mode and should UPDATE the existing event
+    //    instead of creating a new one to prevent duplicate events
+    // 2. Only create a new event when we're not in edit mode (new event creation)
+    if (event.slug) {
+      // Update the existing event first
+      const updateResponse = await eventsApi.update(event.slug, event)
+      templateEvent = updateResponse.data
+      console.log('Updated existing event to use as template:', templateEvent)
+    } else {
+      // Create a new template event
+      const eventResponse = await eventsApi.create(event)
+      templateEvent = eventResponse.data
+      console.log('Created template event:', templateEvent)
+    }
 
     // Create the series from the template
     const seriesCreationData = {
@@ -557,11 +570,21 @@ const createEventSeries = async (event: EventEntity) => {
     // Check if the series has a template event with a slug
     if (createdSeries.templateEvent && createdSeries.templateEvent.slug) {
       console.log('Emitting template event for navigation:', createdSeries.templateEvent)
-      emit('created', createdSeries.templateEvent)
+      // Use the correct emit event based on whether we're in edit mode
+      if (event.slug) {
+        emit('updated', createdSeries.templateEvent)
+      } else {
+        emit('created', createdSeries.templateEvent)
+      }
     } else if (createdSeries.events && createdSeries.events.length > 0) {
       // Fallback to the first event in the events array if available
       console.log('Emitting first event for navigation:', createdSeries.events[0])
-      emit('created', createdSeries.events[0])
+      // Use the correct emit event based on whether we're in edit mode
+      if (event.slug) {
+        emit('updated', createdSeries.events[0])
+      } else {
+        emit('created', createdSeries.events[0])
+      }
     } else {
       // Last resort, emit the series for the parent to handle
       console.log('No events found in series, emitting series-created')
