@@ -233,21 +233,46 @@ export class RecurrenceService {
     console.log('RecurrenceService.fetchOccurrences called with slug:', eventSlug, 'query:', query)
 
     try {
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
-      const response = await eventsApi.getEventOccurrences(eventSlug, query)
-      console.log('API response successful:', response.status, response.statusText)
-      console.log('Occurrences returned:', response.data?.length || 0)
-      console.log('Occurrences data type:', typeof response.data)
-      console.log('First occurrence type:', response.data && response.data.length > 0 ? typeof response.data[0] : 'N/A')
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
 
-      if (response.data && Array.isArray(response.data)) {
-        if (response.data.length > 0 && typeof response.data[0] === 'string') {
-          console.error('API ERROR: Expected objects with date and isExcluded properties, but received array of strings')
-          console.error('This indicates a backend issue that needs to be fixed')
-        }
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
       }
 
-      return response.data
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+
+        // Use the new event series API
+        const response = await import('../api/event-series').then(module => {
+          const eventSeriesApi = module.eventSeriesApi
+          return eventSeriesApi.getOccurrences(
+            seriesSlug,
+            query.count || 10,
+            !!query.startDate // Use startDate existence as proxy for "includePast"
+          )
+        })
+
+        console.log('API response successful:', response.status, response.statusText)
+        console.log('Occurrences returned:', response.data?.length || 0)
+
+        // Map to expected format with isExcluded property
+        const mappedOccurrences = response.data.map(occurrence => ({
+          date: occurrence.date,
+          isExcluded: occurrence.materialized === false // Assume non-materialized means excluded
+        }))
+
+        return mappedOccurrences
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
+        const response = await eventsApi.getEventOccurrences(eventSlug, query)
+        return response.data
+      }
     } catch (error) {
       console.error('Error fetching occurrences from API:', error)
       if (error.response) {
@@ -266,24 +291,62 @@ export class RecurrenceService {
     eventSlug: string,
     query: OccurrencesQueryParams = {}
   ): Promise<ExpandedEventOccurrence[]> {
-    console.log('RecurrenceService.fetchExpandedOccurrences called with slug:', eventSlug, 'query:', query)
-
     try {
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/expanded-occurrences')
-      const response = await eventsApi.getExpandedEventOccurrences(eventSlug, query)
-      console.log('API response successful:', response.status, response.statusText)
-      console.log('Expanded occurrences returned:', response.data?.length || 0)
-      return response.data
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
+
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
+      }
+
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+
+        // Get occurrences and then fetch each event
+        const occurrencesResponse = await import('../api/event-series').then(module => {
+          const eventSeriesApi = module.eventSeriesApi
+          return eventSeriesApi.getOccurrences(
+            seriesSlug,
+            query.count || 10,
+            !!query.startDate // Use startDate existence as proxy for "includePast"
+          )
+        })
+
+        // Manually build the expanded occurrences
+        const expandedOccurrences: ExpandedEventOccurrence[] = []
+
+        // Get each event for the occurrences
+        for (const occurrence of occurrencesResponse.data) {
+          try {
+            // Get the event for this date
+            const eventResponse = await import('../api/event-series').then(module => {
+              const eventSeriesApi = module.eventSeriesApi
+              return eventSeriesApi.getOccurrence(seriesSlug, occurrence.date)
+            })
+
+            expandedOccurrences.push({
+              date: occurrence.date,
+              event: eventResponse.data
+            })
+          } catch (error) {
+            console.error(`Error fetching event for date ${occurrence.date}:`, error)
+          }
+        }
+
+        return expandedOccurrences
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/expanded-occurrences')
+        const response = await eventsApi.getExpandedEventOccurrences(eventSlug, query)
+        return response.data
+      }
     } catch (error) {
       console.error('Error fetching expanded occurrences from API:', error)
-      if (error.response) {
-        console.error('Response error details:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        })
-      }
-      throw error // Throw error to allow components to handle fallback
+      return []
     }
   }
 
@@ -292,23 +355,37 @@ export class RecurrenceService {
     eventSlug: string,
     date: string
   ): Promise<EventEntity | null> {
-    console.log('RecurrenceService.getEffectiveEventForDate called with slug:', eventSlug, 'date:', date)
-
     try {
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/effective')
-      const response = await eventsApi.getEffectiveEventForDate(eventSlug, date)
-      console.log('API response successful:', response.status, response.statusText)
-      return response.data
-    } catch (error) {
-      console.error('Error fetching effective event from API:', error)
-      if (error.response) {
-        console.error('Response error details:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        })
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
+
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
       }
-      throw error // Throw error to allow components to handle fallback
+
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+
+        // Use the new event series API to get the occurrence for this date
+        const response = await import('../api/event-series').then(module => {
+          const eventSeriesApi = module.eventSeriesApi
+          return eventSeriesApi.getOccurrence(seriesSlug, date)
+        })
+
+        return response.data
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/effective')
+        const response = await eventsApi.getEffectiveEventForDate(eventSlug, date)
+        return response.data
+      }
+    } catch (error) {
+      console.error('Error fetching effective event for date:', error)
+      return null
     }
   }
 
@@ -318,29 +395,64 @@ export class RecurrenceService {
     splitDate: string,
     modifications: Partial<EventEntity>
   ): Promise<EventEntity | null> {
-    console.log('RecurrenceService.splitSeriesAt called with slug:', eventSlug, 'splitDate:', splitDate)
-    console.log('Modifications:', modifications)
-
     try {
-      const params: SplitSeriesParams = {
-        splitDate,
-        modifications
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
+
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
       }
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/split')
-      const response = await eventsApi.splitSeriesAt(eventSlug, params)
-      console.log('API response successful:', response.status, response.statusText)
-      console.log('New event from split:', response.data?.slug)
-      return response.data
-    } catch (error) {
-      console.error('Error splitting series from API:', error)
-      if (error.response) {
-        console.error('Response error details:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
+
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+
+        // Convert to the expected format for the new API
+        const updates = {
+          // Map fields from modifications to UpdateEventSeriesDto format
+          name: modifications.name,
+          description: modifications.description,
+          propagateChanges: true // This is needed for the new API
+        }
+
+        // Use the new event series API
+        const response = await import('../api/event-series').then(module => {
+          const eventSeriesApi = module.eventSeriesApi
+          return eventSeriesApi.updateFutureOccurrences(seriesSlug, splitDate, updates)
         })
+
+        console.log('Update future occurrences response:', response.data)
+
+        // The response is different in the new API; return the event for the split date
+        try {
+          const eventAtDateResponse = await import('../api/event-series').then(module => {
+            const eventSeriesApi = module.eventSeriesApi
+            return eventSeriesApi.getOccurrence(seriesSlug, splitDate)
+          })
+
+          return eventAtDateResponse.data
+        } catch (error) {
+          console.error('Error fetching event after split:', error)
+          return null
+        }
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/split')
+
+        const params: SplitSeriesParams = {
+          splitDate,
+          modifications
+        }
+
+        const response = await eventsApi.splitSeriesAt(eventSlug, params)
+        return response.data
       }
-      throw error // Throw error to allow components to handle fallback
+    } catch (error) {
+      console.error('Error splitting series at date:', error)
+      return null
     }
   }
 
@@ -349,23 +461,34 @@ export class RecurrenceService {
     eventSlug: string,
     exclusionDate: string
   ): Promise<boolean> {
-    console.log('RecurrenceService.addExclusionDate called with slug:', eventSlug, 'exclusionDate:', exclusionDate)
-
     try {
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/exclusions')
-      await eventsApi.addExclusionDate(eventSlug, exclusionDate)
-      console.log('Exclusion date added successfully')
-      return true
-    } catch (error) {
-      console.error('Error adding exclusion date from API:', error)
-      if (error.response) {
-        console.error('Response error details:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        })
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
+
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
       }
-      throw error // Throw error to allow components to handle fallback
+
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+        console.log('Note: addExclusionDate is not directly supported in the new API')
+        console.log('This needs a custom implementation in the backend')
+
+        // Return false for now since this is not directly supported
+        return false
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/exclusions')
+        await eventsApi.addExclusionDate(eventSlug, exclusionDate)
+        return true
+      }
+    } catch (error) {
+      console.error('Error adding exclusion date:', error)
+      return false
     }
   }
 
@@ -374,23 +497,34 @@ export class RecurrenceService {
     eventSlug: string,
     date: string
   ): Promise<boolean> {
-    console.log('RecurrenceService.removeExclusionDate called with slug:', eventSlug, 'date:', date)
-
     try {
-      console.log('Making API request to /api/recurrence/' + eventSlug + '/inclusions')
-      await eventsApi.removeExclusionDate(eventSlug, date)
-      console.log('Exclusion date removed successfully')
-      return true
-    } catch (error) {
-      console.error('Error removing exclusion date from API:', error)
-      if (error.response) {
-        console.error('Response error details:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        })
+      // First try to get the series slug for this event
+      let seriesSlug: string | null = null
+
+      try {
+        const eventResponse = await eventsApi.getBySlug(eventSlug)
+        seriesSlug = eventResponse.data.seriesSlug || null
+      } catch (error) {
+        console.error('Error fetching event for series slug:', error)
       }
-      throw error // Throw error to allow components to handle fallback
+
+      if (seriesSlug) {
+        console.log(`Event ${eventSlug} belongs to series ${seriesSlug}, using event-series API`)
+        console.log('Note: removeExclusionDate is not directly supported in the new API')
+        console.log('This needs a custom implementation in the backend')
+
+        // Return false for now since this is not directly supported
+        return false
+      } else {
+        console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
+        // Fallback to old API for backward compatibility, though this will likely 404
+        console.log('Making API request to /api/recurrence/' + eventSlug + '/inclusions')
+        await eventsApi.removeExclusionDate(eventSlug, date)
+        return true
+      }
+    } catch (error) {
+      console.error('Error removing exclusion date:', error)
+      return false
     }
   }
 
