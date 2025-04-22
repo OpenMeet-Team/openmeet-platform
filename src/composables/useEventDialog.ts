@@ -8,10 +8,12 @@ import EventAttendWaitlistDialogComponent from '../components/event/dialogs/Even
 import EventAttendPendingDialogComponent from '../components/event/dialogs/EventAttendPendingDialogComponent.vue'
 import EventAttendRejectedDialogComponent from '../components/event/dialogs/EventAttendRejectedDialogComponent.vue'
 import EventAttendeesNoRightsDialogComponent from '../components/event/dialogs/EventAttendeesNoRightsDialogComponent.vue'
+import { useRouter } from 'vue-router'
 
 export function useEventDialog () {
   const $q = useQuasar()
   const { success } = useNotification()
+  const router = useRouter()
 
   const openDeleteGroupDialog = () => {
     return $q.dialog({
@@ -26,6 +28,9 @@ export function useEventDialog () {
     return $q.dialog({
       component: EventFormDialogComponent,
       componentProps: { group }
+    }).onOk((createdEvent: EventEntity) => {
+      // Navigate to the created event page using Vue router
+      router.push({ name: 'EventPage', params: { slug: createdEvent.slug } })
     })
   }
 
