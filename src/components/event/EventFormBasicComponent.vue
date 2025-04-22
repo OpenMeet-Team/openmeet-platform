@@ -603,9 +603,42 @@ const createEventSeries = async (event: EventEntity) => {
 
     console.log('Created series response:', createdSeries)
 
-    // Check if the series has a template event with a slug
+    // IMPORTANT: After creating the series, fetch the template event again to get
+    // the updated version with the seriesSlug set
+    try {
+      const refreshedEventResponse = await eventsApi.getBySlug(templateEvent.slug)
+      const refreshedEvent = refreshedEventResponse.data
+      console.log('Refreshed template event after series creation:', refreshedEvent)
+
+      if (refreshedEvent && refreshedEvent.seriesSlug === createdSeries.slug) {
+        console.log('Confirmed event is linked to series:', refreshedEvent.seriesSlug)
+        // Use the correct emit event based on whether we're in edit mode
+        if (event.slug) {
+          emit('updated', refreshedEvent)
+        } else {
+          emit('created', refreshedEvent)
+        }
+
+        // Notify user
+        success(`Event series "${createdSeries.name}" created successfully`)
+
+        // Track analytics
+        analyticsService.trackEvent('event_series_created', {
+          series_id: createdSeries.id,
+          name: createdSeries.name,
+          source: event.sourceType || 'web'
+        })
+
+        return
+      }
+    } catch (refreshError) {
+      console.error('Error refreshing template event:', refreshError)
+      // Continue with fallback logic below if refresh fails
+    }
+
+    // Fallback to original logic if we couldn't get the refreshed event
     if (createdSeries.templateEvent && createdSeries.templateEvent.slug) {
-      console.log('Emitting template event for navigation:', createdSeries.templateEvent)
+      console.log('Using template event from series response:', createdSeries.templateEvent)
       // Use the correct emit event based on whether we're in edit mode
       if (event.slug) {
         emit('updated', createdSeries.templateEvent)
@@ -614,7 +647,7 @@ const createEventSeries = async (event: EventEntity) => {
       }
     } else if (createdSeries.events && createdSeries.events.length > 0) {
       // Fallback to the first event in the events array if available
-      console.log('Emitting first event for navigation:', createdSeries.events[0])
+      console.log('Using first event from series response:', createdSeries.events[0])
       // Use the correct emit event based on whether we're in edit mode
       if (event.slug) {
         emit('updated', createdSeries.events[0])
