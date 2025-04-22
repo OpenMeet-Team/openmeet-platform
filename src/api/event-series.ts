@@ -75,6 +75,7 @@ export interface CreateSeriesFromEventDto {
   timeZone: string
   name?: string
   description?: string
+  generateOccurrences?: boolean
 }
 
 export interface AddEventToSeriesDto {

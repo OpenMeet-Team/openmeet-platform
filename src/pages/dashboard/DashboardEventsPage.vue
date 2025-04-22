@@ -65,9 +65,10 @@ const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)
 const router = useRouter()
 
-// Mock data - replace with actual API calls
+// Fix: Properly filter hosting events by role name
 const hostingEvents = computed(() => events.value.filter(event => event.attendee?.role.name === EventAttendeeRole.Host))
-const attendedEvents = computed(() => events.value.filter(event => event.attendee?.user.name !== EventAttendeeRole.Host))
+// Fix: Properly filter attended events by role name (not being host)
+const attendedEvents = computed(() => events.value.filter(event => event.attendee && event.attendee.role.name !== EventAttendeeRole.Host))
 // const savedEvents = computed(() => events.value)
 const pastEvents = computed(() => events.value.filter(event => event.startDate && new Date(event.startDate) < new Date()))
 const events = ref<EventEntity[]>([])

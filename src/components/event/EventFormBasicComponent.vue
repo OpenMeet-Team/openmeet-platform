@@ -336,19 +336,7 @@ const emit = defineEmits(['created', 'updated', 'close', 'series-created'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
 
-// Recurrence and series controls
-const isRecurring = ref(false)
-const recurrenceRule = ref<RecurrenceRule>({
-  frequency: 'WEEKLY'
-})
-
-// Series data kept separate from event data
-const seriesFormData = ref({
-  name: '',
-  description: '',
-  timeZone: RecurrenceService.getUserTimezone()
-})
-
+// Initialize event data first
 const eventData = ref<EventEntity>({
   name: '',
   description: '',
@@ -368,6 +356,32 @@ const eventData = ref<EventEntity>({
   timeZone: RecurrenceService.getUserTimezone()
   // Removed recurrence-related fields
 })
+
+// Recurrence and series controls
+const isRecurring = ref(false)
+const recurrenceRule = ref<RecurrenceRule>({
+  frequency: 'WEEKLY'
+})
+
+// Series data kept separate from event data
+const seriesFormData = ref({
+  name: '',
+  description: '',
+  timeZone: RecurrenceService.getUserTimezone()
+})
+
+// Tab for description editor (edit/preview)
+const descriptionTab = ref('edit')
+
+// Now that all reactive variables are initialized, set up watchers
+// Watch for changes in the eventData to update isRecurring state
+watch(() => eventData.value, (newEventData) => {
+  // If event has a seriesSlug, it's already part of a recurring series
+  if (newEventData.seriesSlug) {
+    isRecurring.value = true
+    console.log('Event is part of series, enabling recurring mode:', newEventData.seriesSlug)
+  }
+}, { immediate: true, deep: true })
 
 // Watch for event name changes to sync with series name
 watch(() => eventData.value.name, (newName) => {
@@ -389,9 +403,6 @@ watch(() => isRecurring.value, (isEnabled) => {
     seriesFormData.value.name = `${eventData.value.name} Series`
   }
 })
-
-// Tab for description editor (edit/preview)
-const descriptionTab = ref('edit')
 
 const onSaveDraft = () => {
   eventData.value.status = EventStatus.Draft
@@ -489,6 +500,13 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
     if (event.slug) {
       const res = await eventsApi.update(event.slug, event)
       createdEvent = res.data
+
+      // Ensure the status is preserved for correct navigation
+      if (event.status && (!createdEvent.status || createdEvent.status !== event.status)) {
+        console.log('Status missing in API response, adding from request:', event.status)
+        createdEvent.status = event.status
+      }
+
       emit('updated', createdEvent)
       success('Event updated successfully')
       analyticsService.trackEvent('event_updated', {
@@ -503,6 +521,13 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
       // Create event in our system
       const res = await eventsApi.create(event)
       createdEvent = res.data
+
+      // Ensure the status is preserved for correct navigation
+      if (event.status && (!createdEvent.status || createdEvent.status !== event.status)) {
+        console.log('Status missing in API response, adding from request:', event.status)
+        createdEvent.status = event.status
+      }
+
       console.log('Created event response:', createdEvent)
       emit('created', createdEvent)
       success('Event created successfully')
@@ -538,6 +563,16 @@ const createEventSeries = async (event: EventEntity) => {
 
     let templateEvent
 
+    // Check if this event is already part of a series to prevent duplicate creation
+    if (event.seriesSlug) {
+      console.log(`Event is already part of series ${event.seriesSlug}. Skipping series creation.`)
+      // Just update the existing event and return
+      const updateResponse = await eventsApi.update(event.slug, event)
+      emit('updated', updateResponse.data)
+      success('Event updated successfully')
+      return
+    }
+
     // When converting an existing event to a recurring event:
     // 1. If event.slug exists, we're in edit mode and should UPDATE the existing event
     //    instead of creating a new one to prevent duplicate events
@@ -562,6 +597,7 @@ const createEventSeries = async (event: EventEntity) => {
       description: seriesFormData.value.description || event.description
     }
 
+    console.log('Creating series with data:', seriesCreationData)
     const response = await eventSeriesApi.createSeriesFromEvent(templateEvent.slug, seriesCreationData)
     const createdSeries = response.data
 

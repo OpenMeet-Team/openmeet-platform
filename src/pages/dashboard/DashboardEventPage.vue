@@ -4,7 +4,9 @@
       <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event" />
 
       <div class="row justify-center">
-        <EventFormBasicComponent class="q-mt-md col" style="max-width: 500px" @updated="navigateToEvent($event)"
+        <EventFormBasicComponent class="q-mt-md col" style="max-width: 500px"
+          @updated="navigateToEvent($event)"
+          @created="navigateToEvent($event)"
           :edit-event-slug="route.params.slug as string"
           @close="router.push({ name: 'DashboardEventsPage' })" />
       </div>

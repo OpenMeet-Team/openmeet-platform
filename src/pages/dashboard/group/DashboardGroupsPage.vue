@@ -5,7 +5,7 @@
 
     <div class="row justify-between items-start">
       <DashboardTitle defaultBack label="Your groups" />
-      <q-btn v-if="hostedGroups?.length" no-caps color="primary" icon="sym_r_add" label="Create Group"
+      <q-btn no-caps color="primary" icon="sym_r_add" label="Create Group"
         @click="onAddNewGroup" />
     </div>
 
@@ -47,12 +47,41 @@ import { useAuthStore } from '../../../stores/auth-store'
 import SpinnerComponent from '../../../components/common/SpinnerComponent.vue'
 import DashboardTitle from '../../../components/dashboard/DashboardTitle.vue'
 
-const router = useRouter()
+// Define extended type that can include the additional properties from backend
+type ExtendedGroupEntity = GroupEntity & {
+  isCreator?: boolean;
+  upcomingEventsCount?: number;
+}
 
+const router = useRouter()
 const isLoading = ref<boolean>(false)
-const userGroups = ref<GroupEntity[]>([])
-const hostedGroups = computed(() => userGroups.value?.filter(group => group.createdBy?.id === useAuthStore().getUserId))
-const memberedGroups = computed(() => userGroups.value?.filter(group => group.groupMember?.groupRole?.name === 'member'))
+const userGroups = ref<ExtendedGroupEntity[]>([])
+
+// Filter groups by checking if user is the creator
+const hostedGroups = computed(() => {
+  const userId = useAuthStore().getUserId
+  return userGroups.value?.filter(group => {
+    // Check for isCreator property first if available
+    if (group.isCreator !== undefined) {
+      return group.isCreator === true
+    }
+    // Fall back to comparing createdBy.id with userId
+    return group.createdBy?.id === userId
+  })
+})
+
+// Filter groups where user is a member but not creator
+const memberedGroups = computed(() => {
+  const userId = useAuthStore().getUserId
+  return userGroups.value?.filter(group => {
+    // If isCreator property is available, use it
+    if (group.isCreator !== undefined) {
+      return group.isCreator === false && group.groupMember?.groupRole?.name === 'member'
+    }
+    // Fall back to comparing createdBy.id with userId
+    return group.createdBy?.id !== userId && group.groupMember?.groupRole?.name === 'member'
+  })
+})
 
 useMeta({
   title: 'Your groups'
@@ -61,7 +90,10 @@ useMeta({
 const fetchData = async () => {
   LoadingBar.start()
   return groupsApi.getDashboardGroups().then(res => {
-    userGroups.value = res.data.sort((a, b) => b.name.localeCompare(a.name))
+    // Cast the response data to our extended type
+    userGroups.value = res.data as ExtendedGroupEntity[]
+    // Sort by name to ensure consistent display
+    userGroups.value.sort((a, b) => a.name.localeCompare(b.name))
   }).finally(LoadingBar.stop)
 }
 
@@ -77,7 +109,6 @@ const exploreGroups = () => {
 const onAddNewGroup = () => {
   router.push({ name: 'DashboardGroupCreatePage' })
 }
-
 </script>
 
 <style scoped></style>
