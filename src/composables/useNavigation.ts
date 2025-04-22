@@ -14,7 +14,22 @@ export function useNavigation () {
       console.error('Cannot navigate to event: missing event or slug property', event)
       return
     }
-    router.push({ name: 'EventPage', params: { slug: event.slug } })
+
+    // Determine if we're in dashboard context by checking the current route
+    const currentPath = router.currentRoute.value.path
+    const isDashboardContext = currentPath.includes('/dashboard')
+
+    // If we're in dashboard context and the event was just published,
+    // redirect to the event view page instead of staying in the editor
+    if (isDashboardContext && event.status === 'published') {
+      console.log('Event was published from dashboard, redirecting to event view page')
+      router.push({ name: 'EventPage', params: { slug: event.slug } })
+    } else {
+      // In other cases, navigate to the appropriate page based on context
+      console.log('Navigating to event:', event)
+      const routeName = isDashboardContext ? 'DashboardEventPage' : 'EventPage'
+      router.push({ name: routeName, params: { slug: event.slug } })
+    }
   }
 
   const navigateToMember = (user: UserEntity | string) => {
