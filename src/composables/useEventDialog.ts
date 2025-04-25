@@ -83,6 +83,8 @@ export function useEventDialog () {
     }).onOk(() => {
       return eventsApi.delete(event.slug).then(() => {
         success('Event deleted!')
+        // Redirect to events page after successful deletion
+        router.push({ name: 'HomePage' })
       })
     })
   }
