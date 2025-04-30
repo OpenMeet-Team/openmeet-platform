@@ -10,28 +10,32 @@
     </div>
 
     <template v-if="!isLoading">
-      <div>
-        <div v-if="hostedGroups?.length" class="row q-col-gutter-lg q-mt-md">
-          <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-            <DashboardGroupItem :group="group" />
+      <q-tabs align="left" no-caps v-model="tab" class="text-primary q-mb-md q-mt-md">
+        <q-tab name="member" label="Your Groups" />
+        <q-tab name="admin" label="Admin Groups" />
+      </q-tabs>
+
+      <q-tab-panels v-model="tab" animated>
+        <q-tab-panel name="member">
+          <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups"
+            buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
+          <div v-else class="row q-col-gutter-md">
+            <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
+              <DashboardGroupItem :group="group" />
+            </div>
           </div>
-        </div>
-        <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group"
-          label="You haven't created any groups yet." icon="sym_r_groups" />
-      </div>
+        </q-tab-panel>
 
-      <div class="row text-h4 justify-between q-mt-xl text-bold">Member Groups</div>
-
-      <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups"
-        buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
-
-      <div v-else class="row q-col-gutter-md q-mt-md">
-        <template v-if="memberedGroups">
-          <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-            <DashboardGroupItem :group="group" />
+        <q-tab-panel name="admin">
+          <div v-if="hostedGroups?.length" class="row q-col-gutter-lg">
+            <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
+              <DashboardGroupItem :group="group" />
+            </div>
           </div>
-        </template>
-      </div>
+          <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group"
+            label="You haven't created any groups yet." icon="sym_r_groups" />
+        </q-tab-panel>
+      </q-tab-panels>
     </template>
   </q-page>
 </template>
@@ -56,6 +60,7 @@ type ExtendedGroupEntity = GroupEntity & {
 const router = useRouter()
 const isLoading = ref<boolean>(false)
 const userGroups = ref<ExtendedGroupEntity[]>([])
+const tab = ref<'member' | 'admin'>('member')
 
 // Filter groups by checking if user is the creator
 const hostedGroups = computed(() => {
