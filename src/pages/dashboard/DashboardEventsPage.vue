@@ -67,8 +67,13 @@ const router = useRouter()
 
 // Fix: Properly filter hosting events by role name
 const hostingEvents = computed(() => events.value.filter(event => event.attendee?.role.name === EventAttendeeRole.Host))
-// Fix: Properly filter attended events by role name (not being host)
-const attendedEvents = computed(() => events.value.filter(event => event.attendee && event.attendee.role.name !== EventAttendeeRole.Host))
+// Fix: Properly filter attended events by role name (not being host) and only future events
+const attendedEvents = computed(() => events.value.filter(event =>
+  event.attendee &&
+  event.attendee.role.name !== EventAttendeeRole.Host &&
+  event.startDate &&
+  new Date(event.startDate) >= new Date()
+))
 // const savedEvents = computed(() => events.value)
 const pastEvents = computed(() => events.value.filter(event => event.startDate && new Date(event.startDate) < new Date()))
 const events = ref<EventEntity[]>([])
