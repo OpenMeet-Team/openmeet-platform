@@ -18,7 +18,7 @@
         <NoContentComponent v-if="attendedEvents && !attendedEvents.length" @click="router.push({ name: 'EventsPage' })"
           buttonLabel="Discover new events" label="You have not registered for any events" icon="sym_r_event" />
         <div>
-          <EventsItemComponent v-for="event in attendedEvents" :key="event.id" :event="event" />
+          <EventsItemComponent v-for="event in attendedEvents" :key="event.id" :event="event" layout="list"/>
         </div>
       </q-tab-panel>
       <q-tab-panel name="hosting">
@@ -27,23 +27,14 @@
             label="You are not hosting any upcoming events" icon="sym_r_app_registration" />
         </template>
         <div v-else>
-          <EventsItemComponent v-for="event in hostingEvents" :key="event.id" :event="event" />
+          <EventsItemComponent v-for="event in hostingEvents" :key="event.id" :event="event" layout="list"/>
         </div>
       </q-tab-panel>
-
-      <!-- <q-tab-panel name="saved">
-        <NoContentComponent v-if="savedEvents && !savedEvents.length" @click="router.push({ name: 'EventsPage' })"
-                            buttonLabel="Discover new events" label="You have not saved any events"
-                            icon="sym_r_bookmarks"/>
-        <div>
-          <EventsItemComponent v-for="event in savedEvents" :key="event.id" :event="event"/>
-        </div>
-      </q-tab-panel> -->
 
       <q-tab-panel name="past">
 
         <div v-if="pastEvents?.length">
-          <EventsItemComponent v-for="event in pastEvents" :key="event.id" :event="event" />
+          <EventsItemComponent v-for="event in pastEvents" :key="event.id" :event="event" layout="list"/>
         </div>
         <NoContentComponent v-if="events && !pastEvents.length" @click="router.push({ name: 'EventsPage' })"
           buttonLabel="Discover new events" label="You have not attended any events" icon="sym_r_timeline" />

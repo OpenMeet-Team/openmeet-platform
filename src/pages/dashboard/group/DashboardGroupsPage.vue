@@ -20,17 +20,13 @@
           <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups"
             buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
           <div v-else class="row q-col-gutter-md">
-            <div v-for="group in memberedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-              <DashboardGroupItem :group="group" />
-            </div>
+            <GroupsItemComponent v-for="group in memberedGroups" :key="group.id" :group="group" layout="list" />
           </div>
         </q-tab-panel>
 
         <q-tab-panel name="admin">
           <div v-if="hostedGroups?.length" class="row q-col-gutter-lg">
-            <div v-for="group in hostedGroups" :key="group.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-              <DashboardGroupItem :group="group" />
-            </div>
+            <GroupsItemComponent v-for="group in hostedGroups" :key="group.id" :group="group" layout="list" />
           </div>
           <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group"
             label="You haven't created any groups yet." icon="sym_r_groups" />
@@ -45,11 +41,11 @@ import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
 import { groupsApi } from '../../../api/groups'
-import DashboardGroupItem from '../../../components/dashboard/DashboardGroupItem.vue'
 import { GroupEntity } from '../../../types'
 import { useAuthStore } from '../../../stores/auth-store'
 import SpinnerComponent from '../../../components/common/SpinnerComponent.vue'
 import DashboardTitle from '../../../components/dashboard/DashboardTitle.vue'
+import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
 
 // Define extended type that can include the additional properties from backend
 type ExtendedGroupEntity = GroupEntity & {
