@@ -11,25 +11,34 @@
 
     <template v-if="!isLoading">
       <q-tabs align="left" no-caps v-model="tab" class="text-primary q-mb-md q-mt-md">
-        <q-tab name="member" label="Your Groups" />
-        <q-tab name="admin" label="Admin Groups" />
+        <q-tab name="member" label="Member in" />
+        <q-tab name="admin" label="Leader in" />
+        <q-tab name="all" label="All" />
       </q-tabs>
 
       <q-tab-panels v-model="tab" animated>
         <q-tab-panel name="member">
           <NoContentComponent v-if="memberedGroups && !memberedGroups.length" @click="exploreGroups"
             buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
-          <div v-else class="row q-col-gutter-md">
-            <GroupsItemComponent v-for="group in memberedGroups" :key="group.id" :group="group" layout="list" />
+          <div v-else class="column q-gutter-y-md">
+            <GroupsItemComponent v-for="group in memberedGroups" :key="group.id" :group="group" layout="list" class="col-12" />
           </div>
         </q-tab-panel>
 
         <q-tab-panel name="admin">
-          <div v-if="hostedGroups?.length" class="row q-col-gutter-lg">
-            <GroupsItemComponent v-for="group in hostedGroups" :key="group.id" :group="group" layout="list" />
+          <div v-if="hostedGroups?.length" class="column q-gutter-y-md">
+            <GroupsItemComponent v-for="group in hostedGroups" :key="group.id" :group="group" layout="list" class="col-12" />
           </div>
           <NoContentComponent v-else @click="onAddNewGroup" buttonLabel="Add new Group"
             label="You haven't created any groups yet." icon="sym_r_groups" />
+        </q-tab-panel>
+
+        <q-tab-panel name="all">
+          <NoContentComponent v-if="!userGroups.length" @click="exploreGroups"
+            buttonLabel="Explore Groups" label="You haven't joined any groups yet." icon="sym_r_group" />
+          <div v-else class="column q-gutter-y-md">
+            <GroupsItemComponent v-for="group in userGroups" :key="group.id" :group="group" layout="list" class="col-12" />
+          </div>
         </q-tab-panel>
       </q-tab-panels>
     </template>
@@ -42,10 +51,10 @@ import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
 import { groupsApi } from '../../../api/groups'
 import { GroupEntity } from '../../../types'
-import { useAuthStore } from '../../../stores/auth-store'
 import SpinnerComponent from '../../../components/common/SpinnerComponent.vue'
 import DashboardTitle from '../../../components/dashboard/DashboardTitle.vue'
 import GroupsItemComponent from 'src/components/group/GroupsItemComponent.vue'
+import NoContentComponent from '../../../components/global/NoContentComponent.vue'
 
 // Define extended type that can include the additional properties from backend
 type ExtendedGroupEntity = GroupEntity & {
@@ -58,29 +67,28 @@ const isLoading = ref<boolean>(false)
 const userGroups = ref<ExtendedGroupEntity[]>([])
 const tab = ref<'member' | 'admin'>('member')
 
-// Filter groups by checking if user is the creator
+// Filter groups by checking if user is the creator or a leadership role
 const hostedGroups = computed(() => {
-  const userId = useAuthStore().getUserId
   return userGroups.value?.filter(group => {
     // Check for isCreator property first if available
-    if (group.isCreator !== undefined) {
-      return group.isCreator === true
+    if (group.isCreator === true) {
+      return true
     }
-    // Fall back to comparing createdBy.id with userId
-    return group.createdBy?.id === userId
+    // Include groups where user has admin or moderator role
+    const role = group.groupMember?.groupRole?.name
+    if (role === 'admin' || role === 'moderator' || role === 'owner') {
+      return true
+    }
+    return false
   })
 })
 
-// Filter groups where user is a member but not creator
+// Filter groups where user is a member but not in leadership role
 const memberedGroups = computed(() => {
-  const userId = useAuthStore().getUserId
   return userGroups.value?.filter(group => {
-    // If isCreator property is available, use it
-    if (group.isCreator !== undefined) {
-      return group.isCreator === false && group.groupMember?.groupRole?.name === 'member'
-    }
-    // Fall back to comparing createdBy.id with userId
-    return group.createdBy?.id !== userId && group.groupMember?.groupRole?.name === 'member'
+    const role = group.groupMember?.groupRole?.name
+    // Only include regular members, not those with leadership roles
+    return role === 'member'
   })
 })
 
