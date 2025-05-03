@@ -396,20 +396,34 @@ class MatrixServiceImpl {
         error?: string;
       }
 
-      this.socket!.emit('join-room', {
-        roomId,
-        tenantId: this.tenantId || this.ensureTenantId()
-      }, (response: JoinRoomResponse) => {
-        if (response?.success) {
-          console.log(`!!!DEBUG!!! Successfully joined room: ${roomId}`)
-          // Mark the room as joined in our cache to prevent redundant joins
-          this.markRoomAsJoined(roomId)
-          resolve(true)
-        } else {
-          console.error(`!!!DEBUG!!! Failed to join room: ${roomId}`, response?.error)
+      try {
+        // Set a timeout to handle cases where the server doesn't respond
+        const timeoutId = window.setTimeout(() => {
+          console.error(`!!!DEBUG!!! Join room timeout for room: ${roomId}`)
           resolve(false)
-        }
-      })
+        }, 5000)
+
+        this.socket!.emit('join-room', {
+          roomId,
+          tenantId: this.tenantId || this.ensureTenantId()
+        }, (response: JoinRoomResponse) => {
+          // Clear the timeout since we got a response
+          window.clearTimeout(timeoutId)
+
+          if (response?.success) {
+            console.log(`!!!DEBUG!!! Successfully joined room: ${roomId}`)
+            // Mark the room as joined in our cache to prevent redundant joins
+            this.markRoomAsJoined(roomId)
+            resolve(true)
+          } else {
+            console.error(`!!!DEBUG!!! Failed to join room: ${roomId}`, response?.error)
+            resolve(false)
+          }
+        })
+      } catch (err) {
+        console.error(`!!!DEBUG!!! Error in joinRoom for ${roomId}:`, err)
+        resolve(false)
+      }
     })
   }
 

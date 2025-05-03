@@ -22,7 +22,11 @@ export const chatApi = {
   getEventMessages: (eventSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/event/${eventSlug}/messages`, { params: { limit, from } }),
 
-  addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
+  addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<{
+    success?: boolean;
+    roomId?: string;
+    message?: string;
+  }>> =>
     api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
 
   removeMemberFromEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>

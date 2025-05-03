@@ -385,8 +385,29 @@ onMounted(async () => {
   // This is critical to fix the issue where some users don't receive messages
   try {
     console.log('!!!DEBUG!!! Explicitly joining room in MessagesComponent:', props.roomId)
-    await matrixService.joinRoom(props.roomId)
-    console.log('!!!DEBUG!!! Room joined successfully')
+
+    // First verify we have a proper connection before attempting to join
+    if (!matrixService.isConnected) {
+      console.log('!!!DEBUG!!! WebSocket not connected yet - ensuring Matrix connection')
+      // Make sure we've initialized Matrix first
+      await messageStore.initializeMatrix()
+
+      // If still not connected after initialization, log a warning
+      if (!matrixService.isConnected) {
+        console.warn('!!!DEBUG!!! Matrix WebSocket connection not established. Message delivery may be delayed.')
+      }
+    }
+
+    // Only attempt to join if we have a connection
+    const joinSuccess = matrixService.isConnected
+      ? await matrixService.joinRoom(props.roomId)
+      : false
+
+    if (joinSuccess) {
+      console.log('!!!DEBUG!!! Room joined successfully')
+    } else {
+      console.warn('!!!DEBUG!!! Unable to join room now - messages will be delivered when connection is established')
+    }
   } catch (err) {
     console.error('Error joining room:', err)
   }
@@ -451,8 +472,12 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     // Explicitly join the new room to make sure we receive events
     try {
       console.log('!!!DEBUG!!! Explicitly joining new room after change:', newRoomId)
-      await matrixService.joinRoom(newRoomId)
-      console.log('!!!DEBUG!!! New room joined successfully')
+      const joinSuccess = await matrixService.joinRoom(newRoomId)
+      if (joinSuccess) {
+        console.log('!!!DEBUG!!! New room joined successfully')
+      } else {
+        console.warn('!!!DEBUG!!! Could not join new room - messages may be delayed until connection is established')
+      }
     } catch (err) {
       console.error('Error joining new room:', err)
     }

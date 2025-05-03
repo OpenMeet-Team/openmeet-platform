@@ -335,8 +335,21 @@ export const useEventStore = defineStore('event', {
       try {
         if (this.event?.slug) {
           console.log(`Attempting to add user ${userSlug} to discussion for event ${this.event.slug}`)
-          await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
-          console.log(`Successfully added user ${userSlug} to discussion`)
+          const response = await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
+          console.log(`Successfully added user ${userSlug} to discussion`, response.data)
+
+          // Check if the response includes a roomId (it should from the server)
+          if (response.data && response.data.roomId) {
+            console.log(`Received roomId from addMemberToEventDiscussion: ${response.data.roomId}`)
+            // Save the roomId directly to the event object if provided
+            if (this.event) {
+              this.event.roomId = response.data.roomId
+              console.log(`Updated event with roomId: ${this.event.roomId}`)
+            }
+          } else {
+            console.warn('No roomId returned from addMemberToEventDiscussion API call')
+          }
+
           return true
         }
         return false
