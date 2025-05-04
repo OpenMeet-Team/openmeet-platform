@@ -74,7 +74,7 @@ export class RecurrenceService {
         }
       }
 
-      // Add byweekday if present (RRule requires special handling)
+      // Add byweekday and bysetpos if present (RRule requires special handling)
       if (rule.byweekday && rule.byweekday.length > 0) {
         options.byweekday = rule.byweekday.map(day => {
           // Check if day has a position prefix like "1MO" for first Monday
@@ -87,6 +87,12 @@ export class RecurrenceService {
           // Regular weekday without position
           return RRule[day as keyof typeof RRule] as unknown as number
         })
+      }
+      
+      // Handle bysetpos separately (needed for monthly by-day-of-week patterns)
+      if (rule.bysetpos && rule.bysetpos.length > 0) {
+        options.bysetpos = rule.bysetpos
+        console.log('Setting bysetpos in RRule:', rule.bysetpos)
       }
 
       // Add other byX rules as needed

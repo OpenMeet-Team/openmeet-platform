@@ -15,6 +15,7 @@ declare global {
     chatRoomInitializations?: Record<string, 'in-progress' | 'completed' | null>;
     lastEventDiscussionCheck?: number;
     lastChatPermissionStatus?: Record<string, string | undefined>;
+    lastChatInitAttempt?: Record<string, number>; // Add timestamp tracking for throttling
   }
 }
 
@@ -248,9 +249,18 @@ const ensureChatRoomExists = async () => {
   const statusChanged = currentStatus !== previousStatus
   const roomIdExistsButNoComponent = matrixRoomId.value && !document.querySelector('.messages-component')
   const confirmedButNoRoomId = currentStatus === 'confirmed' && !matrixRoomId.value
-  const forceRefresh = (currentStatus === 'confirmed' && statusChanged) ||
+
+  // Add throttling check - only force refresh if it's been at least 5 seconds since the last attempt
+  const lastAttemptTime = window.lastChatInitAttempt?.[eventSlug] || 0
+  const currentTime = Date.now()
+  const timeSinceLastAttempt = currentTime - lastAttemptTime
+  const throttleMs = 5000 // 5 seconds throttle
+  const isThrottled = timeSinceLastAttempt < throttleMs
+
+  // Only force refresh if we're not throttled
+  const forceRefresh = !isThrottled && ((currentStatus === 'confirmed' && statusChanged) ||
                       roomIdExistsButNoComponent ||
-                      confirmedButNoRoomId
+                      confirmedButNoRoomId)
 
   console.log('Checking if we need to force refresh room initialization:', {
     currentStatus,
@@ -259,12 +269,19 @@ const ensureChatRoomExists = async () => {
     roomIdExists: !!matrixRoomId.value,
     componentExists: !!document.querySelector('.messages-component'),
     confirmedButNoRoomId,
+    timeSinceLastAttempt: `${timeSinceLastAttempt}ms`,
+    throttleLimit: `${throttleMs}ms`,
+    isThrottled,
     forceRefresh
   })
 
-  // Always force refresh if user is confirmed but no room ID is found
-  if (window.chatRoomInitializations[eventSlug] === 'completed' && !forceRefresh) {
-    console.log(`Room ${eventSlug} was already fully initialized in this session, skipping`)
+  // Always force refresh if user is confirmed but no room ID is found, unless we're throttled
+  if ((window.chatRoomInitializations[eventSlug] === 'completed' && !forceRefresh) || isThrottled) {
+    if (isThrottled) {
+      console.log(`Throttling initialization for ${eventSlug}: too soon since last attempt (${timeSinceLastAttempt}ms < ${throttleMs}ms)`)
+    } else {
+      console.log(`Room ${eventSlug} was already fully initialized in this session, skipping`)
+    }
     return true
   }
 
@@ -283,7 +300,14 @@ const ensureChatRoomExists = async () => {
   isInitializing.value = true
   // Set global flag to prevent concurrent initialization across components
   window.chatRoomInitializations[eventSlug] = 'in-progress'
-  console.log(`Starting initialization for ${eventSlug}, setting global flag`)
+
+  // Initialize and update the timestamp tracking
+  if (!window.lastChatInitAttempt) {
+    window.lastChatInitAttempt = {}
+  }
+  window.lastChatInitAttempt[eventSlug] = Date.now()
+
+  console.log(`Starting initialization for ${eventSlug}, setting global flag and timestamp`)
 
   // Automatically clean up stale locks after 10 seconds
   setTimeout(() => {
@@ -351,9 +375,13 @@ const ensureChatRoomExists = async () => {
         // Add a small delay to let the server process
         await new Promise(resolve => setTimeout(resolve, 500))
 
-        // Force a refresh of the event data to ensure we have updated permissions
-        console.log('Forcing event refresh to get latest permissions')
-        await useEventStore().actionGetEventBySlug(eventSlug)
+        // Only force a refresh if we don't already have a room ID
+        if (!event.value.roomId) {
+          console.log('Forcing event refresh to get latest permissions')
+          await useEventStore().actionGetEventBySlug(eventSlug)
+        } else {
+          console.log('Room ID already exists after join, skipping redundant event refresh:', event.value.roomId)
+        }
 
         // Reload messages ONLY ONCE to get the room ID
         console.log('User added to discussion, checking for room ID')
@@ -532,8 +560,13 @@ const handleAttendeeStatusChanged = (e: Event) => {
                   console.log('Received roomId from messages API:', messagesResult.roomId)
                   // Instead of directly modifying the event object (which causes TypeScript errors),
                   // we'll refresh the event data so it comes with the roomId from the API
-                  console.log('Forcing another event refresh to update roomId')
-                  await useEventStore().actionGetEventBySlug(eventSlug)
+                  // Only refresh if we don't already have the roomId synchronized
+                  if (event.value?.roomId !== messagesResult.roomId) {
+                    console.log('Forcing another event refresh to update roomId')
+                    await useEventStore().actionGetEventBySlug(eventSlug)
+                  } else {
+                    console.log('Room ID already synchronized, skipping redundant event refresh')
+                  }
                 }
               }
             } catch (error) {
@@ -559,6 +592,15 @@ onMounted(async () => {
     console.log('EventTopicsComponent mounted for event:', event.value.slug)
     try {
       isLoading.value = true
+
+      // Check if the parent EventPage is already loading this event data
+      // This helps avoid redundant API calls when components mount
+      const eventSlug = event.value.slug
+      if (window.eventBeingLoaded === eventSlug) {
+        console.log('Parent EventPage is already loading event data, will wait for it to complete')
+        // We don't need to make additional API calls here, just rely on the EventPage component
+        // to load the base data, and then we'll handle Matrix-specific operations
+      }
 
       // Only initialize the chat room if the user is a confirmed attendee
       if (event.value.attendee?.status === 'confirmed' && discussionPermissions.value.canWrite) {
@@ -596,34 +638,53 @@ onBeforeUnmount(() => {
 
 // Method to handle the retry button in the UI
 const retryRoomInitialization = async () => {
-  // First, flag any existing progress as canceled
-  if (event.value && event.value.slug) {
-    if (window.chatRoomInitializations &&
-        window.chatRoomInitializations[event.value.slug] === 'in-progress') {
-      console.log(`Canceling stale initialization for ${event.value.slug}`)
-      window.chatRoomInitializations[event.value.slug] = null
-    }
+  if (!event.value || !event.value.slug) return
+  const eventSlug = event.value.slug
+
+  // Check throttling - prevent too frequent retries
+  if (!window.lastChatInitAttempt) {
+    window.lastChatInitAttempt = {}
   }
 
-  // Clear any cached room ID to force a fresh start
-  if (event.value) {
-    if (event.value.roomId) {
-      console.log(`Clearing cached roomId ${event.value.roomId} for retry`)
-      event.value.roomId = undefined
-    }
+  const lastAttemptTime = window.lastChatInitAttempt[eventSlug] || 0
+  const timeSinceLastAttempt = Date.now() - lastAttemptTime
+  const throttleMs = 5000 // 5 seconds for manual retries
+
+  if (timeSinceLastAttempt < throttleMs) {
+    console.log(`Throttling manual retry for ${eventSlug}: too soon since last attempt (${timeSinceLastAttempt}ms < ${throttleMs}ms)`)
+    return
   }
 
-  // Also clear the lastEventDiscussionCheck to ensure we fetch fresh messages
-  window.lastEventDiscussionCheck = 0
+  // Reset state and record this attempt timestamp
+  window.lastChatInitAttempt[eventSlug] = Date.now()
+  isInitializing.value = true
 
-  // Force a fresh fetch of the event data to ensure we have current permissions
-  if (event.value && event.value.slug) {
-    console.log(`Performing fresh fetch of event data for ${event.value.slug}`)
-    await useEventStore().actionGetEventBySlug(event.value.slug)
+  try {
+    // First make sure Matrix connection is initialized
+    await messageStore.initializeMatrix()
 
-    // Now try the chat room initialization
-    console.log('Retrying chat room initialization from scratch')
-    await ensureChatRoomExists()
+    // Force a fresh fetch of the event data to ensure we have current permissions
+    console.log(`Performing fresh fetch of event data for ${eventSlug}`)
+    await useEventStore().actionGetEventBySlug(eventSlug)
+
+    // Try a single, simple call to join the discussion
+    console.log('Attempting to join event discussion')
+    await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
+
+    // Then fetch messages to see if we got a room ID
+    console.log('Fetching messages to check for room ID')
+    await useEventStore().actionGetEventDiscussionMessages()
+
+    // Success message if we got a room ID
+    if (event.value.roomId || matrixRoomId.value) {
+      console.log('Successfully joined discussion, room ID:', event.value.roomId || matrixRoomId.value)
+    } else {
+      console.log('Still no room ID available after join attempt')
+    }
+  } catch (error) {
+    console.error('Error retrying room initialization:', error)
+  } finally {
+    isInitializing.value = false
   }
 }
 
@@ -737,8 +798,8 @@ const retryRoomInitialization = async () => {
           <p v-else-if="!event?.attendee">You need to be an attendee of this event to participate in discussions.</p>
           <p v-else-if="event?.attendee?.status !== 'confirmed'">Your attendance request is still pending. Once approved, you'll be able to join the discussion.</p>
           <p v-else>
-            <span>The chat room could not be automatically created. This may be because the server is still initializing the Matrix room.</span>
-            <span v-if="isInitializing"> Initializing room now...</span>
+            <span>The chat room could not be initialized. The discussion service may be temporarily unavailable.</span>
+            <span v-if="isInitializing"> Attempting to connect...</span>
           </p>
 
           <!-- Add debug info in development mode -->

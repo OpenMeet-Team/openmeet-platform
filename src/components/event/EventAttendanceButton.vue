@@ -138,13 +138,21 @@ onMounted(async () => {
     // Always start in loading state to prevent UI flicker
     initialLoading.value = true
 
+    // Check if the parent EventPage is already loading this event data
+    // This helps avoid redundant API calls when components mount
+    const eventSlug = props.event.slug
+    if (window.eventBeingLoaded === eventSlug) {
+      console.log('Parent EventPage is already loading this event data, skipping redundant API call')
+      hasCheckedAttendance.value = true
+      return
+    }
+
     // Check if user is authenticated (always do this check)
     const isAuthenticated = await authSession.checkAuthStatus()
     console.log('Auth status result:', isAuthenticated)
 
     if (isAuthenticated) {
       // If authenticated, we should check if we need a fresh check for attendance status
-      const eventSlug = props.event.slug
       const now = Date.now()
       const lastCheck = window.lastEventAttendanceCheck[eventSlug] || 0
       const timeSinceLastCheck = now - lastCheck

@@ -533,28 +533,37 @@ onMounted(async () => {
     // Always track when we load this event
     window.lastEventPageLoad[eventSlug] = now
 
-    await Promise.all([
-      // Only reload event data if it's been more than 2 seconds since the last load
-      // or if the event store doesn't have this event yet
-      (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000)
-        ? useEventStore().actionGetEventBySlug(eventSlug)
-        : Promise.resolve(console.log('Using existing event data from store, skipping reload')),
+    // IMPORTANT: Set a globally accessible flag to indicate this event is being loaded
+    // This allows child components to avoid making redundant API calls
+    window.eventBeingLoaded = eventSlug
 
-      // Always load similar events
-      loadSimilarEvents(eventSlug)
+    // First, load the event data and wait for it to complete
+    // This ensures child components have access to event and attendance data
+    if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
+      await useEventStore().actionGetEventBySlug(eventSlug)
+      console.log('Event data loaded, now child components can use this data')
+    } else {
+      console.log('Using existing event data from store, skipping reload')
+    }
+
+    // Then load non-critical data in parallel
+    await Promise.all([
+      // Load similar events
+      loadSimilarEvents(eventSlug),
+
+      // Load series data if applicable
+      useEventStore().event?.seriesSlug ? loadUpcomingOccurrences() : Promise.resolve()
     ])
 
-    // After loading event data, check for series and load occurrences
-    if (useEventStore().event?.seriesSlug) {
-      console.log('Event has seriesSlug:', useEventStore().event.seriesSlug)
-      await loadUpcomingOccurrences()
-    } else if (useEventStore().event?.seriesId) {
-      console.log('Event has seriesId but no seriesSlug:', useEventStore().event.seriesId)
+    // Log warning for navigation issues
+    if (!useEventStore().event?.seriesSlug && useEventStore().event?.seriesId) {
       console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
     }
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
+    // Clear the global loading flag when done
+    window.eventBeingLoaded = null
     LoadingBar.stop()
   }
 })

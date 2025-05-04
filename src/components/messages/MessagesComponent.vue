@@ -386,30 +386,29 @@ onMounted(async () => {
   try {
     console.log('!!!DEBUG!!! Explicitly joining room in MessagesComponent:', props.roomId)
 
-    // First verify we have a proper connection before attempting to join
-    if (!matrixService.isConnected) {
-      console.log('!!!DEBUG!!! WebSocket not connected yet - ensuring Matrix connection')
-      // Make sure we've initialized Matrix first
+    // Make one single attempt to initialize Matrix
+    try {
       await messageStore.initializeMatrix()
-
-      // If still not connected after initialization, log a warning
-      if (!matrixService.isConnected) {
-        console.warn('!!!DEBUG!!! Matrix WebSocket connection not established. Message delivery may be delayed.')
-      }
+    } catch (e) {
+      console.warn('!!!DEBUG!!! Failed to initialize Matrix, continuing anyway:', e)
+      // We continue even after failure so the rest of the UI can work
     }
 
-    // Only attempt to join if we have a connection
-    const joinSuccess = matrixService.isConnected
-      ? await matrixService.joinRoom(props.roomId)
-      : false
+    // Only attempt to join if we have a connection to avoid unnecessary errors
+    if (matrixService.isConnected) {
+      const joinSuccess = await matrixService.joinRoom(props.roomId)
 
-    if (joinSuccess) {
-      console.log('!!!DEBUG!!! Room joined successfully')
+      if (joinSuccess) {
+        console.log('!!!DEBUG!!! Room joined successfully')
+      } else {
+        console.warn('!!!DEBUG!!! Unable to join room - messages may be delayed until connection is established')
+      }
     } else {
-      console.warn('!!!DEBUG!!! Unable to join room now - messages will be delivered when connection is established')
+      console.warn('!!!DEBUG!!! Matrix WebSocket not connected - skipping room join attempt')
     }
   } catch (err) {
     console.error('Error joining room:', err)
+    // Continue anyway so the UI can still work even without real-time updates
   }
 
   await loadMessages()
