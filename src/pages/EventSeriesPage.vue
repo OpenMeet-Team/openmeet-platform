@@ -22,7 +22,7 @@
 
         <div class="col-auto" v-if="isOwnerOrAdmin">
           <q-btn color="negative" label="Delete Series" @click="showDeleteDialog = true" class="q-mr-sm" />
-          <q-btn color="primary" @click="navigateToEventEdit" label="Edit Series" class="q-mr-sm" />
+          <q-btn color="primary" @click="navigateToEventEdit" label="Edit Series Pattern" class="q-mr-sm" />
           <q-btn color="primary" label="Create New Event" @click="openEventFormDialog" />
         </div>
       </div>
@@ -45,6 +45,23 @@
             <div class="col-12 col-md-6" v-if="eventSeries?.user">
               <div class="text-subtitle2">Created by</div>
               <div>{{ eventSeries.user.firstName }} {{ eventSeries.user.lastName }}</div>
+            </div>
+
+            <!-- Recurrence pattern -->
+            <div class="col-12">
+              <div class="text-subtitle2">Recurrence Pattern</div>
+              <div class="text-h6 q-py-sm">
+                <q-icon name="sym_r_event_repeat" class="q-mr-xs" color="primary" />
+                <!-- If we have a server-provided description, always use it first -->
+                <span>{{ eventSeries.recurrenceDescription || getHumanReadablePattern(eventSeries.recurrenceRule) }}</span>
+              </div>
+              <div v-if="eventSeries.recurrenceRule.frequency === 'MONTHLY' &&
+                         eventSeries.recurrenceRule.byweekday &&
+                         eventSeries.recurrenceRule.bysetpos"
+                   class="text-caption q-ml-md q-mt-sm q-pa-sm bg-green-1 rounded-borders">
+                <strong class="text-positive">Technical Details: </strong>
+                {{ getMonthlyPatternDetails(eventSeries.recurrenceRule) }}
+              </div>
             </div>
           </div>
         </q-card-section>
@@ -262,13 +279,19 @@
             />
 
             <!-- Recurrence Component -->
-            <RecurrenceComponent
-              v-model:model-value="editForm.recurrenceRule"
-              :is-recurring="true"
-              v-model:time-zone="editForm.timeZone"
-              :start-date="templateEvent?.startDate"
-              :hide-toggle="true"
-            />
+            <div>
+              <div class="text-subtitle1 q-mb-sm">Recurrence Pattern</div>
+              <RecurrenceComponent
+                v-model:model-value="editForm.recurrenceRule"
+                :is-recurring="true"
+                v-model:time-zone="editForm.timeZone"
+                :start-date="templateEvent?.startDate"
+                :hide-toggle="true"
+              />
+              <div class="text-caption q-mt-sm text-grey-7">
+                Note: Editing this pattern will affect all future occurrences of this series.
+              </div>
+            </div>
 
             <q-card-actions align="right" class="q-mt-md">
               <q-btn flat label="Cancel" color="primary" v-close-popup />
@@ -379,7 +402,7 @@ import { format } from 'date-fns'
 import { useQuasar } from 'quasar'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import RecurrenceComponent from '../components/event/RecurrenceComponent.vue'
-import { EventEntity, GroupPermission } from '../types'
+import { EventEntity, GroupPermission, RecurrenceRule } from '../types'
 import { EventSeriesEntity } from '../types/event-series'
 import { FileEntity } from '../types/model'
 import { eventsApi } from '../api/events'
@@ -399,6 +422,11 @@ interface EditFormData {
     interval: number
     count: number | null
     until: string | null
+    byweekday?: string[]
+    bymonthday?: number[]
+    bysetpos?: number[]
+    bymonth?: number[]
+    wkst?: string
   }
   timeZone: string
 }
@@ -556,9 +584,17 @@ const loadEventSeries = async () => {
         frequency: series.recurrenceRule.frequency,
         interval: series.recurrenceRule.interval || 1,
         count: series.recurrenceRule.count || null,
-        until: series.recurrenceRule.until || null
+        until: series.recurrenceRule.until || null,
+        byweekday: series.recurrenceRule.byweekday || [],
+        bymonthday: series.recurrenceRule.bymonthday || [],
+        bysetpos: series.recurrenceRule.bysetpos || [],
+        bymonth: series.recurrenceRule.bymonth || [],
+        wkst: series.recurrenceRule.wkst
       }
     }
+
+    // Log recurrence rule for debugging
+    console.log('Loaded recurrence rule:', JSON.stringify(series.recurrenceRule))
 
     // Set end type based on current values
     if (series.recurrenceRule.count) {
@@ -610,26 +646,90 @@ const loadOccurrences = async () => {
   try {
     console.log(`Loading occurrences for series ${seriesSlug.value}, count: ${occurrenceCount.value}, includePast: true`)
 
-    // Get the pattern-calculated occurrences (both materialized and future potential occurrences)
-    const results = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
+    // First check if we have a monthly pattern with bysetpos, which requires special handling
+    const isMonthlyWithBysetpos = eventSeries.value?.recurrenceRule?.frequency === 'MONTHLY' &&
+                                 eventSeries.value?.recurrenceRule?.byweekday &&
+                                 eventSeries.value?.recurrenceRule?.bysetpos
 
-    // If we're likely missing occurrences (less than expected based on materialized ones in database)
-    // fetch with even higher count
-    const materializedEvents = results.filter(o => o.materialized)
-    console.log(`Found ${materializedEvents.length} materialized out of ${results.length} total occurrences`)
+    let results = []
 
-    // If we're getting close to our limit, we might be missing some
-    if (materializedEvents.length > 0 && materializedEvents.length >= results.length * 0.8) {
-      const higherCount = occurrenceCount.value * 2
-      console.log(`Fetching with higher count (${higherCount}) to ensure we get all occurrences`)
-      occurrenceCount.value = higherCount
-      const moreResults = await EventSeriesService.getOccurrences(seriesSlug.value, higherCount, true)
-      console.log(`Fetched ${moreResults.length} occurrences with higher count`)
-      results.length = 0 // Clear the array
-      results.push(...moreResults) // Add the new results
+    if (isMonthlyWithBysetpos) {
+      console.log('MONTHLY PATTERN WITH BYSETPOS DETECTED - using client-side generation for accuracy')
+      console.log('Series recurrence rule:', {
+        frequency: eventSeries.value.recurrenceRule.frequency,
+        byweekday: eventSeries.value.recurrenceRule.byweekday,
+        bysetpos: eventSeries.value.recurrenceRule.bysetpos,
+        interval: eventSeries.value.recurrenceRule.interval || 1
+      })
+
+      // Create a mock event with the series rule for accurate generation
+      const mockEvent = {
+        name: eventSeries.value.name,
+        startDate: templateEvent.value?.startDate || new Date().toISOString(),
+        recurrenceRule: eventSeries.value.recurrenceRule,
+        timeZone: eventSeries.value.timeZone
+      }
+
+      // Generate accurate occurrences client-side
+      const clientOccurrences = RecurrenceService.getOccurrences(mockEvent, occurrenceCount.value)
+      console.log(`Generated ${clientOccurrences.length} client-side occurrences`)
+
+      // We still need to know which occurrences are materialized, so we'll fetch from API
+      // But we'll use our client-side generated dates to ensure correct pattern
+      const apiResults = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
+
+      // Create a map of materialized events by date (roughly)
+      const materializedMap = new Map()
+      apiResults.filter(o => o.materialized).forEach(o => {
+        // Use date string without time for fuzzy matching
+        const dateKey = new Date(o.date).toISOString().split('T')[0]
+        materializedMap.set(dateKey, o)
+      })
+
+      // Create our hybrid result set with accurate dates but materialization info from API
+      results = clientOccurrences.map(date => {
+        const dateKey = date.toISOString().split('T')[0]
+        const matchingOccurrence = materializedMap.get(dateKey)
+
+        if (matchingOccurrence) {
+          return {
+            date: date.toISOString(), // Use our accurate date
+            materialized: true,
+            event: matchingOccurrence.event
+          }
+        } else {
+          return {
+            date: date.toISOString(),
+            materialized: false,
+            event: null
+          }
+        }
+      })
+
+      console.log(`Created hybrid result set with ${results.length} occurrences`)
+    } else {
+      // For non-monthly or patterns without bysetpos, use regular API
+      console.log('Using regular API call for occurrences')
+      results = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
+
+      // If we're likely missing occurrences (less than expected based on materialized ones in database)
+      // fetch with even higher count
+      const materializedEvents = results.filter(o => o.materialized)
+      console.log(`Found ${materializedEvents.length} materialized out of ${results.length} total occurrences`)
+
+      // If we're getting close to our limit, we might be missing some
+      if (materializedEvents.length > 0 && materializedEvents.length >= results.length * 0.8) {
+        const higherCount = occurrenceCount.value * 2
+        console.log(`Fetching with higher count (${higherCount}) to ensure we get all occurrences`)
+        occurrenceCount.value = higherCount
+        const moreResults = await EventSeriesService.getOccurrences(seriesSlug.value, higherCount, true)
+        console.log(`Fetched ${moreResults.length} occurrences with higher count`)
+        results.length = 0 // Clear the array
+        results.push(...moreResults) // Add the new results
+      }
     }
 
-    console.log(`Received ${results.length} occurrences:`, {
+    console.log(`Working with ${results.length} occurrences:`, {
       pastCount: results.filter(o => isPastDate(o.date)).length,
       futureCount: results.filter(o => !isPastDate(o.date)).length,
       materializedCount: results.filter(o => o.materialized).length,
@@ -953,6 +1053,9 @@ const updateSeries = async () => {
   try {
     if (!eventSeries.value) return
 
+    // Log the current recurrence rule before update
+    console.log('Current recurrence rule from edit form:', JSON.stringify(editForm.value.recurrenceRule))
+
     const updateData = {
       name: editForm.value.name,
       description: editForm.value.description,
@@ -961,9 +1064,20 @@ const updateSeries = async () => {
         ...editForm.value.recurrenceRule,
         // Convert empty values to undefined
         count: endType.value === 'count' ? editForm.value.recurrenceRule.count : undefined,
-        until: endType.value === 'until' ? editForm.value.recurrenceRule.until : undefined
+        until: endType.value === 'until' ? editForm.value.recurrenceRule.until : undefined,
+        // Make sure we preserve bysetpos - critical for monthly nth-weekday patterns
+        bysetpos: editForm.value.recurrenceRule.bysetpos && editForm.value.recurrenceRule.bysetpos.length > 0
+          ? editForm.value.recurrenceRule.bysetpos
+          : undefined,
+        // Preserve other important fields
+        byweekday: editForm.value.recurrenceRule.byweekday || undefined,
+        bymonthday: editForm.value.recurrenceRule.bymonthday || undefined,
+        bymonth: editForm.value.recurrenceRule.bymonth || undefined
       }
     }
+
+    // Log the update data being sent to the API
+    console.log('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule))
 
     await EventSeriesService.update(seriesSlug.value, updateData)
     success('Event series updated successfully')
@@ -981,6 +1095,13 @@ const selectNewTemplate = async (occurrence: EventOccurrence) => {
     if (!occurrence.event || !eventSeries.value) return
 
     isLoading.value = true
+
+    // Create a properly formatted recurrence rule that preserves bysetpos
+    const recurrenceRule = eventSeries.value.recurrenceRule
+
+    // Log recurrence rule details before update
+    console.log('Current recurrence rule before template update:', JSON.stringify(recurrenceRule, null, 2))
+
     // Use recurrence rule and time zone from existing event series
     const updateData = {
       templateEventSlug: occurrence.event.slug,
@@ -988,8 +1109,21 @@ const selectNewTemplate = async (occurrence: EventOccurrence) => {
       name: eventSeries.value.name,
       description: eventSeries.value.description,
       timeZone: eventSeries.value.timeZone,
-      recurrenceRule: eventSeries.value.recurrenceRule
+      recurrenceRule: {
+        ...recurrenceRule,
+        // Explicitly preserve bysetpos for monthly patterns - critical for "nth weekday" patterns
+        bysetpos: recurrenceRule.bysetpos && recurrenceRule.bysetpos.length > 0
+          ? recurrenceRule.bysetpos
+          : undefined,
+        // Preserve other important fields
+        byweekday: recurrenceRule.byweekday || undefined,
+        bymonthday: recurrenceRule.bymonthday || undefined,
+        bymonth: recurrenceRule.bymonth || undefined
+      }
     }
+
+    // Log the update data being sent to the API
+    console.log('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule, null, 2))
 
     await EventSeriesService.update(seriesSlug.value, updateData)
     success('Template event updated successfully')
@@ -1164,6 +1298,68 @@ const formatTimezone = (timezone: string) => {
   return RecurrenceService.getTimezoneDisplay(timezone)
 }
 
+// Get a human-readable description of the recurrence pattern
+const getHumanReadablePattern = (recurrenceRule: Partial<RecurrenceRule>) => {
+  if (!recurrenceRule) return 'Does not repeat'
+
+  try {
+    // Special handling for monthly patterns with bysetpos
+    if (recurrenceRule.frequency === 'MONTHLY' &&
+        recurrenceRule.byweekday &&
+        recurrenceRule.bysetpos) {
+      const weekdayOptions = RecurrenceService.weekdayOptions
+      const weekday = recurrenceRule.byweekday[0]
+      const position = recurrenceRule.bysetpos[0]
+
+      // Create a position string (1st, 2nd, 3rd, etc.)
+      let positionStr = String(position)
+      if (position === -1) {
+        positionStr = 'last'
+      } else if (position === 1) {
+        positionStr = '1st'
+      } else if (position === 2) {
+        positionStr = '2nd'
+      } else if (position === 3) {
+        positionStr = '3rd'
+      } else {
+        positionStr = `${position}th`
+      }
+
+      // Get weekday label
+      const weekdayLabel = weekdayOptions.find(w => w.value === weekday)?.label || weekday
+
+      // Create the full description
+      return `Monthly on the ${positionStr} ${weekdayLabel}${recurrenceRule.interval > 1 ? ` every ${recurrenceRule.interval} months` : ''}`
+    }
+
+    // For other patterns, use rrule's text representation
+    try {
+      const rruleObj = RecurrenceService.toRRule(recurrenceRule, new Date().toISOString())
+      return rruleObj.toText()
+    } catch (error) {
+      console.error('Error generating text from RRule:', error)
+      return `${recurrenceRule.frequency.toLowerCase()}${recurrenceRule.interval > 1 ? ` every ${recurrenceRule.interval} ${recurrenceRule.frequency.toLowerCase()}s` : ''}`
+    }
+  } catch (error) {
+    console.error('Error generating human readable pattern:', error)
+    return 'Custom recurrence pattern'
+  }
+}
+
+// Get detailed description of monthly pattern
+const getMonthlyPatternDetails = (recurrenceRule: Partial<RecurrenceRule>) => {
+  if (!recurrenceRule || recurrenceRule.frequency !== 'MONTHLY' ||
+      !recurrenceRule.byweekday || !recurrenceRule.bysetpos) {
+    return ''
+  }
+
+  // Display detailed information about the recurrence rule fields
+  const byweekday = recurrenceRule.byweekday
+  const bysetpos = recurrenceRule.bysetpos
+
+  return `using bysetpos=${bysetpos.join(',')} with byweekday=${byweekday.join(',')}`
+}
+
 const getImageUrl = (image: string | FileEntity) => {
   if (!image) {
     console.log('Image is null or undefined')
@@ -1196,16 +1392,21 @@ const getImageUrl = (image: string | FileEntity) => {
 }
 
 const navigateToEventEdit = () => {
-  if (!templateEvent.value || !templateEvent.value.slug) {
+  // Instead of navigating away, show the edit dialog for the series
+  console.log('Opening series edit dialog')
+
+  // Make sure we've loaded the latest data from the API before editing
+  loadEventSeries().then(() => {
+    // Show the edit dialog
+    showEditDialog.value = true
+    console.log('Edit dialog opened with recurrence rule:', JSON.stringify(editForm.value.recurrenceRule))
+  }).catch(err => {
+    console.error('Error loading series data for edit:', err)
     $q.notify({
       type: 'negative',
-      message: 'Template event not found'
+      message: 'Failed to load series data for editing'
     })
-    return
-  }
-
-  // Navigate to the event view page instead of edit
-  router.push(`/events/${templateEvent.value.slug}`)
+  })
 }
 
 // Lifecycle

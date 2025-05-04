@@ -6,7 +6,15 @@
         <q-icon name="sym_r_repeat" color="primary" />
       </q-item-section>
       <q-item-section>
-        <q-item-label>{{ humanReadablePattern }}</q-item-label>
+        <q-item-label class="text-weight-medium">{{ event.recurrenceDescription || humanReadablePattern }}</q-item-label>
+        <q-item-label
+          v-if="event.recurrenceRule?.frequency === 'MONTHLY' &&
+                event.recurrenceRule?.byweekday &&
+                event.recurrenceRule?.bysetpos"
+          class="text-caption text-positive"
+        >
+          Monthly pattern: {{ monthlyPatternDetails }}
+        </q-item-label>
         <q-item-label caption v-if="event.timeZone">
           {{ timezoneDisplay }}
         </q-item-label>
@@ -123,9 +131,56 @@ const humanReadablePattern = computed(() => {
     return props.event.recurrenceDescription
   }
 
+  // Special handling for monthly patterns with bysetpos
+  if (props.event?.recurrenceRule?.frequency === 'MONTHLY' &&
+      props.event?.recurrenceRule?.byweekday &&
+      props.event?.recurrenceRule?.bysetpos) {
+    const weekdayOptions = RecurrenceService.weekdayOptions
+    const weekday = props.event.recurrenceRule.byweekday[0]
+    const position = props.event.recurrenceRule.bysetpos[0]
+
+    // Create a position string (1st, 2nd, 3rd, etc.)
+    let positionStr = String(position)
+    if (position === -1) {
+      positionStr = 'last'
+    } else if (position === 1) {
+      positionStr = '1st'
+    } else if (position === 2) {
+      positionStr = '2nd'
+    } else if (position === 3) {
+      positionStr = '3rd'
+    } else {
+      positionStr = `${position}th`
+    }
+
+    // Get weekday label
+    const weekdayLabel = weekdayOptions.find(w => w.value === weekday)?.label || weekday
+
+    // Create the full description
+    return `Monthly on the ${positionStr} ${weekdayLabel}${
+      props.event.recurrenceRule.interval > 1
+      ? ` every ${props.event.recurrenceRule.interval} months`
+      : ''
+    }`
+  }
+
   // Fall back to client-side generation
   if (!props.event?.recurrenceRule) return 'Does not repeat'
   return RecurrenceService.getHumanReadablePattern(props.event)
+})
+
+// Get the monthly pattern details for debugging
+const monthlyPatternDetails = computed(() => {
+  if (props.event?.recurrenceRule?.frequency !== 'MONTHLY' ||
+      !props.event?.recurrenceRule?.byweekday ||
+      !props.event?.recurrenceRule?.bysetpos) {
+    return ''
+  }
+
+  const byweekday = props.event.recurrenceRule.byweekday
+  const bysetpos = props.event.recurrenceRule.bysetpos
+
+  return `using bysetpos=${bysetpos.join(',')} with byweekday=${byweekday.join(',')}`
 })
 
 // Get the timezone display
@@ -218,7 +273,33 @@ const copyGoogleCalendarLink = () => {
 // Load occurrences on mount
 onMounted(() => {
   if (props.event?.seriesSlug || (props.event?.isRecurring && props.event?.recurrenceRule)) {
+    console.log('RecurrenceDisplayComponent - Loading occurrences for event:', {
+      name: props.event.name,
+      slug: props.event.slug,
+      recurrenceDescription: props.event.recurrenceDescription,
+      recurrenceRule: props.event.recurrenceRule
+    })
+
+    // Check specifically for monthly patterns with bysetpos
+    if (props.event.recurrenceRule?.frequency === 'MONTHLY' &&
+        props.event.recurrenceRule?.byweekday &&
+        props.event.recurrenceRule?.bysetpos) {
+      console.log('RecurrenceDisplayComponent - MONTHLY PATTERN WITH BYSETPOS DETECTED:', {
+        byweekday: props.event.recurrenceRule.byweekday,
+        bysetpos: props.event.recurrenceRule.bysetpos
+      })
+    }
+
+    // Get the occurrences and log them
     occurrences.value = RecurrenceService.getOccurrences(props.event, 5)
+
+    // Log the generated occurrences
+    console.log('RecurrenceDisplayComponent - Generated occurrences:',
+      occurrences.value.map(date => ({
+        date: date.toISOString(),
+        formatted: formatDateTime(date)
+      }))
+    )
   }
 })
 </script>

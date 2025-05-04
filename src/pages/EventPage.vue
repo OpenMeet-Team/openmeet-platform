@@ -468,6 +468,7 @@ import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayCom
 import { useAuthSession } from '../boot/auth-session'
 import { EventSeriesService } from '../services/eventSeriesService'
 import { useAuthStore } from '../stores/auth-store'
+import { RecurrenceService } from '../services/recurrenceService'
 
 // Define global window property
 declare global {
@@ -658,9 +659,79 @@ const loadUpcomingOccurrences = async () => {
       const seriesSlug = event.value.seriesSlug
       console.log('Loading upcoming occurrences for series:', seriesSlug)
 
-      // Load upcoming occurrences from the series
+      // Log recurrence rule info to debug monthly patterns
+      if (event.value?.recurrenceRule) {
+        console.log('Event has recurrence rule:', {
+          frequency: event.value.recurrenceRule.frequency,
+          interval: event.value.recurrenceRule.interval,
+          byweekday: event.value.recurrenceRule.byweekday,
+          bymonthday: event.value.recurrenceRule.bymonthday,
+          bysetpos: event.value.recurrenceRule.bysetpos
+        })
+
+        // Check specifically for monthly patterns with bysetpos
+        if (event.value.recurrenceRule.frequency === 'MONTHLY' &&
+            event.value.recurrenceRule.byweekday &&
+            event.value.recurrenceRule.bysetpos) {
+          console.log('MONTHLY BYSETPOS PATTERN DETECTED in EventPage:', {
+            byweekday: event.value.recurrenceRule.byweekday,
+            bysetpos: event.value.recurrenceRule.bysetpos,
+            description: `${event.value.recurrenceRule.bysetpos[0]}${event.value.recurrenceRule.byweekday[0]} of month`
+          })
+        }
+      }
+
+      // First, try to load the series to get the full recurrence rule
+      let series
+      try {
+        console.log('Fetching complete series data to ensure accurate recurrence pattern')
+        series = await EventSeriesService.getBySlug(seriesSlug)
+        console.log('Series data:', {
+          name: series.name,
+          recurrenceRule: series.recurrenceRule
+        })
+
+        // If we have a valid monthly pattern in the series, use client-side generation
+        if (series.recurrenceRule?.frequency === 'MONTHLY' &&
+            series.recurrenceRule?.byweekday &&
+            series.recurrenceRule?.bysetpos) {
+          console.log('USING CLIENT-SIDE GENERATION for accurate monthly pattern')
+
+          // Create a mock event with the series recurrence rule for accurate generation
+          const mockEvent = {
+            name: series.name,
+            startDate: event.value?.startDate || new Date().toISOString(),
+            recurrenceRule: series.recurrenceRule,
+            timeZone: series.timeZone
+          }
+
+          // Use the RecurrenceService to generate accurate occurrences
+          const occurrences = RecurrenceService.getOccurrences(mockEvent, 10)
+          console.log('Client-side generated occurrences:',
+            occurrences.map(d => d.toISOString()))
+
+          // Filter to future occurrences
+          const now = new Date()
+          upcomingOccurrences.value = occurrences
+            .filter(date => date > now)
+            .map(date => ({
+              date,
+              eventSlug: null // These aren't materialized yet
+            }))
+            .slice(0, 5)
+
+          console.log('Processed client-side occurrences:', upcomingOccurrences.value)
+          return // Skip the API call
+        }
+      } catch (seriesError) {
+        console.error('Error fetching series data:', seriesError)
+        // Continue with API-based approach if series fetch fails
+      }
+
+      // Fallback to API-based occurrences if client-side generation doesn't happen
+      console.log('Using API-based occurrences')
       const response = await EventSeriesService.getOccurrences(seriesSlug, 5)
-      console.log('Received occurrences:', response)
+      console.log('Received occurrences from API:', response)
 
       // Filter out only future occurrences
       const now = new Date()
@@ -672,7 +743,16 @@ const loadUpcomingOccurrences = async () => {
         }))
         .slice(0, 5) // Limit to next 5 occurrences
 
-      console.log('Processed upcoming occurrences:', upcomingOccurrences.value)
+      console.log('Processed upcoming occurrences from API:', upcomingOccurrences.value)
+
+      // Check if occurrences look weekly or monthly
+      if (upcomingOccurrences.value.length >= 2) {
+        const date1 = upcomingOccurrences.value[0].date
+        const date2 = upcomingOccurrences.value[1].date
+        const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
+        console.log(`Days between first two displayed occurrences: ${diffDays}`)
+        console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+      }
     } catch (error) {
       console.error('Failed to load upcoming occurrences:', error)
     }

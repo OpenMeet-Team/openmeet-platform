@@ -555,8 +555,14 @@ const createEventSeries = async (event: EventEntity) => {
       recurrenceRule.value.frequency = 'WEEKLY'
     }
 
+    // Debug log the recurrenceRule before conversion
+    console.log('Event series recurrence rule before conversion:', JSON.stringify(recurrenceRule.value))
+
     // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
     const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
+
+    // Debug log the mapped rule
+    console.log('Mapped recurrence rule for series API:', JSON.stringify(mappedRule))
 
     // Add Bluesky info to event data
     addBlueskySourceInfo(event)

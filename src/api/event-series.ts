@@ -23,6 +23,7 @@ export interface RecurrenceRuleDto {
   byweekday?: string[] // Maps to 'byday' in frontend
   bymonth?: number[]
   bymonthday?: number[]
+  bysetpos?: number[] // Position within month/year (e.g., 1st, 2nd, 3rd, last)
   until?: string
   wkst?: string
 }
@@ -115,8 +116,15 @@ export const eventSeriesApi: EventSeriesApiType = {
   delete: (slug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/event-series/${slug}`),
 
-  getOccurrences: (slug: string, count: number = 10, includePast: boolean = false): Promise<AxiosResponse<EventOccurrence[]>> =>
-    api.get(`/api/event-series/${slug}/occurrences`, { params: { count, includePast } }),
+  getOccurrences: (slug: string, count: number = 10, includePast: boolean = false): Promise<AxiosResponse<EventOccurrence[]>> => {
+    console.log(`Getting occurrences for series ${slug} with count=${count}, includePast=${includePast}`)
+    return api.get(`/api/event-series/${slug}/occurrences`, {
+      params: {
+        count,
+        includePast
+      }
+    })
+  },
 
   getOccurrence: (seriesSlug: string, date: string): Promise<AxiosResponse<EventEntity>> =>
     api.get(`/api/event-series/${seriesSlug}/${date}`),

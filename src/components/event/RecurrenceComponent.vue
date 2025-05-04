@@ -103,6 +103,7 @@
               emit-value
               map-options
               data-cy="monthly-position"
+              @update:model-value="logMonthlyPositionChange"
             />
             <q-select
               v-model="monthlyWeekday"
@@ -115,11 +116,15 @@
               emit-value
               map-options
               data-cy="monthly-weekday"
+              @update:model-value="logMonthlyWeekdayChange"
             />
             <span>of the month</span>
           </div>
           <div class="text-grey-8 q-mt-xs">
             Will repeat on the {{ getPositionLabel(monthlyPosition) }} {{ getWeekdayLabel(monthlyWeekday) }} of each month
+          </div>
+          <div class="text-positive text-caption q-mt-sm">
+            Using bysetpos=[{{ monthlyPosition }}] with byweekday=[{{ monthlyWeekday }}]
           </div>
         </div>
       </div>
@@ -209,7 +214,17 @@
         <div class="text-subtitle2">Pattern Summary</div>
         <div class="text-body2 q-my-md">
           <q-skeleton v-if="isCalculatingPattern" type="text" />
-          <template v-else>{{ humanReadablePattern }}</template>
+          <template v-else>
+            <div class="text-weight-medium">{{ humanReadablePattern }}</div>
+            <div v-if="rule.frequency === 'MONTHLY' &&
+                      rule.byweekday &&
+                      rule.byweekday.length > 0 &&
+                      rule.bysetpos &&
+                      rule.bysetpos.length > 0"
+                class="text-caption q-mt-xs text-positive">
+              Monthly pattern: using bysetpos={{ rule.bysetpos.join(',') }} with byweekday={{ rule.byweekday.join(',') }}
+            </div>
+          </template>
         </div>
 
         <!-- Next Occurrences Section with Divider -->
@@ -331,7 +346,7 @@ const rule = computed<Partial<RecurrenceRule>>(() => {
       if (monthlyRepeatType.value === 'dayOfMonth' && startDateObject.value) {
         // Use the day of month from the start date
         result.bymonthday = [startDateObject.value.getDate()]
-        
+
         // Ensure we don't have byweekday set when using bymonthday
         if (result.byweekday) {
           delete result.byweekday
@@ -339,21 +354,33 @@ const rule = computed<Partial<RecurrenceRule>>(() => {
       } else if (monthlyRepeatType.value === 'dayOfWeek') {
         // For monthly by-weekday patterns with nth occurrence (e.g., 2nd Wednesday),
         // we need to combine byweekday with bysetpos
-        
+
         // Get the position as a number
         const position = parseInt(monthlyPosition.value, 10)
-        
+
         // Set the byweekday (weekday code without position)
         result.byweekday = [monthlyWeekday.value]
-        
+
         // Set bysetpos for the position (1st, 2nd, 3rd, etc.)
         result.bysetpos = [position]
-        
-        // For debugging, log the rule format we're creating
-        console.log('Creating monthly byweekday rule with bysetpos:', 
-          'Weekday:', monthlyWeekday.value, 'Position (bysetpos):', position,
-          'This format works better with RRule.js for generating occurrences')
-        
+
+        // CRITICAL DEBUG: Log everything about this monthly pattern for debugging
+        console.log('MONTHLY PATTERN CREATED - CRITICAL VALUES CHECK:', {
+          frequency: result.frequency,
+          monthlyWeekday: monthlyWeekday.value,
+          monthlyPosition: monthlyPosition.value,
+          parsedPosition: position,
+          byweekdayResult: result.byweekday,
+          bysetposResult: result.bysetpos,
+          fullObject: JSON.stringify(result)
+        })
+
+        // Validate the setup
+        if (!result.bysetpos || !result.byweekday) {
+          console.error('Missing required fields for monthly pattern:',
+            'byweekday:', result.byweekday, 'bysetpos:', result.bysetpos)
+        }
+
         // Ensure we don't have bymonthday set
         if (result.bymonthday) {
           delete result.bymonthday
@@ -389,7 +416,7 @@ const humanReadablePattern = computed(() => {
     const positionLabel = getPositionLabel(monthlyPosition.value)
     const weekdayLabel = getWeekdayLabel(monthlyWeekday.value)
     const intervalLabel = interval.value > 1 ? `every ${interval.value} months` : 'every month'
-    
+
     return `${intervalLabel} on the ${positionLabel} ${weekdayLabel}`
   }
 
@@ -405,8 +432,8 @@ const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, 
 
   try {
     // For monthly day-of-week patterns, we already handle this in the computed property
-    if (ruleObj.frequency === 'MONTHLY' && 
-        ruleObj.byweekday && ruleObj.byweekday.length > 0 && 
+    if (ruleObj.frequency === 'MONTHLY' &&
+        ruleObj.byweekday && ruleObj.byweekday.length > 0 &&
         ruleObj.byweekday[0].match(/^([+-]?\d+)([A-Z]{2})$/)) {
       // Let the computed property handle this case
       patternDescriptionCache.value = ''
@@ -482,6 +509,15 @@ const toggleRecurrence = (value: boolean) => {
     timezone.value = RecurrenceService.getUserTimezone()
     emit('update:time-zone', timezone.value)
   }
+}
+
+// Logging functions for debugging monthly pattern changes
+const logMonthlyPositionChange = (position: string) => {
+  console.log('Monthly position changed:', position, 'Weekday:', monthlyWeekday.value)
+}
+
+const logMonthlyWeekdayChange = (weekday: string) => {
+  console.log('Monthly weekday changed:', weekday, 'Position:', monthlyPosition.value)
 }
 
 // Use a non-reactive method to toggle days to prevent excessive reactivity
@@ -567,6 +603,16 @@ watch([rule, timezone], async ([newRule, newTimezone]) => {
   try {
     // Set the processing flag to prevent recursive updates
     isProcessingUpdate.value = true
+
+    // Log rule details for monthly patterns
+    if (newRule?.frequency === 'MONTHLY' && newRule?.byweekday && newRule?.bysetpos) {
+      console.log('RecurrenceComponent: Monthly pattern with bysetpos detected:', {
+        frequency: newRule.frequency,
+        byweekday: newRule.byweekday,
+        bysetpos: newRule.bysetpos,
+        interval: newRule.interval || 1
+      })
+    }
 
     // Emit updates to parent - clone the rule to avoid reactivity issues
     if (newRule) {
@@ -669,25 +715,25 @@ const initFromModelValue = () => {
     } else if (props.modelValue.byweekday && props.modelValue.byweekday.length > 0) {
       // Handle nth weekday of month pattern
       monthlyRepeatType.value = 'dayOfWeek'
-      
+
       // The proper format for monthly "nth weekday" is to use position-prefixed byweekday value
       // Like "2WE" for 2nd Wednesday. Try to handle various formats we might encounter
-      
+
       if (props.modelValue.byweekday && props.modelValue.byweekday.length > 0) {
         const weekdayStr = props.modelValue.byweekday[0]
-        
+
         // Check if it's already a position + weekday format
         const match = weekdayStr.match(/^([+-]?\d+)([A-Z]{2})$/)
         if (match) {
           // Set the position and weekday values
           monthlyPosition.value = match[1]
           monthlyWeekday.value = match[2]
-          console.log('Parsed position+weekday format:', 
+          console.log('Parsed position+weekday format:',
             'Position:', monthlyPosition.value, 'Weekday:', monthlyWeekday.value)
         } else {
           // It's just a weekday without position
           monthlyWeekday.value = weekdayStr
-          
+
           // Try to get position from bysetpos if available
           if (props.modelValue.bysetpos && props.modelValue.bysetpos.length > 0) {
             monthlyPosition.value = String(props.modelValue.bysetpos[0])
@@ -695,8 +741,8 @@ const initFromModelValue = () => {
             // Default to first occurrence
             monthlyPosition.value = '1'
           }
-          
-          console.log('Using separate weekday and position:', 
+
+          console.log('Using separate weekday and position:',
             'Position:', monthlyPosition.value, 'Weekday:', monthlyWeekday.value)
         }
       } else {
@@ -704,18 +750,18 @@ const initFromModelValue = () => {
         if (startDateObject.value) {
           const dayOfWeek = startDateObject.value.getDay()
           monthlyWeekday.value = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
-          
+
           // Calculate the position of this weekday in the month
           const day = startDateObject.value.getDate()
           const position = Math.ceil(day / 7)
           monthlyPosition.value = String(Math.min(position, 4)) // Ensure it's at most 4
-          
-          console.log('Using calculated position and weekday from start date:', 
+
+          console.log('Using calculated position and weekday from start date:',
             'Position:', monthlyPosition.value, 'Weekday:', monthlyWeekday.value)
         }
       }
-      
-      console.log('Initialized monthly pattern:', 
+
+      console.log('Initialized monthly pattern:',
         'Position:', monthlyPosition.value, 'Weekday:', monthlyWeekday.value)
     }
   } else if ((props.modelValue.frequency === 'DAILY' || props.modelValue.frequency === 'WEEKLY') &&
@@ -765,19 +811,19 @@ watch(() => props.startDate, (newStartDate, oldStartDate) => {
 
       // Always reset selected days when date changes
       selectedDays.value = [weekdayValue]
-      
+
       // For monthly patterns, also set the correct weekday and position
       // Set the weekday for monthly pattern (e.g., "WE" for Wednesday)
       monthlyWeekday.value = weekdayValue
-      
+
       // Calculate the position of this weekday in the month (e.g., "2" for second Wednesday)
       const day = newDate.getDate()
       const position = Math.ceil(day / 7)
-      
+
       // Check if it's the last occurrence of this weekday in the month
       const lastDayOfMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate()
       const daysRemaining = lastDayOfMonth - day
-      
+
       // If there are not enough days left for another occurrence of this weekday,
       // then this is the last occurrence in the month
       if (daysRemaining < 7) {
@@ -786,7 +832,7 @@ watch(() => props.startDate, (newStartDate, oldStartDate) => {
         monthlyPosition.value = String(position) // 1st, 2nd, 3rd, 4th
       }
 
-      console.log('Date changed, reset selected days to:', weekdayValue, 
+      console.log('Date changed, reset selected days to:', weekdayValue,
         'Monthly pattern:', `${monthlyPosition.value}${monthlyWeekday.value}`)
     } finally {
       // Use setTimeout to break the reactivity chain
@@ -807,7 +853,7 @@ watch([monthlyWeekday, monthlyPosition], () => {
   if (frequency.value === 'MONTHLY' && monthlyRepeatType.value === 'dayOfWeek') {
     // Log the change for debugging purposes
     console.log(`Monthly weekday/position updated: ${monthlyPosition.value}${monthlyWeekday.value}`)
-    
+
     // Force refresh the preview by triggering a manual update of the rule
     if (!isProcessingUpdate.value) {
       // Use setTimeout to avoid reactivity issues
@@ -835,7 +881,7 @@ onMounted(() => {
     const startDate = new Date(props.startDate)
     const dayOfWeek = startDate.getDay()
     monthlyWeekday.value = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
-    
+
     // Calculate the position of this weekday in the month
     const day = startDate.getDate()
     const position = Math.ceil(day / 7)
