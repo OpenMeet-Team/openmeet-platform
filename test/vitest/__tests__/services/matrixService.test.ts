@@ -122,7 +122,8 @@ describe('MatrixService', () => {
       id: 'mock-socket-id',
       connected: false,
       tenantId: 'default',
-      on: vi.fn().mockImplementation((event, handler) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      on: vi.fn().mockImplementation((eventName, handler) => {
         // Return socket for chaining
         return mockSocket
       }),
@@ -137,7 +138,8 @@ describe('MatrixService', () => {
         // Handle join-user-rooms callback
         if (event === 'join-user-rooms' && typeof callback === 'function') {
           setTimeout(() => {
-            callback({
+            // Using null as first parameter to follow Node.js error-first callback pattern
+            callback(null, {
               success: true,
               roomCount: 3,
               rooms: [
@@ -522,7 +524,7 @@ describe('MatrixService', () => {
       vi.mocked(matrixApi.createSocketConnection).mockReturnValue(specialMockSocket as unknown as MockSocket)
 
       // Enable the isConnected flag to simulate a connected state
-      // @ts-ignore - accessing private property for testing
+      // @ts-expect-error - accessing private property for testing
       matrixService.isConnected = true
 
       // Connect the service with our mock
