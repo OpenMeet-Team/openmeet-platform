@@ -688,10 +688,10 @@ const loadUpcomingOccurrences = async () => {
         console.log('Loading all materialized events for series first')
         const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug)
         console.log(`Found ${allSeriesEvents.length} materialized events for series`)
-        
+
         // Create a map of already materialized events by date (roughly)
         const materializedEvents = new Map()
-        
+
         // Only include future events
         const now = new Date()
         allSeriesEvents
@@ -701,13 +701,13 @@ const loadUpcomingOccurrences = async () => {
             const dateKey = new Date(evt.startDate).toISOString().split('T')[0]
             materializedEvents.set(dateKey, evt)
           })
-          
+
         console.log(`Found ${materializedEvents.size} future materialized events to include`)
-        
+
         // Now load the series to get the recurrence rule for unmaterialized future occurrences
         console.log('Fetching complete series data for recurrence pattern')
         const series = await EventSeriesService.getBySlug(seriesSlug)
-        
+
         // If we have a valid monthly pattern in the series, use client-side generation
         if (series.recurrenceRule?.frequency === 'MONTHLY' &&
             series.recurrenceRule?.byweekday &&
@@ -735,18 +735,18 @@ const loadUpcomingOccurrences = async () => {
           const futureOccurrences = generatedOccurrences
             .filter(date => date > now)
             .slice(0, 10)
-            
+
           // For each occurrence date, check if we already have a materialized event
           const combinedOccurrences = futureOccurrences.map(date => {
             const dateKey = date.toISOString().split('T')[0]
             const existingEvent = materializedEvents.get(dateKey)
-            
+
             return {
               date,
               eventSlug: existingEvent?.slug || null
             }
           })
-          
+
           // Now add any materialized events that didn't match a pattern date
           // (these are custom scheduled dates that don't exactly match the pattern)
           materializedEvents.forEach((evt, dateKey) => {
@@ -754,7 +754,7 @@ const loadUpcomingOccurrences = async () => {
             const alreadyIncluded = combinedOccurrences.some(
               occ => occ.eventSlug === evt.slug
             )
-            
+
             if (!alreadyIncluded) {
               console.log(`Adding missing materialized event: ${evt.slug} (${dateKey})`)
               combinedOccurrences.push({
@@ -763,7 +763,7 @@ const loadUpcomingOccurrences = async () => {
               })
             }
           })
-          
+
           // Sort by date, limit to next 5 occurrences
           upcomingOccurrences.value = combinedOccurrences
             .sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -772,11 +772,11 @@ const loadUpcomingOccurrences = async () => {
           console.log('Final combined occurrences:', upcomingOccurrences.value)
           return
         }
-        
+
         // Fallback to API-based occurrences
         console.log('Using API-based occurrences combined with materialized events')
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10, false)
-        
+
         // Filter to future occurrences
         const apiOccurrences = response
           .filter(occurrence => new Date(occurrence.date) > now)
@@ -784,14 +784,14 @@ const loadUpcomingOccurrences = async () => {
             date: new Date(occurrence.date),
             eventSlug: occurrence.event?.slug || null
           }))
-        
+
         // Now, similar to above, add any materialized events not already included
         materializedEvents.forEach((evt, dateKey) => {
           // Check if this materialized event is already included
           const alreadyIncluded = apiOccurrences.some(
             occ => occ.eventSlug === evt.slug
           )
-          
+
           if (!alreadyIncluded) {
             console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
             apiOccurrences.push({
@@ -800,19 +800,19 @@ const loadUpcomingOccurrences = async () => {
             })
           }
         })
-        
+
         // Sort by date, limit to next 5 occurrences
         upcomingOccurrences.value = apiOccurrences
           .sort((a, b) => a.date.getTime() - b.date.getTime())
           .slice(0, 5)
-          
+
         console.log('Final API-based occurrences:', upcomingOccurrences.value)
       } catch (err) {
         console.error('Error in combined approach, falling back to API only:', err)
-        
+
         // Fall back to API-only approach if the combined approach fails
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10)
-        
+
         // Filter out only future occurrences
         const now = new Date()
         upcomingOccurrences.value = response
@@ -977,16 +977,16 @@ const isOwnerOrAdmin = computed(() => {
   .scheduled-event {
     background-color: rgba(33, 150, 83, 0.05);
     border-left: 3px solid var(--q-positive);
-    
+
     &:hover {
       background-color: rgba(33, 150, 83, 0.1);
     }
   }
-  
+
   .potential-event {
     border-left: 3px solid var(--q-grey-7);
     opacity: 0.85;
-    
+
     &:hover {
       background-color: rgba(0, 0, 0, 0.03);
       opacity: 1;
