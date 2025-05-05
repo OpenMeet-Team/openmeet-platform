@@ -87,7 +87,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, defineProps, defineEmits } from 'vue'
-import { formatInTimeZone } from 'date-fns-tz'
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz'
 import { RecurrenceService } from '../../services/recurrenceService'
 
 // Define props and emit event
@@ -223,23 +223,27 @@ const onTimeUpdate = (newTime: string | null) => {
 const updateDateTime = () => {
   if (tempDate.value && tempTime.value) {
     const dateTimeString = `${tempDate.value}T${tempTime.value}:00`
-
-    let dateObj
+    // Parse the input string as a date in the specified timezone
     if (props.timeZone) {
-      // Create date in the specified timezone and convert to UTC for storage
-      const tzOffset = new Date().getTimezoneOffset() * 60000
-      const localDate = new Date(dateTimeString)
-      dateObj = new Date(localDate.getTime() - tzOffset)
+      // Use toZonedTime to properly handle timezone conversion
+      const zonedDate = toZonedTime(new Date(dateTimeString), props.timeZone)
+      emit('update:model-value', zonedDate.toISOString())
     } else {
-      dateObj = new Date(dateTimeString)
+      // If no timezone specified, use local timezone
+      const dateObj = new Date(dateTimeString)
+      emit('update:model-value', dateObj.toISOString())
     }
-
-    emit('update:model-value', dateObj.toISOString())
   } else {
     const currentDate = tempDate.value || new Date().toISOString().split('T')[0]
     const currentTime = tempTime.value || '17:00'
     const dateTimeString = `${currentDate}T${currentTime}:00`
-    emit('update:model-value', new Date(dateTimeString).toISOString())
+    if (props.timeZone) {
+      // Use date-fns-tz for consistent timezone handling
+      const zonedDate = toZonedTime(new Date(dateTimeString), props.timeZone)
+      emit('update:model-value', zonedDate.toISOString())
+    } else {
+      emit('update:model-value', new Date(dateTimeString).toISOString())
+    }
   }
 }
 
