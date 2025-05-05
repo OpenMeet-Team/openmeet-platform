@@ -75,7 +75,7 @@ export class EventSeriesService {
           response.data.recurrenceRule.bysetpos) {
         // If we have recurrence rule but no description or incorrect one, add it
         if (!response.data.recurrenceDescription ||
-            !response.data.recurrenceDescription.includes(response.data.recurrenceRule.bysetpos[0])) {
+            !response.data.recurrenceDescription.includes(String(response.data.recurrenceRule.bysetpos[0]))) {
           console.log('Creating accurate description for monthly pattern with bysetpos')
 
           const { RecurrenceService } = await import('../services/recurrenceService')

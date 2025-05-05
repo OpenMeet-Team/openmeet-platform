@@ -452,7 +452,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { useNavigation } from '../composables/useNavigation'
 import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
-import { EventAttendeePermission, EventStatus } from '../types/event'
+import { EventAttendeePermission, EventStatus, EventType } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventTopicsComponent from '../components/event/EventTopicsComponent.vue'
 import {
@@ -698,7 +698,11 @@ const loadUpcomingOccurrences = async () => {
           console.log('USING CLIENT-SIDE GENERATION for accurate monthly pattern')
 
           // Create a mock event with the series recurrence rule for accurate generation
-          const mockEvent = {
+          const mockEvent: Partial<EventEntity> = {
+            id: 0,
+            ulid: 'mock',
+            slug: 'mock',
+            type: EventType.Online,
             name: series.name,
             startDate: event.value?.startDate || new Date().toISOString(),
             recurrenceRule: series.recurrenceRule,
@@ -706,7 +710,7 @@ const loadUpcomingOccurrences = async () => {
           }
 
           // Use the RecurrenceService to generate accurate occurrences
-          const occurrences = RecurrenceService.getOccurrences(mockEvent, 10)
+          const occurrences = RecurrenceService.getOccurrences(mockEvent as EventEntity, 10)
           console.log('Client-side generated occurrences:',
             occurrences.map(d => d.toISOString()))
 

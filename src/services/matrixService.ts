@@ -31,7 +31,7 @@ class MatrixServiceImpl {
     if (!this.tenantId) {
       this.tenantId = window.APP_CONFIG?.APP_TENANT_ID ||
                       localStorage.getItem('tenantId') ||
-                      'default' // Fallback to default tenant
+                      '' // Fallback to default tenant
     }
     return this.tenantId
   }

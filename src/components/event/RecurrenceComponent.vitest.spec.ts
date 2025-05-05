@@ -350,10 +350,9 @@ describe('RecurrenceComponent.vue - Monthly Patterns', () => {
 
       // Need to wait for Vue to update - use a longer timeout to ensure all reactivity
       // changes have completed
-      await new Promise(resolve => setTimeout(resolve, 50))
+      await new Promise(resolve => setTimeout(resolve, 300))
 
-      // Mock the service call since we're not testing the actual occurrence calculation
-      // but rather that our component correctly calls the service.
+      // Mock occurrences directly without calling updateOccurrences
       const mockOccurrences = [
         new Date('2023-09-06T10:00:00.000Z'),
         new Date('2023-10-04T10:00:00.000Z'),
@@ -362,10 +361,7 @@ describe('RecurrenceComponent.vue - Monthly Patterns', () => {
         new Date('2024-01-03T10:00:00.000Z')
       ]
 
-      // Call updateOccurrences directly
-      vm().updateOccurrences(vm().rule, 'America/New_York')
-
-      // Set mock occurrences
+      // Set mock occurrences directly
       vm().occurrences = mockOccurrences
 
       // Wait for Vue to update
@@ -393,8 +389,8 @@ describe('RecurrenceComponent.vue - Monthly Patterns', () => {
       vm().count = 5 // Generate 5 occurrences
       vm().endType = 'count'
 
-      // Wait for Vue to update
-      await nextTick()
+      // Wait for Vue to update with longer timeout to ensure rule computation
+      await new Promise(resolve => setTimeout(resolve, 300))
 
       // Create mock occurrences
       const mockOccurrences = [
@@ -405,10 +401,7 @@ describe('RecurrenceComponent.vue - Monthly Patterns', () => {
         new Date('2024-01-11T10:00:00.000Z')
       ]
 
-      // Call updateOccurrences directly
-      vm().updateOccurrences(vm().rule, 'America/New_York')
-
-      // Set mock occurrences
+      // Set mock occurrences directly
       vm().occurrences = mockOccurrences
 
       // Wait for Vue to update

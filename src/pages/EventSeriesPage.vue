@@ -55,13 +55,6 @@
                 <!-- If we have a server-provided description, always use it first -->
                 <span>{{ eventSeries.recurrenceDescription || getHumanReadablePattern(eventSeries.recurrenceRule) }}</span>
               </div>
-              <div v-if="eventSeries.recurrenceRule.frequency === 'MONTHLY' &&
-                         eventSeries.recurrenceRule.byweekday &&
-                         eventSeries.recurrenceRule.bysetpos"
-                   class="text-caption q-ml-md q-mt-sm q-pa-sm bg-green-1 rounded-borders">
-                <strong class="text-positive">Technical Details: </strong>
-                {{ getMonthlyPatternDetails(eventSeries.recurrenceRule) }}
-              </div>
             </div>
           </div>
         </q-card-section>
@@ -282,7 +275,7 @@
             <div>
               <div class="text-subtitle1 q-mb-sm">Recurrence Pattern</div>
               <RecurrenceComponent
-                v-model:model-value="editForm.recurrenceRule"
+                v-model:model-value="editForm.recurrenceRule as RecurrenceRule"
                 :is-recurring="true"
                 v-model:time-zone="editForm.timeZone"
                 :start-date="templateEvent?.startDate"
@@ -401,7 +394,7 @@ import { RecurrenceService } from '../services/recurrenceService'
 import { format } from 'date-fns'
 import { useQuasar } from 'quasar'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
-import RecurrenceComponent from '../components/event/RecurrenceComponent.vue'
+import RecurrenceComponent from '../components/event/recurrence-component-shim'
 import { EventEntity, GroupPermission, RecurrenceRule } from '../types'
 import { EventSeriesEntity } from '../types/event-series'
 import { FileEntity } from '../types/model'
@@ -412,6 +405,7 @@ import { useEventSeriesStore } from '../stores/event-series-store'
 import { useAuthStore } from '../stores/auth-store'
 import { useEventStore } from '../stores/event-store'
 import { eventSeriesApi } from '../api/event-series'
+import { EventType } from '../types/event'
 
 // Define types for the component's data
 interface EditFormData {
@@ -663,7 +657,11 @@ const loadOccurrences = async () => {
       })
 
       // Create a mock event with the series rule for accurate generation
-      const mockEvent = {
+      const mockEvent: Partial<EventEntity> = {
+        id: 0,
+        ulid: 'mock',
+        slug: 'mock',
+        type: EventType.Online,
         name: eventSeries.value.name,
         startDate: templateEvent.value?.startDate || new Date().toISOString(),
         recurrenceRule: eventSeries.value.recurrenceRule,
@@ -671,7 +669,7 @@ const loadOccurrences = async () => {
       }
 
       // Generate accurate occurrences client-side
-      const clientOccurrences = RecurrenceService.getOccurrences(mockEvent, occurrenceCount.value)
+      const clientOccurrences = RecurrenceService.getOccurrences(mockEvent as EventEntity, occurrenceCount.value)
       console.log(`Generated ${clientOccurrences.length} client-side occurrences`)
 
       // We still need to know which occurrences are materialized, so we'll fetch from API
@@ -1334,30 +1332,20 @@ const getHumanReadablePattern = (recurrenceRule: Partial<RecurrenceRule>) => {
 
     // For other patterns, use rrule's text representation
     try {
-      const rruleObj = RecurrenceService.toRRule(recurrenceRule, new Date().toISOString())
+      // Cast to required type but ensure frequency exists first
+      if (!recurrenceRule.frequency) {
+        return 'Invalid recurrence rule'
+      }
+      const rruleObj = RecurrenceService.toRRule(recurrenceRule as RecurrenceRule, new Date().toISOString())
       return rruleObj.toText()
     } catch (error) {
       console.error('Error generating text from RRule:', error)
-      return `${recurrenceRule.frequency.toLowerCase()}${recurrenceRule.interval > 1 ? ` every ${recurrenceRule.interval} ${recurrenceRule.frequency.toLowerCase()}s` : ''}`
+      return 'Error: ' + (error instanceof Error ? error.message : String(error))
     }
   } catch (error) {
     console.error('Error generating human readable pattern:', error)
     return 'Custom recurrence pattern'
   }
-}
-
-// Get detailed description of monthly pattern
-const getMonthlyPatternDetails = (recurrenceRule: Partial<RecurrenceRule>) => {
-  if (!recurrenceRule || recurrenceRule.frequency !== 'MONTHLY' ||
-      !recurrenceRule.byweekday || !recurrenceRule.bysetpos) {
-    return ''
-  }
-
-  // Display detailed information about the recurrence rule fields
-  const byweekday = recurrenceRule.byweekday
-  const bysetpos = recurrenceRule.bysetpos
-
-  return `using bysetpos=${bysetpos.join(',')} with byweekday=${byweekday.join(',')}`
 }
 
 const getImageUrl = (image: string | FileEntity) => {

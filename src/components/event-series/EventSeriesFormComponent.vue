@@ -234,7 +234,7 @@ import { CreateEventSeriesDto } from '../../api/event-series'
 import { EventType } from '../../types'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
-import RecurrenceComponent from '../event/RecurrenceComponent.vue'
+import RecurrenceComponent from '../event/recurrence-component-shim'
 import { useQuasar } from 'quasar'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 
