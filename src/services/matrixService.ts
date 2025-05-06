@@ -6,6 +6,8 @@ import { MatrixMessage } from '../types'
 import { matrixApi } from '../api/matrix'
 import { api } from '../boot/axios'
 import { Socket as SocketIOSocket } from 'socket.io-client'
+// Import not used directly, but used via matrixApi
+// import matrixTokenService from './matrixTokenService'
 
 // Extended Socket type to include our custom properties
 interface Socket extends SocketIOSocket {
@@ -159,7 +161,7 @@ class MatrixServiceImpl {
         })
 
         console.log('!!!DEBUG!!! Creating Socket.IO connection for Matrix events')
-        this.socket = matrixApi.createSocketConnection()
+        this.socket = await matrixApi.createSocketConnection()
         console.log('!!!DEBUG!!! Socket.IO connection created:', {
           socketId: this.socket?.id,
           connected: this.socket?.connected
@@ -601,23 +603,24 @@ class MatrixServiceImpl {
    * Send a typing indicator to a room
    */
   public async sendTyping (roomId: string, isTyping: boolean): Promise<void> {
-    if (this.socket && this.isConnected) {
-      // Use WebSocket for typing indicators when available
-      // Include tenant ID in the event
-      const tenantId = this.tenantId || this.ensureTenantId()
-      this.socket.emit('typing', {
-        roomId,
-        isTyping,
-        tenantId
-      })
-    } else {
-      // Fall back to REST API if WebSocket is not available
-      try {
-        await matrixApi.sendTyping(roomId, isTyping)
-      } catch (error) {
-        console.error('Error sending typing indicator:', error)
-        throw error
-      }
+    if (!roomId) {
+      console.error('Cannot send typing indicator - no room ID provided')
+      return
+    }
+
+    // If not connected to socket, don't try to send typing
+    if (!this.socket || !this.isConnected) {
+      console.warn('Cannot send typing - no active Socket.IO connection')
+      return
+    }
+
+    try {
+      console.log(`Sending typing indicator for room ${roomId}: ${isTyping ? 'typing' : 'stopped typing'}`)
+
+      // Use the Matrix API with token management
+      await matrixApi.sendTyping(roomId, isTyping)
+    } catch (error) {
+      console.error('Error sending typing indicator:', error)
     }
   }
 
@@ -625,7 +628,13 @@ class MatrixServiceImpl {
    * Get messages for a room
    */
   public async getMessages (roomId: string, limit = 50, from?: string): Promise<{ messages: MatrixMessage[], end: string }> {
+    if (!roomId) {
+      console.error('Cannot get messages - no room ID provided')
+      return { messages: [], end: '' }
+    }
+
     try {
+      // Use the Matrix API with token management
       const response = await matrixApi.getMessages(roomId, limit, from)
       return response.data
     } catch (error) {
@@ -638,55 +647,30 @@ class MatrixServiceImpl {
    * Send a message to a room
    */
   public async sendMessage (roomId: string, message: string): Promise<string | undefined> {
-    console.log('!!!DEBUG!!! matrixService.sendMessage called', { roomId, message })
+    if (!roomId) {
+      console.error('Cannot send message - no room ID provided')
+      return undefined
+    }
 
-    // Check if this is a direct message room for our routing logic
-    const chatStore = useChatStore()
-    const isDMRoom = chatStore.chatList && chatStore.chatList.some(chat => chat.roomId === roomId)
-    console.log('!!!DEBUG!!! Room type check:', {
-      roomId,
-      isDMRoom,
-      availableRooms: chatStore.chatList ? chatStore.chatList.map(c => c.roomId).join(', ') : 'none'
-    })
+    if (!message || message.trim() === '') {
+      console.error('Cannot send empty message')
+      return undefined
+    }
 
-    if (this.socket && this.isConnected) {
-      // Use WebSocket for sending messages when available
-      // Include tenant ID in the event
-      const tenantId = this.tenantId || this.ensureTenantId()
-      console.log('!!!DEBUG!!! Sending message via WebSocket', { roomId, tenantId })
+    try {
+      // Use the Matrix API with token management
+      const response = await matrixApi.sendMessage(roomId, message)
 
-      return new Promise((resolve, reject) => {
-        this.socket!.emit('message', {
-          roomId,
-          message,
-          tenantId
-        }, (response: { id?: string, error?: string }) => {
-          console.log('!!!DEBUG!!! WebSocket message response:', response)
-
-          if (response.error) {
-            console.error('!!!DEBUG!!! Error sending message via WebSocket:', response.error)
-            reject(new Error(response.error))
-          } else if (response.id) {
-            console.log('!!!DEBUG!!! Message sent successfully, ID:', response.id)
-            resolve(response.id)
-          } else {
-            console.error('!!!DEBUG!!! Unknown error sending message via WebSocket')
-            reject(new Error('Unknown error sending message via WebSocket'))
-          }
-        })
-      })
-    } else {
-      // Fall back to REST API if WebSocket is not available
-      console.log('!!!DEBUG!!! Sending message via REST API (WebSocket not available)')
-
-      try {
-        const response = await matrixApi.sendMessage(roomId, message)
-        console.log('!!!DEBUG!!! REST API message response:', response.data)
+      if (response.data && response.data.id) {
+        console.log('Message sent successfully, ID:', response.data.id)
         return response.data.id
-      } catch (error) {
-        console.error('Error sending message:', error)
-        throw error
+      } else {
+        console.error('No message ID returned from server')
+        return undefined
       }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      return undefined
     }
   }
 

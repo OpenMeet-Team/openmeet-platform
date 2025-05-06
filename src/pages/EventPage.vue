@@ -466,10 +466,15 @@ import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
-import { useAuthSession } from '../boot/auth-session'
-import { EventSeriesService } from '../services/eventSeriesService'
 import { useAuthStore } from '../stores/auth-store'
+import { EventSeriesService } from '../services/eventSeriesService'
 import { RecurrenceService } from '../services/recurrenceService'
+
+// Define the type for occurrence
+interface SeriesOccurrence {
+  date: Date;
+  eventSlug: string | null;
+}
 
 // Define global window property
 declare global {
@@ -521,16 +526,12 @@ onMounted(async () => {
     window.lastEventPageLoad = {}
   }
 
-  // First check auth status to ensure we have latest token
-  const authSession = useAuthSession()
-  await authSession.checkAuthStatus()
-
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
   const lastLoad = window.lastEventPageLoad[eventSlug] || 0
   const timeSinceLastLoad = now - lastLoad
 
-  // Now load event data with latest auth state
+  // Load event data
   try {
     // Always track when we load this event
     window.lastEventPageLoad[eventSlug] = now
@@ -570,7 +571,7 @@ onMounted(async () => {
   }
 })
 
-// Add this function to load similar events
+// Update the loadSimilarEvents function back to original
 const loadSimilarEvents = async (slug: string) => {
   similarEventsLoading.value = true
   try {
@@ -583,7 +584,7 @@ const loadSimilarEvents = async (slug: string) => {
   }
 }
 
-// Update your route watcher to include similar events
+// Revert onBeforeRouteUpdate to original
 onBeforeRouteUpdate(async (to) => {
   loaded.value = false
   if (to.params.slug) {
@@ -610,7 +611,7 @@ const spotsLeft = computed(() =>
     : 0
 )
 
-// Navigate to the event series page
+// Revert navigateToEventSeries to original
 const navigateToEventSeries = async () => {
   // Add more detailed logging
   console.log('-----SERIES NAVIGATION DEBUG-----')
@@ -653,34 +654,29 @@ const navigateToEventSeries = async () => {
   router.push('/events')
 }
 
-// Load upcoming occurrences only when we have a seriesSlug
+// Revert handleUnmaterializedEvent to original
+const handleUnmaterializedEvent = (occurrence: SeriesOccurrence) => {
+  // If the event is unmaterialized (no eventSlug), we'll show a temporary view
+  // with option to materialize
+  if (event.value) {
+    // Use query parameter approach for template views
+    router.push({
+      name: 'EventPage',
+      params: { slug: event.value.slug },
+      query: {
+        templateView: 'true',
+        occurrenceDate: occurrence.date.toISOString()
+      }
+    })
+  }
+}
+
+// Revert loadUpcomingOccurrences to original
 const loadUpcomingOccurrences = async () => {
   if (event.value?.seriesSlug) {
     try {
       const seriesSlug = event.value.seriesSlug
       console.log('Loading upcoming occurrences for series:', seriesSlug)
-
-      // Log recurrence rule info to debug monthly patterns
-      if (event.value?.recurrenceRule) {
-        console.log('Event has recurrence rule:', {
-          frequency: event.value.recurrenceRule.frequency,
-          interval: event.value.recurrenceRule.interval,
-          byweekday: event.value.recurrenceRule.byweekday,
-          bymonthday: event.value.recurrenceRule.bymonthday,
-          bysetpos: event.value.recurrenceRule.bysetpos
-        })
-
-        // Check specifically for monthly patterns with bysetpos
-        if (event.value.recurrenceRule.frequency === 'MONTHLY' &&
-            event.value.recurrenceRule.byweekday &&
-            event.value.recurrenceRule.bysetpos) {
-          console.log('MONTHLY BYSETPOS PATTERN DETECTED in EventPage:', {
-            byweekday: event.value.recurrenceRule.byweekday,
-            bysetpos: event.value.recurrenceRule.bysetpos,
-            description: `${event.value.recurrenceRule.bysetpos[0]}${event.value.recurrenceRule.byweekday[0]} of month`
-          })
-        }
-      }
 
       // First, load all materialized events from the series directly
       // to ensure we don't miss any events with custom dates
@@ -840,31 +836,8 @@ const loadUpcomingOccurrences = async () => {
   }
 }
 
-// Define the type for occurrence
-interface SeriesOccurrence {
-  date: Date;
-  eventSlug: string | null;
-}
-
 const navigateToEvent = (eventSlug: string) => {
   router.push(`/events/${eventSlug}`)
-}
-
-// Handle click on unmaterialized event
-const handleUnmaterializedEvent = (occurrence: SeriesOccurrence) => {
-  // If the event is unmaterialized (no eventSlug), we'll show a temporary view
-  // with option to materialize
-  if (event.value) {
-    // Use query parameter approach for template views
-    router.push({
-      name: 'EventPage',
-      params: { slug: event.value.slug },
-      query: {
-        templateView: 'true',
-        occurrenceDate: occurrence.date.toISOString()
-      }
-    })
-  }
 }
 
 // Check if we're in template view mode (showing a future unmaterialized occurrence)
@@ -880,6 +853,7 @@ const templateDate = computed(() => {
   return null
 })
 
+// Update the handleEditEvent function back to original
 const handleEditEvent = async () => {
   // If in template view, we need to materialize this event instance first
   if (isTemplateView.value && templateDate.value && event.value) {
