@@ -10,6 +10,7 @@ import { Socket as SocketIOSocket } from 'socket.io-client'
 // import matrixTokenService from './matrixTokenService'
 
 // Extended Socket type to include our custom properties
+// Ensure it's compatible with the default Socket type from socket.io-client
 interface Socket extends SocketIOSocket {
   tenantId?: string;
 }
@@ -161,7 +162,8 @@ class MatrixServiceImpl {
         })
 
         console.log('!!!DEBUG!!! Creating Socket.IO connection for Matrix events')
-        this.socket = await matrixApi.createSocketConnection()
+        const socket = await matrixApi.createSocketConnection()
+        this.socket = socket as Socket
         console.log('!!!DEBUG!!! Socket.IO connection created:', {
           socketId: this.socket?.id,
           connected: this.socket?.connected

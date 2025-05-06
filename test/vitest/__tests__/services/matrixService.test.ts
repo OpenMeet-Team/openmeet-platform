@@ -160,8 +160,8 @@ describe('MatrixService', () => {
       }
     } as unknown as MockSocket
 
-    // Use our mock socket for all tests
-    vi.mocked(matrixApi.createSocketConnection).mockReturnValue(mockSocket)
+    // Use our mock socket for all tests - return a Promise that resolves to the socket
+    vi.mocked(matrixApi.createSocketConnection).mockResolvedValue(mockSocket)
 
     // Reset service state by disconnecting
     matrixService.disconnect()
@@ -520,8 +520,8 @@ describe('MatrixService', () => {
         io: { opts: {} }
       }
 
-      // Mock the createSocketConnection to return our special test socket
-      vi.mocked(matrixApi.createSocketConnection).mockReturnValue(specialMockSocket as unknown as MockSocket)
+      // Mock the createSocketConnection to return our special test socket as a Promise
+      vi.mocked(matrixApi.createSocketConnection).mockResolvedValue(specialMockSocket as unknown as MockSocket)
 
       // Enable the isConnected flag to simulate a connected state
       // @ts-expect-error - accessing private property for testing
@@ -547,7 +547,7 @@ describe('MatrixService', () => {
       const result = await matrixService.joinRoom(roomId)
 
       // Verify join request was sent to the socket
-      const socket = matrixApi.createSocketConnection()
+      const socket = await matrixApi.createSocketConnection()
       expect(socket.emit).toHaveBeenCalledWith(
         'join-room',
         expect.objectContaining({ roomId }),
@@ -568,7 +568,7 @@ describe('MatrixService', () => {
       await matrixService.joinRoom(roomId)
 
       // Reset the socket.emit mock to check if it gets called again
-      const socket = matrixApi.createSocketConnection()
+      const socket = await matrixApi.createSocketConnection()
       vi.mocked(socket.emit).mockClear()
 
       // Try to join the same room again
