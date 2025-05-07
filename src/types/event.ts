@@ -113,6 +113,7 @@ export interface EventAttendeeEntity {
   status: EventAttendeeStatus;
   approvalAnswer?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 // Forward declaration

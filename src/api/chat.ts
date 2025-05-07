@@ -4,7 +4,10 @@ import { ChatEntity } from '../types'
 import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
 import { matrixApi } from './matrix'
-import { Socket } from 'socket.io-client'
+import { Socket as SocketIOClient } from 'socket.io-client'
+
+// Define a Socket type that's compatible with what matrixApi returns
+type Socket = SocketIOClient
 
 export const chatApi = {
   // Get list of chat rooms for the current user
@@ -22,7 +25,11 @@ export const chatApi = {
   getEventMessages: (eventSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/event/${eventSlug}/messages`, { params: { limit, from } }),
 
-  addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
+  addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<{
+    success?: boolean;
+    roomId?: string;
+    message?: string;
+  }>> =>
     api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
 
   removeMemberFromEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
@@ -44,9 +51,10 @@ export const chatApi = {
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
   // Create WebSocket connection for chat events (reuse Matrix WebSocket)
-  createSocketConnection: (): Socket => {
+  createSocketConnection: async (): Promise<Socket> => {
     // Reuse the matrix API's createSocketConnection method to ensure consistency
-    return matrixApi.createSocketConnection()
+    const socket = await matrixApi.createSocketConnection()
+    return socket as Socket
   },
 
   // Legacy method for backward compatibility - throws error to identify usage

@@ -278,6 +278,7 @@
                       @click="occurrence.eventSlug ? navigateToEvent(occurrence.eventSlug) : handleUnmaterializedEvent(occurrence)"
                       clickable
                       v-ripple
+                      :class="[occurrence.eventSlug ? 'scheduled-event' : 'potential-event']"
                     >
                       <q-item-section avatar>
                         <q-avatar size="28px" color="primary" text-color="white">
@@ -290,7 +291,7 @@
                           <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
                         </q-item-label>
                         <q-item-label caption v-else class="text-grey-7">
-                          <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Future occurrence
+                          <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Potential event
                         </q-item-label>
                       </q-item-section>
                       <q-item-section side>
@@ -452,7 +453,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { useNavigation } from '../composables/useNavigation'
 import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
-import { EventAttendeePermission, EventStatus } from '../types/event'
+import { EventAttendeePermission, EventStatus, EventType } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventTopicsComponent from '../components/event/EventTopicsComponent.vue'
 import {
@@ -465,9 +466,15 @@ import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
-import { useAuthSession } from '../boot/auth-session'
-import { EventSeriesService } from '../services/eventSeriesService'
 import { useAuthStore } from '../stores/auth-store'
+import { EventSeriesService } from '../services/eventSeriesService'
+import { RecurrenceService } from '../services/recurrenceService'
+
+// Define the type for occurrence
+interface SeriesOccurrence {
+  date: Date;
+  eventSlug: string | null;
+}
 
 // Define global window property
 declare global {
@@ -519,47 +526,52 @@ onMounted(async () => {
     window.lastEventPageLoad = {}
   }
 
-  // First check auth status to ensure we have latest token
-  const authSession = useAuthSession()
-  await authSession.checkAuthStatus()
-
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
   const lastLoad = window.lastEventPageLoad[eventSlug] || 0
   const timeSinceLastLoad = now - lastLoad
 
-  // Now load event data with latest auth state
+  // Load event data
   try {
     // Always track when we load this event
     window.lastEventPageLoad[eventSlug] = now
 
-    await Promise.all([
-      // Only reload event data if it's been more than 2 seconds since the last load
-      // or if the event store doesn't have this event yet
-      (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000)
-        ? useEventStore().actionGetEventBySlug(eventSlug)
-        : Promise.resolve(console.log('Using existing event data from store, skipping reload')),
+    // IMPORTANT: Set a globally accessible flag to indicate this event is being loaded
+    // This allows child components to avoid making redundant API calls
+    window.eventBeingLoaded = eventSlug
 
-      // Always load similar events
-      loadSimilarEvents(eventSlug)
+    // First, load the event data and wait for it to complete
+    // This ensures child components have access to event and attendance data
+    if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
+      await useEventStore().actionGetEventBySlug(eventSlug)
+      console.log('Event data loaded, now child components can use this data')
+    } else {
+      console.log('Using existing event data from store, skipping reload')
+    }
+
+    // Then load non-critical data in parallel
+    await Promise.all([
+      // Load similar events
+      loadSimilarEvents(eventSlug),
+
+      // Load series data if applicable
+      useEventStore().event?.seriesSlug ? loadUpcomingOccurrences() : Promise.resolve()
     ])
 
-    // After loading event data, check for series and load occurrences
-    if (useEventStore().event?.seriesSlug) {
-      console.log('Event has seriesSlug:', useEventStore().event.seriesSlug)
-      await loadUpcomingOccurrences()
-    } else if (useEventStore().event?.seriesId) {
-      console.log('Event has seriesId but no seriesSlug:', useEventStore().event.seriesId)
+    // Log warning for navigation issues
+    if (!useEventStore().event?.seriesSlug && useEventStore().event?.seriesId) {
       console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
     }
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
+    // Clear the global loading flag when done
+    window.eventBeingLoaded = null
     LoadingBar.stop()
   }
 })
 
-// Add this function to load similar events
+// Update the loadSimilarEvents function back to original
 const loadSimilarEvents = async (slug: string) => {
   similarEventsLoading.value = true
   try {
@@ -572,7 +584,7 @@ const loadSimilarEvents = async (slug: string) => {
   }
 }
 
-// Update your route watcher to include similar events
+// Revert onBeforeRouteUpdate to original
 onBeforeRouteUpdate(async (to) => {
   loaded.value = false
   if (to.params.slug) {
@@ -599,7 +611,7 @@ const spotsLeft = computed(() =>
     : 0
 )
 
-// Navigate to the event series page
+// Revert navigateToEventSeries to original
 const navigateToEventSeries = async () => {
   // Add more detailed logging
   console.log('-----SERIES NAVIGATION DEBUG-----')
@@ -642,45 +654,7 @@ const navigateToEventSeries = async () => {
   router.push('/events')
 }
 
-// Load upcoming occurrences only when we have a seriesSlug
-const loadUpcomingOccurrences = async () => {
-  if (event.value?.seriesSlug) {
-    try {
-      const seriesSlug = event.value.seriesSlug
-      console.log('Loading upcoming occurrences for series:', seriesSlug)
-
-      // Load upcoming occurrences from the series
-      const response = await EventSeriesService.getOccurrences(seriesSlug, 5)
-      console.log('Received occurrences:', response)
-
-      // Filter out only future occurrences
-      const now = new Date()
-      upcomingOccurrences.value = response
-        .filter(occurrence => new Date(occurrence.date) > now)
-        .map(occurrence => ({
-          date: new Date(occurrence.date),
-          eventSlug: occurrence.event?.slug || null
-        }))
-        .slice(0, 5) // Limit to next 5 occurrences
-
-      console.log('Processed upcoming occurrences:', upcomingOccurrences.value)
-    } catch (error) {
-      console.error('Failed to load upcoming occurrences:', error)
-    }
-  }
-}
-
-// Define the type for occurrence
-interface SeriesOccurrence {
-  date: Date;
-  eventSlug: string | null;
-}
-
-const navigateToEvent = (eventSlug: string) => {
-  router.push(`/events/${eventSlug}`)
-}
-
-// Handle click on unmaterialized event
+// Revert handleUnmaterializedEvent to original
 const handleUnmaterializedEvent = (occurrence: SeriesOccurrence) => {
   // If the event is unmaterialized (no eventSlug), we'll show a temporary view
   // with option to materialize
@@ -697,6 +671,175 @@ const handleUnmaterializedEvent = (occurrence: SeriesOccurrence) => {
   }
 }
 
+// Revert loadUpcomingOccurrences to original
+const loadUpcomingOccurrences = async () => {
+  if (event.value?.seriesSlug) {
+    try {
+      const seriesSlug = event.value.seriesSlug
+      console.log('Loading upcoming occurrences for series:', seriesSlug)
+
+      // First, load all materialized events from the series directly
+      // to ensure we don't miss any events with custom dates
+      try {
+        console.log('Loading all materialized events for series first')
+        const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug)
+        console.log(`Found ${allSeriesEvents.length} materialized events for series`)
+
+        // Create a map of already materialized events by date (roughly)
+        const materializedEvents = new Map()
+
+        // Only include future events
+        const now = new Date()
+        allSeriesEvents
+          .filter(evt => new Date(evt.startDate) > now)
+          .forEach(evt => {
+            // Use date string without time for rough matching
+            const dateKey = new Date(evt.startDate).toISOString().split('T')[0]
+            materializedEvents.set(dateKey, evt)
+          })
+
+        console.log(`Found ${materializedEvents.size} future materialized events to include`)
+
+        // Now load the series to get the recurrence rule for unmaterialized future occurrences
+        console.log('Fetching complete series data for recurrence pattern')
+        const series = await EventSeriesService.getBySlug(seriesSlug)
+
+        // If we have a valid monthly pattern in the series, use client-side generation
+        if (series.recurrenceRule?.frequency === 'MONTHLY' &&
+            series.recurrenceRule?.byweekday &&
+            series.recurrenceRule?.bysetpos) {
+          console.log('USING CLIENT-SIDE GENERATION for accurate monthly pattern')
+
+          // Create a mock event with the series recurrence rule for accurate generation
+          const mockEvent: Partial<EventEntity> = {
+            id: 0,
+            ulid: 'mock',
+            slug: 'mock',
+            type: EventType.Online,
+            name: series.name,
+            startDate: event.value?.startDate || new Date().toISOString(),
+            recurrenceRule: series.recurrenceRule,
+            timeZone: series.timeZone
+          }
+
+          // Use the RecurrenceService to generate accurate occurrences
+          const generatedOccurrences = RecurrenceService.getOccurrences(mockEvent as EventEntity, 15)
+          console.log('Client-side generated occurrences:',
+            generatedOccurrences.map(d => d.toISOString()))
+
+          // Filter to future occurrences and limit to 10
+          const futureOccurrences = generatedOccurrences
+            .filter(date => date > now)
+            .slice(0, 10)
+
+          // For each occurrence date, check if we already have a materialized event
+          const combinedOccurrences = futureOccurrences.map(date => {
+            const dateKey = date.toISOString().split('T')[0]
+            const existingEvent = materializedEvents.get(dateKey)
+
+            return {
+              date,
+              eventSlug: existingEvent?.slug || null
+            }
+          })
+
+          // Now add any materialized events that didn't match a pattern date
+          // (these are custom scheduled dates that don't exactly match the pattern)
+          materializedEvents.forEach((evt, dateKey) => {
+            // Check if this materialized event is already included
+            const alreadyIncluded = combinedOccurrences.some(
+              occ => occ.eventSlug === evt.slug
+            )
+
+            if (!alreadyIncluded) {
+              console.log(`Adding missing materialized event: ${evt.slug} (${dateKey})`)
+              combinedOccurrences.push({
+                date: new Date(evt.startDate),
+                eventSlug: evt.slug
+              })
+            }
+          })
+
+          // Sort by date, limit to next 5 occurrences
+          upcomingOccurrences.value = combinedOccurrences
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+            .slice(0, 5)
+
+          console.log('Final combined occurrences:', upcomingOccurrences.value)
+          return
+        }
+
+        // Fallback to API-based occurrences
+        console.log('Using API-based occurrences combined with materialized events')
+        const response = await EventSeriesService.getOccurrences(seriesSlug, 10, false)
+
+        // Filter to future occurrences
+        const apiOccurrences = response
+          .filter(occurrence => new Date(occurrence.date) > now)
+          .map(occurrence => ({
+            date: new Date(occurrence.date),
+            eventSlug: occurrence.event?.slug || null
+          }))
+
+        // Now, similar to above, add any materialized events not already included
+        materializedEvents.forEach((evt, dateKey) => {
+          // Check if this materialized event is already included
+          const alreadyIncluded = apiOccurrences.some(
+            occ => occ.eventSlug === evt.slug
+          )
+
+          if (!alreadyIncluded) {
+            console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
+            apiOccurrences.push({
+              date: new Date(evt.startDate),
+              eventSlug: evt.slug
+            })
+          }
+        })
+
+        // Sort by date, limit to next 5 occurrences
+        upcomingOccurrences.value = apiOccurrences
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
+          .slice(0, 5)
+
+        console.log('Final API-based occurrences:', upcomingOccurrences.value)
+      } catch (err) {
+        console.error('Error in combined approach, falling back to API only:', err)
+
+        // Fall back to API-only approach if the combined approach fails
+        const response = await EventSeriesService.getOccurrences(seriesSlug, 10)
+
+        // Filter out only future occurrences
+        const now = new Date()
+        upcomingOccurrences.value = response
+          .filter(occurrence => new Date(occurrence.date) > now)
+          .map(occurrence => ({
+            date: new Date(occurrence.date),
+            eventSlug: occurrence.event?.slug || null
+          }))
+          .slice(0, 5) // Limit to next 5 occurrences
+
+        console.log('Fallback API occurrences:', upcomingOccurrences.value)
+      }
+
+      // Check if occurrences look weekly or monthly
+      if (upcomingOccurrences.value.length >= 2) {
+        const date1 = upcomingOccurrences.value[0].date
+        const date2 = upcomingOccurrences.value[1].date
+        const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
+        console.log(`Days between first two displayed occurrences: ${diffDays}`)
+        console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+      }
+    } catch (error) {
+      console.error('Failed to load upcoming occurrences:', error)
+    }
+  }
+}
+
+const navigateToEvent = (eventSlug: string) => {
+  router.push(`/events/${eventSlug}`)
+}
+
 // Check if we're in template view mode (showing a future unmaterialized occurrence)
 const isTemplateView = computed(() => {
   return route.query.templateView === 'true' && !!route.query.occurrenceDate
@@ -710,6 +853,7 @@ const templateDate = computed(() => {
   return null
 })
 
+// Update the handleEditEvent function back to original
 const handleEditEvent = async () => {
   // If in template view, we need to materialize this event instance first
   if (isTemplateView.value && templateDate.value && event.value) {
@@ -800,6 +944,27 @@ const isOwnerOrAdmin = computed(() => {
     margin-left: 0;
     padding-left: 16px;
     color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+.series-occurrences {
+  .scheduled-event {
+    background-color: rgba(33, 150, 83, 0.05);
+    border-left: 3px solid var(--q-positive);
+
+    &:hover {
+      background-color: rgba(33, 150, 83, 0.1);
+    }
+  }
+
+  .potential-event {
+    border-left: 3px solid var(--q-grey-7);
+    opacity: 0.85;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.03);
+      opacity: 1;
+    }
   }
 }
 </style>

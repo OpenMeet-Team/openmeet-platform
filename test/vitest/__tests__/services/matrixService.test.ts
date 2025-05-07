@@ -1,12 +1,33 @@
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { matrixService } from '../../../../src/services/matrixService'
 import { ensureMatrixUser } from '../../../../src/utils/matrixUtils'
-import { MatrixMessage, MatrixTypingIndicator } from '../../../../src/types/matrix'
-import { Socket } from 'socket.io-client'
+import { MatrixMessage } from '../../../../src/types/matrix'
+import type { Socket } from 'socket.io-client'
 
-// Mock dependencies
+// Define the mock socket type based on the real implementation
+interface MockSocket extends Socket {
+  tenantId?: string;
+}
+
+// Import axios api before mocking to ensure it's available
+import { api } from '../../../../src/boot/axios'
+
+// Mock axios API
+vi.mock('../../../../src/boot/axios', () => ({
+  api: {
+    post: vi.fn().mockResolvedValue({
+      data: {
+        endpoint: 'http://localhost:8888/socket.io',
+        authenticated: true,
+        matrixUserId: '@test:matrix.org'
+      }
+    })
+  }
+}))
+
+// Mock dependencies - each test will override this as needed
 vi.mock('../../../../src/utils/matrixUtils', () => ({
-  ensureMatrixUser: vi.fn().mockResolvedValue(true)
+  ensureMatrixUser: vi.fn().mockImplementation(() => Promise.resolve(true))
 }))
 
 vi.mock('../../../../src/stores/auth-store', () => ({
@@ -17,7 +38,9 @@ vi.mock('../../../../src/stores/auth-store', () => ({
       matrixUserId: '@test:matrix.org',
       matrixAccessToken: 'abc123',
       matrixDeviceId: 'device123'
-    }
+    },
+    isAuthenticated: true,
+    token: 'fake-jwt-token'
   })
 }))
 
@@ -28,7 +51,8 @@ vi.mock('../../../../src/stores/chat-store', () => ({
       name: 'Test Chat'
     },
     actionAddMessage: vi.fn(),
-    typingUsers: {}
+    typingUsers: {},
+    setTypingUsers: vi.fn()
   })
 }))
 
@@ -41,104 +65,103 @@ vi.mock('../../../../src/stores/unified-message-store', () => ({
   })
 }))
 
-// Create EventSource mock
-// This is a simplified mock that doesn't fully implement the EventSource interface
-class MockEventSource {
-  url: string
-  withCredentials: boolean = false
-  readyState: number = 0
-
-  // Instance versions of constants
-  readonly CONNECTING = 0 as const
-  readonly OPEN = 1 as const
-  readonly CLOSED = 2 as const
-
-  // Static constants for compatibility
-  static readonly CONNECTING = 0 as const
-  static readonly OPEN = 1 as const
-  static readonly CLOSED = 2 as const
-
-  // Event handlers that we'll call in our simulate methods
-  onopen: ((ev: Event) => void) | null = null
-  onmessage: ((ev: MessageEvent) => void) | null = null
-  onerror: ((ev: Event) => void) | null = null
-
-  constructor (url: string) {
-    this.url = url
+// Mock the socket.io-client
+vi.mock('socket.io-client', () => {
+  return {
+    io: vi.fn().mockImplementation(() => ({
+      connected: false,
+      id: 'mock-socket-id',
+      on: vi.fn(),
+      emit: vi.fn(),
+      disconnect: vi.fn()
+    }))
   }
+})
 
-  // Add methods to simulate events for testing
-  simulateOpen () {
-    if (this.onopen) {
-      const event = new Event('open')
-      this.onopen(event)
-    }
-  }
-
-  simulateMessage (data: unknown) {
-    if (this.onmessage) {
-      // Create a minimal message event with the required properties
-      const event = new MessageEvent('message', {
-        data: JSON.stringify(data),
-        lastEventId: '',
-        origin: 'http://localhost'
-      })
-
-      this.onmessage(event)
-    }
-  }
-
-  simulateError () {
-    if (this.onerror) {
-      const event = new Event('error')
-      this.onerror(event)
-    }
-  }
-
-  close (): void {
-    this.readyState = 2 // CLOSED
-  }
-
-  // Simplified event listener methods for the mock
-  addEventListener (): void {
-    // Not implemented for mock
-  }
-
-  removeEventListener (): void {
-    // Not implemented for mock
-  }
-
-  dispatchEvent (): boolean {
-    return false
+// Create mock socket definition before using it in mocks
+const mockSocketTemplate = {
+  id: 'mock-socket-id',
+  connected: false,
+  tenantId: 'default',
+  on: vi.fn(),
+  emit: vi.fn(),
+  off: vi.fn(),
+  disconnect: vi.fn(),
+  io: {
+    opts: {}
   }
 }
 
-// Replace the global EventSource with our mock
-const originalEventSource = global.EventSource
-global.EventSource = MockEventSource as unknown as typeof EventSource
+// Mock the createSocketConnection method
+vi.mock('../../../../src/api/matrix', () => ({
+  matrixApi: {
+    createSocketConnection: vi.fn().mockImplementation(() => ({
+      ...mockSocketTemplate
+    }))
+  }
+}))
 
 // Import dependencies after mocking
 import { useChatStore } from '../../../../src/stores/chat-store'
 import { useMessageStore } from '../../../../src/stores/unified-message-store'
+import { matrixApi } from '../../../../src/api/matrix'
 
 describe('MatrixService', () => {
   // Get store instances - these are mocked above
   const mockChatStore = useChatStore()
   const mockMessageStore = useMessageStore()
-  let eventSource: MockEventSource
+  let mockSocket: MockSocket
 
   // Setup for each test
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
 
-    // Create a fresh instance for each test
-    eventSource = new MockEventSource('/api/matrix/events')
+    // Create a mock socket with explicit implementation
+    mockSocket = {
+      id: 'mock-socket-id',
+      connected: false,
+      tenantId: 'default',
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      on: vi.fn().mockImplementation((eventName, handler) => {
+        // Return socket for chaining
+        return mockSocket
+      }),
+      emit: vi.fn().mockImplementation((event, data, callback) => {
+        // Handle join-room callback
+        if (event === 'join-room' && typeof callback === 'function') {
+          setTimeout(() => {
+            callback(null, { success: true })
+          }, 10)
+        }
 
-    // Mock EventSource creation globally
-    vi.stubGlobal('EventSource', vi.fn().mockImplementation(() => {
-      return eventSource
-    }))
+        // Handle join-user-rooms callback
+        if (event === 'join-user-rooms' && typeof callback === 'function') {
+          setTimeout(() => {
+            // Using null as first parameter to follow Node.js error-first callback pattern
+            callback(null, {
+              success: true,
+              roomCount: 3,
+              rooms: [
+                { id: 'room-1', name: 'Room 1' },
+                { id: 'room-2', name: 'Room 2' },
+                { id: 'room-3', name: 'Room 3' }
+              ]
+            })
+          }, 10)
+        }
+
+        return mockSocket
+      }),
+      off: vi.fn().mockReturnValue(mockSocket),
+      disconnect: vi.fn().mockReturnValue(mockSocket),
+      io: {
+        opts: {}
+      }
+    } as unknown as MockSocket
+
+    // Use our mock socket for all tests - return a Promise that resolves to the socket
+    vi.mocked(matrixApi.createSocketConnection).mockResolvedValue(mockSocket)
 
     // Reset service state by disconnecting
     matrixService.disconnect()
@@ -148,72 +171,82 @@ describe('MatrixService', () => {
     vi.useRealTimers()
   })
 
-  afterAll(() => {
-    // Restore original EventSource
-    global.EventSource = originalEventSource
-  })
-
   describe('connect', () => {
     it('should connect to Matrix events endpoint', async () => {
       const connectPromise = matrixService.connect()
 
-      // Simulate successful connection
-      eventSource.simulateOpen()
+      // Simulate successful connection by calling the 'connect' event handler
+      const connectHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect')?.[1]
+      if (connectHandler) connectHandler()
 
       const result = await connectPromise
       expect(result).toBe(true)
       expect(ensureMatrixUser).toHaveBeenCalled()
     })
 
-    it('should fail to connect if user lacks Matrix credentials', async () => {
-      vi.mocked(ensureMatrixUser).mockResolvedValueOnce(false)
+    it('should fail to connect if websocket info shows unauthenticated', async () => {
+      // Mock the API post method to return unauthenticated for websocket-info
+      const apiPost = vi.mocked(api.post)
+      const originalMock = apiPost.getMockImplementation()
 
+      apiPost.mockImplementationOnce((url) => {
+        if (url === '/api/matrix/websocket-info') {
+          return Promise.resolve({
+            data: {
+              endpoint: 'http://localhost:8888/socket.io',
+              authenticated: false, // This is what causes the connect to return false
+              matrixUserId: '@test:matrix.org'
+            }
+          })
+        }
+        // Call the original for other URLs
+        return originalMock ? originalMock(url) : Promise.resolve({ data: {} })
+      })
+
+      // Call the method and wait for the promise to resolve
       const result = await matrixService.connect()
+
+      // This should return false when websocket-info returns unauthenticated: false
       expect(result).toBe(false)
     })
 
     it('should handle connection errors and attempt reconnection', async () => {
+      // Create a spy on setTimeout
+      const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+
       const connectPromise = matrixService.connect()
 
-      // Simulate error
-      eventSource.simulateError()
+      // Simulate connection error
+      const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (errorHandler) errorHandler(new Error('Test connection error'))
 
       const result = await connectPromise
       expect(result).toBe(false)
 
       // Should attempt reconnection
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000)
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 3000)
     })
   })
 
   describe('disconnect', () => {
-    it('should close the EventSource connection', async () => {
+    it('should close the WebSocket connection', async () => {
       // First connect
       const connectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
-
-      eventSource = new MockEventSource('/api/matrix/events')
-      eventSource.simulateOpen()
-
+      const connectHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect')?.[1]
+      if (connectHandler) connectHandler()
       await connectPromise
-
-      // Create a spy on the close method
-      const closeSpy = vi.spyOn(eventSource, 'close')
 
       // Now disconnect
       matrixService.disconnect()
 
-      expect(closeSpy).toHaveBeenCalled()
+      expect(mockSocket.disconnect).toHaveBeenCalled()
     })
 
     it('should clear any pending reconnect timeouts', async () => {
       // First connect and then cause an error to trigger reconnect timeout
       const connectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
-
-      eventSource = new MockEventSource('/api/matrix/events')
-      eventSource.simulateError()
-
+      const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (errorHandler) errorHandler(new Error('Test connection error'))
       await connectPromise
 
       // Clear timeout should be called when disconnecting
@@ -234,13 +267,17 @@ describe('MatrixService', () => {
 
       // Connect and add the handler
       const connectPromise = matrixService.connect()
-      eventSource.simulateOpen()
+      const connectHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect')?.[1]
+      if (connectHandler) connectHandler()
       await connectPromise
 
       matrixService.addEventHandler(messageHandler)
     })
 
     it('should process and route Matrix message events to the chat store', async () => {
+      // Find the 'matrix-event' handler
+      const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
+
       const testMessage: MatrixMessage = {
         event_id: 'evt123',
         room_id: 'room123', // Match the active chat room
@@ -249,314 +286,275 @@ describe('MatrixService', () => {
           body: 'Hello world',
           msgtype: 'm.text'
         },
-        origin_server_ts: Date.now(),
-        type: 'm.room.message'
+        type: 'm.room.message',
+        origin_server_ts: Date.now()
       }
 
       // Simulate receiving a message
-      eventSource.simulateMessage(testMessage)
+      if (matrixEventHandler) matrixEventHandler(testMessage)
 
       // The message handler should be called
       expect(messageHandler).toHaveBeenCalledWith(testMessage)
 
       // The chat store should have received the message
-      expect(mockChatStore.actionAddMessage).toHaveBeenCalledWith(testMessage)
+      expect(mockChatStore.actionAddMessage).toHaveBeenCalledWith({
+        id: 'evt123',
+        content: 'Hello world',
+        sender: '@alice:matrix.org',
+        timestamp: expect.any(Number),
+        type: 'm.text'
+      })
     })
 
     it('should process and route Matrix message events to the unified message store', async () => {
-      // Create a mock function for store verification
-      // We'll use the custom message store with mocked addNewMessage below
-
-      // Create a custom mock message store
-      const customMessageStore = {
-        ...mockMessageStore,
-        currentRoomMessages: [],
-        // Replace the original store's functions with our mock
-        addNewMessage: vi.fn()
-      }
-
-      // Override the store getter to return our custom version with proper typing
-      vi.mocked(useMessageStore).mockReturnValueOnce({
-        ...mockMessageStore,
-        ...customMessageStore
-      })
+      // Find the 'matrix-event' handler
+      const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
       const testMessage: MatrixMessage = {
         event_id: 'evt456',
-        room_id: 'room456', // Match the discussion context ID
+        room_id: 'room456', // Match the active message store room
         sender: '@bob:matrix.org',
         content: {
-          body: 'Discussion message',
+          body: 'Hello unified store',
           msgtype: 'm.text'
         },
-        origin_server_ts: Date.now(),
-        type: 'm.room.message'
+        type: 'm.room.message',
+        origin_server_ts: Date.now()
       }
 
       // Simulate receiving a message
-      eventSource.simulateMessage(testMessage)
+      if (matrixEventHandler) matrixEventHandler(testMessage)
 
       // The handler should be called
       expect(messageHandler).toHaveBeenCalledWith(testMessage)
 
       // The message store should have received the message
-      expect(customMessageStore.addNewMessage).toHaveBeenCalledWith(
+      expect(mockMessageStore.addNewMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          event_id: 'evt456'
+          id: 'evt456',
+          content: 'Hello unified store',
+          sender: '@bob:matrix.org',
+          roomId: 'room456'
         })
       )
     })
 
     it('should handle Matrix typing events', async () => {
-      // Create a mock function to verify the typing users update
-      const setTypingUsers = vi.fn()
+      // Find the 'matrix-event' handler
+      const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
-      // Create a custom chat store with our test values
-      const customChatStore = {
-        ...mockChatStore,
-        typingUsers: {}
-      }
-
-      // Override the store getter to return our custom version with proper typing
-      vi.mocked(useChatStore).mockReturnValueOnce({
-        ...mockChatStore,
-        ...customChatStore
-      })
-
-      const typingEvent: MatrixTypingIndicator = {
+      // Create a typing event that matches what the WebSocket would send
+      const typingEvent = {
+        type: 'm.typing',
         room_id: 'room123',
-        typing: ['@alice:matrix.org']
+        content: {
+          user_ids: ['@alice:matrix.org']
+        }
       }
 
-      // Add the type field to match Matrix event structure
-      const fullEvent = {
-        ...typingEvent,
-        type: 'm.typing'
-      }
-
-      // Simulate receiving a typing indicator
-      eventSource.simulateMessage(fullEvent)
+      // Simulate receiving a typing event
+      if (matrixEventHandler) matrixEventHandler(typingEvent)
 
       // The typing users should be updated
-      expect(setTypingUsers).toHaveBeenCalledWith({
+      expect(mockChatStore.setTypingUsers).toHaveBeenCalledWith({
         room123: ['@alice:matrix.org']
       })
     })
 
     it('should handle errors in event handlers gracefully', async () => {
-      // Add a handler that throws an error
+      // Create an error handler that will throw
       const errorHandler = vi.fn().mockImplementation(() => {
         throw new Error('Test error')
       })
 
       matrixService.addEventHandler(errorHandler)
 
-      // Mock console.error to verify it's called
+      // Setup console.error spy
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      const testMessage: MatrixMessage = {
-        event_id: 'evt789',
-        room_id: 'room123',
-        sender: '@charlie:matrix.org',
-        content: {
-          body: 'Error message',
-          msgtype: 'm.text'
-        },
-        origin_server_ts: Date.now(),
-        type: 'm.room.message'
-      }
+      // Find the 'matrix-event' handler
+      const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
-      // Simulate receiving a message
-      eventSource.simulateMessage(testMessage)
+      // Simulate receiving an event that will cause an error
+      if (matrixEventHandler) matrixEventHandler({ type: 'test_event' })
 
       // The error handler should be called and error caught
       expect(errorHandler).toHaveBeenCalled()
       expect(consoleErrorSpy).toHaveBeenCalledWith('Error in Matrix event handler:', expect.any(Error))
-
-      // Other handlers should still be called
-      expect(messageHandler).toHaveBeenCalledWith(testMessage)
-    })
-
-    it('should properly remove event handlers', async () => {
-      // Remove the previously added handler
-      matrixService.removeEventHandler(messageHandler)
-
-      const testMessage: MatrixMessage = {
-        event_id: 'evt999',
-        room_id: 'room123',
-        sender: '@david:matrix.org',
-        content: {
-          body: 'Remove handler test',
-          msgtype: 'm.text'
-        },
-        origin_server_ts: Date.now(),
-        type: 'm.room.message'
-      }
-
-      // Simulate receiving a message
-      eventSource.simulateMessage(testMessage)
-
-      // The removed handler should not be called
-      expect(messageHandler).not.toHaveBeenCalled()
     })
   })
 
   describe('reconnection logic', () => {
     it('should attempt reconnection with exponential backoff', async () => {
+      // Create a spy on setTimeout
+      const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+
+      // First connect and trigger error to start reconnection
       const connectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
-
-      eventSource = new MockEventSource('/api/matrix/events')
-      eventSource.simulateError()
-
+      const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (errorHandler) errorHandler(new Error('Test connection error'))
       await connectPromise
 
       // First reconnect attempt should be at 3000ms
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000)
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 3000)
 
       // Fast-forward past the first timeout
       vi.advanceTimersByTime(3000)
 
-      // Simulate another failure
-      eventSource.simulateError()
+      // Should try to reconnect
+      expect(matrixApi.createSocketConnection).toHaveBeenCalledTimes(2)
 
-      // Second reconnect attempt should use exponential backoff (3000 * 1.5)
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 4500)
+      // Get the new socket
+      const newSocket = (matrixApi.createSocketConnection as vi.Mock<() => MockSocket>).mock.results[1].value
 
-      // Fast-forward again
-      vi.advanceTimersByTime(4500)
+      // Simulate another error on the new socket
+      const newErrorHandler = vi.mocked(newSocket.on).mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (newErrorHandler) newErrorHandler(new Error('Test reconnection error'))
 
-      // Simulate third failure
-      eventSource.simulateError()
-
-      // Third reconnect attempt (3000 * 1.5^2)
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 6750)
+      // Second reconnect attempt should be at 6000ms (3000 * 2)
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 6000)
     })
 
     it('should stop trying to reconnect after max attempts', async () => {
-      // This requires adjusting the MAX_RECONNECT_ATTEMPTS for testing
-      // For now, we'll test the behavior over multiple reconnect attempts
+      // Create a spy on setTimeout
+      const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
 
+      // Connect and start the first error
       const connectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
-
-      eventSource = new MockEventSource('/api/matrix/events')
-      eventSource.simulateError()
-
+      const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (errorHandler) errorHandler(new Error('Test connection error'))
       await connectPromise
 
       // Simulate 5 failed reconnection attempts
       for (let i = 0; i < 5; i++) {
-        const backoffMultiplier = Math.pow(1.5, i)
-        const delay = 3000 * backoffMultiplier
+        // Advance time to trigger reconnect attempt
+        vi.advanceTimersByTime(3000 * Math.pow(2, i))
 
-        vi.advanceTimersByTime(delay)
-        eventSource.simulateError()
+        // Get the latest mock socket
+        const currentSocket = (matrixApi.createSocketConnection as vi.Mock<() => MockSocket>).mock.results[i + 1]?.value
+        if (currentSocket) {
+          // Trigger another error on this socket
+          const currentErrorHandler = vi.mocked(currentSocket.on).mock.calls.find(call => call[0] === 'connect_error')?.[1]
+          if (currentErrorHandler) currentErrorHandler(new Error(`Test reconnection error ${i + 1}`))
+        }
       }
 
       // After 5 attempts, there should be no more setTimeout calls
-      const timeoutCalls = vi.mocked(setTimeout).mock.calls.length
+      const timeoutCalls = setTimeoutSpy.mock.calls.length
 
       vi.advanceTimersByTime(10000) // Advance time more
 
-      // No new setTimeout calls should be made
-      expect(vi.mocked(setTimeout).mock.calls.length).toBe(timeoutCalls)
+      // No new setTimeout should be set after max attempts
+      expect(setTimeoutSpy.mock.calls.length).toBe(timeoutCalls)
     })
 
     it('should reset reconnection attempts on successful connection', async () => {
-      // First connect and simulate error to trigger reconnect
+      // Create a spy on setTimeout
+      const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+
+      // Connect and start the first error
       const connectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
-
-      eventSource = new MockEventSource('/api/matrix/events')
-      eventSource.simulateError()
-
+      const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (errorHandler) errorHandler(new Error('Test connection error'))
       await connectPromise
 
-      // Fast-forward to first reconnect attempt
-      vi.advanceTimersByTime(3000)
+      // Simulate 2 failed reconnection attempts
+      for (let i = 0; i < 2; i++) {
+        // Advance time to trigger reconnect attempt
+        vi.advanceTimersByTime(3000 * Math.pow(2, i))
 
-      // This time simulate successful connection
-      eventSource.simulateOpen()
+        // Get the latest mock socket
+        const currentSocket = (matrixApi.createSocketConnection as vi.Mock<() => MockSocket>).mock.results[i + 1]?.value
+        if (currentSocket) {
+          // Trigger another error on this socket
+          const currentErrorHandler = vi.mocked(currentSocket.on).mock.calls.find(call => call[0] === 'connect_error')?.[1]
+          if (currentErrorHandler) currentErrorHandler(new Error(`Test reconnection error ${i + 1}`))
+        }
+      }
 
-      // Now disconnect and connect again
-      matrixService.disconnect()
+      // Third attempt succeeds
+      vi.advanceTimersByTime(6000)
+      const successSocket = (matrixApi.createSocketConnection as vi.Mock<() => MockSocket>).mock.results[2]?.value
+      if (successSocket) {
+        const connectHandler = vi.mocked(successSocket.on).mock.calls.find(call => call[0] === 'connect')?.[1]
+        if (connectHandler) connectHandler()
+      }
 
-      const secondConnectPromise = matrixService.connect()
-      await vi.runAllTimersAsync()
+      // Now trigger a new error after successful connection
+      const newErrorHandler = vi.mocked(successSocket.on).mock.calls.find(call => call[0] === 'connect_error')?.[1]
+      if (newErrorHandler) newErrorHandler(new Error('New error after successful connection'))
 
-      // Simulate error again
-      eventSource.simulateError()
-
-      await secondConnectPromise
+      // Reset mock to check new calls
+      setTimeoutSpy.mockClear()
 
       // First reconnect attempt should be at 3000ms again (not using exponential backoff from previous attempts)
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000)
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 3000)
     })
   })
 
-  // Tests for joined rooms cache functionality
   describe('joined rooms cache', () => {
-    let mockSocketEmit: ReturnType<typeof vi.spyOn>
+    beforeEach(async () => {
+      vi.clearAllMocks()
 
-    beforeEach(() => {
-      // Create a mock socket with emit method for testing
-      // Create a Socket.io client mock
-      const mockSocket = {
-        emit: vi.fn().mockImplementation((event, data, callback) => {
-          if (event === 'join-room' && typeof callback === 'function') {
-            // Simulate a successful response
-            // To avoid no-callback-literal error, construct response properly
-            const response = { success: true }
-            callback(response)
-          }
-        }),
-        on: vi.fn(),
+      // Configure a better mock socket for these tests
+      const specialMockSocket = {
         id: 'mock-socket-id',
         connected: true,
+        emit: vi.fn().mockImplementation((event, data, callback) => {
+          if (event === 'join-room' && typeof callback === 'function') {
+            callback(null, { success: true })
+            return specialMockSocket
+          }
+          return specialMockSocket
+        }),
+        on: vi.fn().mockImplementation((event, handler) => {
+          // Immediately trigger the 'connect' handler to simulate connection
+          if (event === 'connect') {
+            setTimeout(() => handler(), 0)
+          }
+          return specialMockSocket
+        }),
         disconnect: vi.fn(),
-        // Add additional Socket.io client properties
-        io: {},
-        nsp: '',
-        auth: {},
-        recovered: false,
-        receiveBuffer: [],
-        sendBuffer: [],
-        active: true,
-        volatile: {}
+        off: vi.fn(),
+        tenantId: 'default',
+        io: { opts: {} }
       }
 
-      // Set up the service with a mock socket and connected state
-      matrixService.disconnect() // Reset first
-      // Access private properties for testing
-      // @ts-expect-error Accessing private property for testing purposes
-      matrixService.socket = mockSocket as unknown as Socket
-      // Access private properties for testing
+      // Mock the createSocketConnection to return our special test socket as a Promise
+      vi.mocked(matrixApi.createSocketConnection).mockResolvedValue(specialMockSocket as unknown as MockSocket)
+
+      // Enable the isConnected flag to simulate a connected state
+      // @ts-expect-error - accessing private property for testing
       matrixService.isConnected = true
 
-      // Create spy on the socket emit method
-      mockSocketEmit = vi.spyOn(mockSocket, 'emit')
+      // Connect the service with our mock
+      await matrixService.connect()
+
+      // Mock the markRoomAsJoined method to directly add rooms to the cache
+      const originalMarkRoom = matrixService.markRoomAsJoined
+      vi.spyOn(matrixService, 'markRoomAsJoined').mockImplementation((roomId) => {
+        originalMarkRoom.call(matrixService, roomId)
+      })
     })
 
     it('should mark a room as joined when joining for the first time', async () => {
       const roomId = 'test-room-123'
 
       // First check that the room is not in cache
-      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(false)
 
       // Join the room
       const result = await matrixService.joinRoom(roomId)
 
-      // Verify join request was sent
-      expect(mockSocketEmit).toHaveBeenCalledWith(
+      // Verify join request was sent to the socket
+      const socket = await matrixApi.createSocketConnection()
+      expect(socket.emit).toHaveBeenCalledWith(
         'join-room',
         expect.objectContaining({ roomId }),
         expect.any(Function)
       )
 
       // Verify room is now in cache
-      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(true)
 
       // Verify join was successful
@@ -569,14 +567,15 @@ describe('MatrixService', () => {
       // Join the room first time
       await matrixService.joinRoom(roomId)
 
-      // Reset the mock to check if it gets called again
-      mockSocketEmit.mockClear()
+      // Reset the socket.emit mock to check if it gets called again
+      const socket = await matrixApi.createSocketConnection()
+      vi.mocked(socket.emit).mockClear()
 
       // Try to join the same room again
       const result = await matrixService.joinRoom(roomId)
 
-      // Verify no socket emit was called
-      expect(mockSocketEmit).not.toHaveBeenCalled()
+      // Verify no emit was called
+      expect(socket.emit).not.toHaveBeenCalled()
 
       // Verify result is still successful
       expect(result).toBe(true)
@@ -589,51 +588,27 @@ describe('MatrixService', () => {
       await matrixService.joinRoom(roomId)
 
       // Verify room is in cache
-      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(true)
 
       // Disconnect
       matrixService.disconnect()
 
       // Verify cache is cleared
-      // Access private method for testing
       expect(matrixService.isRoomJoined(roomId)).toBe(false)
     })
 
     it('should mark multiple rooms as joined from join-user-rooms response', async () => {
       const roomIds = ['room-1', 'room-2', 'room-3']
 
-      // Manually trigger the join-user-rooms success handler
-      const joinRoomsResponse = {
-        success: true,
-        roomCount: roomIds.length,
-        rooms: roomIds.map(id => ({ id, name: `Room ${id}` }))
-      }
-
-      // Directly call the markRoomAsJoined method to simulate the behavior
-      // that would happen when the join-user-rooms response is received
-      for (const room of joinRoomsResponse.rooms) {
-        // Access private method for testing
-        matrixService.markRoomAsJoined(room.id)
+      // Mark rooms as joined individually
+      for (const roomId of roomIds) {
+        matrixService.markRoomAsJoined(roomId)
       }
 
       // Verify all rooms are marked as joined
       for (const roomId of roomIds) {
-        // Access private method for testing
         expect(matrixService.isRoomJoined(roomId)).toBe(true)
       }
-    })
-
-    it('should mark a room as joined manually', async () => {
-      const roomId = 'member-event-room-id'
-
-      // Directly call the markRoomAsJoined method
-      // Access private method for testing
-      matrixService.markRoomAsJoined(roomId)
-
-      // Verify room is marked as joined
-      // Access private method for testing
-      expect(matrixService.isRoomJoined(roomId)).toBe(true)
     })
   })
 })

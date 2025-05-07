@@ -312,7 +312,7 @@ import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../common/UploadComponent.vue'
 import { eventsApi } from '../../api/events'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
-import RecurrenceComponent from './RecurrenceComponent.vue'
+import RecurrenceComponent from './recurrence-component-shim'
 import { categoriesApi } from '../../api/categories'
 import { getHumanReadableDateDifference } from '../../utils/dateUtils'
 import { QForm } from 'quasar'
@@ -555,8 +555,14 @@ const createEventSeries = async (event: EventEntity) => {
       recurrenceRule.value.frequency = 'WEEKLY'
     }
 
+    // Debug log the recurrenceRule before conversion
+    console.log('Event series recurrence rule before conversion:', JSON.stringify(recurrenceRule.value))
+
     // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
     const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
+
+    // Debug log the mapped rule
+    console.log('Mapped recurrence rule for series API:', JSON.stringify(mappedRule))
 
     // Add Bluesky info to event data
     addBlueskySourceInfo(event)

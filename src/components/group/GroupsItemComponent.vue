@@ -21,12 +21,14 @@ const { navigateToGroup } = useNavigation()
 <template>
   <div class="group-item" :class="layout" data-cy="group-item">
     <!-- Group Image -->
-    <q-img data-cy="group-item-image"
-      :src="getImageSrc(group.image)"
-      class="cursor-pointer group-image"
-      @click="navigateToGroup(group)"
-      :ratio="16 / 9"
-    />
+    <div class="group-image-container">
+      <q-img data-cy="group-item-image"
+        :src="getImageSrc(group.image)"
+        class="cursor-pointer group-image"
+        @click="navigateToGroup(group)"
+        :ratio="16 / 9"
+      />
+    </div>
 
     <!-- Group Info -->
     <div class="group-content">
@@ -75,10 +77,13 @@ const { navigateToGroup } = useNavigation()
     height: 100%;
     margin-bottom: 0;
 
-    .group-image {
+    .group-image-container {
       width: 100%;
-      border-radius: 8px;
-      overflow: hidden;
+
+      .group-image {
+        border-radius: 8px;
+        overflow: hidden;
+      }
     }
 
     .group-content {
@@ -101,20 +106,12 @@ const { navigateToGroup } = useNavigation()
     display: flex;
     align-items: stretch;
 
-    .group-image {
-      width: 160px;
-      min-width: 160px;
-      border-radius: 8px;
-      overflow: hidden;
+    .group-image-container {
+      width: 300px;
 
-      @media (min-width: 600px) {
-        width: 240px;
-        min-width: 240px;
-      }
-
-      @media (min-width: 1024px) {
-        width: 300px;
-        min-width: 300px;
+      .group-image {
+        border-radius: 8px;
+        overflow: hidden;
       }
     }
 

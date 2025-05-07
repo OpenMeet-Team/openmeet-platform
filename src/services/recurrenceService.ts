@@ -74,7 +74,7 @@ export class RecurrenceService {
         }
       }
 
-      // Add byweekday if present (RRule requires special handling)
+      // Add byweekday and bysetpos if present (RRule requires special handling)
       if (rule.byweekday && rule.byweekday.length > 0) {
         options.byweekday = rule.byweekday.map(day => {
           // Check if day has a position prefix like "1MO" for first Monday
@@ -87,6 +87,26 @@ export class RecurrenceService {
           // Regular weekday without position
           return RRule[day as keyof typeof RRule] as unknown as number
         })
+      }
+
+      // Handle bysetpos separately (needed for monthly by-day-of-week patterns)
+      if (rule.bysetpos && rule.bysetpos.length > 0) {
+        options.bysetpos = rule.bysetpos
+        console.log('Setting bysetpos in RRule:', rule.bysetpos)
+
+        // Extra logging to debug monthly + bysetpos patterns
+        if (rule.frequency === 'MONTHLY' && rule.byweekday && rule.byweekday.length > 0) {
+          console.log('Monthly pattern with byweekday and bysetpos detected:',
+            'freq:', rule.frequency,
+            'byweekday:', rule.byweekday,
+            'bysetpos:', rule.bysetpos)
+
+          // Ensure RRule is using the correct format for byweekday when combined with bysetpos
+          if (typeof options.byweekday === 'object' && !Array.isArray(options.byweekday)) {
+            // If byweekday is a single Weekday object instead of an array, convert it
+            options.byweekday = [options.byweekday]
+          }
+        }
       }
 
       // Add other byX rules as needed
@@ -199,13 +219,58 @@ export class RecurrenceService {
     }
 
     try {
+      // Log detailed recurrence info for debugging monthly patterns
+      console.log('RecurrenceService.getOccurrences for event:', {
+        name: event.name,
+        startDate: event.startDate,
+        recurrenceRule: {
+          frequency: event.recurrenceRule.frequency,
+          interval: event.recurrenceRule.interval,
+          byweekday: event.recurrenceRule.byweekday,
+          bymonthday: event.recurrenceRule.bymonthday,
+          bysetpos: event.recurrenceRule.bysetpos
+        }
+      })
+
+      // Check specifically for monthly patterns with bysetpos
+      if (event.recurrenceRule.frequency === 'MONTHLY' &&
+          event.recurrenceRule.byweekday &&
+          event.recurrenceRule.bysetpos) {
+        console.log('MONTHLY DAY-OF-WEEK PATTERN DETECTED:', {
+          byweekday: event.recurrenceRule.byweekday,
+          bysetpos: event.recurrenceRule.bysetpos,
+          description: `${event.recurrenceRule.bysetpos[0]}${event.recurrenceRule.byweekday[0]} of month`
+        })
+
+        // Ensure the bysetpos field is not empty - this is crucial for monthly patterns
+        if (!event.recurrenceRule.bysetpos || event.recurrenceRule.bysetpos.length === 0) {
+          console.warn('bysetpos is empty for monthly pattern! This will cause incorrect weekly pattern')
+          // This is where failures can happen - when bysetpos is lost during translation
+          console.warn('Inspect API and conversion functions for bysetpos handling')
+        }
+      }
+
       const rrule = this.toRRule(
         event.recurrenceRule,
         event.startDate
       )
 
+      console.log('RRule string:', rrule.toString())
+
       // Generate occurrences
       const occurrences = rrule.all((_, i) => i < count)
+
+      // Log first few occurrences to verify pattern
+      if (occurrences.length > 0) {
+        console.log('First 3 occurrences:', occurrences.slice(0, 3).map(date => date.toISOString()))
+
+        // Check if occurrences are weekly or monthly for debugging
+        if (occurrences.length >= 2) {
+          const diff = (occurrences[1].getTime() - occurrences[0].getTime()) / (1000 * 60 * 60 * 24)
+          console.log(`Days between first two occurrences: ${diff}`)
+          console.log(`Pattern appears to be: ${diff < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+        }
+      }
 
       // Filter out exceptions
       if (event.recurrenceExceptions && event.recurrenceExceptions.length > 0) {
@@ -239,6 +304,18 @@ export class RecurrenceService {
       try {
         const eventResponse = await eventsApi.getBySlug(eventSlug)
         seriesSlug = eventResponse.data.seriesSlug || null
+
+        // Log the recurrence rule that's being used to debug issues with bysetpos
+        if (eventResponse.data.series && eventResponse.data.series.recurrenceRule) {
+          console.log('Event series recurrence rule:', JSON.stringify(eventResponse.data.series.recurrenceRule))
+
+          // Check specifically for monthly pattern with bysetpos
+          const rule = eventResponse.data.series.recurrenceRule
+          if (rule.frequency === 'MONTHLY' && rule.byweekday && rule.bysetpos) {
+            console.log('Monthly pattern with byweekday and bysetpos detected:',
+              'byweekday:', rule.byweekday, 'bysetpos:', rule.bysetpos)
+          }
+        }
       } catch (error) {
         console.error('Error fetching event for series slug:', error)
       }
@@ -258,6 +335,29 @@ export class RecurrenceService {
 
         console.log('API response successful:', response.status, response.statusText)
         console.log('Occurrences returned:', response.data?.length || 0)
+
+        // Debug the occurrences returned
+        if (response.data && response.data.length > 0) {
+          console.log('First few occurrence dates:',
+            response.data.slice(0, 3).map(o => o.date).join(', '))
+
+          // Check for weekly pattern in monthly recurrence
+          // Detect if we have consecutive weeks, which would indicate weekly pattern
+          // when it should be monthly
+          const dates = response.data
+            .map(o => new Date(o.date))
+            .sort((a, b) => a.getTime() - b.getTime())
+
+          if (dates.length >= 2) {
+            const daysDiff = (dates[1].getTime() - dates[0].getTime()) / (1000 * 60 * 60 * 24)
+            console.log('Days between first two occurrences:', daysDiff)
+
+            if (daysDiff <= 7) {
+              console.warn('Potential issue: Days between occurrences is <= 7, which suggests a weekly pattern')
+              console.warn('This may indicate bysetpos is not being properly applied in the API call')
+            }
+          }
+        }
 
         // Map to expected format with isExcluded property
         const mappedOccurrences = response.data.map(occurrence => ({

@@ -3,6 +3,7 @@ import { api } from '../boot/axios'
 import { MatrixMessage } from '../types/matrix'
 import { useAuthStore } from '../stores/auth-store'
 import { io, Socket } from 'socket.io-client'
+import matrixTokenService from '../services/matrixTokenService'
 
 export const matrixApi = {
   // Set Matrix password for direct client access
@@ -14,7 +15,7 @@ export const matrixApi = {
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
   // Create WebSocket connection for Matrix events
-  createSocketConnection: (): Socket => {
+  createSocketConnection: async (): Promise<Socket> => {
     // Check for Cypress test environment
     const isCypress = typeof window !== 'undefined' && 'Cypress' in window
 
@@ -70,7 +71,7 @@ export const matrixApi = {
     // Log that we're attempting to establish a WebSocket connection
     console.log('Attempting to establish WebSocket connection for real-time Matrix events')
 
-    // Get token from the auth store
+    // Get token from the auth store - ALWAYS USE THE USER'S AUTH TOKEN for WebSocket
     let token = ''
     try {
       const authStore = useAuthStore()
@@ -79,8 +80,9 @@ export const matrixApi = {
         console.warn('Auth store reports user is not authenticated')
       }
 
+      // Use the user's regular auth token for WebSocket connection
       token = authStore.token
-      console.log('Token from authStore:', token ? `Length: ${token.length}` : 'No token in store')
+      console.log('Using auth token for WebSocket:', token ? `Length: ${token.length}` : 'No token in store')
 
       // Validate that we have a non-empty token
       if (!token || token.length < 10) {
@@ -197,11 +199,34 @@ export const matrixApi = {
     throw new Error('EventSource is deprecated in favor of WebSockets for Matrix events')
   },
 
-  // Get messages for a room
-  getMessages: (roomId: string, limit = 50, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> =>
-    api.get(`/api/matrix/messages/${roomId}`, { params: { limit, from } }),
+  // Get messages for a room with token checking
+  getMessages: async (roomId: string, limit = 50, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> => {
+    try {
+      // Ensure we have a valid Matrix token before making the request
+      await matrixTokenService.getToken()
+      return api.get(`/api/matrix/messages/${roomId}`, { params: { limit, from } })
+    } catch (error) {
+      console.error('Failed to get Matrix token for messages:', error)
+      // Don't retry the same operation - just throw the error for caller to handle
+      throw error
+    }
+  },
 
-  // Send a message to a room
-  sendMessage: (roomId: string, message: string): Promise<AxiosResponse<{ id: string }>> =>
-    api.post(`/api/matrix/messages/${roomId}`, { message })
+  // Send a message to a room with token checking
+  sendMessage: async (roomId: string, message: string): Promise<AxiosResponse<{ id: string }>> => {
+    try {
+      // Ensure we have a valid Matrix token before making the request
+      await matrixTokenService.getToken()
+      return api.post(`/api/matrix/messages/${roomId}`, { message })
+    } catch (error) {
+      console.error('Failed to get Matrix token for sending message:', error)
+      // Don't retry the same operation - just throw the error for caller to handle
+      throw error
+    }
+  },
+
+  // Get a fresh Matrix token (for direct Matrix operations)
+  getToken: async (): Promise<string> => {
+    return matrixTokenService.getToken()
+  }
 }

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission } from '../types'
+import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeRole, EventEntity, EventVisibility, GroupPermission, EventAttendeeStatus } from '../types'
 import { useNotification } from '../composables/useNotification'
 import { api } from '../boot/axios'
 import { AxiosError } from 'axios'
@@ -70,8 +70,24 @@ export const useEventStore = defineStore('event', {
       this.errorMessage = null
 
       try {
+        console.log(`Fetching event details for slug: ${slug}`)
         const res = await api.get(`/api/events/${slug}`)
+
+        // DEBUG: Log full API response to inspect attendance data
+        console.log('API Response for event details:', res.data)
+
+        // Specifically check for attendee data
+        if (res.data.attendee) {
+          console.log('Attendee data found in API response:', res.data.attendee)
+          console.log('Attendee status:', res.data.attendee.status)
+        } else {
+          console.log('No attendee data found in API response')
+        }
+
         this.event = res.data
+
+        // Check what got stored in the event store
+        console.log('Event store updated, attendee data:', this.event?.attendee)
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       } finally {
@@ -85,8 +101,30 @@ export const useEventStore = defineStore('event', {
         const response = await eventsApi.attend(slug, data)
         console.log('Received attend response:', response.data)
 
-        // Refresh the event data to get the updated attendance status
-        await this.actionGetEventBySlug(slug)
+        // Examine the attend response structure in detail
+        console.log('Attend response structure:')
+        console.log('- Status:', response.data.status)
+        console.log('- Role:', response.data.role)
+        console.log('- User ID:', response.data.user?.id)
+        console.log('- Is attendee complete?', !!response.data.status && !!response.data.user)
+
+        // IMPORTANT FIX: DIRECTLY UPDATE THE LOCAL STORE WITH ATTENDEE DATA
+        // Since the API doesn't seem to return attendee data in the event refresh,
+        // we'll use the attend API response to update the local state
+        if (this.event && response.data) {
+          console.log('Directly updating store with attendance data instead of refreshing')
+          // Keep the original event data but update the attendee property
+          this.event = {
+            ...this.event,
+            attendee: response.data
+          }
+          console.log('Updated event store with new attendee data:', this.event.attendee)
+
+          // Also increment the attendees count
+          if (this.event.attendeesCount !== undefined) {
+            this.event.attendeesCount += 1
+          }
+        }
 
         return response.data
       } catch (error) {
@@ -101,10 +139,48 @@ export const useEventStore = defineStore('event', {
         const response = await eventsApi.cancelAttending(event.slug)
         console.log('Received cancel attending response:', response.data)
 
-        // Refresh the event data to get the updated attendance status
-        await this.actionGetEventBySlug(event.slug)
+        // Log detailed information about the response
+        console.log('Cancel attendance response details:', {
+          status: response.data.status,
+          userId: response.data.user?.id,
+          attendeeId: response.data.id,
+          responseComplete: !!response.data && !!response.data.status
+        })
 
-        return true
+        // IMPORTANT FIX: DIRECTLY UPDATE THE LOCAL STORE WITH CANCELLED STATUS
+        if (this.event && response.data) {
+          console.log('Directly updating store with cancel data instead of refreshing')
+
+          // Log current state before update
+          console.log('Current attendee state before update:', {
+            attendeeStatus: this.event.attendee?.status,
+            attendeeId: this.event.attendee?.id
+          })
+
+          // Make sure the response contains a valid attendee with Cancelled status
+          if (response.data.status === EventAttendeeStatus.Cancelled) {
+            // Update attendee with the cancelled status
+            this.event = {
+              ...this.event,
+              attendee: response.data
+            }
+            console.log('Updated event store with cancelled attendee data:', {
+              status: this.event.attendee.status,
+              id: this.event.attendee.id
+            })
+
+            // Also update attendees count if applicable
+            if (this.event.attendeesCount !== undefined && this.event.attendeesCount > 0) {
+              this.event.attendeesCount -= 1
+            }
+          } else {
+            console.warn('Received response without Cancelled status:', response.data.status)
+          }
+        } else {
+          console.warn('Unable to update store - missing event or response data')
+        }
+
+        return response.data
       } catch (error) {
         console.error('Error in actionCancelAttending:', error)
         throw error
@@ -259,8 +335,21 @@ export const useEventStore = defineStore('event', {
       try {
         if (this.event?.slug) {
           console.log(`Attempting to add user ${userSlug} to discussion for event ${this.event.slug}`)
-          await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
-          console.log(`Successfully added user ${userSlug} to discussion`)
+          const response = await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
+          console.log(`Successfully added user ${userSlug} to discussion`, response.data)
+
+          // Check if the response includes a roomId (it should from the server)
+          if (response.data && response.data.roomId) {
+            console.log(`Received roomId from addMemberToEventDiscussion: ${response.data.roomId}`)
+            // Save the roomId directly to the event object if provided
+            if (this.event) {
+              this.event.roomId = response.data.roomId
+              console.log(`Updated event with roomId: ${this.event.roomId}`)
+            }
+          } else {
+            console.warn('No roomId returned from addMemberToEventDiscussion API call')
+          }
+
           return true
         }
         return false

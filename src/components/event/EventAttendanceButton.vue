@@ -138,13 +138,21 @@ onMounted(async () => {
     // Always start in loading state to prevent UI flicker
     initialLoading.value = true
 
+    // Check if the parent EventPage is already loading this event data
+    // This helps avoid redundant API calls when components mount
+    const eventSlug = props.event.slug
+    if (window.eventBeingLoaded === eventSlug) {
+      console.log('Parent EventPage is already loading this event data, skipping redundant API call')
+      hasCheckedAttendance.value = true
+      return
+    }
+
     // Check if user is authenticated (always do this check)
     const isAuthenticated = await authSession.checkAuthStatus()
     console.log('Auth status result:', isAuthenticated)
 
     if (isAuthenticated) {
       // If authenticated, we should check if we need a fresh check for attendance status
-      const eventSlug = props.event.slug
       const now = Date.now()
       const lastCheck = window.lastEventAttendanceCheck[eventSlug] || 0
       const timeSinceLastCheck = now - lastCheck
@@ -258,7 +266,8 @@ const handleAttend = async () => {
       : EventAttendeeStatus.Confirmed
 
     console.log('Sending attend request with status:', status)
-    await eventStore.actionAttendEvent(props.event.slug, { status })
+    const attendee = await eventStore.actionAttendEvent(props.event.slug, { status })
+    console.log('Attendance API response:', attendee)
 
     // Force a refresh of event data to ensure UI reflects the latest state
     // This is a user-initiated action, so we always want to refresh
@@ -266,6 +275,18 @@ const handleAttend = async () => {
     window.lastEventAttendanceCheck[eventSlug] = Date.now()
     await eventStore.actionGetEventBySlug(eventSlug)
     console.log('Updated event data after attending:', eventStore.event?.attendee?.status)
+
+    // Emit a custom event to notify other components about the status change
+    // Use the actual status from the API response, as it's most up-to-date
+    const currentStatus = attendee?.status || eventStore.event?.attendee?.status || EventAttendeeStatus.Confirmed
+    window.dispatchEvent(new CustomEvent('attendee-status-changed', {
+      detail: {
+        eventSlug,
+        status: currentStatus,
+        timestamp: Date.now()
+      }
+    }))
+    console.log('Emitted attendee-status-changed event with status:', currentStatus)
 
     $q.notify({
       type: 'positive',
@@ -292,7 +313,21 @@ const handleLeave = async () => {
 
     const eventSlug = props.event.slug
     console.log('Cancelling attendance for event:', eventSlug)
+
+    // Log the current attendee status before cancellation
+    console.log('Current attendee status before cancellation:', {
+      status: props.attendee?.status,
+      id: props.attendee?.id
+    })
+
+    // Call the store action to cancel attendance
     await eventStore.actionCancelAttending(props.event)
+
+    // Log the store state immediately after the API call
+    console.log('Store attendee state after API call:', {
+      status: eventStore.event?.attendee?.status,
+      id: eventStore.event?.attendee?.id
+    })
 
     $q.notify({
       type: 'info',
@@ -300,11 +335,32 @@ const handleLeave = async () => {
     })
 
     // Force a refresh of the event data to ensure we have the latest state
-    // This is a user-initiated action, so we always want to refresh
     console.log('Refreshing event data after cancellation')
     window.lastEventAttendanceCheck[eventSlug] = Date.now()
     await eventStore.actionGetEventBySlug(eventSlug)
-    console.log('Updated event data after cancellation:', eventStore.event?.attendee?.status)
+
+    // Log the final state after refresh to help diagnose any issues
+    console.log('Final event data after refresh:', {
+      attendeeStatus: eventStore.event?.attendee?.status,
+      attendeeId: eventStore.event?.attendee?.id,
+      hasAttendee: !!eventStore.event?.attendee,
+      buttonShouldShow: !eventStore.event?.attendee || eventStore.event?.attendee?.status === EventAttendeeStatus.Cancelled ? 'Attend' : 'Leave'
+    })
+
+    // Instead of directly modifying props (which Vue warns against),
+    // we'll rely on the event store update and custom event
+    console.log('Skipping direct prop modification to avoid Vue warning about mutating props')
+
+    // Emit a custom event that the discussion component can listen for
+    // This helps components that don't have direct access to the attendee prop
+    window.dispatchEvent(new CustomEvent('attendee-status-changed', {
+      detail: {
+        eventSlug,
+        status: EventAttendeeStatus.Cancelled,
+        timestamp: Date.now()
+      }
+    }))
+    console.log('Emitted attendee-status-changed event for components to detect')
   } catch (error) {
     console.error('Error leaving event:', error)
     $q.notify({

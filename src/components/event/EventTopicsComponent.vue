@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
@@ -14,8 +14,13 @@ declare global {
   interface Window {
     chatRoomInitializations?: Record<string, 'in-progress' | 'completed' | null>;
     lastEventDiscussionCheck?: number;
+    lastChatPermissionStatus?: Record<string, string | undefined>;
+    lastChatInitAttempt?: Record<string, number>; // Add timestamp tracking for throttling
   }
 }
+
+// Variable for safe window access
+const globalWindow = window as Window & typeof globalThis
 
 // Check if in development mode
 const isDev = ref(false)
@@ -41,33 +46,69 @@ const matrixRoomId = computed(() => {
 
   // Check if we have a proper roomId on the event object
   if (event.value.roomId) {
+    console.log('Found roomId on event object:', event.value.roomId)
     return event.value.roomId
   }
 
-  // Check if we can find a roomId in event messages
+  // Check if we have a roomId in event messages
   if (event.value.messages && event.value.messages.length > 0) {
     // Loop through messages to find the first with a room_id field
     for (const message of event.value.messages) {
       if (message.room_id) {
+        console.log('Found room_id in message:', message.room_id)
         return message.room_id
       }
     }
   }
 
   // At this point, we don't have a valid room ID, so return null
+  console.log('No roomId found for event:', event.value.slug)
   return null
 })
 
+// Computed property to safely access initialization status
+const lastInitializationStatus = computed(() => {
+  if (!event.value?.slug) return 'None'
+  return globalWindow.chatRoomInitializations?.[event.value.slug] || 'None'
+})
+
 // Permissions for the discussion
-const discussionPermissions = computed(() => ({
-  canRead: Boolean(
-    useEventStore().getterIsPublicEvent ||
-    (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) ||
-    useEventStore().getterUserHasPermission(EventAttendeePermission.ViewDiscussion)
-  ),
-  canWrite: !!useEventStore().getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
-  canManage: !!useEventStore().getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
-}))
+const discussionPermissions = computed(() => {
+  // Get a fresh reference to the store each time for reactivity
+  const eventStore = useEventStore()
+  const authStore = useAuthStore()
+
+  // Get the current attendee status
+  const attendeeStatus = eventStore.event?.attendee?.status
+
+  // Log permissions state for debugging
+  console.log('Computing discussion permissions:', {
+    attendeeStatus,
+    isAuthenticated: authStore.isAuthenticated,
+    isPublicEvent: eventStore.getterIsPublicEvent,
+    viewPermission: eventStore.getterUserHasPermission(EventAttendeePermission.ViewDiscussion),
+    createPermission: eventStore.getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
+    managePermission: eventStore.getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
+  })
+
+  // Special case: if user is confirmed attendee and authenticated, always grant write permission
+  const isConfirmedAttendee = authStore.isAuthenticated && attendeeStatus === 'confirmed'
+
+  return {
+    canRead: Boolean(
+      eventStore.getterIsPublicEvent ||
+      (eventStore.getterIsAuthenticatedEvent && authStore.isAuthenticated) ||
+      eventStore.getterUserHasPermission(EventAttendeePermission.ViewDiscussion) ||
+      isConfirmedAttendee
+    ),
+    // Grant writing permission if user has explicit permission OR is a confirmed attendee
+    canWrite: Boolean(
+      eventStore.getterUserHasPermission(EventAttendeePermission.CreateDiscussion) ||
+      isConfirmedAttendee
+    ),
+    canManage: !!eventStore.getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
+  }
+})
 
 // Loading states
 const isLoading = ref(false)
@@ -181,18 +222,74 @@ const showMatrixConfig = () => {
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
+  // Early return if user is not a confirmed attendee
+  if (event.value.attendee?.status !== 'confirmed' || !discussionPermissions.value.canWrite) {
+    console.log('Not initializing chat room - user is not a confirmed attendee or lacks permissions', {
+      attendeeStatus: event.value.attendee?.status,
+      canWrite: discussionPermissions.value.canWrite
+    })
+    return false
+  }
+
   // Global initialization tracking
-  if (!window.chatRoomInitializations) {
-    window.chatRoomInitializations = {}
+  if (!globalWindow.chatRoomInitializations) {
+    globalWindow.chatRoomInitializations = {}
   }
 
   const eventSlug = event.value.slug
 
-  // Check if initialization has been completed before
-  if (window.chatRoomInitializations[eventSlug] === 'completed') {
-    console.log(`Room ${eventSlug} was already fully initialized in this session, skipping`)
+  // Check if we need to force a refresh based on attendance status changes
+  const currentStatus = useEventStore().event?.attendee?.status
+  const previousStatus = globalWindow.lastChatPermissionStatus?.[eventSlug]
+
+  // Force refresh in either of these cases:
+  // 1. User just became confirmed (status changed to confirmed)
+  // 2. Room ID exists but MessagesComponent isn't showing (needs re-render)
+  // 3. No roomId is found but user is a confirmed attendee (need to request room creation)
+  const statusChanged = currentStatus !== previousStatus
+  const roomIdExistsButNoComponent = matrixRoomId.value && !document.querySelector('.messages-component')
+  const confirmedButNoRoomId = currentStatus === 'confirmed' && !matrixRoomId.value
+
+  // Add throttling check - only force refresh if it's been at least 5 seconds since the last attempt
+  const lastAttemptTime = window.lastChatInitAttempt?.[eventSlug] || 0
+  const currentTime = Date.now()
+  const timeSinceLastAttempt = currentTime - lastAttemptTime
+  const throttleMs = 5000 // 5 seconds throttle
+  const isThrottled = timeSinceLastAttempt < throttleMs
+
+  // Only force refresh if we're not throttled
+  const forceRefresh = !isThrottled && ((currentStatus === 'confirmed' && statusChanged) ||
+                      roomIdExistsButNoComponent ||
+                      confirmedButNoRoomId)
+
+  console.log('Checking if we need to force refresh room initialization:', {
+    currentStatus,
+    previousStatus,
+    statusChanged,
+    roomIdExists: !!matrixRoomId.value,
+    componentExists: !!document.querySelector('.messages-component'),
+    confirmedButNoRoomId,
+    timeSinceLastAttempt: `${timeSinceLastAttempt}ms`,
+    throttleLimit: `${throttleMs}ms`,
+    isThrottled,
+    forceRefresh
+  })
+
+  // Always force refresh if user is confirmed but no room ID is found, unless we're throttled
+  if ((window.chatRoomInitializations[eventSlug] === 'completed' && !forceRefresh) || isThrottled) {
+    if (isThrottled) {
+      console.log(`Throttling initialization for ${eventSlug}: too soon since last attempt (${timeSinceLastAttempt}ms < ${throttleMs}ms)`)
+    } else {
+      console.log(`Room ${eventSlug} was already fully initialized in this session, skipping`)
+    }
     return true
   }
+
+  // Track the current permission status to detect changes
+  if (!window.lastChatPermissionStatus) {
+    window.lastChatPermissionStatus = {}
+  }
+  window.lastChatPermissionStatus[eventSlug] = useEventStore().event?.attendee?.status
 
   // Check if initialization is already in progress
   if (window.chatRoomInitializations[eventSlug] === 'in-progress') {
@@ -203,7 +300,14 @@ const ensureChatRoomExists = async () => {
   isInitializing.value = true
   // Set global flag to prevent concurrent initialization across components
   window.chatRoomInitializations[eventSlug] = 'in-progress'
-  console.log(`Starting initialization for ${eventSlug}, setting global flag`)
+
+  // Initialize and update the timestamp tracking
+  if (!window.lastChatInitAttempt) {
+    window.lastChatInitAttempt = {}
+  }
+  window.lastChatInitAttempt[eventSlug] = Date.now()
+
+  console.log(`Starting initialization for ${eventSlug}, setting global flag and timestamp`)
 
   // Automatically clean up stale locks after 10 seconds
   setTimeout(() => {
@@ -216,9 +320,9 @@ const ensureChatRoomExists = async () => {
   try {
     console.log('Starting chat room initialization for:', event.value.slug)
 
-    // Check if we already have a roomId in the event object
-    if (event.value.roomId) {
-      console.log('Room ID already exists in event object:', event.value.roomId)
+    // Check if we already have a roomId in the event object or computed property
+    if (event.value.roomId || matrixRoomId.value) {
+      console.log('Room ID already exists:', event.value.roomId || matrixRoomId.value)
       // Mark as completed in the global registry since we already have a room ID
       window.chatRoomInitializations[eventSlug] = 'completed'
       return true
@@ -242,8 +346,8 @@ const ensureChatRoomExists = async () => {
     }
 
     // If we now have a roomId after that first call, we're done
-    if (event.value.roomId) {
-      console.log('Room ID found after loading messages:', event.value.roomId)
+    if (event.value.roomId || matrixRoomId.value) {
+      console.log('Room ID found after loading messages:', event.value.roomId || matrixRoomId.value)
       // Mark as completed in the global registry
       window.chatRoomInitializations[eventSlug] = 'completed'
       return true
@@ -253,12 +357,31 @@ const ensureChatRoomExists = async () => {
     if (discussionPermissions.value.canWrite && useAuthStore().isAuthenticated && useAuthStore().user?.id) {
       try {
         console.log('No room ID found - attempting to initialize chat room by joining...')
+        console.log('Current permissions state:', {
+          canWrite: discussionPermissions.value.canWrite,
+          canRead: discussionPermissions.value.canRead,
+          attendeeStatus: useEventStore().event?.attendee?.status
+        })
+
+        // Clear any cached permissions to force a fresh evaluation
+        if (window.lastChatPermissionStatus) {
+          console.log('Clearing cached permission status to force fresh evaluation')
+          window.lastChatPermissionStatus[eventSlug] = undefined
+        }
 
         // Add the current user to the event discussion
         await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
 
         // Add a small delay to let the server process
         await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Only force a refresh if we don't already have a room ID
+        if (!event.value.roomId) {
+          console.log('Forcing event refresh to get latest permissions')
+          await useEventStore().actionGetEventBySlug(eventSlug)
+        } else {
+          console.log('Room ID already exists after join, skipping redundant event refresh:', event.value.roomId)
+        }
 
         // Reload messages ONLY ONCE to get the room ID
         console.log('User added to discussion, checking for room ID')
@@ -271,13 +394,42 @@ const ensureChatRoomExists = async () => {
           window.chatRoomInitializations[eventSlug] = 'completed'
           return true
         } else {
-          console.log('User was added but still no room ID available')
+          console.log('User was added but still no room ID available, attempting one more refresh')
+
+          // Try one more time with a clean approach: fetch fresh event data and then message data
+          console.log('Attempting final refresh of event data to get room ID')
+
+          // First refresh the event data
+          await useEventStore().actionGetEventBySlug(eventSlug)
+
+          // Then fetch the messages to try to get the room ID
+          const messageResult = await useEventStore().actionGetEventDiscussionMessages()
+
+          // Check if we got a room ID
+          if (event.value.roomId) {
+            console.log('Successfully initialized chat room on second attempt:', event.value.roomId)
+            window.chatRoomInitializations[eventSlug] = 'completed'
+            return true
+          } else if (messageResult && messageResult.roomId) {
+            // If the room ID was in the message response but not set on the event
+            console.log('Found room ID in message response but not set on event:', messageResult.roomId)
+            event.value.roomId = messageResult.roomId
+            window.chatRoomInitializations[eventSlug] = 'completed'
+            return true
+          } else {
+            console.log('Still no room ID available after second attempt')
+          }
         }
       } catch (joinError) {
         console.error('Error initializing chat room by joining:', joinError)
       }
     } else {
-      console.log('User lacks required permissions or authentication to initialize chat room')
+      console.log('User lacks required permissions or authentication to initialize chat room', {
+        canWrite: discussionPermissions.value.canWrite,
+        isAuthenticated: useAuthStore().isAuthenticated,
+        hasUserId: !!useAuthStore().user?.id,
+        attendeeStatus: useEventStore().event?.attendee?.status
+      })
     }
 
     // Skip the special initialization for hosts/moderators to avoid potential loops
@@ -306,20 +458,167 @@ const ensureChatRoomExists = async () => {
   }
 }
 
+// Define interface for the custom event detail
+interface AttendeeStatusChangeDetail {
+  eventSlug: string;
+  status: string;
+  timestamp: number;
+}
+
+// Define interface for our custom event
+interface AttendeeStatusChangeEvent extends Event {
+  detail: AttendeeStatusChangeDetail;
+}
+
+// Handle attendance status changes from other components
+const handleAttendeeStatusChanged = (e: Event) => {
+  // Custom events have a detail property
+  if (!e || !('detail' in e)) return
+
+  // Use the properly typed event
+  const customEvent = e as AttendeeStatusChangeEvent
+  const { eventSlug, status, timestamp } = customEvent.detail
+  console.log(`Attendance status changed event received: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
+
+  // Reset our permission status tracking when attendance changes
+  if (window.lastChatPermissionStatus) {
+    if (!window.lastChatPermissionStatus[eventSlug]) {
+      window.lastChatPermissionStatus[eventSlug] = undefined
+    }
+
+    console.log(`Resetting chat permission status for ${eventSlug} from ${window.lastChatPermissionStatus[eventSlug]} to ${status}`)
+    window.lastChatPermissionStatus[eventSlug] = status
+  }
+
+  // ALWAYS reset the initialization state to force a fresh initialization attempt
+  if (window.chatRoomInitializations) {
+    console.log(`Resetting chat room initialization state for ${eventSlug} due to attendance change`)
+    window.chatRoomInitializations[eventSlug] = null
+  }
+
+  // Only react if this is for our current event
+  if (useEventStore().event?.slug === eventSlug) {
+    console.log('This event matches the status change notification, refreshing discussion state')
+
+    // Longer delay when re-attending to ensure backend is fully updated
+    const delay = status === 'confirmed' ? 800 : 300
+
+    // Set loading state immediately to provide user feedback
+    isLoading.value = true
+
+    setTimeout(async () => {
+      try {
+        // For ALL status changes (both cancelling and rejoining), follow the same complete refresh path
+        console.log(`User attendance status changed to ${status}, updating discussion permissions`)
+
+        // Always force a complete refresh of the event data to get current permissions
+        await useEventStore().actionGetEventBySlug(eventSlug)
+
+        console.log('Event data refreshed after status change:', {
+          attendeeStatus: useEventStore().event?.attendee?.status,
+          hasPermission: useEventStore().getterUserHasPermission(EventAttendeePermission.CreateDiscussion),
+          roomId: useEventStore().event?.roomId || 'none'
+        })
+
+        // Special handling for confirmed status - ensure chat components are properly initialized
+        if (status === 'confirmed') {
+          console.log('Confirmed status detected, ensuring chat components are properly reset')
+
+          // Force reset room initialization state to ensure components are recreated
+          if (window.chatRoomInitializations) {
+            window.chatRoomInitializations[eventSlug] = null
+          }
+
+          // Try to ensure chat room exists - this will reinitialize the chat components
+          const success = await ensureChatRoomExists()
+
+          console.log('Chat room initialization result:', {
+            success,
+            hasRoomId: !!event.value?.roomId,
+            roomId: event.value?.roomId
+          })
+
+          // If we still don't have a successful result but attendee status is confirmed,
+          // try calling the join API directly as a fallback
+          if (!success && event.value?.attendee?.status === 'confirmed' && useAuthStore().isAuthenticated) {
+            console.log('Attempting fallback direct room join API call')
+            try {
+              const joinResponse = await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
+              console.log('Fallback join response:', joinResponse)
+
+              // Force reload data after successful join
+              if (joinResponse) {
+                console.log('Forcing final event refresh after fallback join')
+                await useEventStore().actionGetEventBySlug(eventSlug)
+
+                // Load messages and force immediate refresh to get the room ID
+                const messagesResult = await useEventStore().actionGetEventDiscussionMessages()
+                console.log('Messages result after fallback join:', messagesResult)
+
+                // Check if we received a roomId in the response
+                if (messagesResult.roomId) {
+                  console.log('Received roomId from messages API:', messagesResult.roomId)
+                  // Instead of directly modifying the event object (which causes TypeScript errors),
+                  // we'll refresh the event data so it comes with the roomId from the API
+                  // Only refresh if we don't already have the roomId synchronized
+                  if (event.value?.roomId !== messagesResult.roomId) {
+                    console.log('Forcing another event refresh to update roomId')
+                    await useEventStore().actionGetEventBySlug(eventSlug)
+                  } else {
+                    console.log('Room ID already synchronized, skipping redundant event refresh')
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Fallback join attempt failed:', error)
+            }
+          }
+        } else {
+          // For other statuses, just check if chat room exists
+          await ensureChatRoomExists()
+        }
+      } catch (error) {
+        console.error('Error handling attendance status change:', error)
+      } finally {
+        isLoading.value = false
+      }
+    }, delay)
+  }
+}
+
 // Load discussion messages and ensure chat room exists
 onMounted(async () => {
   if (event.value && event.value.slug) {
-    isLoading.value = true
+    console.log('EventTopicsComponent mounted for event:', event.value.slug)
     try {
-      console.log('EventTopicsComponent mounted for event:', event.value.slug)
+      isLoading.value = true
 
-      // First check if we already have a room ID before trying initialization
-      if (event.value.roomId) {
-        console.log('Already have room ID at mount:', event.value.roomId)
+      // Check if the parent EventPage is already loading this event data
+      // This helps avoid redundant API calls when components mount
+      const eventSlug = event.value.slug
+      if (window.eventBeingLoaded === eventSlug) {
+        console.log('Parent EventPage is already loading event data, will wait for it to complete')
+        // We don't need to make additional API calls here, just rely on the EventPage component
+        // to load the base data, and then we'll handle Matrix-specific operations
+      }
+
+      // Only initialize the chat room if the user is a confirmed attendee
+      if (event.value.attendee?.status === 'confirmed' && discussionPermissions.value.canWrite) {
+        if (event.value.roomId || matrixRoomId.value) {
+          console.log('Already have room ID at mount:', event.value.roomId || matrixRoomId.value)
+        } else {
+          // Only attempt to initialize if we don't already have a room ID
+          console.log('No room ID at mount, trying initialization once')
+          await ensureChatRoomExists()
+        }
+
+        // Listen for attendance status changes from other components
+        window.addEventListener('attendee-status-changed', handleAttendeeStatusChanged)
       } else {
-        // Only attempt to initialize if we don't already have a room ID
-        console.log('No room ID at mount, trying initialization once')
-        await ensureChatRoomExists()
+        console.log('Not initializing chat - user is not a confirmed attendee or lacks permissions:', {
+          attendeeStatus: event.value.attendee?.status,
+          canWrite: discussionPermissions.value.canWrite
+        })
       }
     } catch (err) {
       console.error('Error loading event discussion:', err)
@@ -331,10 +630,68 @@ onMounted(async () => {
   }
 })
 
+// Remove event listener when component is unmounted
+onBeforeUnmount(() => {
+  window.removeEventListener('attendee-status-changed', handleAttendeeStatusChanged)
+  console.log('Removed attendee-status-changed event listener')
+})
+
+// Method to handle the retry button in the UI
+const retryRoomInitialization = async () => {
+  if (!event.value || !event.value.slug) return
+  const eventSlug = event.value.slug
+
+  // Check throttling - prevent too frequent retries
+  if (!window.lastChatInitAttempt) {
+    window.lastChatInitAttempt = {}
+  }
+
+  const lastAttemptTime = window.lastChatInitAttempt[eventSlug] || 0
+  const timeSinceLastAttempt = Date.now() - lastAttemptTime
+  const throttleMs = 5000 // 5 seconds for manual retries
+
+  if (timeSinceLastAttempt < throttleMs) {
+    console.log(`Throttling manual retry for ${eventSlug}: too soon since last attempt (${timeSinceLastAttempt}ms < ${throttleMs}ms)`)
+    return
+  }
+
+  // Reset state and record this attempt timestamp
+  window.lastChatInitAttempt[eventSlug] = Date.now()
+  isInitializing.value = true
+
+  try {
+    // First make sure Matrix connection is initialized
+    await messageStore.initializeMatrix()
+
+    // Force a fresh fetch of the event data to ensure we have current permissions
+    console.log(`Performing fresh fetch of event data for ${eventSlug}`)
+    await useEventStore().actionGetEventBySlug(eventSlug)
+
+    // Try a single, simple call to join the discussion
+    console.log('Attempting to join event discussion')
+    await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
+
+    // Then fetch messages to see if we got a room ID
+    console.log('Fetching messages to check for room ID')
+    await useEventStore().actionGetEventDiscussionMessages()
+
+    // Success message if we got a room ID
+    if (event.value.roomId || matrixRoomId.value) {
+      console.log('Successfully joined discussion, room ID:', event.value.roomId || matrixRoomId.value)
+    } else {
+      console.log('Still no room ID available after join attempt')
+    }
+  } catch (error) {
+    console.error('Error retrying room initialization:', error)
+  } finally {
+    isInitializing.value = false
+  }
+}
+
 </script>
 
 <template>
-  <div class="c-event-topics-component" v-if="event">
+  <div class="c-event-topics-component" v-if="event && discussionPermissions.canWrite && event.attendee?.status === 'confirmed'">
     <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" hide-link />
 
     <!-- Loading indicator -->
@@ -440,7 +797,23 @@ onMounted(async () => {
           <p v-else-if="!discussionPermissions.canWrite">You don't have permission to participate in discussions for this event.</p>
           <p v-else-if="!event?.attendee">You need to be an attendee of this event to participate in discussions.</p>
           <p v-else-if="event?.attendee?.status !== 'confirmed'">Your attendance request is still pending. Once approved, you'll be able to join the discussion.</p>
-          <p v-else>The chat room could not be automatically created. This may be because the event organizer has not set up chat functionality yet.</p>
+          <p v-else>
+            <span>The chat room could not be initialized. The discussion service may be temporarily unavailable.</span>
+            <span v-if="isInitializing"> Attempting to connect...</span>
+          </p>
+
+          <!-- Add debug info in development mode -->
+          <div v-if="isDev" class="text-grey-8 q-mt-md">
+            <p>Debug info:</p>
+            <ul class="q-pa-md">
+              <li>Event slug: {{ event.slug }}</li>
+              <li>Attendee status: {{ event.attendee?.status }}</li>
+              <li>Room ID: {{ matrixRoomId || 'Not available' }}</li>
+              <li>Matrix initialized: {{ !!messageStore?.matrixConnectionAttempted }}</li>
+              <li>Matrix connected: {{ !!messageStore?.matrixConnected }}</li>
+              <li>Last initialization: {{ lastInitializationStatus }}</li>
+            </ul>
+          </div>
         </div>
         <template v-slot:action v-if="discussionPermissions.canWrite && event?.attendee?.status === 'confirmed'">
           <q-btn
@@ -448,10 +821,17 @@ onMounted(async () => {
             color="white"
             label="Retry"
             :loading="isInitializing"
-            @click="ensureChatRoomExists"
+            @click="retryRoomInitialization"
           />
         </template>
       </q-banner>
     </div>
+  </div>
+  <!-- Message about chat being unavailable for non-confirmed attendees -->
+  <div class="c-event-topics-component" v-else-if="event">
+    <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" hide-link />
+    <q-banner class="bg-info text-white q-mt-md">
+      <p>Chat is only available to confirmed attendees. Please RSVP and get confirmed to participate in the discussion.</p>
+    </q-banner>
   </div>
 </template>
