@@ -42,6 +42,20 @@ export const chatApi = {
   getGroupMessages: (groupSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/group/${groupSlug}/messages`, { params: { limit, from } }),
 
+  // Group chat room membership
+  joinGroupChatRoom: (groupSlug: string): Promise<AxiosResponse<{ success: boolean; roomId?: string; message?: string }>> =>
+    api.post(`/api/chat/group/${groupSlug}/join`),
+
+  addMemberToGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<{
+    success?: boolean;
+    roomId?: string;
+    message?: string;
+  }>> =>
+    api.post(`/api/chat/group/${groupSlug}/members/${userSlug}`),
+
+  removeMemberFromGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
+    api.delete(`/api/chat/group/${groupSlug}/members/${userSlug}`),
+
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>
     api.post('/api/chat/messages/read', { messages: messageIds }),

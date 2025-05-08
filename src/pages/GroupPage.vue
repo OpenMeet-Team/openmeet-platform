@@ -46,6 +46,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { GroupPermission } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
+import { chatApi } from '../api/chat'
 
 const route = useRoute()
 
@@ -68,12 +69,51 @@ useMeta({
   }
 })
 
-onMounted(() => {
+onMounted(async () => {
   LoadingBar.start()
-  useGroupStore().actionGetGroup(route.params.slug as string).finally(() => {
+  try {
+    // First load group data
+    await useGroupStore().actionGetGroup(route.params.slug as string)
+
+    // Then check if user is a member of the group
+    const isMember = useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)
+    const isAuthenticated = useAuthStore().isAuthenticated
+    const groupSlug = route.params.slug as string
+
+    console.log('Group loaded, checking membership status:', {
+      isMember,
+      isAuthenticated,
+      groupSlug
+    })
+
+    // If user is a member and authenticated, join the group chat room
+    if (isMember && isAuthenticated) {
+      try {
+        console.log('User is a member of group, joining group chat room')
+        const userSlug = useAuthStore().user?.slug
+
+        if (userSlug) {
+          console.log(`Joining chat room for group ${groupSlug} with user ${userSlug}`)
+          const joinResult = await chatApi.joinGroupChatRoom(groupSlug)
+          console.log('Group chat room join result:', joinResult.data)
+
+          if (joinResult.data?.roomId) {
+            console.log(`Successfully joined Matrix room for group: ${joinResult.data.roomId}`)
+          }
+        }
+      } catch (err) {
+        // Non-critical error, just log it but don't interrupt page load
+        console.error('Failed to auto-join group chat room:', err)
+      }
+    } else {
+      console.log('User is not a member or not authenticated, skipping chat room join')
+    }
+  } catch (error) {
+    console.error('Error loading group data:', error)
+  } finally {
     LoadingBar.stop()
     groupMounted.value = true
-  })
+  }
 })
 
 // const hasPermission = computed(() => {
