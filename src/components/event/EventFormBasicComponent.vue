@@ -28,24 +28,42 @@
             <div class="text-subtitle2 q-mb-sm">Date and Time</div>
 
             <!-- Event Start Date -->
-            <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
-              v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
-              reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
+            <div>
+              <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
+                v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                @update:time-info="handleStartTimeInfo"
+                reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
+
+              <!-- Simple time confirmation display -->
+              <div v-if="eventData.startDate" class="text-caption q-mt-xs">
+                <q-icon name="sym_r_schedule" size="xs" class="q-mr-xs" color="primary" />
+                <strong>Event time:</strong> {{ displayedStartTime || formatEventTime(eventData.startDate) }}
+              </div>
+            </div>
 
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
               <q-checkbox data-cy="event-set-end-time" class="q-mt-md" :model-value="!!eventData.endDate"
                 @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set an end time..." />
 
-              <DatetimeComponent data-cy="event-end-date" v-if="eventData.endDate" label="Ending date and time"
-                v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
-                reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
-                <template v-slot:hint>
-                  <div class="text-bold">
-                    {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
-                  </div>
-                </template>
-              </DatetimeComponent>
+              <div v-if="eventData.endDate">
+                <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
+                  v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                  @update:time-info="handleEndTimeInfo"
+                  reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+                  <template v-slot:hint>
+                    <div class="text-bold">
+                      {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+                    </div>
+                  </template>
+                </DatetimeComponent>
+
+                <!-- End time confirmation display -->
+                <div class="text-caption q-mt-xs">
+                  <q-icon name="sym_r_schedule" size="xs" class="q-mr-xs" color="primary" />
+                  <strong>End time:</strong> {{ displayedEndTime || formatEventTime(eventData.endDate) }}
+                </div>
+              </div>
 
             </template>
 
@@ -470,6 +488,104 @@ const onSubmit = async () => {
     ...eventData.value
   }
 
+  // CRITICAL FIX: Ensure we have a proper time in the event (not 00:00)
+  if (event.startDate) {
+    console.log('Checking event time before submission:', event.startDate)
+
+    // If we have an explicitly set time from the user (via time picker), use that
+    if (displayedStartTime.value) {
+      console.log('Using user-selected time:', displayedStartTime.value)
+      
+      // Parse the displayed time to get hours and minutes 
+      // This is the time the user explicitly selected
+      const timeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
+      const match = displayedStartTime.value.match(timeRegex)
+      
+      if (match) {
+        let hours = parseInt(match[1], 10)
+        const minutes = parseInt(match[2], 10)
+        const period = match[3].toUpperCase()
+        
+        // Convert to 24-hour time
+        if (period === 'PM' && hours < 12) hours += 12
+        if (period === 'AM' && hours === 12) hours = 0
+        
+        // ALWAYS force the correct time from what the user selected
+        // Ignore any time that might currently be in the event object
+        console.log(`CRITICAL: Forcing selected time: ${hours}:${minutes} ${period}`)
+        
+        // Get the date components only
+        const dateOnly = event.startDate.split('T')[0]
+        
+        // Set the time using the parsed hours and minutes
+        // IMPORTANT: Force the Z timezone indicator to ensure consistent interpretation
+        event.startDate = `${dateOnly}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`
+        console.log('Enforced exact user-selected time on event:', event.startDate)
+        
+        // Store the hours and minutes explicitly on the event object to prevent any timezone conversion issues
+        event._explicitHours = hours
+        event._explicitMinutes = minutes
+      }
+    }
+    // If we don't have a user-selected time, fall back to default behavior
+    else {
+      const dateObj = new Date(event.startDate)
+      const hours = dateObj.getHours()
+      const minutes = dateObj.getMinutes()
+
+      // If time is midnight (00:00), set a reasonable default time (5:00 PM)
+      if (hours === 0 && minutes === 0) {
+        console.log('Time is midnight, applying default time (5:00 PM)')
+
+        // Get date components only
+        const dateOnly = event.startDate.split('T')[0]
+
+        // Set the time to 5:00 PM in ISO format
+        event.startDate = `${dateOnly}T17:00:00.000Z`
+        console.log('Fixed event time:', event.startDate)
+
+        // Also fix end date if it exists
+        if (event.endDate) {
+          // If we have a user-selected end time, use that
+          if (displayedEndTime.value) {
+            // Parse the displayed end time to get hours and minutes
+            const endTimeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
+            const endMatch = displayedEndTime.value.match(endTimeRegex)
+            
+            if (endMatch) {
+              let endHours = parseInt(endMatch[1], 10)
+              const endMinutes = parseInt(endMatch[2], 10)
+              const endPeriod = endMatch[3].toUpperCase()
+              
+              // Convert to 24-hour time
+              if (endPeriod === 'PM' && endHours < 12) endHours += 12
+              if (endPeriod === 'AM' && endHours === 12) endHours = 0
+              
+              // Force the correct end time
+              const endDateOnly = event.endDate.split('T')[0]
+              event.endDate = `${endDateOnly}T${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00.000Z`
+              console.log('Enforced user-selected end time:', event.endDate)
+              
+              // Store explicit values
+              event._explicitEndHours = endHours
+              event._explicitEndMinutes = endMinutes
+            } else {
+              // Fallback to default if we couldn't parse the selected time
+              const endDateOnly = event.endDate.split('T')[0]
+              event.endDate = `${endDateOnly}T18:00:00.000Z` // Default to 6:00 PM
+              console.log('Fixed end time to default:', event.endDate)
+            }
+          } else {
+            // No selected end time, use default
+            const endDateOnly = event.endDate.split('T')[0]
+            event.endDate = `${endDateOnly}T18:00:00.000Z` // Default to 6:00 PM
+            console.log('Fixed end time to default:', event.endDate)
+          }
+        }
+      }
+    }
+  }
+
   if (eventData.value.categories) {
     event.categories = eventData.value.categories.map(category => {
       return typeof category === 'object' ? category.id : category
@@ -699,8 +815,136 @@ const addBlueskySourceInfo = (event: EventEntity) => {
   }
 }
 
+// Helper function to format time in a user-friendly way
+const formatEventTime = (isoString: string): string => {
+  if (!isoString) return ''
+
+  try {
+    const date = new Date(isoString)
+    // Check if time is midnight
+    if (date.getHours() === 0 && date.getMinutes() === 0) {
+      return '5:00 PM (default time)'
+    }
+
+    // Format time as 12-hour clock with AM/PM
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+  } catch (e) {
+    console.error('Error formatting time:', e)
+    return '5:00 PM (default time)'
+  }
+}
+
+// Store the displayed start and end times
+const displayedStartTime = ref<string>('')
+const displayedEndTime = ref<string>('')
+
+// Handle time info updates from the DatetimeComponent
+const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
+  console.log('Received time info from DatetimeComponent:', timeInfo)
+  
+  // Store the formatted time for display
+  displayedStartTime.value = timeInfo.formattedTime
+  
+  // If we have specific time parts, ensure event data has the correct time
+  if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
+    // Immediately update event data with the correct time
+    setExplicitEventTime(timeInfo.originalHours, timeInfo.originalMinutes)
+    
+    // CRITICAL: Force the correct time into the eventData object to prevent it from being overridden
+    const fixEventTime = () => {
+      if (eventData.value.startDate) {
+        // Get the date part of the ISO string
+        const datePart = eventData.value.startDate.split('T')[0]
+        // Create a new ISO string with the explicit time
+        const correctTimeISO = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00.000Z`
+        // Only update if the time is different
+        if (eventData.value.startDate !== correctTimeISO) {
+          console.log('Correcting event time to match user selection:', correctTimeISO)
+          eventData.value.startDate = correctTimeISO
+        }
+      }
+    }
+    
+    // Apply correction immediately and after a short delay to catch any overrides
+    fixEventTime()
+    setTimeout(fixEventTime, 50)
+  }
+}
+
+// Handle time info updates for end date
+const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
+  console.log('Received end time info from DatetimeComponent:', timeInfo)
+  
+  // Store the formatted time for display
+  displayedEndTime.value = timeInfo.formattedTime
+  
+  // If we have specific time parts, ensure event data has the correct time
+  if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
+    // For end time, we use the exact time provided
+    if (eventData.value.endDate) {
+      // Set end time explicitly
+      const datePart = eventData.value.endDate.split('T')[0]
+      const correctTimeISO = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00.000Z`
+      
+      // Only update if different
+      if (eventData.value.endDate !== correctTimeISO) {
+        console.log('End time explicitly set to:', `${timeInfo.originalHours}:${timeInfo.originalMinutes}`, correctTimeISO)
+        eventData.value.endDate = correctTimeISO
+      }
+      
+      // CRITICAL: Create a function to ensure the time is preserved
+      const fixEndTime = () => {
+        if (eventData.value.endDate) {
+          const datePart = eventData.value.endDate.split('T')[0]
+          const correctTimeISO = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00.000Z`
+          
+          if (eventData.value.endDate !== correctTimeISO) {
+            console.log('Correcting end time to match user selection:', correctTimeISO)
+            eventData.value.endDate = correctTimeISO
+          }
+        }
+      }
+      
+      // Apply correction immediately and after a short delay to catch any overrides
+      fixEndTime()
+      setTimeout(fixEndTime, 50)
+    }
+  }
+}
+
+// Sets a specific time for the event
+const setExplicitEventTime = (hours: number, minutes: number) => {
+  if (eventData.value.startDate) {
+    const datePart = eventData.value.startDate.split('T')[0]
+    eventData.value.startDate = `${datePart}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`
+    console.log('Start time explicitly set to:', `${hours}:${minutes}`, eventData.value.startDate)
+  }
+
+  // Also update end time if it exists
+  if (eventData.value.endDate) {
+    const endDatePart = eventData.value.endDate.split('T')[0]
+    const endHours = (hours + 1) % 24 // Default end time is start time + 1 hour
+    eventData.value.endDate = `${endDatePart}T${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`
+    console.log('End time explicitly set to:', `${endHours}:${minutes}`, eventData.value.endDate)
+  }
+}
+
 const updateStartDate = (newStartDate: string) => {
   eventData.value.startDate = newStartDate
+
+  // Extract the time from the new start date
+  const date = new Date(newStartDate)
+  const hours = date.getHours()
+  const minutes = date.getMinutes()
+
+  // If time is midnight, set a default time (5:00 PM)
+  if (hours === 0 && minutes === 0) {
+    setExplicitEventTime(17, 0) // 17:00 = 5:00 PM
+  }
 }
 </script>
 
