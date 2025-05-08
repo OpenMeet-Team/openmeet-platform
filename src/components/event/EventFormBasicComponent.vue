@@ -324,6 +324,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
@@ -495,40 +496,43 @@ const onSubmit = async () => {
     // If we have an explicitly set time from the user (via time picker), use that
     if (displayedStartTime.value) {
       console.log('Using user-selected time:', displayedStartTime.value)
-      
-      // Parse the displayed time to get hours and minutes 
+
+      // Parse the displayed time to get hours and minutes
       // This is the time the user explicitly selected
       const timeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
       const match = displayedStartTime.value.match(timeRegex)
-      
+
       if (match) {
         let hours = parseInt(match[1], 10)
         const minutes = parseInt(match[2], 10)
         const period = match[3].toUpperCase()
-        
+
         // Convert to 24-hour time
         if (period === 'PM' && hours < 12) hours += 12
         if (period === 'AM' && hours === 12) hours = 0
-        
+
         // ALWAYS force the correct time from what the user selected
         // Ignore any time that might currently be in the event object
         console.log(`CRITICAL: Forcing selected time: ${hours}:${minutes} ${period}`)
-        
+
         // Get the date components only
         const dateOnly = event.startDate.split('T')[0]
-        
-        // Set the time using the parsed hours and minutes
-        // IMPORTANT: Force the Z timezone indicator to ensure consistent interpretation
-        event.startDate = `${dateOnly}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000Z`
-        console.log('Enforced exact user-selected time on event:', event.startDate)
-        
-        // Store the hours and minutes explicitly on the event object to prevent any timezone conversion issues
-        event._explicitHours = hours
-        event._explicitMinutes = minutes
+
+        // Build a full datetime string from the date and selected time
+        const localTimeStr = `${dateOnly}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+
+        // Convert local datetime to UTC using the user's selected timezone
+        const zonedDate = toZonedTime(new Date(localTimeStr), event.timeZone)
+        const utcDate = fromZonedTime(zonedDate, event.timeZone)
+
+        // Store the properly converted UTC time as ISO string
+        event.startDate = utcDate.toISOString()
+        console.log('Enforced exact user-selected time with timezone conversion:', event.startDate)
+
+        // Store original time values for debugging
+        console.log('Original time values:', { hours, minutes })
       }
-    }
-    // If we don't have a user-selected time, fall back to default behavior
-    else {
+    } else { // If we don't have a user-selected time, fall back to default behavior
       const dateObj = new Date(event.startDate)
       const hours = dateObj.getHours()
       const minutes = dateObj.getMinutes()
@@ -551,24 +555,23 @@ const onSubmit = async () => {
             // Parse the displayed end time to get hours and minutes
             const endTimeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
             const endMatch = displayedEndTime.value.match(endTimeRegex)
-            
+
             if (endMatch) {
               let endHours = parseInt(endMatch[1], 10)
               const endMinutes = parseInt(endMatch[2], 10)
               const endPeriod = endMatch[3].toUpperCase()
-              
+
               // Convert to 24-hour time
               if (endPeriod === 'PM' && endHours < 12) endHours += 12
               if (endPeriod === 'AM' && endHours === 12) endHours = 0
-              
+
               // Force the correct end time
               const endDateOnly = event.endDate.split('T')[0]
               event.endDate = `${endDateOnly}T${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00.000Z`
               console.log('Enforced user-selected end time:', event.endDate)
-              
-              // Store explicit values
-              event._explicitEndHours = endHours
-              event._explicitEndMinutes = endMinutes
+
+              // Store original end time values for debugging
+              console.log('Original end time values:', { endHours, endMinutes })
             } else {
               // Fallback to default if we couldn't parse the selected time
               const endDateOnly = event.endDate.split('T')[0]
@@ -845,15 +848,15 @@ const displayedEndTime = ref<string>('')
 // Handle time info updates from the DatetimeComponent
 const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received time info from DatetimeComponent:', timeInfo)
-  
+
   // Store the formatted time for display
   displayedStartTime.value = timeInfo.formattedTime
-  
+
   // If we have specific time parts, ensure event data has the correct time
   if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
     // Immediately update event data with the correct time
     setExplicitEventTime(timeInfo.originalHours, timeInfo.originalMinutes)
-    
+
     // CRITICAL: Force the correct time into the eventData object to prevent it from being overridden
     const fixEventTime = () => {
       if (eventData.value.startDate) {
@@ -868,7 +871,7 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
         }
       }
     }
-    
+
     // Apply correction immediately and after a short delay to catch any overrides
     fixEventTime()
     setTimeout(fixEventTime, 50)
@@ -878,10 +881,10 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
 // Handle time info updates for end date
 const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received end time info from DatetimeComponent:', timeInfo)
-  
+
   // Store the formatted time for display
   displayedEndTime.value = timeInfo.formattedTime
-  
+
   // If we have specific time parts, ensure event data has the correct time
   if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
     // For end time, we use the exact time provided
@@ -889,26 +892,26 @@ const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: n
       // Set end time explicitly
       const datePart = eventData.value.endDate.split('T')[0]
       const correctTimeISO = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00.000Z`
-      
+
       // Only update if different
       if (eventData.value.endDate !== correctTimeISO) {
         console.log('End time explicitly set to:', `${timeInfo.originalHours}:${timeInfo.originalMinutes}`, correctTimeISO)
         eventData.value.endDate = correctTimeISO
       }
-      
+
       // CRITICAL: Create a function to ensure the time is preserved
       const fixEndTime = () => {
         if (eventData.value.endDate) {
           const datePart = eventData.value.endDate.split('T')[0]
           const correctTimeISO = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00.000Z`
-          
+
           if (eventData.value.endDate !== correctTimeISO) {
             console.log('Correcting end time to match user selection:', correctTimeISO)
             eventData.value.endDate = correctTimeISO
           }
         }
       }
-      
+
       // Apply correction immediately and after a short delay to catch any overrides
       fixEndTime()
       setTimeout(fixEndTime, 50)

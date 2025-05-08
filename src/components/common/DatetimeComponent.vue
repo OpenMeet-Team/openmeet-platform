@@ -120,8 +120,8 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, defineProps, defineEmits } from 'vue'
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz'
-import { parse, isValid, format } from 'date-fns'
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'
+import { parse, isValid, format, parseISO } from 'date-fns'
 import { RecurrenceService } from '../../services/recurrenceService'
 
 // Define props and emit event
@@ -194,7 +194,8 @@ const applyTimezone = () => {
     // We want the exact same date/time to be shown in the new timezone
 
     // Force a display update while preserving original date/time value
-    const currentDateTime = date.value
+    // Keep reference to current datetime value (unused but keeping for clarity)
+    // const prevDateTime = date.value
     tempDate.value = currentDisplayDate
     tempTime.value = currentDisplayTime
 
@@ -220,10 +221,10 @@ const updateTempValuesFromISO = () => {
     })
 
     const dateObj = new Date(date.value)
-    let datePart, timePart
+    let timePart
 
     // Always use local date formatting to avoid timezone shifting
-    datePart = dateObj.toISOString().split('T')[0] // Extract YYYY-MM-DD from ISO
+    const datePart = dateObj.toISOString().split('T')[0] // Extract YYYY-MM-DD from ISO
 
     // Format time in 12-hour format with AM/PM
     // We need to check if we just updated the time - if so, don't override it
@@ -290,7 +291,7 @@ const finishEditing = () => {
   if (editableDate.value) {
     try {
       const input = editableDate.value.trim()
-      const currentYear = new Date().getFullYear()
+      // We'll use the current date for reference
       let parsedDate: Date | null = null
 
       // Try various date formats with date-fns
@@ -446,9 +447,7 @@ const processTimeInput = () => {
           parsedTime = new Date(baseDate)
           console.log('Parsed time with numeric format:', parsedTime.toLocaleTimeString())
         }
-      }
-      // Try with dot separator (like "14.30")
-      else if (/^\d{1,2}\.\d{2}$/.test(input)) {
+      } else if (/^\d{1,2}\.\d{2}$/.test(input)) { // Try with dot separator (like "14.30")
         const parts = input.split('.')
         const hours = parseInt(parts[0], 10)
         const minutes = parseInt(parts[1], 10)
@@ -469,7 +468,7 @@ const processTimeInput = () => {
       console.log('Successfully parsed time to:', formattedTime)
 
       // Get current date values or use today's date if no date is set yet
-      const currentDate = date.value ? new Date(date.value) : new Date()
+      const currentDate = date.value ? parseISO(date.value) : new Date()
 
       // Check if currentDate is valid before proceeding
       if (!isValid(currentDate)) {
@@ -477,11 +476,29 @@ const processTimeInput = () => {
         // Use today's date as fallback
         const today = new Date()
         today.setHours(parsedTime.getHours(), parsedTime.getMinutes(), 0, 0)
-        date.value = today.toISOString()
-        tempDate.value = today.toISOString().split('T')[0]
+
+        // Convert to the selected timezone
+        const zonedDate = toZonedTime(today, props.timeZone || RecurrenceService.getUserTimezone())
+        const tzDate = fromZonedTime(zonedDate, props.timeZone || RecurrenceService.getUserTimezone())
+        date.value = tzDate.toISOString()
+        tempDate.value = format(tzDate, 'yyyy-MM-dd')
       } else {
-      // Update only the time part of the date without changing the date
-        currentDate.setHours(parsedTime.getHours(), parsedTime.getMinutes(), 0, 0)
+        // Create a new date with the parsed time
+        const dateWithTime = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          parsedTime.getHours(),
+          parsedTime.getMinutes(),
+          0
+        )
+
+        // Convert to the selected timezone
+        const zonedDate = toZonedTime(dateWithTime, props.timeZone || RecurrenceService.getUserTimezone())
+        const tzDate = fromZonedTime(zonedDate, props.timeZone || RecurrenceService.getUserTimezone())
+
+        // Update the date value
+        date.value = tzDate.toISOString()
       }
 
       // Disable editing before updating tempTime to prevent watcher from overriding
@@ -491,81 +508,42 @@ const processTimeInput = () => {
       tempTime.value = formattedTime
       editableTime.value = formattedTime
 
-      // Update the model with the new time
-      try {
-      // BUGFIX: Before generating ISO string, verify this is really the correct time
-      // This can catch timezone conversion issues
-        console.log('Time being set:', parsedTime.getHours() + ':' + parsedTime.getMinutes(),
-          'AM/PM:', parsedTime.getHours() >= 12 ? 'PM' : 'AM')
+      // Store the expected time parts for verification
+      const expectedHours = parsedTime.getHours()
+      const expectedMinutes = parsedTime.getMinutes()
 
-        // Store the expected time parts for verification
-        const expectedHours = parsedTime.getHours()
-        const expectedMinutes = parsedTime.getMinutes()
+      console.log('CRITICAL: Time being set:', expectedHours + ':' + expectedMinutes,
+        'AM/PM:', expectedHours >= 12 ? 'PM' : 'AM')
+      console.log('Timezone-adjusted ISO:', date.value)
 
-        // Generate ISO string
-        const newDateIso = currentDate.toISOString()
-        console.log('Updating date.value to ISO:', newDateIso)
+      // Emit the change to the parent with additional timezone info
+      emit('update:model-value', date.value, {
+        originalHours: expectedHours,
+        originalMinutes: expectedMinutes,
+        formattedTime,
+        timezone: props.timeZone
+      })
 
-        // Verify the ISO string represents the correct time by parsing it back
-        const verifyDate = new Date(newDateIso)
-        const isoHours = verifyDate.getHours()
-        const isoMinutes = verifyDate.getMinutes()
+      // Also emit time-info separately to ensure parent gets it
+      emit('update:time-info', {
+        originalHours: expectedHours,
+        originalMinutes: expectedMinutes,
+        formattedTime,
+        timezone: props.timeZone
+      })
 
-        console.log('Verification - parsed back from ISO:',
-          isoHours + ':' + isoMinutes,
-          'AM/PM:', isoHours >= 12 ? 'PM' : 'AM')
-
-        // First update the internal date value
-        date.value = newDateIso
-
-        // CRITICAL FIX: Log time values being sent to parent
-        console.log('CRITICAL: Emitting originalHours/Minutes:', expectedHours, expectedMinutes)
-
-        // Then emit the change to the parent - but include extra info to help the parent
-        // preserve the correct time
-        emit('update:model-value', newDateIso, {
-        // Include original time values to help parent component handle timezone issues
-          originalHours: expectedHours,
-          originalMinutes: expectedMinutes,
-          formattedTime
+      // Double-check our values after the update
+      setTimeout(() => {
+        if (tempTime.value !== formattedTime) {
+          console.warn('Time got reset! Forcing it back to:', formattedTime)
+          tempTime.value = formattedTime
+          editableTime.value = formattedTime
+        }
+        console.log('Final time values:', {
+          tempTime: tempTime.value,
+          editableTime: editableTime.value
         })
-
-        // CRITICAL FIX: Also emit time-info to ensure parent gets it
-        emit('update:time-info', {
-          originalHours: expectedHours,
-          originalMinutes: expectedMinutes,
-          formattedTime
-        })
-
-        // Double-check our values after the update
-        setTimeout(() => {
-          if (tempTime.value !== formattedTime) {
-            console.warn('Time got reset! Forcing it back to:', formattedTime)
-            tempTime.value = formattedTime
-            editableTime.value = formattedTime
-          }
-          console.log('Final time values:', {
-            tempTime: tempTime.value,
-            editableTime: editableTime.value
-          })
-        }, 10)
-      } catch (error) {
-        console.error('Error generating ISO string:', error)
-        // Use a fallback for invalid dates
-        const fallbackDate = new Date()
-        fallbackDate.setHours(parsedTime.getHours(), parsedTime.getMinutes(), 0, 0)
-        const fallbackIso = fallbackDate.toISOString()
-
-        console.log('Using fallback ISO:', fallbackIso)
-        date.value = fallbackIso
-
-        // CRITICAL FIX: Include time info here too
-        emit('update:model-value', fallbackIso, {
-          originalHours: parsedTime.getHours(),
-          originalMinutes: parsedTime.getMinutes(),
-          formattedTime
-        })
-      }
+      }, 10)
     } else {
       console.log('Failed to parse time, reverting to:', tempTime.value)
       // Invalid time format, revert to previous valid time
@@ -600,64 +578,62 @@ const onTimeUpdate = (newTime: string | null) => {
       let hours = 0
       let minutes = 0
       let formattedTime = newTime
-      
+
       // Check for HH:MM format from picker
       const timeRegex = /^(\d{1,2}):(\d{2})$/
       const match = newTime.match(timeRegex)
-      
+
       if (match) {
         console.log('Parsing time picker format:', newTime)
         hours = parseInt(match[1], 10)
         minutes = parseInt(match[2], 10)
-        
+
         // Default to AM/PM based on hour
         const period = hours >= 12 ? 'PM' : 'AM'
-        
+
         // Format for 12-hour display
         const displayHour = hours % 12 === 0 ? 12 : hours % 12
         formattedTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`
-        
+
         console.log('Converted picker time to:', formattedTime)
-      } 
-      // If not a simple HH:MM format, try parsing with date-fns
-      else {
+      } else { // If not a simple HH:MM format, try parsing with date-fns
         try {
           const parsedTime = parse(newTime, 'h:mm a', baseDate)
           if (isValid(parsedTime)) {
             hours = parsedTime.getHours()
             minutes = parsedTime.getMinutes()
-            
+
             // Format consistently
             const period = hours >= 12 ? 'PM' : 'AM'
             const displayHour = hours % 12 === 0 ? 12 : hours % 12
             formattedTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`
-            
+
             console.log('Parsed picker time with date-fns:', formattedTime)
           }
         } catch (e) {
           console.log('Failed to parse with date-fns, using regex fallback')
-          
+
           // Try a more flexible regex
-          const flexRegex = /(\d{1,2})[:\.]?(\d{2})?\s*([ap]\.?m\.?)?/i
+          const flexRegex = /(\d{1,2})[:.]?(\d{2})?\s*([ap]\.?m\.?)?/i
           const flexMatch = newTime.match(flexRegex)
-          
+
           if (flexMatch) {
             hours = parseInt(flexMatch[1], 10)
             minutes = flexMatch[2] ? parseInt(flexMatch[2], 10) : 0
             const periodHint = flexMatch[3] ? flexMatch[3].toLowerCase().startsWith('p') : null
-            
+
             // Apply AM/PM logic
             if (periodHint === true && hours < 12) {
               hours += 12
             } else if (periodHint === false && hours === 12) {
               hours = 0
             }
-            
+
             // Default period based on hour
             const period = hours >= 12 ? 'PM' : 'AM'
             const displayHour = hours % 12 === 0 ? 12 : hours % 12
             formattedTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`
-            
+
             console.log('Parsed time with flexible regex:', formattedTime)
           }
         }
@@ -665,7 +641,7 @@ const onTimeUpdate = (newTime: string | null) => {
 
       console.log('Final parsed time:', hours, minutes, formattedTime)
 
-      // Update only the time part of the date
+      // Create a complete datetime with the parsed time
       try {
         // Check if date.value exists, if not use today's date
         let currentDate
@@ -673,7 +649,7 @@ const onTimeUpdate = (newTime: string | null) => {
           currentDate = new Date()
         } else {
           try {
-            currentDate = new Date(date.value)
+            currentDate = parseISO(date.value)
             if (!isValid(currentDate)) {
               console.warn('Invalid current date, using today instead')
               currentDate = new Date()
@@ -684,51 +660,66 @@ const onTimeUpdate = (newTime: string | null) => {
           }
         }
 
-        // Set the hours and minutes from the parsed time
-        currentDate.setHours(hours, minutes, 0, 0)
+        // Create a new date with the parsed time
+        const dateWithTime = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          hours,
+          minutes,
+          0
+        )
 
-        // Update the model with the new time
-        const newDateIso = currentDate.toISOString()
-        console.log('Setting new ISO from picker:', newDateIso)
+        // Convert to the selected timezone
+        const zonedDate = toZonedTime(dateWithTime, props.timeZone || RecurrenceService.getUserTimezone())
+        const tzDate = fromZonedTime(zonedDate, props.timeZone || RecurrenceService.getUserTimezone())
 
-        // First update our internal value
-        date.value = newDateIso
+        console.log('Setting new timezone-adjusted ISO from picker:', tzDate.toISOString())
+
+        // Update our internal value
+        date.value = tzDate.toISOString()
 
         // Update tempTime and editableTime to the formatted version
         tempTime.value = formattedTime
         editableTime.value = formattedTime
 
-        // CRITICAL FIX: Log explicit time values
-        console.log('CRITICAL: Emitting time values from picker:', hours, minutes)
+        console.log('Emitting time values from picker:', hours, minutes, 'in timezone:', props.timeZone)
 
-        // Then emit the change to parent with explicit time values
-        emit('update:model-value', newDateIso, {
+        // Emit the change with timezone info
+        emit('update:model-value', date.value, {
           originalHours: hours,
           originalMinutes: minutes,
-          formattedTime: formattedTime
+          formattedTime,
+          timezone: props.timeZone
         })
 
-        // CRITICAL FIX: Also emit time-info for consistency
+        // Also emit time-info separately
         emit('update:time-info', {
           originalHours: hours,
           originalMinutes: minutes,
-          formattedTime: formattedTime
+          formattedTime,
+          timezone: props.timeZone
         })
       } catch (error) {
         console.error('Error parsing time from picker:', error)
         // Use a fallback date with the correct time
         const fallbackDate = new Date()
         fallbackDate.setHours(hours, minutes, 0, 0)
-        const fallbackIso = fallbackDate.toISOString()
 
-        console.log('Using fallback ISO from picker:', fallbackIso)
+        // Convert to the selected timezone
+        const zonedFallbackDate = toZonedTime(fallbackDate, props.timeZone || RecurrenceService.getUserTimezone())
+        const tzFallbackDate = fromZonedTime(zonedFallbackDate, props.timeZone || RecurrenceService.getUserTimezone())
+        const fallbackIso = tzFallbackDate.toISOString()
+
+        console.log('Using fallback ISO from picker with timezone adjustment:', fallbackIso)
         date.value = fallbackIso
 
-        // CRITICAL FIX: Include time info in fallback too
+        // Include timezone info in fallback too
         emit('update:model-value', fallbackIso, {
           originalHours: hours,
           originalMinutes: minutes,
-          formattedTime: formattedTime
+          formattedTime,
+          timezone: props.timeZone
         })
       }
 
