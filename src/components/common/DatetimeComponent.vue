@@ -516,6 +516,19 @@ const processTimeInput = () => {
         'AM/PM:', expectedHours >= 12 ? 'PM' : 'AM')
       console.log('Timezone-adjusted ISO:', date.value)
 
+      // Extra detailed debug logging
+      console.log('DATETIME COMPONENT TIMEZONE DEBUG:', {
+        formattedTime,
+        expectedHours,
+        expectedMinutes,
+        timezoneName: props.timeZone,
+        dateValue: date.value,
+        userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        isoDate: new Date(date.value).toISOString(),
+        utcHours: new Date(date.value).getUTCHours(),
+        utcMinutes: new Date(date.value).getUTCMinutes()
+      })
+
       // Emit the change to the parent with additional timezone info
       emit('update:model-value', date.value, {
         originalHours: expectedHours,
@@ -881,6 +894,19 @@ const updateDateTime = () => {
 
       console.log('Final ISO string generated:', isoString)
       console.log('With explicit time values:', hours + ':' + minutes)
+
+      // DETAILED TIMEZONE DEBUG
+      console.log('DATETIME UPDATE TIMEZONE DEBUG:', {
+        timezoneName: props.timeZone,
+        browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        explicitTimeValues: `${hours}:${minutes}`,
+        date: yearStr + '-' + monthStr + '-' + dayStr,
+        finalDate: finalDate.toString(),
+        isoString,
+        utcHours: finalDate.getUTCHours(),
+        utcMinutes: finalDate.getUTCMinutes(),
+        isoTimeString: isoString.split('T')[1]
+      })
 
       // Emit to parent with additional metadata about the true time values
       emit('update:model-value', isoString, {
