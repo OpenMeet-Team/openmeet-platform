@@ -442,6 +442,7 @@ import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
 import { Dark, LoadingBar, useMeta, useQuasar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { eventsApi } from '../api/events'
+import { chatApi } from '../api/chat'
 import { formatDate } from '../utils/dateUtils'
 import LeafletMapComponent from '../components/common/LeafletMapComponent.vue'
 import MenuItemComponent from '../components/common/MenuItemComponent.vue'
@@ -476,6 +477,17 @@ interface SeriesOccurrence {
   eventSlug: string | null;
 }
 
+// Define interface for the attendee status change event
+interface AttendeeStatusChangeDetail {
+  eventSlug: string;
+  status: string;
+  timestamp: number;
+}
+
+interface AttendeeStatusChangeEvent extends Event {
+  detail: AttendeeStatusChangeDetail;
+}
+
 // Define global window property
 declare global {
   interface Window {
@@ -502,7 +514,51 @@ const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
 }
 
+// Handle attendee status changes to automatically join chat room when a user becomes confirmed
+const handleAttendeeStatusChanged = async (e: Event) => {
+  // Custom events have a detail property
+  if (!e || !('detail' in e)) return
+
+  // Use the properly typed event
+  const customEvent = e as AttendeeStatusChangeEvent
+  const { eventSlug, status, timestamp } = customEvent.detail
+  console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
+
+  // Only handle changes for the current event
+  if (eventSlug === route.params.slug) {
+    // If the user just became a confirmed attendee, join the chat room
+    if (status === 'confirmed') {
+      console.log('User attendance status changed to confirmed, joining chat room')
+
+      // Add a small delay to ensure backend state is updated
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      try {
+        const userSlug = useAuthStore().user?.slug
+        if (userSlug) {
+          console.log(`Joining chat room for event ${eventSlug} after status change to confirmed`)
+          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
+          console.log('Chat room join result after status change:', joinResult.data)
+
+          if (joinResult.data?.roomId) {
+            console.log(`Successfully joined Matrix room after status change: ${joinResult.data.roomId}`)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to join chat room after attendance status change:', err)
+      }
+    }
+  }
+}
+
+onMounted(() => {
+  // Listen for attendance status changes (sent from EventAttendanceButton.vue)
+  window.addEventListener('attendee-status-changed', handleAttendeeStatusChanged)
+})
+
 onBeforeUnmount(() => {
+  // Clean up event listener
+  window.removeEventListener('attendee-status-changed', handleAttendeeStatusChanged)
   useEventStore().$reset()
 })
 
@@ -562,6 +618,30 @@ onMounted(async () => {
     if (!useEventStore().event?.seriesSlug && useEventStore().event?.seriesId) {
       console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
     }
+
+    // Automatically join chat room if user is a confirmed attendee
+    // This ensures the user is added to the Matrix room for this event
+    if (useEventStore().event?.attendee?.status === 'confirmed') {
+      try {
+        console.log('User is a confirmed attendee, ensuring chat room membership')
+        const userSlug = useAuthStore().user?.slug
+
+        if (userSlug) {
+          console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
+          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
+          console.log('Chat room join result:', joinResult.data)
+
+          if (joinResult.data?.roomId) {
+            console.log(`Successfully joined Matrix room: ${joinResult.data.roomId}`)
+          }
+        }
+      } catch (err) {
+        // Non-critical error, just log it but don't interrupt page load
+        console.error('Failed to auto-join event chat room:', err)
+      }
+    } else {
+      console.log('User is not a confirmed attendee, skipping chat room join')
+    }
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
@@ -584,7 +664,7 @@ const loadSimilarEvents = async (slug: string) => {
   }
 }
 
-// Revert onBeforeRouteUpdate to original
+// Enhanced onBeforeRouteUpdate to join chat room when navigating between events
 onBeforeRouteUpdate(async (to) => {
   loaded.value = false
   if (to.params.slug) {
@@ -596,6 +676,28 @@ onBeforeRouteUpdate(async (to) => {
         }),
         loadSimilarEvents(String(to.params.slug))
       ])
+
+      // After loading the event, check if user is a confirmed attendee and join chat room
+      const eventSlug = String(to.params.slug)
+      if (useEventStore().event?.attendee?.status === 'confirmed') {
+        try {
+          console.log('User is a confirmed attendee after route update, ensuring chat room membership')
+          const userSlug = useAuthStore().user?.slug
+
+          if (userSlug) {
+            console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
+            const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
+            console.log('Chat room join result after route update:', joinResult.data)
+
+            if (joinResult.data?.roomId) {
+              console.log(`Successfully joined Matrix room after route update: ${joinResult.data.roomId}`)
+            }
+          }
+        } catch (err) {
+          // Non-critical error, just log it but don't interrupt page load
+          console.error('Failed to auto-join event chat room after route update:', err)
+        }
+      }
     } catch (error) {
       console.error('Failed to load event:', error)
     } finally {
