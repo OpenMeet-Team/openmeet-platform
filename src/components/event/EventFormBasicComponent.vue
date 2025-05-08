@@ -33,18 +33,12 @@
                 v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                 @update:time-info="handleStartTimeInfo"
                 reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
-
-              <!-- Simple time confirmation display -->
-              <div v-if="eventData.startDate" class="text-caption q-mt-xs">
-                <q-icon name="sym_r_schedule" size="xs" class="q-mr-xs" color="primary" />
-                <strong>Event time:</strong> {{ displayedStartTime || formatEventTime(eventData.startDate) }}
-              </div>
             </div>
 
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
               <q-checkbox data-cy="event-set-end-time" class="q-mt-md" :model-value="!!eventData.endDate"
-                @update:model-value="eventData.endDate = $event ? eventData.startDate : ''" label="Set an end time..." />
+                @update:model-value="eventData.endDate = $event ? eventData.startDate : null" label="Set an end time..." />
 
               <div v-if="eventData.endDate">
                 <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
