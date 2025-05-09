@@ -26,6 +26,16 @@
                     <q-item-label caption>Reset user Bluesky authentication sessions</q-item-label>
                   </q-item-section>
                 </q-item>
+
+                <q-item to="/admin/chatroom-management" clickable v-ripple>
+                  <q-item-section avatar>
+                    <q-icon name="sym_r_chat" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Chat Room Management</q-item-label>
+                    <q-item-label caption>Delete and create event/group chat rooms</q-item-label>
+                  </q-item-section>
+                </q-item>
               </q-list>
             </q-card-section>
           </q-card>
