@@ -201,7 +201,7 @@ const loading = ref(false)
 const confirmDialog = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
-const pendingAction = ref<() => Promise<void>>(() => Promise.resolve())
+const pendingAction = ref(async () => {})
 
 // Result dialog
 const resultDialog = ref(false)
@@ -217,7 +217,7 @@ onMounted(() => {
 })
 
 // Event room management
-async function deleteEventRoom() {
+async function deleteEventRoom () {
   if (!eventSlug.value) {
     eventSlugError.value = 'Please enter a valid event slug'
     return
@@ -226,7 +226,7 @@ async function deleteEventRoom() {
   try {
     loading.value = true
     const response = await api.delete(`/api/chat/admin/event/${eventSlug.value}/chatroom`)
-    
+
     resultSuccess.value = response.data?.success || false
     resultMessage.value = response.data?.message || 'Chat room deleted successfully'
     resultDialog.value = true
@@ -240,7 +240,7 @@ async function deleteEventRoom() {
   }
 }
 
-async function createEventRoom() {
+async function createEventRoom () {
   if (!eventSlug.value) {
     eventSlugError.value = 'Please enter a valid event slug'
     return
@@ -249,7 +249,7 @@ async function createEventRoom() {
   try {
     loading.value = true
     const response = await api.post(`/api/chat/admin/event/${eventSlug.value}/chatroom`)
-    
+
     resultSuccess.value = response.data?.success || false
     resultMessage.value = response.data?.message || 'Chat room created successfully'
     resultDialog.value = true
@@ -263,12 +263,12 @@ async function createEventRoom() {
   }
 }
 
-async function resetEventRoom() {
+async function resetEventRoom () {
   // Reset is a combination of delete and create
   try {
     await deleteEventRoom()
     await createEventRoom()
-    
+
     resultSuccess.value = true
     resultMessage.value = 'Chat room was successfully reset'
     resultDialog.value = true
@@ -281,7 +281,7 @@ async function resetEventRoom() {
 }
 
 // Group room management
-async function deleteGroupRoom() {
+async function deleteGroupRoom () {
   if (!groupSlug.value) {
     groupSlugError.value = 'Please enter a valid group slug'
     return
@@ -290,7 +290,7 @@ async function deleteGroupRoom() {
   try {
     loading.value = true
     const response = await api.delete(`/api/chat/admin/group/${groupSlug.value}/chatroom`)
-    
+
     resultSuccess.value = response.data?.success || false
     resultMessage.value = response.data?.message || 'Chat room deleted successfully'
     resultDialog.value = true
@@ -304,7 +304,7 @@ async function deleteGroupRoom() {
   }
 }
 
-async function createGroupRoom() {
+async function createGroupRoom () {
   if (!groupSlug.value) {
     groupSlugError.value = 'Please enter a valid group slug'
     return
@@ -313,7 +313,7 @@ async function createGroupRoom() {
   try {
     loading.value = true
     const response = await api.post(`/api/chat/admin/group/${groupSlug.value}/chatroom`)
-    
+
     resultSuccess.value = response.data?.success || false
     resultMessage.value = response.data?.message || 'Chat room created successfully'
     resultDialog.value = true
@@ -327,12 +327,12 @@ async function createGroupRoom() {
   }
 }
 
-async function resetGroupRoom() {
+async function resetGroupRoom () {
   // Reset is a combination of delete and create
   try {
     await deleteGroupRoom()
     await createGroupRoom()
-    
+
     resultSuccess.value = true
     resultMessage.value = 'Chat room was successfully reset'
     resultDialog.value = true
@@ -345,44 +345,44 @@ async function resetGroupRoom() {
 }
 
 // Confirmation handlers
-function confirmDeleteEventRoom() {
+function confirmDeleteEventRoom () {
   confirmTitle.value = 'Delete Event Chat Room'
   confirmMessage.value = `Are you sure you want to delete the chat room for event "${eventSlug.value}"? This will permanently remove all messages and cannot be undone.`
   pendingAction.value = deleteEventRoom
   confirmDialog.value = true
 }
 
-function confirmCreateEventRoom() {
+function confirmCreateEventRoom () {
   confirmTitle.value = 'Create Event Chat Room'
   confirmMessage.value = `Are you sure you want to create a new chat room for event "${eventSlug.value}"?`
   pendingAction.value = createEventRoom
   confirmDialog.value = true
 }
 
-function confirmDeleteGroupRoom() {
+function confirmDeleteGroupRoom () {
   confirmTitle.value = 'Delete Group Chat Room'
   confirmMessage.value = `Are you sure you want to delete the chat room for group "${groupSlug.value}"? This will permanently remove all messages and cannot be undone.`
   pendingAction.value = deleteGroupRoom
   confirmDialog.value = true
 }
 
-function confirmCreateGroupRoom() {
+function confirmCreateGroupRoom () {
   confirmTitle.value = 'Create Group Chat Room'
   confirmMessage.value = `Are you sure you want to create a new chat room for group "${groupSlug.value}"?`
   pendingAction.value = createGroupRoom
   confirmDialog.value = true
 }
 
-async function confirmActionExecute() {
+async function confirmActionExecute () {
   await pendingAction.value()
 }
 
 // Form submission handlers (preventDefault only)
-function handleEventAction(e: Event) {
+function handleEventAction (e: Event) {
   e.preventDefault()
 }
 
-function handleGroupAction(e: Event) {
+function handleGroupAction (e: Event) {
   e.preventDefault()
 }
 
