@@ -110,7 +110,7 @@
       </div>
       <div class="col-12 col-md-4">
         <div>
-          <!-- Organiser tools -->
+          <!-- Organizer tools -->
           <q-card
             class="q-mb-md shadow-0"
             v-if="
@@ -130,12 +130,12 @@
                 >{{ event.status }}</span
               >
               <q-btn-dropdown
-                data-cy="organiser-tools"
+                data-cy="Organizer-tools"
                 ripple
                 flat
                 align="center"
                 no-caps
-                label="Organiser tools"
+                label="Organizer tools"
               >
                 <q-list>
                   <MenuItemComponent
@@ -189,7 +189,7 @@
             </q-card-section>
           </q-card>
 
-          <!-- Organiser section -->
+          <!-- Organizer section -->
           <q-card v-if="event?.group">
             <q-card-section>
               <div class="text-h6">Organizer</div>

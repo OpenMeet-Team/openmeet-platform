@@ -83,7 +83,7 @@ const { openGroupMemberRoleDialog, openGroupMemberDeleteDialog } = useGroupDialo
 
 const roleOptions = [
   { label: 'All', value: '' },
-  { label: 'Organiser', value: 'owner' },
+  { label: 'Organizer', value: 'owner' },
   { label: 'Moderator', value: 'moderator' },
   { label: 'Admin', value: 'admin' },
   { label: 'Member', value: 'member' },
