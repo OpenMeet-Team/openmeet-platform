@@ -8,13 +8,18 @@ import { setActivePinia } from 'pinia'
 import { createTestingPinia } from '@pinia/testing'
 
 // Define the component type
-interface EventFormData {
-  eventData: {
-    startDate: string;
-    [key: string]: any;
-  };
-  isRecurring: boolean;
-  [key: string]: any;
+// Define more specific interfaces to avoid using 'any'
+interface EventData {
+  startDate: string;
+  timeZone: string;
+  [key: string]: unknown; // Use unknown instead of any for better type safety
+}
+
+interface RecurrenceViewModel {
+  currentFrequency: string;
+  humanReadablePattern: string;
+  selectedDays: string[];
+  [key: string]: unknown; // Use unknown instead of any
 }
 
 // Install Quasar for testing
@@ -315,8 +320,8 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
         // the bug fix
 
         // Get a reference to the recurrence component VM if possible
-        const recurrenceVM = recurrenceComponent.vm
-        if (recurrenceVM && recurrenceVM.selectedDays) {
+        const recurrenceVM = recurrenceComponent.vm as RecurrenceViewModel
+        if (recurrenceVM.selectedDays) {
           // Check if Tuesday (TU) is selected in the recurrence pattern
           expect(recurrenceVM.selectedDays).toContain('TU')
 
@@ -385,13 +390,13 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       await wrapper.vm.$nextTick()
 
       // Parse the date to verify it's the correct day
-      const vm = wrapper.vm as unknown as { eventData: { startDate: string } }
+      const vm = wrapper.vm as { eventData: EventData }
       const parsedDate = new Date(vm.eventData.startDate)
       expect(parsedDate.getDate()).toBe(14)
       expect(parsedDate.getDay()).toBe(3) // Wednesday = 3
 
       // Enable recurrence
-      const vmWithRecurring = wrapper.vm as unknown as { isRecurring: boolean }
+      const vmWithRecurring = wrapper.vm as { isRecurring: boolean; eventData: EventData }
       vmWithRecurring.isRecurring = true
       await wrapper.vm.$nextTick()
 
@@ -400,12 +405,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
 
       if (recurrenceComponent.exists()) {
         // Set recurrence to Monthly
-        const recurrenceVM = recurrenceComponent.vm as unknown as {
+        const recurrenceVM = recurrenceComponent.vm as RecurrenceViewModel & {
           frequency: string;
           monthlyRepeatType: string;
           monthlyPosition: string;
           monthlyWeekday: string;
-          humanReadablePattern: string;
         }
 
         recurrenceVM.frequency = 'MONTHLY'

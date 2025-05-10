@@ -4,7 +4,7 @@ import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-v
 import { Notify } from 'quasar'
 import DatetimeComponent from '../../../../../src/components/common/DatetimeComponent.vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { eventsApi } from '../../../../../src/api/events'
+// Mock import is handled by vi.mock below
 
 // Mock the events API
 vi.mock('../../../../../src/api/events', () => ({

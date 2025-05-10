@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { skipNetworkTests, TEST_CONFIG } from '../../../vitest/setup-test-environment'
+import { skipNetworkTests } from '../../../vitest/setup-test-environment'
 import { matrixService } from '../../../../src/services/matrixService'
 import { ensureMatrixUser } from '../../../../src/utils/matrixUtils'
 import { MatrixMessage } from '../../../../src/types/matrix'

@@ -436,7 +436,7 @@ describe('Date and Recurrence Interaction Tests', () => {
 
     // This assertion might fail if the bug is present - that's what we want to see
     // If it passes, we haven't reproduced the specific bug condition
-    expect(emittedDateObj.getUTCDate()).toBe(14) // Should be day 14 (May 14), not 13 or 15
+    expect(emittedDateObj.getUTCDate()).toBe(14)
 
     // Now create a RecurrenceComponent with this date to see how it interprets the day of week
     const recurrenceWrapper = mount(RecurrenceComponent, {

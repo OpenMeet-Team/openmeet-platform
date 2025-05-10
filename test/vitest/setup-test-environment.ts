@@ -2,7 +2,7 @@
  * Test environment setup for Vitest
  * This file is automatically loaded by Vitest before tests run
  */
-import { vi, it } from 'vitest'
+import { it } from 'vitest'
 
 // Set environment variables for tests
 process.env.TEST_ENV = 'true'
