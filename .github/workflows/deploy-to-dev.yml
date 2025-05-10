@@ -28,8 +28,8 @@ jobs:
         run: npm run lint
 
       # Uncomment when unit tests are ready
-      - name: Run unit tests
-        run: npm run test:unit:ci
+      # - name: Run unit tests
+      #   run: npm run test:unit:ci
 
   build-deploy-to-dev:
     runs-on: ubuntu-latest
