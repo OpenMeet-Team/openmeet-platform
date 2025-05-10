@@ -14,9 +14,9 @@
     "test": "yarn test:unit:ci && yarn test:e2e:ci",
     "test:unit:ui": "QENV=test vitest --ui",
     "test:unit": "QENV=test vitest",
-    "test:unit:ci": "QENV=test vitest run",
+    "test:unit:ci": "CI=true QENV=test vitest run",
     "test:e2e": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"COVERAGE=true cypress open --e2e\"",
-    "test:e2e:ci": "cross-env QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"COVERAGE=true cypress run --e2e\"",
+    "test:e2e:ci": "cross-env CI=true QENV=test start-test \"quasar dev -p 8087\" http-get://127.0.0.1:8087 \"COVERAGE=true cypress run --e2e\"",
     "test:component": "cross-env QENV=test COVERAGE=true cypress open --component",
     "test:component:ci": "cross-env QENV=test COVERAGE=true cypress run --component",
     "test:coverage": "npx nyc report --reporter=lcov --reporter=text"

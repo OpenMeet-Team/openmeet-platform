@@ -51,12 +51,6 @@
                     </div>
                   </template>
                 </DatetimeComponent>
-
-                <!-- End time confirmation display -->
-                <div class="text-caption q-mt-xs">
-                  <q-icon name="sym_r_schedule" size="xs" class="q-mr-xs" color="primary" />
-                  <strong>End time:</strong> {{ displayedEndTime || formatEventTime(eventData.endDate) }}
-                </div>
               </div>
 
             </template>
@@ -937,29 +931,6 @@ const addBlueskySourceInfo = (event: EventEntity) => {
       handle: blueskyHandle,
       did: blueskyDid
     }
-  }
-}
-
-// Helper function to format time in a user-friendly way
-const formatEventTime = (isoString: string): string => {
-  if (!isoString) return ''
-
-  try {
-    const date = new Date(isoString)
-    // Check if time is midnight
-    if (date.getHours() === 0 && date.getMinutes() === 0) {
-      return '5:00 PM (default time)'
-    }
-
-    // Format time as 12-hour clock with AM/PM
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-  } catch (e) {
-    console.error('Error formatting time:', e)
-    return '5:00 PM (default time)'
   }
 }
 
