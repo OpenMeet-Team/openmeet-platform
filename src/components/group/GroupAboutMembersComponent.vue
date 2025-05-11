@@ -21,7 +21,7 @@ const onMemberClick = (member: GroupMemberEntity) => {
 <template>
   <q-card flat style="position: sticky; top: 70px;" v-if="group">
     <q-card-section>
-      <SubtitleComponent hide-link label="Organiser" />
+      <SubtitleComponent hide-link label="Organizer" />
       <q-list>
         <q-item class="q-px-none">
           <template v-if="group.createdBy">

@@ -38,7 +38,7 @@
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
               <q-checkbox data-cy="event-set-end-time" class="q-mt-md" :model-value="!!eventData.endDate"
-                @update:model-value="eventData.endDate = $event ? eventData.startDate : null" label="Set an end time..." />
+                @update:model-value="setEndDate" label="Set an end time..." />
 
               <div v-if="eventData.endDate">
                 <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
@@ -51,12 +51,6 @@
                     </div>
                   </template>
                 </DatetimeComponent>
-
-                <!-- End time confirmation display -->
-                <div class="text-caption q-mt-xs">
-                  <q-icon name="sym_r_schedule" size="xs" class="q-mr-xs" color="primary" />
-                  <strong>End time:</strong> {{ displayedEndTime || formatEventTime(eventData.endDate) }}
-                </div>
               </div>
 
             </template>
@@ -940,29 +934,6 @@ const addBlueskySourceInfo = (event: EventEntity) => {
   }
 }
 
-// Helper function to format time in a user-friendly way
-const formatEventTime = (isoString: string): string => {
-  if (!isoString) return ''
-
-  try {
-    const date = new Date(isoString)
-    // Check if time is midnight
-    if (date.getHours() === 0 && date.getMinutes() === 0) {
-      return '5:00 PM (default time)'
-    }
-
-    // Format time as 12-hour clock with AM/PM
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-  } catch (e) {
-    console.error('Error formatting time:', e)
-    return '5:00 PM (default time)'
-  }
-}
-
 // Store the displayed start and end times
 const displayedStartTime = ref<string>('')
 const displayedEndTime = ref<string>('')
@@ -1013,6 +984,18 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
 }
 
 // Handle time info updates for end date
+// Method to handle setting/clearing end date
+const setEndDate = (checked: boolean) => {
+  // Preserve the existing startDate
+  const currentStartDate = eventData.value.startDate
+
+  // Set or clear the end date based on checkbox state
+  eventData.value.endDate = checked ? currentStartDate : null
+
+  console.log(`Setting end date checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
+  console.log('Start date remains:', eventData.value.startDate)
+}
+
 const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received end time info from DatetimeComponent:', timeInfo)
 

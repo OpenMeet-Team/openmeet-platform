@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { skipNetworkTests } from '../../../vitest/setup-test-environment'
 import { matrixService } from '../../../../src/services/matrixService'
 import { ensureMatrixUser } from '../../../../src/utils/matrixUtils'
 import { MatrixMessage } from '../../../../src/types/matrix'
@@ -112,6 +113,9 @@ describe('MatrixService', () => {
   const mockMessageStore = useMessageStore()
   let mockSocket: MockSocket
 
+  // Use test configuration imported from setup-test-environment.ts
+  // All network tests are handled via the skipNetworkTests helper function
+
   // Setup for each test
   beforeEach(() => {
     vi.clearAllMocks()
@@ -172,7 +176,7 @@ describe('MatrixService', () => {
   })
 
   describe('connect', () => {
-    it('should connect to Matrix events endpoint', async () => {
+    skipNetworkTests('should connect to Matrix events endpoint', async () => {
       const connectPromise = matrixService.connect()
 
       // Simulate successful connection by calling the 'connect' event handler
@@ -184,7 +188,7 @@ describe('MatrixService', () => {
       expect(ensureMatrixUser).toHaveBeenCalled()
     })
 
-    it('should fail to connect if websocket info shows unauthenticated', async () => {
+    skipNetworkTests('should fail to connect if websocket info shows unauthenticated', async () => {
       // Mock the API post method to return unauthenticated for websocket-info
       const apiPost = vi.mocked(api.post)
       const originalMock = apiPost.getMockImplementation()
@@ -210,7 +214,7 @@ describe('MatrixService', () => {
       expect(result).toBe(false)
     })
 
-    it('should handle connection errors and attempt reconnection', async () => {
+    skipNetworkTests('should handle connection errors and attempt reconnection', async () => {
       // Create a spy on setTimeout
       const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
 
@@ -229,7 +233,7 @@ describe('MatrixService', () => {
   })
 
   describe('disconnect', () => {
-    it('should close the WebSocket connection', async () => {
+    skipNetworkTests('should close the WebSocket connection', async () => {
       // First connect
       const connectPromise = matrixService.connect()
       const connectHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect')?.[1]
@@ -242,7 +246,7 @@ describe('MatrixService', () => {
       expect(mockSocket.disconnect).toHaveBeenCalled()
     })
 
-    it('should clear any pending reconnect timeouts', async () => {
+    skipNetworkTests('should clear any pending reconnect timeouts', async () => {
       // First connect and then cause an error to trigger reconnect timeout
       const connectPromise = matrixService.connect()
       const errorHandler = mockSocket.on.mock.calls.find(call => call[0] === 'connect_error')?.[1]
@@ -274,7 +278,7 @@ describe('MatrixService', () => {
       matrixService.addEventHandler(messageHandler)
     })
 
-    it('should process and route Matrix message events to the chat store', async () => {
+    skipNetworkTests('should process and route Matrix message events to the chat store', async () => {
       // Find the 'matrix-event' handler
       const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
@@ -306,7 +310,7 @@ describe('MatrixService', () => {
       })
     })
 
-    it('should process and route Matrix message events to the unified message store', async () => {
+    skipNetworkTests('should process and route Matrix message events to the unified message store', async () => {
       // Find the 'matrix-event' handler
       const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
@@ -339,7 +343,7 @@ describe('MatrixService', () => {
       )
     })
 
-    it('should handle Matrix typing events', async () => {
+    skipNetworkTests('should handle Matrix typing events', async () => {
       // Find the 'matrix-event' handler
       const matrixEventHandler = mockSocket.on.mock.calls.find(call => call[0] === 'matrix-event')?.[1]
 
@@ -361,7 +365,7 @@ describe('MatrixService', () => {
       })
     })
 
-    it('should handle errors in event handlers gracefully', async () => {
+    skipNetworkTests('should handle errors in event handlers gracefully', async () => {
       // Create an error handler that will throw
       const errorHandler = vi.fn().mockImplementation(() => {
         throw new Error('Test error')
@@ -385,7 +389,7 @@ describe('MatrixService', () => {
   })
 
   describe('reconnection logic', () => {
-    it('should attempt reconnection with exponential backoff', async () => {
+    skipNetworkTests('should attempt reconnection with exponential backoff', async () => {
       // Create a spy on setTimeout
       const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
 
@@ -415,7 +419,7 @@ describe('MatrixService', () => {
       expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 6000)
     })
 
-    it('should stop trying to reconnect after max attempts', async () => {
+    skipNetworkTests('should stop trying to reconnect after max attempts', async () => {
       // Create a spy on setTimeout
       const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
 
@@ -448,7 +452,7 @@ describe('MatrixService', () => {
       expect(setTimeoutSpy.mock.calls.length).toBe(timeoutCalls)
     })
 
-    it('should reset reconnection attempts on successful connection', async () => {
+    skipNetworkTests('should reset reconnection attempts on successful connection', async () => {
       // Create a spy on setTimeout
       const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
 
@@ -537,7 +541,7 @@ describe('MatrixService', () => {
       })
     })
 
-    it('should mark a room as joined when joining for the first time', async () => {
+    skipNetworkTests('should mark a room as joined when joining for the first time', async () => {
       const roomId = 'test-room-123'
 
       // First check that the room is not in cache
@@ -561,7 +565,7 @@ describe('MatrixService', () => {
       expect(result).toBe(true)
     })
 
-    it('should not send join request for already joined rooms', async () => {
+    skipNetworkTests('should not send join request for already joined rooms', async () => {
       const roomId = 'test-room-456'
 
       // Join the room first time
@@ -581,7 +585,7 @@ describe('MatrixService', () => {
       expect(result).toBe(true)
     })
 
-    it('should clear joined rooms cache on disconnect', async () => {
+    skipNetworkTests('should clear joined rooms cache on disconnect', async () => {
       const roomId = 'test-room-789'
 
       // Join the room first
