@@ -270,9 +270,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:model-value', 'update:is-recurring', 'update:time-zone', 'update:start-date'])
 
-// Use the extracted logic
+// Use the composable logic
+const logic = useRecurrenceLogic(props, emit)
+
+// Expose all returned values from the composable to the template
+// and for testing via wrapper.vm
 const {
-  // State
   isCalculatingPattern,
   isCalculatingOccurrences,
   frequency,
@@ -287,16 +290,13 @@ const {
   until,
   timezoneOptions,
   occurrences,
-  // Options
   frequencyOptions,
   weekdayOptions,
   monthlyPositionOptions,
-  // Computed
-  rule, // eslint-disable-line @typescript-eslint/no-unused-vars
+  rule,
   startDateObject,
   humanReadablePattern,
   intervalLabel,
-  // Methods
   getPositionLabel,
   getWeekdayLabel,
   toggleRecurrence,
@@ -304,8 +304,44 @@ const {
   logMonthlyWeekdayChange,
   toggleDay,
   filterTimezones,
-  formatDate
-} = useRecurrenceLogic(props, emit)
+  formatDate,
+  updateOccurrences,
+  initFromModelValue
+} = logic
+
+defineExpose({
+  isCalculatingPattern,
+  isCalculatingOccurrences,
+  frequency,
+  interval,
+  selectedDays,
+  monthlyRepeatType,
+  monthlyPosition,
+  monthlyWeekday,
+  timezone,
+  endType,
+  count,
+  until,
+  timezoneOptions,
+  occurrences,
+  frequencyOptions,
+  weekdayOptions,
+  monthlyPositionOptions,
+  rule,
+  startDateObject,
+  humanReadablePattern,
+  intervalLabel,
+  getPositionLabel,
+  getWeekdayLabel,
+  toggleRecurrence,
+  logMonthlyPositionChange,
+  logMonthlyWeekdayChange,
+  toggleDay,
+  filterTimezones,
+  formatDate,
+  updateOccurrences,
+  initFromModelValue
+})
 </script>
 
 <style scoped>

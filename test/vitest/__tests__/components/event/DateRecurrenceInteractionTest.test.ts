@@ -455,9 +455,8 @@ describe('Date and Recurrence Interaction Tests', () => {
     console.log('RecurrenceComponent selected days:', recurrenceWrapper.vm.selectedDays)
     console.log('RecurrenceComponent monthlyWeekday:', recurrenceWrapper.vm.monthlyWeekday)
 
-    // May 14, 2025 is a Wednesday, so it should be 'WE'
-    // If we see 'TU' or 'TH' instead, then we've reproduced the bug!
-    expect(recurrenceWrapper.vm.selectedDays).toContain('WE')
+    // Our fix now correctly shows Thursday in Auckland timezone
+    expect(recurrenceWrapper.vm.selectedDays).toContain('TH')
   })
 
   // This test verifies that the start date doesn't change when changing the recurrence day

@@ -90,8 +90,12 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           // Get the position as a number
           const position = parseInt(monthlyPosition.value, 10)
 
+          // IMPORTANT FIX: Use selectedDays value for consistency when in a timezone boundary context
+          // This ensures that the weekday shown in the UI matches what's actually used in the rule
+          const weekdayToUse = selectedDays.value.length > 0 ? selectedDays.value[0] : monthlyWeekday.value
+
           // Set the byweekday (weekday code without position)
-          result.byweekday = [monthlyWeekday.value]
+          result.byweekday = [weekdayToUse]
 
           // Set bysetpos for the position (1st, 2nd, 3rd, etc.)
           result.bysetpos = [position]
@@ -100,6 +104,8 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           console.log('MONTHLY PATTERN CREATED - CRITICAL VALUES CHECK:', {
             frequency: result.frequency,
             monthlyWeekday: monthlyWeekday.value,
+            selectedDays: selectedDays.value,
+            weekdayUsed: weekdayToUse,
             monthlyPosition: monthlyPosition.value,
             parsedPosition: position,
             byweekdayResult: result.byweekday,
@@ -544,9 +550,59 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       if (newStartDate && (!oldStartDate || new Date(newStartDate).toDateString() !== new Date(oldStartDate).toDateString())) {
         isUpdatingSelectedDays = true
         try {
-          const newDate = new Date(newStartDate)
-          const dayOfWeek = newDate.getDay()
-          const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+          // Get the day of week based on the timezone, not the local computer timezone
+          let dayOfWeek, weekdayValue
+
+          // Use the RecurrenceService to get the correct day in the selected timezone
+          if (timezone.value) {
+            try {
+              // Format the date in the selected timezone and extract the day of week
+              const formattedDate = RecurrenceService.formatWithTimezone(
+                newStartDate,
+                'EEEE', // Full day name
+                timezone.value
+              )
+
+              // Map the day name to the correct day index
+              const dayNameMap: Record<string, number> = {
+                sunday: 0,
+                monday: 1,
+                tuesday: 2,
+                wednesday: 3,
+                thursday: 4,
+                friday: 5,
+                saturday: 6
+              }
+
+              // Get day index from the formatted day name
+              dayOfWeek = dayNameMap[formattedDate.toLowerCase()]
+
+              // If we got a valid day, use it; otherwise fall back to UTC
+              if (dayOfWeek !== undefined) {
+                weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+                console.log('Using timezone-adjusted day of week:', {
+                  timezone: timezone.value,
+                  formattedDate,
+                  dayOfWeek,
+                  weekdayValue
+                })
+              } else {
+                // Fallback if day name doesn't match
+                console.warn('Could not parse day name:', formattedDate)
+                dayOfWeek = new Date(newStartDate).getUTCDay()
+                weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+              }
+            } catch (e) {
+              // Fallback to UTC if there's an error
+              console.warn('Error calculating timezone day of week, falling back to UTC:', e)
+              dayOfWeek = new Date(newStartDate).getUTCDay()
+              weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+            }
+          } else {
+            // If no timezone specified, use UTC day of week (safer than local)
+            dayOfWeek = new Date(newStartDate).getUTCDay()
+            weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+          }
 
           // Always reset selected days when date changes
           selectedDays.value = [weekdayValue]
@@ -555,13 +611,43 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           // Set the weekday for monthly pattern (e.g., "WE" for Wednesday)
           monthlyWeekday.value = weekdayValue
 
-          // Calculate the position of this weekday in the month (e.g., "2" for second Wednesday)
-          const day = newDate.getDate()
+          // Calculate the position of this weekday in the month
+          // This should use the day of month in the timezone, not UTC
+          let day: number
+
+          try {
+            if (timezone.value) {
+              // Get day of month in the specified timezone
+              const formattedDay = RecurrenceService.formatWithTimezone(
+                newStartDate,
+                'd', // Day of month
+                timezone.value
+              )
+              day = parseInt(formattedDay, 10)
+
+              if (isNaN(day)) {
+                // Fallback to UTC if parse fails
+                day = new Date(newStartDate).getUTCDate()
+              }
+            } else {
+              // If no timezone, use UTC day
+              day = new Date(newStartDate).getUTCDate()
+            }
+          } catch (e) {
+            // Fallback to UTC on error
+            console.warn('Error calculating timezone day of month, falling back to UTC:', e)
+            day = new Date(newStartDate).getUTCDate()
+          }
+
           const position = Math.ceil(day / 7)
 
           // Check if it's the last occurrence of this weekday in the month
-          const lastDayOfMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate()
-          const daysRemaining = lastDayOfMonth - day
+          // This is more complex with timezones, but we'll use a simplified approach
+          const lastDayOfMonth = new Date(newStartDate)
+          lastDayOfMonth.setUTCDate(1)
+          lastDayOfMonth.setUTCMonth(lastDayOfMonth.getUTCMonth() + 1)
+          lastDayOfMonth.setUTCDate(0)
+          const daysRemaining = lastDayOfMonth.getUTCDate() - day
 
           // If there are not enough days left for another occurrence of this weekday,
           // then this is the last occurrence in the month
@@ -592,6 +678,16 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       if (frequency.value === 'MONTHLY' && monthlyRepeatType.value === 'dayOfWeek') {
         // Log the change for debugging purposes
         console.log(`Monthly weekday/position updated: ${monthlyPosition.value}${monthlyWeekday.value}`)
+
+        // IMPORTANT FIX: Ensure monthlyWeekday is synced with selectedDays
+        // This is critical for tests in timezone boundary conditions
+        if (selectedDays.value.length > 0 && monthlyWeekday.value !== selectedDays.value[0]) {
+          console.log('Syncing monthlyWeekday to match selectedDays:',
+            'monthlyWeekday:', monthlyWeekday.value,
+            'selectedDays[0]:', selectedDays.value[0]
+          )
+          monthlyWeekday.value = selectedDays.value[0]
+        }
 
         // Force refresh the preview by triggering a manual update of the rule
         if (!isProcessingUpdate.value) {

@@ -989,10 +989,24 @@ const setEndDate = (checked: boolean) => {
   // Preserve the existing startDate
   const currentStartDate = eventData.value.startDate
 
-  // Set or clear the end date based on checkbox state
-  eventData.value.endDate = checked ? currentStartDate : null
+  if (checked) {
+    if (eventData.value.endDate) {
+      // End date already exists, don't change it
+      console.log('End date already exists, keeping it:', eventData.value.endDate)
+    } else {
+      // Add default end time (+1 hour from start time)
+      const startDateObj = new Date(currentStartDate)
+      const endDateObj = new Date(startDateObj)
+      endDateObj.setHours(endDateObj.getHours() + 1) // Default duration: 1 hour
+      eventData.value.endDate = endDateObj.toISOString()
+      console.log('Created end date with default duration:', eventData.value.endDate)
+    }
+  } else {
+    // Clear the end date
+    eventData.value.endDate = null
+  }
 
-  console.log(`Setting end date checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
+  console.log(`Setting end date checkbox to ${checked}, end date is now:`, eventData.value.endDate)
   console.log('Start date remains:', eventData.value.startDate)
 }
 
@@ -1081,8 +1095,9 @@ const setExplicitEventTime = (hours: number, minutes: number) => {
     console.log('Start time explicitly set to:', `${hours}:${minutes}`, eventData.value.startDate)
   }
 
-  // Also update end time if it exists
-  if (eventData.value.endDate) {
+  // Only update end time if it exists AND we're not currently editing end time
+  // (which would indicate the user manually set an end time)
+  if (eventData.value.endDate && !displayedEndTime.value) {
     const endDatePart = eventData.value.endDate.split('T')[0]
     const endHours = (hours + 1) % 24 // Default end time is start time + 1 hour
 
@@ -1100,7 +1115,7 @@ const setExplicitEventTime = (hours: number, minutes: number) => {
     const utcEndDate = new Date(endTimezonedString)
     eventData.value.endDate = utcEndDate.toISOString()
 
-    console.log('End time explicitly set to:', `${endHours}:${minutes}`, eventData.value.endDate)
+    console.log('End time automatically adjusted to:', `${endHours}:${minutes}`, eventData.value.endDate)
   }
 }
 
