@@ -263,4 +263,34 @@ describe('DatetimeComponent - Basic Tests', () => {
     expect(displayedTime3).toBe('2:15 PM')
     expect(displayedDate3).toBe('2025-05-14')
   })
+
+  it('canonicalizes time input when focus changes', async () => {
+    const wrapper = mount(DatetimeComponent, {
+      props: {
+        modelValue: '2025-05-15T12:00:00.000Z',
+        label: 'Date and Time'
+      }
+    })
+
+    const vm = wrapper.vm as any
+
+    // Test with various time formats
+    const testCases = [
+      { input: '6', expected: '6:00 AM' },
+      { input: '6p', expected: '6:00 PM' },
+      { input: '14', expected: '2:00 PM' },
+      { input: '9:30', expected: '9:30 AM' }
+    ]
+
+    for (const { input, expected } of testCases) {
+      // Set the time directly
+      vm.localTime = input
+
+      // Trigger the update time function (simulates blur)
+      await vm.updateTime()
+
+      // Check the result
+      expect(vm.localTime).toBe(expected)
+    }
+  })
 })

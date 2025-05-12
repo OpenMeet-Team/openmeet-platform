@@ -343,10 +343,12 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
         // Thursday should be day 4 (0-indexed)
         expect(updatedDayOfWeek).toBe(4)
 
-        // Verify that the recurrence pattern updated to Thursday
+        // With our fix, the selectedDays should no longer auto-update
+        // when the date changes, but remain set to the initial value (TU)
         if (recurrenceVM && recurrenceVM.selectedDays) {
-          // First day should now be Thursday (TH)
-          expect(recurrenceVM.selectedDays[0]).toBe('TH')
+          // The selected day should still be Tuesday (TU) from our initial setting
+          // since we now preserve user selections when date changes
+          expect(recurrenceVM.selectedDays).toContain('TU')
 
           // Log the updated selected days
           console.log('Updated selected days in recurrence pattern:', recurrenceVM.selectedDays)
@@ -417,6 +419,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
 
         // Set to day of week pattern (Second Wednesday)
         recurrenceVM.monthlyRepeatType = 'dayOfWeek'
+        await wrapper.vm.$nextTick()
+
+        // Since we want to test day-of-week pattern,
+        // we need to explicitly set the weekday to match the actual day
+        recurrenceVM.monthlyWeekday = 'WE'
         await wrapper.vm.$nextTick()
 
         // Verify the correct position and weekday are selected
