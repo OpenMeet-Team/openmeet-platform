@@ -62,16 +62,16 @@ describe('RecurrenceComponent - Weekly selection behavior', () => {
 
     // Initially Monday should be selected
     expect(wrapper.vm.selectedDays).toContain('MO')
-    
+
     // Toggle additional days (Wednesday and Friday)
     wrapper.vm.toggleDay('WE')
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     wrapper.vm.toggleDay('FR')
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     // Now we should have three days selected
     expect(wrapper.vm.selectedDays).toContain('MO')
     expect(wrapper.vm.selectedDays).toContain('WE')
@@ -98,12 +98,12 @@ describe('RecurrenceComponent - Weekly selection behavior', () => {
 
     // Initial state: Monday should be selected
     expect(wrapper.vm.selectedDays).toContain('MO')
-    
+
     // Toggle additional days: add Wednesday
     wrapper.vm.toggleDay('WE')
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     // Use spy on wrapper's emitted events instead
     expect(wrapper.emitted('update:start-date')).toBeFalsy()
 
@@ -122,7 +122,7 @@ describe('RecurrenceComponent - Weekly selection behavior', () => {
 
     // Even when removing the original day, the start date should not change
     expect(wrapper.emitted('update:start-date')).toBeFalsy()
-    
+
     // Now Wednesday and Friday should be selected, but not Monday
     expect(wrapper.vm.selectedDays).not.toContain('MO')
     expect(wrapper.vm.selectedDays).toContain('WE')
@@ -148,17 +148,17 @@ describe('RecurrenceComponent - Weekly selection behavior', () => {
     wrapper.vm.selectedDays = ['MO', 'WE', 'FR']
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     // Verify our selection
     expect(wrapper.vm.selectedDays).toEqual(['MO', 'WE', 'FR'])
-    
+
     // Now change the start date to Tuesday
     await wrapper.setProps({
       startDate: '2023-12-12T12:00:00.000Z' // Tuesday
     })
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     // The selected days should still be the same, not reset to Tuesday
     // This would fail if the component incorrectly resets the selected days
     expect(wrapper.vm.selectedDays).toContain('MO')
@@ -187,15 +187,15 @@ describe('RecurrenceComponent - Weekly selection behavior', () => {
     wrapper.vm.selectedDays = ['MO', 'WE']
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
-    
+
     // Capture and examine the emitted value
     const emitted = wrapper.emitted('update:model-value')
     expect(emitted).toBeTruthy()
-    
+
     // Get the last emitted value
     const lastEmittedValue = emitted ? emitted[emitted.length - 1][0] : null
     console.log('Emitted rule value:', JSON.stringify(lastEmittedValue))
-    
+
     // Check that it has the correct byweekday values
     expect(lastEmittedValue).toHaveProperty('byweekday')
     expect(lastEmittedValue.byweekday).toContain('MO')

@@ -1,7 +1,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { RecurrenceRule, EventEntity } from '../../types/event'
-import { format, addDays } from 'date-fns'
+import { format } from 'date-fns'
 import { formatInTimeZone } from 'date-fns-tz'
 
 // Interface for component props

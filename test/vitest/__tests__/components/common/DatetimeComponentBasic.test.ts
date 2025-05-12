@@ -272,7 +272,10 @@ describe('DatetimeComponent - Basic Tests', () => {
       }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as {
+      localTime: string;
+      updateTime: () => Promise<void>
+    }
 
     // Test with various time formats
     const testCases = [

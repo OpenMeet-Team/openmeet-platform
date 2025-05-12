@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
 import { Notify } from 'quasar'
@@ -9,20 +9,22 @@ installQuasarPlugin({ plugins: { Notify } })
 
 describe('DatetimeComponent Time Canonicalization', () => {
   let wrapper
-  let timeInput
 
   // Helper function to set up the component with a time and trigger blur
-  async function setupWithTimeAndBlur(timeValue: string) {
+  async function setupWithTimeAndBlur (timeValue: string) {
     // Mount with basic props
     wrapper = mount(DatetimeComponent, {
       props: {
         modelValue: '2023-12-14T12:00:00.000Z',
         label: 'Start Date'
-      },
+      }
     })
 
     // Access component methods directly for more reliable testing
-    const vm = wrapper.vm as any // Cast to any to access internal methods
+    const vm = wrapper.vm as {
+      localTime: string;
+      updateTime: () => Promise<void>;
+    }
 
     // Set the local time directly
     vm.localTime = timeValue
@@ -58,7 +60,7 @@ describe('DatetimeComponent Time Canonicalization', () => {
     { input: '9:30a', expected: '9:30 AM' },
     { input: '9:30 am', expected: '9:30 AM' },
     { input: '9:30p', expected: '9:30 PM' },
-    { input: '9:30 pm', expected: '9:30 PM' },
+    { input: '9:30 pm', expected: '9:30 PM' }
   ]
 
   // Run tests for each time format
@@ -75,10 +77,13 @@ describe('DatetimeComponent Time Canonicalization', () => {
         modelValue: '2023-12-14T12:00:00.000Z',
         label: 'Start Date',
         timeZone: 'America/New_York'
-      },
+      }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as {
+      localTime: string;
+      updateTime: () => Promise<void>;
+    }
 
     // Reset emitted events to ensure clean testing state
     wrapper.emitted()['update:model-value'] = []
