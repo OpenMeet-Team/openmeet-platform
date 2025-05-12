@@ -33,6 +33,7 @@
           placeholder="h:mm AM"
           style="width: 110px; min-width: 110px"
           class="time-text-input"
+          @update:model-value="onTimeInputChange"
           @blur="updateTime"
         />
         <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer q-ml-sm">
@@ -245,18 +246,32 @@ function createISOString () {
           hours = parsedTime.getHours()
           minutes = parsedTime.getMinutes()
         } else {
-          // Fallback to regex matching for common formats
-          const timeMatch = localTime.value.match(/(\d{1,2}):(\d{2})\s*([AP]\.?M\.?)?/i)
+          // Fallback to regex matching for common formats with more flexibility
+          // Matches formats like: 3, 3p, 3pm, 3:00, 3:00pm, 15, 15:00, etc.
+          const timeMatch = localTime.value.match(/(\d{1,2})(?::?(\d{1,2})?)?\s*([APap]\.?[Mm]?\.?)?/)
           if (timeMatch) {
-            hours = parseInt(timeMatch[1], 10)
-            minutes = parseInt(timeMatch[2], 10)
+            const inputHours = parseInt(timeMatch[1], 10)
+            minutes = parseInt(timeMatch[2] || '0', 10)
             const period = timeMatch[3]
 
-            // Convert to 24-hour if AM/PM is specified
+            // Default to AM for 1-11, PM for 12
+            let isPM = inputHours === 12
+
+            // If period is specified, use that instead
             if (period) {
-              const isPM = period.toUpperCase().startsWith('P')
-              if (isPM && hours < 12) hours += 12
-              if (!isPM && hours === 12) hours = 0
+              isPM = period.toLowerCase().startsWith('p')
+            } else if (inputHours >= 13 && inputHours <= 23) {
+              // 13-23 is clearly 24-hour format
+              isPM = true
+            }
+
+            // Convert to 24-hour format
+            if (isPM && inputHours < 12) {
+              hours = inputHours + 12
+            } else if (!isPM && inputHours === 12) {
+              hours = 0
+            } else {
+              hours = inputHours
             }
           }
         }
@@ -313,8 +328,49 @@ function updateDate () {
 
 /**
  * Update the time when changed via input or picker
+ * Also canonicalizes the time format on blur
  */
 function updateTime () {
+  // Parse the current time input to canonicalize it
+  try {
+    // Try to parse with date-fns
+    const parsedTime = parse(localTime.value, 'h:mm a', new Date())
+
+    if (isValid(parsedTime)) {
+      // Format to canonical form: h:mm AM/PM
+      localTime.value = format(parsedTime, 'h:mm a')
+    } else {
+      // Fallback to regex matching for common formats with more flexibility
+      // Matches formats like: 3, 3p, 3pm, 3:00, 3:00pm, 15, 15:00, etc.
+      const timeMatch = localTime.value.match(/(\d{1,2})(?::?(\d{1,2})?)?\s*([APap]\.?[Mm]?\.?)?/)
+      if (timeMatch) {
+        const hours = parseInt(timeMatch[1], 10)
+        const minutes = parseInt(timeMatch[2] || '0', 10)
+        const period = timeMatch[3]
+
+        // Determine AM/PM
+        let isPM = false
+        if (period) {
+          isPM = period.toUpperCase().startsWith('P')
+        } else {
+          // If no AM/PM specified, use 12-hour format convention
+          isPM = hours >= 12
+        }
+
+        // Convert to 12-hour format
+        let hour12 = hours % 12
+        if (hour12 === 0) hour12 = 12
+
+        // Format the time canonically
+        localTime.value = `${hour12}:${String(minutes).padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`
+      }
+    }
+  } catch (e) {
+    console.error('Error canonicalizing time:', e)
+    // Don't change the time if parsing fails
+  }
+
+  // Update the model value with the canonicalized time
   updateModelValue()
 }
 
@@ -409,6 +465,13 @@ function startEditing () {
 
 function onInputChange (value) {
   editableDate.value = value
+}
+
+/**
+ * Track raw time input changes
+ */
+function onTimeInputChange (value) {
+  localTime.value = value
 }
 
 function finishEditing () {

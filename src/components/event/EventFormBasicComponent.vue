@@ -76,9 +76,15 @@
               <template v-if="isRecurring">
                 <div class="q-pa-md q-mt-sm rounded-borders recurrence-container">
                   <!-- Info about event series -->
-                  <div class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                  <div v-if="!eventData.seriesSlug" class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
                     This will create an event series. All occurrences will share the same basic information.
+                  </div>
+
+                  <!-- Info about existing event series -->
+                  <div v-else class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This event is part of an existing series. Editing the recurrence pattern will affect all future occurrences.
                   </div>
 
                   <!-- Series Name -->
@@ -90,6 +96,7 @@
                     maxlength="80"
                     counter
                     class="q-mb-md"
+                    :readonly="!!eventData.seriesSlug"
                     :rules="[(val) => !!val || 'Series title is required']"
                   />
 
@@ -102,6 +109,7 @@
                     type="textarea"
                     autogrow
                     class="q-mb-md"
+                    :readonly="!!eventData.seriesSlug"
                   />
 
                   <!-- Recurrence Pattern -->
@@ -112,7 +120,15 @@
                     :start-date="eventData.startDate"
                     :hide-toggle="true"
                     @update:start-date="updateStartDate"
+                    @update:model-value="handleRecurrenceRuleUpdate"
                   />
+
+                  <!-- Show the series information when viewing a series event -->
+                  <div v-if="eventData.seriesSlug" class="text-caption q-mt-md q-pa-sm rounded-borders recurrence-info">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This event is part of the series "<strong>{{ seriesFormData.name }}</strong>".
+                    Any changes to the recurrence pattern will affect all future occurrences.
+                  </div>
                 </div>
               </template>
             </div>
@@ -380,12 +396,20 @@ const seriesFormData = ref({
 const descriptionTab = ref('edit')
 
 // Now that all reactive variables are initialized, set up watchers
-// Watch for changes in the eventData to update isRecurring state
-watch(() => eventData.value, (newEventData) => {
+// Watch for changes in the eventData to update isRecurring state and load series data
+watch(() => eventData.value, async (newEventData) => {
   // If event has a seriesSlug, it's already part of a recurring series
   if (newEventData.seriesSlug) {
     isRecurring.value = true
     console.log('Event is part of series, enabling recurring mode:', newEventData.seriesSlug)
+
+    // Load the series information to get the recurrence rule
+    try {
+      await loadSeriesInformation(newEventData.seriesSlug)
+    } catch (err) {
+      console.error('Failed to load series information:', err)
+      error('Failed to load series information')
+    }
   }
 }, { immediate: true, deep: true })
 
@@ -456,6 +480,64 @@ onMounted(() => {
     isLoading.value = false
   })
 })
+
+// Function to load series data including recurrence rule
+const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
+  console.log(`Loading series information for: ${seriesSlug}`)
+  isLoading.value = true
+
+  try {
+    // Fetch the series information
+    const seriesResponse = await eventSeriesApi.getBySlug(seriesSlug)
+    const seriesData = seriesResponse.data
+
+    // Log the series data for debugging
+    console.log('Series data loaded:', seriesData)
+
+    // Update series form data
+    seriesFormData.value.name = seriesData.name || ''
+    seriesFormData.value.description = seriesData.description || ''
+
+    // Update timezone if not already set
+    if (seriesData.timeZone && (!eventData.value.timeZone || eventData.value.timeZone === '')) {
+      eventData.value.timeZone = seriesData.timeZone
+    }
+
+    // Set the recurrence rule from the series
+    if (seriesData.recurrenceRule) {
+      console.log('Setting recurrence rule from series:', seriesData.recurrenceRule)
+
+      // Convert from backend RecurrenceRuleDto to frontend RecurrenceRule format if needed
+      // The frontend RecurrenceComponent expects 'frequency', 'byweekday', etc.
+      const convertedRule: Partial<RecurrenceRule> = {
+        frequency: seriesData.recurrenceRule.frequency as RecurrenceRule['frequency'],
+        interval: seriesData.recurrenceRule.interval,
+        count: seriesData.recurrenceRule.count,
+        until: seriesData.recurrenceRule.until,
+        bymonth: seriesData.recurrenceRule.bymonth,
+        bymonthday: seriesData.recurrenceRule.bymonthday,
+        bysetpos: seriesData.recurrenceRule.bysetpos,
+        wkst: seriesData.recurrenceRule.wkst
+      }
+
+      // Handle the byweekday property which might be named differently in the API
+      if (seriesData.recurrenceRule.byweekday) {
+        convertedRule.byweekday = seriesData.recurrenceRule.byweekday
+      } else if (seriesData.recurrenceRule.byday) {
+        // If API uses 'byday' instead, convert it to 'byweekday'
+        convertedRule.byweekday = seriesData.recurrenceRule.byday as string[]
+      }
+
+      // Update the recurrence rule state
+      recurrenceRule.value = convertedRule
+    }
+  } catch (err) {
+    console.error(`Error loading series data for ${seriesSlug}:`, err)
+    throw err // Re-throw to allow the caller to handle the error
+  } finally {
+    isLoading.value = false
+  }
+}
 
 interface Props { editEventSlug?: string, group?: GroupEntity }
 
@@ -780,6 +862,16 @@ const updateStartDate = (newStartDate: string) => {
   eventData.value.startDate = newStartDate
 
   console.log('Start date updated:', eventData.value.startDate)
+}
+
+// Handle updates to the recurrence rule from the RecurrenceComponent
+const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
+  console.log('Recurrence rule updated:', newRule)
+
+  // If this is a series event, we may want to warn the user about changes
+  if (eventData.value.seriesSlug) {
+    console.log('Series event recurrence rule updated, will affect future occurrences')
+  }
 }
 </script>
 
