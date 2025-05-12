@@ -63,9 +63,9 @@ describe('DatetimeComponent Day Preservation', () => {
     expect(initialDate.getUTCDate()).toBe(14)
 
     // Now simulate changing the timezone to a drastically different one
-    // This would be done via the timezone picker in real usage
+    // We'll use the actual UI function that's called when a user changes timezone
     wrapper.vm.selectedTimezone = 'Asia/Tokyo' // UTC+9
-    wrapper.vm.applyTimezone()
+    wrapper.vm.changeTimezone()
     await wrapper.vm.$nextTick()
 
     // Check timezone was emitted

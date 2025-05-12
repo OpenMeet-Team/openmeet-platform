@@ -12,12 +12,8 @@ const fixedDate = new Date('2025-01-15T12:00:00.000Z')
 vi.useFakeTimers()
 vi.setSystemTime(fixedDate)
 
-// Mock the date-fns-tz functions
-vi.mock('date-fns-tz', () => ({
-  formatInTimeZone: vi.fn().mockImplementation(() => '2025-01-15'),
-  toZonedTime: vi.fn().mockImplementation((date) => date),
-  fromZonedTime: vi.fn().mockImplementation((date) => date)
-}))
+// Using real date-fns-tz functions for more accurate testing
+vi.unmock('date-fns-tz')
 
 describe('DatetimeComponent', () => {
   let initialDate: string

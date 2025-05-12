@@ -74,39 +74,60 @@ export class RecurrenceService {
         }
       }
 
-      // Add byweekday and bysetpos if present (RRule requires special handling)
+      // Add byweekday and handle bysetpos (RRule requires special handling)
       if (rule.byweekday && rule.byweekday.length > 0) {
-        options.byweekday = rule.byweekday.map(day => {
-          // Check if day has a position prefix like "1MO" for first Monday
-          const match = day.match(/^([+-]?\d+)([A-Z]{2})$/)
-          if (match) {
-            const pos = parseInt(match[1], 10)
-            const weekday = match[2]
-            return new Weekday(RRule[weekday as keyof typeof RRule] as unknown as number, pos)
+        // Special case for MONTHLY/YEARLY with byweekday + bysetpos: use .nth() method for better toText() results
+        if ((rule.frequency === 'MONTHLY' || rule.frequency === 'YEARLY') &&
+             rule.bysetpos &&
+             // Handle bysetpos both as array or as a number (handle potential API inconsistency)
+             (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined)) {
+          // Get the position (e.g., 2 for "second", -1 for "last")
+          // Handle both array and number formats
+          const position = Array.isArray(rule.bysetpos) ? rule.bysetpos[0] : rule.bysetpos
+
+          // Create properly typed array for byweekday
+          const byweekdayArray: Weekday[] = []
+
+          // Process each weekday with proper typing
+          for (const day of rule.byweekday) {
+            // Use the .nth() method on the weekday constant for better text formatting
+            const weekdayConst = RRule[day as keyof typeof RRule]
+
+            // Add the position to the weekday using nth()
+            // This allows RRule.toText() to output "every month on the second Wednesday" correctly
+            if (typeof weekdayConst === 'object' && 'nth' in weekdayConst &&
+                typeof (weekdayConst as { nth: (n: number) => Weekday }).nth === 'function') {
+              byweekdayArray.push((weekdayConst as { nth: (n: number) => Weekday }).nth(position))
+            } else if (weekdayConst instanceof Weekday) {
+              byweekdayArray.push(weekdayConst)
+            }
           }
-          // Regular weekday without position
-          return RRule[day as keyof typeof RRule] as unknown as number
-        })
+
+          options.byweekday = byweekdayArray
+
+          console.log('Using .nth() method for byweekday with position:', position)
+        } else {
+          // Standard handling for regular weekdays without position or non-MONTHLY patterns
+          options.byweekday = rule.byweekday.map(day => {
+            // Check if day has a position prefix like "1MO" for first Monday
+            const match = day.match(/^([+-]?\d+)([A-Z]{2})$/)
+            if (match) {
+              const pos = parseInt(match[1], 10)
+              const weekday = match[2]
+              return new Weekday(RRule[weekday as keyof typeof RRule] as unknown as number, pos)
+            }
+            // Regular weekday without position
+            return RRule[day as keyof typeof RRule] as unknown as number
+          })
+        }
       }
 
-      // Handle bysetpos separately (needed for monthly by-day-of-week patterns)
-      if (rule.bysetpos && rule.bysetpos.length > 0) {
+      // Still add bysetpos for completeness (needed for some patterns)
+      if (rule.bysetpos && rule.bysetpos.length > 0 &&
+         !(rule.frequency === 'MONTHLY' && rule.byweekday && rule.byweekday.length > 0)) {
+        // Only add bysetpos for non-MONTHLY + byweekday patterns (since we're using .nth() for those)
         options.bysetpos = rule.bysetpos
         console.log('Setting bysetpos in RRule:', rule.bysetpos)
-
-        // Extra logging to debug monthly + bysetpos patterns
-        if (rule.frequency === 'MONTHLY' && rule.byweekday && rule.byweekday.length > 0) {
-          console.log('Monthly pattern with byweekday and bysetpos detected:',
-            'freq:', rule.frequency,
-            'byweekday:', rule.byweekday,
-            'bysetpos:', rule.bysetpos)
-
-          // Ensure RRule is using the correct format for byweekday when combined with bysetpos
-          if (typeof options.byweekday === 'object' && !Array.isArray(options.byweekday)) {
-            // If byweekday is a single Weekday object instead of an array, convert it
-            options.byweekday = [options.byweekday]
-          }
-        }
       }
 
       // Add other byX rules as needed
@@ -640,6 +661,57 @@ export class RecurrenceService {
     }
 
     try {
+      const rule = event.recurrenceRule
+
+      // Create a separate RRule instance just for text generation in the case of
+      // monthly patterns with bysetpos, since the library's toText() method doesn't
+      // handle bysetpos properly in the standard format
+      if (rule.frequency === 'MONTHLY' &&
+          rule.byweekday && rule.byweekday.length > 0 &&
+          rule.bysetpos &&
+          // Handle bysetpos both as array or as a number (handle potential API inconsistency)
+          (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined)) {
+        // Create a new RRule with nth() format for better text output
+        // Handle both array and number formats
+        const position = Array.isArray(rule.bysetpos) ? rule.bysetpos[0] : rule.bysetpos
+        const weekdayCode = rule.byweekday[0]
+
+        // Get the weekday constant from RRule
+        const weekdayConst = RRule[weekdayCode as keyof typeof RRule]
+
+        // Create options for text generation
+        const textOptions: Partial<Options> = {
+          freq: RRule.MONTHLY,
+          interval: rule.interval || 1,
+          dtstart: typeof event.startDate === 'string' ? parseISO(event.startDate) : new Date(event.startDate)
+        }
+
+        // Use nth() method to properly format the text
+        if (typeof weekdayConst === 'object' && 'nth' in weekdayConst &&
+            typeof (weekdayConst as { nth: (n: number) => Weekday }).nth === 'function') {
+          // Create properly typed Weekday array
+          const byweekdayArray: Weekday[] = [
+            (weekdayConst as { nth: (n: number) => Weekday }).nth(position)
+          ]
+          textOptions.byweekday = byweekdayArray
+        }
+
+        // Create a special RRule just for text output
+        const textRRule = new RRule(textOptions)
+
+        // Get the human readable text
+        const humanText = textRRule.toText()
+
+        // Log for debugging
+        console.log('Created specialized text RRule for monthly+bysetpos pattern:')
+        console.log('- Original rule:', JSON.stringify(rule))
+        console.log('- Text RRule string:', textRRule.toString())
+        console.log('- Human readable text:', humanText)
+
+        return humanText
+      }
+
+      // For all other patterns, use the standard approach
       const rrule = this.toRRule(
         event.recurrenceRule,
         event.startDate
