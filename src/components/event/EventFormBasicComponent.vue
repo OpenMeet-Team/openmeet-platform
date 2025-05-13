@@ -520,16 +520,16 @@ const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
         wkst: seriesData.recurrenceRule.wkst
       }
 
-      // Handle the byweekday property which might be named differently in the API
+      // Handle the byweekday property
       if (seriesData.recurrenceRule.byweekday) {
         convertedRule.byweekday = seriesData.recurrenceRule.byweekday
-      } else if (seriesData.recurrenceRule.byday) {
-        // If API uses 'byday' instead, convert it to 'byweekday'
-        convertedRule.byweekday = seriesData.recurrenceRule.byday as string[]
       }
 
-      // Update the recurrence rule state
-      recurrenceRule.value = convertedRule
+      // Update the recurrence rule state - ensure frequency is set to satisfy the type requirement
+      recurrenceRule.value = {
+        frequency: convertedRule.frequency || 'WEEKLY',
+        ...convertedRule
+      }
     }
   } catch (err) {
     console.error(`Error loading series data for ${seriesSlug}:`, err)
