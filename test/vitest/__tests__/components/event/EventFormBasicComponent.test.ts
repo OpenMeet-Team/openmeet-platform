@@ -7,15 +7,8 @@ import { eventsApi } from '../../../../../src/api/events'
 import { createPinia, setActivePinia } from 'pinia'
 import EventFormBasicComponent from '../../../../../src/components/event/EventFormBasicComponent.vue'
 
-// Create date-fns-tz mock before importing DatetimeComponent
-vi.mock('date-fns-tz', () => ({
-  formatInTimeZone: vi.fn().mockImplementation((date, timezone, format) => {
-    if (format === 'yyyy-MM-dd') return '2025-02-15'
-    if (format === 'HH:mm') return '' // Empty time for new events
-    return '2025-02-15'
-  }),
-  toZonedTime: vi.fn().mockImplementation((date) => date)
-}))
+// Using real date-fns-tz for accurate timezone testing
+vi.unmock('date-fns-tz')
 
 // Install Quasar for testing
 installQuasarPlugin({ plugins: { Notify } })
@@ -226,11 +219,18 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
       // Wait for Vue to process updates
       await wrapper.vm.$nextTick()
 
+      // Fill required fields for form submission
+      await wrapper.find('[data-cy="event-name-input"]').setValue('Default Time Event')
+      await wrapper.find('[data-cy="event-description"]').setValue('This is a test event description')
+
       // Simulate clicking the publish button
       await wrapper.vm.onPublish()
 
       // Wait for Vue to process updates and API call to complete
       await wrapper.vm.$nextTick()
+
+      // Run any remaining timers to complete the API call
+      await vi.runAllTimersAsync()
 
       // Verify the API was called
       expect(eventsApi.create).toHaveBeenCalled()
@@ -282,7 +282,6 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
       // First set a custom time
       datetimeComponent.vm.onTimeUpdate('2:30 PM')
       await wrapper.vm.$nextTick()
-
       // Then set a date
       datetimeComponent.vm.onDateUpdate('2025-03-15')
       await wrapper.vm.$nextTick()
@@ -294,6 +293,7 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
       // Submit the form
       await wrapper.vm.onPublish()
       await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
 
       // Verify the API call
       expect(eventsApi.create).toHaveBeenCalled()
@@ -315,11 +315,6 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
   })
 
   it('preserves the start time when setting an end time with the checkbox', async () => {
-    // Skip in CI
-    if (process.env.CI === 'true') {
-      return
-    }
-
     // Mount the component
     const wrapper = mount(EventFormBasicComponent)
     await vi.runAllTimersAsync()

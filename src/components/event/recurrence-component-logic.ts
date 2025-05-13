@@ -1,7 +1,8 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { RecurrenceRule, EventEntity } from '../../types/event'
-import { format, addDays } from 'date-fns'
+import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 
 // Interface for component props
 export interface RecurrenceComponentProps {
@@ -270,34 +271,9 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       selectedDays.value = [...currentDays, day]
     }
 
-    // Check if we need to update the start date to match the first selected weekday
-    if (selectedDays.value.length > 0 && props.startDate) {
-      const startDateObj = new Date(props.startDate)
-      const currentDayOfWeek = startDateObj.getDay()
-      const weekdayMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }
-
-      // Check if current start date day matches any selected weekday
-      const currentWeekdayCode = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][currentDayOfWeek]
-      const currentDayIsSelected = selectedDays.value.includes(currentWeekdayCode)
-
-      if (!currentDayIsSelected && selectedDays.value.length > 0) {
-        // Get the first selected weekday
-        const firstSelectedDay = selectedDays.value[0]
-        const targetDayNum = weekdayMap[firstSelectedDay as keyof typeof weekdayMap]
-
-        // Calculate days to add to get to the target weekday
-        let daysToAdd = (targetDayNum - currentDayOfWeek + 7) % 7
-        if (daysToAdd === 0) daysToAdd = 7 // If same day of week, go to next week
-
-        // Create the new date by adding days
-        const newStartDate = addDays(startDateObj, daysToAdd)
-
-        // Emit the new start date while preserving the time
-        const newDateISOString = newStartDate.toISOString()
-        console.log('Updating start date to match selected weekday:', newDateISOString)
-        emit('update:start-date', newDateISOString)
-      }
-    }
+    // We no longer update the start date based on selected weekdays
+    // This allows users to select any combination of days without affecting the start date
+    console.log('Selected days updated to:', selectedDays.value)
 
     // Wait until the next tick before allowing updates
     setTimeout(() => {
@@ -535,15 +511,136 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     // We need to also make sure our watchers don't cause recursive updates
     let isUpdatingSelectedDays = false
 
-    // Initialize weekday selection based on the start date
-    watch(() => props.startDate, (newStartDate, oldStartDate) => {
+    // Initialize weekday selection based on the start date and timezone
+    watch([() => props.startDate, () => props.timeZone], ([newStartDate, newTimeZone], [oldStartDate, oldTimeZone]) => {
       // Skip if we're already updating
       if (isUpdatingSelectedDays) return
 
-      // Check if the date has actually changed (different day)
-      if (newStartDate && (!oldStartDate || new Date(newStartDate).toDateString() !== new Date(oldStartDate).toDateString())) {
+      // Check if the date or timezone has actually changed
+      if (newStartDate &&
+         (!oldStartDate ||
+          new Date(newStartDate).toDateString() !== new Date(oldStartDate).toDateString() ||
+          newTimeZone !== oldTimeZone)) {
         isUpdatingSelectedDays = true
         try {
+          // Get the timezone to use for calculations
+          const timeZoneToUse = newTimeZone || RecurrenceService.getUserTimezone()
+
+          // IMPORTANT: For recurrence calculation, we need to use the exact date in the event's timezone
+          // because dates can cross day boundaries in different timezones
+
+          // Use date-fns-tz to get the proper day of week in the event's timezone
+          const dateInTimezone = formatInTimeZone(
+            new Date(newStartDate),
+            timeZoneToUse,
+            'EEEE' // Full weekday name
+          )
+
+          // Map day name to weekday code
+          const dayNameMap: Record<string, string> = {
+            Sunday: 'SU',
+            Monday: 'MO',
+            Tuesday: 'TU',
+            Wednesday: 'WE',
+            Thursday: 'TH',
+            Friday: 'FR',
+            Saturday: 'SA'
+          }
+
+          // Get the weekday code
+          const weekdayValue = dayNameMap[dateInTimezone]
+
+          // Log the timezone adjustment for debugging
+          console.log('Timezone-aware day calculation:', {
+            date: newStartDate,
+            timezone: timeZoneToUse,
+            dateInTimezone,
+            weekdayValue
+          })
+
+          // For weekly frequency, only set selectedDays if it's empty or not set yet
+          // For monthly frequency with dayOfWeek type, DO NOT update the monthlyWeekday if user has set it
+          if (frequency.value === 'WEEKLY') {
+            // Only set selectedDays on initial setup (when it's empty)
+            if (selectedDays.value.length === 0) {
+              selectedDays.value = [weekdayValue]
+              console.log('Weekly frequency: initial selectedDays set to match start date:', weekdayValue)
+            } else {
+              console.log('Weekly frequency: preserving user-selected days:', selectedDays.value)
+            }
+          }
+
+          // For monthly frequency, we need to be careful not to reset user selections
+          if (frequency.value === 'MONTHLY' && monthlyRepeatType.value === 'dayOfWeek') {
+            // Check if monthlyWeekday has been explicitly set by the user
+            const isUserExplicitlySetWeekday = oldStartDate !== undefined &&
+              monthlyWeekday.value !== undefined &&
+              monthlyWeekday.value !== dayNameMap[formatInTimeZone(
+                new Date(oldStartDate),
+                timeZoneToUse,
+                'EEEE'
+              )]
+
+            // Only update monthlyWeekday if this is initial setup (oldStartDate is undefined)
+            // or if the user hasn't explicitly chosen a different weekday
+            if (!oldStartDate || !isUserExplicitlySetWeekday) {
+              console.log('Initializing monthlyWeekday to match start date:', weekdayValue,
+                'oldStartDate:', oldStartDate ? 'exists' : 'undefined',
+                'isUserExplicitlySetWeekday:', isUserExplicitlySetWeekday)
+              monthlyWeekday.value = weekdayValue
+            } else {
+              console.log('Monthly frequency: preserving user-selected monthlyWeekday:',
+                monthlyWeekday.value, 'instead of setting to', weekdayValue)
+            }
+          } else {
+            // For other cases (initial setup, not monthly+dayOfWeek), set selectedDays accordingly
+            if (!oldStartDate) {
+              // This is the initial setup (component just mounted)
+              selectedDays.value = [weekdayValue]
+
+              // Only set monthlyWeekday on first initialization if it's not set yet
+              if (!monthlyWeekday.value) {
+                console.log('Initial setup: setting monthlyWeekday to', weekdayValue)
+                monthlyWeekday.value = weekdayValue
+              }
+            }
+          }
+
+          // Get the day of month in the correct timezone
+          const dayOfMonth = parseInt(formatInTimeZone(
+            new Date(newStartDate),
+            timeZoneToUse,
+            'd' // Day of month
+          ), 10)
+
+          // Calculate the position of this weekday in the month (e.g., "2" for second Wednesday)
+          const position = Math.ceil(dayOfMonth / 7)
+
+          // Check if it's the last occurrence of this weekday in the month
+          const [year, month] = formatInTimeZone(
+            new Date(newStartDate),
+            timeZoneToUse,
+            'yyyy-M' // Year and month
+          ).split('-').map(part => parseInt(part, 10))
+
+          // Get last day of the month by creating a date for the first day of next month and going back one day
+          const lastDayOfMonth = new Date(year, month, 0).getDate()
+          const daysRemaining = lastDayOfMonth - dayOfMonth
+
+          // If there are not enough days left for another occurrence of this weekday,
+          // then this is the last occurrence in the month
+          if (daysRemaining < 7) {
+            monthlyPosition.value = '-1' // Last occurrence
+          } else {
+            monthlyPosition.value = String(Math.min(position, 4)) // 1st, 2nd, 3rd, 4th (max 4)
+          }
+
+          console.log('Date changed, reset selected days to:', weekdayValue,
+            'Monthly pattern:', `${monthlyPosition.value}${monthlyWeekday.value}`)
+        } catch (error) {
+          console.error('Error updating day of week for recurrence:', error)
+
+          // Fallback to simpler approach if there's an error
           const newDate = new Date(newStartDate)
           const dayOfWeek = newDate.getDay()
           const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
@@ -551,28 +648,13 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           // Always reset selected days when date changes
           selectedDays.value = [weekdayValue]
 
-          // For monthly patterns, also set the correct weekday and position
-          // Set the weekday for monthly pattern (e.g., "WE" for Wednesday)
-          monthlyWeekday.value = weekdayValue
-
-          // Calculate the position of this weekday in the month (e.g., "2" for second Wednesday)
-          const day = newDate.getDate()
-          const position = Math.ceil(day / 7)
-
-          // Check if it's the last occurrence of this weekday in the month
-          const lastDayOfMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate()
-          const daysRemaining = lastDayOfMonth - day
-
-          // If there are not enough days left for another occurrence of this weekday,
-          // then this is the last occurrence in the month
-          if (daysRemaining < 7) {
-            monthlyPosition.value = '-1' // Last occurrence
+          // Only set monthlyWeekday if it's not already set, allowing user to choose any day
+          if (!monthlyWeekday.value) {
+            console.warn('Using fallback day of week calculation for initial monthlyWeekday:', weekdayValue)
+            monthlyWeekday.value = weekdayValue
           } else {
-            monthlyPosition.value = String(position) // 1st, 2nd, 3rd, 4th
+            console.warn('Preserving user-selected monthlyWeekday:', monthlyWeekday.value, 'using fallback calculation for selectedDays only')
           }
-
-          console.log('Date changed, reset selected days to:', weekdayValue,
-            'Monthly pattern:', `${monthlyPosition.value}${monthlyWeekday.value}`)
         } finally {
           // Use setTimeout to break the reactivity chain
           setTimeout(() => {
@@ -587,8 +669,87 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       initFromModelValue()
     }, { immediate: true })
 
+    // Watch for changes to frequency to ensure proper monthlyWeekday when switching to monthly
+    watch(() => frequency.value, (newFrequency) => {
+      if (newFrequency === 'MONTHLY' && props.startDate && props.timeZone) {
+        // When switching to monthly frequency, ensure weekday is correctly set based on timezone
+        try {
+          const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
+          const dateInTimezone = formatInTimeZone(
+            new Date(props.startDate),
+            timeZoneToUse,
+            'EEEE' // Full weekday name
+          )
+
+          // Map day name to weekday code
+          const dayNameMap: Record<string, string> = {
+            Sunday: 'SU',
+            Monday: 'MO',
+            Tuesday: 'TU',
+            Wednesday: 'WE',
+            Thursday: 'TH',
+            Friday: 'FR',
+            Saturday: 'SA'
+          }
+
+          // Set weekday based on timezone only if never set before
+          const weekdayValue = dayNameMap[dateInTimezone]
+          if (weekdayValue) {
+            // Only initialize monthlyWeekday if it's empty
+            if (!monthlyWeekday.value) {
+              console.log(`Initializing monthlyWeekday to timezone-aware value: ${weekdayValue} when switching to MONTHLY frequency`)
+              monthlyWeekday.value = weekdayValue
+            } else {
+              console.log('Preserving user-selected monthlyWeekday:', monthlyWeekday.value, 'when switching to MONTHLY frequency')
+            }
+          }
+        } catch (error) {
+          console.error('Error setting timezone-aware weekday when switching to MONTHLY:', error)
+        }
+      }
+    })
+
+    // Watch specifically for changes to monthlyRepeatType to handle mode switching
+    watch(() => monthlyRepeatType.value, (newRepeatType) => {
+      if (frequency.value === 'MONTHLY' && newRepeatType === 'dayOfWeek') {
+        // When switching from dayOfMonth to dayOfWeek, initialize the weekday if not already set
+        if (!monthlyWeekday.value && props.startDate && props.timeZone) {
+          try {
+            const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
+            const dateInTimezone = formatInTimeZone(
+              new Date(props.startDate),
+              timeZoneToUse,
+              'EEEE' // Full weekday name
+            )
+
+            // Map day name to weekday code
+            const dayNameMap: Record<string, string> = {
+              Sunday: 'SU',
+              Monday: 'MO',
+              Tuesday: 'TU',
+              Wednesday: 'WE',
+              Thursday: 'TH',
+              Friday: 'FR',
+              Saturday: 'SA'
+            }
+
+            const weekdayValue = dayNameMap[dateInTimezone]
+            if (weekdayValue) {
+              console.log(`Initializing monthlyWeekday to ${weekdayValue} when switching to dayOfWeek mode (first time only)`)
+              monthlyWeekday.value = weekdayValue
+            }
+          } catch (error) {
+            console.error('Error calculating weekday when switching to dayOfWeek mode:', error)
+          }
+        } else if (monthlyWeekday.value) {
+          // If monthlyWeekday already has a value, preserve it and log a message
+          console.log('Preserving existing monthlyWeekday value:', monthlyWeekday.value, 'when switching to dayOfWeek mode')
+        }
+      }
+    })
+
     // Watch for changes to the monthlyWeekday and monthlyPosition to update the preview
-    watch([monthlyWeekday, monthlyPosition], () => {
+    watch([monthlyWeekday, monthlyPosition, monthlyRepeatType], () => {
       if (frequency.value === 'MONTHLY' && monthlyRepeatType.value === 'dayOfWeek') {
         // Log the change for debugging purposes
         console.log(`Monthly weekday/position updated: ${monthlyPosition.value}${monthlyWeekday.value}`)
@@ -606,6 +767,9 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           }, 50)
         }
       }
+
+      // IMPORTANT: We removed the auto-reset of monthlyWeekday to match start date
+      // This was causing the issue where users couldn't select a different day of week
     })
   }
 
@@ -622,16 +786,27 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         emit('update:time-zone', timezone.value)
       }
 
-      // If start date is provided, set default monthly weekday values
+      // If start date is provided, set default monthly weekday values ONLY if not already set
       if (props.startDate) {
+        // Only initialize monthlyWeekday and position if they haven't been explicitly set
+        // This allows the user to choose any day regardless of the start date
         const startDate = new Date(props.startDate)
-        const dayOfWeek = startDate.getDay()
-        monthlyWeekday.value = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
 
-        // Calculate the position of this weekday in the month
-        const day = startDate.getDate()
-        const position = Math.ceil(day / 7)
-        monthlyPosition.value = String(Math.min(position, 4)) // Ensure it's at most 4
+        // For day of week, ONLY set if not already set by the user
+        if (!monthlyWeekday.value) {
+          const dayOfWeek = startDate.getDay()
+          monthlyWeekday.value = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+          console.log('Initial monthlyWeekday set to:', monthlyWeekday.value)
+        } else {
+          console.log('Keeping existing monthlyWeekday value:', monthlyWeekday.value)
+        }
+
+        // For position, only set if not already set
+        if (!monthlyPosition.value) {
+          const day = startDate.getDate()
+          const position = Math.ceil(day / 7)
+          monthlyPosition.value = String(Math.min(position, 4)) // Ensure it's at most 4
+        }
       }
 
       // Initialize pattern description and occurrences if we already have rule data

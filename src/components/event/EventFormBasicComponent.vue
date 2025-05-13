@@ -76,9 +76,15 @@
               <template v-if="isRecurring">
                 <div class="q-pa-md q-mt-sm rounded-borders recurrence-container">
                   <!-- Info about event series -->
-                  <div class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                  <div v-if="!eventData.seriesSlug" class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
                     This will create an event series. All occurrences will share the same basic information.
+                  </div>
+
+                  <!-- Info about existing event series -->
+                  <div v-else class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This event is part of an existing series. Editing the recurrence pattern will affect all future occurrences.
                   </div>
 
                   <!-- Series Name -->
@@ -90,6 +96,7 @@
                     maxlength="80"
                     counter
                     class="q-mb-md"
+                    :readonly="!!eventData.seriesSlug"
                     :rules="[(val) => !!val || 'Series title is required']"
                   />
 
@@ -102,6 +109,7 @@
                     type="textarea"
                     autogrow
                     class="q-mb-md"
+                    :readonly="!!eventData.seriesSlug"
                   />
 
                   <!-- Recurrence Pattern -->
@@ -112,7 +120,15 @@
                     :start-date="eventData.startDate"
                     :hide-toggle="true"
                     @update:start-date="updateStartDate"
+                    @update:model-value="handleRecurrenceRuleUpdate"
                   />
+
+                  <!-- Show the series information when viewing a series event -->
+                  <div v-if="eventData.seriesSlug" class="text-caption q-mt-md q-pa-sm rounded-borders recurrence-info">
+                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+                    This event is part of the series "<strong>{{ seriesFormData.name }}</strong>".
+                    Any changes to the recurrence pattern will affect all future occurrences.
+                  </div>
                 </div>
               </template>
             </div>
@@ -312,7 +328,6 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { formatInTimeZone } from 'date-fns-tz'
 import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
@@ -381,12 +396,20 @@ const seriesFormData = ref({
 const descriptionTab = ref('edit')
 
 // Now that all reactive variables are initialized, set up watchers
-// Watch for changes in the eventData to update isRecurring state
-watch(() => eventData.value, (newEventData) => {
+// Watch for changes in the eventData to update isRecurring state and load series data
+watch(() => eventData.value, async (newEventData) => {
   // If event has a seriesSlug, it's already part of a recurring series
   if (newEventData.seriesSlug) {
     isRecurring.value = true
     console.log('Event is part of series, enabling recurring mode:', newEventData.seriesSlug)
+
+    // Load the series information to get the recurrence rule
+    try {
+      await loadSeriesInformation(newEventData.seriesSlug)
+    } catch (err) {
+      console.error('Failed to load series information:', err)
+      error('Failed to load series information')
+    }
   }
 }, { immediate: true, deep: true })
 
@@ -458,6 +481,64 @@ onMounted(() => {
   })
 })
 
+// Function to load series data including recurrence rule
+const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
+  console.log(`Loading series information for: ${seriesSlug}`)
+  isLoading.value = true
+
+  try {
+    // Fetch the series information
+    const seriesResponse = await eventSeriesApi.getBySlug(seriesSlug)
+    const seriesData = seriesResponse.data
+
+    // Log the series data for debugging
+    console.log('Series data loaded:', seriesData)
+
+    // Update series form data
+    seriesFormData.value.name = seriesData.name || ''
+    seriesFormData.value.description = seriesData.description || ''
+
+    // Update timezone if not already set
+    if (seriesData.timeZone && (!eventData.value.timeZone || eventData.value.timeZone === '')) {
+      eventData.value.timeZone = seriesData.timeZone
+    }
+
+    // Set the recurrence rule from the series
+    if (seriesData.recurrenceRule) {
+      console.log('Setting recurrence rule from series:', seriesData.recurrenceRule)
+
+      // Convert from backend RecurrenceRuleDto to frontend RecurrenceRule format if needed
+      // The frontend RecurrenceComponent expects 'frequency', 'byweekday', etc.
+      const convertedRule: Partial<RecurrenceRule> = {
+        frequency: seriesData.recurrenceRule.frequency as RecurrenceRule['frequency'],
+        interval: seriesData.recurrenceRule.interval,
+        count: seriesData.recurrenceRule.count,
+        until: seriesData.recurrenceRule.until,
+        bymonth: seriesData.recurrenceRule.bymonth,
+        bymonthday: seriesData.recurrenceRule.bymonthday,
+        bysetpos: seriesData.recurrenceRule.bysetpos,
+        wkst: seriesData.recurrenceRule.wkst
+      }
+
+      // Handle the byweekday property
+      if (seriesData.recurrenceRule.byweekday) {
+        convertedRule.byweekday = seriesData.recurrenceRule.byweekday
+      }
+
+      // Update the recurrence rule state - ensure frequency is set to satisfy the type requirement
+      recurrenceRule.value = {
+        frequency: convertedRule.frequency || 'WEEKLY',
+        ...convertedRule
+      }
+    }
+  } catch (err) {
+    console.error(`Error loading series data for ${seriesSlug}:`, err)
+    throw err // Re-throw to allow the caller to handle the error
+  } finally {
+    isLoading.value = false
+  }
+}
+
 interface Props { editEventSlug?: string, group?: GroupEntity }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -484,223 +565,24 @@ const onSubmit = async () => {
     ...eventData.value
   }
 
-  // CRITICAL FIX: Ensure we have a proper time in the event (not 00:00)
+  // Log event state before submission
   if (event.startDate) {
-    console.log('Checking event time before submission:', event.startDate)
+    console.log('Submitting event with date:', event.startDate)
 
-    // If we have an explicitly set time from the user (via time picker), use that
-    if (displayedStartTime.value) {
-      console.log('Using user-selected time:', displayedStartTime.value)
+    // Only apply defaults for completely new events without a specified time
+    if (!props.editEventSlug && !displayedStartTime.value) {
+      // For new events only, check if time is midnight and apply default if needed
+      const dateObj = new Date(event.startDate)
+      const hours = dateObj.getHours()
+      const minutes = dateObj.getMinutes()
 
-      // Parse the displayed time to get hours and minutes
-      // This is the time the user explicitly selected
-      const timeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
-      const match = displayedStartTime.value.match(timeRegex)
-
-      if (match) {
-        let hours = parseInt(match[1], 10)
-        const minutes = parseInt(match[2], 10)
-        const period = match[3].toUpperCase()
-
-        // Convert to 24-hour time
-        if (period === 'PM' && hours < 12) hours += 12
-        if (period === 'AM' && hours === 12) hours = 0
-
-        // ALWAYS force the correct time from what the user selected
-        // Ignore any time that might currently be in the event object
-        console.log(`CRITICAL: Forcing selected time: ${hours}:${minutes} ${period}`)
-
-        // Get the date components only
-        const dateOnly = event.startDate.split('T')[0]
-
-        // Build a full datetime string from the date and selected time
-        const localTimeStr = `${dateOnly}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
-        console.log('Local time string:', localTimeStr)
-
-        // IMPORTANT FIX: Properly convert to UTC regardless of timezone
-        // Format with timezone offset so we know exactly what timezone we're dealing with
-        const timezonedString = formatInTimeZone(
-          new Date(localTimeStr),
-          event.timeZone,
-          "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-        )
-        console.log('Formatted with timezone offset:', timezonedString)
-
-        // When we parse this string, JavaScript automatically converts to UTC
-        const utcDate = new Date(timezonedString)
-        console.log('Converted to proper UTC time:', utcDate.toISOString())
-
-        // Additional debug information about timezones
-        console.log('Timezone detailed info:', {
-          inputTime: `${hours}:${minutes}`,
-          inputDate: dateOnly,
-          localTimeStr,
-          selectedTimezone: event.timeZone,
-          browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          timezonedString,
-          utcISOString: utcDate.toISOString(),
-          utcHours: utcDate.getUTCHours(),
-          utcMinutes: utcDate.getUTCMinutes()
-        })
-
-        // Store the properly converted UTC time as ISO string
-        event.startDate = utcDate.toISOString()
-        console.log('Enforced exact user-selected time with timezone conversion:', event.startDate)
-
-        // Store original time values for debugging
-        console.log('Original time values:', { hours, minutes })
-      }
-    } else { // If we don't have a user-selected time, use the time from the existing event
-      // Important: When editing an existing event, preserve its original time
-      // unless explicitly changed by the user.
-      console.log('No user-selected time, preserving existing event time:', event.startDate)
-
-      // We only need to check for midnight (00:00) in new events
-      if (!props.editEventSlug) {
-        // For new events only, check if time is midnight and apply default if needed
-        const dateObj = new Date(event.startDate)
-        const hours = dateObj.getHours()
-        const minutes = dateObj.getMinutes()
-
-        // If time is midnight (00:00), set a reasonable default time (5:00 PM)
-        if (hours === 0 && minutes === 0) {
-          console.log('Time is midnight for new event, applying default time (5:00 PM)')
-
-          // Get date components only
-          const dateOnly = event.startDate.split('T')[0]
-
-          // Use date with a 5:00 PM default time
-          const startTime = '17:00:00' // 5:00 PM
-
-          // Create the combined date-time string
-          const localTimeStr = `${dateOnly}T${startTime}`
-          console.log('Setting default time to 5:00 PM:', localTimeStr)
-
-          // Convert from local timezone to the event's timezone, then to UTC
-          // First create a date in the local timezone
-          const localDate = new Date(localTimeStr)
-          console.log('Local date before conversion:', localDate.toISOString())
-
-          // Format this date as if it were in the event's timezone with offset
-          // This gives us a string like "2025-06-02T17:00:00-10:00" for Honolulu
-          const timezonedString = formatInTimeZone(
-            localDate,
-            event.timeZone,
-            "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives you timezone offset
-          )
-          console.log('Formatted with timezone offset:', timezonedString)
-
-          // When we parse this string, JavaScript automatically converts to UTC
-          const utcDate = new Date(timezonedString)
-          console.log('Converted to UTC:', utcDate.toISOString())
-
-          // Store the proper UTC time
-          event.startDate = utcDate.toISOString()
-
-          console.log('Start time with timezone conversion:', event.startDate)
-          console.log('Fixed new event time with timezone awareness:', event.startDate)
-
-          // Also fix end date if it exists
-          if (event.endDate) {
-            // If we have a user-selected end time, use that
-            if (displayedEndTime.value) {
-              // Parse the displayed end time to get hours and minutes
-              const endTimeRegex = /(\d{1,2}):(\d{2})\s*([AP]M)/i
-              const endMatch = displayedEndTime.value.match(endTimeRegex)
-
-              if (endMatch) {
-                let endHours = parseInt(endMatch[1], 10)
-                const endMinutes = parseInt(endMatch[2], 10)
-                const endPeriod = endMatch[3].toUpperCase()
-
-                // Convert to 24-hour time
-                if (endPeriod === 'PM' && endHours < 12) endHours += 12
-                if (endPeriod === 'AM' && endHours === 12) endHours = 0
-
-                // FIXED TIMEZONE CONVERSION - same fix as for start date
-                const endDateOnly = event.endDate.split('T')[0]
-                const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
-
-                // Convert from local timezone to the event's timezone, then to UTC
-                // First create a date in the local timezone
-                const endLocalDate = new Date(`${endDateOnly}T${endTime}:00`)
-                console.log('Local end date before conversion:', endLocalDate.toISOString())
-
-                // Format this date as if it were in the event's timezone with offset
-                const endTimezonedDateString = formatInTimeZone(
-                  endLocalDate,
-                  event.timeZone,
-                  "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives you timezone offset
-                )
-                console.log('End time formatted with timezone offset:', endTimezonedDateString)
-
-                // When we parse this string, JavaScript automatically converts to UTC
-                const endUtcDate = new Date(endTimezonedDateString)
-                console.log('End time converted to UTC:', endUtcDate.toISOString())
-                console.log('UTC hours in end time:', endUtcDate.getUTCHours())
-
-                event.endDate = endUtcDate.toISOString()
-                console.log('Enforced user-selected end time with timezone awareness:', event.endDate)
-
-                // Store original end time values for debugging
-                console.log('Original end time values:', { endHours, endMinutes })
-              } else {
-                // Use end date with a 6:00 PM default time
-                const endDateOnly = event.endDate.split('T')[0]
-                const endTime = '18:00:00' // 6:00 PM
-
-                // Create the combined date-time string
-                const endLocalTimeStr = `${endDateOnly}T${endTime}`
-                console.log('Setting default end time to 6:00 PM:', endLocalTimeStr)
-
-                // Convert to the selected timezone using date-fns-tz
-                const endTimezonedString = formatInTimeZone(
-                  new Date(endLocalTimeStr),
-                  event.timeZone,
-                  "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives you timezone offset
-                )
-
-                // Parse back to get proper UTC time
-                const endUtcDate = new Date(endTimezonedString)
-                event.endDate = endUtcDate.toISOString()
-
-                console.log('End time with timezone conversion:', event.endDate)
-                console.log('Fixed end time to default with timezone awareness:', event.endDate)
-              }
-            } else {
-              // Default end time for events without a selected end time
-              const endDateOnly = event.endDate.split('T')[0]
-              const endTime = '18:00:00' // 6:00 PM
-
-              // Create the combined date-time string
-              const endLocalTimeStr = `${endDateOnly}T${endTime}`
-              console.log('Setting default end time to 6:00 PM:', endLocalTimeStr)
-
-              // Convert from local timezone to the event's timezone, then to UTC
-              // First create a date in the local timezone
-              const endLocalDate = new Date(endLocalTimeStr)
-              console.log('Local end date before conversion:', endLocalDate.toISOString())
-
-              // Format this date as if it were in the event's timezone with offset
-              const endTimezonedString = formatInTimeZone(
-                endLocalDate,
-                event.timeZone,
-                "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives you timezone offset
-              )
-              console.log('End time formatted with timezone offset:', endTimezonedString)
-
-              // When we parse this string, JavaScript automatically converts to UTC
-              const endUtcDate = new Date(endTimezonedString)
-              console.log('End time converted to UTC:', endUtcDate.toISOString())
-
-              // Store the proper UTC time
-              event.endDate = endUtcDate.toISOString()
-
-              console.log('End time with timezone conversion:', event.endDate)
-              console.log('Fixed end time to default with timezone awareness:', event.endDate)
-            }
-          }
-        }
+      // If time is midnight (00:00), set a reasonable default time (5:00 PM)
+      if (hours === 0 && minutes === 0) {
+        console.log('Time is midnight for new event, using default time (5:00 PM)')
+        // Use DatetimeComponent to handle this properly
+        const datePart = event.startDate.split('T')[0]
+        const defaultTime = `${datePart}T17:00:00.000Z`
+        event.startDate = defaultTime
       }
     }
   }
@@ -942,45 +824,11 @@ const displayedEndTime = ref<string>('')
 const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received time info from DatetimeComponent:', timeInfo)
 
-  // Store the formatted time for display
+  // Store the formatted time for display - only used for UI purposes
   displayedStartTime.value = timeInfo.formattedTime
 
-  // If we have specific time parts, ensure event data has the correct time
-  if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
-    // Immediately update event data with the correct time
-    setExplicitEventTime(timeInfo.originalHours, timeInfo.originalMinutes)
-
-    // CRITICAL: Force the correct time into the eventData object with proper timezone conversion
-    const fixEventTime = () => {
-      if (eventData.value.startDate) {
-        // Get the date part of the ISO string
-        const datePart = eventData.value.startDate.split('T')[0]
-        // Create a local time string with the explicit time
-        const localTimeStr = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00`
-
-        // Properly convert to UTC with timezone
-        const timezonedString = formatInTimeZone(
-          new Date(localTimeStr),
-          eventData.value.timeZone || 'UTC',
-          "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-        )
-
-        // Convert to proper UTC time
-        const utcDate = new Date(timezonedString)
-        const correctTimeISO = utcDate.toISOString()
-
-        // Only update if the time is different
-        if (eventData.value.startDate !== correctTimeISO) {
-          console.log('Correcting event time to match user selection:', correctTimeISO)
-          eventData.value.startDate = correctTimeISO
-        }
-      }
-    }
-
-    // Apply correction immediately and after a short delay to catch any overrides
-    fixEventTime()
-    setTimeout(fixEventTime, 50)
-  }
+  // Trust the DatetimeComponent to handle timezone conversion correctly
+  // No additional conversion or correction is needed
 }
 
 // Handle time info updates for end date
@@ -999,153 +847,31 @@ const setEndDate = (checked: boolean) => {
 const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received end time info from DatetimeComponent:', timeInfo)
 
-  // Store the formatted time for display
+  // Store the formatted time for display - only used for UI purposes
   displayedEndTime.value = timeInfo.formattedTime
 
-  // If we have specific time parts, ensure event data has the correct time
-  if (timeInfo.originalHours !== undefined && timeInfo.originalMinutes !== undefined) {
-    // For end time, we use the exact time provided
-    if (eventData.value.endDate) {
-      // Set end time explicitly with proper timezone conversion
-      const datePart = eventData.value.endDate.split('T')[0]
-      // Create a local time string with the explicit time
-      const localTimeStr = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00`
-
-      // Properly convert to UTC with timezone
-      const timezonedString = formatInTimeZone(
-        new Date(localTimeStr),
-        eventData.value.timeZone || 'UTC',
-        "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-      )
-
-      // Convert to proper UTC time
-      const utcDate = new Date(timezonedString)
-      const correctTimeISO = utcDate.toISOString()
-
-      // Only update if different
-      if (eventData.value.endDate !== correctTimeISO) {
-        console.log('End time explicitly set to:', `${timeInfo.originalHours}:${timeInfo.originalMinutes}`, correctTimeISO)
-        eventData.value.endDate = correctTimeISO
-      }
-
-      // CRITICAL: Create a function to ensure the end time is preserved with proper timezone conversion
-      const fixEndTime = () => {
-        if (eventData.value.endDate) {
-          const datePart = eventData.value.endDate.split('T')[0]
-          // Create a local time string with the explicit time
-          const localTimeStr = `${datePart}T${timeInfo.originalHours.toString().padStart(2, '0')}:${timeInfo.originalMinutes.toString().padStart(2, '0')}:00`
-
-          // Properly convert to UTC with timezone
-          const timezonedString = formatInTimeZone(
-            new Date(localTimeStr),
-            eventData.value.timeZone || 'UTC',
-            "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-          )
-
-          // Convert to proper UTC time
-          const utcDate = new Date(timezonedString)
-          const correctTimeISO = utcDate.toISOString()
-
-          if (eventData.value.endDate !== correctTimeISO) {
-            console.log('Correcting end time to match user selection:', correctTimeISO)
-            eventData.value.endDate = correctTimeISO
-          }
-        }
-      }
-
-      // Apply correction immediately and after a short delay to catch any overrides
-      fixEndTime()
-      setTimeout(fixEndTime, 50)
-    }
-  }
+  // Trust the DatetimeComponent to handle timezone conversion correctly
+  // No additional conversion or correction is needed
 }
 
-// Sets a specific time for the event with proper timezone conversion
-const setExplicitEventTime = (hours: number, minutes: number) => {
-  if (eventData.value.startDate) {
-    const datePart = eventData.value.startDate.split('T')[0]
-    // Build local time string
-    const localTimeStr = `${datePart}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
-
-    // CRITICAL: Properly convert to UTC with timezone
-    const timezonedString = formatInTimeZone(
-      new Date(localTimeStr),
-      eventData.value.timeZone || 'UTC',
-      "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-    )
-
-    // Convert to proper UTC time
-    const utcDate = new Date(timezonedString)
-    eventData.value.startDate = utcDate.toISOString()
-
-    console.log('Start time explicitly set to:', `${hours}:${minutes}`, eventData.value.startDate)
-  }
-
-  // Also update end time if it exists
-  if (eventData.value.endDate) {
-    const endDatePart = eventData.value.endDate.split('T')[0]
-    const endHours = (hours + 1) % 24 // Default end time is start time + 1 hour
-
-    // Build local time string for end time
-    const localEndTimeStr = `${endDatePart}T${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
-
-    // Properly convert end time to UTC with timezone
-    const endTimezonedString = formatInTimeZone(
-      new Date(localEndTimeStr),
-      eventData.value.timeZone || 'UTC',
-      "yyyy-MM-dd'T'HH:mm:ssxxx"
-    )
-
-    // Convert to proper UTC time
-    const utcEndDate = new Date(endTimezonedString)
-    eventData.value.endDate = utcEndDate.toISOString()
-
-    console.log('End time explicitly set to:', `${endHours}:${minutes}`, eventData.value.endDate)
-  }
-}
+// This function is intentionally removed as it's no longer used
+// The DatetimeComponent now handles all timezone conversions correctly
 
 const updateStartDate = (newStartDate: string) => {
-  // First store the direct value as we need it for parsing
-  const tempStartDate = newStartDate
+  // Simply use the date as provided - trust DatetimeComponent's handling
+  eventData.value.startDate = newStartDate
 
-  // Extract the time from the new start date
-  const date = new Date(tempStartDate)
-  const hours = date.getHours()
-  const minutes = date.getMinutes()
+  console.log('Start date updated:', eventData.value.startDate)
+}
 
-  // Get the date part for timezone conversion
-  const datePart = tempStartDate.split('T')[0]
+// Handle updates to the recurrence rule from the RecurrenceComponent
+const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
+  console.log('Recurrence rule updated:', newRule)
 
-  // Create a time string for conversion
-  let timeHours = hours
-  let timeMinutes = minutes
-
-  // If time is midnight, set a default time (5:00 PM)
-  if (hours === 0 && minutes === 0) {
-    timeHours = 17 // 5:00 PM
-    timeMinutes = 0
+  // If this is a series event, we may want to warn the user about changes
+  if (eventData.value.seriesSlug) {
+    console.log('Series event recurrence rule updated, will affect future occurrences')
   }
-
-  // Build local time string
-  const localTimeStr = `${datePart}T${timeHours.toString().padStart(2, '0')}:${timeMinutes.toString().padStart(2, '0')}:00`
-
-  // Properly convert to UTC with timezone
-  const timezonedString = formatInTimeZone(
-    new Date(localTimeStr),
-    eventData.value.timeZone || 'UTC',
-    "yyyy-MM-dd'T'HH:mm:ssxxx" // 'xxx' gives timezone offset
-  )
-
-  // Convert to proper UTC time
-  const utcDate = new Date(timezonedString)
-  eventData.value.startDate = utcDate.toISOString()
-
-  console.log('Start date updated with timezone conversion:', {
-    original: tempStartDate,
-    localTimeStr,
-    timezonedString,
-    utcResult: eventData.value.startDate
-  })
 }
 </script>
 
