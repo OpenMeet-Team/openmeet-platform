@@ -78,7 +78,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'AdminPage', component: () => import('pages/admin/AdminPage.vue') },
-      { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') }
+      { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') },
+      { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') }
     ],
     meta: { requiresAuth: true }
   },
