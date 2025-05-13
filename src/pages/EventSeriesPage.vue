@@ -554,11 +554,11 @@ const isTemplateEvent = (occurrence: EventOccurrence): boolean => {
 const isCustomizedDate = (occurrence: EventOccurrence): boolean => {
   // Only applies to materialized events with actual event data
   if (!occurrence.materialized || !occurrence.event || !occurrence.event.startDate) {
-    console.log(`isCustomizedDate for ${occurrence.event?.slug || 'unknown'}: missing data`, {
-      materialized: occurrence.materialized,
-      hasEvent: !!occurrence.event,
-      hasStartDate: !!occurrence.event?.startDate
-    })
+    // console.log(`isCustomizedDate for ${occurrence.event?.slug || 'unknown'}: missing data`, {
+    //   materialized: occurrence.materialized,
+    //   hasEvent: !!occurrence.event,
+    //   hasStartDate: !!occurrence.event?.startDate
+    // })
     return false
   }
 
