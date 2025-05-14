@@ -6,7 +6,7 @@
       <div class="row q-mb-md q-mt-lg">
         <q-btn-toggle v-model="viewMode" flat stretch toggle-color="primary" :options="[
           { label: 'List', value: 'list', icon: 'sym_r_list' },
-          { label: 'Calendar', value: 'calendar', icon: 'sym_r_event' }
+          // { label: 'Calendar', value: 'calendar', icon: 'sym_r_event' }
         ]" />
       </div>
 
@@ -19,7 +19,7 @@
 
       <div v-if="viewMode === 'list'">
         <div v-if="filteredEvents?.length">
-          <EventsItemComponent v-for="event in filteredEvents" :key="event.id" :event="event" />
+          <EventsItemComponent v-for="event in filteredEvents" :key="event.id" :event="event" layout="list"/>
         </div>
         <NoContentComponent v-else label="No events found" icon="sym_r_event_busy" />
       </div>
@@ -66,9 +66,16 @@ onMounted(() => {
 
 const filteredEvents = computed(() => {
   const now = new Date()
-  return events.value?.filter(event => {
+  const filtered = events.value?.filter(event => {
     const eventDate = new Date(event.startDate)
     return timeFilter.value === 'upcoming' ? eventDate >= now : eventDate < now
+  }) || []
+
+  // Sort events by date (ascending for upcoming, descending for past)
+  return [...filtered].sort((a, b) => {
+    const dateA = new Date(a.startDate).getTime()
+    const dateB = new Date(b.startDate).getTime()
+    return timeFilter.value === 'upcoming' ? dateA - dateB : dateB - dateA
   })
 })
 
