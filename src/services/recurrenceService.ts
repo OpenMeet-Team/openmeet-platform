@@ -37,7 +37,7 @@ export class RecurrenceService {
   ]
 
   // Convert RecurrenceRule to RRule for use with the rrule library
-  static toRRule (rule: RecurrenceRule, startDate: string): RRule {
+  static toRRule (rule: RecurrenceRule, startDate: string, timeZone?: string): RRule {
     try {
       if (!rule || !rule.frequency) {
         throw new Error('Invalid recurrence rule: missing frequency')
@@ -46,9 +46,56 @@ export class RecurrenceService {
       // Parse the start date
       let dtstart
       try {
+        // Basic date parsing
         dtstart = typeof startDate === 'string'
           ? parseISO(startDate)
           : new Date(startDate)
+        
+        // TIMEZONE FIX: For weekly recurrences with specific days selected,
+        // adjust the rule's start date to ensure days fall correctly in the user's timezone
+        if (timeZone && rule.frequency === 'WEEKLY' && rule.byweekday && rule.byweekday.length > 0) {
+          console.log('Creating timezone-aware RRule for', timeZone)
+          
+          // Get the day of week in UTC vs the timezone
+          const dayInUtc = dtstart.getUTCDay(); // 0-6 (0 = Sunday)
+          const dayInTz = parseInt(formatInTimeZone(dtstart, timeZone, 'i')) % 7; // Convert to 0-based (0 = Sunday)
+          
+          // Log timezone debugging information
+          console.log('Day calculation:', {
+            startDate,
+            timezone: timeZone,
+            utcDay: dayInUtc,
+            tzDay: dayInTz,
+            utcDayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayInUtc],
+            tzDayName: formatInTimeZone(dtstart, timeZone, 'EEEE'),
+            selectedDays: rule.byweekday
+          });
+          
+          // If there's a discrepancy between UTC day and timezone day, we need to handle it
+          if (dayInUtc !== dayInTz) {
+            console.log('Day difference detected between UTC and timezone!');
+            
+            // Create a new date at the same time but in the user's timezone
+            // This shifts the date to be on the correct day in the user's timezone
+            const localMidnight = formatInTimeZone(dtstart, timeZone, "yyyy-MM-dd'T'00:00:00.000");
+            const timeStr = formatInTimeZone(dtstart, timeZone, 'HH:mm:ss.SSS');
+            const tzAdjustedDateStr = `${localMidnight.slice(0, 11)}${timeStr}`;
+            
+            // Parse the adjusted date
+            const tzAdjustedDate = new Date(tzAdjustedDateStr);
+            
+            // Log the adjusted date for debugging
+            console.log('Adjusted date for correct timezone day:', {
+              originalDate: dtstart.toISOString(),
+              adjustedDate: tzAdjustedDate.toISOString(),
+              tzAdjustedDateStr,
+              timeZone
+            });
+            
+            // Use the timezone-adjusted date as the start date
+            dtstart = tzAdjustedDate;
+          }
+        }
       } catch (e) {
         console.error('Error parsing start date:', e)
         dtstart = new Date()
@@ -273,7 +320,8 @@ export class RecurrenceService {
 
       const rrule = this.toRRule(
         event.recurrenceRule,
-        event.startDate
+        event.startDate,
+        event.timeZone
       )
 
       console.log('RRule string:', rrule.toString())
@@ -714,7 +762,8 @@ export class RecurrenceService {
       // For all other patterns, use the standard approach
       const rrule = this.toRRule(
         event.recurrenceRule,
-        event.startDate
+        event.startDate,
+        event.timeZone
       )
 
       return rrule.toText()
