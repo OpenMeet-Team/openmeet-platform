@@ -1,11 +1,16 @@
 <template>
-  <div class="q-mt-md">
+  <div class="c-recurrence-component">
     <div class="text-subtitle2 q-mb-sm">{{ hideToggle ? 'Series Pattern' : 'Recurrence' }}</div>
 
-    <!-- Recurrence Toggle -->
-    <q-checkbox data-cy="event-recurring-toggle" :model-value="isRecurring"
-      @update:model-value="toggleRecurrence"
-      label="Make this a recurring event" v-if="!hideToggle" />
+    <!-- Toggle for recurrence -->
+    <div v-if="!hideToggle" class="q-mb-md">
+      <q-checkbox
+        data-cy="recurrence-toggle"
+        :model-value="isRecurring"
+        label="Make this a recurring event"
+        @update:model-value="toggleRecurrence"
+      />
+    </div>
 
     <div v-if="isRecurring" class="q-mt-md q-gutter-y-md">
       <!-- Information about event series if not hidden -->
@@ -19,191 +24,114 @@
         data-cy="recurrence-frequency"
         v-model="frequency"
         :options="frequencyOptions"
+        label="Frequency"
         filled
-        label="Repeats"
-        option-value="value"
-        option-label="label"
         emit-value
         map-options
-      >
-        <template v-slot:option="{ itemProps, opt, selected, toggleOption }">
-          <q-item v-bind="itemProps" :class="{ 'text-primary': selected }" @click="toggleOption(opt)">
-            <q-item-section>
-              <q-item-label>{{ opt.label }}</q-item-label>
-              <q-item-label caption>{{ opt.description }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </template>
-      </q-select>
+      />
 
       <!-- Interval -->
-      <div class="row q-col-gutter-md">
-        <div class="col-12 col-sm-6">
-          <q-input
-            data-cy="recurrence-interval"
-            v-model.number="interval"
-            type="number"
-            min="1"
-            max="999"
-            filled
-            label="Repeat every"
-            :rules="[(val) => val >= 1 || 'Must be at least 1']"
-          />
-        </div>
-        <div class="col-12 col-sm-6 self-center">
-          {{ intervalLabel }}
-        </div>
-      </div>
+      <q-input
+        data-cy="recurrence-interval"
+        v-model.number="interval"
+        type="number"
+        label="Repeat every"
+        filled
+        :suffix="intervalLabel"
+        :rules="[val => val > 0 || 'Interval must be greater than 0']"
+      />
 
-      <!-- Weekly Options -->
+      <!-- Day selection for weekly frequency -->
       <div v-if="frequency === 'WEEKLY'" class="q-mt-md">
         <div class="text-subtitle2 q-mb-sm">Repeat on</div>
-        <div class="row q-gutter-x-sm">
+        <div class="row q-gutter-sm">
           <q-btn
             v-for="day in weekdayOptions"
             :key="day.value"
-            :outline="!selectedDays.includes(day.value)"
-            color="primary"
             :label="day.shortLabel"
-            size="sm"
-            rounded
+            :color="selectedDays.includes(day.value) ? 'primary' : 'grey-3'"
+            :text-color="selectedDays.includes(day.value) ? 'white' : 'grey-8'"
             @click="toggleDay(day.value)"
+            class="col"
           />
         </div>
       </div>
 
-      <!-- Monthly Options -->
+      <!-- Monthly options -->
       <div v-if="frequency === 'MONTHLY'" class="q-mt-md">
-        <div class="text-subtitle2 q-mb-sm">Repeat on</div>
         <q-radio
           v-model="monthlyRepeatType"
           val="dayOfMonth"
           label="Day of month"
-          :disable="!startDate"
         />
-        <div v-if="monthlyRepeatType === 'dayOfMonth' && startDate" class="q-pl-md q-mt-sm">
-          <span>Will repeat on day {{ startDateObject?.getDate() }} of each month</span>
-        </div>
         <q-radio
           v-model="monthlyRepeatType"
           val="dayOfWeek"
           label="Day of week"
-          :disable="!startDate"
         />
-        <div v-if="monthlyRepeatType === 'dayOfWeek' && startDate" class="q-pl-md q-mt-sm">
-          <div class="row items-center q-gutter-x-md">
+
+        <!-- Day of week options -->
+        <div v-if="monthlyRepeatType === 'dayOfWeek'" class="q-mt-sm">
+          <div class="row q-gutter-md">
             <q-select
               v-model="monthlyPosition"
               :options="monthlyPositionOptions"
-              dense
+              label="Position"
               filled
-              style="width: 100px;"
-              option-value="value"
-              option-label="label"
-              emit-value
-              map-options
-              data-cy="monthly-position"
+              class="col"
               @update:model-value="logMonthlyPositionChange"
             />
             <q-select
               v-model="monthlyWeekday"
               :options="weekdayOptions"
-              dense
+              label="Day"
               filled
-              style="width: 120px;"
-              option-value="value"
-              option-label="label"
-              emit-value
-              map-options
-              data-cy="monthly-weekday"
+              class="col"
               @update:model-value="logMonthlyWeekdayChange"
             />
-            <span>of the month</span>
-          </div>
-          <div class="text-grey-8 q-mt-xs">
-            Will repeat on the {{ getPositionLabel(monthlyPosition) }} {{ getWeekdayLabel(monthlyWeekday) }} of each month
           </div>
         </div>
       </div>
 
-      <!-- Timezone -->
+      <!-- End options -->
       <div class="q-mt-md">
-        <div class="text-subtitle2 q-mb-sm">Timezone</div>
+        <div class="text-subtitle2 q-mb-sm">Ends</div>
+        <q-radio v-model="endType" val="never" label="Never" />
+        <q-radio v-model="endType" val="count" label="After" />
+        <q-input
+          v-if="endType === 'count'"
+          v-model.number="count"
+          type="number"
+          label="Number of occurrences"
+          filled
+          class="q-mt-sm"
+          :rules="[val => val > 0 || 'Count must be greater than 0']"
+        />
+        <q-radio v-model="endType" val="until" label="On date" />
+        <q-input
+          v-if="endType === 'until'"
+          v-model="until"
+          type="date"
+          filled
+          class="q-mt-sm"
+          :rules="[val => !!val || 'End date is required']"
+        />
+      </div>
+
+      <!-- Timezone selection -->
+      <div class="q-mt-md">
         <q-select
           data-cy="event-timezone"
           v-model="timezone"
           :options="timezoneOptions"
+          label="Timezone"
           filled
-          label="Event timezone"
           use-input
-          hide-selected
-          fill-input
-          input-debounce="300"
           @filter="filterTimezones"
-        >
-          <template v-slot:no-option>
-            <q-item>
-              <q-item-section class="text-grey">
-                No results
-              </q-item-section>
-            </q-item>
-          </template>
-        </q-select>
+          @update:model-value="$emit('update:time-zone', $event)"
+        />
       </div>
 
-      <!-- End Options -->
-      <div class="q-mt-md">
-        <div class="text-subtitle2 q-mb-sm">Ends</div>
-
-        <q-radio v-model="endType" val="never" label="Never" />
-
-        <div class="row items-center">
-          <q-radio v-model="endType" val="count" label="After" class="col-auto" />
-          <q-input
-            v-if="endType === 'count'"
-            data-cy="recurrence-count"
-            v-model.number="count"
-            type="number"
-            min="1"
-            max="999"
-            filled
-            dense
-            class="col-auto q-ml-sm"
-            style="width: 70px;"
-            :rules="[(val) => val >= 1 || 'Must be at least 1']"
-          />
-          <div v-if="endType === 'count'" class="col-auto q-ml-sm">
-            occurrence{{ count === 1 ? '' : 's' }}
-          </div>
-        </div>
-
-        <div class="row items-center">
-          <q-radio v-model="endType" val="until" label="On date" class="col-auto" />
-          <q-input
-            v-if="endType === 'until'"
-            data-cy="recurrence-until"
-            v-model="until"
-            filled
-            dense
-            class="col-auto q-ml-sm"
-            style="width: 150px;"
-          >
-            <template v-slot:append>
-              <q-icon name="sym_r_event" class="cursor-pointer">
-                <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                  <q-date v-model="until" mask="YYYY-MM-DD">
-                    <div class="row items-center justify-end">
-                      <q-btn v-close-popup label="Close" color="primary" flat />
-                    </div>
-                  </q-date>
-                </q-popup-proxy>
-              </q-icon>
-            </template>
-          </q-input>
-        </div>
-      </div>
-
-      <!-- Recurrence Preview -->
       <div v-if="props.isRecurring" class="q-mt-lg">
         <q-separator class="q-my-md" />
 
@@ -268,11 +196,15 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:model-value', 'update:is-recurring', 'update:time-zone', 'update:start-date'])
+// Define emits
+const emit = defineEmits<{(e: 'update:model-value', value: RecurrenceRule | undefined): void
+  (e: 'update:is-recurring', value: boolean): void
+  (e: 'update:time-zone', value: string): void
+  (e: 'update:start-date', value: string): void
+}>()
 
-// Use the extracted logic
+// Use the logic from the external file
 const {
-  // State
   isCalculatingPattern,
   isCalculatingOccurrences,
   frequency,
@@ -287,27 +219,26 @@ const {
   until,
   timezoneOptions,
   occurrences,
-  // Options
   frequencyOptions,
   weekdayOptions,
   monthlyPositionOptions,
-  // Computed
-  rule, // eslint-disable-line @typescript-eslint/no-unused-vars
-  startDateObject,
   humanReadablePattern,
   intervalLabel,
-  // Methods
-  getPositionLabel,
-  getWeekdayLabel,
   toggleRecurrence,
   logMonthlyPositionChange,
   logMonthlyWeekdayChange,
   toggleDay,
   filterTimezones,
-  formatDate
+  formatDate,
+  initFromModelValue
 } = useRecurrenceLogic(props, emit)
+
+// Initialize from model value
+initFromModelValue()
 </script>
 
-<style scoped>
-/* Optional styling */
+<style scoped lang="scss">
+.c-recurrence-component {
+  max-width: 600px;
+}
 </style>

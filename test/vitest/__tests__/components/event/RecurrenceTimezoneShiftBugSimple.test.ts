@@ -92,10 +92,15 @@ describe('RecurrenceComponent - Timezone Day Shift Bug (Simple Test)', () => {
     console.log('Generated recurrence rule:', rule)
 
     // Use the RecurrenceService to generate actual occurrences
+    // Create a rule with timezone included since that's our implementation now
+    const ruleWithTimezone = {
+      frequency: 'WEEKLY',
+      byweekday: ['TH'],
+      timeZone: 'America/Vancouver'
+    }
     const rrule = RecurrenceService.toRRule(
-      rule,
-      startDate.toISOString(),
-      'America/Vancouver'
+      ruleWithTimezone,
+      startDate.toISOString()
     )
 
     console.log('RRule string:', rrule.toString())

@@ -33,8 +33,12 @@ describe('RecurrenceService - Timezone Fixes', () => {
     expect(dayInUTC).toBe('Thursday')
     expect(dayInVancouver).toBe('Wednesday')
 
-    // Now use our patched toRRule method with timezone parameter
-    const rrule = RecurrenceService.toRRule(rule, startDate, timeZone)
+    // Now use our patched toRRule method with timeZone in the rule
+    const ruleWithTimezone = {
+      ...rule,
+      timeZone: timeZone
+    }
+    const rrule = RecurrenceService.toRRule(ruleWithTimezone, startDate)
 
     // Generate 5 occurrences
     const occurrences = rrule.all((_, i) => i < 5)
@@ -81,8 +85,12 @@ describe('RecurrenceService - Timezone Fixes', () => {
     expect(dayInUTC).toBe('Sunday')
     expect(dayInSydney).toBe('Monday')
 
-    // Use our patched toRRule method with timezone parameter
-    const rrule = RecurrenceService.toRRule(rule, startDate, timeZone)
+    // Use our patched toRRule method with timeZone in the rule
+    const ruleWithTimezone = {
+      ...rule,
+      timeZone: timeZone
+    }
+    const rrule = RecurrenceService.toRRule(ruleWithTimezone, startDate)
 
     // Generate 5 occurrences
     const occurrences = rrule.all((_, i) => i < 5)

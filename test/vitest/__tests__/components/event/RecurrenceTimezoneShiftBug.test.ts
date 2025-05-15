@@ -105,8 +105,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
     const rrule = RecurrenceService.toRRule(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       event.recurrenceRule as any,
-      event.startDate,
-      event.timeZone
+      event.startDate
     )
 
     console.log('RRule string:', rrule.toString())
@@ -169,8 +168,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
     const rrule = RecurrenceService.toRRule(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       event.recurrenceRule as any,
-      event.startDate,
-      event.timeZone
+      event.startDate
     )
 
     console.log('Problematic RRule string:', rrule.toString())
@@ -232,8 +230,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
     const incorrectRule = RecurrenceService.toRRule(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       incorrectEvent.recurrenceRule as any,
-      incorrectEvent.startDate,
-      incorrectEvent.timeZone
+      incorrectEvent.startDate
     )
 
     console.log('Incorrect RRule (day shift bug):', incorrectRule.toString())
@@ -259,7 +256,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
       name: 'Test Event',
       startDate: utcDate.toISOString(),
       recurrenceRule: {
-        frequency: 'WEEKLY',
+        frequency: 'WEEKLY' as const,
         interval: 1,
         byweekday: ['WE'] // CORRECT - this is Wednesday as seen by the user in Vancouver
       },
@@ -269,8 +266,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
     // Create an RRule with the correct day
     const correctRule = RecurrenceService.toRRule(
       correctEvent.recurrenceRule,
-      correctEvent.startDate,
-      correctEvent.timeZone
+      correctEvent.startDate
     )
 
     console.log('Correct RRule (fixed):', correctRule.toString())
@@ -300,44 +296,40 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
     // Re-create component with Thursday as the start date (in Vancouver time)
     const utcDate = new Date('2025-05-15T07:00:00.000Z') // Midnight Vancouver (Thursday)
 
+    // Create a properly typed recurrence rule
+    const recurrenceRule = {
+      frequency: 'WEEKLY' as const,
+      interval: 1,
+      byweekday: ['TH'] // Initialize with Thursday
+    }
+
     wrapper = createComponent({
       startDate: utcDate.toISOString(),
-      timeZone: 'America/Vancouver'
+      timeZone: 'America/Vancouver',
+      modelValue: recurrenceRule
     })
 
     // Need to wait for component to initialize
     await nextTick()
 
-    // Set weekly recurrence on Thursday
-    wrapper.vm.frequency = 'WEEKLY'
-    wrapper.vm.selectedDays = ['TH'] // Set Thursday as the selected day
-
-    // Wait for reactivity updates
-    await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 500)) // Extra wait for async processing
-
     // Log what we're seeing
     console.log('Component timezone:', wrapper.props('timeZone'))
     console.log('Frequency set to:', wrapper.vm.frequency)
     console.log('Selected days set to:', wrapper.vm.selectedDays)
-
-    // Get the generated rule
-    const rule = wrapper.vm.rule
-    console.log('Generated rule:', rule)
+    console.log('Model value:', wrapper.props('modelValue'))
 
     // Create an event with this rule
     const event = {
       name: 'Test Event',
       startDate: utcDate.toISOString(),
-      recurrenceRule: rule,
+      recurrenceRule: wrapper.,
       timeZone: 'America/Vancouver'
     }
 
     // Create an RRule directly to check the actual occurrences
     const rrule = RecurrenceService.toRRule(
       event.recurrenceRule,
-      event.startDate,
-      event.timeZone
+      event.startDate
     )
 
     console.log('RRule string:', rrule.toString())

@@ -1,5 +1,5 @@
 import { RRule, Options, Weekday, Frequency } from 'rrule'
-import { format, formatInTimeZone } from 'date-fns-tz'
+import { formatInTimeZone, toDate } from 'date-fns-tz'
 import { parseISO, addMilliseconds } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
@@ -43,22 +43,52 @@ export class RecurrenceService {
         throw new Error('Invalid recurrence rule: missing frequency')
       }
 
-      // Parse the start date
+      // Extract timezone from rule or use local timezone
+      const timeZone = rule.timeZone || this.getUserTimezone()
+      console.log(`Creating RRule with timezone: ${timeZone}`)
+
+      // Parse the start date and ensure it's in the correct timezone
       let dtstart
       try {
-        dtstart = typeof startDate === 'string'
+        // First parse the ISO date string
+        const parsedDate = typeof startDate === 'string'
           ? parseISO(startDate)
           : new Date(startDate)
+
+        // CRITICAL: Convert to the target timezone to preserve local time
+        // This ensures the correct anchor date/time for recurrence
+        if (timeZone) {
+          // Format date in target timezone to get local components (YYYY-MM-DD HH:MM:SS)
+          const localDateStr = formatInTimeZone(parsedDate, timeZone, 'yyyy-MM-dd')
+          const localTimeStr = formatInTimeZone(parsedDate, timeZone, 'HH:mm:ss')
+          const localDateTime = `${localDateStr} ${localTimeStr}`
+
+          // Convert local time back to Date object in the correct timezone
+          dtstart = toDate(localDateTime, { timeZone })
+
+          console.log('Timezone-converted date for RRule:', {
+            originalDate: parsedDate.toISOString(),
+            timezone: timeZone,
+            localDateTime,
+            convertedDate: dtstart.toISOString(),
+            verifiedLocalTime: formatInTimeZone(dtstart, timeZone, 'HH:mm:ss')
+          })
+        } else {
+          dtstart = parsedDate
+          console.log('No timezone provided, using direct date:', dtstart.toISOString())
+        }
       } catch (e) {
         console.error('Error parsing start date:', e)
         dtstart = new Date()
       }
 
-      // Create RRule options with proper typing
+      // Create RRule options with proper typing and timezone support
       const options: Partial<Options> = {
         freq: RRule[rule.frequency as keyof typeof RRule] as unknown as Frequency,
         interval: rule.interval || 1,
-        dtstart
+        dtstart,
+        // Add timezone for RRule to handle DST correctly
+        tzid: timeZone
       }
 
       // Add count or until if present
@@ -240,16 +270,28 @@ export class RecurrenceService {
     }
 
     try {
-      // Log detailed recurrence info for debugging monthly patterns
+      // Extract timezone from event or rule
+      const timeZone = event.timeZone ||
+                       event.recurrenceRule.timeZone ||
+                       this.getUserTimezone()
+
+      // Log detailed recurrence info for debugging
       console.log('RecurrenceService.getOccurrences for event:', {
         name: event.name,
         startDate: event.startDate,
+        timezone: timeZone,
+        localStartTime: formatInTimeZone(
+          new Date(event.startDate),
+          timeZone,
+          'yyyy-MM-dd HH:mm:ss'
+        ),
         recurrenceRule: {
           frequency: event.recurrenceRule.frequency,
           interval: event.recurrenceRule.interval,
           byweekday: event.recurrenceRule.byweekday,
           bymonthday: event.recurrenceRule.bymonthday,
-          bysetpos: event.recurrenceRule.bysetpos
+          bysetpos: event.recurrenceRule.bysetpos,
+          timeZone: event.recurrenceRule.timeZone
         }
       })
 
@@ -260,19 +302,26 @@ export class RecurrenceService {
         console.log('MONTHLY DAY-OF-WEEK PATTERN DETECTED:', {
           byweekday: event.recurrenceRule.byweekday,
           bysetpos: event.recurrenceRule.bysetpos,
-          description: `${event.recurrenceRule.bysetpos[0]}${event.recurrenceRule.byweekday[0]} of month`
+          description: `${event.recurrenceRule.bysetpos[0]}${event.recurrenceRule.byweekday[0]} of month`,
+          timezone: timeZone
         })
 
         // Ensure the bysetpos field is not empty - this is crucial for monthly patterns
         if (!event.recurrenceRule.bysetpos || event.recurrenceRule.bysetpos.length === 0) {
           console.warn('bysetpos is empty for monthly pattern! This will cause incorrect weekly pattern')
-          // This is where failures can happen - when bysetpos is lost during translation
           console.warn('Inspect API and conversion functions for bysetpos handling')
         }
       }
 
+      // Ensure timeZone is explicitly set in the rule for RRule construction
+      const ruleWithTimezone = {
+        ...event.recurrenceRule,
+        timeZone // Ensure timezone is explicitly included
+      }
+
+      // Create rrule with proper timezone handling
       const rrule = this.toRRule(
-        event.recurrenceRule,
+        ruleWithTimezone,
         event.startDate
       )
 
@@ -281,9 +330,50 @@ export class RecurrenceService {
       // Generate occurrences
       const occurrences = rrule.all((_, i) => i < count)
 
+      // CRITICAL: Ensure consistent local time across all occurrences
+      if (occurrences.length > 0) {
+        // Get expected local time from start date
+        const expectedLocalTime = formatInTimeZone(
+          new Date(event.startDate),
+          timeZone,
+          'HH:mm:ss'
+        )
+
+        // Check if all occurrences have the same local time
+        const localTimes = occurrences.map(date =>
+          formatInTimeZone(date, timeZone, 'HH:mm:ss')
+        )
+        const allSameTime = localTimes.every(time => time === expectedLocalTime)
+
+        if (!allSameTime) {
+          console.warn('Inconsistent local times detected across occurrences!', {
+            expectedTime: expectedLocalTime,
+            actualTimes: localTimes.slice(0, 3)
+          })
+
+          // Fix occurrences to enforce consistent local time
+          const fixedOccurrences = occurrences.map(date => {
+            // Get date part in target timezone
+            const dateStr = formatInTimeZone(date, timeZone, 'yyyy-MM-dd')
+            // Combine with expected time
+            const targetDateTime = `${dateStr} ${expectedLocalTime}`
+            // Convert back to Date
+            return toDate(targetDateTime, { timeZone })
+          })
+
+          // Replace occurrences with fixed ones
+          console.log('Enforced consistent local times across occurrences')
+          occurrences.length = 0 // Clear array
+          occurrences.push(...fixedOccurrences) // Add fixed dates
+        }
+      }
+
       // Log first few occurrences to verify pattern
       if (occurrences.length > 0) {
-        console.log('First 3 occurrences:', occurrences.slice(0, 3).map(date => date.toISOString()))
+        console.log('First 3 occurrences:', occurrences.slice(0, 3).map(date => ({
+          utc: date.toISOString(),
+          local: formatInTimeZone(date, timeZone, 'yyyy-MM-dd HH:mm:ss')
+        })))
 
         // Check if occurrences are weekly or monthly for debugging
         if (occurrences.length >= 2) {
@@ -296,11 +386,11 @@ export class RecurrenceService {
       // Filter out exceptions
       if (event.recurrenceExceptions && event.recurrenceExceptions.length > 0) {
         const exceptions = event.recurrenceExceptions.map(ex =>
-          format(parseISO(ex), 'yyyy-MM-dd')
+          formatInTimeZone(parseISO(ex), timeZone, 'yyyy-MM-dd')
         )
 
         return occurrences.filter(occurrence =>
-          !exceptions.includes(format(occurrence, 'yyyy-MM-dd'))
+          !exceptions.includes(formatInTimeZone(occurrence, timeZone, 'yyyy-MM-dd'))
         )
       }
 
