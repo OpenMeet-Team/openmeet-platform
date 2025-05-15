@@ -7,6 +7,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 
 describe('RecurrenceComponent - Timezone Day Shift Tests', () => {
   // Declare wrapper
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let wrapper: VueWrapper<any>
 
   // Create component with Vancouver timezone and Thursday evening start
@@ -174,7 +175,7 @@ describe('RecurrenceComponent - Timezone Day Shift Tests', () => {
 
     expect(allWednesdays).toBe(true)
   })
-  
+
   /**
    * This test uses a different timezone (Sydney, Australia) to demonstrate the bug
    * where a date can be Sunday in UTC but Monday in Sydney
@@ -186,47 +187,47 @@ describe('RecurrenceComponent - Timezone Day Shift Tests', () => {
       startDate: '2025-05-18T22:30:00.000Z',
       timeZone: 'Australia/Sydney'
     })
-    
+
     await nextTick()
-    
+
     // Check what day it is in Sydney vs UTC
     const startDate = new Date('2025-05-18T22:30:00.000Z')
     const dayInUTC = startDate.toLocaleString('en-US', { weekday: 'long', timeZone: 'UTC' })
     const dayInSydney = formatInTimeZone(startDate, 'Australia/Sydney', 'EEEE')
-    
+
     console.log('Sydney timezone boundary case:', {
       utcDate: startDate.toISOString(),
-      dayInUTC, 
+      dayInUTC,
       dayInSydney
     })
-    
+
     // We expect these to be different - Sunday in UTC, Monday in Sydney
     expect(dayInUTC).toBe('Sunday')
     expect(dayInSydney).toBe('Monday')
-    
+
     // Check what day is selected by default
     console.log('Selected days for Sydney boundary date:', wrapper.vm.selectedDays)
-    
+
     // We expect Monday to be selected since that's the day in Sydney
     expect(wrapper.vm.selectedDays).toContain('MO')
-    
+
     // Wait for pattern and occurrences to be calculated
     // Need additional time as the component debounces updates
     await new Promise(resolve => setTimeout(resolve, 1000))
 
     // Check the occurrence dates
     const occurrences = wrapper.vm.occurrences
-    
+
     console.log('Sydney boundary case occurrences:', occurrences.map(date => ({
       date: date.toISOString(),
       dayInSydney: formatInTimeZone(date, 'Australia/Sydney', 'EEEE')
     })))
-    
+
     // Verify all occurrences are on Monday in Sydney
-    const allMondays = occurrences.every(date => 
+    const allMondays = occurrences.every(date =>
       formatInTimeZone(date, 'Australia/Sydney', 'EEEE') === 'Monday'
     )
-    
+
     expect(allMondays).toBe(true)
   })
 })

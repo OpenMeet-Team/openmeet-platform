@@ -1,14 +1,15 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { Quasar } from 'quasar'
 import RecurrenceComponent from '../../../../../src/components/event/RecurrenceComponent.vue'
 import { nextTick } from 'vue'
 import { formatInTimeZone } from 'date-fns-tz'
 import { RecurrenceService } from '../../../../../src/services/recurrenceService'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 
 describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
   // Declare wrapper with proper type information
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let wrapper: VueWrapper<any>
 
   // Create component with specific test parameters
@@ -47,6 +48,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
   }
 
   // Helper to access component properties and methods with proper typing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   const vm = () => wrapper.vm as unknown as any
 
   beforeEach(() => {
@@ -101,7 +103,8 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
 
     // Create an RRule directly to demonstrate the issue
     const rrule = RecurrenceService.toRRule(
-      event.recurrenceRule,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      event.recurrenceRule as any,
       event.startDate,
       event.timeZone
     )
@@ -164,7 +167,8 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
 
     // Create an RRule to generate occurrences
     const rrule = RecurrenceService.toRRule(
-      event.recurrenceRule,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      event.recurrenceRule as any,
       event.startDate,
       event.timeZone
     )
@@ -226,7 +230,8 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
 
     // Create an RRule with the incorrect day setting
     const incorrectRule = RecurrenceService.toRRule(
-      incorrectEvent.recurrenceRule,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      incorrectEvent.recurrenceRule as any,
       incorrectEvent.startDate,
       incorrectEvent.timeZone
     )

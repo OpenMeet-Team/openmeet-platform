@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { Quasar } from 'quasar'
 import RecurrenceComponent from '../../../../../src/components/event/RecurrenceComponent.vue'
@@ -8,6 +8,7 @@ import { RecurrenceService } from '../../../../../src/services/recurrenceService
 
 describe('RecurrenceComponent - Timezone Day Shift Bug (Simple Test)', () => {
   // Declare wrapper with proper type information
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let wrapper: VueWrapper<any>
 
   // Create component with specific test parameters

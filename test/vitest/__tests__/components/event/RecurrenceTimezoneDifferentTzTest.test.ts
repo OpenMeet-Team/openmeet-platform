@@ -8,6 +8,7 @@ import { RecurrenceService } from '../../../../../src/services/recurrenceService
 
 describe('RecurrenceComponent - Different Timezone Day Shift', () => {
   // Declare wrapper
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let wrapper: VueWrapper<any>
 
   // Create component with specific test parameters
