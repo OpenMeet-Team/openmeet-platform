@@ -1,6 +1,6 @@
 import { RRule, Options, Weekday, Frequency } from 'rrule'
 import { format, formatInTimeZone } from 'date-fns-tz'
-import { parseISO, addMilliseconds } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
 
@@ -282,7 +282,6 @@ export class RecurrenceService {
       if (event.timeZone) {
         // Special handling for WEEKLY frequency - need to preserve day of week and time
         const isWeekly = event.recurrenceRule.frequency === 'WEEKLY'
-        const startDate = new Date(event.startDate)
 
         const fixedOccurrences = filteredOccurrences.map(date => {
           if (isWeekly) {
@@ -562,7 +561,7 @@ export class RecurrenceService {
         }
 
         // Use the event series API
-        const response = await import('../api/event-series').then(module => {
+        await import('../api/event-series').then(module => {
           const eventSeriesApi = module.eventSeriesApi
           return eventSeriesApi.updateFutureOccurrences(seriesSlug, splitDate, updates)
         })
