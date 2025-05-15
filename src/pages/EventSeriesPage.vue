@@ -21,9 +21,9 @@
         </div>
 
         <div class="col-auto" v-if="isOwnerOrAdmin">
-          <q-btn color="negative" label="Delete Series" @click="showDeleteDialog = true" class="q-mr-sm" />
-          <q-btn color="primary" @click="navigateToEventEdit" label="Edit Series Pattern" class="q-mr-sm" />
-          <q-btn color="primary" label="Create New Event" @click="openEventFormDialog" />
+          <q-btn v-if="canDeleteSeries" color="negative" label="Delete Series" @click="showDeleteDialog = true" class="q-mr-sm" />
+          <q-btn v-if="canEditSeries" color="primary" @click="navigateToEventEdit" label="Edit Series Pattern" class="q-mr-sm" />
+          <q-btn v-if="canMaterializeEvents" color="primary" label="Create New Event" @click="openEventFormDialog" />
         </div>
       </div>
 
@@ -91,8 +91,8 @@
               </div>
             </div>
             <div class="col-auto">
-              <q-btn flat color="primary" :to="templateEvent ? `/events/${templateEvent.slug}` : ''" label="Edit Event" />
-              <q-btn flat color="primary" @click="openTemplateSelector" label="Change Template" />
+              <q-btn v-if="canEditSeries" flat color="primary" :to="templateEvent ? `/events/${templateEvent.slug}` : ''" label="Edit Event" />
+              <q-btn v-if="canChangeTemplate" flat color="primary" @click="openTemplateSelector" label="Change Template" />
             </div>
           </div>
         </q-card-section>
@@ -137,7 +137,7 @@
                   </q-item-section>
 
                   <q-item-section side>
-                    <q-btn v-if="!occurrence.materialized && !isPastDate(occurrence.date)" round flat icon="sym_r_add_to_photos"
+                    <q-btn v-if="canMaterializeEvents && !occurrence.materialized && !isPastDate(occurrence.date)" round flat icon="sym_r_add_to_photos"
                            @click.stop="materializeOccurrence(occurrence.date)" />
                   </q-item-section>
                 </q-item>
@@ -204,7 +204,7 @@
                   </q-item-section>
 
                   <q-item-section side>
-                    <q-btn v-if="!occurrence.materialized" round flat icon="sym_r_add_to_photos"
+                    <q-btn v-if="canMaterializeEvents && !occurrence.materialized" round flat icon="sym_r_add_to_photos"
                            @click.stop="materializeOccurrence(occurrence.date)" />
                   </q-item-section>
                 </q-item>
@@ -395,7 +395,7 @@ import { format } from 'date-fns'
 import { useQuasar } from 'quasar'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import RecurrenceComponent from '../components/event/recurrence-component-shim'
-import { EventEntity, GroupPermission, RecurrenceRule } from '../types'
+import { EventEntity, GroupPermission, RecurrenceRule, EventAttendeePermission } from '../types'
 import { EventSeriesEntity } from '../types/event-series'
 import { FileEntity } from '../types/model'
 import { eventsApi } from '../api/events'
@@ -490,10 +490,34 @@ const isOwnerOrAdmin = computed(() => {
   // Check if user is owner
   const isOwner = eventSeries.value.user.id === authStore.getUserId
 
-  // Check if user is admin (has manage events permission)
-  const isAdmin = eventStore.getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+  // Check if user has group-level event management permission
+  const hasGroupPermission = eventStore.getterGroupMemberHasPermission(GroupPermission.ManageEvents)
 
-  return isOwner || isAdmin
+  // Check if user has event-level management permission
+  const hasEventPermission = eventStore.getterUserHasPermission(EventAttendeePermission.ManageEvent)
+
+  return isOwner || hasGroupPermission || hasEventPermission
+})
+
+// Add new computed properties for specific actions
+const canEditSeries = computed(() => {
+  if (!eventSeries.value?.user) return false
+  return isOwnerOrAdmin.value
+})
+
+const canDeleteSeries = computed(() => {
+  if (!eventSeries.value?.user) return false
+  return isOwnerOrAdmin.value
+})
+
+const canMaterializeEvents = computed(() => {
+  if (!eventSeries.value?.user) return false
+  return isOwnerOrAdmin.value
+})
+
+const canChangeTemplate = computed(() => {
+  if (!eventSeries.value?.user) return false
+  return isOwnerOrAdmin.value
 })
 
 // New computed properties for filtered occurrences
@@ -530,11 +554,11 @@ const isTemplateEvent = (occurrence: EventOccurrence): boolean => {
 const isCustomizedDate = (occurrence: EventOccurrence): boolean => {
   // Only applies to materialized events with actual event data
   if (!occurrence.materialized || !occurrence.event || !occurrence.event.startDate) {
-    console.log(`isCustomizedDate for ${occurrence.event?.slug || 'unknown'}: missing data`, {
-      materialized: occurrence.materialized,
-      hasEvent: !!occurrence.event,
-      hasStartDate: !!occurrence.event?.startDate
-    })
+    // console.log(`isCustomizedDate for ${occurrence.event?.slug || 'unknown'}: missing data`, {
+    //   materialized: occurrence.materialized,
+    //   hasEvent: !!occurrence.event,
+    //   hasStartDate: !!occurrence.event?.startDate
+    // })
     return false
   }
 
