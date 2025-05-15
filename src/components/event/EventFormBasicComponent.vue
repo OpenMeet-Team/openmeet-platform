@@ -827,8 +827,12 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
   // Store the formatted time for display - only used for UI purposes
   displayedStartTime.value = timeInfo.formattedTime
 
-  // Trust the DatetimeComponent to handle timezone conversion correctly
-  // No additional conversion or correction is needed
+  if (recurrenceRule.value && isRecurring.value) {
+    console.log('Notifying RecurrenceComponent of time change')
+    // Force the RecurrenceComponent to update by explicitly updating the start date
+    // We're using the same startDate, but this will trigger the watcher
+    updateStartDate(eventData.value.startDate)
+  }
 }
 
 // Handle time info updates for end date
@@ -853,9 +857,6 @@ const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: n
   // Trust the DatetimeComponent to handle timezone conversion correctly
   // No additional conversion or correction is needed
 }
-
-// This function is intentionally removed as it's no longer used
-// The DatetimeComponent now handles all timezone conversions correctly
 
 const updateStartDate = (newStartDate: string) => {
   // Simply use the date as provided - trust DatetimeComponent's handling
