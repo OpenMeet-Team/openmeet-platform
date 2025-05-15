@@ -162,8 +162,10 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   })
 
   // Function to update the pattern description (will be called from updateOccurrences)
-  const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, tzValue: string) => {
-    if (!ruleObj || !props.startDate || !props.isRecurring) {
+  const updatePatternDescription = (ruleObj: Partial<RecurrenceRule> | undefined, tzValue: string, startDate?: string) => {
+    const effectiveStartDate = startDate || props.startDate
+
+    if (!ruleObj || !effectiveStartDate || !props.isRecurring) {
       patternDescriptionCache.value = 'Does not repeat'
       return
     }
@@ -185,7 +187,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
         // Try to get description from rrule library first
         try {
-          const rrule = RecurrenceService.toRRule(completeRule, props.startDate)
+          const rrule = RecurrenceService.toRRule(completeRule, effectiveStartDate)
           const description = rrule.toText()
 
           if (description) {
@@ -199,7 +201,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         // Fallback to our service
         try {
           const backupDescription = RecurrenceService.getHumanReadablePattern({
-            startDate: props.startDate,
+            startDate: effectiveStartDate,
             recurrenceRule: completeRule,
             timeZone: tzValue
           } as unknown as EventEntity)
@@ -295,6 +297,34 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   }
 
   const formatDate = (date: Date) => {
+    // Format with timezone if available
+    if (timezone.value) {
+      // For weekly recurrences, the date already has the correct time set by the service
+      // so we can just format it directly
+      const isWeekly = frequency.value === 'WEEKLY'
+
+      if (isWeekly) {
+        // For weekly recurrences, use the date directly as it should already be correct
+        return formatInTimeZone(date, timezone.value, 'EEE, MMM d, yyyy h:mm a (z)')
+      } else {
+        // For non-weekly recurrences, use our original approach
+        // Get the original event time components in the specified timezone
+        const eventTime = RecurrenceService.extractTimeComponentsInTimezone(props.startDate, timezone.value)
+
+        // Get the date part in the target timezone
+        const dateInTargetTz = formatInTimeZone(date, timezone.value, 'EEE, MMM d, yyyy')
+
+        // Format the time using the original time components from the source event
+        const formattedTime = `${eventTime.hour % 12 || 12}:${String(eventTime.minute).padStart(2, '0')} ${eventTime.hour >= 12 ? 'PM' : 'AM'}`
+
+        // Include the timezone name in the formatted date
+        const tzName = formatInTimeZone(date, timezone.value, '(z)')
+
+        return `${dateInTargetTz} ${formattedTime} ${tzName}`
+      }
+    }
+
+    // Fall back to local timezone if none is provided
     return format(date, 'EEE, MMM d, yyyy h:mm a')
   }
 
@@ -304,12 +334,14 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   let lastRuleUpdateHash = ''
 
   // Watch for changes in the recurrence rule and emit updates
-  watch([rule, timezone], async ([newRule, newTimezone]) => {
+  watch([rule, timezone, () => props.startDate], async ([newRule, newTimezone, newStartDate]) => {
     // Don't proceed if we're already processing an update
     if (isProcessingUpdate.value) return
 
     // Don't recalculate if rule hasn't substantially changed
-    const ruleHash = JSON.stringify(newRule) + newTimezone
+    // Include the startDate in the hash to ensure we respond to time changes
+    const ruleHash = JSON.stringify(newRule) + newTimezone + (newStartDate || '')
+    console.log('Rule update check - startDate:', newStartDate, 'hash changed:', ruleHash !== lastRuleUpdateHash)
     if (ruleHash === lastRuleUpdateHash) return
     lastRuleUpdateHash = ruleHash
 
@@ -349,7 +381,8 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         // Use a separate function for the update to break the reactivity chain
         updateOccurrences(
           newRule ? JSON.parse(JSON.stringify(newRule)) : undefined,
-          newTimezone
+          newTimezone,
+          newStartDate
         )
       }, 700)
     } catch (err) {
@@ -361,18 +394,23 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   }, { deep: true })
 
   // Separate function to calculate occurrences to reduce watch complexity
-  const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTimezone: string) => {
+  const updateOccurrences = (newRule: Partial<RecurrenceRule> | undefined, newTimezone: string, startDate?: string) => {
     isProcessingUpdate.value = true
+
+    // Use the provided startDate or fall back to props.startDate
+    const effectiveStartDate = startDate || props.startDate
+
+    console.log('Updating occurrences with startDate:', effectiveStartDate)
 
     try {
       // First update the pattern description - this is fast and should be done first
-      updatePatternDescription(newRule, newTimezone)
+      updatePatternDescription(newRule, newTimezone, effectiveStartDate)
 
       // Update occurrences preview
-      if (newRule && props.startDate && props.isRecurring) {
+      if (newRule && effectiveStartDate && props.isRecurring) {
         // Create a copy to avoid modifying the reactive state
         const eventData = {
-          startDate: props.startDate,
+          startDate: effectiveStartDate,
           recurrenceRule: JSON.parse(JSON.stringify(newRule)), // Copy to prevent reactive issues
           timeZone: newTimezone
         }
@@ -516,10 +554,11 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       // Skip if we're already updating
       if (isUpdatingSelectedDays) return
 
-      // Check if the date or timezone has actually changed
+      // Check if the date, time, or timezone has actually changed
+      // We need to compare the full ISO string to detect time changes too, not just date changes
       if (newStartDate &&
          (!oldStartDate ||
-          new Date(newStartDate).toDateString() !== new Date(oldStartDate).toDateString() ||
+          new Date(newStartDate).toISOString() !== new Date(oldStartDate).toISOString() ||
           newTimeZone !== oldTimeZone)) {
         isUpdatingSelectedDays = true
         try {
