@@ -829,6 +829,16 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
 
   // Trust the DatetimeComponent to handle timezone conversion correctly
   // No additional conversion or correction is needed
+
+  // IMPORTANT: Ensure the RecurrenceComponent is notified of time changes
+  // This is necessary because the v-model binding alone might not trigger
+  // the necessary updates in the RecurrenceComponent when only the time portion changes
+  if (recurrenceRule.value && isRecurring.value) {
+    console.log('Notifying RecurrenceComponent of time change')
+    // Force the RecurrenceComponent to update by explicitly updating the start date
+    // We're using the same startDate, but this will trigger the watcher
+    updateStartDate(eventData.value.startDate)
+  }
 }
 
 // Handle time info updates for end date
