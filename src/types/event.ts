@@ -87,6 +87,7 @@ export interface RecurrenceRule {
   bymonth?: number[]
   bysetpos?: number[]
   wkst?: 'SU' | 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA'
+  timeZone?: string // Added to support timezone-aware recurrence
 }
 
 export interface EventTopicCommentEntity {
