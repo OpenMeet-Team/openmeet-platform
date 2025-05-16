@@ -15,10 +15,10 @@
                 <div class="text-body2 text-bold">
                   <template v-if="isTemplateView && templateDate">
                     <q-badge color="blue" class="q-mr-sm">Template View</q-badge>
-                    {{ formatDate(templateDate) }}
+                    {{ RecurrenceService.formatWithTimezone(templateDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}
                   </template>
                   <template v-else>
-                    {{ formatDate(event.startDate) }}
+                    {{ RecurrenceService.formatWithTimezone(event.startDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}
                   </template>
                 </div>
                 <span v-if="event.maxAttendees">
@@ -253,12 +253,27 @@
                   <q-icon name="sym_r_schedule" />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label>{{ formatDate(event.startDate) }}</q-item-label>
-                  <q-item-label v-if="event.endDate">{{
-                    formatDate(event.endDate)
-                  }}</q-item-label>
-                  <q-item-label v-if="event.timeZone" caption>
-                    {{ event.timeZone }}
+                  <q-item-label>
+                    {{ RecurrenceService.formatWithTimezone(event.startDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}
+                  </q-item-label>
+                  <q-item-label v-if="event.endDate">
+                    {{ RecurrenceService.formatWithTimezone(event.endDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}
+                  </q-item-label>
+                  <q-item-label caption v-if="event.timeZone !== RecurrenceService.getUserTimezone()">
+                    <div class="row items-center q-gutter-sm q-mt-sm">
+                      <span class="text-italic">
+                        Dates shown in your local time ({{ RecurrenceService.getUserTimezone() }})
+                        <template v-if="event.timeZone">
+                          while the event is based in ({{ event.timeZone }})
+                        </template>
+                        <template v-else-if="event.series?.timeZone">
+                          while the event is based in ({{ event.series.timeZone }})
+                        </template>
+                        <template v-else>
+                          (event timezone not specified)
+                        </template>
+                      </span>
+                    </div>
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -286,7 +301,7 @@
                         </q-avatar>
                       </q-item-section>
                       <q-item-section>
-                        <q-item-label>{{ formatDate(occurrence.date) }}</q-item-label>
+                        <q-item-label>{{ RecurrenceService.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}</q-item-label>
                         <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
                           <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
                         </q-item-label>
@@ -443,7 +458,6 @@ import { Dark, LoadingBar, useMeta, useQuasar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { eventsApi } from '../api/events'
 import { chatApi } from '../api/chat'
-import { formatDate } from '../utils/dateUtils'
 import LeafletMapComponent from '../components/common/LeafletMapComponent.vue'
 import MenuItemComponent from '../components/common/MenuItemComponent.vue'
 import { useEventDialog } from '../composables/useEventDialog'
@@ -601,6 +615,17 @@ onMounted(async () => {
     if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
       await useEventStore().actionGetEventBySlug(eventSlug)
       console.log('Event data loaded, now child components can use this data')
+      // DEBUG: Log timezone information
+      console.log('DEBUG - Event timezone info:', {
+        eventTimeZone: useEventStore().event?.timeZone,
+        seriesTimeZone: useEventStore().event?.series?.timeZone,
+        hasEventTimeZone: !!useEventStore().event?.timeZone,
+        hasSeriesTimeZone: !!useEventStore().event?.series?.timeZone,
+        eventObject: useEventStore().event,
+        seriesObject: useEventStore().event?.series,
+        recurrenceRule: useEventStore().event?.recurrenceRule,
+        seriesRecurrenceRule: useEventStore().event?.series?.recurrenceRule
+      })
     } else {
       console.log('Using existing event data from store, skipping reload')
     }
