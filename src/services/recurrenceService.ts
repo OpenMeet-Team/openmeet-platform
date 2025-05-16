@@ -785,20 +785,24 @@ export class RecurrenceService {
   }
 
   // Format date with timezone
-  static formatWithTimezone (date: string | Date, formatStr: string, timeZone?: string): string {
+  static formatWithTimezone (
+    date: string | Date,
+    options: Intl.DateTimeFormatOptions = {},
+    timeZone?: string,
+    locale?: string
+  ): string {
     if (!date) return ''
 
     const dateObj = typeof date === 'string' ? parseISO(date) : date
+    const userLocale = locale || (navigator.languages && navigator.languages.length ? navigator.languages[0] : navigator.language) || 'en-US'
 
+    // Always set the timeZone if provided
+    const opts: Intl.DateTimeFormatOptions = { ...options }
     if (timeZone) {
-      return formatInTimeZone(dateObj, timeZone, formatStr)
-    } else {
-      return formatInTimeZone(
-        dateObj,
-        Intl.DateTimeFormat().resolvedOptions().timeZone,
-        formatStr
-      )
+      opts.timeZone = timeZone
     }
+
+    return new Intl.DateTimeFormat(userLocale, opts).format(dateObj)
   }
 
   // Adjust date for timezone by adding the timezone offset
