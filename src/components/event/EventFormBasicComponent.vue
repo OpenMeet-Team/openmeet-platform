@@ -345,6 +345,8 @@ import { useAuthStore } from '../../stores/auth-store'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
+import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { addHours } from 'date-fns'
 
 const { success, error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -834,13 +836,43 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
 // Handle time info updates for end date
 // Method to handle setting/clearing end date
 const setEndDate = (checked: boolean) => {
-  // Preserve the existing startDate
-  const currentStartDate = eventData.value.startDate
+  if (checked) {
+    if (!eventData.value.endDate && eventData.value.startDate && eventData.value.timeZone) {
+      try {
+        const eventTz = eventData.value.timeZone
+        const startDateUtc = new Date(eventData.value.startDate)
+        const startDateInEventTz = toZonedTime(startDateUtc, eventTz)
+        const endDateInEventTz = addHours(startDateInEventTz, 1)
+        const endDateUtc = fromZonedTime(endDateInEventTz, eventTz)
+        eventData.value.endDate = endDateUtc.toISOString()
+        console.log(`Defaulted end date to 1 hour after start in event timezone (${eventTz}): ${eventData.value.endDate}`)
+        console.log(`Which is ${formatInTimeZone(endDateUtc, eventTz, 'yyyy-MM-dd HH:mm:ssXXX')} in ${eventTz}`)
+      } catch (e) {
+        console.error('Error calculating default end date with timezone:', e)
+        eventData.value.endDate = eventData.value.startDate
+      }
+    } else if (!eventData.value.endDate && eventData.value.startDate) {
+      // Fallback if timezone is somehow missing (should not happen with current setup)
+      try {
+        const startDateObj = new Date(eventData.value.startDate)
+        if (!isNaN(startDateObj.getTime())) {
+          startDateObj.setHours(startDateObj.getHours() + 1) // Add 1 hour (UTC)
+          eventData.value.endDate = startDateObj.toISOString()
+          console.warn('Defaulted end date (UTC based) as event timezone was missing')
+        } else {
+          console.warn('Cannot default end date: Invalid start date')
+        }
+      } catch (e) {
+        console.error('Error calculating default end date (UTC fallback): ', e)
+        eventData.value.endDate = eventData.value.startDate
+      }
+    }
+    // If eventData.value.endDate already exists, do nothing, let the user edit it via its own DatetimeComponent.
+  } else {
+    eventData.value.endDate = null
+  }
 
-  // Set or clear the end date based on checkbox state
-  eventData.value.endDate = checked ? currentStartDate : null
-
-  console.log(`Setting end date checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
+  console.log(`Set end date checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
   console.log('Start date remains:', eventData.value.startDate)
 }
 

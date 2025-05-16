@@ -2,17 +2,39 @@ import { VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { RecurrenceRule } from '../../../src/types/event'
 
+interface RecurrenceComponent {
+  frequency: string
+  interval: number
+  selectedDays: string[]
+  monthlyRepeatType: string
+  monthlyPosition: string
+  monthlyWeekday: string
+  timezone: string
+  endType: string
+  count: number
+  until: string
+  humanReadablePattern: string
+  occurrences: Date[]
+  rule: Partial<RecurrenceRule>
+  toggleDay: (day: string) => void
+  toggleRecurrence: (value: boolean) => void
+}
+
 /**
  * Helper class for testing RecurrenceComponent
  * Provides methods for interacting with the component in a standardized way
  */
 export class RecurrenceComponentTestHelper {
-  constructor(private wrapper: VueWrapper) {}
+  private readonly wrapper: VueWrapper<RecurrenceComponent>
+
+  constructor (wrapper: VueWrapper<RecurrenceComponent>) {
+    this.wrapper = wrapper
+  }
 
   /**
    * Get the current frequency selected in the component
    */
-  getFrequency(): string | undefined {
+  getFrequency (): string | undefined {
     return this.wrapper.vm.frequency
   }
 
@@ -20,7 +42,7 @@ export class RecurrenceComponentTestHelper {
    * Set the frequency through the UI
    * @param frequency The frequency to set ('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY')
    */
-  async setFrequency(frequency: string): Promise<void> {
+  async setFrequency (frequency: string): Promise<void> {
     // Set via v-model directly for stub components
     this.wrapper.vm.frequency = frequency
     await nextTick()
@@ -30,7 +52,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current interval
    */
-  getInterval(): number {
+  getInterval (): number {
     return this.wrapper.vm.interval
   }
 
@@ -38,7 +60,7 @@ export class RecurrenceComponentTestHelper {
    * Set the interval through the UI
    * @param interval The interval to set (e.g., every 2 weeks)
    */
-  async setInterval(interval: number): Promise<void> {
+  async setInterval (interval: number): Promise<void> {
     this.wrapper.vm.interval = interval
     await nextTick()
     await this.waitForProcessing()
@@ -47,7 +69,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the selected days for weekly recurrence
    */
-  getSelectedDays(): string[] {
+  getSelectedDays (): string[] {
     return this.wrapper.vm.selectedDays
   }
 
@@ -55,7 +77,7 @@ export class RecurrenceComponentTestHelper {
    * Toggle a specific day in weekly frequency
    * @param day The day to toggle ('SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA')
    */
-  async toggleDay(day: string): Promise<void> {
+  async toggleDay (day: string): Promise<void> {
     this.wrapper.vm.toggleDay(day)
     await nextTick()
     await this.waitForProcessing()
@@ -65,18 +87,18 @@ export class RecurrenceComponentTestHelper {
    * Set specific days for weekly frequency
    * @param days Array of days to set ('SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA')
    */
-  async setSelectedDays(days: string[]): Promise<void> {
+  async setSelectedDays (days: string[]): Promise<void> {
     // Clear current selections
     const currentDays = [...this.wrapper.vm.selectedDays]
     for (const day of currentDays) {
       await this.toggleDay(day)
     }
-    
+
     // Set new selections
     for (const day of days) {
       await this.toggleDay(day)
     }
-    
+
     await nextTick()
     await this.waitForProcessing()
   }
@@ -84,7 +106,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current monthly repeat type
    */
-  getMonthlyRepeatType(): string {
+  getMonthlyRepeatType (): string {
     return this.wrapper.vm.monthlyRepeatType
   }
 
@@ -92,7 +114,7 @@ export class RecurrenceComponentTestHelper {
    * Set the monthly repeat type (dayOfMonth or dayOfWeek)
    * @param type The repeat type ('dayOfMonth' or 'dayOfWeek')
    */
-  async setMonthlyRepeatType(type: 'dayOfMonth' | 'dayOfWeek'): Promise<void> {
+  async setMonthlyRepeatType (type: 'dayOfMonth' | 'dayOfWeek'): Promise<void> {
     this.wrapper.vm.monthlyRepeatType = type
     await nextTick()
     await this.waitForProcessing()
@@ -101,7 +123,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current monthly position (for dayOfWeek type)
    */
-  getMonthlyPosition(): string {
+  getMonthlyPosition (): string {
     return this.wrapper.vm.monthlyPosition
   }
 
@@ -109,7 +131,7 @@ export class RecurrenceComponentTestHelper {
    * Set the monthly position (for 'First Tuesday', 'Second Wednesday', etc.)
    * @param position The position to set ('1', '2', '3', '4', '-1' for last)
    */
-  async setMonthlyPosition(position: string): Promise<void> {
+  async setMonthlyPosition (position: string): Promise<void> {
     this.wrapper.vm.monthlyPosition = position
     await nextTick()
     await this.waitForProcessing()
@@ -118,7 +140,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current monthly weekday (for dayOfWeek type)
    */
-  getMonthlyWeekday(): string {
+  getMonthlyWeekday (): string {
     return this.wrapper.vm.monthlyWeekday
   }
 
@@ -126,7 +148,7 @@ export class RecurrenceComponentTestHelper {
    * Set the monthly weekday (for 'First Tuesday', 'Second Wednesday', etc.)
    * @param weekday The weekday to set ('SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA')
    */
-  async setMonthlyWeekday(weekday: string): Promise<void> {
+  async setMonthlyWeekday (weekday: string): Promise<void> {
     this.wrapper.vm.monthlyWeekday = weekday
     await nextTick()
     await this.waitForProcessing()
@@ -137,7 +159,7 @@ export class RecurrenceComponentTestHelper {
    * @param position The position ('1', '2', '3', '4', '-1')
    * @param weekday The weekday ('SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA')
    */
-  async setMonthlyPattern(position: string, weekday: string): Promise<void> {
+  async setMonthlyPattern (position: string, weekday: string): Promise<void> {
     await this.setMonthlyRepeatType('dayOfWeek')
     await this.setMonthlyPosition(position)
     await this.setMonthlyWeekday(weekday)
@@ -148,7 +170,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get current timezone
    */
-  getTimezone(): string {
+  getTimezone (): string {
     return this.wrapper.vm.timezone
   }
 
@@ -156,7 +178,7 @@ export class RecurrenceComponentTestHelper {
    * Set the timezone
    * @param timezone The timezone to set (e.g., 'America/New_York')
    */
-  async setTimezone(timezone: string): Promise<void> {
+  async setTimezone (timezone: string): Promise<void> {
     this.wrapper.vm.timezone = timezone
     await nextTick()
     await this.waitForProcessing()
@@ -165,7 +187,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current end type
    */
-  getEndType(): string {
+  getEndType (): string {
     return this.wrapper.vm.endType
   }
 
@@ -173,7 +195,7 @@ export class RecurrenceComponentTestHelper {
    * Set the end type (never, count, or until)
    * @param type The end type ('never', 'count', or 'until')
    */
-  async setEndType(type: 'never' | 'count' | 'until'): Promise<void> {
+  async setEndType (type: 'never' | 'count' | 'until'): Promise<void> {
     this.wrapper.vm.endType = type
     await nextTick()
     await this.waitForProcessing()
@@ -182,7 +204,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current count value
    */
-  getCount(): number {
+  getCount (): number {
     return this.wrapper.vm.count
   }
 
@@ -190,7 +212,7 @@ export class RecurrenceComponentTestHelper {
    * Set the count (for 'After X occurrences')
    * @param count The number of occurrences
    */
-  async setCount(count: number): Promise<void> {
+  async setCount (count: number): Promise<void> {
     await this.setEndType('count')
     this.wrapper.vm.count = count
     await nextTick()
@@ -200,7 +222,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current until date
    */
-  getUntil(): string {
+  getUntil (): string {
     return this.wrapper.vm.until
   }
 
@@ -208,7 +230,7 @@ export class RecurrenceComponentTestHelper {
    * Set the until date (for 'Ends on date')
    * @param date The date string (YYYY-MM-DD)
    */
-  async setUntil(date: string): Promise<void> {
+  async setUntil (date: string): Promise<void> {
     await this.setEndType('until')
     this.wrapper.vm.until = date
     await nextTick()
@@ -218,21 +240,21 @@ export class RecurrenceComponentTestHelper {
   /**
    * Get the current pattern human-readable description
    */
-  getPatternDescription(): string {
+  getPatternDescription (): string {
     return this.wrapper.vm.humanReadablePattern
   }
 
   /**
    * Get the current occurrences
    */
-  getOccurrences(): Date[] {
+  getOccurrences (): Date[] {
     return this.wrapper.vm.occurrences
   }
 
   /**
    * Get the current recurrence rule
    */
-  getRule(): Partial<RecurrenceRule> | undefined {
+  getRule (): Partial<RecurrenceRule> | undefined {
     return this.wrapper.vm.rule
   }
 
@@ -240,7 +262,7 @@ export class RecurrenceComponentTestHelper {
    * Toggle recurrence on/off
    * @param value Whether to enable recurrence
    */
-  async toggleRecurrence(value: boolean): Promise<void> {
+  async toggleRecurrence (value: boolean): Promise<void> {
     this.wrapper.vm.toggleRecurrence(value)
     await nextTick()
     await this.waitForProcessing()
@@ -249,16 +271,16 @@ export class RecurrenceComponentTestHelper {
   /**
    * Wait for component processing to complete
    */
-  async waitForProcessing(): Promise<void> {
+  async waitForProcessing (): Promise<void> {
     // Wait for the component to finish calculating
     await new Promise(resolve => setTimeout(resolve, 100))
-    
+
     // Wait for next tick to ensure Vue updates
     await nextTick()
-    
+
     // Wait for any debounce timers
     await new Promise(resolve => setTimeout(resolve, 750))
-    
+
     // Final nextTick to ensure everything is rendered
     await nextTick()
   }
@@ -268,11 +290,11 @@ export class RecurrenceComponentTestHelper {
    * @param dayName The day name to check ('Monday', 'Tuesday', etc.)
    * @param timezone The timezone to use for the check
    */
-  occurrencesMatchDay(dayName: string, timezone: string): boolean {
+  occurrencesMatchDay (dayName: string, timezone: string): boolean {
     const { formatInTimeZone } = require('date-fns-tz')
     const occurrences = this.getOccurrences()
-    
-    return occurrences.every(date => 
+
+    return occurrences.every(date =>
       formatInTimeZone(date, timezone, 'EEEE') === dayName
     )
   }
@@ -280,7 +302,7 @@ export class RecurrenceComponentTestHelper {
   /**
    * Log detailed information about the component state
    */
-  logComponentState(): void {
+  logComponentState (): void {
     console.log('Component State:', {
       frequency: this.getFrequency(),
       interval: this.getInterval(),

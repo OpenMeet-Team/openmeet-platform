@@ -88,6 +88,7 @@ export interface RecurrenceRule {
   bysetpos?: number[]
   wkst?: 'SU' | 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA'
   timeZone?: string // Added to support timezone-aware recurrence
+  _userExplicitSelection?: boolean; // Flag to indicate user's explicit day selection
 }
 
 export interface EventTopicCommentEntity {

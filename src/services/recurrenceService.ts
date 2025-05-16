@@ -1,5 +1,5 @@
 import { RRule, Options, Weekday, Frequency } from 'rrule'
-import { format, formatInTimeZone } from 'date-fns-tz'
+import { format, formatInTimeZone, toZonedTime } from 'date-fns-tz'
 import { parseISO, addMilliseconds } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
@@ -43,94 +43,74 @@ export class RecurrenceService {
         throw new Error('Invalid recurrence rule: missing frequency')
       }
 
-      // Parse the start date
-      let dtstart
-      try {
-        dtstart = typeof startDate === 'string'
-          ? parseISO(startDate)
-          : new Date(startDate)
+      // Determine the effective timezone
+      const tz = timeZone || rule.timeZone
 
-        // Use the provided timezone or the one in the rule
-        const tz = timeZone || rule.timeZone
+      // --- START MODIFICATION: Intelligent parsing of startDate ---
+      let startDateObj: Date
+      // Regex to check for Z or +/- offset in a full ISO-like datetime string
+      const isoWithOffsetRegex = /T\d{2}:\d{2}:\d{2}(?:\.\d{3,})?(Z|[+-]\d{2}:?\d{2})$/
+      // Regex to check if startDate string contains a time component (T HH:MM:SS)
+      const hasTimeComponentRegex = /T\d{2}:\d{2}:\d{2}/
 
-        // Apply timezone adjustment if timezone is specified
-        if (tz) {
-          console.log('Adjusting dtstart for timezone:', tz)
-
-          // CRITICAL: For weekly recurrences, we need to handle day selection based on the originating timezone
-          // This implements the principle: "Day selection refers to days in the originating timezone"
-          if (rule.frequency === 'WEEKLY') {
-            // Get the day of week in the target timezone using our helper method
-            const { dayName: dayNameInTimezone, dayCode: dayCodeInTimezone } =
-              this.getDayOfWeekInTimezone(dtstart, tz);
-
-            // Always log the day information for debugging
-            console.log('Day in timezone:', {
-              timezone: tz,
-              date: dtstart.toISOString(),
-              localDay: dayNameInTimezone,
-              dayCode: dayCodeInTimezone
-            });
-
-            // Consider any supplied byweekday as explicit user selection, unless we
-            // have a special _systemGenerated flag (used only for testing the old behavior)
-            const hasUserDaySelection = rule.byweekday && rule.byweekday.length > 0;
-            const hasMultipleDaySelection = rule.byweekday && rule.byweekday.length > 1;
-            // const hasExplicitFlag = rule._userExplicitSelection === true; // Property '_userExplicitSelection' does not exist on type 'RecurrenceRule'. 'hasExplicitFlag' is assigned a value but never used.
-            // const isSystemGenerated = rule._systemGenerated === true; // Property '_systemGenerated' does not exist on type 'RecurrenceRule'.
-
-            if (hasMultipleDaySelection) {
-              // Multiple day selection is ALWAYS a clear user choice, don't modify
-              console.log('Multiple day selection detected, preserving user choices:', rule.byweekday);
-              // We always respect multiple day selection as it must be explicit
-            } else if (hasUserDaySelection /* && !isSystemGenerated */) {
-              // Single day explicitly selected - this follows the principle that
-              // day selection refers to days in the originating timezone
-              console.log('Respecting user day selection:', rule.byweekday[0]);
-              // Keep the user's selection intact - critical for preserving user intent
-            } else if (/* isSystemGenerated && */ false && hasUserDaySelection) { // Condition effectively false due to commented out isSystemGenerated
-              // Special case for testing - simulate the old behavior where we might
-              // need to adjust for timezone day boundaries
-              console.log('System-generated day selection, considering timezone adjustment');
-              if (dayCodeInTimezone && dayCodeInTimezone !== rule.byweekday[0]) {
-                console.log('Adjusting system-generated day for timezone boundary:', {
-                  origDay: rule.byweekday[0],
-                  tzDay: dayCodeInTimezone
-                });
-                rule = { ...rule, byweekday: [dayCodeInTimezone] };
-              }
-            } else if (!rule.byweekday || rule.byweekday.length === 0) {
-              // If byweekday not specified, add it based on the day in target timezone
-              console.log('Adding missing byweekday for weekly recurrence:', dayCodeInTimezone);
-              rule = { ...rule, byweekday: [dayCodeInTimezone] };
-            }
-          }
-
-          // Use our helper method to create a date that preserves wall-clock time
-          // This implements the principle: "Preserve wall-clock time in the originating timezone"
-          const adjustedDate = this.createDateInTimezone(dtstart, tz);
-
-          // Log the timezone adjustment with before/after comparison
-          console.log('Timezone adjustment for wall-clock time preservation:', {
-            original: dtstart.toISOString(),
-            adjusted: adjustedDate.toISOString(),
-            timeZone: tz,
-            originalLocalTime: formatInTimeZone(dtstart, tz, 'HH:mm:ss'),
-            adjustedLocalTime: formatInTimeZone(adjustedDate, tz, 'HH:mm:ss')
-          });
-
-          dtstart = adjustedDate;
+      if (isoWithOffsetRegex.test(startDate)) {
+        // If startDate is a full ISO string with UTC ('Z') or an offset, parse it directly.
+        startDateObj = parseISO(startDate)
+        console.log('RecurrenceService.toRRule: Parsed startDate with explicit offset/Z:', startDate, '->', startDateObj.toISOString())
+      } else if (tz && hasTimeComponentRegex.test(startDate)) {
+        // If startDate has a time component but no Z/offset, AND event timezone `tz` is known,
+        // interpret startDate as wall-clock time in `tz`.
+        try {
+          // First parse as UTC
+          startDateObj = parseISO(startDate)
+          // Then convert to the target timezone
+          startDateObj = toZonedTime(startDateObj, tz)
+          console.log('RecurrenceService.toRRule: Parsed startDate as wall-clock in tz:', startDate, ' (tz:', tz, ') ->', startDateObj.toISOString())
+        } catch (e) {
+          console.error(`RecurrenceService.toRRule: Failed to parse "${startDate}" with tz "${tz}". Falling back to parseISO.`, e)
+          startDateObj = parseISO(startDate) // Fallback to original behavior if conversion fails
+          console.log('RecurrenceService.toRRule: Fallback parseISO for startDate (after conversion error):', startDate, '->', startDateObj.toISOString())
         }
-      } catch (e) {
-        console.error('Error parsing start date:', e)
-        dtstart = new Date()
+      } else {
+        // Fallback for other formats (e.g., YYYY-MM-DD only, or missing tz when time component is present but no offset)
+        startDateObj = parseISO(startDate)
+        console.log('RecurrenceService.toRRule: Fallback parseISO for startDate (other cases):', startDate, '->', startDateObj.toISOString())
+        if (!tz && hasTimeComponentRegex.test(startDate) && !isoWithOffsetRegex.test(startDate)) {
+          console.warn('RecurrenceService.toRRule: startDate string looks like local time but no event timezone (tz) was provided. Time interpretation may be ambiguous as it will be based on system local time.')
+        }
       }
+      // --- END MODIFICATION ---
 
-      // Create RRule options with proper typing
+      // Base options
       const options: Partial<Options> = {
         freq: RRule[rule.frequency as keyof typeof RRule] as unknown as Frequency,
-        interval: rule.interval || 1,
-        dtstart
+        interval: rule.interval || 1
+      }
+
+      // Handle dtstart and tzid for RRule
+      // RRule expects dtstart to be local to tzid if tzid is provided.
+      // The Date components (Y,M,D,H,m,s) of dtstart will be interpreted in tzid.
+      if (tz) {
+        // const startDateObj = parseISO(startDate) // Original start date as UTC instant // MOVED UP AND MODIFIED
+        // Get wall-clock components of startDateObj (which is now correctly UTC) in the effective timezone
+        const year = parseInt(formatInTimeZone(startDateObj, tz, 'yyyy'), 10)
+        const month = parseInt(formatInTimeZone(startDateObj, tz, 'MM'), 10) - 1 // JS Date month is 0-indexed
+        const day = parseInt(formatInTimeZone(startDateObj, tz, 'dd'), 10)
+        const hour = parseInt(formatInTimeZone(startDateObj, tz, 'HH'), 10)
+        const minute = parseInt(formatInTimeZone(startDateObj, tz, 'mm'), 10)
+        const second = parseInt(formatInTimeZone(startDateObj, tz, 'ss'), 10)
+
+        // Create a new Date object using these wall-clock components.
+        // When this Date object is passed to RRule with the tzid, RRule
+        // will interpret these components as being in that tzid.
+        options.dtstart = new Date(year, month, day, hour, minute, second)
+        options.tzid = tz
+        console.log('RRule dtstart (local components for tzid):', options.dtstart, 'tzid:', tz)
+      } else {
+        // No timezone provided, treat startDate as UTC for RRule
+        // options.dtstart = parseISO(startDate) // MOVED UP AND MODIFIED
+        options.dtstart = startDateObj // Use the processed startDateObj
+        console.log('RRule dtstart (UTC):', options.dtstart)
       }
 
       // Add count or until if present
@@ -146,63 +126,68 @@ export class RecurrenceService {
         }
       }
 
-      // Add byweekday and handle bysetpos (RRule requires special handling)
+      // byweekday and bysetpos handling
       if (rule.byweekday && rule.byweekday.length > 0) {
-        // Special case for MONTHLY/YEARLY with byweekday + bysetpos: use .nth() method for better toText() results
         if ((rule.frequency === 'MONTHLY' || rule.frequency === 'YEARLY') &&
-             rule.bysetpos &&
-             // Handle bysetpos both as array or as a number (handle potential API inconsistency)
-             (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined)) {
-          // Get the position (e.g., 2 for "second", -1 for "last")
-          // Handle both array and number formats
+            rule.bysetpos &&
+            (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined)) {
           const position = Array.isArray(rule.bysetpos) ? rule.bysetpos[0] : rule.bysetpos
-
-          // Create properly typed array for byweekday
           const byweekdayArray: Weekday[] = []
-
-          // Process each weekday with proper typing
           for (const day of rule.byweekday) {
-            // Clean any position prefix to get just the day code
             const dayMatch = day.match(/^(?:[+-]?\d+)?([A-Z]{2})$/)
-            const cleanDay = dayMatch ? dayMatch[1] : day;
-
-            // Use the .nth() method on the weekday constant for better text formatting
+            const cleanDay = dayMatch ? dayMatch[1] : day
             const weekdayConst = RRule[cleanDay as keyof typeof RRule]
 
-            // Add the position to the weekday using nth()
-            // This allows RRule.toText() to output "every month on the second Wednesday" correctly
-            if (typeof weekdayConst === 'object' && 'nth' in weekdayConst &&
+            if (typeof weekdayConst === 'object' && weekdayConst !== null && 'nth' in weekdayConst &&
                 typeof (weekdayConst as { nth: (n: number) => Weekday }).nth === 'function') {
               byweekdayArray.push((weekdayConst as { nth: (n: number) => Weekday }).nth(position))
             } else if (weekdayConst instanceof Weekday) {
+              // This case might need review: if weekdayConst is already a Weekday (e.g. from RRule.WE)
+              // and we have a position, should we apply it? The original code didn't here.
+              // For safety, we'll assume if it's already a Weekday instance, it might be pre-formed.
               byweekdayArray.push(weekdayConst)
+            } else {
+              // Fallback if it's not an object with nth or a Weekday instance (e.g. raw number for RRule constants)
+              // This path should ideally not be hit if rule.byweekday contains string codes like 'MO', 'TU'
+              console.warn('Unexpected weekday format for .nth() method:', day, weekdayConst)
+              // Attempt to create a simple Weekday if possible, though this won't have position
+              if (typeof weekdayConst === 'number') { // RRule day constants are numbers
+                byweekdayArray.push(new Weekday(weekdayConst))
+              }
             }
           }
-
           options.byweekday = byweekdayArray
-
-          console.log('Using .nth() method for byweekday with position:', position)
+          console.log('Using .nth() method for byweekday with position:', position, options.byweekday)
         } else {
-          // Standard handling for regular weekdays without position or non-MONTHLY patterns
+          // Standard handling for other frequencies (like WEEKLY) or if bysetpos isn't used for MONTHLY/YEARLY
           options.byweekday = rule.byweekday.map(day => {
-            // Check if day has a position prefix like "1MO" for first Monday
             const match = day.match(/^([+-]?\d+)([A-Z]{2})$/)
             if (match) {
               const pos = parseInt(match[1], 10)
               const weekday = match[2]
               return new Weekday(RRule[weekday as keyof typeof RRule] as unknown as number, pos)
             }
-
-            // Regular weekday without position
             return RRule[day as keyof typeof RRule] as unknown as number
           })
         }
+      } else if (rule.frequency === 'WEEKLY' && tz) {
+        // If no byweekday is specified for a weekly rule, default to the start date's day in the event's timezone
+        const { dayCode: dayCodeInTimezone } = this.getDayOfWeekInTimezone(options.dtstart, tz)
+        console.log('No byweekday for WEEKLY, defaulting to day in originating timezone:', dayCodeInTimezone)
+        options.byweekday = [RRule[dayCodeInTimezone as keyof typeof RRule] as unknown as number]
       }
 
-      // Still add bysetpos for completeness (needed for some patterns)
-      if (rule.bysetpos && rule.bysetpos.length > 0 &&
-         !(rule.frequency === 'MONTHLY' && rule.byweekday && rule.byweekday.length > 0)) {
-        // Only add bysetpos for non-MONTHLY + byweekday patterns (since we're using .nth() for those)
+      // Set bysetpos if it's provided and not already handled by the .nth() logic for MONTHLY/YEARLY
+      let byweekdayHasPosition = false
+      if (Array.isArray(options.byweekday)) {
+        byweekdayHasPosition = options.byweekday.some(wd => wd instanceof Weekday && typeof wd.n === 'number' && wd.n !== 0)
+      } else if (options.byweekday instanceof Weekday) {
+        byweekdayHasPosition = typeof options.byweekday.n === 'number' && options.byweekday.n !== 0
+      }
+
+      if (rule.bysetpos &&
+          (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined) &&
+          !((rule.frequency === 'MONTHLY' || rule.frequency === 'YEARLY') && byweekdayHasPosition)) {
         options.bysetpos = rule.bysetpos
         console.log('Setting bysetpos in RRule:', rule.bysetpos)
       }
@@ -220,7 +205,6 @@ export class RecurrenceService {
         options.wkst = RRule[rule.wkst as keyof typeof RRule] as Weekday
       }
 
-      // Create and return the RRule
       return new RRule(options)
     } catch (error) {
       console.error('Error creating RRule:', error)
@@ -317,263 +301,63 @@ export class RecurrenceService {
     }
 
     try {
-      // Store the original date for time preservation
-      const originalDate = new Date(event.startDate);
+      const eventTimeZone = event.timeZone || event.recurrenceRule.timeZone
 
-      // Log detailed recurrence info for debugging
       console.log('RecurrenceService.getOccurrences for event:', {
         name: event.name,
         startDate: event.startDate,
-        timezone: event.timeZone,
-        recurrenceRule: {
-          frequency: event.recurrenceRule.frequency,
-          interval: event.recurrenceRule.interval,
-          byweekday: event.recurrenceRule.byweekday,
-          bymonthday: event.recurrenceRule.bymonthday,
-          bysetpos: event.recurrenceRule.bysetpos,
-          timeZone: event.recurrenceRule.timeZone
-        }
+        timezone: eventTimeZone,
+        recurrenceRule: event.recurrenceRule
       })
 
-      // Check specifically for monthly patterns with bysetpos
-      if (event.recurrenceRule.frequency === 'MONTHLY' &&
-          event.recurrenceRule.byweekday &&
-          event.recurrenceRule.bysetpos) {
-        console.log('MONTHLY DAY-OF-WEEK PATTERN DETECTED:', {
-          byweekday: event.recurrenceRule.byweekday,
-          bysetpos: event.recurrenceRule.bysetpos,
-          description: `${event.recurrenceRule.bysetpos[0]}${event.recurrenceRule.byweekday[0]} of month`
-        })
-
-        // Ensure the bysetpos field is not empty - this is crucial for monthly patterns
-        if (!event.recurrenceRule.bysetpos || event.recurrenceRule.bysetpos.length === 0) {
-          console.warn('bysetpos is empty for monthly pattern! This will cause incorrect weekly pattern')
-          // This is where failures can happen - when bysetpos is lost during translation
-          console.warn('Inspect API and conversion functions for bysetpos handling')
-        }
-      }
-
-      // Get timezone from event or rule
-      const timeZone = event.timeZone || event.recurrenceRule.timeZone;
-
-      // Always create a copy of the rule with the timezone explicitly included
-      const ruleWithTimezone = {
-        ...event.recurrenceRule,
-        timeZone
-      };
-
-      // Store original time components in the event's timezone for wall-clock time preservation
-      // This is aligned with our first principle: preserve wall-clock time in originating timezone
-      let originalWallClockTime;
-
-      if (timeZone) {
-        // Get the wall-clock time (local time) in the event's timezone
-        const localHours = formatInTimeZone(originalDate, timeZone, 'HH');
-        const localMinutes = formatInTimeZone(originalDate, timeZone, 'mm');
-        const localSeconds = formatInTimeZone(originalDate, timeZone, 'ss');
-        const localMs = formatInTimeZone(originalDate, timeZone, 'SSS');
-
-        originalWallClockTime = {
-          hours: parseInt(localHours, 10),
-          minutes: parseInt(localMinutes, 10),
-          seconds: parseInt(localSeconds, 10),
-          milliseconds: parseInt(localMs, 10)
-        };
-
-        console.log('Original wall-clock time in timezone:', {
-          timezone: timeZone,
-          wallClockTime: `${localHours}:${localMinutes}:${localSeconds}.${localMs}`
-        });
-      }
-
-      // Store the original UTC time components as fallback
-      const originalTimeInfo = {
-        hours: originalDate.getUTCHours(),
-        minutes: originalDate.getUTCMinutes(),
-        seconds: originalDate.getUTCSeconds(),
-        milliseconds: originalDate.getUTCMilliseconds()
-      };
-
-      // For weekly recurrences, ensure we're using the correct day in target timezone
-      if (ruleWithTimezone.frequency === 'WEEKLY') {
-        const dateInUTC = new Date(event.startDate);
-
-        // Get the day in the target timezone
-        const { dayName, dayCode } = this.getDayOfWeekInTimezone(dateInUTC, timeZone);
-
-        console.log('Weekly recurrence - day in timezone check:', {
-          date: dateInUTC.toISOString(),
-          timezone: timeZone,
-          dayName: dayName,
-          dayCode: dayCode,
-          currentRule: ruleWithTimezone.byweekday,
-          // isUserSelection: ruleWithTimezone._userExplicitSelection === true // Property '_userExplicitSelection' does not exist
-          isUserSelection: false // Assuming false as property does not exist
-        });
-
-        // For explicit user selection, we should always respect their choice
-        // Aligned with our second principle: day selection refers to days in originating timezone
-        const isUserSelection = /* ruleWithTimezone._userExplicitSelection === true || */ // Property '_userExplicitSelection' does not exist
-                               (ruleWithTimezone.byweekday && ruleWithTimezone.byweekday.length > 0);
-
-        // Multiple day selection is always explicit
-        const hasMultipleDaySelection = ruleWithTimezone.byweekday && ruleWithTimezone.byweekday.length > 1;
-
-        if (hasMultipleDaySelection) {
-          console.log('Multiple day selection detected, preserving user choices:', ruleWithTimezone.byweekday);
-          // Multiple days selected - always respect this as user choice
-        }
-        else if (isUserSelection) {
-          console.log('Respecting user day selection:', ruleWithTimezone.byweekday);
-          // Single day explicitly selected - respect this
-        }
-        else if (!ruleWithTimezone.byweekday || ruleWithTimezone.byweekday.length === 0) {
-          // No day selected, use the day in target timezone
-          console.log('No day selected, using day in originating timezone:', dayCode);
-          ruleWithTimezone.byweekday = [dayCode];
-        }
-      }
-
-      // Pass the timezone explicitly to toRRule to ensure proper handling
+      // toRRule is now timezone-aware using tzid
       const rrule = this.toRRule(
-        ruleWithTimezone,
+        { ...event.recurrenceRule, timeZone: eventTimeZone }, // Pass tz to rule for toRRule
         event.startDate,
-        timeZone
+        eventTimeZone // Pass tz to toRRule for tzid option and dtstart construction
       )
 
-      console.log('RRule string with timezone:', rrule.toString())
+      console.log('RRule string used for occurrence generation:', rrule.toString())
+      console.log('RRule options used:', rrule.options)
 
-      // Generate occurrences
-      let occurrences = rrule.all((_, i) => i < count)
+      // rrule.all() will return UTC Date objects that are correct considering tzid
+      let occurrencesUtc = rrule.all((_, i) => i < count)
 
-      // Log first few occurrences to verify pattern
-      if (occurrences.length > 0) {
-        console.log('First 3 occurrences:', occurrences.slice(0, 3).map(date => date.toISOString()))
-
-        // Check if occurrences are weekly or monthly for debugging
-        if (occurrences.length >= 2) {
-          const diff = (occurrences[1].getTime() - occurrences[0].getTime()) / (1000 * 60 * 60 * 24)
-          console.log(`Days between first two occurrences: ${diff}`)
-          console.log(`Pattern appears to be: ${diff < 10 ? 'WEEKLY' : 'MONTHLY'}`)
-        }
-      }
-
-      // Filter out exceptions
-      if (event.recurrenceExceptions && event.recurrenceExceptions.length > 0) {
-        const exceptions = event.recurrenceExceptions.map(ex =>
-          format(parseISO(ex), 'yyyy-MM-dd')
-        )
-
-        occurrences = occurrences.filter(occurrence =>
-          !exceptions.includes(format(occurrence, 'yyyy-MM-dd'))
-        )
-      }
-
-      // UNIFIED TIME PRESERVATION APPROACH
-      // This applies the same wall-clock time preservation logic to all recurrence types,
-      // which is more maintainable and consistent with our first principle
-      if (timeZone) {
-        return occurrences.map((date, index) => {
-          try {
-            // First, check if this occurrence falls on the expected day (for weekly recurrences)
-            let dateToAdjust = date;
-
-            if (ruleWithTimezone.frequency === 'WEEKLY' &&
-                ruleWithTimezone.byweekday &&
-                ruleWithTimezone.byweekday.length > 0) {
-
-              // For multiple day selection, check if this date is on one of the selected days
-              if (ruleWithTimezone.byweekday.length > 1) {
-                const { dayCode } = this.getDayOfWeekInTimezone(date, timeZone);
-                const isDaySelected = ruleWithTimezone.byweekday.includes(dayCode);
-
-                if (!isDaySelected) {
-                  // Find the nearest date that falls on one of the selected days
-                  for (const targetDay of ruleWithTimezone.byweekday) {
-                    const correctedDate = this.findClosestDateWithDay(date, targetDay, timeZone);
-                    if (correctedDate) {
-                      console.log(`Adjusted occurrence ${index + 1} to match selected day ${targetDay}`);
-                      dateToAdjust = correctedDate;
-                      break;
-                    }
-                  }
-                }
-              }
-              // For single day selection, ensure it's on the expected day
-              else {
-                const expectedDay = ruleWithTimezone.byweekday[0];
-
-                // Ensure we have a clean day code without any position prefix
-                const dayCodeRegex = /^([+-]?\d+)?([A-Z]{2})$/;
-                const match = expectedDay.match(dayCodeRegex);
-                const cleanDayCode = match ? match[2] : expectedDay;
-
-                console.log(`Checking if date is on user-selected day ${cleanDayCode} in timezone ${timeZone}`);
-
-                if (!this.isOnExpectedDay(date, cleanDayCode, timeZone)) {
-                  const correctedDate = this.findClosestDateWithDay(date, cleanDayCode, timeZone);
-                  if (correctedDate) {
-                    console.log(`Adjusted occurrence ${index + 1} to match day ${cleanDayCode}`);
-                    dateToAdjust = correctedDate;
-                  }
-                }
-              }
-            }
-
-            // Now apply the original wall-clock time
-            // This is crucial for preserving the exact time in the originating timezone
-            // even through DST transitions
-            const datePart = formatInTimeZone(dateToAdjust, timeZone, 'yyyy-MM-dd');
-
-            // Use the wall-clock time from the original event
-            let adjustedDate;
-
-            if (originalWallClockTime) {
-              // Create a date string with the date part and original wall-clock time
-              const { hours, minutes, seconds } = originalWallClockTime;
-              const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-              const localDateTimeStr = `${datePart}T${timeStr}`;
-
-              // Convert this local datetime to a UTC date that preserves wall-clock time
-              adjustedDate = this.createDateInTimezone(new Date(localDateTimeStr), timeZone);
-
-              // Also preserve milliseconds which aren't handled by formatInTimeZone
-              adjustedDate.setUTCMilliseconds(originalWallClockTime.milliseconds);
-            } else {
-              // Fallback to UTC time preservation if we couldn't get wall-clock time
-              adjustedDate = new Date(dateToAdjust);
-              adjustedDate.setUTCHours(
-                originalTimeInfo.hours,
-                originalTimeInfo.minutes,
-                originalTimeInfo.seconds,
-                originalTimeInfo.milliseconds
-              );
-            }
-
-            console.log(`Preserving time for occurrence ${index + 1}:`, {
-              original: dateToAdjust.toISOString(),
-              adjusted: adjustedDate.toISOString(),
-              dateInTz: formatInTimeZone(adjustedDate, timeZone, 'yyyy-MM-dd HH:mm:ss')
-            });
-
-            return adjustedDate;
-          } catch (e) {
-            console.error(`Error adjusting time for occurrence ${index + 1}:`, e);
-            // Fallback to basic time preservation
-            const newDate = new Date(date);
-            newDate.setUTCHours(
-              originalTimeInfo.hours,
-              originalTimeInfo.minutes,
-              originalTimeInfo.seconds,
-              originalTimeInfo.milliseconds
-            );
-            return newDate;
+      if (occurrencesUtc.length > 0) {
+        console.log('Raw UTC occurrences from rrule.all() with tzid handling:', occurrencesUtc.slice(0, 3).map(d => d.toISOString()))
+        // Log first few occurrences in the event's timezone for verification
+        occurrencesUtc.slice(0, 3).forEach(occ => {
+          if (eventTimeZone) {
+            console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+          } else {
+            console.log(`Occurrence ${occ.toISOString()} (UTC): ${format(occ, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
           }
-        });
+        })
       }
 
-      // If no timezone specified, just return the occurrences as-is
-      return occurrences;
+      // Filter exceptions
+      if (event.recurrenceExceptions && event.recurrenceExceptions.length > 0) {
+        const exceptionsDateStrings = event.recurrenceExceptions.map(ex => {
+          // Assuming exceptions are date strings like 'YYYY-MM-DD'
+          // Normalize them to ensure consistent comparison
+          try {
+            return format(parseISO(ex), 'yyyy-MM-dd')
+          } catch {
+            console.warn('Invalid date format in recurrenceExceptions:', ex)
+            return null // Or handle error appropriately
+          }
+        }).filter(Boolean) as string[]
+
+        occurrencesUtc = occurrencesUtc.filter(occurrence => {
+          // Get the date part of the occurrence in the event's timezone for comparison
+          const occurrenceDateString = eventTimeZone
+            ? formatInTimeZone(occurrence, eventTimeZone, 'yyyy-MM-dd')
+            : format(occurrence, 'yyyy-MM-dd')
+          return !exceptionsDateStrings.includes(occurrenceDateString)
+        })
+        console.log('Occurrences after filtering exceptions:', occurrencesUtc.length)
+      }
+      return occurrencesUtc
     } catch (error) {
       console.error('Error generating occurrences:', error)
       return []
@@ -981,11 +765,11 @@ export class RecurrenceService {
       }
 
       // For all other patterns, use the standard approach with timezone
-      const timeZone = event.timeZone;
+      const timeZone = event.timeZone
       const ruleWithTimezone = {
         ...event.recurrenceRule,
         timeZone
-      };
+      }
 
       const rrule = this.toRRule(
         ruleWithTimezone,
@@ -1093,31 +877,31 @@ export class RecurrenceService {
   static createDateInTimezone (date: Date | string, timezone: string): Date {
     try {
       if (!timezone) {
-        console.warn('No timezone provided to createDateInTimezone, using original date');
-        return typeof date === 'string' ? new Date(date) : new Date(date);
+        console.warn('No timezone provided to createDateInTimezone, using original date')
+        return typeof date === 'string' ? new Date(date) : new Date(date)
       }
 
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      const dateObj = typeof date === 'string' ? new Date(date) : date
 
       // Format the date components in the target timezone
       // This is the key to handling DST transitions correctly - we extract the wall-clock time
       // as seen in the target timezone, then create a new date with those components
-      const localDate = formatInTimeZone(dateObj, timezone, 'yyyy-MM-dd');
-      const localTime = formatInTimeZone(dateObj, timezone, 'HH:mm:ss.SSS');
+      const localDate = formatInTimeZone(dateObj, timezone, 'yyyy-MM-dd')
+      const localTime = formatInTimeZone(dateObj, timezone, 'HH:mm:ss.SSS')
 
       // Log for debugging
       console.log('Creating date with preserved wall-clock time:', {
         original: dateObj.toISOString(),
-        timezone: timezone,
-        localDate: localDate,
-        localTime: localTime,
+        timezone,
+        localDate,
+        localTime,
         isDST: this.isDateInDST(dateObj, timezone)
-      });
+      })
 
       // Parse the components
-      const [year, month, day] = localDate.split('-').map(Number);
-      const [hour, minute, secondWithMs] = localTime.split(':');
-      const [second, millisecond] = secondWithMs.split('.').map(Number);
+      const [year, month, day] = localDate.split('-').map(Number)
+      const [hour, minute, secondWithMs] = localTime.split(':')
+      const [second, millisecond] = secondWithMs.split('.').map(Number)
 
       // Create a new Date in UTC that represents the local time
       // Using Date.UTC ensures consistent behavior across browsers
@@ -1129,48 +913,48 @@ export class RecurrenceService {
         parseInt(minute, 10),
         second || 0,
         millisecond || 0
-      ));
+      ))
 
       // Verify that we've preserved the wall-clock time correctly
-      const originalLocalTime = formatInTimeZone(dateObj, timezone, 'HH:mm:ss');
-      const newLocalTime = formatInTimeZone(newDate, timezone, 'HH:mm:ss');
+      const originalLocalTime = formatInTimeZone(dateObj, timezone, 'HH:mm:ss')
+      const newLocalTime = formatInTimeZone(newDate, timezone, 'HH:mm:ss')
 
       console.log('Wall-clock time preservation check:', {
         originalDate: dateObj.toISOString(),
         newDate: newDate.toISOString(),
-        originalLocalTime: originalLocalTime,
-        newLocalTime: newLocalTime,
+        originalLocalTime,
+        newLocalTime,
         preservedCorrectly: originalLocalTime === newLocalTime
-      });
+      })
 
       // If the times don't match, we need to adjust for DST transition edge cases
       if (originalLocalTime !== newLocalTime) {
-        console.warn('Wall-clock time not preserved correctly, applying DST correction');
+        console.warn('Wall-clock time not preserved correctly, applying DST correction')
 
         // Calculate the time difference and adjust
         const originalTimeMinutes = parseInt(originalLocalTime.split(':')[0], 10) * 60 +
-                                  parseInt(originalLocalTime.split(':')[1], 10);
+                                  parseInt(originalLocalTime.split(':')[1], 10)
         const newTimeMinutes = parseInt(newLocalTime.split(':')[0], 10) * 60 +
-                              parseInt(newLocalTime.split(':')[1], 10);
-        const diffMinutes = originalTimeMinutes - newTimeMinutes;
+                              parseInt(newLocalTime.split(':')[1], 10)
+        const diffMinutes = originalTimeMinutes - newTimeMinutes
 
         // Adjust the date by the difference in minutes
-        newDate.setUTCMinutes(newDate.getUTCMinutes() + diffMinutes);
+        newDate.setUTCMinutes(newDate.getUTCMinutes() + diffMinutes)
 
         // Verify again
-        const correctedLocalTime = formatInTimeZone(newDate, timezone, 'HH:mm:ss');
+        const correctedLocalTime = formatInTimeZone(newDate, timezone, 'HH:mm:ss')
         console.log('DST correction applied:', {
-          diffMinutes: diffMinutes,
+          diffMinutes,
           correctedDate: newDate.toISOString(),
-          correctedLocalTime: correctedLocalTime,
+          correctedLocalTime,
           preservedCorrectly: originalLocalTime === correctedLocalTime
-        });
+        })
       }
 
-      return newDate;
+      return newDate
     } catch (e) {
-      console.error('Error creating date in timezone:', e);
-      return typeof date === 'string' ? new Date(date) : new Date(date);
+      console.error('Error creating date in timezone:', e)
+      return typeof date === 'string' ? new Date(date) : new Date(date)
     }
   }
 
@@ -1182,17 +966,17 @@ export class RecurrenceService {
    * @param timezone The timezone to check in
    * @returns True if the date is in DST, false otherwise
    */
-  static isDateInDST(date: Date, timezone: string): boolean {
+  static isDateInDST (date: Date, timezone: string): boolean {
     try {
       // Get the UTC offset for the date in this timezone
-      const offsetString = formatInTimeZone(date, timezone, 'XXX');
+      const offsetString = formatInTimeZone(date, timezone, 'XXX')
 
       // Create a date 6 months away (to be in the opposite DST season)
-      const sixMonthsAway = new Date(date);
-      sixMonthsAway.setMonth(date.getMonth() + 6);
+      const sixMonthsAway = new Date(date)
+      sixMonthsAway.setMonth(date.getMonth() + 6)
 
       // Get the UTC offset for the date 6 months away
-      const offsetSixMonthsAway = formatInTimeZone(sixMonthsAway, timezone, 'XXX');
+      const offsetSixMonthsAway = formatInTimeZone(sixMonthsAway, timezone, 'XXX')
 
       // If the offsets are different, at least one of the dates is in DST
       // The one with the larger UTC offset (smaller negative value) is in DST
@@ -1200,27 +984,27 @@ export class RecurrenceService {
         // Parse the offsets (they're in the format +HH:MM or -HH:MM)
         // For proper comparison, convert to total minutes
         const getOffsetMinutes = (offset: string): number => {
-          const sign = offset.charAt(0) === '-' ? -1 : 1;
-          const [hours, minutes] = offset.substring(1).split(':').map(Number);
-          return sign * (hours * 60 + minutes);
-        };
+          const sign = offset.charAt(0) === '-' ? -1 : 1
+          const [hours, minutes] = offset.substring(1).split(':').map(Number)
+          return sign * (hours * 60 + minutes)
+        }
 
-        const currentOffset = getOffsetMinutes(offsetString);
-        const otherOffset = getOffsetMinutes(offsetSixMonthsAway);
+        const currentOffset = getOffsetMinutes(offsetString)
+        const otherOffset = getOffsetMinutes(offsetSixMonthsAway)
 
         // The date with the larger offset is in DST
         // Usually DST adds one hour, so the DST offset is greater
-        return currentOffset > otherOffset;
+        return currentOffset > otherOffset
       }
 
       // If offsets are the same, either both dates are in DST or neither is
       // In this case, we need to use a different approach
 
       // For simplicity, assume no DST in this case
-      return false;
+      return false
     } catch (e) {
-      console.error('Error checking if date is in DST:', e);
-      return false;
+      console.error('Error checking if date is in DST:', e)
+      return false
     }
   }
 
@@ -1238,15 +1022,15 @@ export class RecurrenceService {
   ): { dayName: string, dayCode: string } {
     try {
       if (!timezone) {
-        throw new Error('No timezone provided to getDayOfWeekInTimezone');
+        throw new Error('No timezone provided to getDayOfWeekInTimezone')
       }
 
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      const dateObj = typeof date === 'string' ? new Date(date) : date
 
       // Format explicitly using date-fns-tz for reliable timezone handling
-      const dayName = formatInTimeZone(dateObj, timezone, 'EEEE'); // Full day name (e.g., "Monday")
-      const dayOfWeek = formatInTimeZone(dateObj, timezone, 'i'); // ISO day of week (1-7, where 1 is Monday)
-      const dayOfMonth = formatInTimeZone(dateObj, timezone, 'd'); // Day of month
+      const dayName = formatInTimeZone(dateObj, timezone, 'EEEE') // Full day name (e.g., "Monday")
+      const dayOfWeek = formatInTimeZone(dateObj, timezone, 'i') // ISO day of week (1-7, where 1 is Monday)
+      const dayOfMonth = formatInTimeZone(dateObj, timezone, 'd') // Day of month
 
       // Map day names to RRule day codes
       const dayNameMap: Record<string, string> = {
@@ -1257,68 +1041,68 @@ export class RecurrenceService {
         Thursday: 'TH',
         Friday: 'FR',
         Saturday: 'SA'
-      };
+      }
 
       // Get the weekday code
-      const dayCode = dayNameMap[dayName];
+      const dayCode = dayNameMap[dayName]
 
       // Log for debugging
       console.log('Day of week in timezone:', {
         date: dateObj.toISOString(),
-        timezone: timezone,
-        dayName: dayName,
-        dayCode: dayCode,
+        timezone,
+        dayName,
+        dayCode,
         isoDay: dayOfWeek,
-        dayOfMonth: dayOfMonth
-      });
+        dayOfMonth
+      })
 
       if (!dayCode) {
-        throw new Error(`Could not map day name "${dayName}" to RRule day code`);
+        throw new Error(`Could not map day name "${dayName}" to RRule day code`)
       }
 
-      return { dayName, dayCode };
+      return { dayName, dayCode }
     } catch (e) {
-      console.error('Error getting day of week in timezone:', e);
+      console.error('Error getting day of week in timezone:', e)
 
       // Fallback to a more direct approach if there's an error
       try {
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
+        const dateObj = typeof date === 'string' ? new Date(date) : date
 
         // Use a more direct approach with the Intl API
         const formatter = new Intl.DateTimeFormat('en-US', {
           timeZone: timezone,
           weekday: 'long'
-        });
+        })
 
-        const dayName = formatter.format(dateObj);
+        const dayName = formatter.format(dateObj)
 
         // Map to RRule codes
         const dayCodeMap: Record<string, string> = {
-          'Sunday': 'SU',
-          'Monday': 'MO',
-          'Tuesday': 'TU',
-          'Wednesday': 'WE',
-          'Thursday': 'TH',
-          'Friday': 'FR',
-          'Saturday': 'SA'
-        };
+          Sunday: 'SU',
+          Monday: 'MO',
+          Tuesday: 'TU',
+          Wednesday: 'WE',
+          Thursday: 'TH',
+          Friday: 'FR',
+          Saturday: 'SA'
+        }
 
         return {
-          dayName: dayName,
+          dayName,
           dayCode: dayCodeMap[dayName] || ''
-        };
+        }
       } catch (fallbackError) {
         // Last resort fallback to UTC
-        console.error('Fallback error getting day of week, using UTC:', fallbackError);
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
-        const utcDayIndex = dateObj.getUTCDay();
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayCodes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+        console.error('Fallback error getting day of week, using UTC:', fallbackError)
+        const dateObj = typeof date === 'string' ? new Date(date) : date
+        const utcDayIndex = dateObj.getUTCDay()
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const dayCodes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
 
         return {
           dayName: dayNames[utcDayIndex],
           dayCode: dayCodes[utcDayIndex]
-        };
+        }
       }
     }
   }
@@ -1338,28 +1122,28 @@ export class RecurrenceService {
     timezone: string
   ): boolean {
     if (!expectedDayCode || !timezone) {
-      console.warn('Missing parameters for isOnExpectedDay check:', { expectedDayCode, timezone });
-      return false;
+      console.warn('Missing parameters for isOnExpectedDay check:', { expectedDayCode, timezone })
+      return false
     }
 
     // Clean the expected day code in case it has a position prefix like "1MO"
-    const dayCodeRegex = /^([+-]?\d+)?([A-Z]{2})$/;
-    const match = expectedDayCode.match(dayCodeRegex);
-    const cleanExpectedDay = match ? match[2] : expectedDayCode;
+    const dayCodeRegex = /^([+-]?\d+)?([A-Z]{2})$/
+    const match = expectedDayCode.match(dayCodeRegex)
+    const cleanExpectedDay = match ? match[2] : expectedDayCode
 
     // Get the actual day in the timezone
-    const { dayCode } = this.getDayOfWeekInTimezone(date, timezone);
+    const { dayCode } = this.getDayOfWeekInTimezone(date, timezone)
 
     // Log for debugging
     console.log('Checking if date is on expected day:', {
       date: date.toISOString(),
-      timezone: timezone,
+      timezone,
       expectedDay: cleanExpectedDay,
       actualDay: dayCode,
       isMatch: dayCode === cleanExpectedDay
-    });
+    })
 
-    return dayCode === cleanExpectedDay;
+    return dayCode === cleanExpectedDay
   }
 
   /**
@@ -1380,45 +1164,45 @@ export class RecurrenceService {
   ): Date {
     // First check if the date is already on the expected day
     if (this.isOnExpectedDay(date, expectedDayCode, timezone)) {
-      return date;
+      return date
     }
 
-    console.log(`Finding closest date with day ${expectedDayCode} from ${date.toISOString()} in ${timezone}`);
+    console.log(`Finding closest date with day ${expectedDayCode} from ${date.toISOString()} in ${timezone}`)
 
     // Create an array with the order: +1, -1, +2, -2, +3, -3, etc.
     // This prioritizes dates closer to the original
-    const offsets = [];
+    const offsets = []
     for (let i = 1; i <= searchRange; i++) {
-      offsets.push(i);
-      offsets.push(-i);
+      offsets.push(i)
+      offsets.push(-i)
     }
 
     // Try each offset to find a date with the expected day
     for (const offset of offsets) {
       try {
         // Create a new date with the offset
-        const adjustedDate = new Date(date);
-        adjustedDate.setUTCDate(date.getUTCDate() + offset);
+        const adjustedDate = new Date(date)
+        adjustedDate.setUTCDate(date.getUTCDate() + offset)
 
         if (this.isOnExpectedDay(adjustedDate, expectedDayCode, timezone)) {
-          console.log(`Found match at offset ${offset}: ${adjustedDate.toISOString()}`);
-          return adjustedDate;
+          console.log(`Found match at offset ${offset}: ${adjustedDate.toISOString()}`)
+          return adjustedDate
         }
       } catch (e) {
-        console.error(`Error checking date at offset ${offset}:`, e);
+        console.error(`Error checking date at offset ${offset}:`, e)
       }
     }
 
     // For timezone boundaries like Sydney case where +/-1-3 days might not find a match,
     // try a wider range in case we're dealing with a significant timezone difference
     if (searchRange < 7) {
-      console.log(`Expanding search range for ${expectedDayCode} to 7 days`);
-      return this.findClosestDateWithDay(date, expectedDayCode, timezone, 7);
+      console.log(`Expanding search range for ${expectedDayCode} to 7 days`)
+      return this.findClosestDateWithDay(date, expectedDayCode, timezone, 7)
     }
 
     // If no match found, return the original date
-    console.warn(`Could not find date with day ${expectedDayCode} within ${searchRange} days of ${date.toISOString()}`);
-    return date;
+    console.warn(`Could not find date with day ${expectedDayCode} within ${searchRange} days of ${date.toISOString()}`)
+    return date
   }
 }
 

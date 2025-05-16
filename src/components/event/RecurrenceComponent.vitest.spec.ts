@@ -35,7 +35,16 @@ vi.mock('../../services/recurrenceService', () => {
       new Date('2025-06-11T17:00:00.000Z'),
       new Date('2025-07-09T17:00:00.000Z')
     ]),
-    getHumanReadablePattern: vi.fn().mockReturnValue('every month on the 2nd Wednesday')
+    getHumanReadablePattern: vi.fn().mockReturnValue('every month on the 2nd Wednesday'),
+    getDayOfWeekInTimezone: vi.fn().mockImplementation((date, timezone) => {
+      // Provide a basic implementation for testing purposes
+      // This can be adjusted if specific tests need different behavior
+      console.log(`Mocked getDayOfWeekInTimezone called with date: ${date}, timezone: ${timezone}`)
+      // Default to a sensible value, e.g., Wednesday, if not further specified by test
+      if (date && date.toString().includes('2025-05-14')) return { dayName: 'Wednesday', dayCode: 'WE' }
+      if (date && date.toString().includes('2025-05-15')) return { dayName: 'Thursday', dayCode: 'TH' }
+      return { dayName: 'Wednesday', dayCode: 'WE' }
+    })
   }
 
   // The RecurrenceService class
@@ -236,23 +245,36 @@ describe('RecurrenceComponent.vue - Monthly Patterns', () => {
     it('should generate correct rule for negative position (e.g., last Wednesday)', async () => {
       // Create a component
       wrapper = createComponent()
+      const vmInstance = vm() // Get the vm instance
 
       // Set component state
-      vm().frequency = 'MONTHLY'
-      vm().monthlyRepeatType = 'dayOfWeek'
-      vm().monthlyPosition = '-1'
-      vm().monthlyWeekday = 'FR'
+      vmInstance.frequency = 'MONTHLY'
+      vmInstance.monthlyRepeatType = 'dayOfWeek'
+      await nextTick() // Let watcher for monthlyRepeatType run
 
-      // Wait for Vue to update
-      await nextTick()
+      console.log('[TEST LOG] After monthlyRepeatType watcher:', {
+        mw: vmInstance.monthlyWeekday,
+        mp: vmInstance.monthlyPosition
+      })
+
+      vmInstance.monthlyPosition = '-1'
+      vmInstance.monthlyWeekday = 'FR'
+
+      await nextTick() // Let these changes settle
+
+      console.log('[TEST LOG] Before getting rule:', {
+        mw: vmInstance.monthlyWeekday, // SHOULD BE 'FR'
+        mp: vmInstance.monthlyPosition // SHOULD BE '-1'
+      })
 
       // Get the generated rule
-      const rule = vm().rule
+      const ruleResult = vmInstance.rule
+      console.log('[TEST LOG] Generated rule in test:', ruleResult)
 
       // Verify rule is correct
-      expect(rule.frequency).toBe('MONTHLY')
-      expect(rule.byweekday).toContain('FR')
-      expect(rule.bysetpos).toContain(-1)
+      expect(ruleResult.frequency).toBe('MONTHLY')
+      expect(ruleResult.byweekday).toContain('FR')
+      expect(ruleResult.bysetpos).toContain(-1)
     })
   })
 

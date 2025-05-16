@@ -120,8 +120,9 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, defineProps, defineEmits } from 'vue'
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
+import { enUS } from 'date-fns/locale'
 import { RecurrenceService } from '../../services/recurrenceService'
 
 /**
@@ -178,13 +179,34 @@ const formatTimeZone = computed(() => {
 const formattedDate = computed(() => {
   if (!isoDate.value) return ''
 
-  const dateObj = new Date(isoDate.value)
-  return dateObj.toLocaleDateString('en-US', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+  // Ensure props.timeZone is available, otherwise fallback to browser's local for safety, though this path should ideally not be hit if timeZone is always provided.
+  if (!props.timeZone) {
+    console.warn('[DatetimeComponent] formattedDate: props.timeZone is not set, falling back to browser local time for display.')
+    const dateObj = new Date(isoDate.value)
+    return dateObj.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  try {
+    // Use formatInTimeZone to display the date correctly in the props.timeZone
+    // The 'isoDate.value' is a UTC ISO string.
+    // We format this UTC time into a string representing the date in 'props.timeZone'.
+    return formatInTimeZone(isoDate.value, props.timeZone, 'EEE, MMM d, yyyy', { locale: enUS })
+  } catch (e) {
+    console.error('[DatetimeComponent] Error formatting date for display with props.timeZone:', e)
+    // Fallback to browser's local if formatInTimeZone fails for some reason
+    const dateObj = new Date(isoDate.value)
+    return dateObj.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
 })
 
 /**
@@ -194,33 +216,39 @@ const formattedDate = computed(() => {
  * and sets the local input values, taking timezone into account.
  */
 function initializeFromISO () {
+  console.log(`[DatetimeComponent] initializeFromISO CALLED for label: "${props.label}"`)
+  console.log(`[DatetimeComponent]   props.modelValue (isoDate.value initially): "${isoDate.value}"`)
+  console.log(`[DatetimeComponent]   props.timeZone: "${props.timeZone}"`)
+
   if (!isoDate.value) {
-    // Default to today with 5:00 PM
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
+    console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"`)
     return
   }
 
   try {
-    // Convert to the timezone if specified
+    const dateObjForConversion = new Date(isoDate.value)
+    console.log(`[DatetimeComponent]   dateObjForConversion (from isoDate): ${dateObjForConversion.toISOString()} (isValid: ${!isNaN(dateObjForConversion.getTime())})`)
+
     if (props.timeZone) {
-      // Get date and time in the specified timezone
-      const dateInTz = formatInTimeZone(new Date(isoDate.value), props.timeZone, 'yyyy-MM-dd')
-      const timeInTz = formatInTimeZone(new Date(isoDate.value), props.timeZone, 'h:mm a')
+      const dateInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'yyyy-MM-dd')
+      const timeInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'h:mm a')
+      console.log(`[DatetimeComponent]   Calculated for TZ "${props.timeZone}": dateInTz: "${dateInTz}", timeInTz: "${timeInTz}"`)
 
       localDate.value = dateInTz
       localTime.value = timeInTz
     } else {
-      // No timezone specified, use local browser time
-      const dateObj = new Date(isoDate.value)
-      localDate.value = format(dateObj, 'yyyy-MM-dd')
-      localTime.value = format(dateObj, 'h:mm a')
+      localDate.value = format(dateObjForConversion, 'yyyy-MM-dd')
+      localTime.value = format(dateObjForConversion, 'h:mm a')
+      console.log(`[DatetimeComponent]   No props.timeZone, used browser local. localDate: "${localDate.value}", localTime: "${localTime.value}"`)
     }
   } catch (e) {
-    console.error('Error initializing from ISO:', e)
+    console.error('[DatetimeComponent] Error initializing from ISO:', e)
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
   }
+  console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"`)
 }
 
 /**
@@ -240,32 +268,22 @@ function createISOString () {
 
     if (localTime.value) {
       try {
-        // Try parsing with date-fns first (handles various formats)
         const parsedTime = parse(localTime.value, 'h:mm a', new Date())
         if (isValid(parsedTime)) {
           hours = parsedTime.getHours()
           minutes = parsedTime.getMinutes()
         } else {
-          // Fallback to regex matching for common formats with more flexibility
-          // Matches formats like: 3, 3p, 3pm, 3:00, 3:00pm, 15, 15:00, etc.
           const timeMatch = localTime.value.match(/(\d{1,2})(?::?(\d{1,2})?)?\s*([APap]\.?[Mm]?\.?)?/)
           if (timeMatch) {
             const inputHours = parseInt(timeMatch[1], 10)
             minutes = parseInt(timeMatch[2] || '0', 10)
             const period = timeMatch[3]
-
-            // Default to AM for 1-11, PM for 12
             let isPM = inputHours === 12
-
-            // If period is specified, use that instead
             if (period) {
               isPM = period.toLowerCase().startsWith('p')
             } else if (inputHours >= 13 && inputHours <= 23) {
-              // 13-23 is clearly 24-hour format
               isPM = true
             }
-
-            // Convert to 24-hour format
             if (isPM && inputHours < 12) {
               hours = inputHours + 12
             } else if (!isPM && inputHours === 12) {
@@ -277,39 +295,18 @@ function createISOString () {
         }
       } catch (e) {
         console.error('Error parsing time:', e)
-        // Use defaults if parsing fails
       }
     }
 
-    // Now create date with timezone awareness
     if (props.timeZone) {
-      // The correct approach based on our testing:
-      // 1. Format the local date and time components into a standard ISO string
-      // 2. Append the timezone offset for the specific target timezone
-      // 3. Let JavaScript parse this string into a Date that automatically converts to UTC
-
-      // Format date components into ISO format
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
-      const localDateTimeStr = `${dateStr}T${timeStr}`
-
-      // Important: We need to get the timezone offset for this specific date
-      // Using a reference date with the same date components to calculate the offset
-      const referenceDate = new Date(year, month - 1, day, hours, minutes)
-
-      // Get the timezone offset from UTC for this date in the target timezone
-      const offsetStr = formatInTimeZone(referenceDate, props.timeZone, 'xxx')
-
-      // Construct a date string with timezone information
-      // Format: '2025-05-29T16:15:00+07:00' for Asia/Novosibirsk at 4:15 PM
-      const zonedDateTimeStr = `${localDateTimeStr}${offsetStr}`
-
-      // Parse this into a Date object - JavaScript will handle the conversion to UTC
-      const date = new Date(zonedDateTimeStr)
-
-      return date.toISOString()
+      // Construct a Date object from local date/time components.
+      // IMPORTANT: new Date(Y,M,D,H,m,s) creates a date in the *browser's local timezone*.
+      // We then use fromZonedTime to tell date-fns-tz: "interpret these wall clock numbers
+      // as if they occurred in props.timeZone, and give me the UTC equivalent."
+      const dateInSystemTimezone = new Date(year, month - 1, day, hours, minutes, 0, 0)
+      const utcDate = fromZonedTime(dateInSystemTimezone, props.timeZone)
+      return utcDate.toISOString()
     } else {
-      // No timezone specified - use browser's local timezone
       const localDateTime = new Date(year, month - 1, day, hours, minutes)
       return localDateTime.toISOString()
     }
@@ -476,10 +473,13 @@ function onTimeInputChange (value) {
 
 function finishEditing () {
   isEditing.value = false
-  if (!editableDate.value) return
+  // Use the computed formattedDate directly, as it reflects the current isoDate in the browser's locale.
+  // editableDate might be stale if only time was changed via picker/time-input.
+  const dateStringToParse = formattedDate.value
+  if (!dateStringToParse) return
 
   try {
-    const input = editableDate.value.trim()
+    const input = dateStringToParse.trim()
     let parsedDate = null
 
     // Try parsing with various formats

@@ -3,9 +3,9 @@ import { mount, VueWrapper } from '@vue/test-utils'
 import { Quasar } from 'quasar'
 import RecurrenceComponent from '../../../../../src/components/event/RecurrenceComponent.vue'
 import { nextTick } from 'vue'
-import { formatInTimeZone } from 'date-fns-tz'
+import { formatInTimeZone, format } from 'date-fns-tz'
 import { RecurrenceService } from '../../../../../src/services/recurrenceService'
-import { format } from 'date-fns'
+import { EventEntity } from '../../../../../src/types/event'
 
 describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
   // Declare wrapper with proper type information
@@ -65,7 +65,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
    * This test demonstrates that recurring events preserve the day selection in the event's originating timezone.
    * When a user selects "Thursday" in Vancouver timezone, all occurrences should be on Thursday in Vancouver,
    * regardless of what day that might be in UTC or other timezones.
-   * 
+   *
    * Key principle: Day selection refers to days in the originating timezone.
    */
   it('should preserve day selection in the originating timezone', () => {
@@ -134,7 +134,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
    * This test verifies that wall-clock time is preserved in the originating timezone.
    * When a user creates a recurring event at a specific time in their timezone,
    * all occurrences should maintain that same local time in that timezone.
-   * 
+   *
    * Key principle: Preserve wall-clock time in the originating timezone.
    */
   it('should preserve wall-clock time in the originating timezone', () => {
@@ -197,10 +197,10 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
   })
 
   /**
-   * This test demonstrates our first key principle: 
+   * This test demonstrates our first key principle:
    * "Day selection refers to days in the originating timezone".
-   * 
-   * When a user selects "Wednesday" for a Vancouver event, all occurrences 
+   *
+   * When a user selects "Wednesday" for a Vancouver event, all occurrences
    * should be on Wednesday in Vancouver, regardless of what day they are in UTC.
    */
   it('should respect day selection in the originating timezone', () => {
@@ -237,12 +237,12 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
 
     // Skip the RRule validation since it doesn't apply our wall-clock time preservation
     // and focus on the RecurrenceService.getOccurrences method which does
-    
+
     // Generate occurrences using getOccurrences to apply both principles:
     // 1. Day selection refers to days in the originating timezone
     // 2. Preserve wall-clock time in the originating timezone
-    const processedOccurrences = RecurrenceService.getOccurrences(event, 3)
-    
+    const processedOccurrences = RecurrenceService.getOccurrences(event as unknown as EventEntity, 3)
+
     // Format these in Vancouver timezone to verify both principles
     const processedDaysInVancouver = processedOccurrences.map(date => {
       return {
@@ -253,31 +253,33 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
         fullDate: formatInTimeZone(date, 'America/Vancouver', 'yyyy-MM-dd HH:mm:ss (EEEE)')
       }
     })
-    
+
     console.log('Processed occurrences with both principles applied:', {
       detailedOccurrences: processedDaysInVancouver,
       userSelectedDay: event.recurrenceRule.byweekday[0]
     })
-    
+
     // Verify both principles are satisfied:
     // 1. All occurrences are on Wednesday (respecting day selection in originating timezone)
     const allProcessedWednesdays = processedDaysInVancouver.every(info => info.dayInVancouver === 'Wednesday')
-    
+
     if (!allProcessedWednesdays) {
-      console.error('Expected all occurrences to be Wednesday but got these days:', 
-        processedDaysInVancouver.map(info => info.dayInVancouver).join(', '));
+      console.error('Expected all occurrences to be Wednesday but got these days:',
+        processedDaysInVancouver.map(info => info.dayInVancouver).join(', '))
     }
-    
+
     expect(allProcessedWednesdays).toBe(true)
-    
-    // 2. All occurrences maintain the same wall-clock time (22:30:00 -> 15:30:00 in Vancouver with DST)
-    const allSameTime = processedDaysInVancouver.every(info => info.timeInVancouver === '15:30:00')
-    
+
+    // 2. All occurrences maintain the same wall-clock time (should be 22:30:00 for April 30th in Vancouver)
+    // The original start date '2025-05-01T05:30:00.000Z' is April 30, 2025, 22:30:00 PDT in America/Vancouver.
+    const expectedVancouverTime = '22:30:00'
+    const allSameTime = processedDaysInVancouver.every(info => info.timeInVancouver === expectedVancouverTime)
+
     if (!allSameTime) {
-      console.error('Expected all occurrences to be at 15:30:00 but got these times:', 
-        processedDaysInVancouver.map(info => info.timeInVancouver).join(', '));
+      console.error(`Expected all occurrences to be at ${expectedVancouverTime} but got these times:`,
+        processedDaysInVancouver.map(info => info.timeInVancouver).join(', '))
     }
-    
+
     expect(allSameTime).toBe(true)
   })
 
@@ -285,7 +287,7 @@ describe('RecurrenceComponent - Timezone Day Shift Bug', () => {
    * This test verifies both key principles work together in actual component usage:
    * 1. Day selection refers to days in the originating timezone
    * 2. Wall-clock time is preserved in the originating timezone
-   * 
+   *
    * It confirms that when using the RecurrenceComponent with Thursday selection in Vancouver,
    * all occurrences appear on Thursday in Vancouver with the same local time.
    */

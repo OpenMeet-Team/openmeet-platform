@@ -79,7 +79,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         if (selectedDays.value.length > 0) {
           // Explicitly set days - CRITICAL: This must be identified as user selection
           result.byweekday = selectedDays.value
-          
+
           // Flag this as an explicit user selection to help RecurrenceService respect it
           // This is used to avoid timezone boundary adjustments overriding user choices
           result._userExplicitSelection = true
@@ -90,13 +90,13 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
             const { dayCode } = RecurrenceService.getDayOfWeekInTimezone(
               startDateObject.value,
               timezone.value
-            );
+            )
             if (dayCode) {
-              result.byweekday = [dayCode];
-              console.log('Auto-set weekly byweekday from start date:', dayCode);
+              result.byweekday = [dayCode]
+              console.log('Auto-set weekly byweekday from start date:', dayCode)
             }
           } catch (e) {
-            console.error('Error getting day of week for auto-setting byweekday:', e);
+            console.error('Error getting day of week for auto-setting byweekday:', e)
           }
         }
       } else if (frequency.value === 'MONTHLY') {
@@ -148,7 +148,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       return result
     } catch (e) {
       console.error('Error in rule computed property:', e)
-      return { 
+      return {
         frequency: 'WEEKLY',
         timeZone: timezone.value || RecurrenceService.getUserTimezone()
       }
@@ -163,6 +163,20 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     if (!props.isRecurring) return 'Does not repeat'
     if (isCalculatingPattern.value) return 'Calculating...'
 
+    console.log('Timezone... error?', RecurrenceService)
+    let pattern = ''
+    let tzAbbreviation = ''
+
+    try {
+      // this is a hack to get the timezone display to work in tests, the getTimezoneDisplay function is mocked, but not showing as a function in the test
+      tzAbbreviation = timezone.value && typeof RecurrenceService.getTimezoneDisplay === 'function'
+        ? ` (${RecurrenceService.getTimezoneDisplay(timezone.value).split(' ').pop()?.replace(/[()]/g, '') || timezone.value})`
+        : ''
+    } catch (e) {
+      console.error('Error getting timezone display:', e)
+      tzAbbreviation = timezone.value ? ` (${timezone.value})` : ''
+    }
+
     // For monthly day-of-week patterns, we can provide a more descriptive pattern directly
     if (frequency.value === 'MONTHLY' && monthlyRepeatType.value === 'dayOfWeek' &&
         monthlyPosition.value && monthlyWeekday.value) {
@@ -170,45 +184,41 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       const weekdayLabel = getWeekdayLabel(monthlyWeekday.value)
       const intervalLabel = interval.value > 1 ? `every ${interval.value} months` : 'every month'
 
-      return `${intervalLabel} on the ${positionLabel} ${weekdayLabel}`
+      pattern = `${intervalLabel} on the ${positionLabel} ${weekdayLabel}`
+      return pattern + tzAbbreviation
     }
-    
+
     // Generate a basic pattern if cache is empty but we have enough information
     if (!patternDescriptionCache.value && frequency.value) {
-      // Generate a basic pattern based on frequency
       const frequencyMap: Record<string, string> = {
-        'DAILY': 'day',
-        'WEEKLY': 'week',
-        'MONTHLY': 'month',
-        'YEARLY': 'year'
-      };
-      
-      const frequencyText = frequencyMap[frequency.value] || '';
-      
+        DAILY: 'day',
+        WEEKLY: 'week',
+        MONTHLY: 'month',
+        YEARLY: 'year'
+      }
+      const frequencyText = frequencyMap[frequency.value] || ''
       if (frequencyText) {
-        // Add interval if more than 1
-        const intervalText = interval.value > 1 ? 
-          `${interval.value} ${frequencyText}s` : `${frequencyText}`;
-        
-        let pattern = `Repeats every ${intervalText}`;
-        
-        // For weekly, include days if selected
+        const intervalText = interval.value > 1
+          ? `${interval.value} ${frequencyText}s` : `${frequencyText}`
+        pattern = `Repeats every ${intervalText}`
         if (frequency.value === 'WEEKLY' && selectedDays.value.length > 0) {
           const dayNames = selectedDays.value.map(day => {
-            const dayOption = weekdayOptions.find(opt => opt.value === day);
-            return dayOption ? dayOption.label : day;
-          });
-          
+            const dayOption = weekdayOptions.find(opt => opt.value === day)
+            return dayOption ? dayOption.label : day
+          })
           if (dayNames.length > 0) {
-            pattern += ` on ${dayNames.join(', ')}`;
+            pattern += ` on ${dayNames.join(', ')}`
           }
         }
-        
-        return pattern;
+        return pattern + tzAbbreviation
       }
     }
 
-    return patternDescriptionCache.value || 'Please select a frequency type'
+    if (patternDescriptionCache.value) {
+      return patternDescriptionCache.value + tzAbbreviation
+    }
+
+    return 'Please select a frequency type' + tzAbbreviation
   })
 
   // Function to update the pattern description (will be called from updateOccurrences)
@@ -232,124 +242,124 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       if (ruleObj && 'frequency' in ruleObj) {
         // Create a deep copy to prevent reactive issues
         const completeRule = JSON.parse(JSON.stringify(ruleObj)) as RecurrenceRule
-        
-        // CRITICAL: Always make sure timezone is included 
+
+        // CRITICAL: Always make sure timezone is included
         completeRule.timeZone = tzValue || completeRule.timeZone || RecurrenceService.getUserTimezone()
-        
+
         console.log('Generating pattern description with rule:', {
           frequency: completeRule.frequency,
           interval: completeRule.interval,
           byweekday: completeRule.byweekday,
           timeZone: completeRule.timeZone
-        });
+        })
 
         // Build a robust fallback description in case the other methods fail
-        let fallbackDescription = '';
-        
+        let fallbackDescription = ''
+
         // Start with the frequency type
         const frequencyMap: Record<string, string> = {
-          'DAILY': 'daily',
-          'WEEKLY': 'weekly',
-          'MONTHLY': 'monthly',
-          'YEARLY': 'yearly'
-        };
-        
-        const frequencyText = frequencyMap[completeRule.frequency] || 'regularly';
-        
+          DAILY: 'daily',
+          WEEKLY: 'weekly',
+          MONTHLY: 'monthly',
+          YEARLY: 'yearly'
+        }
+
+        const frequencyText = frequencyMap[completeRule.frequency] || 'regularly'
+
         // Add interval if more than 1
-        const intervalText = completeRule.interval && completeRule.interval > 1 
-          ? `every ${completeRule.interval} ${frequencyText.replace(/ly$/, '')}s` 
-          : `every ${frequencyText.replace(/ly$/, '')}`;
-        
-        fallbackDescription = `Repeats ${intervalText}`;
-        
+        const intervalText = completeRule.interval && completeRule.interval > 1
+          ? `every ${completeRule.interval} ${frequencyText.replace(/ly$/, '')}s`
+          : `every ${frequencyText.replace(/ly$/, '')}`
+
+        fallbackDescription = `Repeats ${intervalText}`
+
         // Add day specifics for weekly recurrence
         if (completeRule.frequency === 'WEEKLY' && completeRule.byweekday && completeRule.byweekday.length > 0) {
           // Map day codes to full names
           const dayNames = completeRule.byweekday.map(day => {
             const dayOption = weekdayOptions.find(opt => opt.value === day)
             return dayOption ? dayOption.label : day
-          });
-          
+          })
+
           // If days are provided, add them to the description
           if (dayNames.length > 0) {
-            fallbackDescription = `Repeats ${intervalText} on ${dayNames.join(', ')}`;
+            fallbackDescription = `Repeats ${intervalText} on ${dayNames.join(', ')}`
           }
         }
-        
+
         // Add specific details for monthly patterns
         if (completeRule.frequency === 'MONTHLY') {
           if (completeRule.bymonthday && completeRule.bymonthday.length > 0) {
             // Day of month pattern (e.g., 15th of each month)
-            const dayOfMonth = completeRule.bymonthday[0];
-            fallbackDescription = `Repeats ${intervalText} on day ${dayOfMonth}`;
+            const dayOfMonth = completeRule.bymonthday[0]
+            fallbackDescription = `Repeats ${intervalText} on day ${dayOfMonth}`
           } else if (completeRule.byweekday && completeRule.byweekday.length > 0 && completeRule.bysetpos) {
             // Complex pattern (e.g., 2nd Monday)
             // Try to format as "first/second/etc. Monday of each month"
-            const position = Array.isArray(completeRule.bysetpos) 
-              ? completeRule.bysetpos[0] 
-              : completeRule.bysetpos;
-              
-            const weekdayCode = completeRule.byweekday[0].replace(/^[+-]?\d+/, ''); // Strip position prefix if any
-            const weekdayOption = weekdayOptions.find(opt => opt.value === weekdayCode);
-            const weekdayName = weekdayOption ? weekdayOption.label : weekdayCode;
-            
-            const positionText = position === 1 ? 'first' : 
-                               position === 2 ? 'second' : 
-                               position === 3 ? 'third' : 
-                               position === 4 ? 'fourth' : 
-                               position === -1 ? 'last' : `${position}${position === -2 ? 'nd to last' : 'th'}`;
-            
-            fallbackDescription = `Repeats ${intervalText} on the ${positionText} ${weekdayName}`;
+            const position = Array.isArray(completeRule.bysetpos)
+              ? completeRule.bysetpos[0]
+              : completeRule.bysetpos
+
+            const weekdayCode = completeRule.byweekday[0].replace(/^[+-]?\d+/, '') // Strip position prefix if any
+            const weekdayOption = weekdayOptions.find(opt => opt.value === weekdayCode)
+            const weekdayName = weekdayOption ? weekdayOption.label : weekdayCode
+
+            const positionText = position === 1 ? 'first'
+              : position === 2 ? 'second'
+                : position === 3 ? 'third'
+                  : position === 4 ? 'fourth'
+                    : position === -1 ? 'last' : `${position}${position === -2 ? 'nd to last' : 'th'}`
+
+            fallbackDescription = `Repeats ${intervalText} on the ${positionText} ${weekdayName}`
           }
         }
-        
-        console.log('Fallback description prepared:', fallbackDescription);
+
+        console.log('Fallback description prepared:', fallbackDescription)
 
         // Try to get description from rrule library first - this usually gives the best formatting
         try {
-          console.log('Attempting to get description from RRule.toText()');
-          const rrule = RecurrenceService.toRRule(completeRule, props.startDate, tzValue);
-          const description = rrule.toText();
+          console.log('Attempting to get description from RRule.toText()')
+          const rrule = RecurrenceService.toRRule(completeRule, props.startDate, tzValue)
+          const description = rrule.toText()
 
-          console.log('RRule.toText() result:', description);
-          
+          console.log('RRule.toText() result:', description)
+
           if (description && description !== 'every 1 week' && !description.includes('undefined')) {
-            patternDescriptionCache.value = description;
-            return;
+            patternDescriptionCache.value = description
+            return
           }
         } catch (rruleError) {
-          console.warn('Error in RRule.toText():', rruleError);
+          console.warn('Error in RRule.toText():', rruleError)
         }
 
         // Fallback to our service's getHumanReadablePattern method
         try {
-          console.log('Attempting to get description from RecurrenceService.getHumanReadablePattern');
+          console.log('Attempting to get description from RecurrenceService.getHumanReadablePattern')
           const backupDescription = RecurrenceService.getHumanReadablePattern({
             startDate: props.startDate,
             recurrenceRule: completeRule,
             timeZone: tzValue
-          } as unknown as EventEntity);
-          
-          console.log('getHumanReadablePattern result:', backupDescription);
+          } as unknown as EventEntity)
+
+          console.log('getHumanReadablePattern result:', backupDescription)
 
           if (backupDescription && backupDescription !== 'every 1 week' && !backupDescription.includes('undefined')) {
-            patternDescriptionCache.value = backupDescription;
-            return;
+            patternDescriptionCache.value = backupDescription
+            return
           }
         } catch (fallbackError) {
-          console.error('Error in RecurrenceService.getHumanReadablePattern:', fallbackError);
+          console.error('Error in RecurrenceService.getHumanReadablePattern:', fallbackError)
         }
-        
+
         // If we got here, use our own fallback description
-        console.log('Using fallback description:', fallbackDescription);
-        patternDescriptionCache.value = fallbackDescription;
+        console.log('Using fallback description:', fallbackDescription)
+        patternDescriptionCache.value = fallbackDescription
       } else {
-        patternDescriptionCache.value = 'Please select a frequency type';
+        patternDescriptionCache.value = 'Please select a frequency type'
       }
     } catch (e) {
-      console.error('Error generating pattern description:', e);
-      patternDescriptionCache.value = `Custom recurrence pattern in ${tzValue || 'local timezone'}`;
+      console.error('Error generating pattern description:', e)
+      patternDescriptionCache.value = `Custom recurrence pattern in ${tzValue || 'local timezone'}`
     }
   }
 
@@ -423,14 +433,25 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
   // Format date for UI display
   const formatDate = (date: Date) => {
-    return format(date, 'EEE, MMM d, yyyy h:mm a')
+    if (!date) return ''
+    const tz = props.timeZone || RecurrenceService.getUserTimezone()
+    try {
+      // E.g., "EEE, MMM d, yyyy h:mm a zzz"
+      return formatInTimeZone(date, tz, 'EEE, MMM d, yyyy h:mm a zzz')
+    } catch (e) {
+      console.error(`Error formatting date in timezone ${tz}:`, e)
+      // Fallback to simple formatting if timezone formatting fails, append tz manually if possible
+      const fallback = format(date, 'EEE, MMM d, yyyy h:mm a')
+      const tzAbbreviation = RecurrenceService.getTimezoneDisplay(tz).split(' ').pop()?.replace(/[()]/g, '') || tz
+      return tzAbbreviation ? `${fallback} (${tzAbbreviation})` : fallback
+    }
   }
 
   // SIMPLIFIED: Process rule changes and emit updates
   const processRuleChanges = (force = false) => {
     const newRule = rule.value
     const newTimezone = timezone.value
-    
+
     // Don't recalculate if rule hasn't substantially changed, unless forced
     const ruleHash = JSON.stringify(newRule) + newTimezone
     if (!force && ruleHash === lastRuleUpdateHash) return
@@ -481,8 +502,8 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         const ruleWithTimezone = {
           ...JSON.parse(JSON.stringify(newRule)), // Copy to prevent reactive issues
           timeZone: newTimezone // Ensure timezone is included in the rule itself
-        };
-        
+        }
+
         const eventData = {
           startDate: props.startDate,
           recurrenceRule: ruleWithTimezone,
@@ -497,11 +518,11 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
               ruleTimezone: eventData.recurrenceRule.timeZone,
               eventTimezone: eventData.timeZone,
               startDate: eventData.startDate
-            });
-            
+            })
+
             // Generating occurrences can be expensive, especially for complex rules
             const result = RecurrenceService.getOccurrences(eventData as unknown as EventEntity, 5)
-            
+
             // Log the first few occurrences with their timezone context
             if (result.length > 0 && newTimezone) {
               console.log('Generated occurrences in timezone context:', {
@@ -511,9 +532,9 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
                   local: formatInTimeZone(date, newTimezone, 'yyyy-MM-dd HH:mm:ss'),
                   dayOfWeek: formatInTimeZone(date, newTimezone, 'EEEE')
                 }))
-              });
+              })
             }
-            
+
             occurrences.value = result
           } catch (e) {
             console.error('Error in getOccurrences:', e)
@@ -569,10 +590,13 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
             monthlyWeekday.value = weekdayStr
 
             // Try to get position from bysetpos if available
-            if (props.modelValue.bysetpos && props.modelValue.bysetpos.length > 0) {
+            if (Array.isArray(props.modelValue.bysetpos) && props.modelValue.bysetpos.length > 0) {
               monthlyPosition.value = String(props.modelValue.bysetpos[0])
+            } else if (typeof props.modelValue.bysetpos === 'number') {
+              monthlyPosition.value = String(props.modelValue.bysetpos)
             } else {
-              // Default to first occurrence
+              // Default to first occurrence if bysetpos is not usable
+              console.warn('MONTHLY dayOfWeek pattern missing or invalid bysetpos, defaulting monthlyPosition to 1')
               monthlyPosition.value = '1'
             }
           }
@@ -595,9 +619,9 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       // Extract simple weekdays (without position prefixes)
       selectedDays.value = props.modelValue.byweekday.map(day => {
         const match = day.match(/(?:\d+)?([A-Z]{2})$/)
-        const dayCode = match ? match[1] : day;
-        console.log(`Mapped day code from ${day} to ${dayCode}`);
-        return dayCode;
+        const dayCode = match ? match[1] : day
+        console.log(`Mapped day code from ${day} to ${dayCode}`)
+        return dayCode
       })
     }
 
@@ -628,110 +652,110 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       try {
         // Get the timezone to use for calculations
         const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
-        
+
         console.log('Initializing weekday selection with timezone:', {
           startDate: props.startDate,
           timezone: timeZoneToUse
-        });
-        
+        })
+
         // Use RecurrenceService's helper method to get the correct day of week
         // This ensures consistent timezone handling across the application
         const { dayName, dayCode } = RecurrenceService.getDayOfWeekInTimezone(
           new Date(props.startDate),
           timeZoneToUse
-        );
-        
+        )
+
         console.log('Day in timezone for initialization:', {
           dayName,
           dayCode,
           timestamp: new Date(props.startDate).toISOString(),
           timezone: timeZoneToUse
-        });
-        
+        })
+
         // Only set days if they aren't already set
         if (selectedDays.value.length === 0 && dayCode) {
-          selectedDays.value = [dayCode];
-          console.log('Set selected days to:', dayCode);
+          selectedDays.value = [dayCode]
+          console.log('Set selected days to:', dayCode)
         }
-        
+
         // Only set monthly weekday if it's not already set
         if (!monthlyWeekday.value && dayCode) {
-          monthlyWeekday.value = dayCode;
-          console.log('Set monthly weekday to:', dayCode);
+          monthlyWeekday.value = dayCode
+          console.log('Set monthly weekday to:', dayCode)
         }
-        
+
         // Get the day of month in the correct timezone
         const dayOfMonth = parseInt(formatInTimeZone(
           new Date(props.startDate),
           timeZoneToUse,
           'd' // Day of month
-        ), 10);
-        
+        ), 10)
+
         // Calculate the position of this weekday in the month
-        const position = Math.ceil(dayOfMonth / 7);
-        
+        const position = Math.ceil(dayOfMonth / 7)
+
         // Only set position if it's not already set
         if (!monthlyPosition.value) {
-          const positionValue = String(Math.min(position, 4)); // Ensure it's at most 4
-          monthlyPosition.value = positionValue;
-          console.log('Set monthly position to:', positionValue);
+          const positionValue = String(Math.min(position, 4)) // Ensure it's at most 4
+          monthlyPosition.value = positionValue
+          console.log('Set monthly position to:', positionValue)
         }
       } catch (error) {
-        console.error('Error initializing day of week for recurrence:', error);
-        
+        console.error('Error initializing day of week for recurrence:', error)
+
         // Use a more robust fallback approach
         try {
-          const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone();
-          const startDate = new Date(props.startDate);
-          
+          const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
+          const startDate = new Date(props.startDate)
+
           // Use the Intl API as a fallback for getting the day
           const dayFormatter = new Intl.DateTimeFormat('en-US', {
             timeZone: timeZoneToUse,
             weekday: 'long'
-          });
-          
-          const dayName = dayFormatter.format(startDate);
-          
+          })
+
+          const dayName = dayFormatter.format(startDate)
+
           // Map day name to RRule code
           const dayNameMap: Record<string, string> = {
-            'Sunday': 'SU',
-            'Monday': 'MO',
-            'Tuesday': 'TU',
-            'Wednesday': 'WE',
-            'Thursday': 'TH',
-            'Friday': 'FR',
-            'Saturday': 'SA'
-          };
-          
-          const weekdayValue = dayNameMap[dayName];
+            Sunday: 'SU',
+            Monday: 'MO',
+            Tuesday: 'TU',
+            Wednesday: 'WE',
+            Thursday: 'TH',
+            Friday: 'FR',
+            Saturday: 'SA'
+          }
+
+          const weekdayValue = dayNameMap[dayName]
           console.log('Fallback day calculation result:', {
             dayName,
             dayCode: weekdayValue
-          });
-          
+          })
+
           if (selectedDays.value.length === 0 && weekdayValue) {
-            selectedDays.value = [weekdayValue];
+            selectedDays.value = [weekdayValue]
           }
-          
+
           if (!monthlyWeekday.value && weekdayValue) {
-            monthlyWeekday.value = weekdayValue;
+            monthlyWeekday.value = weekdayValue
           }
         } catch (fallbackError) {
-          console.error('Fallback day calculation also failed:', fallbackError);
-          
+          console.error('Fallback day calculation also failed:', fallbackError)
+
           // Ultimate fallback - use UTC day as last resort
-          const newDate = new Date(props.startDate);
-          const dayOfWeek = newDate.getUTCDay();
-          const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek];
-          
-          console.log('Using UTC fallback day:', weekdayValue);
-          
+          const newDate = new Date(props.startDate)
+          const dayOfWeek = newDate.getUTCDay()
+          const weekdayValue = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek]
+
+          console.log('Using UTC fallback day:', weekdayValue)
+
           if (selectedDays.value.length === 0) {
-            selectedDays.value = [weekdayValue];
+            selectedDays.value = [weekdayValue]
           }
-          
+
           if (!monthlyWeekday.value) {
-            monthlyWeekday.value = weekdayValue;
+            monthlyWeekday.value = weekdayValue
           }
         }
       }
@@ -767,6 +791,34 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         initializeTimezoneAndDay()
       }
     })
+
+    // Watch for monthlyRepeatType changes to derive position/weekday from startDate
+    watch(monthlyRepeatType, (newType) => {
+      // If switching to monthly 'dayOfWeek' recurrence, and a start date is present,
+      // automatically derive the weekday and its position (e.g., "2nd Wednesday") from the start date.
+      // This ensures the UI reflects the correct Nth weekday based on the event's start date.
+      if (newType === 'dayOfWeek' && props.startDate && frequency.value === 'MONTHLY') {
+        const timeZoneToUse = timezone.value || RecurrenceService.getUserTimezone()
+        const startDateDate = new Date(props.startDate)
+
+        // Get the day code (e.g., 'WE' for Wednesday)
+        const { dayCode } = RecurrenceService.getDayOfWeekInTimezone(startDateDate, timeZoneToUse)
+        if (dayCode) {
+          monthlyWeekday.value = dayCode
+        }
+
+        // Get the day of the month (e.g., 14 for the 14th)
+        const dayOfMonth = parseInt(formatInTimeZone(startDateDate, timeZoneToUse, 'd'), 10)
+        // Calculate Nth occurrence (e.g., 14th day / 7 days/week = 2nd week)
+        const NthOccurrence = Math.ceil(dayOfMonth / 7)
+        // RRule bysetpos uses 1, 2, 3, 4. Capping at 4.
+        // (-1 for "last" would require more complex logic to determine if it's truly the last of its kind).
+        // For this context, aligning with the existing initialization logic is sufficient.
+        monthlyPosition.value = String(Math.min(NthOccurrence, 4))
+
+        console.log(`Monthly repeat type set to 'dayOfWeek'. Derived from startDate (${props.startDate}): monthlyWeekday=${monthlyWeekday.value}, monthlyPosition=${monthlyPosition.value}`)
+      }
+    }, { immediate: false }) // Run only on changes, not immediately (initial setup is handled by onMounted)
   }
 
   // Initialize component
@@ -774,10 +826,10 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     // Initialize from props
     initFromModelValue()
     initializeTimezoneAndDay()
-    
+
     // Setup watchers
     setupWatchers()
-    
+
     // Force initial calculation of rule and occurrences
     if (props.startDate) {
       if (props.isRecurring && props.modelValue) {

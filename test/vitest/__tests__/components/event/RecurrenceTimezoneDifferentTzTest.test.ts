@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { Quasar } from 'quasar'
 import RecurrenceComponent from '../../../../../src/components/event/RecurrenceComponent.vue'
-import { nextTick } from 'vue'
 import { formatInTimeZone } from 'date-fns-tz'
 import { RecurrenceService } from '../../../../../src/services/recurrenceService'
 import { RecurrenceComponentTestHelper } from '../../../helpers/RecurrenceComponentTestHelper'
@@ -45,10 +44,10 @@ describe('RecurrenceComponent - Different Timezone Day Shift', () => {
       },
       attachTo: document.createElement('div')
     })
-    
+
     // Create test helper with the mounted wrapper
     helper = new RecurrenceComponentTestHelper(wrapper)
-    
+
     return { wrapper, helper }
   }
 
@@ -96,7 +95,7 @@ describe('RecurrenceComponent - Different Timezone Day Shift', () => {
     )
 
     expect(allMondays).toBe(true)
-    
+
     // Or use the helper method to check days
     expect(helper.occurrencesMatchDay('Monday', 'Asia/Tokyo')).toBe(true)
 
@@ -152,7 +151,7 @@ describe('RecurrenceComponent - Different Timezone Day Shift', () => {
       timeZone: 'Australia/Sydney' // Now including timezone in rule
     }
     console.log('Using test rule:', testRule)
-    
+
     const rrule = RecurrenceService.toRRule(
       testRule,
       startDate.toISOString()

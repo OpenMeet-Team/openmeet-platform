@@ -360,8 +360,8 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
       expect(startDateAfter.getHours()).toBe(14)
       expect(startDateAfter.getMinutes()).toBe(15)
 
-      // The end date should match the start date's time
-      expect(endDateAfter.getHours()).toBe(14)
+      // The end date should be one hour after the start date's time
+      expect(endDateAfter.getHours()).toBe(15)
       expect(endDateAfter.getMinutes()).toBe(15)
 
       // Verify startDate is not midnight (test would fail with buggy implementation)
