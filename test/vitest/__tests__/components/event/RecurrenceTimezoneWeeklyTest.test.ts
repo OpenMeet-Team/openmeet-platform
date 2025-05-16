@@ -220,13 +220,28 @@ describe('RecurrenceComponent - Timezone Day Shift Tests', () => {
 
     console.log('Sydney boundary case occurrences:', occurrences.map(date => ({
       date: date.toISOString(),
-      dayInSydney: formatInTimeZone(date, 'Australia/Sydney', 'EEEE')
+      dayInSydney: formatInTimeZone(date, 'Australia/Sydney', 'EEEE'),
+      timeInSydney: formatInTimeZone(date, 'Australia/Sydney', 'HH:mm:ss'),
+      utcDay: new Date(date).getUTCDay() === 0 ? 'Sunday' : 
+              new Date(date).getUTCDay() === 1 ? 'Monday' : 
+              new Date(date).getUTCDay() === 2 ? 'Tuesday' : 
+              new Date(date).getUTCDay() === 3 ? 'Wednesday' : 
+              new Date(date).getUTCDay() === 4 ? 'Thursday' : 
+              new Date(date).getUTCDay() === 5 ? 'Friday' : 'Saturday'
     })))
+    
+    // Print component's internal rule
+    console.log('Component recurrence rule:', JSON.stringify(wrapper.vm.rule))
 
     // Verify all occurrences are on Monday in Sydney
-    const allMondays = occurrences.every(date =>
-      formatInTimeZone(date, 'Australia/Sydney', 'EEEE') === 'Monday'
-    )
+    const allMondays = occurrences.every(date => {
+      const dayInSydney = formatInTimeZone(date, 'Australia/Sydney', 'EEEE');
+      const isMonday = dayInSydney === 'Monday';
+      if (!isMonday) {
+        console.error(`Found non-Monday occurrence: ${date.toISOString()} is ${dayInSydney} in Sydney`);
+      }
+      return isMonday;
+    })
 
     expect(allMondays).toBe(true)
   })
