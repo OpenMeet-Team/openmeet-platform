@@ -189,7 +189,7 @@ function initializeFromISO () {
   if (!isoDate.value) {
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
-    editableDate.value = format(new Date(), 'MMM d, yyyy')
+    editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
     console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     return
   }
@@ -207,7 +207,7 @@ function initializeFromISO () {
       localTime.value = timeInTz
       const dateObj = parse(dateInTz, 'yyyy-MM-dd', new Date())
       if (isValid(dateObj)) {
-        editableDate.value = format(dateObj, 'MMM d, yyyy')
+        editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
       } else {
         editableDate.value = ''
       }
@@ -216,7 +216,7 @@ function initializeFromISO () {
       localTime.value = format(dateObjForConversion, 'h:mm a')
       const dateObj = parse(localDate.value, 'yyyy-MM-dd', new Date())
       if (isValid(dateObj)) {
-        editableDate.value = format(dateObj, 'MMM d, yyyy')
+        editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
       } else {
         editableDate.value = ''
       }
@@ -226,7 +226,7 @@ function initializeFromISO () {
     console.error('[DatetimeComponent] Error initializing from ISO:', e)
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
-    editableDate.value = format(new Date(), 'MMM d, yyyy')
+    editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
   }
   console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
 }
@@ -557,7 +557,7 @@ function finishDateEditing () {
     }
     if (parsedDate) {
       localDate.value = format(parsedDate, 'yyyy-MM-dd')
-      editableDate.value = format(parsedDate, 'MMM d, yyyy')
+      editableDate.value = format(parsedDate, 'EEE, MMM d, yyyy')
       updateModelValue()
     }
   } catch (e) {
@@ -570,7 +570,7 @@ watch(localDate, (newVal) => {
   if (newVal) {
     const dateObj = parse(newVal, 'yyyy-MM-dd', new Date())
     if (isValid(dateObj)) {
-      editableDate.value = format(dateObj, 'MMM d, yyyy')
+      editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
     }
   }
 })
