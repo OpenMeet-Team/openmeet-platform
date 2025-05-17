@@ -22,6 +22,14 @@ interface RecurrenceViewModel {
   [key: string]: unknown; // Use unknown instead of any
 }
 
+// Add a type for the component VM to avoid 'as any'
+interface EventFormBasicComponentVm {
+  eventData: EventData;
+  isRecurring: boolean | { value: boolean };
+  hasEndDate?: boolean | { value: boolean };
+  setEndDate?: (val: boolean) => void;
+}
+
 // Install Quasar for testing
 installQuasarPlugin({ plugins: { Notify } })
 
@@ -136,11 +144,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
     eventData.startDate = isoString
     await wrapper.vm.$nextTick()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isRecurringRef = (wrapper.vm as any).isRecurring
+    const isRecurringRef = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
     if (typeof isRecurringRef === 'object' && isRecurringRef !== null && 'value' in isRecurringRef) {
       isRecurringRef.value = true
     } else {
-      (wrapper.vm as any).isRecurring = true
+      (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
     }
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
@@ -223,11 +231,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
     vm.eventData.startDate = originalIsoString
     await wrapper.vm.$nextTick()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isRecurringRef2 = (wrapper.vm as any).isRecurring
+    const isRecurringRef2 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
     if (typeof isRecurringRef2 === 'object' && isRecurringRef2 !== null && 'value' in isRecurringRef2) {
       isRecurringRef2.value = true
     } else {
-      (wrapper.vm as any).isRecurring = true
+      (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
     }
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
@@ -307,11 +315,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       datetimeComponent.vm.onTimeUpdate('2:00 PM')
       await wrapper.vm.$nextTick()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const isRecurringRef3 = (wrapper.vm as any).isRecurring
+      const isRecurringRef3 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
       if (typeof isRecurringRef3 === 'object' && isRecurringRef3 !== null && 'value' in isRecurringRef3) {
         isRecurringRef3.value = true
       } else {
-        (wrapper.vm as any).isRecurring = true
+        (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
       }
       await wrapper.vm.$nextTick()
       await vi.runAllTimersAsync()
@@ -406,11 +414,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       datetimeComponent.vm.onTimeUpdate('2:00 PM')
       await wrapper.vm.$nextTick()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const isRecurringRef4 = (wrapper.vm as any).isRecurring
+      const isRecurringRef4 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
       if (typeof isRecurringRef4 === 'object' && isRecurringRef4 !== null && 'value' in isRecurringRef4) {
         isRecurringRef4.value = true
       } else {
-        (wrapper.vm as any).isRecurring = true
+        (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
       }
       await wrapper.vm.$nextTick()
       await vi.runAllTimersAsync()
@@ -508,20 +516,20 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
     await wrapper.vm.$nextTick()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const hasEndDateRef = (wrapper.vm as any).hasEndDate
+    const hasEndDateRef = (wrapper.vm as unknown as EventFormBasicComponentVm).hasEndDate
     const hasEndDateValue = typeof hasEndDateRef === 'object' && hasEndDateRef !== null && 'value' in hasEndDateRef
       ? hasEndDateRef.value
       : !!hasEndDateRef
     if (!hasEndDateValue) {
-      wrapper.vm.setEndDate(true)
+      (wrapper.vm as unknown as EventFormBasicComponentVm).setEndDate?.(true)
       await wrapper.vm.$nextTick()
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isRecurringRef5 = (wrapper.vm as any).isRecurring
+    const isRecurringRef5 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
     if (typeof isRecurringRef5 === 'object' && isRecurringRef5 !== null && 'value' in isRecurringRef5) {
       isRecurringRef5.value = true
     } else {
-      (wrapper.vm as any).isRecurring = true
+      (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
     }
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
