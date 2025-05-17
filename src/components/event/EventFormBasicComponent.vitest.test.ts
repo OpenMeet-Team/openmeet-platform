@@ -205,6 +205,8 @@ describe('EventFormBasicComponent.vue - Initial Field Population and Date/Time E
       global: {
         plugins: [Quasar],
         stubs: {
+          // Do NOT stub DatetimeComponent here so we can use testHelpers in tests
+          // DatetimeComponent: true,
           RecurrenceComponent: true,
           UploadComponent: true,
           LocationComponent: true,
@@ -319,5 +321,92 @@ describe('EventFormBasicComponent.vue - Initial Field Population and Date/Time E
     const expectedDate = `${yyyy}-${mm}-${dd}`
     expect(endDateComponent.vm.localTime).toBe('3:00 PM')
     expect(endDateComponent.vm.localDate).toBe(expectedDate)
+  })
+
+  it('populates end date input with start date and time +1h when user enters start date and enables end time', async () => {
+    // Find the start date DatetimeComponent
+    const startDateComponent = wrapper.findAllComponents(DatetimeComponent).at(0)
+    expect(startDateComponent.exists()).toBe(true)
+    await nextTickPromise()
+
+    // Use the new testHelpers to set the date and time directly
+    startDateComponent.vm.$.exposed.testHelpers.setDateTime('2025-12-25', '2:30 PM')
+    await nextTickPromise()
+    await nextTickPromise()
+
+    // DEBUG: Check parent's startDate reflects the 2:30 PM time
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const eventFormVm = wrapper.vm as any
+    // Should now be 2025-12-25T19:30:00.000Z (2:30 PM America/New_York is 19:30 UTC)
+    expect(eventFormVm.eventData.startDate).toBe('2025-12-25T19:30:00.000Z')
+
+    // Set timezone explicitly (should already be set, but for clarity)
+    eventFormVm.eventData.timeZone = 'America/New_York'
+
+    // Now "check the box" by calling setEndDate directly
+    eventFormVm.setEndDate(true)
+    await nextTickPromise()
+    await nextTickPromise()
+    await nextTickPromise()
+    await nextTickPromise()
+
+    // Find the end date DatetimeComponent
+    const allDateComps = wrapper.findAllComponents(DatetimeComponent)
+    expect(allDateComps.length).toBeGreaterThan(1)
+    const endDateComponent = allDateComps.at(1)
+    expect(endDateComponent.exists()).toBe(true)
+
+    // Use the exposed state to check the localDate and localTime
+    expect(endDateComponent.vm.localDate).toBe('2025-12-25')
+    expect(endDateComponent.vm.localTime).toBe('3:30 PM')
+    // Also check the editableDate (displayed value)
+    expect(endDateComponent.vm.editableDate).toContain('Dec 25, 2025')
+  })
+
+  it('should not decrement date if already set, then focused and blurred', async () => {
+    const eventFormVm = wrapper.vm as unknown as { eventData: EventEntity }
+    const initialDateISO = '2026-07-15T10:00:00.000Z' // July 15, 2026, 10 AM UTC
+    const timeZone = 'America/New_York' // UTC-4 during DST
+    // Expected display in New York: July 15, 2026, 6:00 AM
+
+    // 1. Set initial start date and timezone on the parent form
+    eventFormVm.eventData.startDate = initialDateISO
+    eventFormVm.eventData.timeZone = timeZone
+    await nextTickPromise() // Allow props to propagate to DatetimeComponent
+    await nextTickPromise() // Allow DatetimeComponent to initialize
+
+    const startDateComponent = wrapper.findAllComponents(DatetimeComponent).at(0)
+    expect(startDateComponent.exists()).toBe(true)
+
+    // 2. Verify DatetimeComponent displays the correct initial local date
+    // formatInTimeZone(new Date(initialDateISO), timeZone, 'yyyy-MM-dd') should be 2026-07-15
+    // For 2026-07-15T10:00:00.000Z in America/New_York (DST, UTC-4) it's 2026-07-15 06:00:00
+    const expectedLocalDate = '2026-07-15'
+    expect(startDateComponent.vm.localDate).toBe(expectedLocalDate)
+    // Check editableDate too, which is what the user sees directly in the input
+    // It should be formatted like 'Jul 15, 2026'
+    expect(startDateComponent.vm.editableDate).toContain('Jul 15, 2026')
+
+    // 3. Find the date text input
+    const dateInput = startDateComponent.find('input[data-cy="datetime-component-date-input"]')
+    expect(dateInput.exists()).toBe(true)
+
+    // 4. Simulate focus and then blur without changing the value
+    await dateInput.trigger('focus')
+    await nextTickPromise()
+    await dateInput.trigger('blur') // This calls finishDateEditing in DatetimeComponent
+    await nextTickPromise() // Allow finishDateEditing to complete
+    await nextTickPromise() // Allow modelValue update to propagate to parent
+    await nextTickPromise() // Allow parent to update prop back to DatetimeComponent
+    await nextTickPromise() // Allow DatetimeComponent watch to re-initialize
+
+    // 5. Assert that the localDate in DatetimeComponent has NOT changed
+    expect(startDateComponent.vm.localDate).toBe(expectedLocalDate)
+    expect(startDateComponent.vm.editableDate).toContain('Jul 15, 2026')
+
+    // Explicitly check that it hasn't decremented
+    const potentiallyDecrementedDate = '2026-07-14'
+    expect(startDateComponent.vm.localDate).not.toBe(potentiallyDecrementedDate)
+    expect(startDateComponent.vm.editableDate).not.toContain('Jul 14, 2026')
   })
 })

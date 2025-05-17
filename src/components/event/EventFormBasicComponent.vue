@@ -37,10 +37,10 @@
 
             <!-- Event End Date -->
             <template v-if="eventData.startDate">
-              <q-checkbox data-cy="event-set-end-time" class="q-mt-md" :model-value="!!eventData.endDate"
+              <q-checkbox data-cy="event-set-end-time" class="q-mt-md" v-model="hasEndDate"
                 @update:model-value="setEndDate" label="Set an end time..." />
 
-              <div v-if="eventData.endDate">
+              <div v-if="hasEndDate">
                 <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
                   v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                   @update:time-info="handleEndTimeInfo"
@@ -345,7 +345,7 @@ import { useAuthStore } from '../../stores/auth-store'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
-import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { addHours } from 'date-fns'
 
 const { success, error } = useNotification()
@@ -396,6 +396,13 @@ const seriesFormData = ref({
 
 // Tab for description editor (edit/preview)
 const descriptionTab = ref('edit')
+
+// Store the displayed start and end times
+const displayedStartTime = ref<string>('')
+const displayedEndTime = ref<string>('')
+
+// --- NEW: Local state for end date checkbox ---
+const hasEndDate = ref(!!eventData.value.endDate)
 
 // Now that all reactive variables are initialized, set up watchers
 // Watch for changes in the eventData to update isRecurring state and load series data
@@ -818,10 +825,6 @@ const addBlueskySourceInfo = (event: EventEntity) => {
   }
 }
 
-// Store the displayed start and end times
-const displayedStartTime = ref<string>('')
-const displayedEndTime = ref<string>('')
-
 // Handle time info updates from the DatetimeComponent
 const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received time info from DatetimeComponent:', timeInfo)
@@ -836,8 +839,12 @@ const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes:
 // Handle time info updates for end date
 // Method to handle setting/clearing end date
 const setEndDate = (checked: boolean) => {
+  hasEndDate.value = checked // Directly reflect the checkbox state
+
   if (checked) {
-    if (!eventData.value.endDate && eventData.value.startDate && eventData.value.timeZone) {
+    // If we are checking the box AND a start date exists,
+    // always try to set/re-calculate a default end date
+    if (eventData.value.startDate && eventData.value.timeZone) {
       try {
         const eventTz = eventData.value.timeZone
         const startDateUtc = new Date(eventData.value.startDate)
@@ -845,36 +852,51 @@ const setEndDate = (checked: boolean) => {
         const endDateInEventTz = addHours(startDateInEventTz, 1)
         const endDateUtc = fromZonedTime(endDateInEventTz, eventTz)
         eventData.value.endDate = endDateUtc.toISOString()
-        console.log(`Defaulted end date to 1 hour after start in event timezone (${eventTz}): ${eventData.value.endDate}`)
-        console.log(`Which is ${formatInTimeZone(endDateUtc, eventTz, 'yyyy-MM-dd HH:mm:ssXXX')} in ${eventTz}`)
+        // eslint-disable-next-line no-console
+        console.log(`[setEndDate] Defaulted/Recalculated end date: ${eventData.value.endDate}`)
       } catch (e) {
-        console.error('Error calculating default end date with timezone:', e)
+        // eslint-disable-next-line no-console
+        console.error('[setEndDate] Error calculating default end date with timezone:', e)
         eventData.value.endDate = eventData.value.startDate
       }
-    } else if (!eventData.value.endDate && eventData.value.startDate) {
-      // Fallback if timezone is somehow missing (should not happen with current setup)
+    } else if (eventData.value.startDate && !eventData.value.timeZone) {
+      // Fallback if timezone is somehow missing
       try {
         const startDateObj = new Date(eventData.value.startDate)
         if (!isNaN(startDateObj.getTime())) {
-          startDateObj.setHours(startDateObj.getHours() + 1) // Add 1 hour (UTC)
+          startDateObj.setHours(startDateObj.getHours() + 1)
           eventData.value.endDate = startDateObj.toISOString()
-          console.warn('Defaulted end date (UTC based) as event timezone was missing')
+          // eslint-disable-next-line no-console
+          console.warn('[setEndDate] Defaulted end date (UTC based) as event timezone was missing')
         } else {
-          console.warn('Cannot default end date: Invalid start date')
+          // eslint-disable-next-line no-console
+          console.warn('[setEndDate] Cannot default end date: Invalid start date')
+          eventData.value.endDate = null
         }
       } catch (e) {
-        console.error('Error calculating default end date (UTC fallback): ', e)
+        // eslint-disable-next-line no-console
+        console.error('[setEndDate] Error calculating default end date (UTC fallback): ', e)
         eventData.value.endDate = eventData.value.startDate
       }
     }
-    // If eventData.value.endDate already exists, do nothing, let the user edit it via its own DatetimeComponent.
-  } else {
+  } else { // If unchecked
     eventData.value.endDate = null
   }
-
-  console.log(`Set end date checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
-  console.log('Start date remains:', eventData.value.startDate)
+  // eslint-disable-next-line no-console
+  console.log(`[setEndDate] Checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
+  // eslint-disable-next-line no-console
+  console.log(`[setEndDate] Start date remains: ${eventData.value.startDate}`)
+  // eslint-disable-next-line no-console
+  console.log(`[setEndDate] hasEndDate ref is now: ${hasEndDate.value}`)
 }
+
+watch(() => eventData.value.endDate, (val) => {
+  if (!!val !== hasEndDate.value) { // Only update if different to prevent loops
+    hasEndDate.value = !!val
+    // eslint-disable-next-line no-console
+    console.log(`[watch eventData.endDate] hasEndDate updated to: ${hasEndDate.value}`)
+  }
+})
 
 const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
   console.log('Received end time info from DatetimeComponent:', timeInfo)
@@ -905,6 +927,18 @@ const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
     console.log('Series event recurrence rule updated, will affect future occurrences')
   }
 }
+
+/**
+ * @testing
+ * - Set `eventData.startDate` and `eventData.timeZone` directly in tests.
+ * - Call `setEndDate(true)` to simulate enabling the end date.
+ * - Use data-cy selectors for all user-facing inputs.
+ */
+defineExpose({
+  eventData,
+  setEndDate
+  // Add more helpers as needed
+})
 </script>
 
 <style scoped lang="scss">

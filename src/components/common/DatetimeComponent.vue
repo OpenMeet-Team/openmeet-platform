@@ -115,7 +115,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, defineProps, defineEmits, defineExpose } from 'vue'
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
 import { RecurrenceService } from '../../services/recurrenceService'
 
@@ -128,6 +128,13 @@ import { RecurrenceService } from '../../services/recurrenceService'
  * 1. Local inputs (localDate, localTime) are the source of truth for user inputs
  * 2. The internal UTC representation (isoDate) is derived from these local inputs
  * 3. When changing timezones, we preserve the wall clock time (local time appearance)
+ */
+
+/**
+ * @testing
+ * - Use `wrapper.vm.testHelpers.setDateTime('2025-01-01', '5:00 PM')` to set date/time in tests.
+ * - Use `wrapper.vm.updateModelValue()` to trigger emission.
+ * - Use data-cy selectors for all user-facing inputs.
  */
 
 // Define props
@@ -175,14 +182,15 @@ const formatTimeZone = computed(() => {
  * and sets the local input values, taking timezone into account.
  */
 function initializeFromISO () {
-  console.log(`[DatetimeComponent] initializeFromISO CALLED for label: "${props.label}"`)
-  console.log(`[DatetimeComponent]   props.modelValue (isoDate.value initially): "${isoDate.value}"`)
-  console.log(`[DatetimeComponent]   props.timeZone: "${props.timeZone}"`)
+  console.log(`[DatetimeComponent] initializeFromISO CALLED for label: "${props.label}"]`)
+  console.log(`[DatetimeComponent]   props.modelValue (isoDate.value initially): "${isoDate.value}"]`)
+  console.log(`[DatetimeComponent]   props.timeZone: "${props.timeZone}"]`)
 
   if (!isoDate.value) {
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
-    console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"`)
+    editableDate.value = format(new Date(), 'MMM d, yyyy')
+    console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     return
   }
 
@@ -193,21 +201,34 @@ function initializeFromISO () {
     if (props.timeZone) {
       const dateInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'yyyy-MM-dd')
       const timeInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'h:mm a')
-      console.log(`[DatetimeComponent]   Calculated for TZ "${props.timeZone}": dateInTz: "${dateInTz}", timeInTz: "${timeInTz}"`)
+      console.log(`[DatetimeComponent]   Calculated for TZ "${props.timeZone}": dateInTz: "${dateInTz}", timeInTz: "${timeInTz}"]`)
 
       localDate.value = dateInTz
       localTime.value = timeInTz
+      const dateObj = parse(dateInTz, 'yyyy-MM-dd', new Date())
+      if (isValid(dateObj)) {
+        editableDate.value = format(dateObj, 'MMM d, yyyy')
+      } else {
+        editableDate.value = ''
+      }
     } else {
       localDate.value = format(dateObjForConversion, 'yyyy-MM-dd')
       localTime.value = format(dateObjForConversion, 'h:mm a')
-      console.log(`[DatetimeComponent]   No props.timeZone, used browser local. localDate: "${localDate.value}", localTime: "${localTime.value}"`)
+      const dateObj = parse(localDate.value, 'yyyy-MM-dd', new Date())
+      if (isValid(dateObj)) {
+        editableDate.value = format(dateObj, 'MMM d, yyyy')
+      } else {
+        editableDate.value = ''
+      }
+      console.log(`[DatetimeComponent]   No props.timeZone, used browser local. localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     }
   } catch (e) {
     console.error('[DatetimeComponent] Error initializing from ISO:', e)
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
+    editableDate.value = format(new Date(), 'MMM d, yyyy')
   }
-  console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"`)
+  console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
 }
 
 /**
@@ -258,11 +279,11 @@ function createISOString () {
     }
 
     if (props.timeZone) {
-      // Polyfill for zonedTimeToUtc
-      const dateInTargetTz = new Date(year, month - 1, day, hours, minutes, 0, 0)
-      const offset = formatInTimeZone(dateInTargetTz, props.timeZone, 'xxx') // e.g. -04:00
-      const isoWithOffset = format(dateInTargetTz, "yyyy-MM-dd'T'HH:mm:ss") + offset
-      const utcDate = new Date(isoWithOffset)
+      // Create a string that represents the local wall time.
+      const wallTimeString = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
+
+      // Interpret this wall time string as being in props.timeZone and get the UTC Date object.
+      const utcDate = fromZonedTime(wallTimeString, props.timeZone)
       return utcDate.toISOString()
     } else {
       const localDateTime = new Date(year, month - 1, day, hours, minutes)
@@ -547,8 +568,8 @@ function finishDateEditing () {
 // In onMounted or watch, keep editableDate in sync with localDate
 watch(localDate, (newVal) => {
   if (newVal) {
-    const dateObj = new Date(newVal)
-    if (!isNaN(dateObj.getTime())) {
+    const dateObj = parse(newVal, 'yyyy-MM-dd', new Date())
+    if (isValid(dateObj)) {
       editableDate.value = format(dateObj, 'MMM d, yyyy')
     }
   }
@@ -557,8 +578,29 @@ watch(localDate, (newVal) => {
 defineExpose({
   localDate,
   localTime,
+  editableDate,
+  updateModelValue,
   finishDateEditing,
-  editableDate // Expose for tests
+  // For tests: set date/time and emit
+  testHelpers: {
+    setDateTime: (date, time) => {
+      localDate.value = date
+      localTime.value = time
+      updateModelValue()
+    },
+    setEditableDate: (date) => {
+      editableDate.value = date
+      finishDateEditing()
+    }
+  },
+  // Expose for testing purposes
+  isoDate,
+  onDateUpdate,
+  onTimeUpdate,
+  onTimeZoneUpdate,
+  tempDate,
+  tempTime,
+  updateTime // also expose updateTime for canonicalization test
 })
 </script>
 
