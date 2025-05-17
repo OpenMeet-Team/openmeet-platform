@@ -370,3 +370,69 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
     }
   })
 })
+
+describe('EventFormBasicComponent - Start Date Entry (Timezone: EST)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('should not shift the date when entering 5/21/2025 and tabbing out in EST', async () => {
+    // Mount the component with EST timezone
+    const mountOptions = {
+      props: {
+        // Set the default timezone to EST
+        group: undefined,
+        editEventSlug: undefined
+      },
+      global: {
+        stubs: {
+          'q-markdown': true,
+          'vue-router': true
+        }
+      }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Set the timezone and clear the startDate before interacting
+    wrapper.vm.eventData.timeZone = 'America/New_York'
+    wrapper.vm.eventData.startDate = ''
+    await wrapper.vm.$nextTick()
+
+    // Find the DatetimeComponent for the start date
+    const datetimeComponent = wrapper.findComponent({ name: 'DatetimeComponent' })
+    expect(datetimeComponent.exists()).toBe(true)
+
+    // Find the date input inside DatetimeComponent (direct selector)
+    const dateInput = datetimeComponent.find('input[data-cy="datetime-component-date-input"]')
+    if (!dateInput.exists()) {
+      // Log the HTML for debugging
+      // eslint-disable-next-line no-console
+      console.error('Date input not found. DatetimeComponent HTML:', datetimeComponent.html())
+    }
+    expect(dateInput.exists()).toBe(true)
+
+    // Set the editableDate directly and call finishDateEditing
+    datetimeComponent.vm.editableDate = '5/21/2025'
+    await datetimeComponent.vm.finishDateEditing()
+    await wrapper.vm.$nextTick()
+
+    // Check the localDate in DatetimeComponent
+    const localDate = datetimeComponent.vm.localDate
+    expect(localDate).toBe('2025-05-21')
+
+    // Check the editableDate (displayed value)
+    const editableDate = datetimeComponent.vm.editableDate
+    expect(editableDate).toContain('May 21')
+
+    // Check the eventData startDate in the parent component
+    const startDate = wrapper.vm.eventData.startDate
+    // It should be 2025-05-21 in America/New_York, not 2025-05-20
+    const startDateObj = new Date(startDate)
+    // The date in the event's timezone should be 2025-05-21
+    const { formatInTimeZone } = await import('date-fns-tz')
+    const localDateString = formatInTimeZone(startDateObj, 'America/New_York', 'yyyy-MM-dd')
+    expect(localDateString).toBe('2025-05-21')
+  })
+})

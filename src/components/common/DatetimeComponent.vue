@@ -115,7 +115,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, defineProps, defineEmits, defineExpose } from 'vue'
-import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
 import { RecurrenceService } from '../../services/recurrenceService'
 
@@ -258,8 +258,11 @@ function createISOString () {
     }
 
     if (props.timeZone) {
-      const dateInSystemTimezone = new Date(year, month - 1, day, hours, minutes, 0, 0)
-      const utcDate = fromZonedTime(dateInSystemTimezone, props.timeZone)
+      // Polyfill for zonedTimeToUtc
+      const dateInTargetTz = new Date(year, month - 1, day, hours, minutes, 0, 0)
+      const offset = formatInTimeZone(dateInTargetTz, props.timeZone, 'xxx') // e.g. -04:00
+      const isoWithOffset = format(dateInTargetTz, "yyyy-MM-dd'T'HH:mm:ss") + offset
+      const utcDate = new Date(isoWithOffset)
       return utcDate.toISOString()
     } else {
       const localDateTime = new Date(year, month - 1, day, hours, minutes)
@@ -507,6 +510,7 @@ function finishDateEditing () {
   if (!editableDate.value) return
   try {
     const input = editableDate.value.trim()
+    console.log('[DatetimeComponent] finishDateEditing - Raw input:', input)
     let parsedDate = null
     const dateFormats = [
       'yyyy-MM-dd', 'MM/dd/yyyy', 'MMM d, yyyy', 'MMMM d, yyyy', 'MMM d', 'MMMM d', 'M/d/yyyy', 'M/d', 'd MMM yyyy', 'd MMM', 'MM/dd', 'M/d', 'MMM d', 'MMMM d'
@@ -515,7 +519,9 @@ function finishDateEditing () {
       try {
         const result = parse(input, formatString, new Date())
         if (isValid(result)) {
-          parsedDate = result
+          // Force the parsed date to be local (ignore timezone offset)
+          parsedDate = new Date(result.getFullYear(), result.getMonth(), result.getDate())
+          console.log('[DatetimeComponent] finishDateEditing - Parsed as:', parsedDate)
           break
         }
       } catch {}
@@ -524,7 +530,8 @@ function finishDateEditing () {
     if (!parsedDate) {
       const nativeDate = new Date(input)
       if (!isNaN(nativeDate.getTime())) {
-        parsedDate = nativeDate
+        parsedDate = new Date(nativeDate.getFullYear(), nativeDate.getMonth(), nativeDate.getDate())
+        console.log('[DatetimeComponent] finishDateEditing - Native parsed as:', parsedDate)
       }
     }
     if (parsedDate) {
