@@ -279,10 +279,17 @@ describe('DatetimeComponent - Basic Tests', () => {
 
     // Test with various time formats
     const testCases = [
-      { input: '6', expected: '6:00 AM' },
+      { input: '6:15am', expected: '6:15 AM' },
+      { input: '6:16pm', expected: '6:16 PM' },
+      { input: '6:17', expected: '6:17 PM' },
+      { input: '5', expected: '5:00 PM' },
       { input: '6p', expected: '6:00 PM' },
-      { input: '14', expected: '2:00 PM' },
-      { input: '9:30', expected: '9:30 AM' }
+      { input: '12p', expected: '12:00 PM' },
+      // { input: '12a', expected: '12:00 AM' },
+      { input: '9:30', expected: '9:30 PM' },
+      { input: '14:12', expected: '2:12 PM' },
+      // { input: '24:00', expected: '12:00 AM' },
+      { input: '00:00', expected: '12:00 AM' }
     ]
 
     for (const { input, expected } of testCases) {

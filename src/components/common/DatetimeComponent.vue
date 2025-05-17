@@ -1,128 +1,122 @@
 <template>
-  <q-input
-    data-cy="datetime-component"
-    filled
-    class="q-mb-md"
-    :model-value="isEditing ? editableDate : formattedDate"
-    @update:model-value="onInputChange"
-    @focus="startEditing"
-    @blur="finishEditing"
-    :required="required"
-    :label="label">
-    <!-- Date picker -->
-    <template v-slot:prepend>
-      <q-icon data-cy="datetime-component-date" name="sym_r_event" class="cursor-pointer">
-        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-date data-cy="datetime-component-date-picker" v-model="localDate" mask="YYYY-MM-DD"
-            @update:model-value="updateDate">
-            <div class="row items-center justify-end">
-              <q-btn v-close-popup label="Close" color="primary" flat />
-            </div>
-          </q-date>
-        </q-popup-proxy>
-      </q-icon>
-    </template>
-
-    <!-- Time picker with editable input -->
-    <template v-slot:append>
-      <div class="row items-center time-input-container">
-        <q-input
-          dense
-          filled
-          v-model="localTime"
-          placeholder="h:mm AM"
-          style="width: 110px; min-width: 110px"
-          class="time-text-input"
-          @update:model-value="onTimeInputChange"
-          @blur="updateTime"
-        />
-        <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer q-ml-sm">
-          <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-            <q-time data-cy="datetime-component-time-picker" v-model="localTime" :format24h=false
-              @update:model-value="updateTime">
-              <div class="row items-center justify-end">
-                <q-btn v-close-popup label="Close" color="primary" flat />
-              </div>
-            </q-time>
-          </q-popup-proxy>
-        </q-icon>
-      </div>
-    </template>
-
-    <!-- Handle after slot for other components -->
-    <template v-if="$slots.after" v-slot:after>
-      <slot name="after"></slot>
-    </template>
-
-    <!-- Display Timezone with option to change it below the input -->
-    <template v-slot:hint>
-      <div class="datetime-hint-wrapper">
-        <template v-if="$slots.hint">
-          <slot name="hint"></slot>
+  <div data-cy="datetime-component">
+    <div class="datetime-fields-row">
+      <!-- Date input -->
+      <q-input
+        data-cy="datetime-component-date-input"
+        filled
+        class="q-mb-md date-input"
+        v-model="editableDate"
+        :required="required"
+        label="Date"
+        @blur="finishDateEditing"
+        @keyup.enter="finishDateEditing"
+        placeholder="e.g. 5/20/2025 or Sept 20"
+      >
+        <template v-slot:prepend>
+          <q-icon data-cy="datetime-component-date" name="sym_r_event" class="cursor-pointer">
+            <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+              <q-date data-cy="datetime-component-date-picker" v-model="localDate" mask="YYYY-MM-DD"
+                @update:model-value="updateDate">
+                <div class="row items-center justify-end">
+                  <q-btn v-close-popup label="Close" color="primary" flat />
+                </div>
+              </q-date>
+            </q-popup-proxy>
+          </q-icon>
         </template>
+      </q-input>
 
-        <div v-if="timeZone && showTimeZone" class="q-mt-sm timezone-wrapper">
-          <q-item clickable dense class="timezone-selector rounded-borders q-px-sm" @click="showTimezonePicker = true">
-            <q-item-section avatar>
-              <q-icon name="sym_r_schedule" size="xs" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label class="text-caption text-bold">
-                {{ formatTimeZone }}
-              </q-item-label>
-            </q-item-section>
-            <q-item-section avatar>
-              <q-icon name="sym_r_edit" size="xs" />
-            </q-item-section>
-          </q-item>
-        </div>
+      <!-- Time input -->
+      <q-input
+        data-cy="datetime-component-time-input"
+        filled
+        class="q-mb-md time-input"
+        v-model="localTime"
+        label="Time"
+        placeholder="e.g. 5:00 AM or 17:00"
+        style="width: 110px; min-width: 110px"
+        @update:model-value="onTimeInputChange"
+        @blur="updateTime"
+        @keyup.enter="updateTime"
+      >
+        <template v-slot:append>
+          <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer q-ml-sm">
+            <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+              <q-time data-cy="datetime-component-time-picker" v-model="localTime" :format24h=false
+                @update:model-value="updateTime">
+                <div class="row items-center justify-end">
+                  <q-btn v-close-popup label="Close" color="primary" flat />
+                </div>
+              </q-time>
+            </q-popup-proxy>
+          </q-icon>
+        </template>
+      </q-input>
+    </div>
 
-        <!-- Timezone Selector Dialog -->
-        <q-dialog v-model="showTimezonePicker">
-          <q-card style="min-width: 350px">
-            <q-card-section class="q-pb-none">
-              <div class="text-h6">Select Timezone</div>
-            </q-card-section>
-
-            <q-card-section>
-              <q-select
-                v-model="selectedTimezone"
-                :options="timezoneOptions"
-                filled
-                label="Event timezone"
-                use-input
-                hide-selected
-                fill-input
-                input-debounce="300"
-                @filter="filterTimezones"
-                hint="Choose the timezone where this event takes place"
-              >
-                <template v-slot:no-option>
-                  <q-item>
-                    <q-item-section class="text-grey">
-                      No results
-                    </q-item-section>
-                  </q-item>
-                </template>
-              </q-select>
-            </q-card-section>
-
-            <q-card-actions align="right">
-              <q-btn flat label="Cancel" color="primary" v-close-popup />
-              <q-btn flat label="Apply" color="primary" @click="changeTimezone" v-close-popup />
-            </q-card-actions>
-          </q-card>
-        </q-dialog>
+    <!-- Timezone and hint (now on a separate line) -->
+    <div class="datetime-hint-wrapper">
+      <template v-if="$slots.hint">
+        <slot name="hint"></slot>
+      </template>
+      <div v-if="timeZone && showTimeZone" class="q-mt-sm timezone-wrapper">
+        <q-item clickable dense class="timezone-selector rounded-borders q-px-sm" @click="showTimezonePicker = true">
+          <q-item-section avatar>
+            <q-icon name="sym_r_schedule" size="xs" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label class="text-caption text-bold">
+              {{ formatTimeZone }}
+            </q-item-label>
+          </q-item-section>
+          <q-item-section avatar>
+            <q-icon name="sym_r_edit" size="xs" />
+          </q-item-section>
+        </q-item>
       </div>
-    </template>
-  </q-input>
+      <!-- Timezone Selector Dialog -->
+      <q-dialog v-model="showTimezonePicker">
+        <q-card style="min-width: 350px">
+          <q-card-section class="q-pb-none">
+            <div class="text-h6">Select Timezone</div>
+          </q-card-section>
+          <q-card-section>
+            <q-select
+              v-model="selectedTimezone"
+              :options="timezoneOptions"
+              filled
+              label="Event timezone"
+              use-input
+              hide-selected
+              fill-input
+              input-debounce="300"
+              @filter="filterTimezones"
+              hint="Choose the timezone where this event takes place"
+            >
+              <template v-slot:no-option>
+                <q-item>
+                  <q-item-section class="text-grey">
+                    No results
+                  </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" color="primary" v-close-popup />
+            <q-btn flat label="Apply" color="primary" @click="changeTimezone" v-close-popup />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, defineProps, defineEmits } from 'vue'
+import { ref, computed, watch, defineProps, defineEmits, defineExpose } from 'vue'
 import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
-import { enUS } from 'date-fns/locale'
 import { RecurrenceService } from '../../services/recurrenceService'
 
 /**
@@ -167,46 +161,11 @@ const isoDate = ref(props.modelValue || '')
 const showTimezonePicker = ref(false)
 const timezoneOptions = ref(RecurrenceService.getTimezones())
 const selectedTimezone = ref(props.timeZone || RecurrenceService.getUserTimezone())
-const isEditing = ref(false)
 const editableDate = ref('')
 
 // Format timezone for display
 const formatTimeZone = computed(() => {
   return RecurrenceService.getTimezoneDisplay(props.timeZone)
-})
-
-// Format date for display in input field
-const formattedDate = computed(() => {
-  if (!isoDate.value) return ''
-
-  // Ensure props.timeZone is available, otherwise fallback to browser's local for safety, though this path should ideally not be hit if timeZone is always provided.
-  if (!props.timeZone) {
-    console.warn('[DatetimeComponent] formattedDate: props.timeZone is not set, falling back to browser local time for display.')
-    const dateObj = new Date(isoDate.value)
-    return dateObj.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  try {
-    // Use formatInTimeZone to display the date correctly in the props.timeZone
-    // The 'isoDate.value' is a UTC ISO string.
-    // We format this UTC time into a string representing the date in 'props.timeZone'.
-    return formatInTimeZone(isoDate.value, props.timeZone, 'EEE, MMM d, yyyy', { locale: enUS })
-  } catch (e) {
-    console.error('[DatetimeComponent] Error formatting date for display with props.timeZone:', e)
-    // Fallback to browser's local if formatInTimeZone fails for some reason
-    const dateObj = new Date(isoDate.value)
-    return dateObj.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
 })
 
 /**
@@ -262,47 +221,43 @@ function createISOString () {
     // Parse date components
     const [year, month, day] = localDate.value.split('-').map(Number)
 
-    // Parse time
-    let hours = 17 // Default to 5 PM
+    // Default to 5:00 PM if no time
+    let hours = 17
     let minutes = 0
 
     if (localTime.value) {
-      try {
-        const parsedTime = parse(localTime.value, 'h:mm a', new Date())
-        if (isValid(parsedTime)) {
-          hours = parsedTime.getHours()
-          minutes = parsedTime.getMinutes()
-        } else {
-          const timeMatch = localTime.value.match(/(\d{1,2})(?::?(\d{1,2})?)?\s*([APap]\.?[Mm]?\.?)?/)
-          if (timeMatch) {
-            const inputHours = parseInt(timeMatch[1], 10)
-            minutes = parseInt(timeMatch[2] || '0', 10)
-            const period = timeMatch[3]
-            let isPM = inputHours === 12
-            if (period) {
-              isPM = period.toLowerCase().startsWith('p')
-            } else if (inputHours >= 13 && inputHours <= 23) {
-              isPM = true
-            }
-            if (isPM && inputHours < 12) {
-              hours = inputHours + 12
-            } else if (!isPM && inputHours === 12) {
-              hours = 0
-            } else {
-              hours = inputHours
-            }
-          }
+      let parsed = null
+      const timeFormats = [
+        'h:mm a', 'h:mma', 'h:mm', 'h a', 'ha', 'HH:mm', 'H:mm', 'h', 'hmm', 'hmm a', 'h.mma', 'h.mm a', 'h.mm', 'h.m', 'hmm', 'hmm', 'h:mmA', 'hA', 'ha', 'h a'
+      ]
+      for (const fmt of timeFormats) {
+        const result = parse(localTime.value.trim(), fmt, new Date(year, month - 1, day))
+        if (isValid(result)) {
+          parsed = result
+          break
         }
-      } catch (e) {
-        console.error('Error parsing time:', e)
+      }
+      if (parsed) {
+        hours = parsed.getHours()
+        minutes = parsed.getMinutes()
+      } else {
+        // Fallback: try to parse as 24-hour time (e.g. 14:12)
+        const input = localTime.value.trim()
+        const match = input.match(/^([01]?\d|2[0-3]):([0-5]\d)$/)
+        if (match) {
+          hours = parseInt(match[1], 10)
+          minutes = parseInt(match[2], 10)
+        } else if (/^\d{1,2}$/.test(input)) {
+          hours = parseInt(input, 10)
+          minutes = 0
+        } else if (/^\d{3,4}$/.test(input)) {
+          hours = parseInt(input.slice(0, input.length - 2), 10)
+          minutes = parseInt(input.slice(-2), 10)
+        }
       }
     }
 
     if (props.timeZone) {
-      // Construct a Date object from local date/time components.
-      // IMPORTANT: new Date(Y,M,D,H,m,s) creates a date in the *browser's local timezone*.
-      // We then use fromZonedTime to tell date-fns-tz: "interpret these wall clock numbers
-      // as if they occurred in props.timeZone, and give me the UTC equivalent."
       const dateInSystemTimezone = new Date(year, month - 1, day, hours, minutes, 0, 0)
       const utcDate = fromZonedTime(dateInSystemTimezone, props.timeZone)
       return utcDate.toISOString()
@@ -328,43 +283,85 @@ function updateDate () {
  * Also canonicalizes the time format on blur
  */
 function updateTime () {
-  // Parse the current time input to canonicalize it
+  // Canonicalize the time input for display
   try {
-    // Try to parse with date-fns
-    const parsedTime = parse(localTime.value, 'h:mm a', new Date())
-
-    if (isValid(parsedTime)) {
-      // Format to canonical form: h:mm AM/PM
-      localTime.value = format(parsedTime, 'h:mm a')
+    let input = localTime.value.trim()
+    console.log('[DatetimeComponent] Raw input:', input)
+    // Preprocess shorthand and 24-hour forms (case-insensitive)
+    input = input.replace(/^([1-9]|1[0-2])([ap])m?$/i, (_, h, ap) => `${h}:00 ${ap.toUpperCase()}M`)
+    input = input.replace(/^([1-9]|1[0-2]):([0-5][0-9])([ap])m?$/i, (_, h, m, ap) => `${h}:${m} ${ap.toUpperCase()}M`)
+    input = input.replace(/^([1-9]|1[0-2])([ap])$/i, (_, h, ap) => `${h}:00 ${ap.toUpperCase()}M`)
+    if (/^([01]?\d|2[0-3])$/.test(input)) {
+      input = input + ':00'
+    }
+    console.log('[DatetimeComponent] Preprocessed input:', input)
+    const [year, month, day] = localDate.value.split('-').map(Number)
+    let parsed = null
+    const timeFormats = [
+      'h:mm a', 'h:mma', 'h:mm', 'h a', 'ha', 'HH:mm', 'H:mm', 'h', 'hmm', 'hmm a', 'h.mma', 'h.mm a', 'h.mm', 'h.m', 'hmm', 'hmm', 'h:mmA', 'hA', 'ha', 'h a'
+    ]
+    for (const fmt of timeFormats) {
+      const result = parse(input, fmt, new Date(year, month - 1, day))
+      if (isValid(result)) {
+        parsed = result
+        break
+      }
+    }
+    if (parsed) {
+      let formatted = format(parsed, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
+      // If input is exactly '12' or '12:00' (no AM/PM), force PM
+      if (/^12(:00)?$/.test(input) && !/am|pm/i.test(input)) {
+        formatted = '12:00 PM'
+      } else if (/^([1-9]|1[0-1])(:\d{2})?$/.test(input) && !/am|pm/i.test(input)) {
+        // For ambiguous times 1-11 (with or without minutes), default to PM
+        formatted = formatted.replace('AM', 'PM')
+      }
+      localTime.value = formatted
+      console.log('[DatetimeComponent] Canonicalized (parsed):', localTime.value)
     } else {
-      // Fallback to regex matching for common formats with more flexibility
-      // Matches formats like: 3, 3p, 3pm, 3:00, 3:00pm, 15, 15:00, etc.
-      const timeMatch = localTime.value.match(/(\d{1,2})(?::?(\d{1,2})?)?\s*([APap]\.?[Mm]?\.?)?/)
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10)
-        const minutes = parseInt(timeMatch[2] || '0', 10)
-        const period = timeMatch[3]
-
-        // Determine AM/PM
-        let isPM = false
-        if (period) {
-          isPM = period.toUpperCase().startsWith('P')
-        } else {
-          // If no AM/PM specified, use 12-hour format convention
-          isPM = hours >= 12
+      // Fallback: try to parse as 24-hour time (e.g. 14:12)
+      const match = input.match(/^([01]?\d|2[0-3]):([0-5]\d)$/)
+      if (match) {
+        let h = parseInt(match[1], 10)
+        const m = parseInt(match[2], 10)
+        if (h === 0) h = 12
+        const fallbackDate = new Date(year, month - 1, day, h, m)
+        let formatted = format(fallbackDate, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
+        if (h === 12 && !/am|pm/i.test(input)) {
+          formatted = '12:00 PM'
+        } else if ((h >= 1 && h <= 11) && !/am|pm/i.test(input)) {
+          formatted = formatted.replace('AM', 'PM')
         }
-
-        // Convert to 12-hour format
-        let hour12 = hours % 12
-        if (hour12 === 0) hour12 = 12
-
-        // Format the time canonically
-        localTime.value = `${hour12}:${String(minutes).padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`
+        localTime.value = formatted
+        console.log('[DatetimeComponent] Canonicalized (24h fallback):', localTime.value)
+      } else if (/^\d{1,2}$/.test(input)) {
+        let h = parseInt(input, 10)
+        if (h === 0) h = 12
+        const fallbackDate = new Date(year, month - 1, day, h, 0)
+        let formatted = format(fallbackDate, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
+        if (h === 12 && !/am|pm/i.test(input)) {
+          formatted = '12:00 PM'
+        } else if ((h >= 1 && h <= 11) && !/am|pm/i.test(input)) {
+          formatted = formatted.replace('AM', 'PM')
+        }
+        localTime.value = formatted
+        console.log('[DatetimeComponent] Canonicalized (hour fallback):', localTime.value)
+      } else if (/^\d{3,4}$/.test(input)) {
+        const h = parseInt(input.slice(0, input.length - 2), 10)
+        const m = parseInt(input.slice(-2), 10)
+        const fallbackDate = new Date(year, month - 1, day, h, m)
+        localTime.value = format(fallbackDate, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
+        console.log('[DatetimeComponent] Canonicalized (compact fallback):', localTime.value)
+      } else {
+        // If all else fails, set to default
+        localTime.value = '5:00 PM'
+        console.log('[DatetimeComponent] Canonicalized (default):', localTime.value)
       }
     }
   } catch (e) {
     console.error('Error canonicalizing time:', e)
-    // Don't change the time if parsing fails
+    // Set to default if parsing fails
+    localTime.value = '5:00 PM'
   }
 
   // Update the model value with the canonicalized time
@@ -453,77 +450,10 @@ function filterTimezones (val, update) {
 }
 
 /**
- * Handle manual text editing of the date
- */
-function startEditing () {
-  isEditing.value = true
-  editableDate.value = formattedDate.value
-}
-
-function onInputChange (value) {
-  editableDate.value = value
-}
-
-/**
  * Track raw time input changes
  */
 function onTimeInputChange (value) {
   localTime.value = value
-}
-
-function finishEditing () {
-  isEditing.value = false
-  // Use the computed formattedDate directly, as it reflects the current isoDate in the browser's locale.
-  // editableDate might be stale if only time was changed via picker/time-input.
-  const dateStringToParse = formattedDate.value
-  if (!dateStringToParse) return
-
-  try {
-    const input = dateStringToParse.trim()
-    let parsedDate = null
-
-    // Try parsing with various formats
-    const formats = [
-      'yyyy-MM-dd',
-      'MM/dd/yyyy',
-      'MMM d, yyyy',
-      'MMMM d, yyyy',
-      'd MMM yyyy',
-      'EEEE, MMMM d, yyyy',
-      'MM/dd',
-      'MMM d',
-      'MMMM d',
-      'd MMM'
-    ]
-
-    for (const formatString of formats) {
-      try {
-        const result = parse(input, formatString, new Date())
-        if (isValid(result)) {
-          parsedDate = result
-          break
-        }
-      } catch {
-        // Skip failed formats
-      }
-    }
-
-    // Try native Date if all else fails
-    if (!parsedDate) {
-      const nativeDate = new Date(input)
-      if (!isNaN(nativeDate.getTime())) {
-        parsedDate = nativeDate
-      }
-    }
-
-    // Update localDate if successful
-    if (parsedDate) {
-      localDate.value = format(parsedDate, 'yyyy-MM-dd')
-      updateModelValue()
-    }
-  } catch (e) {
-    console.error('Error parsing date:', e)
-  }
 }
 
 // Watch for external changes
@@ -570,9 +500,78 @@ const tempTime = localTime
 
 // Initialize on component mount
 initializeFromISO()
+
+// Add a new finishDateEditing function for the date input
+function finishDateEditing () {
+  // Canonicalize/parse the date input (editableDate) and update localDate
+  if (!editableDate.value) return
+  try {
+    const input = editableDate.value.trim()
+    let parsedDate = null
+    const dateFormats = [
+      'yyyy-MM-dd', 'MM/dd/yyyy', 'MMM d, yyyy', 'MMMM d, yyyy', 'MMM d', 'MMMM d', 'M/d/yyyy', 'M/d', 'd MMM yyyy', 'd MMM', 'MM/dd', 'M/d', 'MMM d', 'MMMM d'
+    ]
+    for (const formatString of dateFormats) {
+      try {
+        const result = parse(input, formatString, new Date())
+        if (isValid(result)) {
+          parsedDate = result
+          break
+        }
+      } catch {}
+    }
+    // Try native Date if all else fails
+    if (!parsedDate) {
+      const nativeDate = new Date(input)
+      if (!isNaN(nativeDate.getTime())) {
+        parsedDate = nativeDate
+      }
+    }
+    if (parsedDate) {
+      localDate.value = format(parsedDate, 'yyyy-MM-dd')
+      editableDate.value = format(parsedDate, 'MMM d, yyyy')
+      updateModelValue()
+    }
+  } catch (e) {
+    console.error('Error parsing date:', e)
+  }
+}
+
+// In onMounted or watch, keep editableDate in sync with localDate
+watch(localDate, (newVal) => {
+  if (newVal) {
+    const dateObj = new Date(newVal)
+    if (!isNaN(dateObj.getTime())) {
+      editableDate.value = format(dateObj, 'MMM d, yyyy')
+    }
+  }
+})
+
+defineExpose({
+  localDate,
+  localTime,
+  finishDateEditing,
+  editableDate // Expose for tests
+})
 </script>
 
 <style scoped>
+.datetime-fields-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 0.5rem;
+}
+.date-input {
+  flex: 2 1 220px;
+  min-width: 180px;
+}
+.time-input {
+  flex: 1 1 110px;
+  min-width: 90px;
+  max-width: 140px;
+}
 .q-input {
   transition: all 0.3s ease;
 }
