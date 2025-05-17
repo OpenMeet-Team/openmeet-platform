@@ -447,7 +447,11 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
         // Verify the pattern contains the expected values
         expect(pattern.toLowerCase()).toContain('second')
         expect(pattern.toLowerCase()).toContain('wednesday')
+      } else {
+        throw new Error('Recurrence component not found')
       }
+    } else {
+      throw new Error('Datetime component not found')
     }
   })
 })
