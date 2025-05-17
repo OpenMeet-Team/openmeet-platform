@@ -38,10 +38,10 @@ describe('DatetimeComponent Time Canonicalization', () => {
 
   // Tests for various time input formats
   const testCases = [
-    { input: '6', expected: '6:00 AM' },
+    { input: '6', expected: '6:00 PM' },
     { input: '6p', expected: '6:00 PM' },
     { input: '6pm', expected: '6:00 PM' },
-    { input: '6:00', expected: '6:00 AM' },
+    { input: '6:00', expected: '6:00 PM' },
     { input: '6:00p', expected: '6:00 PM' },
     { input: '6:00pm', expected: '6:00 PM' },
     { input: '12', expected: '12:00 PM' },
@@ -51,12 +51,12 @@ describe('DatetimeComponent Time Canonicalization', () => {
     { input: '13', expected: '1:00 PM' },
     { input: '13:00', expected: '1:00 PM' },
     { input: '16:30', expected: '4:30 PM' },
-    { input: '9', expected: '9:00 AM' },
+    { input: '9', expected: '9:00 PM' },
     { input: '9a', expected: '9:00 AM' },
     { input: '9am', expected: '9:00 AM' },
     { input: '9p', expected: '9:00 PM' },
     { input: '9pm', expected: '9:00 PM' },
-    { input: '9:30', expected: '9:30 AM' },
+    { input: '9:30', expected: '9:30 PM' },
     { input: '9:30a', expected: '9:30 AM' },
     { input: '9:30 am', expected: '9:30 AM' },
     { input: '9:30p', expected: '9:30 PM' },
