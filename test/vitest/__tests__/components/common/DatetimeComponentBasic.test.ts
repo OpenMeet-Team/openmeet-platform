@@ -25,7 +25,7 @@ interface DatetimeComponentVM {
   tempDate: string
   tempTime: string
   updateTime: () => Promise<void>
-  [key: string]: any // Allow other properties
+  [key: string]: unknown // Allow other properties
 }
 
 describe('DatetimeComponent - Basic Tests', () => {

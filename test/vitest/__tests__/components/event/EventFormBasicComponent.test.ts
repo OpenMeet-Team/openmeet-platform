@@ -13,7 +13,7 @@ interface EventFormBasicComponentVM {
   onPublish: () => Promise<void>;
   setEndDate: (value: boolean) => void;
   $nextTick: () => Promise<void>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface DatetimeComponentVMShape {
@@ -22,7 +22,7 @@ interface DatetimeComponentVMShape {
   editableDate: string;
   localDate: string;
   finishDateEditing: () => Promise<void>; // Assuming async
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Using real date-fns-tz for accurate timezone testing
@@ -91,10 +91,34 @@ describe('EventForm Default Time Behavior - Isolated Tests', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     // Reset mock resolved values before each test if they might change
-    typedEventsApi.create.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
-    typedEventsApi.update.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
-    typedEventsApi.edit.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
-    typedEventsApi.getBySlug.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+    typedEventsApi.update.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+    typedEventsApi.edit.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+    typedEventsApi.getBySlug.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
   })
 
   it('default time should be 17:00 (5:00 PM) when updating date with empty time', () => {
@@ -132,8 +156,8 @@ describe('EventForm Default Time Behavior - Isolated Tests', () => {
 
   it('EventFormBasicComponent->DatetimeComponent integration properly handles default time', async () => {
     const { default: DatetimeComponent } = await import('../../../../../src/components/common/DatetimeComponent.vue')
-    const updateDateTime = (DatetimeComponent as any).__test__
-      ? (DatetimeComponent as any).__test__.updateDateTime
+    const updateDateTime = (DatetimeComponent as unknown as { __test__?: { updateDateTime?: unknown } }).__test__
+      ? (DatetimeComponent as unknown as { __test__?: { updateDateTime?: (...args: unknown[]) => void } }).__test__.updateDateTime
       : () => {
           const tempDate = '2025-02-15'
           let tempTime = ''
@@ -154,7 +178,13 @@ describe('EventForm Default Time Behavior - Integration Tests', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    typedEventsApi.create.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
   })
 
   it('ensures new events have a default time of 17:00 (5:00 PM) when published', async () => {
@@ -257,7 +287,13 @@ describe('EventFormBasicComponent - Start Date Entry (Timezone: EST)', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    typedEventsApi.create.mockResolvedValue({ data: { slug: 'test-event', name: 'Test Event' } as EventEntity } as any)
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
   })
 
   it('should not shift the date when entering 5/21/2025 and tabbing out in EST', async () => {
