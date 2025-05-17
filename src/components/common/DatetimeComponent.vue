@@ -282,8 +282,15 @@ function createISOString () {
       // Create a string that represents the local wall time.
       const wallTimeString = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
 
+      // Debug logs for tracing
+      console.log('[createISOString] localDate:', localDate.value)
+      console.log('[createISOString] localTime:', localTime.value)
+      console.log('[createISOString] wallTimeString:', wallTimeString)
+      console.log('[createISOString] props.timeZone:', props.timeZone)
+
       // Interpret this wall time string as being in props.timeZone and get the UTC Date object.
       const utcDate = fromZonedTime(wallTimeString, props.timeZone)
+      console.log('[createISOString] utcDate:', utcDate.toISOString())
       return utcDate.toISOString()
     } else {
       const localDateTime = new Date(year, month - 1, day, hours, minutes)

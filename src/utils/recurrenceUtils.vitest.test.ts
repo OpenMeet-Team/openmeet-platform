@@ -150,4 +150,24 @@ describe('recurrenceUtils', () => {
     expect(text.toLowerCase()).toContain('wednesday')
     expect(text.toLowerCase()).toContain('month')
   })
+
+  describe('BUG: Recurrence should anchor to correct local time in timezone', () => {
+    it('should generate the first occurrence at the correct UTC time for a local 10:00 PM event in America/New_York', () => {
+      // 10:00 PM on May 17, 2025 in America/New_York is 2025-05-18T02:00:00.000Z
+      const startDateUtc = '2025-05-18T02:00:00.000Z'
+      const timeZone = 'America/New_York'
+      const rule = buildRecurrenceRule({
+        startDateLocal: '2025-05-17T22:00:00', // 10:00 PM local
+        timeZone,
+        frequency: 'WEEKLY',
+        interval: 1
+      })
+      // Simulate what the UI does: pass the UTC ISO string and timezone
+      const occurrences = generateOccurrences(rule, '2025-05-17T22:00:00', timeZone, 1)
+      // The first occurrence should be 2025-05-18T02:00:00.000Z
+      expect(occurrences[0].toISOString()).toBe(startDateUtc)
+      // And in the event timezone, it should be 10:00 PM on May 17
+      expect(formatInTimeZone(occurrences[0], timeZone, 'yyyy-MM-dd HH:mm')).toBe('2025-05-17 22:00')
+    })
+  })
 })
