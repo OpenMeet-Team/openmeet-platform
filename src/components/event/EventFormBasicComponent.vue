@@ -42,7 +42,7 @@
 
               <div v-if="hasEndDate">
                 <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
-                  v-model="eventData.endDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                  v-model="eventData.endDate" :showTimeZone=false :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                   @update:time-info="handleEndTimeInfo"
                   reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
                   <template v-slot:hint>
