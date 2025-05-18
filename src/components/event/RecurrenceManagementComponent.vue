@@ -390,16 +390,9 @@ const humanReadablePattern = computed(() => {
 })
 
 // Methods
-const formatDate = (date: string) => {
+const formatDate = (dateStr: string): string => {
   try {
-    if (!date) return 'N/A'
-
-    const dateObj = new Date(date)
-    if (isNaN(dateObj.getTime())) {
-      console.error('Invalid date:', date)
-      return 'Invalid date'
-    }
-
+    const dateObj = new Date(dateStr)
     return RecurrenceService.formatWithTimezone(
       dateObj,
       {
@@ -414,8 +407,8 @@ const formatDate = (date: string) => {
       props.event.timeZone
     )
   } catch (err) {
-    console.error('Error formatting date:', err)
-    return String(date)
+    console.warn('Error formatting date in RecurrenceManagement:', dateStr, err)
+    return dateStr // Fallback to original string if formatting fails
   }
 }
 

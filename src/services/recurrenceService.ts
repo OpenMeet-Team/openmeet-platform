@@ -791,18 +791,34 @@ export class RecurrenceService {
     timeZone?: string,
     locale?: string
   ): string {
-    if (!date) return ''
+    if (!date) return 'N/A'
 
     const dateObj = typeof date === 'string' ? parseISO(date) : date
-    const userLocale = locale || (navigator.languages && navigator.languages.length ? navigator.languages[0] : navigator.language) || 'en-US'
+    // If a specific timeZone is provided (e.g. event's original timezone), use it.
+    // Otherwise, default to the user's local timezone.
+    const effectiveTimeZone = timeZone || this.getUserTimezone()
+    const effectiveLocale = locale || 'en-US' // Or pass undefined to Intl.DateTimeFormat for runtime default
 
-    // Always set the timeZone if provided
-    const opts: Intl.DateTimeFormatOptions = { ...options }
-    if (timeZone) {
-      opts.timeZone = timeZone
+    try {
+      // Use Intl.DateTimeFormat for formatting with the provided options and timezone
+      const dtf = new Intl.DateTimeFormat(effectiveLocale, { // Intl.DateTimeFormat handles locale strings directly
+        ...options,
+        timeZone: effectiveTimeZone
+      })
+      return dtf.format(dateObj)
+    } catch (e) {
+      console.error(`Error formatting date with Intl.DateTimeFormat (tz: ${effectiveTimeZone}, locale: ${effectiveLocale}):`, e)
+      // Fallback to date-fns-tz with a generic format, still respecting the timezone
+      try {
+        // formatInTimeZone can take a locale object from date-fns/locale, or uses its default if locale option is omitted.
+        // For simplicity here, we'll rely on its default or any pre-configured default locale.
+        return formatInTimeZone(dateObj, effectiveTimeZone, 'MMM d, yyyy, h:mm:ss a (zzz)')
+      } catch (fallbackError) {
+        console.error(`Error in date-fns-tz fallback formatting (tz: ${effectiveTimeZone}):`, fallbackError)
+        // Absolute fallback
+        return dateObj.toISOString() + ` (Error in formatting, tz: ${effectiveTimeZone})`
+      }
     }
-
-    return new Intl.DateTimeFormat(userLocale, opts).format(dateObj)
   }
 
   // Adjust date for timezone by adding the timezone offset

@@ -317,7 +317,7 @@
                         </q-avatar>
                       </q-item-section>
                       <q-item-section>
-                        <q-item-label>{{ RecurrenceService.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone || event.series?.timeZone || RecurrenceService.getUserTimezone()) }}</q-item-label>
+                        <q-item-label>{{ RecurrenceService.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, undefined) }}</q-item-label>
                         <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
                           <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
                         </q-item-label>
