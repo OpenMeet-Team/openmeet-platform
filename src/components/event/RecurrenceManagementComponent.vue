@@ -402,7 +402,15 @@ const formatDate = (date: string) => {
 
     return RecurrenceService.formatWithTimezone(
       dateObj,
-      'EEE, MMM d, yyyy h:mm a',
+      {
+        weekday: 'short', // EEE
+        month: 'short', // MMM
+        day: 'numeric', // d
+        year: 'numeric', // yyyy
+        hour: 'numeric', // h
+        minute: '2-digit', // mm
+        hour12: true // a (AM/PM)
+      },
       props.event.timeZone
     )
   } catch (err) {
