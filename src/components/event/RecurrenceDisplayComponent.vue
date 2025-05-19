@@ -100,7 +100,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { EventEntity } from '../../types/event'
 import { RecurrenceService } from '../../services/recurrenceService'
-// import { format } from 'date-fns' // No longer used
+import { format } from 'date-fns'
 import { useNotification } from '../../composables/useNotification'
 import { eventsApi } from '../../api/events'
 import RecurrenceCalendarComponent from './RecurrenceCalendarComponent.vue'
