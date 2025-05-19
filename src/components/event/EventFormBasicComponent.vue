@@ -30,6 +30,7 @@
             <!-- Event Start Date -->
             <div>
               <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
+                ref="startDateInputRef"
                 v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                 @update:time-info="handleStartTimeInfo"
                 reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
@@ -64,6 +65,7 @@
                 v-model="isRecurring"
                 label="Make this a recurring event"
                 :disable="!!eventData.seriesSlug"
+                @click="onRecurrenceToggleClick"
               />
 
               <!-- Add warning message when event is part of a series -->
@@ -327,7 +329,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, nextTick } from 'vue'
 import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
@@ -927,6 +929,22 @@ const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
     console.log('Series event recurrence rule updated, will affect future occurrences')
   }
 }
+
+// Ensure date input is blurred before enabling recurrence
+const onRecurrenceToggleClick = async () => {
+  // Try to blur the date input if it exists
+  await nextTick()
+  const dateInputComponent = startDateInputRef.value
+  if (dateInputComponent && dateInputComponent.$el) {
+    // Find the actual input element inside the DatetimeComponent
+    const input = dateInputComponent.$el.querySelector('[data-cy="datetime-component-date-input"]')
+    if (input && typeof input.blur === 'function') {
+      input.blur()
+    }
+  }
+}
+
+const startDateInputRef = ref()
 
 /**
  * @testing

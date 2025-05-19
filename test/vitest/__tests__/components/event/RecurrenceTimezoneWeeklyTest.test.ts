@@ -174,6 +174,26 @@ describe('RecurrenceComponent - Timezone Day Shift Tests', () => {
     )
 
     expect(allWednesdays).toBe(true)
+
+    // add Fridays to the weekly recurrence in addition to Wednesdays
+    wrapper.vm.selectedDays.push('FR')
+    await nextTick()
+
+    // Wait for pattern and occurrences to be re-calculated
+    // Need additional time as the component debounces updates
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Verify that the pattern now includes Fridays and Wednesdays
+    const pattern = wrapper.vm.humanReadablePattern
+    expect(pattern.toLowerCase()).toContain('friday')
+    expect(pattern.toLowerCase()).toContain('wednesday')
+
+    // Verify that the occurrences now include Fridays
+    const occurrences2 = wrapper.vm.occurrences
+    const allFridaysAndWednesdays = occurrences2.every(date =>
+      formatInTimeZone(date, 'America/Vancouver', 'EEEE') === 'Friday' || formatInTimeZone(date, 'America/Vancouver', 'EEEE') === 'Wednesday'
+    )
+    expect(allFridaysAndWednesdays).toBe(true)
   })
 
   /**

@@ -186,10 +186,11 @@ const monthlyPatternDetails = computed(() => {
 // Get the timezone display
 const timezoneDisplay = computed(() => {
   if (!props.event?.timeZone) return ''
+  // Display the original event timezone information
   return RecurrenceService.getTimezoneDisplay(props.event.timeZone)
 })
 
-// Format date for display
+// Format date for display in the user's current timezone
 const formatDateTime = (date: Date) => {
   if (props.event?.timeZone) {
     return RecurrenceService.formatWithTimezone(

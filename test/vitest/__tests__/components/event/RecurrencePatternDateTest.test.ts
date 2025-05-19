@@ -3,7 +3,6 @@ import { mount } from '@vue/test-utils'
 import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
 import { Notify } from 'quasar'
 import EventFormBasicComponent from '../../../../../src/components/event/EventFormBasicComponent.vue'
-import { formatInTimeZone } from 'date-fns-tz'
 import { setActivePinia } from 'pinia'
 import { createTestingPinia } from '@pinia/testing'
 
@@ -20,6 +19,14 @@ interface RecurrenceViewModel {
   humanReadablePattern: string;
   selectedDays: string[];
   [key: string]: unknown; // Use unknown instead of any
+}
+
+// Add a type for the component VM to avoid 'as any'
+interface EventFormBasicComponentVm {
+  eventData: EventData;
+  isRecurring: boolean | { value: boolean };
+  hasEndDate?: boolean | { value: boolean };
+  setEndDate?: (val: boolean) => void;
 }
 
 // Install Quasar for testing
@@ -135,6 +142,15 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
     // Set the date directly in the component data
     eventData.startDate = isoString
     await wrapper.vm.$nextTick()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isRecurringRef = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
+    if (typeof isRecurringRef === 'object' && isRecurringRef !== null && 'value' in isRecurringRef) {
+      isRecurringRef.value = true
+    } else {
+      (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
+    }
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
 
     // Verify the selected day is a Wednesday
     const selectedDayOfWeek = testDate.getDay()
@@ -142,10 +158,6 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
 
     console.log('Test date:', testDate.toDateString())
     console.log('Day of week:', selectedDayOfWeek, '(3 = Wednesday)')
-
-    // Enable recurrence
-    wrapper.vm.isRecurring = true
-    await wrapper.vm.$nextTick()
 
     // Check if the recurrence component was initialized properly
     const recurrenceComponent = wrapper.findComponent({ name: 'RecurrenceComponent' })
@@ -184,7 +196,7 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
     }
   })
 
-  it('should properly handle timezone conversions without shifting the selected date', async () => {
+  it('should properly handle timezone conversions and recurrence on local wall time', async () => {
     // Mount the component
     const wrapper = mount(EventFormBasicComponent, {
       global: {
@@ -195,74 +207,69 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       }
     })
 
-    // Wait for initial data loading to complete
     await vi.runAllTimersAsync()
 
-    // Access the component instance
-    const vm = wrapper.vm
+    // Set event name and description
+    await wrapper.find('[data-cy="event-name-input"]').setValue('Timezone Recurrence Test')
+    await wrapper.find('[data-cy="event-description"]').setValue('Testing recurrence with timezone')
 
-    // Fill in required form fields
-    await wrapper.find('[data-cy="event-name-input"]').setValue('Timezone Test Event')
-    await wrapper.find('[data-cy="event-description"]').setValue('Testing timezone conversions')
+    // Set the date via the date input (simulate user input)
+    const dateInput = wrapper.find('[data-cy="datetime-component-date-input"]')
+    expect(dateInput.exists()).toBe(true)
+    await dateInput.setValue('2025-05-14')
+    await dateInput.trigger('blur')
 
-    // Set a specific timezone for testing
-    vm.eventData.timeZone = 'America/New_York'
-    await wrapper.vm.$nextTick()
-
-    // 1. Test with a date that might cause timezone issues (near midnight UTC)
-    // Choose May 14, 2025 with a specific time
-    const originalDate = new Date(2025, 4, 14, 20, 0) // May 14, 2025, 8:00 PM local time
-    const originalIsoString = originalDate.toISOString()
-
-    // Set the date directly in the component data
-    vm.eventData.startDate = originalIsoString
-    await wrapper.vm.$nextTick()
-
-    // Extract the date parts we care about
-    const originalDay = originalDate.getDate() // Should be 14
-    const originalMonth = originalDate.getMonth() // Should be 4 (May, 0-indexed)
-
-    // Enable recurrence
-    wrapper.vm.isRecurring = true
-    await wrapper.vm.$nextTick()
-
-    // Find the DatetimeComponent
+    // Call finishDateEditing to update localDate from editableDate
     const datetimeComponent = wrapper.findComponent({ name: 'DatetimeComponent' })
-    expect(datetimeComponent.exists()).toBeTruthy()
-
-    if (datetimeComponent.exists()) {
-      // Get the current formatted date values
-      const displayedDate = datetimeComponent.vm.formattedDate
-      console.log('Displayed date in component:', displayedDate)
-
-      // Now simulate updating the date through DatetimeComponent
-      // This should use the timezone-aware conversion logic
-      datetimeComponent.vm.onDateUpdate('2025-05-14') // Same date but explicit format
+    if (datetimeComponent.exists() && typeof datetimeComponent.vm.finishDateEditing === 'function') {
+      await datetimeComponent.vm.finishDateEditing()
       await wrapper.vm.$nextTick()
+    }
 
-      // Verify the resulting date after timezone adjustments
-      const updatedDate = new Date(vm.eventData.startDate)
-      const updatedDay = updatedDate.getUTCDate()
-      const updatedMonth = updatedDate.getUTCMonth()
+    // Set the time via the time input
+    const timeInput = wrapper.find('[data-cy="datetime-component-time-input"]')
+    expect(timeInput.exists()).toBe(true)
+    await timeInput.setValue('8:00 PM')
+    await timeInput.trigger('blur')
 
-      console.log('Original date parts:', { day: originalDay, month: originalMonth })
-      console.log('Updated date parts:', { day: updatedDay, month: updatedMonth })
+    // Simulate changing the timezone (set directly and trigger nextTick)
+    wrapper.vm.eventData.timeZone = 'America/New_York'
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
 
-      // Critical test: The date should still be May 14, not shifted to another day
-      expect(updatedDay).toBe(14)
-      expect(updatedMonth).toBe(4) // May (0-indexed)
+    // Enable recurrence via the checkbox
+    const recurringCheckbox = wrapper.find('[data-cy="event-recurring-toggle"]')
+    expect(recurringCheckbox.exists()).toBe(true)
+    await recurringCheckbox.trigger('click')
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
 
-      // The time might change due to timezone conversion, but the date should remain consistent
-      // Format dates for easier debugging in both timezones
-      const originalInTz = formatInTimeZone(originalDate, 'America/New_York', 'yyyy-MM-dd')
-      const updatedInTz = formatInTimeZone(updatedDate, 'America/New_York', 'yyyy-MM-dd')
+    // Find the RecurrenceComponent
+    const recurrenceComponent = wrapper.findComponent({ name: 'RecurrenceComponent' })
+    if (!recurrenceComponent.exists()) {
+      // Debug: print the wrapper HTML if not found
+      console.log('Wrapper HTML:', wrapper.html())
+    }
+    expect(recurrenceComponent.exists()).toBeTruthy()
 
-      console.log('Date in America/New_York timezone:')
-      console.log('- Original:', originalInTz)
-      console.log('- Updated:', updatedInTz)
+    // Check that the startDate prop is the correct local time in the selected timezone
+    const startDateProp = recurrenceComponent.props('startDate')
+    // For 2025-05-14 20:00 in New York, UTC is 2025-05-15T00:00:00.000Z
+    expect(startDateProp).toBe('2025-05-15T00:00:00.000Z')
 
-      // The formatted dates in the target timezone should match
-      expect(updatedInTz).toBe(originalInTz)
+    // Check that the recurrence pattern and next occurrences are correct
+    const recurrenceVM = recurrenceComponent.vm as unknown as RecurrenceViewModel
+    const occurrences = recurrenceVM.occurrences as Date[]
+    expect(Array.isArray(occurrences)).toBe(true)
+    expect(occurrences.length).toBeGreaterThanOrEqual(5)
+
+    // All occurrences should be on Wednesday at 8:00 PM in America/New_York
+    for (let i = 0; i < 5; i++) {
+      const occ = occurrences[i]
+      const day = occ.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' })
+      const hour = occ.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
+      expect(day).toBe('Wednesday')
+      expect(hour.startsWith('20')).toBe(true) // 20:00 in 24h format
     }
   })
 
@@ -296,10 +303,15 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       // Set a specific time (2:00 PM)
       datetimeComponent.vm.onTimeUpdate('2:00 PM')
       await wrapper.vm.$nextTick()
-
-      // Enable recurrence
-      wrapper.vm.isRecurring = true
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isRecurringRef3 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
+      if (typeof isRecurringRef3 === 'object' && isRecurringRef3 !== null && 'value' in isRecurringRef3) {
+        isRecurringRef3.value = true
+      } else {
+        (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
+      }
       await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
 
       // Wait for recurrence component to initialize
       await vi.runAllTimersAsync()
@@ -390,17 +402,21 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       // Set a specific time (2:00 PM)
       datetimeComponent.vm.onTimeUpdate('2:00 PM')
       await wrapper.vm.$nextTick()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isRecurringRef4 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
+      if (typeof isRecurringRef4 === 'object' && isRecurringRef4 !== null && 'value' in isRecurringRef4) {
+        isRecurringRef4.value = true
+      } else {
+        (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
+      }
+      await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
 
       // Parse the date to verify it's the correct day
       const vm = wrapper.vm as { eventData: EventData }
       const parsedDate = new Date(vm.eventData.startDate)
       expect(parsedDate.getDate()).toBe(14)
       expect(parsedDate.getDay()).toBe(3) // Wednesday = 3
-
-      // Enable recurrence
-      const vmWithRecurring = wrapper.vm as { isRecurring: boolean; eventData: EventData }
-      vmWithRecurring.isRecurring = true
-      await wrapper.vm.$nextTick()
 
       // Find the RecurrenceComponent
       const recurrenceComponent = wrapper.findComponent({ name: 'RecurrenceComponent' })
@@ -452,6 +468,89 @@ describe('EventForm Recurrence Pattern Date Consistency', () => {
       }
     } else {
       throw new Error('Datetime component not found')
+    }
+  })
+
+  it('should show correct weekly recurrence for May 17, 2025 5pm PDT (America/Los_Angeles)', async () => {
+    // Mount the component
+    const wrapper = mount(EventFormBasicComponent, {
+      global: {
+        stubs: {
+          'q-markdown': true,
+          'vue-router': true
+        }
+      }
+    })
+
+    await vi.runAllTimersAsync()
+
+    // Fill in required form fields
+    await wrapper.find('[data-cy="event-name-input"]').setValue('PDT Recurrence Test')
+    await wrapper.find('[data-cy="event-description"]').setValue('Testing recurrence pattern for PDT')
+
+    // Set timezone to America/Los_Angeles (PDT)
+    wrapper.vm.eventData.timeZone = 'America/Los_Angeles'
+    await wrapper.vm.$nextTick()
+
+    // Set start date to May 17, 2025, 5:00 PM PDT
+    // May 17, 2025 is a Saturday
+    // To get the correct ISO string for 5pm PDT, use Date.UTC for 2025-05-18T00:00:00.000Z (which is 5pm PDT)
+    const startDate = new Date('2025-05-17T17:00:00-07:00') // PDT is UTC-7
+    wrapper.vm.eventData.startDate = startDate.toISOString()
+    await wrapper.vm.$nextTick()
+
+    // Set end date to 1 hour later
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
+    wrapper.vm.eventData.endDate = endDate.toISOString()
+    await wrapper.vm.$nextTick()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasEndDateRef = (wrapper.vm as unknown as EventFormBasicComponentVm).hasEndDate
+    const hasEndDateValue = typeof hasEndDateRef === 'object' && hasEndDateRef !== null && 'value' in hasEndDateRef
+      ? hasEndDateRef.value
+      : !!hasEndDateRef
+    if (!hasEndDateValue) {
+      (wrapper.vm as unknown as EventFormBasicComponentVm).setEndDate?.(true)
+      await wrapper.vm.$nextTick()
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isRecurringRef5 = (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring
+    if (typeof isRecurringRef5 === 'object' && isRecurringRef5 !== null && 'value' in isRecurringRef5) {
+      isRecurringRef5.value = true
+    } else {
+      (wrapper.vm as unknown as EventFormBasicComponentVm).isRecurring = true
+    }
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    // Find the RecurrenceComponent
+    const recurrenceComponent = wrapper.findComponent({ name: 'RecurrenceComponent' })
+    expect(recurrenceComponent.exists()).toBeTruthy()
+
+    // Wait for recurrence calculation
+    await vi.runAllTimersAsync()
+    await wrapper.vm.$nextTick()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recurrenceVM = recurrenceComponent.vm as unknown as RecurrenceViewModel
+
+    // Check the human-readable pattern summary
+    const pattern = recurrenceVM.humanReadablePattern
+    expect(pattern.toLowerCase()).toContain('every week')
+    expect(pattern.toLowerCase()).toContain('saturday')
+    expect(pattern).toMatch(/PDT|America\/Los_Angeles|Pacific/)
+
+    // Check the next occurrences are all Saturdays at 5:00 PM PDT
+    const occurrences = recurrenceVM.occurrences as Date[]
+    expect(Array.isArray(occurrences)).toBe(true)
+    expect(occurrences.length).toBeGreaterThanOrEqual(5)
+    for (let i = 0; i < 5; i++) {
+      const occ = occurrences[i]
+      // Get the day of week in PDT
+      const day = occ.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' })
+      const hour = occ.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Los_Angeles' })
+      expect(day).toBe('Saturday')
+      expect(hour.startsWith('17')).toBe(true) // 17:00 in 24h format
     }
   })
 })

@@ -189,7 +189,7 @@ function initializeFromISO () {
   if (!isoDate.value) {
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
-    editableDate.value = format(new Date(), 'MMM d, yyyy')
+    editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
     console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     return
   }
@@ -207,7 +207,7 @@ function initializeFromISO () {
       localTime.value = timeInTz
       const dateObj = parse(dateInTz, 'yyyy-MM-dd', new Date())
       if (isValid(dateObj)) {
-        editableDate.value = format(dateObj, 'MMM d, yyyy')
+        editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
       } else {
         editableDate.value = ''
       }
@@ -216,7 +216,7 @@ function initializeFromISO () {
       localTime.value = format(dateObjForConversion, 'h:mm a')
       const dateObj = parse(localDate.value, 'yyyy-MM-dd', new Date())
       if (isValid(dateObj)) {
-        editableDate.value = format(dateObj, 'MMM d, yyyy')
+        editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
       } else {
         editableDate.value = ''
       }
@@ -226,7 +226,7 @@ function initializeFromISO () {
     console.error('[DatetimeComponent] Error initializing from ISO:', e)
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
-    editableDate.value = format(new Date(), 'MMM d, yyyy')
+    editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
   }
   console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
 }
@@ -282,8 +282,15 @@ function createISOString () {
       // Create a string that represents the local wall time.
       const wallTimeString = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
 
+      // Debug logs for tracing
+      console.log('[createISOString] localDate:', localDate.value)
+      console.log('[createISOString] localTime:', localTime.value)
+      console.log('[createISOString] wallTimeString:', wallTimeString)
+      console.log('[createISOString] props.timeZone:', props.timeZone)
+
       // Interpret this wall time string as being in props.timeZone and get the UTC Date object.
       const utcDate = fromZonedTime(wallTimeString, props.timeZone)
+      console.log('[createISOString] utcDate:', utcDate.toISOString())
       return utcDate.toISOString()
     } else {
       const localDateTime = new Date(year, month - 1, day, hours, minutes)
@@ -557,7 +564,7 @@ function finishDateEditing () {
     }
     if (parsedDate) {
       localDate.value = format(parsedDate, 'yyyy-MM-dd')
-      editableDate.value = format(parsedDate, 'MMM d, yyyy')
+      editableDate.value = format(parsedDate, 'EEE, MMM d, yyyy')
       updateModelValue()
     }
   } catch (e) {
@@ -570,7 +577,7 @@ watch(localDate, (newVal) => {
   if (newVal) {
     const dateObj = parse(newVal, 'yyyy-MM-dd', new Date())
     if (isValid(dateObj)) {
-      editableDate.value = format(dateObj, 'MMM d, yyyy')
+      editableDate.value = format(dateObj, 'EEE, MMM d, yyyy')
     }
   }
 })
