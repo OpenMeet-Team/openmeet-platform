@@ -406,7 +406,6 @@ import { useEventSeriesStore } from '../stores/event-series-store'
 import { useAuthStore } from '../stores/auth-store'
 import { useEventStore } from '../stores/event-store'
 import { eventSeriesApi } from '../api/event-series'
-import { EventType } from '../types/event'
 
 // Define types for the component's data
 interface EditFormData {
@@ -681,53 +680,14 @@ const loadOccurrences = async () => {
         interval: eventSeries.value.recurrenceRule.interval || 1
       })
 
-      // Create a mock event with the series rule for accurate generation
-      const mockEvent: Partial<EventEntity> = {
-        id: 0,
-        ulid: 'mock',
-        slug: 'mock',
-        type: EventType.Online,
-        name: eventSeries.value.name,
-        startDate: templateEvent.value?.startDate || new Date().toISOString(),
-        recurrenceRule: eventSeries.value.recurrenceRule,
-        timeZone: eventSeries.value.timeZone
-      }
+      // We used to create a mock event and generate occurrences client-side,
+      // but now we use the API directly for all occurrence generation
+      console.log('Using API for all occurrence generation, even for MONTHLY patterns with BYSETPOS')
 
-      // Generate accurate occurrences client-side
-      const clientOccurrences = RecurrenceService.getOccurrences(mockEvent as EventEntity, occurrenceCount.value)
-      console.log(`Generated ${clientOccurrences.length} client-side occurrences`)
-
-      // We still need to know which occurrences are materialized, so we'll fetch from API
-      // But we'll use our client-side generated dates to ensure correct pattern
+      // Use API directly for all occurrence generation
       const apiResults = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
-
-      // Create a map of materialized events by date (roughly)
-      const materializedMap = new Map()
-      apiResults.filter(o => o.materialized).forEach(o => {
-        // Use date string without time for fuzzy matching
-        const dateKey = new Date(o.date).toISOString().split('T')[0]
-        materializedMap.set(dateKey, o)
-      })
-
-      // Create our hybrid result set with accurate dates but materialization info from API
-      results = clientOccurrences.map(date => {
-        const dateKey = date.toISOString().split('T')[0]
-        const matchingOccurrence = materializedMap.get(dateKey)
-
-        if (matchingOccurrence) {
-          return {
-            date: date.toISOString(), // Use our accurate date
-            materialized: true,
-            event: matchingOccurrence.event
-          }
-        } else {
-          return {
-            date: date.toISOString(),
-            materialized: false,
-            event: null
-          }
-        }
-      })
+      // Since we no longer generate client-side occurrences, we'll just use the API results directly
+      results = apiResults
 
       console.log(`Created hybrid result set with ${results.length} occurrences`)
     } else {

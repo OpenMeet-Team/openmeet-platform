@@ -328,7 +328,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import { useNotification } from '../../composables/useNotification'
 import { RecurrenceService } from '../../services/recurrenceService'
@@ -469,33 +469,11 @@ const loadOccurrences = async (reset = true) => {
       console.error('API fetch failed, falling back to client-side generation:', apiError)
       console.error('Error details:', apiError.message, apiError.response?.status, apiError.response?.data)
 
-      // Fallback to client-side occurrence generation
-      if (props.event.recurrenceRule) {
-        console.log('Generating occurrences from recurrence rule:', props.event.recurrenceRule)
-
-        // Pre-process exclusion dates
-        const exclusionDates = props.event.recurrenceExceptions?.map(ex =>
-          format(parseISO(ex), 'yyyy-MM-dd')
-        ) || []
-
-        const clientSideOccurrences = RecurrenceService.getOccurrences(props.event, occurrencesCount.value)
-          .map(date => ({
-            date: date.toISOString(),
-            isExcluded: exclusionDates.includes(format(date, 'yyyy-MM-dd'))
-          }))
-
-        console.log('Client-side generated occurrences:', clientSideOccurrences)
-
-        if (reset) {
-          occurrences.value = clientSideOccurrences
-        } else {
-          // Append new occurrences
-          occurrences.value = [...occurrences.value, ...clientSideOccurrences]
-        }
-      } else {
-        console.error('No recurrence rule available for client-side generation')
-        hasError.value = true
-      }
+      // We don't generate client-side occurrences anymore
+      console.warn('API call failed and client-side generation is no longer supported')
+      hasError.value = true
+      // Set a more helpful error message
+      error('Unable to load occurrences. Please try again or contact support.')
     }
 
     occurrencesPage.value++
@@ -553,12 +531,10 @@ const generateClientSideOccurrences = async () => {
         console.log('Series API returned occurrences:', apiOccurrences)
       } catch (apiError) {
         console.error('Error fetching from series API:', apiError)
-        // Fall through to the next approach on error
+        // Let error bubble up
+        throw apiError
       }
-    }
-
-    // If no series or API call failed, try RecurrenceService.fetchOccurrences
-    if (apiOccurrences.length === 0 && props.event.slug) {
+    } else if (props.event.slug) {
       try {
         console.log('Using RecurrenceService.fetchOccurrences as fallback')
         const response = await RecurrenceService.fetchOccurrences(props.event.slug, {
@@ -571,8 +547,11 @@ const generateClientSideOccurrences = async () => {
         console.log('fetchOccurrences returned:', apiOccurrences)
       } catch (fetchError) {
         console.error('Error using fetchOccurrences:', fetchError)
-        // Fall through to error handling
+        // Let error bubble up
+        throw fetchError
       }
+    } else {
+      throw new Error('Event has no slug or series slug, cannot fetch occurrences')
     }
 
     // If we have occurrences, use them
