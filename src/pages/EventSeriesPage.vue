@@ -391,6 +391,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { EventSeriesService } from '../services/eventSeriesService'
 import { RecurrenceService } from '../services/recurrenceService'
+import dateFormatting from '../composables/useDateFormatting'
 import { format } from 'date-fns'
 import { useQuasar } from 'quasar'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
@@ -1317,7 +1318,7 @@ const formatDescription = (description: string) => {
 }
 
 const formatTimezone = (timezone: string) => {
-  return RecurrenceService.getTimezoneDisplay(timezone)
+  return dateFormatting.getTimezoneDisplay(timezone)
 }
 
 // Get a human-readable description of the recurrence pattern

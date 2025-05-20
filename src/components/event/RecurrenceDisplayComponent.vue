@@ -83,16 +83,7 @@
       </q-expansion-item>
     </div>
 
-    <!-- Calendar View -->
-    <div class="q-mt-md">
-      <q-expansion-item
-        label="View calendar"
-        icon="sym_r_calendar_month"
-        header-class="text-primary"
-      >
-        <RecurrenceCalendarComponent :event="event" />
-      </q-expansion-item>
-    </div>
+    <!-- Calendar View functionality removed -->
   </div>
 </template>
 
@@ -103,7 +94,8 @@ import { RecurrenceService } from '../../services/recurrenceService'
 import { format } from 'date-fns'
 import { useNotification } from '../../composables/useNotification'
 import { eventsApi } from '../../api/events'
-import RecurrenceCalendarComponent from './RecurrenceCalendarComponent.vue'
+// RecurrenceCalendarComponent removed
+import dateFormatting from '../../composables/useDateFormatting'
 
 const props = defineProps({
   event: {
@@ -187,13 +179,13 @@ const monthlyPatternDetails = computed(() => {
 const timezoneDisplay = computed(() => {
   if (!props.event?.timeZone) return ''
   // Display the original event timezone information
-  return RecurrenceService.getTimezoneDisplay(props.event.timeZone)
+  return dateFormatting.getTimezoneDisplay(props.event.timeZone)
 })
 
 // Format date for display in the user's current timezone
 const formatDateTime = (date: Date) => {
   if (props.event?.timeZone) {
-    return RecurrenceService.formatWithTimezone(
+    return dateFormatting.formatWithTimezone(
       date,
       {
         weekday: 'short', // EEE
@@ -280,35 +272,55 @@ const copyGoogleCalendarLink = () => {
 }
 
 // Load occurrences on mount
-onMounted(() => {
+onMounted(async () => {
   if (props.event?.seriesSlug || (props.event?.isRecurring && props.event?.recurrenceRule)) {
     console.log('RecurrenceDisplayComponent - Loading occurrences for event:', {
       name: props.event.name,
       slug: props.event.slug,
+      seriesSlug: props.event.seriesSlug,
       recurrenceDescription: props.event.recurrenceDescription,
       recurrenceRule: props.event.recurrenceRule
     })
 
-    // Check specifically for monthly patterns with bysetpos
-    if (props.event.recurrenceRule?.frequency === 'MONTHLY' &&
-        props.event.recurrenceRule?.byweekday &&
-        props.event.recurrenceRule?.bysetpos) {
-      console.log('RecurrenceDisplayComponent - MONTHLY PATTERN WITH BYSETPOS DETECTED:', {
-        byweekday: props.event.recurrenceRule.byweekday,
-        bysetpos: props.event.recurrenceRule.bysetpos
-      })
+    try {
+      // Check if the event is part of a series
+      if (props.event.seriesSlug) {
+        // Use the event series API to get occurrences
+        console.log('Using event series API to fetch occurrences')
+        const response = await import('../../api/event-series').then(module => {
+          const eventSeriesApi = module.eventSeriesApi
+          return eventSeriesApi.getOccurrences(
+            props.event.seriesSlug,
+            5, // Show next 5 occurrences
+            false // Don't include past occurrences
+          )
+        })
+
+        // Convert the API response to Date objects
+        occurrences.value = response.data.map(occ => new Date(occ.date))
+      } else if (props.event.recurrenceRule) {
+        // Fall back to RecurrenceService.fetchOccurrences for non-series events
+        console.log('Using RecurrenceService.fetchOccurrences for legacy event')
+        const response = await RecurrenceService.fetchOccurrences(props.event.slug, {
+          count: 5,
+          startDate: new Date().toISOString()
+        })
+
+        // Convert the response to Date objects
+        occurrences.value = response.map(occ => new Date(occ.date))
+      }
+
+      // Log the fetched occurrences
+      console.log('RecurrenceDisplayComponent - Fetched occurrences:',
+        occurrences.value.map(date => ({
+          date: date.toISOString(),
+          formatted: formatDateTime(date)
+        }))
+      )
+    } catch (error) {
+      console.error('Error fetching occurrences:', error)
+      occurrences.value = [] // Reset to empty array on error
     }
-
-    // Get the occurrences and log them
-    occurrences.value = RecurrenceService.getOccurrences(props.event, 5)
-
-    // Log the generated occurrences
-    console.log('RecurrenceDisplayComponent - Generated occurrences:',
-      occurrences.value.map(date => ({
-        date: date.toISOString(),
-        formatted: formatDateTime(date)
-      }))
-    )
   }
 })
 </script>

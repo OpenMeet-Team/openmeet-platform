@@ -229,7 +229,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { EventSeriesService } from '../../services/eventSeriesService'
-import { RecurrenceService } from '../../services/recurrenceService'
+import dateFormatting from '../../composables/useDateFormatting'
 import { CreateEventSeriesDto } from '../../api/event-series'
 import { EventType } from '../../types'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
@@ -246,7 +246,7 @@ const isLoading = ref(false)
 const seriesData = ref({
   name: '',
   description: '',
-  timeZone: RecurrenceService.getUserTimezone(),
+  timeZone: dateFormatting.getUserTimezone(),
   groupId: null
 })
 
@@ -289,17 +289,17 @@ const groupsOptions = ref([
 ])
 
 // Timezone options
-const timezoneOptions = ref(RecurrenceService.getTimezones())
+const timezoneOptions = ref(dateFormatting.getTimezones())
 const filterTimezones = (val: string, update: (callback: () => void) => void) => {
   if (val === '') {
     update(() => {
-      timezoneOptions.value = RecurrenceService.getTimezones()
+      timezoneOptions.value = dateFormatting.getTimezones()
     })
     return
   }
 
   update(() => {
-    timezoneOptions.value = RecurrenceService.searchTimezones(val)
+    timezoneOptions.value = dateFormatting.searchTimezones(val)
   })
 }
 

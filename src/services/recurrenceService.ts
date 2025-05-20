@@ -1,6 +1,6 @@
 import { RRule, Options, Weekday, Frequency } from 'rrule'
 import { format, formatInTimeZone, toZonedTime } from 'date-fns-tz'
-import { parseISO, addMilliseconds } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
 
@@ -973,104 +973,6 @@ export class RecurrenceService {
       console.error('Error generating human readable pattern:', error)
       return 'Custom recurrence pattern'
     }
-  }
-
-  // Format date with timezone
-  static formatWithTimezone (
-    date: string | Date,
-    options: Intl.DateTimeFormatOptions = {},
-    timeZone?: string,
-    locale?: string
-  ): string {
-    if (!date) return 'N/A'
-
-    const dateObj = typeof date === 'string' ? parseISO(date) : date
-    // If a specific timeZone is provided (e.g. event's original timezone), use it.
-    // Otherwise, default to the user's local timezone.
-    const effectiveTimeZone = timeZone || this.getUserTimezone()
-    const effectiveLocale = locale || 'en-US' // Or pass undefined to Intl.DateTimeFormat for runtime default
-
-    try {
-      // Use Intl.DateTimeFormat for formatting with the provided options and timezone
-      const dtf = new Intl.DateTimeFormat(effectiveLocale, { // Intl.DateTimeFormat handles locale strings directly
-        ...options,
-        timeZone: effectiveTimeZone
-      })
-      return dtf.format(dateObj)
-    } catch (e) {
-      console.error(`Error formatting date with Intl.DateTimeFormat (tz: ${effectiveTimeZone}, locale: ${effectiveLocale}):`, e)
-      // Fallback to date-fns-tz with a generic format, still respecting the timezone
-      try {
-        // formatInTimeZone can take a locale object from date-fns/locale, or uses its default if locale option is omitted.
-        // For simplicity here, we'll rely on its default or any pre-configured default locale.
-        return formatInTimeZone(dateObj, effectiveTimeZone, 'MMM d, yyyy, h:mm:ss a (zzz)')
-      } catch (fallbackError) {
-        console.error(`Error in date-fns-tz fallback formatting (tz: ${effectiveTimeZone}):`, fallbackError)
-        // Absolute fallback
-        return dateObj.toISOString() + ` (Error in formatting, tz: ${effectiveTimeZone})`
-      }
-    }
-  }
-
-  // Adjust date for timezone by adding the timezone offset
-  static adjustDateForTimezone (date: string | Date, timeZone?: string): Date {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date
-
-    if (!timeZone) return dateObj
-
-    // Calculate the timezone offset
-    const targetTzOffset = new Date(dateObj).getTimezoneOffset() * 60000
-    const localTzOffset = new Date().getTimezoneOffset() * 60000
-
-    // Adjust the date for timezone difference
-    return addMilliseconds(dateObj, targetTzOffset - localTzOffset)
-  }
-
-  // Get the timezone display name
-  static getTimezoneDisplay (timeZone?: string): string {
-    if (!timeZone) {
-      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    }
-
-    try {
-      // Format the timezone for display (e.g., "America/New_York (EDT)")
-      const now = new Date()
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        timeZoneName: 'short'
-      })
-
-      const parts = formatter.formatToParts(now)
-      const tzName = parts.find(part => part.type === 'timeZoneName')?.value
-
-      return `${timeZone} (${tzName})`
-    } catch (error) {
-      console.error('Error getting timezone display:', error)
-      return timeZone
-    }
-  }
-
-  // Get all IANA timezones
-  static getTimezones (): string[] {
-    // Use the full list of supported timezones
-    return Intl.supportedValuesOf('timeZone')
-  }
-
-  // Get filtered timezone list matching search term
-  static searchTimezones (search: string): string[] {
-    if (!search) {
-      return this.getTimezones()
-    }
-
-    const searchLower = search.toLowerCase()
-    return this.getTimezones().filter(
-      tz => tz.toLowerCase().includes(searchLower)
-    )
-  }
-
-  // Get the user's timezone
-  static getUserTimezone (): string {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone
   }
 
   /**

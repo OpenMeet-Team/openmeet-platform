@@ -258,10 +258,10 @@
 import { useRecurrenceLogic } from './recurrence-component-logic'
 import { RecurrenceRule } from '../../types/event'
 import { EventOccurrence } from '../../types/event-series'
-import { RecurrenceService } from '../../services/recurrenceService'
 import { EventSeriesService } from '../../services/eventSeriesService'
 import { eventSeriesApi } from '../../api/event-series'
 import { ref } from 'vue'
+import { useDateFormatting } from '../../composables/useDateFormatting'
 
 // Define props in a standard way
 const props = defineProps({
@@ -328,11 +328,14 @@ const upcomingOccurrences = ref<EventOccurrence[]>([])
 const isLoadingOccurrences = ref<boolean>(false)
 const occurrencePreviewError = ref<string | null>(null)
 
+// Get the date formatting methods from our composable
+const { formatWithTimezone } = useDateFormatting()
+
 // Format occurrence date for display
 const formatOccurrenceDate = (date: Date | string): string => {
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date
-    return RecurrenceService.formatWithTimezone(
+    return formatWithTimezone(
       dateObj,
       { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
       timezone.value
@@ -347,7 +350,7 @@ const formatOccurrenceDate = (date: Date | string): string => {
 const formatWeekday = (date: Date | string): string => {
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date
-    return RecurrenceService.formatWithTimezone(
+    return formatWithTimezone(
       dateObj,
       { weekday: 'long' },
       timezone.value

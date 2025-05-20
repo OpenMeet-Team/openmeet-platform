@@ -15,17 +15,17 @@
                 <div class="text-body2 text-bold">
                   <template v-if="isTemplateView && templateDate">
                     <q-badge color="blue" class="q-mr-sm">Template View</q-badge>
-                    {{ RecurrenceService.formatWithTimezone(
+                    {{ dateFormatting.formatWithTimezone(
                       templateDate,
                       { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      RecurrenceService.getUserTimezone() || event.timeZone
+                      dateFormatting.getUserTimezone() || event.timeZone
                     ) }}
                   </template>
                   <template v-else>
-                    {{ RecurrenceService.formatWithTimezone(
+                    {{ dateFormatting.formatWithTimezone(
                       event.startDate,
                       { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      RecurrenceService.getUserTimezone() || event.timeZone
+                      dateFormatting.getUserTimezone() || event.timeZone
                     ) }}
                   </template>
                 </div>
@@ -263,31 +263,31 @@
                 </q-item-section>
                 <q-item-section>
                   <q-item-label>
-                    {{ RecurrenceService.formatWithTimezone(
+                    {{ dateFormatting.formatWithTimezone(
                       event.startDate,
                       { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      RecurrenceService.getUserTimezone() || event.timeZone
+                      dateFormatting.getUserTimezone() || event.timeZone
                     ) }}
                   </q-item-label>
                   <q-item-label v-if="event.endDate">
-                    {{ RecurrenceService.formatWithTimezone(
+                    {{ dateFormatting.formatWithTimezone(
                       event.endDate,
                       { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      RecurrenceService.getUserTimezone() || event.timeZone
+                      dateFormatting.getUserTimezone() || event.timeZone
                     ) }}
                   </q-item-label>
-                  <q-item-label caption v-if="event.timeZone && RecurrenceService.getUserTimezone() && event.timeZone !== RecurrenceService.getUserTimezone()">
+                  <q-item-label caption v-if="event.timeZone && dateFormatting.getUserTimezone() && event.timeZone !== dateFormatting.getUserTimezone()">
                     <div class="row items-center q-gutter-sm q-mt-sm">
                       <span class="text-italic">
                         Event time in original timezone ({{ event.timeZone }}):
-                        {{ RecurrenceService.formatWithTimezone(event.startDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) }}
+                        {{ dateFormatting.formatWithTimezone(event.startDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) }}
                       </span>
                     </div>
                   </q-item-label>
                   <q-item-label caption>
                     <div class="row items-center q-gutter-sm q-mt-sm">
                       <span class="text-italic">
-                        Dates shown in your local time{{ RecurrenceService.getUserTimezone() ? ` (${RecurrenceService.getUserTimezone()})` : '' }}
+                        Dates shown in your local time{{ dateFormatting.getUserTimezone() ? ` (${dateFormatting.getUserTimezone()})` : '' }}
                       </span>
                     </div>
                   </q-item-label>
@@ -315,7 +315,7 @@
                     </div>
                     <div v-else-if="event.recurrenceRule">
                       <div><b>Event Start Date:</b> {{ event.startDate ? new Date(event.startDate).toISOString() : 'Not set' }}</div>
-                      <div><b>Event Start (Local):</b> {{ event.startDate ? RecurrenceService.formatWithTimezone(event.startDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) : 'Not set' }}</div>
+                      <div><b>Event Start (Local):</b> {{ event.startDate ? dateFormatting.formatWithTimezone(event.startDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) : 'Not set' }}</div>
                       <div><b>Event Frequency:</b> {{ event.recurrenceRule.frequency }}</div>
                       <div><b>Event Interval:</b> {{ event.recurrenceRule.interval || 1 }}</div>
                       <div><b>Event Weekdays:</b> {{ Array.isArray(event.recurrenceRule.byweekday) ? event.recurrenceRule.byweekday.join(', ') : 'None' }}</div>
@@ -352,7 +352,7 @@
                         </q-avatar>
                       </q-item-section>
                       <q-item-section>
-                        <q-item-label>{{ RecurrenceService.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, undefined) }}</q-item-label>
+                        <q-item-label>{{ dateFormatting.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, undefined) }}</q-item-label>
                         <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
                           <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
                         </q-item-label>
@@ -547,7 +547,7 @@ import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
-import { RecurrenceService } from '../services/recurrenceService'
+import dateFormatting from '../composables/useDateFormatting'
 
 // Define the type for occurrence
 interface SeriesOccurrence {
@@ -589,7 +589,7 @@ const showDebugRecurrenceInfo = ref(false) // Debug flag for recurrence informat
 // Helper function to format dates with timezone
 const formatInTimezone = (date: Date, options: Intl.DateTimeFormatOptions, tz?: string): string => {
   try {
-    const timezone = tz || RecurrenceService.getUserTimezone()
+    const timezone = tz || dateFormatting.getUserTimezone()
     return new Intl.DateTimeFormat('en-US', { ...options, timeZone: timezone }).format(date)
   } catch (error) {
     console.error('Error formatting date with timezone:', error)

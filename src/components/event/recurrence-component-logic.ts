@@ -2,6 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { RecurrenceService } from '../../services/recurrenceService'
 import { RecurrenceRule } from '../../types/event'
 import { formatInTimeZone } from 'date-fns-tz'
+import dateFormatting from '../../composables/useDateFormatting'
 
 // Interface for component props
 export interface RecurrenceComponentProps {
@@ -32,7 +33,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   const endType = ref('never')
   const count = ref(10)
   const until = ref('')
-  const timezoneOptions = ref(RecurrenceService.getTimezones())
+  const timezoneOptions = ref(dateFormatting.getTimezones())
 
   // Since we don't generate occurrences anymore, no need for loading states
   let lastRuleUpdateHash = ''
@@ -135,7 +136,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
       // CRITICAL: ALWAYS include timezone in the rule for proper client/server sync
       // Use the component's timezone or fallback to the user's timezone
-      result.timeZone = timezone.value || RecurrenceService.getUserTimezone()
+      result.timeZone = timezone.value || dateFormatting.getUserTimezone()
 
       // Mark weekly rules with byweekday as having user-explicit day selection
       if (frequency.value === 'WEEKLY' && props.startDate && result.byweekday && result.byweekday.length > 0) {
@@ -147,7 +148,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       console.error('Error in rule computed property:', e)
       return {
         frequency: 'WEEKLY',
-        timeZone: timezone.value || RecurrenceService.getUserTimezone()
+        timeZone: timezone.value || dateFormatting.getUserTimezone()
       }
     }
   })
@@ -178,7 +179,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   const toggleRecurrence = (value: boolean) => {
     emit('update:is-recurring', value)
     if (value && !timezone.value) {
-      timezone.value = RecurrenceService.getUserTimezone()
+      timezone.value = dateFormatting.getUserTimezone()
       emit('update:time-zone', timezone.value)
     }
   }
@@ -201,13 +202,13 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
   const filterTimezones = (val: string, update: (callback: () => void) => void) => {
     if (val === '') {
       update(() => {
-        timezoneOptions.value = RecurrenceService.getTimezones()
+        timezoneOptions.value = dateFormatting.getTimezones()
       })
       return
     }
 
     update(() => {
-      timezoneOptions.value = RecurrenceService.searchTimezones(val)
+      timezoneOptions.value = dateFormatting.searchTimezones(val)
     })
   }
 
@@ -315,7 +316,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     if (props.timeZone) {
       timezone.value = props.timeZone
     } else {
-      timezone.value = RecurrenceService.getUserTimezone()
+      timezone.value = dateFormatting.getUserTimezone()
       emit('update:time-zone', timezone.value)
     }
 
@@ -323,7 +324,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     if (props.startDate) {
       try {
         // Get the timezone to use for calculations
-        const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
+        const timeZoneToUse = props.timeZone || dateFormatting.getUserTimezone()
 
         // Use RecurrenceService's helper method to get the correct day of week
         // This ensures consistent timezone handling across the application
@@ -362,7 +363,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
         // Use a more robust fallback approach
         try {
-          const timeZoneToUse = props.timeZone || RecurrenceService.getUserTimezone()
+          const timeZoneToUse = props.timeZone || dateFormatting.getUserTimezone()
           const startDate = new Date(props.startDate)
 
           // Use the Intl API as a fallback for getting the day
@@ -445,7 +446,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       // automatically derive the weekday and its position (e.g., "2nd Wednesday") from the start date.
       // This ensures the UI reflects the correct Nth weekday based on the event's start date.
       if (newType === 'dayOfWeek' && props.startDate && frequency.value === 'MONTHLY') {
-        const timeZoneToUse = timezone.value || RecurrenceService.getUserTimezone()
+        const timeZoneToUse = timezone.value || dateFormatting.getUserTimezone()
         const startDateDate = new Date(props.startDate)
 
         // Get the day code (e.g., 'WE' for Wednesday)

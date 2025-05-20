@@ -346,7 +346,7 @@ import { groupsApi } from '../../api/groups'
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
-import { RecurrenceService } from '../../services/recurrenceService'
+import dateFormatting from '../../composables/useDateFormatting'
 import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 import { addHours } from 'date-fns'
@@ -382,7 +382,7 @@ const eventData = ref<EventEntity>({
   sourceUrl: null,
   sourceData: null,
   lastSyncedAt: null,
-  timeZone: RecurrenceService.getUserTimezone()
+  timeZone: dateFormatting.getUserTimezone()
   // Removed recurrence-related fields
 })
 
@@ -396,7 +396,7 @@ const recurrenceRule = ref<RecurrenceRule>({
 const seriesFormData = ref({
   name: '',
   description: '',
-  timeZone: RecurrenceService.getUserTimezone()
+  timeZone: dateFormatting.getUserTimezone()
 })
 
 // Tab for description editor (edit/preview)
