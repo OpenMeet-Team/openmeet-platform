@@ -28,6 +28,11 @@ function stringArrayToByWeekday (days: string[]): ByWeekday[] {
 
 /**
  * Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
+ *
+ * This function ensures that the day selection is correctly preserved for the timezone.
+ * For weekly recurrence, it makes sure the byweekday property reflects the correct
+ * day in the event's timezone, which is crucial for late-night events where the UTC date
+ * might cross day boundaries.
  */
 export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): RecurrenceRuleDto {
   if (!rule) return { frequency: 'WEEKLY' }
@@ -35,7 +40,8 @@ export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): Recurre
   // Log the rule for debugging
   console.log('Converting frontend rule to backend format:', JSON.stringify(rule))
 
-  return {
+  // Create basic dto with all standard properties
+  const dto: RecurrenceRuleDto = {
     frequency: rule.frequency || 'WEEKLY',
     interval: rule.interval,
     count: rule.count,
@@ -46,6 +52,22 @@ export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): Recurre
     bysetpos: rule.bysetpos,
     wkst: rule.wkst
   }
+
+  // Add a custom property to indicate user explicit selection if needed
+  // This is important for the backend to respect the user's day choices
+  if (rule._userExplicitSelection && rule.byweekday && rule.byweekday.length > 0) {
+    console.log('Preserving user explicit day selection flag for backend:', rule.byweekday)
+
+    // We use a custom property that will be passed along but not part of the standard RecurrenceRuleDto
+    dto._userExplicitSelection = true
+  }
+
+  // Ensure timezone is included if available
+  if (rule.timeZone) {
+    dto.timeZone = rule.timeZone
+  }
+
+  return dto
 }
 
 /**
@@ -127,6 +149,9 @@ export function buildRecurrenceRule ({
 /**
  * Generate occurrences given a RecurrenceRule, local start datetime, and timezone.
  * Returns Date[] in UTC.
+ *
+ * @deprecated This method is deprecated as occurrence generation has been moved to the backend.
+ * It is kept for backwards compatibility with tests. New code should use the event-series API instead.
  */
 export function generateOccurrences (
   rule: RecurrenceRule,
@@ -134,6 +159,8 @@ export function generateOccurrences (
   timeZone: string,
   count: number = 10
 ): Date[] {
+  console.warn('generateOccurrences is deprecated - occurrence generation has been moved to the backend')
+
   // Convert the local start date in the given timezone to UTC
   const dtstart = localTimeStringToUTC(startDateLocal, timeZone)
 
@@ -178,6 +205,9 @@ export function generateOccurrences (
 /**
  * Get a human-readable description of the recurrence pattern.
  * Pure function for testability.
+ *
+ * Note: This function is still actively used throughout the application,
+ * so we're not marking it as deprecated despite its similarity to generateOccurrences.
  */
 export function getHumanReadablePattern (rule: RecurrenceRule, startDateLocal: string, timeZone: string): string {
   // Use the same logic as generateOccurrences to build the RRule

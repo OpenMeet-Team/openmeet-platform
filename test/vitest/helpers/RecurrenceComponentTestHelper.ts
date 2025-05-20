@@ -13,8 +13,8 @@ interface RecurrenceComponent {
   endType: string
   count: number
   until: string
-  humanReadablePattern: string
-  occurrences: Date[]
+  // humanReadablePattern: string  // Removed property
+  // occurrences: Date[]  // Removed property
   rule: Partial<RecurrenceRule>
   toggleDay: (day: string) => void
   toggleRecurrence: (value: boolean) => void
@@ -239,16 +239,20 @@ export class RecurrenceComponentTestHelper {
 
   /**
    * Get the current pattern human-readable description
+   * @deprecated This property has been removed from the component
    */
   getPatternDescription (): string {
-    return this.wrapper.vm.humanReadablePattern
+    console.warn('getPatternDescription() is deprecated - humanReadablePattern has been removed')
+    return 'Pattern description unavailable'
   }
 
   /**
    * Get the current occurrences
+   * @deprecated This property has been removed from the component
    */
   getOccurrences (): Date[] {
-    return this.wrapper.vm.occurrences
+    console.warn('getOccurrences() is deprecated - occurrences has been removed')
+    return []
   }
 
   /**
@@ -286,20 +290,6 @@ export class RecurrenceComponentTestHelper {
   }
 
   /**
-   * Check if all occurrences fall on a specific day of week
-   * @param dayName The day name to check ('Monday', 'Tuesday', etc.)
-   * @param timezone The timezone to use for the check
-   */
-  occurrencesMatchDay (dayName: string, timezone: string): boolean {
-    const { formatInTimeZone } = require('date-fns-tz')
-    const occurrences = this.getOccurrences()
-
-    return occurrences.every(date =>
-      formatInTimeZone(date, timezone, 'EEEE') === dayName
-    )
-  }
-
-  /**
    * Log detailed information about the component state
    */
   logComponentState (): void {
@@ -317,7 +307,7 @@ export class RecurrenceComponentTestHelper {
       rule: this.getRule()
     })
 
-    console.log('Occurrences:', this.getOccurrences().map(date => date.toISOString()))
-    console.log('Pattern Description:', this.getPatternDescription())
+    // Removed logging for occurrences and pattern description as they've been removed from the component
+    console.log('Note: humanReadablePattern and occurrences properties were removed')
   }
 }

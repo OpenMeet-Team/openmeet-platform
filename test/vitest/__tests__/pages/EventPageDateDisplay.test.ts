@@ -107,35 +107,6 @@ describe('EventPageDateDisplay.vue', () => {
     })
   })
 
-  it.skip('displays event time using event timezone when user timezone is different (old behavior)', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('America/Los_Angeles')
-    eventStore.event = {
-      ...MOCK_EVENT_BASE,
-      timeZone: 'America/New_York',
-      startDate: '2024-06-03T08:30:00.000Z'
-    }
-
-    const wrapper = mount(EventPage, {
-      global: {
-        mocks: { $route: { params: { slug: 'test-event-for-dates' }, query: {} } }
-      }
-    })
-    await wrapper.vm.$nextTick()
-
-    const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: America/New_York`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
-    let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
-        found = true
-      }
-    })
-    expect(found).toBe(true)
-
-    expect(wrapper.html()).toContain('Dates shown in your local time (America/Los_Angeles)')
-    expect(wrapper.html()).toContain('event is based in (America/New_York)')
-  })
-
   it('displays event time using user timezone if event has no timezone', async () => {
     vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('Europe/Berlin')
     eventStore.event = {

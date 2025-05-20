@@ -103,7 +103,6 @@
               emit-value
               map-options
               data-cy="monthly-position"
-              @update:model-value="logMonthlyPositionChange"
             />
             <q-select
               v-model="monthlyWeekday"
@@ -116,7 +115,6 @@
               emit-value
               map-options
               data-cy="monthly-weekday"
-              @update:model-value="logMonthlyWeekdayChange"
             />
             <span>of the month</span>
           </div>
@@ -203,36 +201,52 @@
         </div>
       </div>
 
-      <!-- Recurrence Preview -->
-      <div v-if="props.isRecurring" class="q-mt-lg">
-        <q-separator class="q-my-md" />
-
-        <!-- Pattern Summary Section -->
-        <div class="text-subtitle2">Pattern Summary</div>
-        <div class="text-body2 q-my-md">
-          <q-skeleton v-if="isCalculatingPattern" type="text" />
-          <template v-else>
-            <div class="text-weight-medium">{{ humanReadablePattern }}</div>
-          </template>
+      <!-- Preview of upcoming occurrences -->
+      <div class="q-mt-md">
+        <div class="text-subtitle2 q-mb-sm">
+          <div class="row items-center justify-between">
+            <span>Upcoming Occurrences Preview</span>
+            <q-btn flat dense size="sm" icon="sym_r_refresh" color="primary" @click="refreshOccurrencesPreview" />
+          </div>
         </div>
 
-        <!-- Next Occurrences Section with Divider -->
-        <div class="text-subtitle2 q-mt-md">Next occurrences</div>
-        <div v-if="isCalculatingOccurrences" class="q-my-sm">
-          <q-skeleton type="text" class="q-mb-sm" />
-          <q-skeleton type="text" class="q-mb-sm" />
-          <q-skeleton type="text" class="q-mb-sm" />
+        <div v-if="isLoadingOccurrences" class="text-center q-py-md">
+          <q-spinner color="primary" size="2em" />
+          <div class="q-mt-sm text-caption">Loading upcoming occurrences...</div>
         </div>
-        <q-list v-else-if="occurrences.length > 0" class="q-my-sm">
-          <q-item v-for="(date, index) in occurrences" :key="index" dense>
-            <q-item-section>
-              <q-item-label>{{ formatDate(date) }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-        <div v-else class="text-body2 q-my-md text-grey-7">
-          <q-icon name="sym_r_info" size="sm" class="q-mr-xs" />
-          No occurrences could be calculated. Please check your recurrence settings.
+
+        <div v-else-if="occurrencePreviewError" class="text-negative q-pa-sm rounded-borders">
+          <q-icon name="sym_r_warning" class="q-mr-xs" />
+          {{ occurrencePreviewError }}
+        </div>
+
+        <div v-else-if="upcomingOccurrences.length === 0" class="text-grey-7 q-pa-sm">
+          <q-icon name="sym_r_event_busy" class="q-mr-xs" />
+          No upcoming occurrences found with the current pattern. Try adjusting your recurrence settings.
+        </div>
+
+        <div v-else>
+          <q-list bordered separator class="rounded-borders">
+            <q-item v-for="(occurrence, index) in upcomingOccurrences" :key="index">
+              <q-item-section avatar>
+                <q-avatar size="28px" color="primary" text-color="white">
+                  {{ index + 1 }}
+                </q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>
+                  {{ formatOccurrenceDate(occurrence.date) }}
+                </q-item-label>
+                <q-item-label caption class="text-grey-8">
+                  {{ formatWeekday(occurrence.date) }}
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <div class="text-body2 q-mt-md q-pa-sm rounded-borders recurrence-info">
+            <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
+            Your event will repeat according to this pattern. You'll be able to manage all occurrences after the event is created.
+          </div>
         </div>
       </div>
     </div>
@@ -243,6 +257,11 @@
 // Import the logic from external file to avoid VLS type conflicts
 import { useRecurrenceLogic } from './recurrence-component-logic'
 import { RecurrenceRule } from '../../types/event'
+import { EventOccurrence } from '../../types/event-series'
+import { RecurrenceService } from '../../services/recurrenceService'
+import { EventSeriesService } from '../../services/eventSeriesService'
+import { eventSeriesApi } from '../../api/event-series'
+import { ref } from 'vue'
 
 // Define props in a standard way
 const props = defineProps({
@@ -265,6 +284,10 @@ const props = defineProps({
   hideToggle: {
     type: Boolean,
     default: false
+  },
+  seriesSlug: {
+    type: String,
+    default: ''
   }
 })
 
@@ -273,8 +296,6 @@ const emit = defineEmits(['update:model-value', 'update:is-recurring', 'update:t
 // Use the extracted logic
 const {
   // State
-  isCalculatingPattern,
-  isCalculatingOccurrences,
   frequency,
   interval,
   selectedDays,
@@ -286,28 +307,165 @@ const {
   count,
   until,
   timezoneOptions,
-  occurrences,
   // Options
   frequencyOptions,
   weekdayOptions,
   monthlyPositionOptions,
   // Computed
-  rule, // eslint-disable-line @typescript-eslint/no-unused-vars
   startDateObject,
-  humanReadablePattern,
   intervalLabel,
+  rule,
   // Methods
   getPositionLabel,
   getWeekdayLabel,
   toggleRecurrence,
-  logMonthlyPositionChange,
-  logMonthlyWeekdayChange,
   toggleDay,
-  filterTimezones,
-  formatDate
+  filterTimezones
 } = useRecurrenceLogic(props, emit)
+
+// State for occurrences preview
+const upcomingOccurrences = ref<EventOccurrence[]>([])
+const isLoadingOccurrences = ref<boolean>(false)
+const occurrencePreviewError = ref<string | null>(null)
+
+// Format occurrence date for display
+const formatOccurrenceDate = (date: Date | string): string => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date
+    return RecurrenceService.formatWithTimezone(
+      dateObj,
+      { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+      timezone.value
+    )
+  } catch (error) {
+    console.error('Error formatting occurrence date:', error)
+    return String(date)
+  }
+}
+
+// Format weekday for display
+const formatWeekday = (date: Date | string): string => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date
+    return RecurrenceService.formatWithTimezone(
+      dateObj,
+      { weekday: 'long' },
+      timezone.value
+    )
+  } catch (error) {
+    console.error('Error formatting weekday:', error)
+    return ''
+  }
+}
+
+// Refresh occurrences preview based on current recurrence rule and start date
+const refreshOccurrencesPreview = async () => {
+  occurrencePreviewError.value = null
+
+  // Check that we have the necessary data to generate occurrences
+  if (!props.startDate) {
+    occurrencePreviewError.value = 'Please set a start date to preview occurrences'
+    return
+  }
+
+  if (!rule.value || !rule.value.frequency) {
+    occurrencePreviewError.value = 'Please set recurrence rule to preview occurrences'
+    return
+  }
+
+  try {
+    isLoadingOccurrences.value = true
+
+    // If we're editing an existing series, use the getOccurrences API
+    if (props.seriesSlug) {
+      console.log('Using getOccurrences API for existing series:', props.seriesSlug)
+      // Get occurrences from the API
+      const response = await EventSeriesService.getOccurrences(props.seriesSlug, 5, false)
+      upcomingOccurrences.value = response.map(occurrence => ({
+        date: occurrence.date,
+        eventSlug: occurrence.event?.slug || null,
+        materialized: occurrence.materialized
+      }))
+    } else {
+      // For new series, we need to handle this differently
+
+      // Create a clean representation of the current rule
+      console.log('Building recurrence rule structure based on current form values:', {
+        frequency: frequency.value,
+        monthlyRepeatType: monthlyRepeatType.value,
+        selectedDays: selectedDays.value,
+        monthlyWeekday: monthlyWeekday.value,
+        monthlyPosition: monthlyPosition.value
+      })
+
+      // Use the computed rule value directly since it already combines all state
+      console.log('Current computed rule value:', JSON.stringify(rule.value))
+
+      // Create a clean serialized object for API using the computed rule which has
+      // the current form state properly combined
+      const staticData = JSON.parse(JSON.stringify({
+        startDate: props.startDate,
+        timeZone: timezone.value,
+        count: 5,
+        recurrenceRule: rule.value
+      }))
+
+      // Log the final data that will be sent
+      console.log('Final serialized data to send:', staticData)
+
+      // No need for separate plainPreviewDto variable
+      const plainPreviewDto = staticData
+
+      // Add debug logging to ensure recurrenceRule is being sent as an object
+      console.log('Preview DTO prepared:', {
+        startDate: plainPreviewDto.startDate,
+        timeZone: plainPreviewDto.timeZone,
+        count: plainPreviewDto.count,
+        recurrenceRuleType: typeof plainPreviewDto.recurrenceRule,
+        recurrenceRule: plainPreviewDto.recurrenceRule
+      })
+
+      const response = await eventSeriesApi.previewOccurrences(plainPreviewDto)
+
+      // Map the response to EventOccurrence format
+      upcomingOccurrences.value = response.data.map(occurrence => ({
+        date: occurrence.date,
+        eventSlug: null,
+        materialized: false
+      }))
+
+      console.log('Received occurrences from temporary series API:', upcomingOccurrences.value)
+    }
+
+    // If no occurrences returned or generated, show a message
+    if (upcomingOccurrences.value.length === 0) {
+      console.warn('No upcoming occurrences found for the current recurrence settings')
+      occurrencePreviewError.value = 'No occurrences found. Try adjusting your recurrence settings.'
+    }
+  } catch (error) {
+    console.error('Error previewing occurrences:', error)
+    occurrencePreviewError.value = 'Failed to generate occurrence preview: ' + error.message
+  } finally {
+    isLoadingOccurrences.value = false
+  }
+}
+
+// Expose refreshOccurrencesPreview to the parent component
+defineExpose({
+  refreshOccurrencesPreview,
+  upcomingOccurrences
+})
 </script>
 
 <style scoped>
-/* Optional styling */
+/* Recurrence info styles */
+.recurrence-info {
+  background-color: rgba(0, 100, 255, 0.08);
+}
+
+:deep(.q-dark) .recurrence-info,
+.body--dark .recurrence-info {
+  background-color: rgba(0, 100, 255, 0.15);
+  color: white;
+}
 </style>

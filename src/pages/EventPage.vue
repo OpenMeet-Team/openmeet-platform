@@ -302,6 +302,41 @@
                 <q-item-section>
                   <q-item-label class="text-weight-medium q-mb-sm">Upcoming Occurrences</q-item-label>
 
+                  <!-- Debug information for recurrence rule - only shown in development mode when showDebugRecurrenceInfo is true -->
+                  <div v-if="showDebugRecurrenceInfo" class="text-caption q-mb-sm" style="border: 1px solid #ddd; padding: 8px; background-color: #f9f9f9;">
+                    <div class="row justify-between items-center">
+                      <div class="text-weight-bold">Recurrence Rule Debug Info:</div>
+                      <q-btn flat dense size="sm" color="grey" label="Hide Debug Info" @click="toggleDebugInfo(false)" />
+                    </div>
+                    <div v-if="event.series?.templateEvent">
+                      <div><b>Series Template Event Slug:</b> {{ event.series.templateEvent?.slug }}</div>
+                      <div><b>Series Template Event Name:</b> {{ event.series.templateEvent?.name }}</div>
+                      <div><b>Series Timezone:</b> {{ event.series?.timeZone || 'Not set' }}</div>
+                    </div>
+                    <div v-else-if="event.recurrenceRule">
+                      <div><b>Event Start Date:</b> {{ event.startDate ? new Date(event.startDate).toISOString() : 'Not set' }}</div>
+                      <div><b>Event Start (Local):</b> {{ event.startDate ? RecurrenceService.formatWithTimezone(event.startDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) : 'Not set' }}</div>
+                      <div><b>Event Frequency:</b> {{ event.recurrenceRule.frequency }}</div>
+                      <div><b>Event Interval:</b> {{ event.recurrenceRule.interval || 1 }}</div>
+                      <div><b>Event Weekdays:</b> {{ Array.isArray(event.recurrenceRule.byweekday) ? event.recurrenceRule.byweekday.join(', ') : 'None' }}</div>
+                      <div><b>Event Month:</b> {{ Array.isArray(event.recurrenceRule.bymonth) ? event.recurrenceRule.bymonth.join(', ') : 'None' }}</div>
+                      <div><b>Event Day of Month:</b> {{ Array.isArray(event.recurrenceRule.bymonthday) ? event.recurrenceRule.bymonthday.join(', ') : 'None' }}</div>
+                      <div><b>Event Position:</b> {{ Array.isArray(event.recurrenceRule.bysetpos) ? event.recurrenceRule.bysetpos.join(', ') : 'None' }}</div>
+                      <div><b>Event Timezone:</b> {{ event.timeZone || 'Not set' }}</div>
+                      <div><b>User Explicit Selection:</b> {{ event.recurrenceRule._userExplicitSelection ? 'Yes' : 'No' }}</div>
+                    </div>
+                    <div v-else>No recurrence rule found in event or series</div>
+
+                    <div class="text-weight-bold q-mt-sm">API Request Info:</div>
+                    <div>Series Slug: {{ event.seriesSlug }}</div>
+                    <div>Series ID: {{ event.seriesId }}</div>
+                  </div>
+
+                  <!-- Button to show debug info when hidden - only in development mode -->
+                  <div v-if="!showDebugRecurrenceInfo && isDevelopmentMode" class="q-mb-sm">
+                    <q-btn flat dense size="sm" color="grey-7" icon="sym_r_bug_report" label="Show Debug Info" @click="toggleDebugInfo(true)" />
+                  </div>
+
                   <q-list bordered separator class="rounded-borders">
                     <q-item
                       v-for="(occurrence, index) in upcomingOccurrences"
@@ -324,6 +359,12 @@
                         <q-item-label caption v-else class="text-grey-7">
                           <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Potential event
                         </q-item-label>
+                        <!-- Detailed date info only shown when debug mode is enabled -->
+                        <q-item-label v-if="showDebugRecurrenceInfo" caption class="text-grey-8">
+                          <b>DOW:</b> {{ new Date(occurrence.date).toLocaleDateString('en-US', { weekday: 'long' }) }},
+                          <b>UTC:</b> {{ occurrence.date.toISOString() }},
+                          <b>Local day:</b> {{ formatInTimezone(occurrence.date, { weekday: 'long' }, event.timeZone) }}
+                        </q-item-label>
                       </q-item-section>
                       <q-item-section side>
                         <q-icon
@@ -340,7 +381,14 @@
                     </q-item>
                   </q-list>
 
-                  <div class="text-right q-mt-sm">
+                  <div class="row justify-between q-mt-sm">
+                    <q-btn
+                      flat
+                      color="grey"
+                      label="Refresh Occurrences"
+                      @click="loadUpcomingOccurrences"
+                      class="text-weight-medium text-caption"
+                    />
                     <q-btn
                       flat
                       color="primary"
@@ -484,7 +532,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { useNavigation } from '../composables/useNavigation'
 import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
-import { EventAttendeePermission, EventStatus, EventType } from '../types/event'
+import { EventAttendeePermission, EventStatus } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventTopicsComponent from '../components/event/EventTopicsComponent.vue'
 import {
@@ -535,6 +583,28 @@ const errorMessage = computed(() => useEventStore().errorMessage)
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 const upcomingOccurrences = ref([])
+const usingClientSideGeneration = ref(false)
+const showDebugRecurrenceInfo = ref(false) // Debug flag for recurrence information
+
+// Helper function to format dates with timezone
+const formatInTimezone = (date: Date, options: Intl.DateTimeFormatOptions, tz?: string): string => {
+  try {
+    const timezone = tz || RecurrenceService.getUserTimezone()
+    return new Intl.DateTimeFormat('en-US', { ...options, timeZone: timezone }).format(date)
+  } catch (error) {
+    console.error('Error formatting date with timezone:', error)
+    return String(date)
+  }
+}
+
+// Function to toggle debug info and save preference to localStorage
+const toggleDebugInfo = (show: boolean) => {
+  showDebugRecurrenceInfo.value = show
+  // Only save the preference in development mode
+  if (isDevelopmentMode.value) {
+    localStorage.setItem('openmeet_show_recurrence_debug', show ? 'true' : 'false')
+  }
+}
 
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
@@ -602,6 +672,13 @@ useMeta({
 
 const loaded = ref(false)
 
+// Check if we're running in development mode
+const isDevelopmentMode = computed(() => {
+  return import.meta.env.MODE === 'development' ||
+         window.location.hostname === 'localhost' ||
+         window.location.hostname === '127.0.0.1'
+})
+
 onMounted(async () => {
   const eventSlug = route.params.slug as string
   LoadingBar.start()
@@ -611,6 +688,10 @@ onMounted(async () => {
   if (!window.lastEventPageLoad) {
     window.lastEventPageLoad = {}
   }
+
+  // Only show debug button in development mode by default
+  showDebugRecurrenceInfo.value = isDevelopmentMode.value &&
+    (localStorage.getItem('openmeet_show_recurrence_debug') === 'true')
 
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
@@ -631,17 +712,19 @@ onMounted(async () => {
     if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
       await useEventStore().actionGetEventBySlug(eventSlug)
       console.log('Event data loaded, now child components can use this data')
-      // DEBUG: Log timezone information
-      console.log('DEBUG - Event timezone info:', {
-        eventTimeZone: useEventStore().event?.timeZone,
-        seriesTimeZone: useEventStore().event?.series?.timeZone,
-        hasEventTimeZone: !!useEventStore().event?.timeZone,
-        hasSeriesTimeZone: !!useEventStore().event?.series?.timeZone,
-        eventObject: useEventStore().event,
-        seriesObject: useEventStore().event?.series,
-        recurrenceRule: useEventStore().event?.recurrenceRule,
-        seriesRecurrenceRule: useEventStore().event?.series?.recurrenceRule
-      })
+      // DEBUG: Log timezone information (only in development mode)
+      if (isDevelopmentMode.value) {
+        console.log('DEBUG - Event timezone info:', {
+          eventTimeZone: useEventStore().event?.timeZone,
+          seriesTimeZone: useEventStore().event?.series?.timeZone,
+          hasEventTimeZone: !!useEventStore().event?.timeZone,
+          hasSeriesTimeZone: !!useEventStore().event?.series?.timeZone,
+          eventObject: useEventStore().event,
+          seriesObject: useEventStore().event?.series,
+          recurrenceRule: useEventStore().event?.recurrenceRule,
+          seriesRecurrenceRule: useEventStore().event?.series?.recurrenceRule
+        })
+      }
     } else {
       console.log('Using existing event data from store, skipping reload')
     }
@@ -847,74 +930,38 @@ const loadUpcomingOccurrences = async () => {
         console.log('Fetching complete series data for recurrence pattern')
         const series = await EventSeriesService.getBySlug(seriesSlug)
 
-        // If we have a valid monthly pattern in the series, use client-side generation
-        if (series.recurrenceRule?.frequency === 'MONTHLY' &&
-            series.recurrenceRule?.byweekday &&
-            series.recurrenceRule?.bysetpos) {
-          console.log('USING CLIENT-SIDE GENERATION for accurate monthly pattern')
-
-          // Create a mock event with the series recurrence rule for accurate generation
-          const mockEvent: Partial<EventEntity> = {
-            id: 0,
-            ulid: 'mock',
-            slug: 'mock',
-            type: EventType.Online,
-            name: series.name,
-            startDate: event.value?.startDate || new Date().toISOString(),
-            recurrenceRule: series.recurrenceRule,
-            timeZone: series.timeZone
-          }
-
-          // Use the RecurrenceService to generate accurate occurrences
-          const generatedOccurrences = RecurrenceService.getOccurrences(mockEvent as EventEntity, 15)
-          console.log('Client-side generated occurrences:',
-            generatedOccurrences.map(d => d.toISOString()))
-
-          // Filter to future occurrences and limit to 10
-          const futureOccurrences = generatedOccurrences
-            .filter(date => date > now)
-            .slice(0, 10)
-
-          // For each occurrence date, check if we already have a materialized event
-          const combinedOccurrences = futureOccurrences.map(date => {
-            const dateKey = date.toISOString().split('T')[0]
-            const existingEvent = materializedEvents.get(dateKey)
-
-            return {
-              date,
-              eventSlug: existingEvent?.slug || null
-            }
-          })
-
-          // Now add any materialized events that didn't match a pattern date
-          // (these are custom scheduled dates that don't exactly match the pattern)
-          materializedEvents.forEach((evt, dateKey) => {
-            // Check if this materialized event is already included
-            const alreadyIncluded = combinedOccurrences.some(
-              occ => occ.eventSlug === evt.slug
-            )
-
-            if (!alreadyIncluded) {
-              console.log(`Adding missing materialized event: ${evt.slug} (${dateKey})`)
-              combinedOccurrences.push({
-                date: new Date(evt.startDate),
-                eventSlug: evt.slug
-              })
-            }
-          })
-
-          // Sort by date, limit to next 5 occurrences
-          upcomingOccurrences.value = combinedOccurrences
-            .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .slice(0, 5)
-
-          console.log('Final combined occurrences:', upcomingOccurrences.value)
-          return
+        // Log the recurrence rule for debugging (only in development mode)
+        if (isDevelopmentMode.value) {
+          console.log('Series recurrence rule:', series.recurrenceRule)
+          console.log('Series timezone:', series.timeZone)
+          console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
         }
+        usingClientSideGeneration.value = false
 
-        // Fallback to API-based occurrences
-        console.log('Using API-based occurrences combined with materialized events')
+        // Get occurrences from the API
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10, false)
+
+        // Log detailed information about API response for debugging (only in development mode)
+        if (isDevelopmentMode.value && response.length > 0) {
+          console.log('API returned occurrences:', response.length)
+
+          // Log each occurrence with detailed information
+          response.slice(0, 5).forEach((occ, i) => {
+            const occDate = new Date(occ.date)
+            console.log(`Occurrence ${i + 1}:`, {
+              dateString: occ.date,
+              dateObject: occDate,
+              jsDay: occDate.getDay(), // 0=Sunday, 1=Monday, etc.
+              jsDate: occDate.getDate(), // day of month
+              localeDay: occDate.toLocaleDateString('en-US', { weekday: 'long' }),
+              utcString: occDate.toUTCString(),
+              isoString: occDate.toISOString(),
+              isoDayOfWeek: occDate.getUTCDay() + 1, // 1=Monday, 7=Sunday in ISO
+              eventSlug: occ.event?.slug || 'unmaterialized',
+              eventStartDate: occ.event?.startDate || null
+            })
+          })
+        }
 
         // Filter to future occurrences
         const apiOccurrences = response
@@ -924,7 +971,7 @@ const loadUpcomingOccurrences = async () => {
             eventSlug: occurrence.event?.slug || null
           }))
 
-        // Now, similar to above, add any materialized events not already included
+        // Add any materialized events that are not in the API response
         materializedEvents.forEach((evt, dateKey) => {
           // Check if this materialized event is already included
           const alreadyIncluded = apiOccurrences.some(
@@ -945,7 +992,9 @@ const loadUpcomingOccurrences = async () => {
           .sort((a, b) => a.date.getTime() - b.date.getTime())
           .slice(0, 5)
 
-        console.log('Final API-based occurrences:', upcomingOccurrences.value)
+        if (isDevelopmentMode.value) {
+          console.log('Final API-based occurrences:', upcomingOccurrences.value)
+        }
       } catch (err) {
         console.error('Error in combined approach, falling back to API only:', err)
 
@@ -962,11 +1011,13 @@ const loadUpcomingOccurrences = async () => {
           }))
           .slice(0, 5) // Limit to next 5 occurrences
 
-        console.log('Fallback API occurrences:', upcomingOccurrences.value)
+        if (isDevelopmentMode.value) {
+          console.log('Fallback API occurrences:', upcomingOccurrences.value)
+        }
       }
 
-      // Check if occurrences look weekly or monthly
-      if (upcomingOccurrences.value.length >= 2) {
+      // Check if occurrences look weekly or monthly (only in development mode)
+      if (isDevelopmentMode.value && upcomingOccurrences.value.length >= 2) {
         const date1 = upcomingOccurrences.value[0].date
         const date2 = upcomingOccurrences.value[1].date
         const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
@@ -982,6 +1033,8 @@ const loadUpcomingOccurrences = async () => {
 const navigateToEvent = (eventSlug: string) => {
   router.push(`/events/${eventSlug}`)
 }
+
+// No longer needed - we always use API generation
 
 // Check if we're in template view mode (showing a future unmaterialized occurrence)
 const isTemplateView = computed(() => {

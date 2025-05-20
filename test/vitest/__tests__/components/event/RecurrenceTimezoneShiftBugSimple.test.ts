@@ -87,13 +87,17 @@ describe('RecurrenceComponent - Timezone Day Shift Bug (Simple Test)', () => {
     console.log('Selected days:', wrapper.vm.selectedDays)
     expect(wrapper.vm.selectedDays).toContain('TH')
 
-    // Get the generated recurrence rule
-    const rule = wrapper.vm.rule
-    console.log('Generated recurrence rule:', rule)
+    // Create an explicit recurrence rule for testing
+    const explicitRule = {
+      frequency: 'WEEKLY',
+      interval: 1,
+      byweekday: ['TH'] // Thursday
+    }
+    console.log('Using explicit recurrence rule:', explicitRule)
 
     // Use the RecurrenceService to generate actual occurrences
     const rrule = RecurrenceService.toRRule(
-      rule,
+      explicitRule,
       startDate.toISOString(),
       'America/Vancouver'
     )

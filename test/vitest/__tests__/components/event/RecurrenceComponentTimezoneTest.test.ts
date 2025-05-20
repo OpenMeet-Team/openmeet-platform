@@ -102,29 +102,13 @@ describe('RecurrenceComponent Timezone Tests', () => {
       // Check monthly weekday value
       expect(wrapper.vm.monthlyWeekday).toBe(expectedWeekday)
 
-      // Verify that the human readable pattern includes the correct weekday name
-      await vi.runAllTimersAsync() // Wait for pattern updates
-      await wrapper.vm.$nextTick()
-
       // Set to monthly pattern and wait for update
       wrapper.vm.frequency = 'MONTHLY'
       wrapper.vm.monthlyRepeatType = 'dayOfWeek'
       await wrapper.vm.$nextTick()
       await vi.runAllTimersAsync()
 
-      // Check pattern text for weekday
-      const weekdayName = {
-        SU: 'Sunday',
-        MO: 'Monday',
-        TU: 'Tuesday',
-        WE: 'Wednesday',
-        TH: 'Thursday',
-        FR: 'Friday',
-        SA: 'Saturday'
-      }[expectedWeekday]
-
-      console.log('Human readable pattern:', wrapper.vm.humanReadablePattern)
-      expect(wrapper.vm.humanReadablePattern.toLowerCase()).toContain(weekdayName.toLowerCase())
+      // We no longer check the pattern text since humanReadablePattern has been removed
     })
   })
 
@@ -173,8 +157,7 @@ describe('RecurrenceComponent Timezone Tests', () => {
     expect(wrapper.vm.selectedDays).toContain('TH')
     expect(wrapper.vm.monthlyWeekday).toBe('TH')
 
-    // Pattern should mention Thursday
-    expect(wrapper.vm.humanReadablePattern.toLowerCase()).toContain('thursday')
+    // We no longer check the pattern text since humanReadablePattern has been removed
   })
 
   it('should initialize weekday when creating component', async () => {
@@ -225,7 +208,6 @@ describe('RecurrenceComponent Timezone Tests', () => {
     // Monthly weekday should be Friday
     expect(wrapper.vm.monthlyWeekday).toBe('FR')
 
-    // Pattern should mention Friday
-    expect(wrapper.vm.humanReadablePattern.toLowerCase()).toContain('friday')
+    // We no longer check the pattern text since humanReadablePattern has been removed
   })
 })

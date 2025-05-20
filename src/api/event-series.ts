@@ -26,6 +26,11 @@ export interface RecurrenceRuleDto {
   bysetpos?: number[] // Position within month/year (e.g., 1st, 2nd, 3rd, last)
   until?: string
   wkst?: string
+
+  // Custom properties not part of the standard RFC but used by our implementation
+  // These are passed to the backend but not part of the TypeScript interface
+  _userExplicitSelection?: boolean // Flag to preserve user's explicit day selection
+  timeZone?: string // Timezone for proper day boundary handling
 }
 
 export interface CreateEventSeriesDto {
@@ -84,6 +89,13 @@ export interface AddEventToSeriesDto {
   eventSlug: string
 }
 
+export interface OccurrencePreviewDto {
+  startDate: string
+  timeZone: string
+  recurrenceRule: RecurrenceRuleDto
+  count?: number
+}
+
 export interface EventSeriesApiType {
   getAll: (query: { params: { page: number, limit: number } }) => Promise<AxiosResponse<{ data: EventSeriesEntity[], meta: { total: number, page: number, limit: number } }>>
   getBySlug: (slug: string) => Promise<AxiosResponse<EventSeriesEntity>>
@@ -96,6 +108,7 @@ export interface EventSeriesApiType {
   createSeriesFromEvent: (eventSlug: string, data: CreateSeriesFromEventDto) => Promise<AxiosResponse<EventSeriesEntity>>
   addEventToSeries: (data: AddEventToSeriesDto) => Promise<AxiosResponse<EventEntity>>
   updateTemplateEvent: (seriesSlug: string, updates: UpdateTemplateEventDto) => Promise<AxiosResponse<EventEntity>>
+  previewOccurrences: (data: OccurrencePreviewDto) => Promise<AxiosResponse<EventOccurrence[]>>
 }
 
 export const eventSeriesApi: EventSeriesApiType = {
@@ -139,5 +152,43 @@ export const eventSeriesApi: EventSeriesApiType = {
     api.post(`/api/event-series/${data.seriesSlug}/add-event/${data.eventSlug}`),
 
   updateTemplateEvent: (seriesSlug: string, updates: UpdateTemplateEventDto): Promise<AxiosResponse<EventEntity>> =>
-    api.patch(`/api/event-series/${seriesSlug}/template`, updates)
+    api.patch(`/api/event-series/${seriesSlug}/template`, updates),
+
+  previewOccurrences: (data: OccurrencePreviewDto): Promise<AxiosResponse<EventOccurrence[]>> => {
+    // Create a clean, serialized copy of the data
+    const serializedData = {
+      startDate: data.startDate,
+      timeZone: data.timeZone,
+      count: data.count || 5,
+      // Ensure the recurrenceRule is a plain object with primitive values
+      recurrenceRule: {
+        frequency: data.recurrenceRule?.frequency || 'WEEKLY',
+        interval: data.recurrenceRule?.interval || 1,
+        // Create a new array with primitive string values, not proxy objects
+        byweekday: Array.isArray(data.recurrenceRule?.byweekday)
+          ? [...data.recurrenceRule.byweekday]
+          : ['TU'],
+        // Add other properties if needed and explicitly present
+        ...(data.recurrenceRule?.bymonthday ? { bymonthday: [...data.recurrenceRule.bymonthday] } : {}),
+        ...(data.recurrenceRule?.bysetpos ? { bysetpos: [...data.recurrenceRule.bysetpos] } : {})
+      }
+    }
+
+    console.log('Previewing occurrences with serialized data:', JSON.stringify(serializedData, null, 2))
+
+    // Set explicit content-type to ensure proper serialization
+    const config = {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+
+    try {
+      // Use JSON.stringify to ensure proper serialization
+      return api.post('/api/event-series/preview-occurrences', serializedData, config)
+    } catch (error) {
+      console.error('Error in previewOccurrences API call:', error)
+      throw error
+    }
+  }
 }
