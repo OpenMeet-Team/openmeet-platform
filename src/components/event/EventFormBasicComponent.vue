@@ -80,13 +80,13 @@
                   <!-- Info about event series -->
                   <div v-if="!eventData.seriesSlug" class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
-                    This will create an event series. All occurrences will share the same basic information.
+                    This will create an event series. All events in the series will share the same basic information.
                   </div>
 
                   <!-- Info about existing event series -->
                   <div v-else class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
-                    This event is part of an existing series. Editing the recurrence pattern will affect all future occurrences.
+                    This event is part of an existing series. Editing the recurrence pattern will affect all future events in the series.
                   </div>
 
                   <!-- Series Name -->
@@ -116,11 +116,13 @@
 
                   <!-- Recurrence Pattern -->
                   <RecurrenceComponent
+                    ref="recurrenceComponentRef"
                     v-model="recurrenceRule"
                     :is-recurring="true"
                     v-model:time-zone="eventData.timeZone"
                     :start-date="eventData.startDate"
                     :hide-toggle="true"
+                    :series-slug="eventData.seriesSlug"
                     @update:start-date="updateStartDate"
                     @update:model-value="handleRecurrenceRuleUpdate"
                   />
@@ -129,7 +131,7 @@
                   <div v-if="eventData.seriesSlug" class="text-caption q-mt-md q-pa-sm rounded-borders recurrence-info">
                     <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
                     This event is part of the series "<strong>{{ seriesFormData.name }}</strong>".
-                    Any changes to the recurrence pattern will affect all future occurrences.
+                    Any changes to the recurrence pattern will affect all future events in the series.
                   </div>
                 </div>
               </template>
@@ -344,11 +346,12 @@ import { groupsApi } from '../../api/groups'
 import analyticsService from '../../services/analyticsService'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
-import { RecurrenceService } from '../../services/recurrenceService'
+import dateFormatting from '../../composables/useDateFormatting'
 import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 import { addHours } from 'date-fns'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz' // formatInTimeZone moved to RecurrenceComponent
+import type RecurrenceComponentType from './recurrence-component-shim'
 
 const { success, error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
@@ -379,7 +382,7 @@ const eventData = ref<EventEntity>({
   sourceUrl: null,
   sourceData: null,
   lastSyncedAt: null,
-  timeZone: RecurrenceService.getUserTimezone()
+  timeZone: dateFormatting.getUserTimezone()
   // Removed recurrence-related fields
 })
 
@@ -393,7 +396,7 @@ const recurrenceRule = ref<RecurrenceRule>({
 const seriesFormData = ref({
   name: '',
   description: '',
-  timeZone: RecurrenceService.getUserTimezone()
+  timeZone: dateFormatting.getUserTimezone()
 })
 
 // Tab for description editor (edit/preview)
@@ -406,6 +409,9 @@ const displayedEndTime = ref<string>('')
 // --- NEW: Local state for end date checkbox ---
 const hasEndDate = ref(!!eventData.value.endDate)
 
+// Reference to recurrence component for accessing occurrence preview
+const recurrenceComponentRef = ref<InstanceType<typeof RecurrenceComponentType> | null>(null)
+
 // Now that all reactive variables are initialized, set up watchers
 // Watch for changes in the eventData to update isRecurring state and load series data
 watch(() => eventData.value, async (newEventData) => {
@@ -417,12 +423,23 @@ watch(() => eventData.value, async (newEventData) => {
     // Load the series information to get the recurrence rule
     try {
       await loadSeriesInformation(newEventData.seriesSlug)
+      // Refresh occurrences after loading series data
+      if (isRecurring.value) {
+        refreshOccurrencesPreview()
+      }
     } catch (err) {
       console.error('Failed to load series information:', err)
       error('Failed to load series information')
     }
   }
 }, { immediate: true, deep: true })
+
+// Watch for changes in the start date and refresh occurrences preview
+watch(() => eventData.value.startDate, (newStartDate) => {
+  if (newStartDate && isRecurring.value && recurrenceRule.value.frequency) {
+    refreshOccurrencesPreview()
+  }
+})
 
 // Watch for event name changes to sync with series name
 watch(() => eventData.value.name, (newName) => {
@@ -438,10 +455,20 @@ watch(() => eventData.value.description, (newDesc) => {
   }
 })
 
-// Watch for recurrence toggle to update series name when enabled
+// Watch for recurrence toggle to update series name and refresh occurrences when enabled
 watch(() => isRecurring.value, (isEnabled) => {
   if (isEnabled && eventData.value.name) {
     seriesFormData.value.name = `${eventData.value.name} Series`
+
+    // Initialize recurrence rule if empty
+    if (!recurrenceRule.value.frequency) {
+      recurrenceRule.value.frequency = 'WEEKLY'
+    }
+
+    // Only try to refresh if we have a start date
+    if (eventData.value.startDate && recurrenceComponentRef.value) {
+      recurrenceComponentRef.value.refreshOccurrencesPreview()
+    }
   }
 })
 
@@ -920,14 +947,28 @@ const updateStartDate = (newStartDate: string) => {
   console.log('Start date updated:', eventData.value.startDate)
 }
 
+// Formatting is now handled by RecurrenceComponent
+
+// Weekday formatting is now handled by RecurrenceComponent
+
+// Occurrences preview functionality is now handled by RecurrenceComponent
+const refreshOccurrencesPreview = () => {
+  // Delegate to the recurrence component
+  if (recurrenceComponentRef.value) {
+    recurrenceComponentRef.value.refreshOccurrencesPreview()
+  }
+}
+
 // Handle updates to the recurrence rule from the RecurrenceComponent
 const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
-  console.log('Recurrence rule updated:', newRule)
+  console.log('Recurrence rule updated from component event:', newRule)
 
   // If this is a series event, we may want to warn the user about changes
   if (eventData.value.seriesSlug) {
-    console.log('Series event recurrence rule updated, will affect future occurrences')
+    console.log('Series event recurrence rule updated, will affect future events in the series')
   }
+
+  // The recurrence component will handle refreshing occurrences internally
 }
 
 // Ensure date input is blurred before enabling recurrence
@@ -954,7 +995,8 @@ const startDateInputRef = ref()
  */
 defineExpose({
   eventData,
-  setEndDate
+  setEndDate,
+  refreshOccurrencesPreview
   // Add more helpers as needed
 })
 </script>

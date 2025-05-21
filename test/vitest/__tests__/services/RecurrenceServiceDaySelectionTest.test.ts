@@ -280,4 +280,42 @@ describe('RecurrenceService Day Selection Tests', () => {
     // They should all be at midnight
     expect(daysAndTimesInVancouver.every(day => day.endsWith('00:00:00'))).toBe(true)
   })
+
+  /**
+   * Test 7: Bug reproduction - New York, 10:00 PM local, weekly, no explicit byweekday
+   */
+  it('should generate all occurrences on Monday 10:00 PM in America/New_York (no off-by-one-day bug)', () => {
+    // User picks 2025-05-19 at 10:00 PM in America/New_York
+    // This is 2025-05-20T02:00:00.000Z in UTC
+    const startDate = '2025-05-20T02:00:00.000Z'
+    const timeZone = 'America/New_York'
+    const rule = {
+      frequency: 'WEEKLY' as const,
+      timeZone
+      // No byweekday: should default to the weekday of the start date in the event's timezone
+    }
+
+    // Sanity check: what day/time is this in New York?
+    const startDateObj = new Date(startDate)
+    const dayInNY = formatInTimeZone(startDateObj, timeZone, 'EEEE')
+    const timeInNY = formatInTimeZone(startDateObj, timeZone, 'HH:mm')
+    expect(dayInNY).toBe('Monday')
+    expect(timeInNY).toBe('22:00')
+
+    // Generate occurrences
+    const rrule = RecurrenceService.toRRule(rule, startDate, timeZone)
+    const occurrences = rrule.all((_, i) => i < 5)
+
+    // All occurrences should be on Monday at 22:00 in New York
+    occurrences.forEach(date => {
+      const day = formatInTimeZone(date, timeZone, 'EEEE')
+      const time = formatInTimeZone(date, timeZone, 'HH:mm')
+      expect(day).toBe('Monday')
+      expect(time).toBe('22:00')
+    })
+
+    // There should be no Sunday 22:00 occurrences
+    const anySunday = occurrences.some(date => formatInTimeZone(date, timeZone, 'EEEE') === 'Sunday')
+    expect(anySunday).toBe(false)
+  })
 })

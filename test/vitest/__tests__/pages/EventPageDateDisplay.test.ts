@@ -5,7 +5,7 @@ import EventPage from '../../../../src/pages/EventPage.vue'
 import { installRouter } from '../../install-router'
 import { installPinia } from '../../install-pinia'
 import { useEventStore } from '../../../../src/stores/event-store'
-import { RecurrenceService } from '../../../../src/services/recurrenceService'
+import dateFormatting from '../../../../src/composables/useDateFormatting'
 
 // Mocks must come before importing the component that uses them!
 vi.mock('src/api/events', () => ({
@@ -19,13 +19,17 @@ vi.mock('src/api/chat', () => ({
     addMemberToEventDiscussion: vi.fn().mockResolvedValue({ data: { roomId: 'test-room' } })
   }
 }))
-vi.mock('../../../../src/services/recurrenceService', () => ({
-  RecurrenceService: {
+vi.mock('../../../../src/composables/useDateFormatting', () => ({
+  default: {
     getUserTimezone: vi.fn(),
     formatWithTimezone: vi.fn((date, _options, tz) => {
       if (!date) return 'Invalid Date'
       return `Formatted: ${new Date(date).toISOString()} using TZ: ${tz}`
-    })
+    }),
+    formatWithPattern: vi.fn(),
+    getTimezoneDisplay: vi.fn(),
+    getTimezones: vi.fn(),
+    searchTimezones: vi.fn()
   }
 }))
 vi.mock('../../../../src/services/eventSeriesService', () => ({
@@ -100,44 +104,15 @@ describe('EventPageDateDisplay.vue', () => {
     eventStore.actionGetEventBySlug = vi.fn().mockResolvedValue(undefined)
     eventStore.actionMaterializeOccurrence = vi.fn().mockResolvedValue({ slug: 'materialized-slug' })
 
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('America/New_York')
-    vi.spyOn(RecurrenceService, 'formatWithTimezone').mockImplementation((date, _options, tz) => {
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue('America/New_York')
+    vi.spyOn(dateFormatting, 'formatWithTimezone').mockImplementation((date, _options, tz) => {
       if (!date) return 'Invalid Date'
       return `Formatted: ${new Date(date).toISOString()} using TZ: ${tz}`
     })
   })
 
-  it.skip('displays event time using event timezone when user timezone is different (old behavior)', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('America/Los_Angeles')
-    eventStore.event = {
-      ...MOCK_EVENT_BASE,
-      timeZone: 'America/New_York',
-      startDate: '2024-06-03T08:30:00.000Z'
-    }
-
-    const wrapper = mount(EventPage, {
-      global: {
-        mocks: { $route: { params: { slug: 'test-event-for-dates' }, query: {} } }
-      }
-    })
-    await wrapper.vm.$nextTick()
-
-    const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: America/New_York`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
-    let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
-        found = true
-      }
-    })
-    expect(found).toBe(true)
-
-    expect(wrapper.html()).toContain('Dates shown in your local time (America/Los_Angeles)')
-    expect(wrapper.html()).toContain('event is based in (America/New_York)')
-  })
-
   it('displays event time using user timezone if event has no timezone', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('Europe/Berlin')
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue('Europe/Berlin')
     eventStore.event = {
       ...MOCK_EVENT_BASE,
       timeZone: null,
@@ -167,7 +142,7 @@ describe('EventPageDateDisplay.vue', () => {
   })
 
   it('displays event time using event timezone when user timezone is the same', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('America/New_York')
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue('America/New_York')
     eventStore.event = {
       ...MOCK_EVENT_BASE,
       timeZone: 'America/New_York',
@@ -196,7 +171,7 @@ describe('EventPageDateDisplay.vue', () => {
   })
 
   it('displays only user timezone when user and event timezones are the same', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue('America/New_York')
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue('America/New_York')
     eventStore.event = {
       ...MOCK_EVENT_BASE,
       timeZone: 'America/New_York',
@@ -228,7 +203,7 @@ describe('EventPageDateDisplay.vue', () => {
   })
 
   it('falls back to event timezone if user timezone is missing', async () => {
-    vi.spyOn(RecurrenceService, 'getUserTimezone').mockReturnValue(undefined)
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue(undefined)
     eventStore.event = {
       ...MOCK_EVENT_BASE,
       timeZone: 'America/Chicago',

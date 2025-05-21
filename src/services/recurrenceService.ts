@@ -1,6 +1,6 @@
 import { RRule, Options, Weekday, Frequency } from 'rrule'
 import { format, formatInTimeZone, toZonedTime } from 'date-fns-tz'
-import { parseISO, addMilliseconds } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
 
@@ -171,10 +171,31 @@ export class RecurrenceService {
           })
         }
       } else if (rule.frequency === 'WEEKLY' && tz) {
-        // If no byweekday is specified for a weekly rule, default to the start date's day in the event's timezone
-        const { dayCode: dayCodeInTimezone } = this.getDayOfWeekInTimezone(options.dtstart, tz)
-        console.log('No byweekday for WEEKLY, defaulting to day in originating timezone:', dayCodeInTimezone)
-        options.byweekday = [RRule[dayCodeInTimezone as keyof typeof RRule] as unknown as number]
+        // IMPORTANT FIX: Handle both cases - with and without byweekday
+        if (rule.byweekday && rule.byweekday.length > 0) {
+          // CRITICAL FIX: For 10 PM events, we need to adjust the occurrence generation
+          // so it falls consistently on the correct day in the timezone
+
+          // Extract the day codes (MO, TU, etc.) from the byweekday strings
+          const weekdayCodes = rule.byweekday.map(day => {
+            // Extract the day code part (MO, TU, etc.) ignoring any position prefix like -1MO
+            const dayMatch = day.match(/^(?:[+-]?\d+)?([A-Z]{2})$/)
+            const dayCode = dayMatch ? dayMatch[1] : day
+
+            // For debugging
+            console.log(`Extracting weekday code from "${day}" -> "${dayCode}"`)
+
+            return RRule[dayCode as keyof typeof RRule] as unknown as number
+          })
+
+          options.byweekday = weekdayCodes
+          console.log('Using explicitly specified byweekday for WEEKLY:', rule.byweekday, ' -> ', options.byweekday)
+        } else {
+          // If no byweekday specified for a weekly rule, default to the start date's day in the event's timezone
+          const { dayCode: dayCodeInTimezone } = this.getDayOfWeekInTimezone(options.dtstart, tz)
+          console.log('No byweekday for WEEKLY, defaulting to day in originating timezone:', dayCodeInTimezone)
+          options.byweekday = [RRule[dayCodeInTimezone as keyof typeof RRule] as unknown as number]
+        }
       }
 
       // Set bysetpos if it's provided and not already handled by the .nth() logic for MONTHLY/YEARLY
@@ -310,9 +331,56 @@ export class RecurrenceService {
         recurrenceRule: event.recurrenceRule
       })
 
+      // IMPORTANT FIX: Ensure we're using the correct byweekday for late night events
+      const ruleWithTimeZone = { ...event.recurrenceRule, timeZone: eventTimeZone }
+
+      // For weekly events, verify the day codes match actual days in the timezone
+      if (ruleWithTimeZone.frequency === 'WEEKLY' &&
+          ruleWithTimeZone.byweekday &&
+          ruleWithTimeZone.byweekday.length > 0) {
+        // Get the actual day of week in the event's timezone
+        const { dayCode: actualDayCode } = this.getDayOfWeekInTimezone(
+          new Date(event.startDate),
+          eventTimeZone
+        )
+
+        // If the event is happening near midnight, verify the correct day is selected
+        const time = formatInTimeZone(new Date(event.startDate), eventTimeZone, 'HH:mm')
+        const hour = parseInt(time.split(':')[0], 10)
+        const isLateNight = hour >= 20 // After 8 PM
+        const isEarlyMorning = hour < 4 // Before 4 AM
+        const isNearDayBoundary = isLateNight || isEarlyMorning
+
+        if (isNearDayBoundary) {
+          console.log(`Event near day boundary at ${time} in ${eventTimeZone}. Ensuring correct day of week:`, {
+            actualDayInTimezone: actualDayCode,
+            selectedDays: ruleWithTimeZone.byweekday,
+            isActualDaySelected: ruleWithTimeZone.byweekday.includes(actualDayCode),
+            isLateNight,
+            isEarlyMorning
+          })
+
+          // CRITICAL FIX: If the selected day doesn't include the actual day in the timezone,
+          // modify the rule to use the actual day
+          if (!ruleWithTimeZone.byweekday.includes(actualDayCode)) {
+            console.warn(`Selected day ${ruleWithTimeZone.byweekday.join(',')} doesn't match actual day ${actualDayCode} in timezone. This will cause incorrect occurrences.`)
+
+            // Force the correct day for the timezone to avoid issues with day boundaries
+            // We use the actual day in the event's timezone to ensure consistency
+            if (ruleWithTimeZone._userExplicitSelection) {
+              console.log('User explicitly selected days, maintaining their selection but adding warning')
+            } else {
+              // If not explicitly set by user, we'll correct it automatically
+              console.log(`Automatically fixing byweekday to use the correct day: ${actualDayCode}`)
+              ruleWithTimeZone.byweekday = [actualDayCode]
+            }
+          }
+        }
+      }
+
       // toRRule is now timezone-aware using tzid
       const rrule = this.toRRule(
-        { ...event.recurrenceRule, timeZone: eventTimeZone }, // Pass tz to rule for toRRule
+        ruleWithTimeZone, // Pass tz to rule for toRRule
         event.startDate,
         eventTimeZone // Pass tz to toRRule for tzid option and dtstart construction
       )
@@ -325,14 +393,137 @@ export class RecurrenceService {
 
       if (occurrencesUtc.length > 0) {
         console.log('Raw UTC occurrences from rrule.all() with tzid handling:', occurrencesUtc.slice(0, 3).map(d => d.toISOString()))
-        // Log first few occurrences in the event's timezone for verification
-        occurrencesUtc.slice(0, 3).forEach(occ => {
-          if (eventTimeZone) {
-            console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
-          } else {
-            console.log(`Occurrence ${occ.toISOString()} (UTC): ${format(occ, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+
+        // CRITICAL FIX: Verify that generated occurrences actually fall on the expected day of week
+        // This is especially important for late night events that cross day boundaries
+        if (event.recurrenceRule.frequency === 'WEEKLY' &&
+            event.recurrenceRule.byweekday &&
+            event.recurrenceRule.byweekday.length > 0 &&
+            eventTimeZone) {
+          // Get the expected day(s) of week from the rule
+          const expectedDays = event.recurrenceRule.byweekday.map(day => {
+            // Extract just the day code part (MO, TU, etc.)
+            const dayMatch = day.match(/^(?:[+-]?\d+)?([A-Z]{2})$/)
+            return dayMatch ? dayMatch[1] : day
+          })
+
+          // Check each occurrence
+          let allOccurrencesOnCorrectDay = true
+
+          // Log the expected day information for debugging
+          console.log('Verifying occurrences match expected days:', {
+            expectedDays,
+            eventStartDate: new Date(event.startDate).toISOString(),
+            timezone: eventTimeZone
+          })
+
+          occurrencesUtc.forEach(occ => {
+            // Get the day of this occurrence in the target timezone
+            const occDay = formatInTimeZone(occ, eventTimeZone, 'EEEE')
+            const occDayCode = this.getDayOfWeekInTimezone(occ, eventTimeZone).dayCode
+
+            // Map day codes to full day names for comparison
+            const dayCodeMap: Record<string, string> = {
+              SU: 'Sunday',
+              MO: 'Monday',
+              TU: 'Tuesday',
+              WE: 'Wednesday',
+              TH: 'Thursday',
+              FR: 'Friday',
+              SA: 'Saturday'
+            }
+
+            // Check if this occurrence falls on one of the expected days
+            const expectedDayNames = expectedDays.map(code => dayCodeMap[code] || code)
+            const isOnExpectedDay = expectedDayNames.includes(occDay)
+
+            // Log occurrence details
+            console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')} - ${isOnExpectedDay ? 'CORRECT' : 'WRONG'} DAY`)
+
+            if (!isOnExpectedDay) {
+              allOccurrencesOnCorrectDay = false
+              console.warn(`Occurrence falls on ${occDay} (${occDayCode}) but expected one of: ${expectedDayNames.join(', ')} (${expectedDays.join(', ')})`)
+            }
+          })
+
+          // CRITICAL FIX: If any occurrences are on the wrong day, fix them by shifting to correct day
+          // This is essential for 10 PM events where RRule often generates wrong days
+          if (!allOccurrencesOnCorrectDay) {
+            console.warn('Some occurrences don\'t fall on the expected day(s) of week. This is likely due to a timezone boundary issue.')
+
+            // First, create a mapping from day codes to numeric days of week (0-6)
+            const dayCodeToNumeric: Record<string, number> = {
+              SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6
+            }
+
+            // Convert expected days to numeric for easier math
+            const expectedNumericDays = expectedDays.map(code => dayCodeToNumeric[code] ?? -1)
+
+            // Create corrected occurrences by shifting each date to the correct day
+            const fixedOccurrences: Date[] = []
+
+            occurrencesUtc.forEach(occ => {
+              // Get current numeric day of week in the timezone (0-6)
+              const currentDayNum = parseInt(formatInTimeZone(occ, eventTimeZone, 'i'), 10) % 7
+
+              // Find the closest expected day - this is the one we want to shift to
+              // Default to first expected day if we can't determine
+              const targetDayNum = expectedNumericDays.length > 0
+                ? expectedNumericDays[0] : dayCodeToNumeric.MO
+
+              // CRITICAL FIX: Calculate days to shift to get to the correct day
+              // This is the core of fixing 10:00 PM Monday events appearing on Sunday
+              let daysToShift = targetDayNum - currentDayNum
+
+              // Handle week wrapping properly:
+              // If shifting backwards by more than 3 days, it's shorter to go forward
+              if (daysToShift < -3) daysToShift += 7
+
+              // If shifting forward by more than 3 days, it's shorter to go backward
+              if (daysToShift > 3) daysToShift -= 7
+
+              console.log('Day shifting calculation:', {
+                currentDay: formatInTimeZone(occ, eventTimeZone, 'EEEE'),
+                targetDay: expectedDays.length > 0 ? expectedDays[0] : 'Monday',
+                currentDayNum,
+                targetDayNum,
+                daysToShift
+              })
+
+              // Actually create a shifted date that falls on the expected day
+              if (daysToShift !== 0) {
+                // Create a new date shifted by the required days
+                const fixedDate = new Date(occ)
+                fixedDate.setDate(fixedDate.getDate() + daysToShift)
+
+                // Log what we're doing
+                console.log(`Fixing occurrence: Shifting ${occ.toISOString()} by ${daysToShift} days to ${fixedDate.toISOString()}`)
+                console.log(`- Original day in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'EEEE')}`)
+                console.log(`- Fixed day in ${eventTimeZone}: ${formatInTimeZone(fixedDate, eventTimeZone, 'EEEE')}`)
+
+                fixedOccurrences.push(fixedDate)
+              } else {
+                // No shift needed, date is already correct
+                fixedOccurrences.push(occ)
+              }
+            })
+
+            // Replace the original occurrences with the fixed ones
+            if (fixedOccurrences.length > 0) {
+              console.log('Using corrected occurrences that fall on the expected day of week')
+              occurrencesUtc = fixedOccurrences
+            }
           }
-        })
+        } else {
+          // Standard logging for non-weekly patterns
+          occurrencesUtc.slice(0, 3).forEach(occ => {
+            if (eventTimeZone) {
+              console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+            } else {
+              console.log(`Occurrence ${occ.toISOString()} (UTC): ${format(occ, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+            }
+          })
+        }
       }
 
       // Filter exceptions
@@ -784,104 +975,6 @@ export class RecurrenceService {
     }
   }
 
-  // Format date with timezone
-  static formatWithTimezone (
-    date: string | Date,
-    options: Intl.DateTimeFormatOptions = {},
-    timeZone?: string,
-    locale?: string
-  ): string {
-    if (!date) return 'N/A'
-
-    const dateObj = typeof date === 'string' ? parseISO(date) : date
-    // If a specific timeZone is provided (e.g. event's original timezone), use it.
-    // Otherwise, default to the user's local timezone.
-    const effectiveTimeZone = timeZone || this.getUserTimezone()
-    const effectiveLocale = locale || 'en-US' // Or pass undefined to Intl.DateTimeFormat for runtime default
-
-    try {
-      // Use Intl.DateTimeFormat for formatting with the provided options and timezone
-      const dtf = new Intl.DateTimeFormat(effectiveLocale, { // Intl.DateTimeFormat handles locale strings directly
-        ...options,
-        timeZone: effectiveTimeZone
-      })
-      return dtf.format(dateObj)
-    } catch (e) {
-      console.error(`Error formatting date with Intl.DateTimeFormat (tz: ${effectiveTimeZone}, locale: ${effectiveLocale}):`, e)
-      // Fallback to date-fns-tz with a generic format, still respecting the timezone
-      try {
-        // formatInTimeZone can take a locale object from date-fns/locale, or uses its default if locale option is omitted.
-        // For simplicity here, we'll rely on its default or any pre-configured default locale.
-        return formatInTimeZone(dateObj, effectiveTimeZone, 'MMM d, yyyy, h:mm:ss a (zzz)')
-      } catch (fallbackError) {
-        console.error(`Error in date-fns-tz fallback formatting (tz: ${effectiveTimeZone}):`, fallbackError)
-        // Absolute fallback
-        return dateObj.toISOString() + ` (Error in formatting, tz: ${effectiveTimeZone})`
-      }
-    }
-  }
-
-  // Adjust date for timezone by adding the timezone offset
-  static adjustDateForTimezone (date: string | Date, timeZone?: string): Date {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date
-
-    if (!timeZone) return dateObj
-
-    // Calculate the timezone offset
-    const targetTzOffset = new Date(dateObj).getTimezoneOffset() * 60000
-    const localTzOffset = new Date().getTimezoneOffset() * 60000
-
-    // Adjust the date for timezone difference
-    return addMilliseconds(dateObj, targetTzOffset - localTzOffset)
-  }
-
-  // Get the timezone display name
-  static getTimezoneDisplay (timeZone?: string): string {
-    if (!timeZone) {
-      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    }
-
-    try {
-      // Format the timezone for display (e.g., "America/New_York (EDT)")
-      const now = new Date()
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        timeZoneName: 'short'
-      })
-
-      const parts = formatter.formatToParts(now)
-      const tzName = parts.find(part => part.type === 'timeZoneName')?.value
-
-      return `${timeZone} (${tzName})`
-    } catch (error) {
-      console.error('Error getting timezone display:', error)
-      return timeZone
-    }
-  }
-
-  // Get all IANA timezones
-  static getTimezones (): string[] {
-    // Use the full list of supported timezones
-    return Intl.supportedValuesOf('timeZone')
-  }
-
-  // Get filtered timezone list matching search term
-  static searchTimezones (search: string): string[] {
-    if (!search) {
-      return this.getTimezones()
-    }
-
-    const searchLower = search.toLowerCase()
-    return this.getTimezones().filter(
-      tz => tz.toLowerCase().includes(searchLower)
-    )
-  }
-
-  // Get the user's timezone
-  static getUserTimezone (): string {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone
-  }
-
   /**
    * Creates a UTC Date object that preserves wall-clock time in the target timezone.
    * This is crucial for implementing the principle "Preserve wall-clock time in the originating timezone".
@@ -1049,8 +1142,6 @@ export class RecurrenceService {
 
       // Format explicitly using date-fns-tz for reliable timezone handling
       const dayName = formatInTimeZone(dateObj, timezone, 'EEEE') // Full day name (e.g., "Monday")
-      const dayOfWeek = formatInTimeZone(dateObj, timezone, 'i') // ISO day of week (1-7, where 1 is Monday)
-      const dayOfMonth = formatInTimeZone(dateObj, timezone, 'd') // Day of month
 
       // Map day names to RRule day codes
       const dayNameMap: Record<string, string> = {
@@ -1066,15 +1157,14 @@ export class RecurrenceService {
       // Get the weekday code
       const dayCode = dayNameMap[dayName]
 
-      // Log for debugging
-      console.log('Day of week in timezone:', {
-        date: dateObj.toISOString(),
-        timezone,
-        dayName,
-        dayCode,
-        isoDay: dayOfWeek,
-        dayOfMonth
-      })
+      // Only log if there's an issue with the day code
+      if (!dayCode) {
+        console.warn('Could not determine day code for date:', {
+          date: dateObj.toISOString(),
+          timezone,
+          dayName
+        })
+      }
 
       if (!dayCode) {
         throw new Error(`Could not map day name "${dayName}" to RRule day code`)

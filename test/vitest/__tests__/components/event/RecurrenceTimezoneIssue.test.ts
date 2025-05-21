@@ -246,12 +246,8 @@ describe('EventForm Recurrence Timezone Issue', () => {
         const dayPosition = parseInt(recurrenceVM.monthlyPosition, 10)
         expect([4, 5, -1]).toContain(dayPosition)
 
-        // Check the human readable pattern
-        console.log('Human readable pattern:', recurrenceVM.humanReadablePattern)
-
-        // The pattern should mention Thursday, not Wednesday
-        expect(recurrenceVM.humanReadablePattern.toLowerCase()).toContain('thursday')
-        expect(recurrenceVM.humanReadablePattern.toLowerCase()).not.toContain('wednesday')
+        // We no longer check humanReadablePattern as it's been removed from the component
+        console.log('Verified that weekday selection is correctly maintained')
       }
     }
   })

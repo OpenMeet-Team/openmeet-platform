@@ -117,7 +117,7 @@
 import { ref, computed, watch, defineProps, defineEmits, defineExpose } from 'vue'
 import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
-import { RecurrenceService } from '../../services/recurrenceService'
+import dateFormatting from '../../composables/useDateFormatting'
 
 /**
  * DatetimeComponent
@@ -166,13 +166,13 @@ const localDate = ref('')
 const localTime = ref('')
 const isoDate = ref(props.modelValue || '')
 const showTimezonePicker = ref(false)
-const timezoneOptions = ref(RecurrenceService.getTimezones())
-const selectedTimezone = ref(props.timeZone || RecurrenceService.getUserTimezone())
+const timezoneOptions = ref(dateFormatting.getTimezones())
+const selectedTimezone = ref(props.timeZone || dateFormatting.getUserTimezone())
 const editableDate = ref('')
 
 // Format timezone for display
 const formatTimeZone = computed(() => {
-  return RecurrenceService.getTimezoneDisplay(props.timeZone)
+  return dateFormatting.getTimezoneDisplay(props.timeZone)
 })
 
 /**
@@ -475,8 +475,8 @@ function updateModelValue () {
 function filterTimezones (val, update) {
   update(() => {
     timezoneOptions.value = val
-      ? RecurrenceService.searchTimezones(val)
-      : RecurrenceService.getTimezones()
+      ? dateFormatting.searchTimezones(val)
+      : dateFormatting.getTimezones()
   })
 }
 
@@ -496,7 +496,7 @@ watch(() => props.modelValue, (newValue) => {
 })
 
 watch(() => props.timeZone, (newTimezone) => {
-  selectedTimezone.value = newTimezone || RecurrenceService.getUserTimezone()
+  selectedTimezone.value = newTimezone || dateFormatting.getUserTimezone()
 
   // When timezone changes, we keep localDate and localTime the same
   // but recalculate the ISO string with the new timezone
