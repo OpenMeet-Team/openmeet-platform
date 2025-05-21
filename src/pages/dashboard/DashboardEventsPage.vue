@@ -56,18 +56,29 @@ const tab = ref<'attending' | 'hosting' | 'saved' | 'past'>('attending')
 const loaded = ref<boolean>(false)
 const router = useRouter()
 
-// Fix: Properly filter hosting events by role name
-const hostingEvents = computed(() => events.value.filter(event => event.attendee?.role.name === EventAttendeeRole.Host))
-// Fix: Properly filter attended events by role name (not being host) and only future events
-const attendedEvents = computed(() => events.value.filter(event =>
+const events = ref<EventEntity[]>([])
+
+// Helper: Sort events by startDate ascending (soonest first)
+const sortedEvents = computed(() =>
+  [...events.value].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+)
+
+const hostingEvents = computed(() => sortedEvents.value.filter(
+  event => event.attendee?.role.name === EventAttendeeRole.Host &&
+  event.startDate &&
+  new Date(event.startDate) >= new Date()
+))
+const attendedEvents = computed(() => sortedEvents.value.filter(event =>
   event.attendee &&
   event.attendee.role.name !== EventAttendeeRole.Host &&
   event.startDate &&
   new Date(event.startDate) >= new Date()
 ))
-// const savedEvents = computed(() => events.value)
-const pastEvents = computed(() => events.value.filter(event => event.startDate && new Date(event.startDate) < new Date()))
-const events = ref<EventEntity[]>([])
+const pastEvents = computed(() =>
+  sortedEvents.value
+    .filter(event => event.startDate && new Date(event.startDate) < new Date())
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+)
 
 useMeta({
   title: 'Your events'
