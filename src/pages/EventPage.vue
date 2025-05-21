@@ -154,7 +154,10 @@
                       useEventStore().getterUserHasPermission(
                         EventAttendeePermission.ManageEvent
                       ) ||
-                      isOwnerOrAdmin
+                      isOwnerOrAdmin ||
+                      useEventStore().getterGroupMemberHasPermission(
+                        GroupPermission.ManageEvents
+                      )
                     "
                     @click="handleEditEvent"
                   />
@@ -171,9 +174,13 @@
                   <MenuItemComponent
                     v-if="
                       event.status === EventStatus.Published &&
-                      useEventStore().getterUserHasPermission(
+                      (useEventStore().getterUserHasPermission(
                         EventAttendeePermission.CancelEvent
-                      )
+                      ) ||
+                      isOwnerOrAdmin ||
+                      useEventStore().getterGroupMemberHasPermission(
+                        GroupPermission.ManageEvents
+                      ))
                     "
                     label="Cancel event"
                     icon="sym_r_event_busy"
@@ -188,7 +195,10 @@
                       useEventStore().getterUserHasPermission(
                         EventAttendeePermission.DeleteEvent
                       ) ||
-                      isOwnerOrAdmin
+                      isOwnerOrAdmin ||
+                      useEventStore().getterGroupMemberHasPermission(
+                        GroupPermission.ManageEvents
+                      )
                     "
                     icon="sym_r_delete"
                     @click="onDeleteEvent"
