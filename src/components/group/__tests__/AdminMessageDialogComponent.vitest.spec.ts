@@ -76,7 +76,7 @@ const mockMembers = [
 
 describe('AdminMessageDialogComponent', () => {
   // Helper function to create wrapper with proper stubs for dialog components
-  const createWrapper = (props: Record<string, unknown>) => {
+  const createWrapper = (props: { group: typeof mockGroup; members?: typeof mockMembers }) => {
     return mount(AdminMessageDialogComponent, {
       props,
       global: {

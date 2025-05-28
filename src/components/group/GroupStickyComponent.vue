@@ -10,6 +10,7 @@ import { useNotification } from '../../composables/useNotification'
 import { useRouter } from 'vue-router'
 import { useEventDialog } from '../../composables/useEventDialog'
 import { useAdminMessageDialog } from '../../composables/useAdminMessageDialog'
+import { useContactAdminsDialog } from '../../composables/useContactAdminsDialog'
 import { GroupEntity, GroupPermission, GroupRole } from '../../types'
 
 const { openLoginDialog } = useAuthDialog()
@@ -31,10 +32,17 @@ const onJoinGroup = () => {
 }
 const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
 const { openAdminMessageDialog } = useAdminMessageDialog()
+const { openContactAdminsDialog } = useContactAdminsDialog()
 
 const onSendAdminMessage = async () => {
   if (group.value) {
     await openAdminMessageDialog(group.value)
+  }
+}
+
+const onContactAdmins = async () => {
+  if (group.value) {
+    await openContactAdminsDialog(group.value)
   }
 }
 
@@ -97,6 +105,8 @@ const onLeaveGroup = () => {
           v-else-if="useGroupStore().getterUserIsGroupMember() && !useGroupStore().getterUserHasRole(GroupRole.Owner)"
           align="center" no-caps :label="`You're a ${group?.groupMember?.groupRole.name}`">
           <q-list>
+            <MenuItemComponent data-cy="contact-admins-button" label="Contact Admins" icon="sym_r_mail"
+              @click="onContactAdmins" />
             <MenuItemComponent data-cy="leave-group-button" label="Leave this group" icon="sym_r_report"
               @click="onLeaveGroup" />
           </q-list>
