@@ -32,9 +32,9 @@ const onJoinGroup = () => {
 const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
 const { openAdminMessageDialog } = useAdminMessageDialog()
 
-const onSendAdminMessage = () => {
+const onSendAdminMessage = async () => {
   if (group.value) {
-    openAdminMessageDialog(group.value)
+    await openAdminMessageDialog(group.value)
   }
 }
 
