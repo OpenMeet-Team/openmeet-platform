@@ -69,6 +69,7 @@ export interface EventApiType {
   // Admin messaging endpoints
   sendAdminMessage: (slug: string, data: { subject: string, message: string }) => Promise<AxiosResponse<AdminMessageResult>>
   previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }) => Promise<AxiosResponse<{ message: string }>>
+  contactOrganizers: (slug: string, data: { contactType: string, subject: string, message: string }) => Promise<AxiosResponse<AdminMessageResult>>
 
   // Recurrence-related methods (deprecated)
   /**
@@ -152,5 +153,8 @@ export const eventsApi: EventApiType = {
 
   // Admin messaging endpoints
   sendAdminMessage: (slug: string, data: { subject: string, message: string }): Promise<AxiosResponse<AdminMessageResult>> => api.post(`/api/events/${slug}/admin-message`, data, createEventApiHeaders(slug)),
-  previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }): Promise<AxiosResponse<{ message: string }>> => api.post(`/api/events/${slug}/admin-message/preview`, data, createEventApiHeaders(slug))
+  previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }): Promise<AxiosResponse<{ message: string }>> => api.post(`/api/events/${slug}/admin-message/preview`, data, createEventApiHeaders(slug)),
+
+  // Attendee contact endpoints
+  contactOrganizers: (slug: string, data: { contactType: string, subject: string, message: string }): Promise<AxiosResponse<AdminMessageResult>> => api.post(`/api/events/${slug}/contact-organizers`, data, createEventApiHeaders(slug))
 }
