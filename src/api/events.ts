@@ -31,6 +31,14 @@ export interface ExpandedEventOccurrence {
   event: EventEntity
 }
 
+export interface AdminMessageResult {
+  success: boolean
+  messageId: string
+  deliveredCount: number
+  failedCount: number
+  errors?: string[]
+}
+
 export interface EventApiType {
   getAll: (query: RouteQueryAndHash) => Promise<AxiosResponse<EventPaginationEntity>>
   getByUlid: (ulid: string) => Promise<AxiosResponse<EventEntity>>
@@ -57,6 +65,10 @@ export interface EventApiType {
   remove?: (slug: string) => Promise<AxiosResponse<unknown>>
   // New endpoint to get all events in a series
   getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => Promise<AxiosResponse<EventEntity[]>>
+
+  // Admin messaging endpoints
+  sendAdminMessage: (slug: string, data: { subject: string, message: string }) => Promise<AxiosResponse<AdminMessageResult>>
+  previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }) => Promise<AxiosResponse<{ message: string }>>
 
   // Recurrence-related methods (deprecated)
   /**
@@ -136,5 +148,9 @@ export const eventsApi: EventApiType = {
     api.patch<void>(`/api/recurrence/${slug}/inclusions`, null, { params: { date } }),
 
   // New endpoint to get all events in a series
-  getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => api.get<EventEntity[]>(`/api/events/series/${seriesSlug}/events`, { params: query })
+  getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => api.get<EventEntity[]>(`/api/events/series/${seriesSlug}/events`, { params: query }),
+
+  // Admin messaging endpoints
+  sendAdminMessage: (slug: string, data: { subject: string, message: string }): Promise<AxiosResponse<AdminMessageResult>> => api.post(`/api/events/${slug}/admin-message`, data, createEventApiHeaders(slug)),
+  previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }): Promise<AxiosResponse<{ message: string }>> => api.post(`/api/events/${slug}/admin-message/preview`, data, createEventApiHeaders(slug))
 }

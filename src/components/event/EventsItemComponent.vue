@@ -93,9 +93,11 @@ const formatSeriesSlug = (slug: string): string => {
 
     .event-image-container {
       width: 100%;
+      min-width: 100px;
 
       .event-image {
         border-radius: 8px;
+        min-width: 100px;
 
         :deep(.q-img__content) {
           background-size: cover;
@@ -126,10 +128,12 @@ const formatSeriesSlug = (slug: string): string => {
 
     .event-image-container {
       width: 300px;
+      min-width: 100px;
 
       .event-image {
         border-radius: 8px;
         overflow: hidden;
+        min-width: 100px;
       }
     }
 

@@ -8,8 +8,22 @@
       <q-btn flat no-caps color="primary" icon="sym_r_arrow_back" label="Back"
         :to="{ name: 'EventPage', params: { slug: route.params.slug } }" class="q-mb-md" />
       <div class="q-pa-md">
-        <div class="text-h5 q-mb-md">
-          Event Attendees ({{ filteredAttendees.length }})
+        <div class="row items-center justify-between q-mb-md">
+          <div class="text-h5">
+            Event Attendees ({{ filteredAttendees.length }})
+          </div>
+
+          <!-- Admin Actions -->
+          <div v-if="canMessageAttendees">
+            <q-btn
+              @click="openMessageAllAttendeesDialog"
+              color="primary"
+              icon="sym_r_send"
+              label="Send Message to All"
+              no-caps
+              data-cy="send-message-all-attendees"
+            />
+          </div>
         </div>
 
         <!-- Attendees add search and filter by status -->
@@ -90,9 +104,11 @@ import { eventsApi } from '../../api'
 import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
 import { useAuthStore } from '../../stores/auth-store'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import { useEventAttendeeDialog } from '../../composables/useEventAttendeeDialog'
+import { useEventAdminMessageDialog } from '../../composables/useEventAdminMessageDialog'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,7 +123,9 @@ const search = ref<string>('')
 const status = ref<QSelectOption | null>(null)
 const event = computed(() => useEventStore().event)
 const canManageAttendees = computed(() => useEventStore().getterUserHasPermission(EventAttendeePermission.ManageAttendees))
+const canMessageAttendees = computed(() => useEventStore().getterUserHasPermission(EventAttendeePermission.MessageAttendees))
 const { openEditAttendeeDialog, openDeleteAttendeeDialog, openViewAttendeeRequestDialog } = useEventAttendeeDialog()
+const { openEventAdminMessageDialog } = useEventAdminMessageDialog()
 
 const statusOptions = computed(() => {
   return Object.values(EventAttendeeStatus).map((status) => ({
@@ -214,6 +232,14 @@ const viewProfile = (attendee: EventAttendeeEntity) => {
 
 const viewAttendeeRequest = (attendee: EventAttendeeEntity) => {
   openViewAttendeeRequestDialog(attendee)
+}
+
+const openMessageAllAttendeesDialog = () => {
+  if (!event.value) return
+
+  openEventAdminMessageDialog(event.value).onOk((result) => {
+    console.log('Message sent:', result)
+  })
 }
 
 onMounted(() => {

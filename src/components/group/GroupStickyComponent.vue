@@ -9,6 +9,7 @@ import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useNotification } from '../../composables/useNotification'
 import { useRouter } from 'vue-router'
 import { useEventDialog } from '../../composables/useEventDialog'
+import { useAdminMessageDialog } from '../../composables/useAdminMessageDialog'
 import { GroupEntity, GroupPermission, GroupRole } from '../../types'
 
 const { openLoginDialog } = useAuthDialog()
@@ -29,6 +30,13 @@ const onJoinGroup = () => {
   }
 }
 const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
+const { openAdminMessageDialog } = useAdminMessageDialog()
+
+const onSendAdminMessage = () => {
+  if (group.value) {
+    openAdminMessageDialog(group.value)
+  }
+}
 
 const onDeleteGroup = () => {
   openDeleteGroupDialog().onOk(() => {
@@ -72,6 +80,11 @@ const onLeaveGroup = () => {
               v-if="useGroupStore().getterUserHasPermission(GroupPermission.ManageGroup)" label="Edit group"
               icon="sym_r_settings"
               @click="router.push({ name: 'DashboardGroupPage', params: { slug: group?.slug } })" />
+            <MenuItemComponent data-cy="send-admin-message-button"
+              v-if="useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers)"
+              label="Send Message to Members"
+              icon="sym_r_send"
+              @click="onSendAdminMessage" />
             <MenuItemComponent data-cy="delete-group-button"
               v-if="useGroupStore().getterUserHasPermission(GroupPermission.DeleteGroup)" label="Delete group"
               icon="sym_r_delete" @click="onDeleteGroup" />
