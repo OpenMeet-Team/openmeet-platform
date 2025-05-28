@@ -107,6 +107,21 @@
                     :template-date="templateDate"
                   />
 
+                  <!-- Contact Organizers button - only show for attendees who don't have manage permissions -->
+                  <q-btn
+                    v-if="
+                      useEventStore().getterUserIsAttendee() &&
+                      !useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)
+                    "
+                    label="Contact Organizers"
+                    color="secondary"
+                    outline
+                    icon="sym_r_mail"
+                    @click="onContactOrganizers"
+                    data-cy="contact-organizers-btn"
+                    class="q-ml-sm"
+                  />
+
                   <QRCodeComponent class="" />
                 </div>
               </div>
@@ -558,6 +573,7 @@ import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayCom
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
 import dateFormatting from '../composables/useDateFormatting'
+import { useContactEventOrganizersDialog } from '../composables/useContactEventOrganizersDialog'
 
 // Define the type for occurrence
 interface SeriesOccurrence {
@@ -588,6 +604,7 @@ const router = useRouter()
 const $q = useQuasar()
 const { navigateToGroup } = useNavigation()
 const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
+const { showContactDialog } = useContactEventOrganizersDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
 const similarEvents = ref<EventEntity[]>([])
@@ -622,6 +639,17 @@ const onDeleteEvent = () => {
 
 const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
+}
+
+const onContactOrganizers = () => {
+  if (event.value) {
+    showContactDialog({
+      event: {
+        slug: event.value.slug,
+        name: event.value.name
+      }
+    })
+  }
 }
 
 // Handle attendee status changes to automatically join chat room when a user becomes confirmed

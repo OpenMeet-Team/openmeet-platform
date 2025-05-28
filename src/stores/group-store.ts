@@ -292,6 +292,36 @@ export const useGroupStore = defineStore('group', {
         console.log(err)
         error('Failed to update group discussion message')
       }
+    },
+
+    /**
+     * Send contact message from member to group admins
+     */
+    async actionContactAdmins (
+      slug: string,
+      contactType: 'question' | 'report' | 'feedback',
+      subject: string,
+      message: string
+    ) {
+      try {
+        const res = await groupsApi.contactAdmins(slug, {
+          contactType,
+          subject,
+          message
+        })
+
+        analyticsService.trackEvent('group_contact_admins', {
+          groupSlug: slug,
+          contactType,
+          deliveredCount: res.data.deliveredCount
+        })
+
+        return res.data
+      } catch (err) {
+        console.error('Failed to send contact message to admins:', err)
+        error('Failed to send contact message to admins')
+        throw err
+      }
     }
   }
 })

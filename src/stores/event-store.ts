@@ -427,6 +427,29 @@ export const useEventStore = defineStore('event', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    async actionContactOrganizers (
+      slug: string,
+      contactType: 'question' | 'report' | 'feedback',
+      subject: string,
+      message: string
+    ) {
+      try {
+        const res = await eventsApi.contactOrganizers(slug, {
+          contactType,
+          subject,
+          message
+        })
+
+        success(`Message sent successfully to ${res.data.deliveredCount} organizer(s)`)
+
+        return res.data
+      } catch (err) {
+        console.error('Failed to send contact message to organizers:', err)
+        error('Failed to send contact message to organizers')
+        throw err
+      }
     }
   }
 })
