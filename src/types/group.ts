@@ -96,6 +96,8 @@ export enum GroupPermission {
   CreateEvent = 'CREATE_EVENT',
   MessageDiscussion = 'MESSAGE_DISCUSSION',
   MessageMember = 'MESSAGE_MEMBER',
+  ContactMembers = 'CONTACT_MEMBERS',
+  ContactAdmins = 'CONTACT_ADMINS',
   SeeMembers = 'SEE_MEMBERS',
   SeeEvents = 'SEE_EVENTS',
   SeeDiscussions = 'SEE_DISCUSSIONS',
