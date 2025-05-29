@@ -89,7 +89,7 @@ const onLeaveGroup = () => {
               icon="sym_r_settings"
               @click="router.push({ name: 'DashboardGroupPage', params: { slug: group?.slug } })" />
             <MenuItemComponent data-cy="send-admin-message-button"
-              v-if="useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers)"
+              v-if="useGroupStore().getterUserHasPermission(GroupPermission.ContactMembers)"
               label="Send Message to Members"
               icon="sym_r_send"
               @click="onSendAdminMessage" />
@@ -105,7 +105,9 @@ const onLeaveGroup = () => {
           v-else-if="useGroupStore().getterUserIsGroupMember() && !useGroupStore().getterUserHasRole(GroupRole.Owner)"
           align="center" no-caps :label="`You're a ${group?.groupMember?.groupRole.name}`">
           <q-list>
-            <MenuItemComponent data-cy="contact-admins-button" label="Contact Admins" icon="sym_r_mail"
+            <MenuItemComponent data-cy="contact-admins-button"
+              v-if="useGroupStore().getterUserHasPermission(GroupPermission.ContactAdmins)"
+              label="Contact Admins" icon="sym_r_mail"
               @click="onContactAdmins" />
             <MenuItemComponent data-cy="leave-group-button" label="Leave this group" icon="sym_r_report"
               @click="onLeaveGroup" />
