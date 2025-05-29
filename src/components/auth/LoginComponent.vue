@@ -40,13 +40,13 @@
 
         <div class="text-grey-6">
           No account yet?
-          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthRegisterPage'}">
+          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthRegisterPage', query: route.query}">
             Registration
           </router-link>
         </div>
         <div class="text-grey-6">
           Forgot password?
-          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthForgotPasswordPage'}">
+          <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthForgotPasswordPage', query: route.query}">
             Restore
           </router-link>
         </div>

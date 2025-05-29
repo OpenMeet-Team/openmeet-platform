@@ -1,23 +1,25 @@
 <script setup lang="ts">
-
 import { useAuthStore } from '../../stores/auth-store'
-import { useAuthDialog } from '../../composables/useAuthDialog'
-const authDialog = useAuthDialog()
-const onLogin = () => {
-  authDialog.openLoginDialog()
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+// Create login/register routes with current page as redirect
+const loginRoute = {
+  name: 'AuthLoginPage',
+  query: { redirect: route.fullPath }
 }
 
-const onRegister = () => {
-  authDialog.openRegisterDialog()
+const registerRoute = {
+  name: 'AuthRegisterPage',
+  query: { redirect: route.fullPath }
 }
 </script>
 
 <template>
   <div class="row q-gutter-md no-wrap" v-if="!useAuthStore().isAuthenticated" data-cy="header-sign-in-component">
-<!--    <q-btn size="md" no-caps outline :to="{name: 'AuthLoginPage'}" label="Sign in"/>-->
-    <q-btn rounded no-wrap size="md" data-cy="header-sign-in-button" no-caps outline @click="onLogin" label="Sign in"/>
-<!--    <q-btn size="md" no-caps color="secondary"  :to="{name: 'AuthRegisterPage'}" label="Register"/>-->
-    <q-btn rounded size="md" no-caps data-cy="header-register-button" color="secondary"  @click="onRegister" label="Register"/>
+    <q-btn rounded no-wrap size="md" data-cy="header-sign-in-button" no-caps outline :to="loginRoute" label="Sign in"/>
+    <q-btn rounded size="md" no-caps data-cy="header-register-button" color="secondary" :to="registerRoute" label="Register"/>
   </div>
 </template>
 

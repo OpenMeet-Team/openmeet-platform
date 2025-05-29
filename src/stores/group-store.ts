@@ -12,6 +12,7 @@ export const useGroupStore = defineStore('group', {
     group: null as GroupEntity | null,
     isLoading: false,
     errorMessage: null as string | null,
+    errorCode: null as number | null,
     groupMembers: null as GroupMemberEntity[] | null
   }),
 
@@ -33,6 +34,9 @@ export const useGroupStore = defineStore('group', {
     },
     getterIsAuthenticatedGroup: (state) => {
       return state.group?.visibility === GroupVisibility.Authenticated
+    },
+    getterIsPermissionError: (state) => {
+      return state.errorCode === 403
     }
   },
 
@@ -42,12 +46,21 @@ export const useGroupStore = defineStore('group', {
         return
       }
       this.isLoading = true
+      this.errorMessage = null
+      this.errorCode = null
       try {
         const res = await groupsApi.getBySlug(slug)
         this.group = res.data
-      } catch (err) {
+      } catch (err: unknown) {
         console.log(err)
-        this.errorMessage = 'Failed to fetch group data'
+        const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
+        this.errorCode = axiosError.response?.status || null
+        if (axiosError.response?.status === 403) {
+          // Extract the helpful error message from the backend
+          this.errorMessage = axiosError.response?.data?.message || 'This group requires authentication or permission to view.'
+        } else {
+          this.errorMessage = 'Failed to fetch group data'
+        }
       } finally {
         this.isLoading = false
       }
@@ -111,6 +124,9 @@ export const useGroupStore = defineStore('group', {
             }
           }
           this.group.groupMember = res.data
+
+          // Refresh group data to ensure we have the latest permissions and state
+          await this.actionGetGroup(slug)
         }
         analyticsService.trackEvent('group_joined', { group_id: this.group?.id, name: this.group?.name })
       } catch (err) {
