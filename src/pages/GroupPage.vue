@@ -15,15 +15,27 @@
 
       <!-- Auth group content -->
       <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated"
-        icon="sym_r_error" data-cy="auth-group-content" label="You need to be logged in to see the content" />
+        icon="sym_r_lock" data-cy="auth-group-content" label="You need to be logged in to see the content"
+        :to="{ name: 'AuthLoginPage', query: { redirect: $route.fullPath } }" buttonLabel="Log in" />
+
+      <!-- Guest waiting for approval -->
+      <NoContentComponent
+        v-if="group && useGroupStore().getterIsPrivateGroup && useGroupStore().getterUserHasRole(GroupRole.Guest)"
+        icon="sym_r_schedule" data-cy="guest-approval-content" label="Your request to join is pending approval from group admins" />
 
       <!-- Private group content -->
       <NoContentComponent
-        v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)"
+        v-if="group && useGroupStore().getterIsPrivateGroup && !useGroupStore().getterUserIsGroupMember() && !useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)"
         icon="sym_r_error" data-cy="private-group-content" label="It's a private group, join to see the content" />
 
-      <!-- No group content -->
-      <NoContentComponent v-if="!group" data-cy="no-group-content" icon="sym_r_error" label="Group not found"
+      <!-- Permission error content -->
+      <NoContentComponent v-if="!group && useGroupStore().getterIsPermissionError" data-cy="permission-error-content"
+        icon="sym_r_lock" :label="useGroupStore().errorMessage"
+        :to="{ name: 'AuthLoginPage', query: { redirect: $route.fullPath } }" buttonLabel="Log in" />
+
+      <!-- No group content (only if it's not a permission error) -->
+      <NoContentComponent v-if="!group && !useGroupStore().getterIsPermissionError" data-cy="no-group-content"
+        icon="sym_r_error" label="Group not found"
         :to="{ name: 'GroupsPage' }" buttonLabel="Go to groups" />
 
     </template>
@@ -43,7 +55,7 @@ import GroupSimilarEventsComponent from '../components/group/GroupSimilarEventsC
 import { getImageSrc } from '../utils/imageUtils'
 import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import NoContentComponent from '../components/global/NoContentComponent.vue'
-import { GroupPermission } from '../types'
+import { GroupPermission, GroupRole } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
 import { chatApi } from '../api/chat'
