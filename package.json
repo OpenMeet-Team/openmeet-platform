@@ -1,9 +1,9 @@
 {
   "name": "openmeet",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Building Communities",
   "productName": "OpenMeet",
-  "author": "Stan Khatko <stanislavkhatko@gmail.com>",
+  "author": "OpenMeet Team <openmeet@openmeet.net>",
   "type": "module",
   "private": true,
   "scripts": {
