@@ -2,6 +2,7 @@ import { route } from 'quasar/wrappers'
 import { createMemoryHistory, createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import routes from './routes'
 import { useAuthStore } from '../stores/auth-store'
+import { versionService } from '../services/versionService'
 
 /*
  * If not building with SSR mode, you can
@@ -35,7 +36,7 @@ export default route(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE)
   })
 
-  Router.beforeEach((to, from, next) => {
+  Router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
@@ -51,6 +52,14 @@ export default route(function (/* { store, ssrContext } */) {
         next({ name: 'HomePage' })
       } else {
         next()
+      }
+    }
+
+    if (from.name && from.name !== to.name) {
+      try {
+        await versionService.checkForUpdates()
+      } catch (error) {
+        console.warn('Version check failed during navigation:', error)
       }
     }
   })

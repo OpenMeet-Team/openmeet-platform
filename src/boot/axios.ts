@@ -2,6 +2,7 @@ import { boot } from 'quasar/wrappers'
 import axios, { AxiosInstance } from 'axios'
 import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
+import { useVersionErrorHandling } from '../composables/useVersionErrorHandling'
 import getEnv from '../utils/env'
 
 declare module 'vue' {
@@ -14,6 +15,7 @@ declare module 'vue' {
 // Create api without baseURL initially
 const api = axios.create()
 const { error } = useNotification()
+const { handlePotentialVersionError } = useVersionErrorHandling()
 
 export default boot(async ({ app, router }) => {
   // Wait for config to be available
@@ -94,6 +96,7 @@ export default boot(async ({ app, router }) => {
         // This allows public pages to handle auth requirements gracefully
       }
 
+      handlePotentialVersionError(err)
       return Promise.reject(err)
     }
   )

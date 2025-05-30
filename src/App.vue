@@ -1,11 +1,15 @@
 <template>
   <router-view />
+  <UpdateNotificationComponent />
 </template>
 
 <script setup lang="ts">
 import { Dark, useMeta } from 'quasar'
-import { onBeforeMount } from 'vue'
+import { onBeforeMount, onMounted, onUnmounted } from 'vue'
 import getEnv from './utils/env'
+import UpdateNotificationComponent from './components/common/UpdateNotificationComponent.vue'
+import { versionService } from './services/versionService'
+import { setupGlobalErrorHandling } from './composables/useVersionErrorHandling'
 
 defineOptions({
   name: 'App'
@@ -26,5 +30,18 @@ onBeforeMount(() => {
     const darkModePreference = storedDarkMode === 'true'
     Dark.set(darkModePreference)
   }
+})
+
+onMounted(async () => {
+  try {
+    await versionService.initializeVersionChecking()
+    setupGlobalErrorHandling()
+  } catch (error) {
+    console.error('Failed to initialize version checking:', error)
+  }
+})
+
+onUnmounted(() => {
+  versionService.destroy()
 })
 </script>
