@@ -158,9 +158,10 @@ export const useAuthStore = defineStore('authStore', {
       this.user = user
       LocalStorage.setItem('user', JSON.stringify(user))
 
-      analyticsService.identify(this.user.ulid, {
+      analyticsService.identify(this.user.slug, {
         email: this.user.email,
-        name: this.user.name
+        name: this.user.name,
+        ulid: this.user.ulid
       })
       analyticsService.trackEvent('user_authorized', { user_id: this.user.id, email: this.user.email, name: this.user.name })
     },

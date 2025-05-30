@@ -37,7 +37,8 @@ async function initPostHog (key: string, router: Router) {
   const module = await import('posthog-js')
   posthog = module.default
   posthog.init(key, {
-    api_host: 'https://us.i.posthog.com'
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'always'
   })
 
   router.afterEach((to) => {

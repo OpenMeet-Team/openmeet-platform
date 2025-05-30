@@ -1,28 +1,21 @@
-import { PostHog } from 'posthog-js'
 import { posthog } from '../boot/posthog'
 
 class AnalyticsService {
-  private posthog: PostHog
-
-  constructor () {
-    this.posthog = posthog
-  }
-
   identify (userId: string, userProperties: object) {
-    if (this.posthog) {
-      this.posthog.identify(userId, userProperties)
+    if (posthog) {
+      posthog.identify(userId, userProperties)
     }
   }
 
   reset () {
-    if (this.posthog) {
-      this.posthog.reset()
+    if (posthog) {
+      posthog.reset()
     }
   }
 
   trackEvent (eventName: string, eventData?: object) {
-    if (this.posthog) {
-      this.posthog.capture(eventName, eventData)
+    if (posthog) {
+      posthog.capture(eventName, eventData)
     }
   }
 }
