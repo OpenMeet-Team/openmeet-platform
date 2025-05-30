@@ -34,20 +34,15 @@ async function initPostHogWhenReady (router: Router) {
 }
 
 async function initPostHog (key: string, router: Router) {
-  console.log('Initializing PostHog with key:', key.substring(0, 10) + '...')
   const module = await import('posthog-js')
   posthog = module.default
   posthog.init(key, {
     api_host: 'https://us.i.posthog.com',
-    person_profiles: 'always',
-    debug: true
+    person_profiles: 'always'
   })
-
-  console.log('PostHog initialized successfully')
 
   router.afterEach((to) => {
     if (!to.path.includes('/auth/bluesky/callback')) {
-      console.log('Capturing pageview for:', to.path)
       posthog?.capture('$pageview', { path: to.path })
     }
   })
