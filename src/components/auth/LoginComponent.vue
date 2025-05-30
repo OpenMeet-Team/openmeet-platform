@@ -55,9 +55,9 @@
         </div>
 
         <div class="text-grey-6">
-          <GoogleLoginComponent class="q-mt-md" @success="emits('login')" />
-          <GithubLoginComponent class="q-mt-md" @success="emits('login')" />
-          <BlueSkyLoginComponent class="q-mt-md" @success="emits('login')" />
+          <GoogleLoginComponent class="q-mt-md" @success="handleOAuthSuccess" />
+          <GithubLoginComponent class="q-mt-md" @success="handleOAuthSuccess" />
+          <BlueSkyLoginComponent class="q-mt-md" @success="handleOAuthSuccess" />
         </div>
       </q-card-section>
     </q-form>
@@ -105,6 +105,11 @@ const onSubmit = (): void => {
       isLoading.value = false
     })
   }
+}
+
+const handleOAuthSuccess = () => {
+  emits('login')
+  return router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
 }
 
 </script>
