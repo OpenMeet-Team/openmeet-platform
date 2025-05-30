@@ -121,8 +121,10 @@ const uploadFile = (file: File | Blob) => {
       emits('upload', response)
     })
     .catch((err) => {
-      console.error('Upload error:', err.message)
-      error(err.message)
+      console.error('Upload error:', err)
+      // Extract the error message from the API response if available
+      const errorMessage = err.response?.data?.message || err.message || 'Upload failed'
+      error(errorMessage)
     })
     .finally(() => {
       loading.value = false
