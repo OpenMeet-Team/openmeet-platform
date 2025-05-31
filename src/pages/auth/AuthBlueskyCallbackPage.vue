@@ -1,17 +1,17 @@
 <template>
   <q-page class="flex flex-center">
-    <SocialAuthError 
-      v-if="hasError" 
+    <SocialAuthError
+      v-if="hasError"
       :error="error?.message || 'Authentication failed'"
       :auth-provider="error?.authProvider"
       :suggested-provider="error?.suggestedProvider"
       :is-popup="false"
       @try-again="handleTryAgain"
-      @cancel="handleCancel" 
+      @cancel="handleCancel"
       @use-provider="handleUseProvider"
       @use-email-login="handleUseEmailLogin"
     />
-    
+
     <div v-else class="loading-container">
       <q-spinner-dots size="40px" color="primary" />
       <div class="q-mt-md">Processing login...</div>
@@ -26,15 +26,15 @@ import { useSocialAuthError } from '../../composables/useSocialAuthError'
 import SocialAuthError from '../../components/auth/SocialAuthError.vue'
 
 const authStore = useAuthStore()
-const { 
-  error, 
-  hasError, 
-  setError, 
-  clearError, 
-  redirectToProvider, 
-  redirectToLogin 
+const {
+  error,
+  hasError,
+  setError,
+  clearError,
+  redirectToProvider,
+  redirectToLogin
 } = useSocialAuthError()
-// Event handlers for SocialAuthError component  
+// Event handlers for SocialAuthError component
 const handleTryAgain = () => {
   clearError()
   redirectToLogin()
@@ -81,7 +81,7 @@ onMounted(async () => {
     }
   } catch (authError) {
     console.error('Auth callback detailed error:', authError)
-    
+
     // Parse the error using our composable
     setError(authError, 'bluesky')
   }

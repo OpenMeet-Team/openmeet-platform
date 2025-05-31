@@ -6,7 +6,7 @@
         Authentication Failed
       </div>
       <div class="text-body2 q-mt-md">{{ errorMessage }}</div>
-      
+
       <!-- Enhanced error display for social auth conflicts -->
       <div v-if="suggestedProvider" class="q-mt-md">
         <q-separator class="q-my-md" />
@@ -16,20 +16,20 @@
         </div>
       </div>
     </q-card-section>
-    
+
     <q-card-actions align="right" class="q-pt-none">
       <!-- Action button for suggested provider -->
-      <q-btn 
-        v-if="suggestedProvider && suggestedProvider !== 'email'" 
-        :label="getSuggestedButtonText()" 
+      <q-btn
+        v-if="suggestedProvider && suggestedProvider !== 'email'"
+        :label="getSuggestedButtonText()"
         :color="getProviderColor(suggestedProvider)"
         :icon="getProviderIcon(suggestedProvider)"
         @click="handleSuggestedAction"
         class="q-mr-sm"
       />
-      
+
       <!-- Email login button for email suggestion -->
-      <q-btn 
+      <q-btn
         v-if="suggestedProvider === 'email'"
         label="Use Email Login"
         color="primary"
@@ -37,21 +37,21 @@
         @click="goToEmailLogin"
         class="q-mr-sm"
       />
-      
+
       <!-- Try again button -->
-      <q-btn 
-        flat 
-        label="Try Again" 
-        color="primary" 
-        @click="handleTryAgain" 
+      <q-btn
+        flat
+        label="Try Again"
+        color="primary"
+        @click="handleTryAgain"
       />
-      
+
       <!-- Cancel/Close button -->
-      <q-btn 
-        flat 
-        label="Cancel" 
-        color="grey" 
-        @click="handleCancel" 
+      <q-btn
+        flat
+        label="Cancel"
+        color="grey"
+        @click="handleCancel"
       />
     </q-card-actions>
   </q-card>
@@ -91,14 +91,14 @@ const errorMessage = computed(() => {
 
 const getSuggestedAction = () => {
   if (!props.suggestedProvider) return ''
-  
+
   const providerNames = {
     google: 'Google',
-    github: 'GitHub', 
+    github: 'GitHub',
     bluesky: 'Bluesky',
     email: 'email and password'
   }
-  
+
   const providerName = providerNames[props.suggestedProvider] || props.suggestedProvider
   return `Try signing in with ${providerName} instead, which is linked to this email address.`
 }
@@ -124,7 +124,7 @@ const getProviderColor = (provider: string) => {
 const getProviderIcon = (provider: string) => {
   const icons = {
     google: 'fab fa-google',
-    github: 'fab fa-github', 
+    github: 'fab fa-github',
     bluesky: 'cloud'
   }
   return icons[provider] || 'login'

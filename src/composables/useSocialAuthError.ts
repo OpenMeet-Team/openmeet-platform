@@ -8,14 +8,26 @@ export interface SocialAuthError {
   isEnhanced: boolean
 }
 
-export function useSocialAuthError() {
+export function useSocialAuthError () {
   const router = useRouter()
   const error = ref<SocialAuthError | null>(null)
 
-  const parseSocialAuthError = (err: any, fallbackProvider?: string): SocialAuthError => {
+  const parseSocialAuthError = (err: unknown, fallbackProvider?: string): SocialAuthError => {
+    // Type assertion for axios error structure
+    const axiosError = err as {
+      response?: {
+        data?: {
+          errors?: Record<string, string>
+          message?: string
+        }
+        status?: number
+      }
+      message?: string
+    }
+
     // Check if this is an enhanced social auth error from our API
-    if (err?.response?.data?.errors?.social_auth) {
-      const errorData = err.response.data.errors
+    if (axiosError.response?.data?.errors?.social_auth) {
+      const errorData = axiosError.response.data.errors
       return {
         message: errorData.social_auth,
         authProvider: errorData.auth_provider || fallbackProvider,
@@ -23,23 +35,23 @@ export function useSocialAuthError() {
         isEnhanced: true
       }
     }
-    
+
     // Check for other 422 errors with email conflicts
-    if (err?.response?.status === 422 && err?.response?.data?.errors?.email) {
-      const emailError = err.response.data.errors.email
-      let suggestedProvider = undefined
-      
+    if (axiosError.response?.status === 422 && axiosError.response?.data?.errors?.email) {
+      const emailError = axiosError.response.data.errors.email
+      let suggestedProvider: string | undefined
+
       // Try to extract suggested provider from error message
       if (emailError.includes('google')) {
         suggestedProvider = 'google'
       } else if (emailError.includes('github')) {
-        suggestedProvider = 'github'  
+        suggestedProvider = 'github'
       } else if (emailError.includes('bluesky')) {
         suggestedProvider = 'bluesky'
       } else if (emailError.includes('email')) {
         suggestedProvider = 'email'
       }
-      
+
       return {
         message: emailError,
         authProvider: fallbackProvider,
@@ -49,10 +61,10 @@ export function useSocialAuthError() {
     }
 
     // Fallback for generic errors
-    const message = err?.response?.data?.message || 
-                   err?.message || 
+    const message = axiosError.response?.data?.message ||
+                   axiosError.message ||
                    'Authentication failed. Please try again.'
-    
+
     return {
       message,
       authProvider: fallbackProvider,
@@ -61,7 +73,7 @@ export function useSocialAuthError() {
     }
   }
 
-  const setError = (err: any, fallbackProvider?: string) => {
+  const setError = (err: unknown, fallbackProvider?: string) => {
     error.value = parseSocialAuthError(err, fallbackProvider)
   }
 
@@ -77,11 +89,11 @@ export function useSocialAuthError() {
   const redirectToProvider = (provider: string) => {
     const routes = {
       google: '/auth/login', // Same page, different button
-      github: '/auth/login', // Same page, different button  
+      github: '/auth/login', // Same page, different button
       bluesky: '/auth/login', // Same page, different button
       email: '/auth/login'
     }
-    
+
     router.push(routes[provider] || '/auth/login')
   }
 
@@ -96,7 +108,7 @@ export function useSocialAuthError() {
   const closePopupWithMessage = (message?: string) => {
     if (window.opener) {
       window.opener.postMessage(
-        { 
+        {
           error: message || error.value?.message || 'Authentication failed',
           authProvider: error.value?.authProvider,
           suggestedProvider: error.value?.suggestedProvider
@@ -116,7 +128,7 @@ export function useSocialAuthError() {
     clearError,
     parseSocialAuthError,
     redirectToProvider,
-    redirectToEmailLogin, 
+    redirectToEmailLogin,
     redirectToLogin,
     closePopupWithMessage
   }

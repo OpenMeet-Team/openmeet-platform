@@ -11,18 +11,18 @@
 
     <!-- Enhanced Error Display -->
     <div v-if="socialAuthError" class="q-mt-sm">
-      <SocialAuthError 
+      <SocialAuthError
         :error="socialAuthError.message"
         :auth-provider="socialAuthError.authProvider"
         :suggested-provider="socialAuthError.suggestedProvider"
         :is-popup="false"
         @try-again="handleTryAgain"
-        @cancel="handleCancel" 
+        @cancel="handleCancel"
         @use-provider="handleUseProvider"
         @use-email-login="handleUseEmailLogin"
       />
     </div>
-    
+
     <!-- Simple Error Alert for non-social auth errors -->
     <q-banner v-else-if="error" dense rounded class="text-white bg-negative q-mt-sm">
       {{ error }}
@@ -99,13 +99,11 @@ const isInitialized = ref(false)
 // Composables
 const $q = useQuasar()
 const authStore = useAuthStore()
-const { 
-  error: socialAuthError, 
-  setError: setSocialAuthError, 
-  clearError: clearSocialAuthError, 
-  parseSocialAuthError,
-  redirectToProvider,
-  redirectToLogin 
+const {
+  error: socialAuthError,
+  setError: setSocialAuthError,
+  clearError: clearSocialAuthError,
+  parseSocialAuthError
 } = useSocialAuthError()
 
 // Add these state variables
@@ -224,10 +222,10 @@ const handleGoogleResponse = async (response: GoogleResponse) => {
     emit('success')
   } catch (err) {
     console.error('Google auth error:', err)
-    
+
     // Parse the error to see if it's a social auth conflict
     const parsedError = parseSocialAuthError(err, 'google')
-    
+
     if (parsedError.suggestedProvider) {
       // This is an enhanced social auth error - use the enhanced display
       setSocialAuthError(err, 'google')
@@ -235,7 +233,7 @@ const handleGoogleResponse = async (response: GoogleResponse) => {
       // Regular error - use simple banner
       error.value = 'Authentication failed. Please try again.'
     }
-    
+
     emit('error', err as Error)
   } finally {
     isLoading.value = false
@@ -288,7 +286,7 @@ const handleUseProvider = (provider: string) => {
 const handleUseEmailLogin = () => {
   clearSocialAuthError()
   $q.notify({
-    type: 'info', 
+    type: 'info',
     message: 'Please use the email and password form above instead',
     timeout: 5000,
     position: 'top'

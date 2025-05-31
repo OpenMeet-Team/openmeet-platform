@@ -1,13 +1,13 @@
 <template>
   <div class="c-github-callback-page">
-    <SocialAuthError 
-      v-if="hasError" 
+    <SocialAuthError
+      v-if="hasError"
       :error="error?.message || 'Authentication failed'"
       :auth-provider="error?.authProvider"
       :suggested-provider="error?.suggestedProvider"
       :is-popup="isPopup"
       @try-again="handleTryAgain"
-      @cancel="handleCancel" 
+      @cancel="handleCancel"
       @use-provider="handleUseProvider"
       @use-email-login="handleUseEmailLogin"
     />
@@ -31,14 +31,14 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const $q = useQuasar()
-const { 
-  error, 
-  hasError, 
-  setError, 
-  clearError, 
-  redirectToProvider, 
-  redirectToLogin, 
-  closePopupWithMessage 
+const {
+  error,
+  hasError,
+  setError,
+  clearError,
+  redirectToProvider,
+  redirectToLogin,
+  closePopupWithMessage
 } = useSocialAuthError()
 
 const isPopup = computed(() => !!window.opener)
@@ -60,7 +60,7 @@ const handleCallback = async () => {
 
     // Authenticate with GitHub
     await authStore.actionGithubLogin(code)
-    
+
     // Success - handle based on whether we're in popup or regular page
     if (isPopup.value) {
       window.opener.location.reload()
@@ -74,10 +74,10 @@ const handleCallback = async () => {
     }
   } catch (err) {
     console.error('GitHub login error:', err?.response?.data || err)
-    
+
     // Parse the error using our composable
     setError(err, 'github')
-    
+
     // If in popup, close with enhanced error message for parent handling
     if (isPopup.value) {
       closePopupWithMessage()
@@ -109,7 +109,7 @@ const handleUseProvider = (provider: string) => {
   if (isPopup.value) {
     // Send message to parent to switch auth providers
     window.opener.postMessage(
-      { 
+      {
         switchToProvider: provider,
         message: `Please use ${provider} to sign in instead`
       },
@@ -125,7 +125,7 @@ const handleUseEmailLogin = () => {
   if (isPopup.value) {
     // Send message to parent to switch to email login
     window.opener.postMessage(
-      { 
+      {
         switchToProvider: 'email',
         message: 'Please use email and password to sign in instead'
       },
