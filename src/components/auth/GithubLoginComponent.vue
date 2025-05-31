@@ -81,13 +81,29 @@ const handleGithubLogin = async () => {
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
 
-      const { code } = event.data
+      const { code, error, switchToProvider, message } = event.data
 
       if (code) {
         await authStore.actionGithubLogin(code)
         $q.notify({
           type: 'positive',
           message: 'Successfully logged in with GitHub'
+        })
+        popup?.close()
+      } else if (error) {
+        console.error('GitHub auth error from popup:', error)
+        $q.notify({
+          type: 'negative',
+          message: message || error,
+          timeout: 8000, // Longer timeout for error messages
+          html: true
+        })
+        popup?.close()
+      } else if (switchToProvider) {
+        $q.notify({
+          type: 'info',
+          message: message || `Please try ${switchToProvider} instead`,
+          timeout: 6000
         })
         popup?.close()
       }

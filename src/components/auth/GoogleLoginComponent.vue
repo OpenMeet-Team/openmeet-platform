@@ -9,8 +9,22 @@
       <q-spinner-dots size="30px" color="primary" />
     </q-inner-loading>
 
-    <!-- Error Alert -->
-    <q-banner v-if="error" dense rounded class="text-white bg-negative q-mt-sm">
+    <!-- Enhanced Error Display -->
+    <div v-if="socialAuthError" class="q-mt-sm">
+      <SocialAuthError
+        :error="socialAuthError.message"
+        :auth-provider="socialAuthError.authProvider"
+        :suggested-provider="socialAuthError.suggestedProvider"
+        :is-popup="false"
+        @try-again="handleTryAgain"
+        @cancel="handleCancel"
+        @use-provider="handleUseProvider"
+        @use-email-login="handleUseEmailLogin"
+      />
+    </div>
+
+    <!-- Simple Error Alert for non-social auth errors -->
+    <q-banner v-else-if="error" dense rounded class="text-white bg-negative q-mt-sm">
       {{ error }}
       <template v-slot:action>
         <q-btn flat color="white" label="Retry" @click="retryAuth" />
@@ -23,6 +37,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../../stores/auth-store'
+import { useSocialAuthError } from '../../composables/useSocialAuthError'
+import SocialAuthError from './SocialAuthError.vue'
 import getEnv from '../../utils/env'
 
 const googleClientId = getEnv('APP_GOOGLE_CLIENT_ID') as string
@@ -83,6 +99,12 @@ const isInitialized = ref(false)
 // Composables
 const $q = useQuasar()
 const authStore = useAuthStore()
+const {
+  error: socialAuthError,
+  setError: setSocialAuthError,
+  clearError: clearSocialAuthError,
+  parseSocialAuthError
+} = useSocialAuthError()
 
 // Add these state variables
 const COOLDOWN_PERIOD = 2000 // 2 second cooldown between attempts
@@ -187,6 +209,7 @@ const handleGoogleResponse = async (response: GoogleResponse) => {
     lastAuthAttempt = now
     isLoading.value = true
     error.value = null
+    clearSocialAuthError()
 
     await authStore.actionGoogleLogin(response.credential)
 
@@ -199,7 +222,18 @@ const handleGoogleResponse = async (response: GoogleResponse) => {
     emit('success')
   } catch (err) {
     console.error('Google auth error:', err)
-    error.value = 'Authentication failed. Please try again.'
+
+    // Parse the error to see if it's a social auth conflict
+    const parsedError = parseSocialAuthError(err, 'google')
+
+    if (parsedError.suggestedProvider) {
+      // This is an enhanced social auth error - use the enhanced display
+      setSocialAuthError(err, 'google')
+    } else {
+      // Regular error - use simple banner
+      error.value = 'Authentication failed. Please try again.'
+    }
+
     emit('error', err as Error)
   } finally {
     isLoading.value = false
@@ -215,6 +249,7 @@ const retryAuth = async () => {
   }
 
   error.value = null
+  clearSocialAuthError()
   isLoading.value = true
 
   try {
@@ -224,6 +259,38 @@ const retryAuth = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+// Event handlers for SocialAuthError component
+const handleTryAgain = () => {
+  clearSocialAuthError()
+  retryAuth()
+}
+
+const handleCancel = () => {
+  clearSocialAuthError()
+  error.value = null
+}
+
+const handleUseProvider = (provider: string) => {
+  clearSocialAuthError()
+  // For in-page component, we can show a notification guiding to the other provider
+  $q.notify({
+    type: 'info',
+    message: `Please use the ${provider.charAt(0).toUpperCase() + provider.slice(1)} button instead`,
+    timeout: 5000,
+    position: 'top'
+  })
+}
+
+const handleUseEmailLogin = () => {
+  clearSocialAuthError()
+  $q.notify({
+    type: 'info',
+    message: 'Please use the email and password form above instead',
+    timeout: 5000,
+    position: 'top'
+  })
 }
 
 const cleanup = () => {
