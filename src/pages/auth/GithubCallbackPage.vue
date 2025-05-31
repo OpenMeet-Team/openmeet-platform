@@ -1,14 +1,16 @@
 <template>
   <div class="c-github-callback-page">
-    <q-card v-if="error" class="error-card q-pa-md">
-      <q-card-section>
-        <div class="text-h6 text-negative">Authentication Failed</div>
-        <div class="text-body2">{{ error }}</div>
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn flat label="Try Again" color="primary" @click="redirectToLogin" />
-      </q-card-actions>
-    </q-card>
+    <SocialAuthError 
+      v-if="hasError" 
+      :error="error?.message || 'Authentication failed'"
+      :auth-provider="error?.authProvider"
+      :suggested-provider="error?.suggestedProvider"
+      :is-popup="isPopup"
+      @try-again="handleTryAgain"
+      @cancel="handleCancel" 
+      @use-provider="handleUseProvider"
+      @use-email-login="handleUseEmailLogin"
+    />
 
     <div v-else class="loading-container">
       <q-spinner-dots size="40px" color="primary" />
@@ -18,16 +20,28 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth-store'
 import { useQuasar } from 'quasar'
+import { useSocialAuthError } from '../../composables/useSocialAuthError'
+import SocialAuthError from '../../components/auth/SocialAuthError.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const $q = useQuasar()
-const error = ref<string | null>(null)
+const { 
+  error, 
+  hasError, 
+  setError, 
+  clearError, 
+  redirectToProvider, 
+  redirectToLogin, 
+  closePopupWithMessage 
+} = useSocialAuthError()
+
+const isPopup = computed(() => !!window.opener)
 
 const handleCallback = async () => {
   try {
@@ -44,13 +58,14 @@ const handleCallback = async () => {
       throw new Error('Invalid state parameter')
     }
 
-    // Send message to opener window
-    if (window.opener) {
-      await authStore.actionGithubLogin(code)
+    // Authenticate with GitHub
+    await authStore.actionGithubLogin(code)
+    
+    // Success - handle based on whether we're in popup or regular page
+    if (isPopup.value) {
       window.opener.location.reload()
       window.close()
     } else {
-      await authStore.actionGithubLogin(code)
       $q.notify({
         type: 'positive',
         message: 'Successfully logged in with GitHub'
@@ -58,27 +73,67 @@ const handleCallback = async () => {
       router.push('/')
     }
   } catch (err) {
-    if (err.response) {
-      console.error('github login error response:', err.response.data)
-    }
-    error.value = err instanceof Error ? err.message : 'Authentication failed'
-
-    // If in popup, send error to parent
-    if (window.opener) {
-      window.opener.postMessage(
-        { error: error.value },
-        window.location.origin
-      )
-      window.close()
+    console.error('GitHub login error:', err?.response?.data || err)
+    
+    // Parse the error using our composable
+    setError(err, 'github')
+    
+    // If in popup, close with enhanced error message for parent handling
+    if (isPopup.value) {
+      closePopupWithMessage()
     }
   }
 }
 
-const redirectToLogin = () => {
-  if (window.opener) {
+// Event handlers for SocialAuthError component
+const handleTryAgain = () => {
+  clearError()
+  if (isPopup.value) {
+    // In popup, just close and let user try again from main page
     window.close()
   } else {
-    router.push('/auth/login')
+    // On regular page, redirect to login
+    redirectToLogin()
+  }
+}
+
+const handleCancel = () => {
+  if (isPopup.value) {
+    window.close()
+  } else {
+    redirectToLogin()
+  }
+}
+
+const handleUseProvider = (provider: string) => {
+  if (isPopup.value) {
+    // Send message to parent to switch auth providers
+    window.opener.postMessage(
+      { 
+        switchToProvider: provider,
+        message: `Please use ${provider} to sign in instead`
+      },
+      window.location.origin
+    )
+    window.close()
+  } else {
+    redirectToProvider(provider)
+  }
+}
+
+const handleUseEmailLogin = () => {
+  if (isPopup.value) {
+    // Send message to parent to switch to email login
+    window.opener.postMessage(
+      { 
+        switchToProvider: 'email',
+        message: 'Please use email and password to sign in instead'
+      },
+      window.location.origin
+    )
+    window.close()
+  } else {
+    redirectToLogin()
   }
 }
 
@@ -98,10 +153,5 @@ onMounted(() => {
 
 .loading-container {
   text-align: center;
-}
-
-.error-card {
-  max-width: 400px;
-  width: 90%;
 }
 </style>
