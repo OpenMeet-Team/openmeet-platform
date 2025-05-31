@@ -13,6 +13,16 @@ export function useSocialAuthError () {
   const error = ref<SocialAuthError | null>(null)
 
   const parseSocialAuthError = (err: unknown, fallbackProvider?: string): SocialAuthError => {
+    // Handle null/undefined errors
+    if (!err) {
+      return {
+        message: 'Authentication failed. Please try again.',
+        authProvider: fallbackProvider,
+        suggestedProvider: undefined,
+        isEnhanced: false
+      }
+    }
+
     // Type assertion for axios error structure
     const axiosError = err as {
       response?: {

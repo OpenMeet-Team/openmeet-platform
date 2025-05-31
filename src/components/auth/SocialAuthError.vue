@@ -1,5 +1,5 @@
 <template>
-  <q-card class="social-auth-error-card q-pa-md">
+  <q-card class="social-auth-error-card q-pa-md" data-testid="social-auth-error">
     <q-card-section>
       <div class="text-h6 text-negative">
         <q-icon name="warning" class="q-mr-sm" />
