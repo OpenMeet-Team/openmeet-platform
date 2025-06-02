@@ -38,6 +38,12 @@
                   }}</span>
                 </span>
                 <div class="text-h6 text-bold">{{ event.name }}</div>
+                <div v-if="event.status === 'cancelled'" class="q-mt-sm">
+                  <q-badge color="red" class="text-bold">
+                    <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
+                    Event Cancelled
+                  </q-badge>
+                </div>
                 <div v-if="isTemplateView" class="text-caption text-blue">
                   <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
                   This is a future occurrence of this event. Editing or adding attendees will create a scheduled event.

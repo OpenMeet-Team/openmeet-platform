@@ -49,6 +49,14 @@ const formatSeriesSlug = (slug: string): string => {
       <div class="text-caption badges-container">
         <q-badge>{{ event.type }}</q-badge>
         <q-badge
+          v-if="event.status === 'cancelled'"
+          color="red"
+          class="q-ml-sm"
+        >
+          <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
+          Cancelled
+        </q-badge>
+        <q-badge
           v-if="event.sourceType"
           :color="getSourceColor(event.sourceType)"
           class="q-ml-sm"
