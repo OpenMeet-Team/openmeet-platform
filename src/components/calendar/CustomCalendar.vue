@@ -423,22 +423,9 @@ async function loadEvents () {
               ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
               : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-          // Debug log external event titles and all fields
-          console.log('External event full object:', event)
-
           // Try multiple possible title fields from the API
           const eventData = event as unknown as Record<string, unknown>
           const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
-
-          console.log('External event title mapping:', {
-            id: event.id,
-            summary: eventData.summary,
-            title: eventData.title,
-            name: eventData.name,
-            subject: eventData.subject,
-            finalTitle: possibleTitle,
-            allKeys: Object.keys(event)
-          })
 
           return {
             id: `external-${event.id}`,
