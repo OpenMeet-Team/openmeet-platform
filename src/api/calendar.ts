@@ -57,6 +57,34 @@ export interface AvailabilityResponse {
   message: string
 }
 
+export interface GetExternalEventsRequest {
+  startTime: string
+  endTime: string
+  calendarSourceIds?: string[]
+}
+
+export interface ExternalEvent {
+  id: string
+  externalId: string
+  summary: string
+  description?: string
+  startTime: string
+  endTime: string
+  isAllDay: boolean
+  location?: string
+  status: string
+  calendarSourceId: number
+}
+
+export interface GetExternalEventsResponse {
+  events: ExternalEvent[]
+  totalCount: number
+  dateRange: {
+    startTime: string
+    endTime: string
+  }
+}
+
 export interface AuthorizationResponse {
   authorizationUrl: string
   state: string
@@ -107,4 +135,9 @@ export const checkAvailability = (data: AvailabilityRequest): Promise<{ data: Av
 
 export const findConflicts = (data: AvailabilityRequest): Promise<{ data: AvailabilityResponse }> => {
   return api.post('/api/availability/conflicts', data)
+}
+
+// External Events
+export const getExternalEvents = (data: GetExternalEventsRequest): Promise<{ data: GetExternalEventsResponse }> => {
+  return api.post('/api/external-calendar/events', data)
 }
