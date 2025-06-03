@@ -1,5 +1,5 @@
-import { api } from 'src/boot/axios'
-import { useAuthStore } from 'src/stores/auth-store'
+import { api } from '../boot/axios'
+import { useAuthStore } from '../stores/auth-store'
 
 /**
  * Generate calendar download URL for user's personal calendar
