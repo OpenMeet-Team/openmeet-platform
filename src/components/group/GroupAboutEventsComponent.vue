@@ -3,6 +3,7 @@ import { formatDate } from '../../utils/dateUtils'
 import { EventEntity } from '../../types'
 import { useNavigation } from '../../composables/useNavigation'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
+import NoContentComponent from '../global/NoContentComponent.vue'
 import { computed } from 'vue'
 
 const { navigateToEvent } = useNavigation()
@@ -35,7 +36,13 @@ const sortedEvents = computed(() => {
           <q-icon name="sym_r_event" color="primary" size="md" />
         </q-item-section>
         <q-item-section>
-          <q-item-label>{{ event.name }}</q-item-label>
+          <q-item-label>
+            {{ event.name }}
+            <q-badge v-if="event.status === 'cancelled'" color="red" class="q-ml-sm">
+              <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
+              Cancelled
+            </q-badge>
+          </q-item-label>
           <q-item-label caption>
             {{ formatDate(event.startDate) }}
           </q-item-label>
