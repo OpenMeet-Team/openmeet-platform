@@ -9,11 +9,13 @@ import {
   getAuthorizationUrl,
   type CalendarSource
 } from '../../api/calendar'
+import { downloadUserCalendar } from '../../utils/calendarUtils'
 
 const $q = useQuasar()
 const loading = ref(false)
 const syncing = ref<Record<string, boolean>>({})
 const testing = ref<Record<string, boolean>>({})
+const downloading = ref(false)
 const calendarSources = ref<CalendarSource[]>([])
 
 const calendarTypeIcons = {
@@ -162,6 +164,25 @@ const getSyncStatusColor = (source: CalendarSource) => {
   if (hoursSinceSync > 12) return 'orange'
   return 'green'
 }
+
+const downloadPersonalCalendar = async () => {
+  try {
+    downloading.value = true
+    await downloadUserCalendar()
+    $q.notify({
+      type: 'positive',
+      message: 'Calendar download started'
+    })
+  } catch (error) {
+    console.error('Failed to download calendar:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to download calendar'
+    })
+  } finally {
+    downloading.value = false
+  }
+}
 </script>
 
 <template>
@@ -289,6 +310,35 @@ const getSyncStatusColor = (source: CalendarSource) => {
     <div v-if="calendarSources.length > 0" class="q-mt-md text-caption text-grey-6">
       <q-icon name="sym_r_info" size="sm" class="q-mr-xs" />
       Calendar sources sync automatically every hour. Use "Sync Now" for immediate updates.
+    </div>
+
+    <!-- Personal Calendar Download Section -->
+    <q-separator class="q-my-lg" />
+
+    <div class="personal-calendar-section">
+      <div class="text-h6 q-mb-md">
+        <q-icon name="sym_r_download" class="q-mr-sm" />
+        Your OpenMeet Calendar
+      </div>
+
+      <div class="text-body2 text-grey-7 q-mb-md">
+        Download all your OpenMeet events (organized and attended) as an iCalendar (.ics) file that you can import into any calendar application.
+      </div>
+
+      <q-btn
+        color="primary"
+        icon="sym_r_download"
+        label="Download My Calendar"
+        :loading="downloading"
+        @click="downloadPersonalCalendar"
+        no-caps
+        data-cy="download-personal-calendar"
+      />
+
+      <div class="q-mt-sm text-caption text-grey-6">
+        <q-icon name="sym_r_info" size="sm" class="q-mr-xs" />
+        Includes all events you've created or are attending. Compatible with Google Calendar, Apple Calendar, Outlook, and other calendar apps.
+      </div>
     </div>
   </div>
 </template>

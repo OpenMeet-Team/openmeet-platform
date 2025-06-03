@@ -3,16 +3,44 @@
 import { getImageSrc } from '../../utils/imageUtils'
 import { useGroupStore } from '../../stores/group-store'
 import ShareComponent from '../../components/common/ShareComponent.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { GroupCategoryEntity, GroupPermission } from '../../types'
 import { useNavigation } from '../../composables/useNavigation'
 import { pluralize } from '../../utils/stringUtils'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
+import { downloadGroupCalendar } from '../../utils/calendarUtils'
+import { useQuasar } from 'quasar'
 
 const group = computed(() => useGroupStore().group)
 const router = useRouter()
 const { navigateToMember } = useNavigation()
+const $q = useQuasar()
+const downloading = ref(false)
+
+const downloadCalendar = async () => {
+  if (!group.value) return
+
+  try {
+    downloading.value = true
+    await downloadGroupCalendar(group.value.slug)
+    $q.notify({
+      type: 'positive',
+      message: 'Group calendar download started'
+    })
+  } catch (error) {
+    console.error('Failed to download group calendar:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to download group calendar'
+    })
+  } finally {
+    downloading.value = false
+  }
+}
+
+// Check if current user is a member of the group
+const isGroupMember = computed(() => useGroupStore().getterUserIsGroupMember())
 </script>
 
 <template>
@@ -55,6 +83,24 @@ const { navigateToMember } = useNavigation()
         </q-card-section>
 
         <q-space/>
+
+        <!-- Calendar Download Section - Only for group members -->
+        <q-card-section v-if="isGroupMember">
+          <q-btn
+            icon="sym_r_download"
+            size="md"
+            padding="none"
+            no-caps
+            flat
+            label="Download group calendar"
+            :loading="downloading"
+            @click="downloadCalendar"
+            data-cy="download-group-calendar"
+            class="q-mb-sm"
+          >
+            <q-tooltip>Download all group events as an .ics file</q-tooltip>
+          </q-btn>
+        </q-card-section>
 
         <q-card-section>
           <ShareComponent size="md"/>
