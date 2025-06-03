@@ -9,7 +9,7 @@ import { useAuthStore } from '../stores/auth-store'
  */
 export function getUserCalendarDownloadUrl (startDate?: string, endDate?: string): string {
   const baseUrl = api.defaults.baseURL || ''
-  let url = `${baseUrl}/calendar/my/calendar.ics`
+  let url = `${baseUrl}/api/calendar/my/calendar.ics`
 
   const params = new URLSearchParams()
   if (startDate) params.append('start', startDate)
@@ -31,7 +31,7 @@ export function getUserCalendarDownloadUrl (startDate?: string, endDate?: string
  */
 export function getGroupCalendarDownloadUrl (groupSlug: string, startDate?: string, endDate?: string): string {
   const baseUrl = api.defaults.baseURL || ''
-  let url = `${baseUrl}/calendar/groups/${groupSlug}/calendar.ics`
+  let url = `${baseUrl}/api/calendar/groups/${groupSlug}/calendar.ics`
 
   const params = new URLSearchParams()
   if (startDate) params.append('start', startDate)
@@ -65,7 +65,7 @@ export async function downloadUserCalendar (startDate?: string, endDate?: string
 
   // Add authorization header by appending it as a custom download
   try {
-    const response = await api.get('/calendar/my/calendar.ics', {
+    const response = await api.get('/api/calendar/my/calendar.ics', {
       params: { start: startDate, end: endDate },
       responseType: 'blob',
       headers: {
@@ -115,7 +115,7 @@ export async function downloadGroupCalendar (groupSlug: string, startDate?: stri
       headers.Authorization = `Bearer ${authStore.token}`
     }
 
-    const response = await api.get(`/calendar/groups/${groupSlug}/calendar.ics`, {
+    const response = await api.get(`/api/calendar/groups/${groupSlug}/calendar.ics`, {
       params: { start: startDate, end: endDate },
       responseType: 'blob',
       headers

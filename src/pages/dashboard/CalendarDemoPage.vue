@@ -99,7 +99,12 @@ const formatDateTime = (date: Date) => {
               <q-icon name="sym_r_auto_mode" class="q-mr-sm" />
               Auto-checking Example (for event creation)
             </div>
+            <div class="text-body2 text-grey-7 q-mb-md">
+              This example demonstrates auto-checking without notifications (suitable for event creation forms).
+            </div>
             <AvailabilityCheckerComponent
+              :start-time="formatDateTime(startTime)"
+              :end-time="formatDateTime(endTime)"
               :auto-check="true"
             />
           </q-card-section>

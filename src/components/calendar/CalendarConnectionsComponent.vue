@@ -7,7 +7,9 @@ import {
   syncCalendarSource,
   testCalendarConnection,
   getAuthorizationUrl,
-  type CalendarSource
+  createCalendarSource,
+  type CalendarSource,
+  type CreateCalendarSourceDto
 } from '../../api/calendar'
 import { downloadUserCalendar } from '../../utils/calendarUtils'
 
@@ -17,6 +19,15 @@ const syncing = ref<Record<string, boolean>>({})
 const testing = ref<Record<string, boolean>>({})
 const downloading = ref(false)
 const calendarSources = ref<CalendarSource[]>([])
+
+// iCal URL dialog state
+const showIcalDialog = ref(false)
+const icalForm = ref({
+  name: '',
+  url: '',
+  isPrivate: false
+})
+const creatingIcal = ref(false)
 
 const calendarTypeIcons = {
   google: 'fab fa-google',
@@ -183,6 +194,108 @@ const downloadPersonalCalendar = async () => {
     downloading.value = false
   }
 }
+
+const showIcalUrlDialog = () => {
+  icalForm.value = {
+    name: '',
+    url: '',
+    isPrivate: false
+  }
+  showIcalDialog.value = true
+}
+
+const connectAppleCalendar = () => {
+  // Apple Calendar uses iCal URL, so show the same dialog but pre-fill name
+  icalForm.value = {
+    name: 'Apple Calendar',
+    url: '',
+    isPrivate: false
+  }
+  showIcalDialog.value = true
+}
+
+const createIcalSource = async () => {
+  try {
+    creatingIcal.value = true
+
+    // Validate form
+    if (!icalForm.value.name.trim() || !icalForm.value.url.trim()) {
+      $q.notify({
+        type: 'negative',
+        message: 'Please provide both a name and URL'
+      })
+      return
+    }
+
+    // Validate URL format
+    try {
+      const validUrl = new URL(icalForm.value.url)
+      // Use the URL to prevent the no-new error
+      if (!validUrl.protocol.startsWith('http')) {
+        throw new Error('Invalid protocol')
+      }
+
+      // Check if it's a Google Calendar embed URL (common mistake)
+      if (validUrl.hostname === 'calendar.google.com' && validUrl.pathname.includes('/embed')) {
+        $q.notify({
+          type: 'negative',
+          message: 'This is a Google Calendar embed URL. For better privacy, use Google Calendar OAuth instead. Or see help below for iCal URL instructions.'
+        })
+        return
+      }
+
+      // Check if URL looks like an iCal URL (should end with .ics or have ical in path)
+      const urlPath = validUrl.pathname.toLowerCase()
+      const urlParams = validUrl.search.toLowerCase()
+      const isIcalUrl = urlPath.endsWith('.ics') ||
+                       urlPath.includes('ical') ||
+                       urlParams.includes('ical') ||
+                       urlParams.includes('exportType=ical') ||
+                       validUrl.hostname.includes('webcal')
+
+      if (!isIcalUrl) {
+        $q.notify({
+          type: 'warning',
+          message: 'This URL may not be an iCal feed. Make sure you\'re using the correct iCal export URL from your calendar provider.',
+          timeout: 8000
+        })
+      }
+    } catch {
+      $q.notify({
+        type: 'negative',
+        message: 'Please enter a valid URL'
+      })
+      return
+    }
+
+    const isApple = icalForm.value.name.toLowerCase().includes('apple')
+    const createData: CreateCalendarSourceDto = {
+      type: isApple ? 'apple' : 'ical',
+      name: icalForm.value.name.trim(),
+      url: icalForm.value.url.trim(),
+      isPrivate: icalForm.value.isPrivate
+    }
+
+    const response = await createCalendarSource(createData)
+
+    $q.notify({
+      type: 'positive',
+      message: `Successfully connected ${response.data.name}`
+    })
+
+    showIcalDialog.value = false
+    await loadCalendarSources()
+  } catch (error: unknown) {
+    console.error('Failed to create iCal source:', error)
+    const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to connect calendar'
+    $q.notify({
+      type: 'negative',
+      message: errorMessage
+    })
+  } finally {
+    creatingIcal.value = false
+  }
+}
 </script>
 
 <template>
@@ -202,6 +315,17 @@ const downloadPersonalCalendar = async () => {
             </q-item-section>
             <q-item-section>
               <q-item-label>Google Calendar</q-item-label>
+              <q-item-label caption>OAuth authentication</q-item-label>
+            </q-item-section>
+          </q-item>
+
+          <q-item clickable v-close-popup @click="connectAppleCalendar">
+            <q-item-section avatar>
+              <q-icon :name="calendarTypeIcons.apple" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Apple Calendar</q-item-label>
+              <q-item-label caption>iCal URL subscription</q-item-label>
             </q-item-section>
           </q-item>
 
@@ -211,6 +335,19 @@ const downloadPersonalCalendar = async () => {
             </q-item-section>
             <q-item-section>
               <q-item-label>Microsoft Outlook</q-item-label>
+              <q-item-label caption>OAuth authentication</q-item-label>
+            </q-item-section>
+          </q-item>
+
+          <q-separator />
+
+          <q-item clickable v-close-popup @click="showIcalUrlDialog">
+            <q-item-section avatar>
+              <q-icon :name="calendarTypeIcons.ical" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>iCal URL</q-item-label>
+              <q-item-label caption>Any calendar with iCal subscription</q-item-label>
             </q-item-section>
           </q-item>
         </q-list>
@@ -226,7 +363,7 @@ const downloadPersonalCalendar = async () => {
       <q-icon name="sym_r_calendar_month" size="4em" color="grey-4" />
       <div class="text-h6 text-grey-6 q-mt-md q-mb-sm">No Calendar Connections</div>
       <div class="text-body2 text-grey-5 q-mb-lg">
-        Connect your external calendars to see your availability when scheduling events.
+        Connect your external calendars (Google, Apple, Outlook, or any iCal URL) to see your availability when scheduling events.
       </div>
     </div>
 
@@ -248,6 +385,15 @@ const downloadPersonalCalendar = async () => {
           </q-item-label>
           <q-item-label caption>
             {{ calendarTypeLabels[source.type] }}
+            <span v-if="source.isPrivate" class="q-ml-sm">
+              <q-chip size="xs" color="grey" text-color="white" dense>
+                Private
+              </q-chip>
+            </span>
+          </q-item-label>
+          <q-item-label v-if="source.url" caption class="text-grey-6 q-mt-xs">
+            <q-icon name="sym_r_link" size="xs" class="q-mr-xs" />
+            {{ source.url.length > 50 ? source.url.substring(0, 50) + '...' : source.url }}
           </q-item-label>
           <q-item-label caption class="q-mt-xs">
             <q-chip
@@ -340,6 +486,121 @@ const downloadPersonalCalendar = async () => {
         Includes all events you've created or are attending. Compatible with Google Calendar, Apple Calendar, Outlook, and other calendar apps.
       </div>
     </div>
+
+    <!-- iCal URL Dialog -->
+    <q-dialog v-model="showIcalDialog" persistent>
+      <q-card style="min-width: 500px">
+        <q-card-section class="row items-center">
+          <q-icon name="sym_r_calendar_month" size="md" color="primary" class="q-mr-sm" />
+          <div class="text-h6">Add iCal Calendar</div>
+          <q-space />
+          <q-btn flat round dense icon="sym_r_close" @click="showIcalDialog = false" />
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-body2 text-grey-7 q-mb-md">
+            Connect any calendar that provides an iCal subscription URL.
+            <strong>Note:</strong> Most iCal URLs require making calendars public. For privacy, consider using OAuth connections (Google/Outlook) or creating separate public calendars for sharing.
+          </div>
+
+          <q-form @submit="createIcalSource" class="q-gutter-md">
+            <q-input
+              v-model="icalForm.name"
+              label="Calendar Name"
+              hint="A friendly name to identify this calendar"
+              outlined
+              :rules="[val => !!val.trim() || 'Name is required']"
+            />
+
+            <q-input
+              v-model="icalForm.url"
+              label="iCal URL"
+              hint="The .ics subscription URL from your calendar provider (usually ends with .ics)"
+              outlined
+              type="text"
+              :rules="[
+                val => !!val.trim() || 'URL is required',
+                val => {
+                  try {
+                    new URL(val.trim())
+                    return true
+                  } catch {
+                    return 'Please enter a valid URL'
+                  }
+                }
+              ]"
+            >
+              <template v-slot:prepend>
+                <q-icon name="sym_r_link" />
+              </template>
+            </q-input>
+
+            <q-toggle
+              v-model="icalForm.isPrivate"
+              label="Hide event details"
+              left-label
+            />
+            <div v-if="icalForm.isPrivate" class="text-caption text-grey-6 q-mt-xs q-mb-md">
+              Only show busy/free times without event titles or descriptions
+            </div>
+
+            <div class="q-mt-lg">
+              <q-expansion-item
+                icon="sym_r_help"
+                label="How to find your iCal URL"
+                class="text-grey-7"
+              >
+                <q-card flat class="q-pa-md bg-grey-1">
+                  <div class="text-body2">
+                    <div class="text-weight-medium q-mb-sm">Apple Calendar (iCloud):</div>
+                    <div class="q-mb-md text-grey-8">
+                      1. Create a separate calendar for sharing (not your main personal calendar)<br>
+                      2. Go to iCloud.com → Calendar<br>
+                      3. Click the share icon next to your sharing calendar<br>
+                      4. Check "Public Calendar" and copy the URL<br>
+                      <strong>⚠️ Warning:</strong> This makes the calendar PUBLIC. Only use for non-sensitive events.
+                    </div>
+
+                    <div class="text-weight-medium q-mb-sm">Google Calendar:</div>
+                    <div class="q-mb-md text-grey-8">
+                      <strong>Recommended:</strong> Use Google Calendar OAuth instead (click "Google Calendar" above)<br><br>
+                      <strong>Alternative (iCal URL):</strong><br>
+                      1. Create a separate calendar for sharing (not your main personal calendar)<br>
+                      2. In <a href="https://calendar.google.com" target="_blank" class="text-primary">Google Calendar</a>, go to calendar "Settings and sharing"<br>
+                      3. Under "Access permissions" → Check "Make available to public"<br>
+                      4. Copy the "Public URL in iCal format" from "Integrate calendar"<br>
+                      <strong>⚠️ Warning:</strong> This makes the calendar PUBLIC. Only use for non-sensitive events.
+                    </div>
+
+                    <div class="text-weight-medium q-mb-sm">Other Calendars:</div>
+                    <div class="text-grey-8">
+                      Look for "Share", "Subscribe", or "iCal URL" options in your calendar settings.<br>
+                      <strong>Remember:</strong> iCal URLs typically require public sharing. Consider creating a separate calendar for sharing sensitive events.
+                    </div>
+                  </div>
+                </q-card>
+              </q-expansion-item>
+            </div>
+          </q-form>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn
+            flat
+            label="Cancel"
+            @click="showIcalDialog = false"
+            :disable="creatingIcal"
+          />
+          <q-btn
+            color="primary"
+            label="Connect Calendar"
+            @click="createIcalSource"
+            :loading="creatingIcal"
+            no-caps
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 

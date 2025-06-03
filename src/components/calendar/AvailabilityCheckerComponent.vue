@@ -76,22 +76,32 @@ const loadCalendarSources = async () => {
   }
 }
 
-// Auto-check availability when inputs change
+// Auto-check availability when inputs change (with debounce to prevent rapid re-checking)
+let autoCheckTimeout: ReturnType<typeof setTimeout> | null = null
 watch([startTime, endTime, selectedCalendarSourceIds], () => {
   if (props.autoCheck && isTimeRangeValid.value) {
-    checkAvailabilityNow()
+    // Clear previous timeout
+    if (autoCheckTimeout) {
+      clearTimeout(autoCheckTimeout)
+    }
+    // Debounce auto-checks by 500ms
+    autoCheckTimeout = setTimeout(() => {
+      checkAvailabilityNow(false) // Don't show notifications for auto-checks
+    }, 500)
   }
 }, { deep: true })
 
 // Initialize
 loadCalendarSources()
 
-const checkAvailabilityNow = async () => {
+const checkAvailabilityNow = async (showNotification = true) => {
   if (!isTimeRangeValid.value) {
-    $q.notify({
-      type: 'negative',
-      message: 'Please select a valid time range'
-    })
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        message: 'Please select a valid time range'
+      })
+    }
     return
   }
 
@@ -113,17 +123,21 @@ const checkAvailabilityNow = async () => {
       emit('conflict-detected', response.data.conflictingEvents)
     }
 
-    $q.notify({
-      type: response.data.available ? 'positive' : 'warning',
-      message: response.data.message,
-      timeout: 3000
-    })
+    if (showNotification) {
+      $q.notify({
+        type: response.data.available ? 'positive' : 'warning',
+        message: response.data.message,
+        timeout: 3000
+      })
+    }
   } catch (error) {
     console.error('Failed to check availability:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to check availability'
-    })
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        message: 'Failed to check availability'
+      })
+    }
     availabilityResult.value = null
   } finally {
     loading.value = false
