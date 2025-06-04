@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 
 interface Props {
   group?: GroupEntity
+  initialDate?: string
 }
 
 defineProps<Props>()
@@ -70,6 +71,7 @@ const onClose = () => {
 
       <EventFormComponent
         :group="group"
+        :initial-date="initialDate"
         @created="onEventCreated"
         @series-created="onSeriesCreated"
         @close="onClose"

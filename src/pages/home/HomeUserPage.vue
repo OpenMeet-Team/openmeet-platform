@@ -59,10 +59,9 @@ const onCalendarEventClick = (calendarEvent: { type: string; title: string; slug
   }
 }
 
-const onCalendarDateClick = () => {
+const onCalendarDateClick = (date: string) => {
   // Open event creation dialog with pre-selected date
-  // TODO: Pass the date to the dialog when that functionality is available
-  openCreateEventDialog()
+  openCreateEventDialog(undefined, date)
 }
 
 const onCalendarDateSelect = () => {

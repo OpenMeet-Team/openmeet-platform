@@ -24,10 +24,10 @@ export function useEventDialog () {
     })
   }
 
-  const openCreateEventDialog = (group?: GroupEntity) => {
+  const openCreateEventDialog = (group?: GroupEntity, initialDate?: string) => {
     return $q.dialog({
       component: EventFormDialogComponent,
-      componentProps: { group }
+      componentProps: { group, initialDate }
     }).onOk((createdEvent: EventEntity) => {
       // Navigate to the created event page using Vue router
       router.push({ name: 'EventPage', params: { slug: createdEvent.slug } })
