@@ -975,13 +975,13 @@ describe('CustomCalendar', () => {
       const events = (wrapper.vm as any).events
       expect(events).toHaveLength(2) // Should only show 2 events, not 3
 
-      const eventTitles = events.map((e: any) => e.title)
+      const eventTitles = events.map((e: { title: string }) => e.title)
       expect(eventTitles).toContain('Event I Will Attend')
       expect(eventTitles).toContain('Event Pending Approval')
       expect(eventTitles).not.toContain('Event I Cancelled')
 
       // Verify the cancelled event is specifically filtered out
-      const cancelledEvents = events.filter((e: any) => e.title === 'Event I Cancelled')
+      const cancelledEvents = events.filter((e: { title: string }) => e.title === 'Event I Cancelled')
       expect(cancelledEvents).toHaveLength(0)
     })
 
@@ -1035,7 +1035,7 @@ describe('CustomCalendar', () => {
           }
         },
         {
-          ulid: 'event2', 
+          ulid: 'event2',
           slug: 'cancelled-event',
           name: 'Event I Cancelled',
           startDate: '2025-06-15T18:00:00Z',
@@ -1056,10 +1056,10 @@ describe('CustomCalendar', () => {
       const filteredEvents = upcomingEvents.filter(event => {
         const eventDate = event.startDate.split('T')[0]
         const withinDateRange = eventDate >= '2025-06-01' && eventDate <= '2025-06-30'
-        
+
         // Exclude events where user has cancelled their RSVP
         const hasNotCancelledRSVP = !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
-        
+
         return withinDateRange && hasNotCancelledRSVP
       })
 
