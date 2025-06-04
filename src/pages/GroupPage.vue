@@ -14,7 +14,7 @@
       <router-view v-if="groupMounted && hasRightPermission" />
 
       <!-- Auth group content -->
-      <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isAuthenticated"
+      <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isFullyAuthenticated"
         icon="sym_r_lock" data-cy="auth-group-content" label="You need to be logged in to see the content"
         :to="{ name: 'AuthLoginPage', query: { redirect: $route.fullPath } }" buttonLabel="Log in" />
 
@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
 })
 
 const hasRightPermission = computed(() => {
-  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
+  return group.value && (useGroupStore().getterIsPublicGroup || (useGroupStore().getterIsAuthenticatedGroup && useAuthStore().isFullyAuthenticated) || useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup))
 })
 
 useMeta({
@@ -89,7 +89,7 @@ onMounted(async () => {
 
     // Then check if user is a member of the group
     const isMember = useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)
-    const isAuthenticated = useAuthStore().isAuthenticated
+    const isAuthenticated = useAuthStore().isFullyAuthenticated
     const groupSlug = route.params.slug as string
 
     console.log('Group loaded, checking membership status:', {

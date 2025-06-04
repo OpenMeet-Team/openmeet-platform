@@ -22,10 +22,13 @@ export const useAuthStore = defineStore('authStore', {
     role: UserRole.User,
     permissions: [] as string[],
     blueskyDid: LocalStorage.getItem('blueskyDid') || '',
-    blueskyHandle: LocalStorage.getItem('blueskyHandle') || ''
+    blueskyHandle: LocalStorage.getItem('blueskyHandle') || '',
+    isInitialized: false,
+    isInitializing: false
   }),
   getters: {
     isAuthenticated: state => !!state.token,
+    isFullyAuthenticated: state => state.isInitialized && !!state.token,
     getUser: state => {
       return state.user
     },
@@ -295,6 +298,55 @@ export const useAuthStore = defineStore('authStore', {
       } catch (error) {
         console.error('Dev login failed', error)
         throw error
+      }
+    },
+    async initializeAuth () {
+      // If already initialized or initializing, return early
+      if (this.isInitialized) {
+        return
+      }
+
+      // If already initializing, wait for it to complete
+      if (this.isInitializing) {
+        await this.waitForInitialization()
+        return
+      }
+
+      this.isInitializing = true
+
+      try {
+        // Check if we have a token
+        if (this.token) {
+          try {
+            // Validate the token by fetching user data
+            const response = await authApi.getMe()
+            this.actionSetUser(response.data)
+          } catch (error) {
+            console.error('Token validation failed, clearing auth:', error)
+            this.actionClearAuth()
+          }
+        }
+      } finally {
+        this.isInitialized = true
+        this.isInitializing = false
+      }
+    },
+    async waitForInitialization () {
+      // If already initialized, return immediately
+      if (this.isInitialized) {
+        return
+      }
+
+      // Otherwise, poll until initialized
+      const maxWaitTime = 5000 // 5 seconds
+      const pollInterval = 50 // 50ms
+      const startTime = Date.now()
+
+      while (!this.isInitialized) {
+        if (Date.now() - startTime > maxWaitTime) {
+          throw new Error('Auth initialization timeout')
+        }
+        await new Promise(resolve => setTimeout(resolve, pollInterval))
       }
     }
   }

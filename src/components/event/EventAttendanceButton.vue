@@ -86,7 +86,7 @@ const loading = ref(false)
 const initialLoading = ref(true)
 
 // Watch for changes in authentication state
-watch(() => authStore.isAuthenticated, async (isAuth) => {
+watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
   console.log('Auth state changed:', isAuth)
 
   // When user becomes authenticated, always refresh attendance data
@@ -187,7 +187,7 @@ onMounted(async () => {
 
 // Handle attendance for template view (unmaterialized event)
 const handleTemplateAttend = async () => {
-  if (!authStore.isAuthenticated) {
+  if (!authStore.isFullyAuthenticated) {
     // Save the intent to attend after login
     console.log('User not authenticated, opening login dialog')
     authDialog.openLoginDialog()
@@ -248,7 +248,7 @@ const handleTemplateAttend = async () => {
 }
 
 const handleAttend = async () => {
-  if (!authStore.isAuthenticated) {
+  if (!authStore.isFullyAuthenticated) {
     // Save the intent to attend after login
     console.log('User not authenticated, opening login dialog')
     // We'll use the auth state watcher to handle post-login attendance
