@@ -13,10 +13,21 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// Sort events by start date
+// Filter for upcoming events (not yet ended) and sort by start date
 const sortedEvents = computed(() => {
   if (!props.events?.length) return []
-  return [...props.events].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+
+  const now = new Date()
+  return [...props.events]
+    .filter(event => {
+      // If event has an end date, check if it has ended
+      if (event.endDate) {
+        return new Date(event.endDate) >= now
+      }
+      // If no end date, check start date
+      return new Date(event.startDate) >= now
+    })
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 })
 </script>
 
