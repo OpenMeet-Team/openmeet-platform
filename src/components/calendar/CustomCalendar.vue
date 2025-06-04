@@ -77,18 +77,6 @@ const loading = ref(false)
 const events = ref<CalendarEvent[]>([])
 const loadedExternalEvents = ref<ExternalEvent[]>([])
 
-// External events cache - we still need this for external calendar API calls
-const externalEventsCache = ref(new Map<string, {
-  data: ExternalEvent[],
-  timestamp: number,
-  ttl: number
-}>())
-
-// Helper function to create cache key for date ranges
-function createDateRangeKey (start: string, end: string): string {
-  return `${start}_${end}`
-}
-
 // Debouncing for rapid navigation
 let loadEventsTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -615,29 +603,13 @@ async function loadEvents () {
     } else if (authStore.user) {
       // Load external calendar events via API for personal calendar
       try {
-        const cacheKey = createDateRangeKey(start, end)
-        let externalEventsData: ExternalEvent[] = []
+        // Fetch external calendar events directly
+        const externalResponse = await getExternalEvents({
+          startTime: `${start}T00:00:00Z`,
+          endTime: `${end}T23:59:59Z`
+        })
 
-        // Check cache first
-        const cachedData = externalEventsCache.value.get(cacheKey)
-        if (cachedData && Date.now() - cachedData.timestamp < cachedData.ttl) {
-          externalEventsData = cachedData.data
-        } else {
-          // Fetch from API and cache
-          const externalResponse = await getExternalEvents({
-            startTime: `${start}T00:00:00Z`,
-            endTime: `${end}T23:59:59Z`
-          })
-
-          externalEventsData = externalResponse.data.events || []
-
-          // Cache the response for 10 minutes
-          externalEventsCache.value.set(cacheKey, {
-            data: externalEventsData,
-            timestamp: Date.now(),
-            ttl: 10 * 60 * 1000 // 10 minutes
-          })
-        }
+        const externalEventsData = externalResponse.data.events || []
 
         if (externalEventsData.length > 0) {
           const formattedExternalEvents = externalEventsData.map(event => {
