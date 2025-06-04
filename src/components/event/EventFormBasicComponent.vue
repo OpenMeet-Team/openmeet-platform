@@ -382,7 +382,8 @@ const eventData = ref<EventEntity>({
   sourceUrl: null,
   sourceData: null,
   lastSyncedAt: null,
-  timeZone: dateFormatting.getUserTimezone()
+  timeZone: dateFormatting.getUserTimezone(),
+  group: undefined
   // Removed recurrence-related fields
 })
 
@@ -413,16 +414,16 @@ const hasEndDate = ref(!!eventData.value.endDate)
 const recurrenceComponentRef = ref<InstanceType<typeof RecurrenceComponentType> | null>(null)
 
 // Now that all reactive variables are initialized, set up watchers
-// Watch for changes in the eventData to update isRecurring state and load series data
-watch(() => eventData.value, async (newEventData) => {
-  // If event has a seriesSlug, it's already part of a recurring series
-  if (newEventData.seriesSlug) {
+// Watch for changes in the seriesSlug specifically to update isRecurring state and load series data
+watch(() => eventData.value.seriesSlug, async (newSeriesSlug, oldSeriesSlug) => {
+  // Only proceed if seriesSlug actually changed
+  if (newSeriesSlug && newSeriesSlug !== oldSeriesSlug) {
     isRecurring.value = true
-    console.log('Event is part of series, enabling recurring mode:', newEventData.seriesSlug)
+    console.log('Event is part of series, enabling recurring mode:', newSeriesSlug)
 
     // Load the series information to get the recurrence rule
     try {
-      await loadSeriesInformation(newEventData.seriesSlug)
+      await loadSeriesInformation(newSeriesSlug)
       // Refresh occurrences after loading series data
       if (isRecurring.value) {
         refreshOccurrencesPreview()
@@ -431,8 +432,11 @@ watch(() => eventData.value, async (newEventData) => {
       console.error('Failed to load series information:', err)
       error('Failed to load series information')
     }
+  } else if (!newSeriesSlug && oldSeriesSlug) {
+    // SeriesSlug was removed, disable recurring mode
+    isRecurring.value = false
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 // Watch for changes in the start date and refresh occurrences preview
 watch(() => eventData.value.startDate, (newStartDate) => {
@@ -499,7 +503,16 @@ onMounted(() => {
       groupsOptions.value = res.data
 
       if (props.group) {
-        eventData.value.group = res.data.find(group => group.id === props.group?.id)
+        // Since the q-select uses emit-value with option-value="id", we need to set the group id
+        // But eventData.group should be the number (id) because of emit-value
+        eventData.value.group = props.group.id as unknown as GroupEntity // Type assertion needed due to q-select emit-value behavior
+      }
+
+      // Set initial date if provided
+      if (props.initialDate) {
+        // Convert YYYY-MM-DD format to ISO string with default time (5:00 PM)
+        const dateObj = new Date(props.initialDate + 'T17:00:00')
+        eventData.value.startDate = dateObj.toISOString()
       }
     })
   ]
@@ -514,7 +527,24 @@ onMounted(() => {
 
   isLoading.value = true
   // Wait for all promises to resolve and then set loaded to true
-  Promise.all(promises).finally(() => {
+  Promise.all(promises).then(async () => {
+    // Check if the loaded event has a seriesSlug and handle initial setup
+    if (eventData.value.seriesSlug) {
+      isRecurring.value = true
+      console.log('Event is part of series, enabling recurring mode:', eventData.value.seriesSlug)
+
+      try {
+        await loadSeriesInformation(eventData.value.seriesSlug)
+        // Refresh occurrences after loading series data
+        if (isRecurring.value) {
+          refreshOccurrencesPreview()
+        }
+      } catch (err) {
+        console.error('Failed to load series information:', err)
+        error('Failed to load series information')
+      }
+    }
+  }).finally(() => {
     isLoading.value = false
   })
 })
@@ -577,7 +607,7 @@ const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
   }
 }
 
-interface Props { editEventSlug?: string, group?: GroupEntity }
+interface Props { editEventSlug?: string, group?: GroupEntity, initialDate?: string }
 
 const props = withDefaults(defineProps<Props>(), {
   editEventSlug: undefined

@@ -3,6 +3,8 @@
     <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event" />
 
     <EventFormComponent class="col"
+      :group="preselectedGroup"
+      :initial-date="route.query.date as string"
       @created="onEventCreated"
       @series-created="handleSeriesCreated"
       @close="onClose" />
@@ -11,12 +13,29 @@
 
 <script setup lang="ts">
 import EventFormComponent from '../../components/event/EventFormBasicComponent.vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
 import { EventSeriesEntity } from '../../types/event-series'
-import { EventEntity } from '../../types'
+import { EventEntity, GroupEntity } from '../../types'
+import { ref, onMounted } from 'vue'
+import { groupsApi } from '../../api/groups'
 
 const router = useRouter()
+const route = useRoute()
+const preselectedGroup = ref<GroupEntity | undefined>()
+
+// Load preselected group if groupSlug is provided in query
+onMounted(async () => {
+  const groupSlug = route.query.groupSlug as string
+  if (groupSlug) {
+    try {
+      const response = await groupsApi.getBySlug(groupSlug)
+      preselectedGroup.value = response.data
+    } catch (error) {
+      console.error('Failed to load preselected group:', error)
+    }
+  }
+})
 
 // Handle when a regular event is created
 const onEventCreated = (event: EventEntity) => {
@@ -48,6 +67,7 @@ const handleSeriesCreated = (series: EventSeriesEntity) => {
   }
 }
 
+// Handle when user closes/cancels the form
 const onClose = () => {
   router.push({ name: 'DashboardEventsPage' })
 }

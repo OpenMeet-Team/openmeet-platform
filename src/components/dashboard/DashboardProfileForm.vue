@@ -343,6 +343,18 @@
       </q-card-section>
     </q-card>
 
+    <!-- Calendar Integration section -->
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_calendar_month" class="q-mr-sm" />
+          Calendar Integration
+        </div>
+
+        <CalendarConnectionsComponent />
+      </q-card-section>
+    </q-card>
+
     <!-- Account deletion section -->
     <q-card class="q-mb-md">
       <q-card-section>
@@ -375,6 +387,7 @@ import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 import { useMatrixAccess } from '../../composables/useMatrixAccess'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
+import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
 
 const { error, success } = useNotification()
 

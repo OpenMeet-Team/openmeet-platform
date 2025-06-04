@@ -69,7 +69,8 @@ const routes: RouteRecordRaw[] = [
           { path: ':slug', name: 'DashboardGroupPage', component: () => import('pages/dashboard/group/DashboardGroupPage.vue') }
         ]
       },
-      { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') }
+      { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') },
+      { path: 'calendar-demo', name: 'CalendarDemoPage', component: () => import('pages/dashboard/CalendarDemoPage.vue') }
     ],
     meta: { requiresAuth: true }
   },
@@ -93,6 +94,11 @@ const routes: RouteRecordRaw[] = [
         path: 'bluesky/callback',
         name: 'AuthBlueskyCallbackPage',
         component: () => import('pages/auth/AuthBlueskyCallbackPage.vue')
+      },
+      {
+        path: 'calendar/callback',
+        name: 'CalendarCallbackPage',
+        component: () => import('pages/auth/CalendarCallbackPage.vue')
       },
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },

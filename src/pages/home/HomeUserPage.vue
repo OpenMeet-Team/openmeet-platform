@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
-import { LoadingBar } from 'quasar'
+import { LoadingBar, useQuasar } from 'quasar'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
@@ -14,6 +14,7 @@ import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
 import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useEventDialog } from '../../composables/useEventDialog'
+import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarComponent.vue'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -25,6 +26,7 @@ const userRecentEventDrafts = computed(
 const userUpcomingEvents = computed(() => useHomeStore().userUpcomingEvents)
 const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
 const router = useRouter()
+const $q = useQuasar()
 
 const { navigateToEvent } = useNavigation()
 const { openCreateGroupDialog } = useGroupDialog()
@@ -37,6 +39,35 @@ onMounted(() => {
 
 const onCreateEvent = (group: GroupEntity) => {
   router.push({ name: 'DashboardEventCreatePage', query: { group: group.id } })
+}
+
+const onCalendarEventClick = (calendarEvent: { type: string; title: string; slug?: string; groupSlug?: string }) => {
+  if (calendarEvent.type === 'external-conflict') {
+    // External calendar events - show info toast
+    $q.notify({
+      type: 'info',
+      message: `External calendar event: ${calendarEvent.title}`,
+      caption: 'This event is from your connected calendar'
+    })
+  } else if (calendarEvent.slug) {
+    // OpenMeet events - navigate to event page
+    if (calendarEvent.groupSlug) {
+      router.push({ name: 'GroupPage', params: { slug: calendarEvent.groupSlug } })
+    } else {
+      router.push({ name: 'EventPage', params: { slug: calendarEvent.slug } })
+    }
+  }
+}
+
+const onCalendarDateClick = () => {
+  // Open event creation dialog with pre-selected date
+  // TODO: Pass the date to the dialog when that functionality is available
+  openCreateEventDialog()
+}
+
+const onCalendarDateSelect = () => {
+  // Handle day selection (just for visual feedback, no action needed)
+  // The calendar component handles the visual state internally
 }
 </script>
 
@@ -261,6 +292,33 @@ const onCreateEvent = (group: GroupEntity) => {
             </template>
           </EventsListComponent>
         </div>
+      </div>
+
+      <!-- Calendar Overview Section -->
+      <div class="q-mt-xl">
+        <div class="text-h5 text-bold q-mb-md q-px-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Your Calendar</div>
+        <q-card flat bordered>
+          <q-card-section>
+            <UnifiedCalendarComponent
+              mode="month"
+              :compact="true"
+              height="350px"
+              @event-click="onCalendarEventClick"
+              @date-click="onCalendarDateClick"
+              @date-select="onCalendarDateSelect"
+            />
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn
+              flat
+              :color="$q.dark.isActive ? 'purple-200' : 'purple-400'"
+              label="Calendar Demo"
+              icon="sym_r_calendar_month"
+              :to="{ name: 'CalendarDemoPage' }"
+              no-caps
+            />
+          </q-card-actions>
+        </q-card>
       </div>
 
       <!-- Quick actions section -->
