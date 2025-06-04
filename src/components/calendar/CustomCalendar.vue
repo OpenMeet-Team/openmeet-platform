@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
-import { eventsApi } from '../../api/events'
-import { homeApi } from '../../api/home'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
+import { useHomeStore } from '../../stores/home-store'
+import { useDashboardStore } from '../../stores/dashboard-store'
+import { EventStatus } from '../../types/event'
 
 interface GroupEvent {
   ulid: string
@@ -13,6 +14,7 @@ interface GroupEvent {
   startDate: string
   endDate?: string
   isAllDay?: boolean
+  status?: string
 }
 
 interface CalendarEvent {
@@ -22,13 +24,14 @@ interface CalendarEvent {
   time?: string
   startDateTime?: string
   endDateTime?: string
-  type: 'attending' | 'hosting' | 'external-event' | 'external-conflict'
+  type: 'attending' | 'hosting' | 'external-event' | 'external-conflict' | 'cancelled'
   bgColor: string
   textColor?: string
   slug?: string
   isAllDay?: boolean
   location?: string
   description?: string
+  isCancelled?: boolean
 }
 
 interface Props {
@@ -62,6 +65,8 @@ const emit = defineEmits<{
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+const homeStore = useHomeStore()
+const dashboardStore = useDashboardStore()
 
 // Initialize to current date in local timezone
 const today = new Date()
@@ -71,6 +76,16 @@ const viewMode = ref(props.mode)
 const loading = ref(false)
 const events = ref<CalendarEvent[]>([])
 const loadedExternalEvents = ref<ExternalEvent[]>([])
+
+// Debouncing for rapid navigation
+let loadEventsTimeout: ReturnType<typeof setTimeout> | null = null
+
+function debouncedLoadEvents () {
+  if (loadEventsTimeout) {
+    clearTimeout(loadEventsTimeout)
+  }
+  loadEventsTimeout = setTimeout(loadEvents, 150) // 150ms debounce
+}
 
 // Calculate date range based on current view
 const dateRange = computed(() => {
@@ -222,6 +237,69 @@ function formatDateString (date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+// Helper function to expand multi-day events into daily instances
+function expandMultiDayEvents (events: CalendarEvent[]): CalendarEvent[] {
+  const expandedEvents: CalendarEvent[] = []
+
+  for (const event of events) {
+    // If the event has no end date or is the same day, just add it as-is
+    if (!event.endDateTime || event.date === formatDateString(new Date(event.endDateTime))) {
+      expandedEvents.push(event)
+      continue
+    }
+
+    // Parse start and end dates
+    const startDate = new Date(event.startDateTime || event.date + 'T00:00:00')
+    const endDate = new Date(event.endDateTime)
+
+    // If it's all-day or the end date is different, create instances for each day
+    const currentDate = new Date(startDate)
+    let dayIndex = 0
+
+    // eslint-disable-next-line no-unmodified-loop-condition
+    while (currentDate <= endDate) {
+      const currentDateStr = formatDateString(currentDate)
+
+      // Skip if we've gone past the end date (for safety)
+      if (currentDate > endDate) break
+
+      // Create an event instance for this day
+      const dayEvent: CalendarEvent = {
+        ...event,
+        id: `${event.id}-day-${dayIndex}`,
+        date: currentDateStr,
+        // For first day, keep original time if not all-day
+        // For middle/last days of multi-day events, make them all-day or adjust times
+        time: event.isAllDay
+          ? undefined
+          : dayIndex === 0
+            ? event.time // Keep original time for first day
+            : undefined, // Make subsequent days all-day style
+        isAllDay: event.isAllDay || dayIndex > 0 // Make subsequent days appear as all-day
+      }
+
+      // Add indicator for multi-day events
+      if (dayIndex > 0) {
+        dayEvent.title = `${event.title} (Day ${dayIndex + 1})`
+      }
+
+      expandedEvents.push(dayEvent)
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1)
+      dayIndex++
+
+      // Safety check to prevent infinite loops
+      if (dayIndex >= 365) {
+        console.warn('Multi-day event expansion stopped at 365 days to prevent infinite loop')
+        break
+      }
+    }
+  }
+
+  return expandedEvents
+}
+
 // Note: getEventsForHour was used in previous implementation but is now replaced by precise positioning
 // Keeping this comment for reference in case we need to revert to hour-based positioning
 
@@ -307,6 +385,18 @@ function isToday (date: string) {
   return date === todayStr
 }
 
+// Computed property to determine if we need to fetch fresh data (for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const needsFreshData = computed(() => {
+  // Check if stores are empty or loading
+  if (!authStore.user) return false
+
+  const needsUserEvents = !homeStore.userUpcomingEvents && !homeStore.loading
+  const needsHostedEvents = !dashboardStore.events && !dashboardStore.loading
+
+  return needsUserEvents || needsHostedEvents
+})
+
 async function loadEvents () {
   loading.value = true
   events.value = []
@@ -340,6 +430,7 @@ async function loadEvents () {
             ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
+        const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `group-${event.ulid}`,
           title: event.name,
@@ -347,18 +438,21 @@ async function loadEvents () {
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
-          type: 'attending', // Blue color for group events
-          bgColor: '#1976d2',
+          type: isCancelled ? 'cancelled' : 'attending',
+          bgColor: isCancelled ? '#f44336' : '#1976d2', // Red for cancelled, blue for normal
           textColor: '#ffffff',
           slug: event.slug,
-          isAllDay: event.isAllDay || false
+          isAllDay: event.isAllDay || false,
+          isCancelled
         }
       })
     } else if (authStore.user) {
       // Personal calendar mode - load user's events
-      // Load events I'm attending (from home API)
-      const homeResponse = await homeApi.getUserHome()
-      const upcomingEvents = homeResponse.data.upcomingEvents || []
+      // Load events I'm attending (from home store)
+      if (!homeStore.userUpcomingEvents) {
+        await homeStore.actionGetUserHomeState()
+      }
+      const upcomingEvents = homeStore.userUpcomingEvents || []
 
       // Filter upcoming events by current date range
       const filteredUpcomingEvents = upcomingEvents.filter(event => {
@@ -377,6 +471,7 @@ async function loadEvents () {
             ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
+        const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `attending-${event.ulid}`,
           title: event.name,
@@ -384,18 +479,22 @@ async function loadEvents () {
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
-          type: 'attending',
-          bgColor: '#1976d2',
+          type: isCancelled ? 'cancelled' : 'attending',
+          bgColor: isCancelled ? '#f44336' : '#1976d2', // Red for cancelled, blue for normal
           textColor: '#ffffff',
           slug: event.slug,
-          isAllDay: event.isAllDay || false
+          isAllDay: event.isAllDay || false,
+          isCancelled
         }
       })
 
-      // Load events I'm hosting
-      const myHostedEventsResponse = await eventsApi.getDashboardEvents()
+      // Load events I'm hosting (from dashboard store)
+      if (!dashboardStore.events) {
+        await dashboardStore.actionGetDashboardEvents()
+      }
+      const rawHostedEvents = dashboardStore.events || []
 
-      const filteredHostedEvents = myHostedEventsResponse.data.filter(event => {
+      const filteredHostedEvents = rawHostedEvents.filter(event => {
         const eventDate = event.startDate.split('T')[0]
         return eventDate >= start && eventDate <= end
       })
@@ -411,6 +510,7 @@ async function loadEvents () {
             ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
+        const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `hosted-${event.ulid}`,
           title: `${event.name} (hosting)`,
@@ -418,11 +518,12 @@ async function loadEvents () {
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
-          type: 'hosting',
-          bgColor: '#2e7d32',
+          type: isCancelled ? 'cancelled' : 'hosting',
+          bgColor: isCancelled ? '#f44336' : '#2e7d32', // Red for cancelled, green for normal
           textColor: '#ffffff',
           slug: event.slug,
-          isAllDay: event.isAllDay || false
+          isAllDay: event.isAllDay || false,
+          isCancelled
         }
       })
 
@@ -502,13 +603,16 @@ async function loadEvents () {
     } else if (authStore.user) {
       // Load external calendar events via API for personal calendar
       try {
+        // Fetch external calendar events directly
         const externalResponse = await getExternalEvents({
           startTime: `${start}T00:00:00Z`,
           endTime: `${end}T23:59:59Z`
         })
 
-        if (externalResponse.data.events) {
-          const formattedExternalEvents = externalResponse.data.events.map(event => {
+        const externalEventsData = externalResponse.data.events || []
+
+        if (externalEventsData.length > 0) {
+          const formattedExternalEvents = externalEventsData.map(event => {
             const startTime = new Date(event.startTime)
             const endTime = event.endTime ? new Date(event.endTime) : startTime
 
@@ -548,7 +652,7 @@ async function loadEvents () {
             }
           }
 
-          loadedExternalEvents.value = externalResponse.data.events
+          loadedExternalEvents.value = externalEventsData
           emit('externalEventsLoaded', loadedExternalEvents.value)
         }
       } catch (error) {
@@ -556,7 +660,9 @@ async function loadEvents () {
       }
     }
 
-    events.value = [...mainEvents, ...externalCalendarEvents]
+    // Expand multi-day events into daily instances before assigning
+    const allEvents = [...mainEvents, ...externalCalendarEvents]
+    events.value = expandMultiDayEvents(allEvents)
   } catch (error) {
     console.error('Failed to load calendar events:', error)
     $q.notify({
@@ -646,10 +752,10 @@ const currentDateLabel = computed(() => {
   return date.toLocaleDateString('en-US', options)
 })
 
-// Watch for changes to reload events
-watch([currentDate, viewMode], loadEvents)
-watch(() => props.startDate, loadEvents)
-watch(() => props.endDate, loadEvents)
+// Watch for changes to reload events with debouncing
+watch([currentDate, viewMode], debouncedLoadEvents)
+watch(() => props.startDate, debouncedLoadEvents)
+watch(() => props.endDate, debouncedLoadEvents)
 
 // Watch for view mode changes to update current date based on selected date
 watch(viewMode, (newMode) => {
@@ -918,6 +1024,10 @@ onMounted(() => {
         <div class="legend-item">
           <div class="legend-color" style="background-color: #4caf50"></div>
           <span class="text-caption">External Calendar</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #f44336"></div>
+          <span class="text-caption">Cancelled</span>
         </div>
       </div>
     </div>
