@@ -15,6 +15,7 @@ import EventsListComponent from '../../components/event/EventsListComponent.vue'
 import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useEventDialog } from '../../composables/useEventDialog'
 import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarComponent.vue'
+import { EventAttendeeStatus } from '../../types/event'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -23,7 +24,13 @@ const userNextHostedEvent = computed(() => useHomeStore().userNextHostedEvent)
 const userRecentEventDrafts = computed(
   () => useHomeStore().userRecentEventDrafts
 )
-const userUpcomingEvents = computed(() => useHomeStore().userUpcomingEvents)
+const userUpcomingEvents = computed(() => {
+  const events = useHomeStore().userUpcomingEvents || []
+  // Filter out events where user has cancelled their RSVP
+  return events.filter(event => {
+    return !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
+  })
+})
 const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
 const router = useRouter()
 const $q = useQuasar()

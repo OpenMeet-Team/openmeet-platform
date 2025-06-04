@@ -10,6 +10,7 @@ import getEnv from './utils/env'
 import UpdateNotificationComponent from './components/common/UpdateNotificationComponent.vue'
 import { versionService } from './services/versionService'
 import { setupGlobalErrorHandling } from './composables/useVersionErrorHandling'
+import { useAuthStore } from './stores/auth-store'
 
 defineOptions({
   name: 'App'
@@ -34,10 +35,15 @@ onBeforeMount(() => {
 
 onMounted(async () => {
   try {
+    // Initialize auth first
+    const authStore = useAuthStore()
+    await authStore.initializeAuth()
+
+    // Then initialize version checking
     await versionService.initializeVersionChecking()
     setupGlobalErrorHandling()
   } catch (error) {
-    console.error('Failed to initialize version checking:', error)
+    console.error('Failed to initialize app:', error)
   }
 })
 
