@@ -32,7 +32,7 @@ const mockRoute = {
 }
 
 describe('GroupAboutEventsComponent', () => {
-  let pinia: any
+  let pinia: ReturnType<typeof createPinia>
 
   beforeEach(() => {
     pinia = createPinia()
@@ -53,9 +53,9 @@ describe('GroupAboutEventsComponent', () => {
     startDate,
     endDate,
     status: status || EventStatus.Published,
-    type: 'online' as any,
+    type: 'online',
     userId: 1,
-    visibility: 'public' as any
+    visibility: 'public'
   } as EventEntity)
 
   it('renders successfully with no events', () => {
@@ -102,11 +102,11 @@ describe('GroupAboutEventsComponent', () => {
     await wrapper.vm.$nextTick()
 
     // Check the computed property directly
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as { sortedEvents: EventEntity[] }
     expect(vm.sortedEvents).toHaveLength(3)
 
     // Check that correct events are included
-    const eventNames = vm.sortedEvents.map((e: any) => e.name)
+    const eventNames = vm.sortedEvents.map((e: EventEntity) => e.name)
     expect(eventNames).toEqual([
       'Today Event',
       'Tomorrow Event',
@@ -136,10 +136,10 @@ describe('GroupAboutEventsComponent', () => {
     await wrapper.vm.$nextTick()
 
     // Check the computed property includes both events
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as { sortedEvents: EventEntity[] }
     expect(vm.sortedEvents).toHaveLength(2)
 
-    const eventNames = vm.sortedEvents.map((e: any) => e.name)
+    const eventNames = vm.sortedEvents.map((e: EventEntity) => e.name)
     expect(eventNames).toEqual(['Cancelled Event', 'Normal Event'])
   })
 
@@ -166,10 +166,10 @@ describe('GroupAboutEventsComponent', () => {
     await wrapper.vm.$nextTick()
 
     // Check that events are sorted chronologically
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as { sortedEvents: EventEntity[] }
     expect(vm.sortedEvents).toHaveLength(3)
 
-    const eventNames = vm.sortedEvents.map((e: any) => e.name)
+    const eventNames = vm.sortedEvents.map((e: EventEntity) => e.name)
     expect(eventNames).toEqual([
       'Event A', // June 16
       'Event B', // June 20
@@ -200,10 +200,10 @@ describe('GroupAboutEventsComponent', () => {
     await wrapper.vm.$nextTick()
 
     // Should show events at current time and future (>= comparison)
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as { sortedEvents: EventEntity[] }
     expect(vm.sortedEvents).toHaveLength(2)
 
-    const eventNames = vm.sortedEvents.map((e: any) => e.name)
+    const eventNames = vm.sortedEvents.map((e: EventEntity) => e.name)
     expect(eventNames).toEqual([
       'Right Now Event',
       'Future by 1 second'
@@ -240,10 +240,10 @@ describe('GroupAboutEventsComponent', () => {
     await wrapper.vm.$nextTick()
 
     // Should show: Ongoing Event, Future Event, and Ending Now (3 events)
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as { sortedEvents: EventEntity[] }
     expect(vm.sortedEvents).toHaveLength(3)
 
-    const eventNames = vm.sortedEvents.map((e: any) => e.name)
+    const eventNames = vm.sortedEvents.map((e: EventEntity) => e.name)
     expect(eventNames).toEqual([
       'Ending Now', // Started first, so sorted first
       'Ongoing Event', // Started second
