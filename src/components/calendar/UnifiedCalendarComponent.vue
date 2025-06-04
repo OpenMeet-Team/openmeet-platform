@@ -2,6 +2,15 @@
 import CustomCalendar from './CustomCalendar.vue'
 import type { ExternalEvent } from '../../api/calendar'
 
+interface GroupEvent {
+  ulid: string
+  slug: string
+  name: string
+  startDate: string
+  endDate?: string
+  isAllDay?: boolean
+}
+
 interface CalendarEvent {
   id: string
   title: string
@@ -25,13 +34,19 @@ interface Props {
   compact?: boolean
   startDate?: string
   endDate?: string
+  groupEvents?: GroupEvent[]
+  externalEvents?: ExternalEvent[]
+  legendType?: 'personal' | 'group'
 }
 
 withDefaults(defineProps<Props>(), {
   mode: 'month',
   height: '400px',
   showControls: true,
-  compact: false
+  compact: false,
+  groupEvents: () => [] as GroupEvent[],
+  externalEvents: () => [],
+  legendType: 'personal'
 })
 
 const emit = defineEmits<{
@@ -66,6 +81,9 @@ function onExternalEventsLoaded (events: ExternalEvent[]) {
     :compact="compact"
     :start-date="startDate"
     :end-date="endDate"
+    :group-events="groupEvents"
+    :external-events="externalEvents"
+    :legend-type="legendType"
     @event-click="onEventClick"
     @date-click="onDateClick"
     @date-select="onDateSelect"

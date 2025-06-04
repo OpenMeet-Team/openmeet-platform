@@ -51,7 +51,15 @@ export default boot(async ({ app, router }) => {
       if (err.response && err.response.status === 422) {
         Object.values(err.response.data.errors).forEach(message => error(message as string))
       } else if (err.response?.status === 401) {
+        console.log('🔴 401 Error in axios interceptor:', {
+          url: originalRequest.url,
+          hasRefreshToken: !!authStore.refreshToken,
+          alreadyRetried: originalRequest._retry,
+          refreshTokenValue: authStore.refreshToken ? authStore.refreshToken.substring(0, 20) + '...' : 'null'
+        })
+
         if (originalRequest.url.includes('api/v1/auth/refresh')) {
+          console.log('🔴 Refresh token request failed, clearing auth')
           // Refresh token request failed
           authStore.actionClearAuth()
           error('Your session has expired. Please log in again.')
@@ -64,13 +72,16 @@ export default boot(async ({ app, router }) => {
 
         // Only attempt to refresh if we have a refresh token and we're not already retrying
         if (!originalRequest._retry && authStore.refreshToken) {
+          console.log('🔄 Attempting token refresh...')
           originalRequest._retry = true
           try {
             // Use the refreshToken from authStore directly
             const newToken = await authStore.actionRefreshToken()
+            console.log('✅ Token refresh successful, retrying original request')
             originalRequest.headers.Authorization = `Bearer ${newToken}`
             return api(originalRequest)
           } catch (refreshError) {
+            console.log('🔴 Token refresh failed:', refreshError)
             // Token refresh failed, clear auth and redirect
             authStore.actionClearAuth()
             error('Your session has expired. Please log in again.')

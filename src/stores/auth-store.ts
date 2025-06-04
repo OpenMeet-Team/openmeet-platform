@@ -97,11 +97,16 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionRefreshToken () {
+      console.log('🔄 Auth Store: actionRefreshToken called with token:', this.refreshToken ? this.refreshToken.substring(0, 20) + '...' : 'null')
       return await authApi.refreshToken(this.refreshToken).then(response => {
+        console.log('✅ Auth Store: Token refresh successful')
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
         return response.data.token
+      }).catch(error => {
+        console.log('🔴 Auth Store: Token refresh failed:', error)
+        throw error
       })
     },
     async actionRegister (credentials: StoreAuthRegisterRequest) {

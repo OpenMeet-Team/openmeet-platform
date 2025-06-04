@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { Quasar, QBtn, QDialog, QInput, QList, QItem } from 'quasar'
+import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-vitest'
+import { Notify } from 'quasar'
 import CalendarConnectionsComponent from '../../../../../src/components/calendar/CalendarConnectionsComponent.vue'
+
+// Install Quasar plugin with Notify
+installQuasarPlugin({ plugins: { Notify } })
 
 // Mock the calendar API
 vi.mock('../../../../../src/api/calendar', () => ({
@@ -26,26 +30,7 @@ vi.mock('../../../../../src/utils/calendarUtils', () => ({
 }))
 
 const createWrapper = () => {
-  return mount(CalendarConnectionsComponent, {
-    global: {
-      plugins: [Quasar],
-      components: {
-        QBtn,
-        QDialog,
-        QInput,
-        QList,
-        QItem
-      },
-      mocks: {
-        $q: {
-          notify: vi.fn(),
-          dialog: vi.fn().mockReturnValue({
-            onOk: vi.fn()
-          })
-        }
-      }
-    }
-  })
+  return mount(CalendarConnectionsComponent)
 }
 
 describe('CalendarConnectionsComponent', () => {

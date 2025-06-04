@@ -232,7 +232,7 @@ defineExpose({
         color="primary"
         :loading="loading"
         :disable="!isTimeRangeValid"
-        @click="checkAvailabilityNow"
+        @click="() => checkAvailabilityNow()"
       >
         <q-icon name="sym_r_search" class="q-mr-sm" />
         Check Availability

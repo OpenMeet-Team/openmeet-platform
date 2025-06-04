@@ -522,8 +522,8 @@ const createIcalSource = async () => {
                 val => !!val.trim() || 'URL is required',
                 val => {
                   try {
-                    new URL(val.trim())
-                    return true
+                    const url = val.trim()
+                    return (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('webcal://')) && url.includes('.') || 'Please enter a valid URL (starting with http://, https://, or webcal://)'
                   } catch {
                     return 'Please enter a valid URL'
                   }

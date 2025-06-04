@@ -6,6 +6,15 @@ import { homeApi } from '../../api/home'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
 
+interface GroupEvent {
+  ulid: string
+  slug: string
+  name: string
+  startDate: string
+  endDate?: string
+  isAllDay?: boolean
+}
+
 interface CalendarEvent {
   id: string
   title: string
@@ -29,13 +38,19 @@ interface Props {
   compact?: boolean
   startDate?: string
   endDate?: string
+  groupEvents?: GroupEvent[]
+  externalEvents?: ExternalEvent[]
+  legendType?: 'personal' | 'group'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   mode: 'month',
   height: '400px',
   showControls: true,
-  compact: false
+  compact: false,
+  groupEvents: () => [] as GroupEvent[],
+  externalEvents: () => [],
+  legendType: 'personal'
 })
 
 const emit = defineEmits<{
@@ -55,7 +70,7 @@ const selectedDate = ref(currentDate.value) // Track selected date for visual fe
 const viewMode = ref(props.mode)
 const loading = ref(false)
 const events = ref<CalendarEvent[]>([])
-const externalEvents = ref<ExternalEvent[]>([])
+const loadedExternalEvents = ref<ExternalEvent[]>([])
 
 // Calculate date range based on current view
 const dateRange = computed(() => {
@@ -293,194 +308,255 @@ function isToday (date: string) {
 }
 
 async function loadEvents () {
-  if (!authStore.user) return
-
   loading.value = true
   events.value = []
 
   try {
     const { start, end } = dateRange.value
 
-    // Load events I'm attending (from home API)
-    const homeResponse = await homeApi.getUserHome()
-    const upcomingEvents = homeResponse.data.upcomingEvents || []
-
-    // Filter upcoming events by current date range
-    const filteredUpcomingEvents = upcomingEvents.filter(event => {
-      const eventDate = event.startDate.split('T')[0]
-      return eventDate >= start && eventDate <= end
-    })
-
-    const attendingEvents: CalendarEvent[] = filteredUpcomingEvents.map(event => {
-      const startTime = new Date(event.startDate)
-      const endTime = event.endDate ? new Date(event.endDate) : startTime
-
-      // Format time display with end time if available
-      const timeDisplay = event.isAllDay
-        ? undefined
-        : event.endDate
-          ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-          : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-
-      return {
-        id: `attending-${event.ulid}`,
-        title: event.name,
-        date: event.startDate.split('T')[0],
-        time: timeDisplay,
-        startDateTime: event.startDate,
-        endDateTime: event.endDate || event.startDate,
-        type: 'attending',
-        bgColor: '#1976d2',
-        textColor: '#ffffff',
-        slug: event.slug,
-        isAllDay: event.isAllDay || false
-      }
-    })
-
-    // Load events I'm hosting
-    const myHostedEventsResponse = await eventsApi.getDashboardEvents()
-
-    const filteredHostedEvents = myHostedEventsResponse.data.filter(event => {
-      const eventDate = event.startDate.split('T')[0]
-      return eventDate >= start && eventDate <= end
-    })
-
-    const hostedEvents: CalendarEvent[] = filteredHostedEvents.map(event => {
-      const startTime = new Date(event.startDate)
-      const endTime = event.endDate ? new Date(event.endDate) : startTime
-
-      // Format time display with end time if available
-      const timeDisplay = event.isAllDay
-        ? undefined
-        : event.endDate
-          ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-          : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-
-      return {
-        id: `hosted-${event.ulid}`,
-        title: `${event.name} (hosting)`,
-        date: event.startDate.split('T')[0],
-        time: timeDisplay,
-        startDateTime: event.startDate,
-        endDateTime: event.endDate || event.startDate,
-        type: 'hosting',
-        bgColor: '#2e7d32',
-        textColor: '#ffffff',
-        slug: event.slug,
-        isAllDay: event.isAllDay || false
-      }
-    })
-
-    // Combine events (remove duplicates by ulid and title+time)
-    const eventUlids = new Set()
-    const eventSignatures = new Set() // For title+date+time deduplication
-    const myEvents: CalendarEvent[] = []
-
     // Helper function to create event signature for deduplication
     const createEventSignature = (event: CalendarEvent) => {
       return `${event.title.toLowerCase().trim()}|${event.date}|${event.time || 'no-time'}`
     }
 
-    // Add attending events first
-    for (const event of attendingEvents) {
-      const ulid = event.id.split('-')[1]
-      const signature = createEventSignature(event)
-      if (!eventUlids.has(ulid) && !eventSignatures.has(signature)) {
-        eventUlids.add(ulid)
-        eventSignatures.add(signature)
-        myEvents.push(event)
-      }
-    }
+    let mainEvents: CalendarEvent[] = []
 
-    // Add hosted events if not already attending
-    for (const event of hostedEvents) {
-      const ulid = event.id.split('-')[1]
-      const signature = createEventSignature(event)
-      if (!eventUlids.has(ulid) && !eventSignatures.has(signature)) {
-        eventUlids.add(ulid)
-        eventSignatures.add(signature)
-        myEvents.push(event)
-      }
-    }
-
-    // Load external calendar events
-    const externalCalendarEvents: CalendarEvent[] = []
-    try {
-      const externalResponse = await getExternalEvents({
-        startTime: `${start}T00:00:00Z`,
-        endTime: `${end}T23:59:59Z`
+    // Check if we have group events passed as props (group calendar mode)
+    if (props.groupEvents && props.groupEvents.length > 0) {
+      // Use provided group events
+      const filteredGroupEvents = props.groupEvents.filter(event => {
+        const eventDate = event.startDate.split('T')[0]
+        return eventDate >= start && eventDate <= end
       })
 
-      if (externalResponse.data.events) {
-        const formattedExternalEvents = externalResponse.data.events.map(event => {
-          const startTime = new Date(event.startTime)
-          const endTime = event.endTime ? new Date(event.endTime) : startTime
+      mainEvents = filteredGroupEvents.map(event => {
+        const startTime = new Date(event.startDate)
+        const endTime = event.endDate ? new Date(event.endDate) : startTime
 
-          // Format time display with end time if available
-          const timeDisplay = event.isAllDay
-            ? undefined
-            : event.endTime
-              ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-              : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        // Format time display with end time if available
+        const timeDisplay = event.isAllDay
+          ? undefined
+          : event.endDate
+            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-          // Try multiple possible title fields from the API
-          const eventData = event as unknown as Record<string, unknown>
-          const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
+        return {
+          id: `group-${event.ulid}`,
+          title: event.name,
+          date: event.startDate.split('T')[0],
+          time: timeDisplay,
+          startDateTime: event.startDate,
+          endDateTime: event.endDate || event.startDate,
+          type: 'attending', // Blue color for group events
+          bgColor: '#1976d2',
+          textColor: '#ffffff',
+          slug: event.slug,
+          isAllDay: event.isAllDay || false
+        }
+      })
+    } else if (authStore.user) {
+      // Personal calendar mode - load user's events
+      // Load events I'm attending (from home API)
+      const homeResponse = await homeApi.getUserHome()
+      const upcomingEvents = homeResponse.data.upcomingEvents || []
 
-          return {
-            id: `external-${event.id}`,
-            title: String(possibleTitle),
-            date: formatDateString(startTime),
-            time: timeDisplay,
-            startDateTime: event.startTime,
-            endDateTime: event.endTime || event.startTime,
-            type: 'external-event' as const,
-            bgColor: '#4caf50',
-            textColor: '#fff',
-            isAllDay: event.isAllDay,
-            location: event.location,
-            description: event.description
-          }
+      // Filter upcoming events by current date range
+      const filteredUpcomingEvents = upcomingEvents.filter(event => {
+        const eventDate = event.startDate.split('T')[0]
+        return eventDate >= start && eventDate <= end
+      })
+
+      const attendingEvents: CalendarEvent[] = filteredUpcomingEvents.map(event => {
+        const startTime = new Date(event.startDate)
+        const endTime = event.endDate ? new Date(event.endDate) : startTime
+
+        // Format time display with end time if available
+        const timeDisplay = event.isAllDay
+          ? undefined
+          : event.endDate
+            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+        return {
+          id: `attending-${event.ulid}`,
+          title: event.name,
+          date: event.startDate.split('T')[0],
+          time: timeDisplay,
+          startDateTime: event.startDate,
+          endDateTime: event.endDate || event.startDate,
+          type: 'attending',
+          bgColor: '#1976d2',
+          textColor: '#ffffff',
+          slug: event.slug,
+          isAllDay: event.isAllDay || false
+        }
+      })
+
+      // Load events I'm hosting
+      const myHostedEventsResponse = await eventsApi.getDashboardEvents()
+
+      const filteredHostedEvents = myHostedEventsResponse.data.filter(event => {
+        const eventDate = event.startDate.split('T')[0]
+        return eventDate >= start && eventDate <= end
+      })
+
+      const hostedEvents: CalendarEvent[] = filteredHostedEvents.map(event => {
+        const startTime = new Date(event.startDate)
+        const endTime = event.endDate ? new Date(event.endDate) : startTime
+
+        // Format time display with end time if available
+        const timeDisplay = event.isAllDay
+          ? undefined
+          : event.endDate
+            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+        return {
+          id: `hosted-${event.ulid}`,
+          title: `${event.name} (hosting)`,
+          date: event.startDate.split('T')[0],
+          time: timeDisplay,
+          startDateTime: event.startDate,
+          endDateTime: event.endDate || event.startDate,
+          type: 'hosting',
+          bgColor: '#2e7d32',
+          textColor: '#ffffff',
+          slug: event.slug,
+          isAllDay: event.isAllDay || false
+        }
+      })
+
+      // Combine events (remove duplicates by ulid and title+time)
+      const eventUlids = new Set()
+      const eventSignatures = new Set() // For title+date+time deduplication
+
+      // Add attending events first
+      for (const event of attendingEvents) {
+        const ulid = event.id.split('-')[1]
+        const signature = createEventSignature(event)
+        if (!eventUlids.has(ulid) && !eventSignatures.has(signature)) {
+          eventUlids.add(ulid)
+          eventSignatures.add(signature)
+          mainEvents.push(event)
+        }
+      }
+
+      // Add hosted events if not already attending
+      for (const event of hostedEvents) {
+        const ulid = event.id.split('-')[1]
+        const signature = createEventSignature(event)
+        if (!eventUlids.has(ulid) && !eventSignatures.has(signature)) {
+          eventUlids.add(ulid)
+          eventSignatures.add(signature)
+          mainEvents.push(event)
+        }
+      }
+    }
+
+    // Handle external calendar events
+    const externalCalendarEvents: CalendarEvent[] = []
+    const eventSignatures = new Set(mainEvents.map(createEventSignature))
+
+    // Check if external events are provided as props
+    if (props.externalEvents && props.externalEvents.length > 0) {
+      // Use provided external events
+      const formattedExternalEvents = props.externalEvents.map(event => {
+        const startTime = new Date(event.startTime)
+        const endTime = event.endTime ? new Date(event.endTime) : startTime
+
+        // Format time display with end time if available
+        const timeDisplay = event.isAllDay
+          ? undefined
+          : event.endTime
+            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+        // Try multiple possible title fields from the API
+        const eventData = event as unknown as Record<string, unknown>
+        const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
+
+        return {
+          id: `external-${event.id}`,
+          title: String(possibleTitle),
+          date: formatDateString(startTime),
+          time: timeDisplay,
+          startDateTime: event.startTime,
+          endDateTime: event.endTime || event.startTime,
+          type: 'external-event' as const,
+          bgColor: '#4caf50',
+          textColor: '#fff',
+          isAllDay: event.isAllDay,
+          location: event.location,
+          description: event.description
+        }
+      })
+
+      // Add external events with deduplication
+      for (const event of formattedExternalEvents) {
+        const signature = createEventSignature(event)
+        if (!eventSignatures.has(signature)) {
+          eventSignatures.add(signature)
+          externalCalendarEvents.push(event)
+        }
+      }
+    } else if (authStore.user) {
+      // Load external calendar events via API for personal calendar
+      try {
+        const externalResponse = await getExternalEvents({
+          startTime: `${start}T00:00:00Z`,
+          endTime: `${end}T23:59:59Z`
         })
 
-        // Add external events with deduplication
-        for (const event of formattedExternalEvents) {
-          const signature = createEventSignature(event)
-          if (!eventSignatures.has(signature)) {
-            eventSignatures.add(signature)
-            externalCalendarEvents.push(event)
+        if (externalResponse.data.events) {
+          const formattedExternalEvents = externalResponse.data.events.map(event => {
+            const startTime = new Date(event.startTime)
+            const endTime = event.endTime ? new Date(event.endTime) : startTime
+
+            // Format time display with end time if available
+            const timeDisplay = event.isAllDay
+              ? undefined
+              : event.endTime
+                ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+            // Try multiple possible title fields from the API
+            const eventData = event as unknown as Record<string, unknown>
+            const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
+
+            return {
+              id: `external-${event.id}`,
+              title: String(possibleTitle),
+              date: formatDateString(startTime),
+              time: timeDisplay,
+              startDateTime: event.startTime,
+              endDateTime: event.endTime || event.startTime,
+              type: 'external-event' as const,
+              bgColor: '#4caf50',
+              textColor: '#fff',
+              isAllDay: event.isAllDay,
+              location: event.location,
+              description: event.description
+            }
+          })
+
+          // Add external events with deduplication
+          for (const event of formattedExternalEvents) {
+            const signature = createEventSignature(event)
+            if (!eventSignatures.has(signature)) {
+              eventSignatures.add(signature)
+              externalCalendarEvents.push(event)
+            }
           }
+
+          loadedExternalEvents.value = externalResponse.data.events
+          emit('externalEventsLoaded', loadedExternalEvents.value)
         }
-
-        externalEvents.value = externalResponse.data.events
-        emit('externalEventsLoaded', externalEvents.value)
+      } catch (error) {
+        console.warn('Failed to load external calendar events:', error)
       }
-    } catch (error) {
-      console.warn('Failed to load external calendar events:', error)
     }
 
-    // Add test event for today with deduplication
-    const todayStr = formatDateString(new Date())
-    const testEvent: CalendarEvent = {
-      id: 'test-event-today',
-      title: 'TEST: Custom Calendar',
-      date: todayStr,
-      time: '12:00',
-      startDateTime: `${todayStr}T12:00:00`,
-      endDateTime: `${todayStr}T13:00:00`,
-      type: 'attending',
-      bgColor: '#e91e63',
-      textColor: '#fff'
-    }
-
-    // Apply deduplication to test event too
-    const testEventSignature = createEventSignature(testEvent)
-    const finalEvents = [...myEvents, ...externalCalendarEvents]
-    if (!eventSignatures.has(testEventSignature)) {
-      finalEvents.push(testEvent)
-    }
-
-    events.value = finalEvents
+    events.value = [...mainEvents, ...externalCalendarEvents]
   } catch (error) {
     console.error('Failed to load calendar events:', error)
     $q.notify({
@@ -833,9 +909,9 @@ onMounted(() => {
       <div class="row q-gutter-sm">
         <div class="legend-item">
           <div class="legend-color" style="background-color: #1976d2"></div>
-          <span class="text-caption">Attending</span>
+          <span class="text-caption">{{ props.legendType === 'group' ? 'Group Events' : 'Attending' }}</span>
         </div>
-        <div class="legend-item">
+        <div v-if="props.legendType === 'personal'" class="legend-item">
           <div class="legend-color" style="background-color: #2e7d32"></div>
           <span class="text-caption">Hosting</span>
         </div>
