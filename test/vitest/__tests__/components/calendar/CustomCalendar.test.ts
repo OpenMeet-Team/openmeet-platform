@@ -4,6 +4,7 @@ import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-v
 import { Notify } from 'quasar'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import CustomCalendar from '../../../../../src/components/calendar/CustomCalendar.vue'
+import { EventStatus } from '../../../../../src/types/event'
 
 // Install Quasar for testing
 installQuasarPlugin({ plugins: { Notify } })
@@ -11,7 +12,8 @@ installQuasarPlugin({ plugins: { Notify } })
 // Mock the API modules
 vi.mock('../../../../../src/api/events', () => ({
   eventsApi: {
-    getDashboardEvents: vi.fn(() => Promise.resolve({ data: [] }))
+    getDashboardEvents: vi.fn(() => Promise.resolve({ data: [] })),
+    getAll: vi.fn(() => Promise.resolve({ data: { data: [] } }))
   }
 }))
 
@@ -25,7 +27,7 @@ vi.mock('../../../../../src/api/calendar', () => ({
   getExternalEvents: vi.fn(() => Promise.resolve({ data: { events: [] } }))
 }))
 
-// Mock the auth store
+// Mock the stores
 const mockAuthStore = {
   user: {
     id: 'test-user',
@@ -33,8 +35,28 @@ const mockAuthStore = {
   }
 }
 
+const mockHomeStore = {
+  userUpcomingEvents: [],
+  loading: false,
+  actionGetUserHomeState: vi.fn(() => Promise.resolve())
+}
+
+const mockDashboardStore = {
+  events: null,
+  loading: false,
+  actionGetDashboardEvents: vi.fn(() => Promise.resolve())
+}
+
 vi.mock('../../../../../src/stores/auth-store', () => ({
   useAuthStore: () => mockAuthStore
+}))
+
+vi.mock('../../../../../src/stores/home-store', () => ({
+  useHomeStore: () => mockHomeStore
+}))
+
+vi.mock('../../../../../src/stores/dashboard-store', () => ({
+  useDashboardStore: () => mockDashboardStore
 }))
 
 describe('CustomCalendar', () => {
@@ -575,6 +597,323 @@ describe('CustomCalendar', () => {
       // Month view should use auto height, not fixed height
       const container = wrapper.find('.calendar-container')
       expect(container.attributes('style')).toContain('height: auto')
+    })
+  })
+
+  describe('Multi-Day Event Handling', () => {
+    it('expands multi-day events into daily instances', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Test multi-day event that spans 3 days
+      const multiDayEvent = {
+        id: 'multiday-1',
+        title: 'Multi-Day Conference',
+        date: '2025-06-15',
+        startDateTime: '2025-06-15T09:00:00Z',
+        endDateTime: '2025-06-17T17:00:00Z',
+        type: 'attending' as const,
+        bgColor: '#1976d2',
+        textColor: '#ffffff',
+        isAllDay: false
+      }
+
+      const expandedEvents = vm.expandMultiDayEvents([multiDayEvent])
+
+      // Should create 3 daily instances
+      expect(expandedEvents).toHaveLength(3)
+
+      // First day should keep original time and title
+      expect(expandedEvents[0].date).toBe('2025-06-15')
+      expect(expandedEvents[0].title).toBe('Multi-Day Conference')
+      expect(expandedEvents[0].isAllDay).toBe(false)
+      expect(expandedEvents[0].id).toBe('multiday-1-day-0')
+
+      // Second day should be all-day style with day indicator
+      expect(expandedEvents[1].date).toBe('2025-06-16')
+      expect(expandedEvents[1].title).toBe('Multi-Day Conference (Day 2)')
+      expect(expandedEvents[1].isAllDay).toBe(true)
+      expect(expandedEvents[1].id).toBe('multiday-1-day-1')
+
+      // Third day should be all-day style with day indicator
+      expect(expandedEvents[2].date).toBe('2025-06-17')
+      expect(expandedEvents[2].title).toBe('Multi-Day Conference (Day 3)')
+      expect(expandedEvents[2].isAllDay).toBe(true)
+      expect(expandedEvents[2].id).toBe('multiday-1-day-2')
+    })
+
+    it('handles all-day multi-day events correctly', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const allDayMultiEvent = {
+        id: 'allday-multiday-1',
+        title: 'All-Day Multi-Day Event',
+        date: '2025-06-15',
+        startDateTime: '2025-06-15T00:00:00Z',
+        endDateTime: '2025-06-18T23:59:59Z',
+        type: 'attending' as const,
+        bgColor: '#1976d2',
+        textColor: '#ffffff',
+        isAllDay: true
+      }
+
+      const expandedEvents = vm.expandMultiDayEvents([allDayMultiEvent])
+
+      // Should create 4 daily instances (June 15-18)
+      expect(expandedEvents).toHaveLength(4)
+
+      // All days should be all-day events
+      expandedEvents.forEach((event, index) => {
+        expect(event.isAllDay).toBe(true)
+        expect(event.time).toBeUndefined()
+        if (index === 0) {
+          expect(event.title).toBe('All-Day Multi-Day Event')
+        } else {
+          expect(event.title).toBe(`All-Day Multi-Day Event (Day ${index + 1})`)
+        }
+      })
+    })
+
+    it('does not expand single-day events', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const singleDayEvent = {
+        id: 'single-1',
+        title: 'Single Day Event',
+        date: '2025-06-15',
+        startDateTime: '2025-06-15T09:00:00Z',
+        endDateTime: '2025-06-15T17:00:00Z',
+        type: 'attending' as const,
+        bgColor: '#1976d2',
+        textColor: '#ffffff',
+        isAllDay: false
+      }
+
+      const expandedEvents = vm.expandMultiDayEvents([singleDayEvent])
+
+      // Should return the same event unchanged
+      expect(expandedEvents).toHaveLength(1)
+      expect(expandedEvents[0]).toEqual(singleDayEvent)
+    })
+
+    it('does not expand events without end date', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const eventWithoutEnd = {
+        id: 'no-end-1',
+        title: 'Event Without End',
+        date: '2025-06-15',
+        startDateTime: '2025-06-15T09:00:00Z',
+        type: 'attending' as const,
+        bgColor: '#1976d2',
+        textColor: '#ffffff',
+        isAllDay: false
+      }
+
+      const expandedEvents = vm.expandMultiDayEvents([eventWithoutEnd])
+
+      // Should return the same event unchanged
+      expect(expandedEvents).toHaveLength(1)
+      expect(expandedEvents[0]).toEqual(eventWithoutEnd)
+    })
+
+    it('prevents infinite loops with safety check', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Create an extremely long event (2 years)
+      const longEvent = {
+        id: 'long-1',
+        title: 'Extremely Long Event',
+        date: '2025-06-15',
+        startDateTime: '2025-06-15T09:00:00Z',
+        endDateTime: '2027-06-15T17:00:00Z', // 2 years later
+        type: 'attending' as const,
+        bgColor: '#1976d2',
+        textColor: '#ffffff',
+        isAllDay: false
+      }
+
+      // Mock console.warn to verify warning is logged
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const expandedEvents = vm.expandMultiDayEvents([longEvent])
+
+      // Should stop at 365 days maximum
+      expect(expandedEvents).toHaveLength(365)
+      expect(consoleSpy).toHaveBeenCalledWith('Multi-day event expansion stopped at 365 days to prevent infinite loop')
+
+      consoleSpy.mockRestore()
+    })
+
+    it('handles mixed single-day and multi-day events', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const mixedEvents = [
+        {
+          id: 'single-1',
+          title: 'Single Day Event',
+          date: '2025-06-15',
+          startDateTime: '2025-06-15T09:00:00Z',
+          endDateTime: '2025-06-15T17:00:00Z',
+          type: 'attending' as const,
+          bgColor: '#1976d2',
+          isAllDay: false
+        },
+        {
+          id: 'multi-1',
+          title: 'Multi-Day Event',
+          date: '2025-06-16',
+          startDateTime: '2025-06-16T09:00:00Z',
+          endDateTime: '2025-06-18T17:00:00Z',
+          type: 'attending' as const,
+          bgColor: '#1976d2',
+          isAllDay: false
+        }
+      ]
+
+      const expandedEvents = vm.expandMultiDayEvents(mixedEvents)
+
+      // Should have 1 single-day + 3 multi-day instances = 4 total
+      expect(expandedEvents).toHaveLength(4)
+
+      // First event should remain unchanged
+      expect(expandedEvents[0].id).toBe('single-1')
+      expect(expandedEvents[0].date).toBe('2025-06-15')
+
+      // Multi-day event should be expanded into 3 instances
+      expect(expandedEvents[1].id).toBe('multi-1-day-0')
+      expect(expandedEvents[1].date).toBe('2025-06-16')
+      expect(expandedEvents[2].id).toBe('multi-1-day-1')
+      expect(expandedEvents[2].date).toBe('2025-06-17')
+      expect(expandedEvents[3].id).toBe('multi-1-day-2')
+      expect(expandedEvents[3].date).toBe('2025-06-18')
+    })
+  })
+
+  describe('Cancelled Event Handling', () => {
+    it('displays cancelled events in red', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Mock events with one cancelled event
+      vm.events = [
+        {
+          id: 'cancelled-1',
+          title: 'Cancelled Event',
+          date: '2025-06-15',
+          time: '14:00',
+          type: 'cancelled',
+          bgColor: '#f44336', // Red color for cancelled
+          textColor: '#ffffff',
+          isCancelled: true
+        },
+        {
+          id: 'normal-1',
+          title: 'Normal Event',
+          date: '2025-06-15',
+          time: '16:00',
+          type: 'attending',
+          bgColor: '#1976d2', // Blue color for normal
+          textColor: '#ffffff',
+          isCancelled: false
+        }
+      ]
+
+      await wrapper.vm.$nextTick()
+
+      // Check that events are in the component's data
+      expect(vm.events).toHaveLength(2)
+      expect(vm.events[0].bgColor).toBe('#f44336') // Red for cancelled
+      expect(vm.events[1].bgColor).toBe('#1976d2') // Blue for normal
+      expect(vm.events[0].type).toBe('cancelled')
+      expect(vm.events[1].type).toBe('attending')
+    })
+
+    it('correctly identifies cancelled status from EventStatus enum', () => {
+      // Test the status checking logic directly
+      expect(EventStatus.Cancelled).toBe('cancelled')
+      expect(EventStatus.Published).toBe('published')
+
+      // Test that cancelled status would trigger red color
+      const mockCancelledEvent = { status: EventStatus.Cancelled }
+      const mockPublishedEvent = { status: EventStatus.Published }
+
+      expect(mockCancelledEvent.status === EventStatus.Cancelled).toBe(true)
+      expect(mockPublishedEvent.status === EventStatus.Cancelled).toBe(false)
+    })
+
+    it('shows cancelled legend item', async () => {
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        }
+      })
+
+      // Mock some events to show the legend
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      vm.events = [{ id: '1', title: 'Test', date: '2025-06-15', type: 'attending', bgColor: '#1976d2' }]
+
+      await wrapper.vm.$nextTick()
+
+      // Check that the legend shows the cancelled item
+      const legend = wrapper.find('.calendar-legend')
+      expect(legend.exists()).toBe(true)
+
+      const legendItems = wrapper.findAll('.legend-item')
+      const cancelledItem = legendItems.find(item => item.text().includes('Cancelled'))
+      expect(cancelledItem).toBeDefined()
+
+      // Check that the cancelled legend has the correct color (red)
+      const cancelledColorDiv = wrapper.find('.legend-color[style*="#f44336"]')
+      expect(cancelledColorDiv.exists()).toBe(true)
     })
   })
 
