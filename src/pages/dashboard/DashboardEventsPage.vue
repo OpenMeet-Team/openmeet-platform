@@ -47,7 +47,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
-import { EventAttendeeRole, EventEntity } from '../../types'
+import { EventAttendeeRole, EventEntity, EventAttendeeStatus } from '../../types'
 import EventsItemComponent from '../../components/event/EventsItemComponent.vue'
 import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
 import { eventsApi } from '../../api'
@@ -71,6 +71,7 @@ const hostingEvents = computed(() => sortedEvents.value.filter(
 const attendedEvents = computed(() => sortedEvents.value.filter(event =>
   event.attendee &&
   event.attendee.role.name !== EventAttendeeRole.Host &&
+  event.attendee.status !== EventAttendeeStatus.Cancelled &&
   event.startDate &&
   new Date(event.startDate) >= new Date()
 ))

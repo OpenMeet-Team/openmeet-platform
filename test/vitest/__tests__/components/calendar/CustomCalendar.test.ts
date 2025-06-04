@@ -4,7 +4,7 @@ import { installQuasarPlugin } from '@quasar/quasar-app-extension-testing-unit-v
 import { Notify } from 'quasar'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import CustomCalendar from '../../../../../src/components/calendar/CustomCalendar.vue'
-import { EventStatus } from '../../../../../src/types/event'
+import { EventStatus, EventAttendeeStatus } from '../../../../../src/types/event'
 
 // Install Quasar for testing
 installQuasarPlugin({ plugins: { Notify } })
@@ -914,6 +914,161 @@ describe('CustomCalendar', () => {
       // Check that the cancelled legend has the correct color (red)
       const cancelledColorDiv = wrapper.find('.legend-color[style*="#f44336"]')
       expect(cancelledColorDiv.exists()).toBe(true)
+    })
+  })
+
+  describe('RSVP Status Filtering', () => {
+    it('should filter out events where user RSVP status is cancelled', async () => {
+      // Mock auth store with user
+      mockAuthStore.user = { id: 1, name: 'Test User', email: 'test@example.com' }
+
+      // Mock home store with events including one cancelled RSVP
+      mockHomeStore.userUpcomingEvents = [
+        {
+          ulid: 'event1',
+          slug: 'attending-event',
+          name: 'Event I Will Attend',
+          startDate: '2025-06-15T14:00:00Z',
+          endDate: '2025-06-15T16:00:00Z',
+          attendee: {
+            status: EventAttendeeStatus.Confirmed
+          }
+        },
+        {
+          ulid: 'event2',
+          slug: 'cancelled-event',
+          name: 'Event I Cancelled',
+          startDate: '2025-06-15T18:00:00Z',
+          endDate: '2025-06-15T20:00:00Z',
+          attendee: {
+            status: EventAttendeeStatus.Cancelled
+          }
+        },
+        {
+          ulid: 'event3',
+          slug: 'pending-event',
+          name: 'Event Pending Approval',
+          startDate: '2025-06-16T10:00:00Z',
+          endDate: '2025-06-16T12:00:00Z',
+          attendee: {
+            status: EventAttendeeStatus.Pending
+          }
+        }
+      ]
+
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        },
+        props: {
+          startDate: '2025-06-01',
+          endDate: '2025-06-30'
+        }
+      })
+
+      // Wait for events to load
+      await wrapper.vm.$nextTick()
+      await new Promise(resolve => setTimeout(resolve, 200)) // Wait for debounced loadEvents
+
+      // Check that only confirmed and pending events are shown, not cancelled
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const events = (wrapper.vm as any).events
+      expect(events).toHaveLength(2) // Should only show 2 events, not 3
+
+      const eventTitles = events.map((e: any) => e.title)
+      expect(eventTitles).toContain('Event I Will Attend')
+      expect(eventTitles).toContain('Event Pending Approval')
+      expect(eventTitles).not.toContain('Event I Cancelled')
+
+      // Verify the cancelled event is specifically filtered out
+      const cancelledEvents = events.filter((e: any) => e.title === 'Event I Cancelled')
+      expect(cancelledEvents).toHaveLength(0)
+    })
+
+    it('should show events where user has not RSVP\'d yet', async () => {
+      // Mock auth store with user
+      mockAuthStore.user = { id: 1, name: 'Test User', email: 'test@example.com' }
+
+      // Mock home store with event where user hasn't RSVP'd
+      mockHomeStore.userUpcomingEvents = [
+        {
+          ulid: 'event1',
+          slug: 'no-rsvp-event',
+          name: 'Event Without RSVP',
+          startDate: '2025-06-15T14:00:00Z',
+          endDate: '2025-06-15T16:00:00Z'
+          // No attendee field means user hasn't RSVP'd
+        }
+      ]
+
+      const wrapper = mount(CustomCalendar, {
+        global: {
+          plugins: [pinia]
+        },
+        props: {
+          startDate: '2025-06-01',
+          endDate: '2025-06-30'
+        }
+      })
+
+      // Wait for events to load
+      await wrapper.vm.$nextTick()
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Check that event without RSVP is still shown
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const events = (wrapper.vm as any).events
+      expect(events).toHaveLength(1)
+      expect(events[0].title).toBe('Event Without RSVP')
+    })
+
+    it('filters out cancelled RSVP events from userUpcomingEvents', () => {
+      // Simple unit test of the filtering logic without complex component mounting
+      const upcomingEvents = [
+        {
+          ulid: 'event1',
+          slug: 'attending-event',
+          name: 'Event I Will Attend',
+          startDate: '2025-06-15T14:00:00Z',
+          attendee: {
+            status: EventAttendeeStatus.Confirmed
+          }
+        },
+        {
+          ulid: 'event2', 
+          slug: 'cancelled-event',
+          name: 'Event I Cancelled',
+          startDate: '2025-06-15T18:00:00Z',
+          attendee: {
+            status: EventAttendeeStatus.Cancelled
+          }
+        },
+        {
+          ulid: 'event3',
+          slug: 'no-attendee-event',
+          name: 'Event Without Attendee',
+          startDate: '2025-06-16T10:00:00Z'
+          // No attendee field
+        }
+      ]
+
+      // Test the filtering logic that should be in the component
+      const filteredEvents = upcomingEvents.filter(event => {
+        const eventDate = event.startDate.split('T')[0]
+        const withinDateRange = eventDate >= '2025-06-01' && eventDate <= '2025-06-30'
+        
+        // Exclude events where user has cancelled their RSVP
+        const hasNotCancelledRSVP = !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
+        
+        return withinDateRange && hasNotCancelledRSVP
+      })
+
+      expect(filteredEvents).toHaveLength(2) // Should exclude the cancelled one
+      expect(filteredEvents.map(e => e.name)).toEqual([
+        'Event I Will Attend',
+        'Event Without Attendee'
+      ])
+      expect(filteredEvents.map(e => e.name)).not.toContain('Event I Cancelled')
     })
   })
 

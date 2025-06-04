@@ -5,7 +5,7 @@ import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
 import { useHomeStore } from '../../stores/home-store'
 import { useDashboardStore } from '../../stores/dashboard-store'
-import { EventStatus } from '../../types/event'
+import { EventStatus, EventAttendeeStatus } from '../../types/event'
 
 interface GroupEvent {
   ulid: string
@@ -454,10 +454,15 @@ async function loadEvents () {
       }
       const upcomingEvents = homeStore.userUpcomingEvents || []
 
-      // Filter upcoming events by current date range
+      // Filter upcoming events by current date range and exclude cancelled RSVPs
       const filteredUpcomingEvents = upcomingEvents.filter(event => {
         const eventDate = event.startDate.split('T')[0]
-        return eventDate >= start && eventDate <= end
+        const withinDateRange = eventDate >= start && eventDate <= end
+
+        // Exclude events where user has cancelled their RSVP
+        const hasNotCancelledRSVP = !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
+
+        return withinDateRange && hasNotCancelledRSVP
       })
 
       const attendingEvents: CalendarEvent[] = filteredUpcomingEvents.map(event => {
