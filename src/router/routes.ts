@@ -44,7 +44,9 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'members/:slug', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
-      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } }
+      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } },
+      { path: 'privacy', name: 'PrivacyPolicyPage', component: () => import('pages/PrivacyPolicyPage.vue') },
+      { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') }
     ],
     meta: { requiresAuth: false }
   },

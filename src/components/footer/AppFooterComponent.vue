@@ -34,8 +34,8 @@
           <VersionComponent/>
         </div>
         <div>
-          <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Terms of Service" href="https://biz.openmeet.net/terms" target="_blank" />
-          <q-btn size="md" padding="none" flat dense no-caps label="Privacy Policy" href="https://biz.openmeet.net/privacy" target="_blank" />
+          <q-btn size="md" class="q-mr-md" padding="none" flat dense no-caps label="Terms of Service" @click="navigateTo('/terms')" />
+          <q-btn size="md" padding="none" flat dense no-caps label="Privacy Policy" @click="navigateTo('/privacy')" />
         </div>
       </div>
     </q-toolbar>
