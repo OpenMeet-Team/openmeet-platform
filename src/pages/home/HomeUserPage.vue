@@ -308,16 +308,6 @@ const onCalendarDateSelect = () => {
               @date-select="onCalendarDateSelect"
             />
           </q-card-section>
-          <q-card-actions align="right">
-            <q-btn
-              flat
-              :color="$q.dark.isActive ? 'purple-200' : 'purple-400'"
-              label="Calendar Demo"
-              icon="sym_r_calendar_month"
-              :to="{ name: 'CalendarDemoPage' }"
-              no-caps
-            />
-          </q-card-actions>
         </q-card>
       </div>
 
