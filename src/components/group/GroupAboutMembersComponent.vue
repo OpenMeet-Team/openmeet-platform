@@ -2,13 +2,21 @@
 
 import { getImageSrc } from '../../utils/imageUtils'
 import { GroupMemberEntity, GroupPermission, GroupRole } from '../../types'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useGroupStore } from '../../stores/group-store'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
+import NoContentComponent from '../global/NoContentComponent.vue'
 import { useNavigation } from '../../composables/useNavigation'
 
 const group = computed(() => useGroupStore().group)
 const { navigateToMember } = useNavigation()
+
+// Load members data if not already loaded
+onMounted(() => {
+  if (group.value && !group.value.groupMembers) {
+    useGroupStore().actionGetGroupMembers(group.value.slug)
+  }
+})
 
 const onMemberClick = (member: GroupMemberEntity) => {
   if (useGroupStore().getterUserHasPermission(GroupPermission.SeeMembers)) {
@@ -54,7 +62,11 @@ const onMemberClick = (member: GroupMemberEntity) => {
           </q-avatar>
         </div>
       </div>
-    <NoContentComponent v-else icon="sym_r_group" label="No members of this group yet." />
+    <NoContentComponent v-else-if="group.groupMembers !== null" icon="sym_r_group" label="No members of this group yet." />
+    <div v-else class="text-center q-pa-md">
+      <q-spinner size="2em" />
+      <div class="text-caption q-mt-sm">Loading members...</div>
+    </div>
     </q-card-section>
   </q-card>
 </template>
