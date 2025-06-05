@@ -39,12 +39,7 @@ const isGoogleUser = computed(() => profileUser.value?.provider === AuthProvider
 const isGithubUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.github)
 
 // Profile avatar
-const avatarUrl = computed(() => {
-  if (profileUser.value && profileUser.value.photo && profileUser.value.photo.path) {
-    return useAvatarUrl(profileUser).avatarUrl.value
-  }
-  return ''
-})
+const { avatarUrl } = useAvatarUrl(profileUser)
 
 // Check if this is the current user's profile
 const isOwnProfile = computed(() => {
