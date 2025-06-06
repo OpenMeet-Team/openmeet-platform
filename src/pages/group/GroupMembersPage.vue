@@ -1,5 +1,5 @@
 <template>
-  <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page">
+  <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page q-pb-xl">
     <SpinnerComponent v-if="isLoading"/>
     <div data-cy="group-members-page" v-if="!isLoading && group && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
@@ -23,7 +23,7 @@
           />
         </div>
       </div>
-      <q-list bordered separator>
+      <q-list bordered separator class="members-list">
         <q-item v-for="member in filteredMembers" :key="member.id">
           <q-item-section class="cursor-pointer" avatar @click="navigateToMember(member.user)">
             <q-avatar>
@@ -121,3 +121,25 @@ const capitalizeFirstLetter = (string: string) => {
   return string.charAt(0).toUpperCase() + string.slice(1)
 }
 </script>
+
+<style scoped>
+.members-list {
+  /* Handle large member lists properly on mobile */
+  max-height: none;
+  overflow: visible;
+}
+
+/* Ensure proper spacing and layout flow on mobile */
+@media (max-width: 768px) {
+  .c-group-members-page {
+    /* Ensure the container has enough space */
+    min-height: auto;
+    margin-bottom: 6rem; /* Large margin to separate from similar events */
+  }
+
+  .members-list {
+    /* Allow the list to flow naturally */
+    margin-bottom: 4rem;
+  }
+}
+</style>

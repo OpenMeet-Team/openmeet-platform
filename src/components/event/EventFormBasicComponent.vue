@@ -1097,4 +1097,49 @@ defineExpose({
     color: white;
   }
 }
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+  .c-event-form-basic-component {
+    /* Improve card spacing on mobile */
+    :deep(.q-card) {
+      margin-bottom: 16px !important;
+    }
+
+    /* Better form spacing */
+    :deep(.q-form) {
+      gap: 16px !important;
+    }
+
+    /* Make tabs more mobile-friendly */
+    :deep(.q-tabs) {
+      font-size: 14px;
+    }
+
+    /* Reduce padding in tab panels */
+    :deep(.q-tab-panel) {
+      padding: 8px !important;
+    }
+
+    /* Better button layout on mobile */
+    .row.justify-end {
+      flex-direction: column;
+      gap: 8px;
+
+      .q-btn {
+        width: 100%;
+      }
+    }
+
+    /* Make image upload more mobile-friendly */
+    .row.items-center.q-col-gutter-md {
+      flex-direction: column;
+      gap: 16px;
+
+      .col-12 {
+        width: 100%;
+      }
+    }
+  }
+}
 </style>

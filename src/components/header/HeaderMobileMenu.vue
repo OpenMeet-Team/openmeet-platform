@@ -3,29 +3,29 @@ import { ref } from 'vue'
 import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useEventDialog } from '../../composables/useEventDialog'
 import { useAuthStore } from '../../stores/auth-store'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import HeaderDarkModeComponent from '../../components/header/HeaderDarkModeComponent.vue'
 import { useRouter } from 'vue-router'
 
 const { openCreateGroupDialog } = useGroupDialog()
-const { openCreateEventDialog } = useEventDialog()
-const { openLoginDialog, openRegisterDialog } = useAuthDialog()
+const { goToCreateEvent } = useEventDialog()
+const { goToLogin, goToRegister } = useAuth()
 
 const router = useRouter()
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
     openCreateGroupDialog()
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 
 const openCreateEventForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateEventDialog()
+    goToCreateEvent()
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 
@@ -36,7 +36,7 @@ const toggleRightDrawer = () => {
 }
 
 const login = () => {
-  openLoginDialog()
+  goToLogin()
   rightDrawerOpen.value = false
 }
 
@@ -48,7 +48,7 @@ const onClickLogout = () => {
 }
 
 const signUp = () => {
-  openRegisterDialog()
+  goToRegister()
   rightDrawerOpen.value = false
 }
 </script>

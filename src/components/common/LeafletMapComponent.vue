@@ -1,7 +1,7 @@
 <template>
-  <div class="relative full-height full-width">
-    <SpinnerComponent v-if="!loaded"/>
-    <div ref="mapContainer" class="full-height full-width"></div>
+  <div class="leaflet-map-wrapper">
+    <SpinnerComponent v-if="!containerReady"/>
+    <div ref="mapContainer" class="leaflet-map-container"></div>
   </div>
 </template>
 
@@ -18,8 +18,10 @@ const map = ref<LMap | null>(null)
 const tileLayer = ref<TileLayer | null>(null)
 const markers = ref<Marker[]>([])
 const loaded = ref<boolean>(false)
+const containerReady = ref<boolean>(false)
 const initAttempts = ref<number>(0)
 const MAX_INIT_ATTEMPTS = 3
+const intersectionObserver = ref<IntersectionObserver | null>(null)
 
 const emit = defineEmits(['markerLocation'])
 
@@ -70,31 +72,36 @@ const isContainerVisible = (): boolean => {
 
   // Check if element has dimensions and is in the DOM
   const rect = mapContainer.value.getBoundingClientRect()
-  return (
+  const isVisible = (
     rect.width > 0 &&
     rect.height > 0 &&
     mapContainer.value.offsetParent !== null
   )
+
+  // Additional check for computed styles
+  if (isVisible) {
+    const computedStyle = window.getComputedStyle(mapContainer.value)
+    return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden'
+  }
+
+  return false
 }
 
-// Initialize map with retry logic
-const initializeMap = async () => {
-  // Skip if already initialized
-  if (map.value) return
-
-  // Check if container is ready
-  if (!mapContainer.value || !isContainerVisible()) {
-    // If we've attempted too many times, log error and stop trying
-    if (initAttempts.value >= MAX_INIT_ATTEMPTS) {
-      console.warn('LeafletMap: Container not visible after multiple attempts, will retry when shown')
-      return
+// Force initialization after a timeout, even if visibility checks fail
+const forceInitializeAfterTimeout = () => {
+  setTimeout(() => {
+    if (!map.value && mapContainer.value) {
+      console.log('LeafletMap: Force initializing after timeout')
+      // Reset visibility check and attempt immediate initialization
+      initAttempts.value = 0
+      initializeMapDirect()
     }
+  }, 3000) // Force init after 3 seconds
+}
 
-    // Increment attempts and try again after a delay
-    initAttempts.value++
-    setTimeout(initializeMap, 500)
-    return
-  }
+// Direct initialization without visibility checks
+const initializeMapDirect = async () => {
+  if (map.value || !mapContainer.value) return
 
   let center: [number, number] = defaultMapOptions.center
 
@@ -125,12 +132,45 @@ const initializeMap = async () => {
     }
 
     window.addEventListener('resize', handleResize)
+
+    // Force Leaflet to recalculate container size to prevent display issues
+    setTimeout(() => {
+      if (map.value) {
+        map.value.invalidateSize()
+      }
+    }, 100)
+
+    console.log('LeafletMap: Successfully initialized')
   } catch (error) {
     console.error('Error initializing map:', error)
     // Reset for potential retry
     map.value = null
     tileLayer.value = null
   }
+}
+
+// Initialize map with retry logic
+const initializeMap = async () => {
+  // Skip if already initialized
+  if (map.value) return
+
+  // Check if container is ready
+  if (!mapContainer.value || !isContainerVisible()) {
+    // If we've attempted too many times, wait for intersection observer to trigger
+    if (initAttempts.value >= MAX_INIT_ATTEMPTS) {
+      console.log('LeafletMap: Container not visible after multiple attempts, will retry when shown')
+      return
+    }
+
+    // Increment attempts and try again after a delay
+    initAttempts.value++
+    // Use a longer delay for better stability
+    setTimeout(initializeMap, 1000)
+    return
+  }
+
+  // If container is visible, use direct initialization
+  await initializeMapDirect()
 }
 
 // Handle map click
@@ -177,6 +217,11 @@ const cleanup = () => {
   map.value = null
   tileLayer.value = null
   window.removeEventListener('resize', handleResize)
+  // Clean up intersection observer
+  if (intersectionObserver.value) {
+    intersectionObserver.value.disconnect()
+    intersectionObserver.value = null
+  }
 }
 
 // Watch for changes in lat and lon props
@@ -193,32 +238,37 @@ watch(() => [props.lat, props.lon], ([newLat, newLon]) => {
 
 // Watch for changes in the visibility of the container
 const setupVisibilityObserver = () => {
-  if (!mapContainer.value) return
+  if (!mapContainer.value || intersectionObserver.value) return
 
-  const observer = new IntersectionObserver((entries) => {
+  intersectionObserver.value = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && !map.value) {
-        // Element is now visible, try initializing map
-        nextTick(initializeMap)
+        // Element is now visible, reset attempts and try initializing map
+        initAttempts.value = 0
+        nextTick(() => {
+          // Add a small delay to ensure the element is fully rendered
+          setTimeout(initializeMapDirect, 100)
+        })
       }
     })
   }, { threshold: 0.1 })
 
-  observer.observe(mapContainer.value)
-
-  // Cleanup observer on unmount
-  onUnmounted(() => {
-    observer.disconnect()
-  })
+  intersectionObserver.value.observe(mapContainer.value)
 }
 
 // Lifecycle hooks
 onMounted(() => {
-  // First try initializing directly
+  // Set up visibility observer first to detect when container becomes visible
   nextTick(() => {
-    initializeMap()
-    // Also set up visibility observer to detect when container becomes visible
+    // Mark container as ready to show the map div (hide spinner)
+    containerReady.value = true
     setupVisibilityObserver()
+    // Try initializing after a small delay to allow parent component to fully render
+    setTimeout(() => {
+      initializeMap()
+    }, 200)
+    // Set up force initialization as a fallback
+    forceInitializeAfterTimeout()
   })
 })
 
@@ -231,6 +281,48 @@ defineExpose({
   updateMapView
 })
 </script>
+
+<style scoped>
+.leaflet-map-wrapper {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.leaflet-map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure Leaflet controls stay within bounds */
+:deep(.leaflet-container) {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Fix for Leaflet popup z-index issues */
+:deep(.leaflet-popup-pane) {
+  z-index: 2 !important;
+}
+
+/* Ensure attribution stays within bounds */
+:deep(.leaflet-control-attribution) {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  z-index: 3 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  padding: 2px 4px !important;
+  font-size: 10px !important;
+}
+</style>
 
 <style>
 .leaflet-default-icon-path {

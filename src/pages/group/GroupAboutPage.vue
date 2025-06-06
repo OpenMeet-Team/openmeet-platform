@@ -28,7 +28,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="group && !isLoading" class="row q-col-gutter-lg q-mt-md">
+  <div v-if="group && !isLoading" class="row q-col-gutter-lg q-mt-md q-pb-xl">
     <div class="col-12 col-sm-6">
 
       <!-- Description -->

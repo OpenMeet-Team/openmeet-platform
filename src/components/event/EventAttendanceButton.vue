@@ -66,13 +66,13 @@ import {
   EventAttendeeEntity,
   EventAttendeeStatus
 } from '../../types'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
 
 const $q = useQuasar()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
-const authDialog = useAuthDialog()
+const { goToLogin } = useAuth()
 const authSession = useAuthSession()
 
 const props = defineProps<{
@@ -190,7 +190,7 @@ const handleTemplateAttend = async () => {
   if (!authStore.isFullyAuthenticated) {
     // Save the intent to attend after login
     console.log('User not authenticated, opening login dialog')
-    authDialog.openLoginDialog()
+    goToLogin()
     return
   }
 
@@ -252,7 +252,7 @@ const handleAttend = async () => {
     // Save the intent to attend after login
     console.log('User not authenticated, opening login dialog')
     // We'll use the auth state watcher to handle post-login attendance
-    authDialog.openLoginDialog()
+    goToLogin()
     return
   }
 

@@ -129,6 +129,15 @@ const { navigateToGroup } = useNavigation()
         color: white;
       }
     }
+
+    // Mobile responsive: stack vertically on smaller screens
+    @media (max-width: 768px) {
+      flex-direction: column;
+
+      .group-image-container {
+        width: 100%;
+      }
+    }
   }
 }
 </style>

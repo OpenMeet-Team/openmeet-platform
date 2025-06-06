@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Dark } from 'quasar'
 import { useAuthStore } from '../../stores/auth-store'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useGroupStore } from '../../stores/group-store'
 import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import { computed, ref } from 'vue'
@@ -13,7 +13,7 @@ import { useAdminMessageDialog } from '../../composables/useAdminMessageDialog'
 import { useContactAdminsDialog } from '../../composables/useContactAdminsDialog'
 import { GroupEntity, GroupPermission, GroupRole } from '../../types'
 
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 const groupStore = useGroupStore()
 const group = computed(() => groupStore.group)
 const isJoining = ref<boolean>(false)
@@ -27,10 +27,10 @@ const onJoinGroup = () => {
       if (group.value?.groupMember) openWelcomeGroupDialog(group.value)
     })
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
-const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
+const { goToCreateEvent, openDeleteGroupDialog } = useEventDialog()
 const { openAdminMessageDialog } = useAdminMessageDialog()
 const { openContactAdminsDialog } = useContactAdminsDialog()
 
@@ -77,7 +77,7 @@ const onLeaveGroup = () => {
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center q-gutter-md">
-        <q-btn data-cy="create-event-button" @click="openCreateEventDialog(group as GroupEntity)" no-caps size="md"
+        <q-btn data-cy="create-event-button" @click="goToCreateEvent(group as GroupEntity)" no-caps size="md"
           label="Create event" color="primary"
           v-if="useGroupStore().getterUserHasPermission(GroupPermission.CreateEvent)" />
         <q-btn-dropdown outline size="md" data-cy="manage-group-button"

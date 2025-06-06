@@ -405,7 +405,6 @@ import { useNotification } from '../composables/useNotification'
 import { useEventSeriesStore } from '../stores/event-series-store'
 import { useAuthStore } from '../stores/auth-store'
 import { useEventStore } from '../stores/event-store'
-import { eventSeriesApi } from '../api/event-series'
 
 // Define types for the component's data
 interface EditFormData {
@@ -957,68 +956,15 @@ const openEventFormDialog = () => {
   // Open the standard event creation form dialog
   console.log('[SERIES-DEBUG] Opening event form dialog to create a new event in series:', seriesSlug.value)
 
-  const dialog = eventDialog.openCreateEventDialog()
+  // Navigate to event creation page
+  eventDialog.goToCreateEvent()
 
-  // Log when dialog is opened
-  console.log('[SERIES-DEBUG] Event creation dialog opened')
+  // Log when navigation happens
+  console.log('[SERIES-DEBUG] Navigating to event creation page')
 
-  dialog.onOk((newEvent) => {
-    console.log('[SERIES-DEBUG] Dialog onOk callback received with event:', newEvent)
-
-    // If a new event was successfully created, link it to the series
-    if (newEvent && newEvent.slug && seriesSlug.value) {
-      console.log('[SERIES-DEBUG] New event created:', newEvent)
-      console.log('[SERIES-DEBUG] Current series:', seriesSlug.value)
-
-      // Use the addEventToSeries API instead of updating the event directly
-      const addEventData = {
-        seriesSlug: seriesSlug.value,
-        eventSlug: newEvent.slug
-      }
-
-      console.log('[SERIES-DEBUG] Connecting event to series using addEventToSeries API:', addEventData)
-      console.log('[SERIES-DEBUG] API endpoint: /api/event-series/' + addEventData.seriesSlug + '/add-event/' + addEventData.eventSlug)
-
-      // Add a notification to show we're linking the event to the series
-      $q.notify({
-        type: 'info',
-        message: 'Linking event to series...'
-      })
-
-      // Use the eventSeriesApi.addEventToSeries endpoint
-      eventSeriesApi.addEventToSeries(addEventData)
-        .then((response) => {
-          console.log('[SERIES-DEBUG] Event successfully linked to series, response:', response.data)
-          success('Event added to series successfully')
-
-          // Reload occurrences to show the new event
-          loadOccurrences()
-            .then(() => {
-              console.log('[SERIES-DEBUG] Occurrences reloaded after adding event to series')
-              // Delay navigation slightly to ensure API and UI updates are complete
-              setTimeout(() => {
-                console.log('[SERIES-DEBUG] Navigating to event page:', newEvent.slug)
-                router.push(`/events/${newEvent.slug}`)
-              }, 500)
-            })
-            .catch(err => {
-              console.error('[SERIES-DEBUG] Error reloading occurrences:', err)
-              // Navigate even if reloading occurrences fails
-              router.push(`/events/${newEvent.slug}`)
-            })
-        })
-        .catch((err) => {
-          console.error('[SERIES-DEBUG] Error linking event to series:', err)
-          // Check for specific error response
-          if (err.response) {
-            console.error('[SERIES-DEBUG] Server response:', err.response.data)
-          }
-          notifyError('Failed to add event to series')
-          // Navigate to the event page anyway
-          router.push(`/events/${newEvent.slug}`)
-        })
-    }
-  })
+  // Note: Event linking to series will need to be handled differently
+  // since we no longer have a dialog callback. The CreateEventPage
+  // should handle series linking if needed.
 }
 
 const deleteSeries = async () => {

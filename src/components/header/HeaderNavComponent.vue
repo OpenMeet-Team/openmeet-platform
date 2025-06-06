@@ -2,25 +2,25 @@
 import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useAuthStore } from '../../stores/auth-store.ts'
-import { useAuthDialog } from 'src/composables/useAuthDialog.ts'
+import { useAuth } from 'src/composables/useAuth.ts'
 
 const { openCreateGroupDialog } = useGroupDialog()
-const { openCreateEventDialog } = useEventDialog()
-const { openLoginDialog } = useAuthDialog()
+const { goToCreateEvent } = useEventDialog()
+const { goToLogin } = useAuth()
 
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
     openCreateGroupDialog()
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 
 const openCreateEventForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateEventDialog()
+    goToCreateEvent()
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 </script>

@@ -1,5 +1,4 @@
 import { useQuasar } from 'quasar'
-import EventFormDialogComponent from '../components/event/EventFormDialogComponent.vue'
 import { EventEntity, EventStatus, GroupEntity } from '../types'
 import { useNotification } from '../composables/useNotification'
 import EventAttendDialogComponent from '../components/event/EventAttendDialogComponent.vue'
@@ -24,13 +23,23 @@ export function useEventDialog () {
     })
   }
 
-  const openCreateEventDialog = (group?: GroupEntity, initialDate?: string) => {
-    return $q.dialog({
-      component: EventFormDialogComponent,
-      componentProps: { group, initialDate }
-    }).onOk((createdEvent: EventEntity) => {
-      // Navigate to the created event page using Vue router
-      router.push({ name: 'EventPage', params: { slug: createdEvent.slug } })
+  const goToCreateEvent = (group?: GroupEntity, initialDate?: string) => {
+    // Navigate to dedicated event creation page instead of opening dialog
+    const query: Record<string, string> = {
+      redirect: router.currentRoute.value.fullPath
+    }
+
+    if (group?.slug) {
+      query.groupSlug = group.slug
+    }
+
+    if (initialDate) {
+      query.date = initialDate
+    }
+
+    router.push({
+      name: 'CreateEventPage',
+      query
     })
   }
 
@@ -109,7 +118,7 @@ export function useEventDialog () {
   }
 
   return {
-    openCreateEventDialog,
+    goToCreateEvent,
     openDeleteEventDialog,
     openCancelEventDialog,
     openAttendEventDialog,

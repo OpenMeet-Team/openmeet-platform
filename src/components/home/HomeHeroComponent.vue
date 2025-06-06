@@ -17,7 +17,7 @@
       </div>
       <div class="hero-content text-center">
         <h1 class="text-h3 q-mb-md text-white">Welcome to OpenMeet</h1>
-        <p class="text-h6 text-white">Connect, Share, and Grow with Like-minded People</p>
+        <p class="text-h6 text-white">Your Community, Your Privacy, Your Power</p>
         <q-btn
           rounded
           color="purple-300"
@@ -32,12 +32,12 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 
 const onJoinNowClick = () => {
-  openLoginDialog()
+  goToLogin()
 }
 </script>
 
@@ -133,4 +133,55 @@ const onJoinNowClick = () => {
   background: linear-gradient(to right, $purple-400, $purple-200);
 }
 
+@media (max-width: 1024px) {
+  .bubble-wrapper-left,
+  .bubble-wrapper-right,
+  .profile-left,
+  .profile-right {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  .bubble-left {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+  .bubble-right {
+    right: 8px !important;
+    top: 8px !important;
+  }
+  .hero-container {
+    padding: 12px !important;
+    min-height: 140px !important;
+  }
+  .hero-content {
+    margin-top: 32px !important;
+    margin-bottom: 24px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .bubble-wrapper-left,
+  .bubble-wrapper-right,
+  .profile-left,
+  .profile-right {
+    width: 90px !important;
+    height: 90px !important;
+  }
+  .bubble-left {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+  .bubble-right {
+    right: 8px !important;
+    top: 8px !important;
+  }
+  .hero-container {
+    padding: 16px !important;
+    min-height: 180px !important;
+  }
+  .hero-content {
+    margin-top: 24px !important;
+    margin-bottom: 16px !important;
+  }
+}
 </style>

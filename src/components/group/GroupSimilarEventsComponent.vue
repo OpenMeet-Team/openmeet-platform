@@ -24,11 +24,21 @@ onMounted(() => {
 <template>
   <SpinnerComponent v-if="!loaded" />
   <template v-if="loaded">
-    <q-separator class="q-my-lg" />
-    <EventsListComponent data-cy="recommended-events-component" :events="events"
-    layout="list"
-    />
+    <div class="q-mt-xl q-pt-xl events-container">
+      <q-separator class="q-my-lg" />
+      <EventsListComponent data-cy="recommended-events-component" :events="events"
+      layout="list"
+      />
+    </div>
   </template>
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.events-container {
+  position: static !important;
+  display: block !important;
+  clear: both !important;
+  float: none !important;
+  z-index: auto !important;
+}
+</style>
