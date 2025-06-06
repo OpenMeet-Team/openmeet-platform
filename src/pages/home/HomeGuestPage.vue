@@ -5,39 +5,17 @@
 
       <HomeHeroComponent />
 
-      <!-- Featured Groups Section -->
+      <!-- Introduction Section -->
       <div class="col-12 q-mt-lg">
-        <!-- Featured Groups -->
-        <GroupsListComponent data-cy="home-featured-groups"
-          :groups="featuredGroups as GroupEntity[]"
-          label="Featured Groups"
-          :show-pagination="false"
-          :current-page="1"
-          :loading="useHomeStore().loading"
-          empty-message="There are no groups yet."
-          layout="grid"
-        />
-      </div>
+        <div class="q-px-md">
+          <div class="text-body1 q-mb-md">
+            Connect with your community through interest groups, professional networks, and local events. OpenMeet makes it easy to find like-minded people and organize meaningful gatherings.
+          </div>
 
-      <!-- Upcoming Events Section -->
-      <div class="col-12 q-mt-lg">
-        <EventsListComponent data-cy="home-upcoming-events"
-          :events="upcomingEvents as EventEntity[]"
-          label="Upcoming Events"
-          :show-pagination="false"
-          :current-page="1"
-          :loading="useHomeStore().loading"
-          empty-message="No events found"
-          layout="list"
-        />
-      </div>
-
-      <div class="col-12 q-mt-xl">
-        <SubtitleComponent class="q-px-md" hide-link label="Categories" />
-        <div data-cy="home-categories" class="row q-gutter-md" v-if="categories?.length">
-          <HomeCategoryComponent v-for="category in categories" :key="category.id" :category="category" />
+          <div class="text-body2">
+            <strong>Private by design.</strong> No ads, no data selling, just real connections.
+          </div>
         </div>
-        <NoContentComponent v-if="!categories?.length" label="There are no categories yet." icon="sym_r_category" />
       </div>
 
       <!-- Quick actions section similar to logged-in view -->
@@ -78,6 +56,33 @@
           </div>
         </div>
       </div>
+
+      <!-- Featured Groups Section -->
+      <div class="col-12 q-mt-lg">
+        <!-- Featured Groups -->
+        <GroupsListComponent data-cy="home-featured-groups"
+          :groups="featuredGroups as GroupEntity[]"
+          label="Featured Groups"
+          :show-pagination="false"
+          :current-page="1"
+          :loading="useHomeStore().loading"
+          empty-message="There are no groups yet."
+          layout="grid"
+        />
+      </div>
+
+      <!-- Upcoming Events Section -->
+      <div class="col-12 q-mt-lg">
+        <EventsListComponent data-cy="home-upcoming-events"
+          :events="upcomingEvents as EventEntity[]"
+          label="Upcoming Events"
+          :show-pagination="false"
+          :current-page="1"
+          :loading="useHomeStore().loading"
+          empty-message="No events found"
+          layout="grid"
+        />
+      </div>
     </div>
   </q-page>
 </template>
@@ -86,11 +91,8 @@
 import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useAuthDialog } from '../../composables/useAuthDialog'
-import HomeCategoryComponent from '../../components/home/HomeCategoryComponent.vue'
 import { useHomeStore } from '../../stores/home-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
-import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
-import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import HomeHeroComponent from '../../components/home/HomeHeroComponent.vue'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import { GroupEntity } from '../../types/group'
@@ -98,7 +100,6 @@ import { EventEntity } from '../../types'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
 
 const { openRegisterDialog, openLoginDialog } = useAuthDialog()
-const categories = computed(() => useHomeStore().guestCategories)
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
 

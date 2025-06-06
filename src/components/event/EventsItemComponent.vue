@@ -167,4 +167,26 @@ const formatSeriesSlug = (slug: string): string => {
   align-items: center;
   gap: 8px;
 }
+
+@media (max-width: 700px) {
+  .event-item.list {
+    flex-direction: column;
+    align-items: stretch;
+
+    .event-image-container {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+    .event-image {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-height: 180px;
+      object-fit: cover;
+    }
+    .event-content {
+      padding: 10px !important;
+      font-size: 0.97em;
+    }
+  }
+}
 </style>

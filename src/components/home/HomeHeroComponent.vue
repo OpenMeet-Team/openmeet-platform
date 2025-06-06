@@ -17,7 +17,7 @@
       </div>
       <div class="hero-content text-center">
         <h1 class="text-h3 q-mb-md text-white">Welcome to OpenMeet</h1>
-        <p class="text-h6 text-white">Connect, Share, and Grow with Like-minded People</p>
+        <p class="text-h6 text-white">Your Community, Your Privacy, Your Power</p>
         <q-btn
           rounded
           color="purple-300"
