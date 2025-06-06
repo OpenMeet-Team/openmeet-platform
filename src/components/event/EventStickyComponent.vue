@@ -63,7 +63,7 @@ import { formatDate } from '../../utils/dateUtils'
 import { Dark } from 'quasar'
 import { useAuthStore } from '../../stores/auth-store'
 import { useEventStore } from '../../stores/event-store'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useEventDialog } from '../../composables/useEventDialog'
 import { useNotification } from '../../composables/useNotification'
 import QRCodeComponent from '../common/QRCodeComponent.vue'
@@ -77,7 +77,7 @@ interface Props {
 const { success, error } = useNotification()
 const props = defineProps<Props>()
 const { openAttendEventDialog, openCancelAttendingEventDialog, openEventAttendPendingDialog, openEventAttendWaitlistDialog, openEventAttendRejectedDialog } = useEventDialog()
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 const isLoading = ref(false)
 const spotsLeft = computed(() => props.event.maxAttendees ? props.event.maxAttendees - (props.event.attendeesCount || 0) : 0)
 
@@ -128,7 +128,7 @@ const onAttendClick = () => {
       })
     })
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Dark } from 'quasar'
 import { useAuthStore } from '../../stores/auth-store'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useGroupStore } from '../../stores/group-store'
 import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import { computed, ref } from 'vue'
@@ -13,7 +13,7 @@ import { useAdminMessageDialog } from '../../composables/useAdminMessageDialog'
 import { useContactAdminsDialog } from '../../composables/useContactAdminsDialog'
 import { GroupEntity, GroupPermission, GroupRole } from '../../types'
 
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 const groupStore = useGroupStore()
 const group = computed(() => groupStore.group)
 const isJoining = ref<boolean>(false)
@@ -27,7 +27,7 @@ const onJoinGroup = () => {
       if (group.value?.groupMember) openWelcomeGroupDialog(group.value)
     })
   } else {
-    openLoginDialog()
+    goToLogin()
   }
 }
 const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()

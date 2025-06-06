@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useAuthStore } from '../../stores/auth-store'
 import { useEventStore } from '../../stores/event-store'
 import { getImageSrc } from '../../utils/imageUtils'
@@ -38,14 +38,14 @@ import { EventAttendeePermission, EventAttendeeRole } from '../../types'
 import { useEventDialog } from '../../composables/useEventDialog'
 
 const event = computed(() => useEventStore().event)
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 const { openNoAttendeesRightsDialog } = useEventDialog()
 const route = useRoute()
 const router = useRouter()
 
 const onAttendeesClick = () => {
   if (!useAuthStore().isAuthenticated) {
-    openLoginDialog()
+    goToLogin()
   } else if (!useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)) {
     openNoAttendeesRightsDialog()
   } else {

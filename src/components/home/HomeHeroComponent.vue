@@ -32,12 +32,12 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 
-const { openLoginDialog } = useAuthDialog()
+const { goToLogin } = useAuth()
 
 const onJoinNowClick = () => {
-  openLoginDialog()
+  goToLogin()
 }
 </script>
 

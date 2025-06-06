@@ -39,7 +39,7 @@
             </q-card>
           </div>
           <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="openRegisterDialog">
+            <q-card flat bordered class="text-center" clickable @click="goToRegister">
               <q-card-section>
                 <q-icon name="sym_r_person_add" size="3rem" :color="Dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Create Account</div>
@@ -47,7 +47,7 @@
             </q-card>
           </div>
           <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="openLoginDialog()">
+            <q-card flat bordered class="text-center" clickable @click="goToLogin()">
               <q-card-section>
                 <q-icon name="sym_r_login" size="3rem" :color="Dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Sign In</div>
@@ -90,7 +90,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
-import { useAuthDialog } from '../../composables/useAuthDialog'
+import { useAuth } from '../../composables/useAuth'
 import { useHomeStore } from '../../stores/home-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import HomeHeroComponent from '../../components/home/HomeHeroComponent.vue'
@@ -99,7 +99,7 @@ import { GroupEntity } from '../../types/group'
 import { EventEntity } from '../../types'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
 
-const { openRegisterDialog, openLoginDialog } = useAuthDialog()
+const { goToRegister, goToLogin } = useAuth()
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
 const upcomingEvents = computed(() => useHomeStore().guestUpcomingEvents)
 
