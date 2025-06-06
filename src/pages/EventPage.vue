@@ -232,94 +232,6 @@
       <!-- 3. Event Actions - Sidebar on desktop, after description on mobile -->
       <div class="col-12 col-md-4 order-3 order-md-2">
         <div>
-          <!-- Organizer tools -->
-          <q-card
-            class="q-mb-md shadow-0"
-            v-if="
-              useEventStore().getterGroupMemberHasPermission(
-                GroupPermission.ManageEvents
-              ) ||
-              useEventStore().getterUserHasPermission(
-                EventAttendeePermission.ManageEvent
-              ) ||
-              isOwnerOrAdmin
-            "
-          >
-            <q-card-section>
-              <span
-                class="text-overline"
-                v-if="event.status === EventStatus.Draft"
-                >{{ event.status }}</span
-              >
-              <q-btn-dropdown
-                data-cy="Organizer-tools"
-                ripple
-                flat
-                align="center"
-                no-caps
-                label="Organizer tools"
-              >
-                <q-list>
-                  <MenuItemComponent
-                    label="Edit event"
-                    icon="sym_r_edit_note"
-                    v-if="
-                      useEventStore().getterUserHasPermission(
-                        EventAttendeePermission.ManageEvent
-                      ) ||
-                      isOwnerOrAdmin ||
-                      useEventStore().getterGroupMemberHasPermission(
-                        GroupPermission.ManageEvents
-                      )
-                    "
-                    @click="handleEditEvent"
-                  />
-                  <MenuItemComponent
-                    label="Manage attendees"
-                    icon="sym_r_people"
-                    v-if="
-                      useEventStore().getterUserHasPermission(
-                        EventAttendeePermission.ManageAttendees
-                      )
-                    "
-                    @click="router.push({ name: 'EventAttendeesPage' })"
-                  />
-                  <MenuItemComponent
-                    v-if="
-                      event.status === EventStatus.Published &&
-                      (useEventStore().getterUserHasPermission(
-                        EventAttendeePermission.CancelEvent
-                      ) ||
-                      isOwnerOrAdmin ||
-                      useEventStore().getterGroupMemberHasPermission(
-                        GroupPermission.ManageEvents
-                      ))
-                    "
-                    label="Cancel event"
-                    icon="sym_r_event_busy"
-                    @click="onCancelEvent"
-                  />
-
-                  <!-- We're keeping only the future events component and pointer to series, so removing management options -->
-                  <q-separator />
-                  <MenuItemComponent
-                    label="Delete event"
-                    v-if="
-                      useEventStore().getterUserHasPermission(
-                        EventAttendeePermission.DeleteEvent
-                      ) ||
-                      isOwnerOrAdmin ||
-                      useEventStore().getterGroupMemberHasPermission(
-                        GroupPermission.ManageEvents
-                      )
-                    "
-                    icon="sym_r_delete"
-                    @click="onDeleteEvent"
-                  />
-                </q-list>
-              </q-btn-dropdown>
-            </q-card-section>
-          </q-card>
 
           <!-- Event actions in sidebar -->
           <q-card class="q-mb-md">
@@ -412,6 +324,94 @@
                   >
                     You're cancelled!
                   </div>
+                </div>
+
+                <!-- Organizer tools -->
+                <div
+                  v-if="
+                    useEventStore().getterGroupMemberHasPermission(
+                      GroupPermission.ManageEvents
+                    ) ||
+                    useEventStore().getterUserHasPermission(
+                      EventAttendeePermission.ManageEvent
+                    ) ||
+                    isOwnerOrAdmin
+                  "
+                  class="q-mt-md"
+                >
+                  <span
+                    class="text-overline text-grey-6"
+                    v-if="event.status === EventStatus.Draft"
+                    >{{ event.status }}</span
+                  >
+                  <q-btn-dropdown
+                    data-cy="Organizer-tools"
+                    ripple
+                    color="primary"
+                    outline
+                    no-caps
+                    label="Organizer tools"
+                    icon="sym_r_settings"
+                    class="full-width"
+                  >
+                    <q-list>
+                      <MenuItemComponent
+                        label="Edit event"
+                        icon="sym_r_edit_note"
+                        v-if="
+                          useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.ManageEvent
+                          ) ||
+                          isOwnerOrAdmin ||
+                          useEventStore().getterGroupMemberHasPermission(
+                            GroupPermission.ManageEvents
+                          )
+                        "
+                        @click="handleEditEvent"
+                      />
+                      <MenuItemComponent
+                        label="Manage attendees"
+                        icon="sym_r_people"
+                        v-if="
+                          useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.ManageAttendees
+                          )
+                        "
+                        @click="router.push({ name: 'EventAttendeesPage' })"
+                      />
+                      <MenuItemComponent
+                        v-if="
+                          event.status === EventStatus.Published &&
+                          (useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.CancelEvent
+                          ) ||
+                          isOwnerOrAdmin ||
+                          useEventStore().getterGroupMemberHasPermission(
+                            GroupPermission.ManageEvents
+                          ))
+                        "
+                        label="Cancel event"
+                        icon="sym_r_event_busy"
+                        @click="onCancelEvent"
+                      />
+
+                      <q-separator />
+                      <MenuItemComponent
+                        label="Delete event"
+                        v-if="
+                          useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.DeleteEvent
+                          ) ||
+                          isOwnerOrAdmin ||
+                          useEventStore().getterGroupMemberHasPermission(
+                            GroupPermission.ManageEvents
+                          )
+                        "
+                        icon="sym_r_delete"
+                        @click="onDeleteEvent"
+                      />
+                    </q-list>
+                  </q-btn-dropdown>
                 </div>
 
                 <div class="column q-gutter-md">
