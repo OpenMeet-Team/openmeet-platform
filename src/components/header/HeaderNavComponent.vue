@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/auth-store.ts'
 import { useAuth } from 'src/composables/useAuth.ts'
 
 const { openCreateGroupDialog } = useGroupDialog()
-const { openCreateEventDialog } = useEventDialog()
+const { goToCreateEvent } = useEventDialog()
 const { goToLogin } = useAuth()
 
 const openCreateGroupForm = () => {
@@ -18,7 +18,7 @@ const openCreateGroupForm = () => {
 
 const openCreateEventForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateEventDialog()
+    goToCreateEvent()
   } else {
     goToLogin()
   }

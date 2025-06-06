@@ -30,7 +30,7 @@ const onJoinGroup = () => {
     goToLogin()
   }
 }
-const { openCreateEventDialog, openDeleteGroupDialog } = useEventDialog()
+const { goToCreateEvent, openDeleteGroupDialog } = useEventDialog()
 const { openAdminMessageDialog } = useAdminMessageDialog()
 const { openContactAdminsDialog } = useContactAdminsDialog()
 
@@ -77,7 +77,7 @@ const onLeaveGroup = () => {
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center q-gutter-md">
-        <q-btn data-cy="create-event-button" @click="openCreateEventDialog(group as GroupEntity)" no-caps size="md"
+        <q-btn data-cy="create-event-button" @click="goToCreateEvent(group as GroupEntity)" no-caps size="md"
           label="Create event" color="primary"
           v-if="useGroupStore().getterUserHasPermission(GroupPermission.CreateEvent)" />
         <q-btn-dropdown outline size="md" data-cy="manage-group-button"

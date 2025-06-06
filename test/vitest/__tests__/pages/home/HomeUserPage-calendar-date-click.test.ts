@@ -24,7 +24,7 @@ const mockAuthStore = {
 }
 
 const mockEventDialog = {
-  openCreateEventDialog: vi.fn()
+  goToCreateEvent: vi.fn()
 }
 
 const mockGroupDialog = {
@@ -95,7 +95,7 @@ describe('HomeUserPage Calendar Date Click', () => {
     vi.clearAllMocks()
   })
 
-  it('should call openCreateEventDialog with correct date when calendar date is clicked', async () => {
+  it('should call goToCreateEvent with correct date when calendar date is clicked', async () => {
     const wrapper = mount(HomeUserPage)
 
     // Find the mock calendar component
@@ -108,8 +108,8 @@ describe('HomeUserPage Calendar Date Click', () => {
 
     await dateButton.trigger('click')
 
-    // Verify that openCreateEventDialog was called with the correct parameters
-    expect(mockEventDialog.openCreateEventDialog).toHaveBeenCalledWith(
+    // Verify that goToCreateEvent was called with the correct parameters
+    expect(mockEventDialog.goToCreateEvent).toHaveBeenCalledWith(
       undefined, // group parameter should be undefined
       '2025-06-15' // date parameter should be the clicked date
     )
@@ -124,8 +124,8 @@ describe('HomeUserPage Calendar Date Click', () => {
     // Emit the date-click event with a test date
     await calendarComponent.vm.$emit('date-click', '2025-07-20')
 
-    // Verify that openCreateEventDialog was called with the correct parameters
-    expect(mockEventDialog.openCreateEventDialog).toHaveBeenCalledWith(
+    // Verify that goToCreateEvent was called with the correct parameters
+    expect(mockEventDialog.goToCreateEvent).toHaveBeenCalledWith(
       undefined, // no group
       '2025-07-20' // the emitted date
     )
@@ -139,8 +139,8 @@ describe('HomeUserPage Calendar Date Click', () => {
     await calendarComponent.vm.$emit('date-click', '2025-12-25')
 
     // Verify the call signature
-    expect(mockEventDialog.openCreateEventDialog).toHaveBeenCalledTimes(1)
-    const [groupParam, dateParam] = mockEventDialog.openCreateEventDialog.mock.calls[0]
+    expect(mockEventDialog.goToCreateEvent).toHaveBeenCalledTimes(1)
+    const [groupParam, dateParam] = mockEventDialog.goToCreateEvent.mock.calls[0]
 
     expect(groupParam).toBeUndefined()
     expect(dateParam).toBe('2025-12-25')

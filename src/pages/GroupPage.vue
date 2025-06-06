@@ -11,7 +11,9 @@
       <GroupStickyComponent v-if="group" />
 
       <!-- Secondary blocks -->
-      <router-view v-if="groupMounted && hasRightPermission" />
+      <div class="router-view-container">
+        <router-view v-if="groupMounted && hasRightPermission" />
+      </div>
 
       <!-- Auth group content -->
       <NoContentComponent v-if="group && useGroupStore().getterIsAuthenticatedGroup && !useAuthStore().isFullyAuthenticated"
@@ -40,7 +42,13 @@
 
     </template>
 
-    <GroupSimilarEventsComponent />
+    <!-- Spacer to ensure separation between content and similar events -->
+    <div class="spacer-block" style="height: 120px; width: 100%; display: block;"></div>
+    
+    <!-- Force similar events to appear at bottom with clear separation -->
+    <div class="similar-events-container">
+      <GroupSimilarEventsComponent />
+    </div>
   </q-page>
 </template>
 
@@ -137,4 +145,44 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped></style>
+<style scoped>
+/* Ensure proper layout flow and prevent overlapping */
+.router-view-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-bottom: 2rem;
+  /* Ensure content flows below sticky navigation */
+  margin-top: 80px; /* Account for sticky nav height */
+}
+
+.similar-events-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  clear: both;
+  margin-top: 2rem;
+  /* Force to bottom and prevent overlay */
+  display: block;
+  float: none;
+}
+
+/* Ensure proper spacing on mobile to prevent overlap with similar events */
+@media (max-width: 768px) {
+  .router-view-container {
+    margin-bottom: 5rem; /* Increase gap before similar events */
+  }
+  
+  .similar-events-container {
+    margin-top: 5rem; /* Increase gap from router content */
+  }
+  
+  :deep(.c-group-members-page),
+  :deep(.c-group-events-page),
+  :deep(.c-group-discussions-page) {
+    padding-bottom: 300px !important; /* Large padding for member lists */
+    min-height: auto; /* Let content determine height naturally */
+    margin-bottom: 8rem !important; /* Large bottom margin */
+  }
+}
+</style>

@@ -2,143 +2,236 @@
   <q-page padding style="max-width: 1201px" class="q-mx-auto c-event-page">
     <SpinnerComponent v-if="useEventStore().isLoading" />
     <div v-else-if="event" class="row q-col-gutter-md">
-      <div class="col-8">
+      <!-- Main content column - Mobile: full width, Desktop: 8/12 -->
+      <div class="col-12 col-md-8">
+        <!-- 1. Photo -->
         <q-card>
           <q-img data-cy="event-image" :src="getImageSrc(event.image)" />
         </q-card>
 
-        <!-- Event actions -->
+        <!-- 2. Description -->
         <q-card class="q-mt-md">
           <q-card-section>
-            <div class="row items-center justify-between">
-              <div class="col-12 col-sm-6">
-                <div class="text-body2 text-bold">
-                  <template v-if="isTemplateView && templateDate">
-                    <q-badge color="blue" class="q-mr-sm">Template View</q-badge>
-                    {{ dateFormatting.formatWithTimezone(
-                      templateDate,
-                      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      dateFormatting.getUserTimezone() || event.timeZone
-                    ) }}
-                  </template>
-                  <template v-else>
-                    {{ dateFormatting.formatWithTimezone(
-                      event.startDate,
-                      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      dateFormatting.getUserTimezone() || event.timeZone
-                    ) }}
-                  </template>
-                </div>
-
-                <span v-if="event.maxAttendees">
-                  <span class="text-red">{{
-                    spotsLeft > 0
-                      ? `${spotsLeft} ${pluralize(spotsLeft, "spot")} left`
-                      : "No spots left"
-                  }}</span>
-                </span>
-                <div class="text-h6 text-bold">{{ event.name }}</div>
-                <div v-if="event.status === 'cancelled'" class="q-mt-sm">
-                  <q-badge color="red" class="text-bold">
-                    <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
-                    Event Cancelled
-                  </q-badge>
-                </div>
-                <div v-if="isTemplateView" class="text-caption text-blue">
-                  <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
-                  This is a future occurrence of this event. Editing or adding attendees will create a scheduled event.
-                </div>
-              </div>
-              <!-- Attendance status -->
-              <div class="col-12 col-sm-6 row q-gutter-md justify-end no-wrap">
-                <div
-                  class="column"
-                  v-if="useEventStore().getterUserIsAttendee()"
-                >
-                  <div
-                    data-cy="event-attendee-status-confirmed"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Confirmed
-                    "
-                  >
-                    You're going!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-pending"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Pending
-                    "
-                  >
-                    You're pending approval!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-waitlist"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Waitlist
-                    "
-                  >
-                    You're on the waitlist!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-rejected"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Rejected
-                    "
-                  >
-                    You're rejected!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-cancelled"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Cancelled
-                    "
-                  >
-                    You're cancelled!
-                  </div>
-                </div>
-                <div class="row items-start q-gutter-md">
-                  <!-- Share button -->
-                  <ShareComponent class="col-4" />
-
-                  <!-- Attend button -->
-                  <EventAttendanceButton
-                    :event="event"
-                    :attendee="event.attendee"
-                    :is-template-view="isTemplateView"
-                    :template-date="templateDate"
-                  />
-
-                  <!-- Contact Organizers button - only show for attendees who don't have manage permissions -->
-                  <q-btn
-                    v-if="
-                      useEventStore().getterUserIsAttendee() &&
-                      !useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)
-                    "
-                    label="Contact Organizers"
-                    color="secondary"
-                    outline
-                    icon="sym_r_mail"
-                    @click="onContactOrganizers"
-                    data-cy="contact-organizers-btn"
-                    class="q-ml-sm"
-                  />
-
-                  <QRCodeComponent class="" />
-                </div>
-              </div>
+            <!-- Title -->
+            <div
+              data-cy="event-name"
+              :class="[Dark.isActive ? 'bg-dark' : 'bg-white']"
+              class="text-h4 text-bold bg-inherit q-py-sm"
+            >
+              {{ event.name }}
+            </div>
+            <!-- Series Information -->
+            <div v-if="event.seriesSlug" class="q-mb-md">
+              <q-badge color="primary" class="q-mb-sm">Part of a Series</q-badge>
+              <div class="text-h6 text-bold">{{ event.series?.name }}</div>
+              <div class="text-body2 q-mt-sm">{{ event.series?.description }}</div>
+            </div>
+            <div
+              data-cy="event-description"
+              class="text-body1 q-mt-md bio-content"
+            >
+              <q-markdown v-if="event.description" :src="event.description" />
+              <div v-else class="text-grey-6 text-italic">No description provided</div>
             </div>
           </q-card-section>
         </q-card>
 
-        <EventAttendeesComponent />
-        <EventTopicsComponent />
+        <!-- 4. Event Details with Map (Mobile: after actions, Desktop: in main column) -->
+        <div class="order-4 order-md-3">
+          <!-- Event Details -->
+          <q-card class="q-mt-md q-mb-lg">
+            <q-card-section>
+              <!-- Lead block -->
+              <EventLeadComponent />
+            </q-card-section>
+            <q-card-section>
+              <q-item>
+                <q-item-section side>
+                  <q-icon name="sym_r_schedule" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>
+                    {{ dateFormatting.formatWithTimezone(
+                      event.startDate,
+                      { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+                      dateFormatting.getUserTimezone() || event.timeZone
+                    ) }}
+                  </q-item-label>
+                  <q-item-label v-if="event.endDate">
+                    {{ dateFormatting.formatWithTimezone(
+                      event.endDate,
+                      { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+                      dateFormatting.getUserTimezone() || event.timeZone
+                    ) }}
+                  </q-item-label>
+                  <q-item-label caption v-if="event.timeZone && dateFormatting.getUserTimezone() && event.timeZone !== dateFormatting.getUserTimezone()">
+                    <div class="row items-center q-gutter-sm q-mt-sm">
+                      <span class="text-italic">
+                        Event time in original timezone ({{ event.timeZone }}):
+                        {{ dateFormatting.formatWithTimezone(event.startDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) }}
+                      </span>
+                    </div>
+                  </q-item-label>
+                  <q-item-label caption>
+                    <div class="row items-center q-gutter-sm q-mt-sm">
+                      <span class="text-italic">
+                        Dates shown in your local time{{ dateFormatting.getUserTimezone() ? ` (${dateFormatting.getUserTimezone()})` : '' }}
+                      </span>
+                    </div>
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <!-- Recurrence information -->
+              <RecurrenceDisplayComponent v-if="event.isRecurring" :event="event" />
+
+              <!-- Enhanced Recurrence Display - Not hidden in expansion panel -->
+              <q-item v-if="event.seriesSlug" class="q-mt-md series-occurrences">
+                <q-item-section>
+                  <q-item-label class="text-weight-medium q-mb-sm">Upcoming Occurrences</q-item-label>
+
+                  <q-list bordered separator class="rounded-borders">
+                    <q-item
+                      v-for="(occurrence, index) in upcomingOccurrences"
+                      :key="index"
+                      @click="occurrence.eventSlug ? navigateToEvent(occurrence.eventSlug) : handleUnmaterializedEvent(occurrence)"
+                      clickable
+                      v-ripple
+                      :class="[occurrence.eventSlug ? 'scheduled-event' : 'potential-event']"
+                    >
+                      <q-item-section avatar>
+                        <q-avatar size="28px" color="primary" text-color="white">
+                          {{ index + 1 }}
+                        </q-avatar>
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label>{{ dateFormatting.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, undefined) }}</q-item-label>
+                        <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
+                          <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
+                        </q-item-label>
+                        <q-item-label caption v-else class="text-grey-7">
+                          <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Potential event
+                        </q-item-label>
+                      </q-item-section>
+                      <q-item-section side>
+                        <q-icon
+                          :name="occurrence.eventSlug ? 'sym_r_arrow_forward' : 'sym_r_event_available'"
+                          :color="occurrence.eventSlug ? 'primary' : 'grey-7'"
+                        />
+                      </q-item-section>
+                    </q-item>
+
+                    <q-item v-if="upcomingOccurrences.length === 0">
+                      <q-item-section>
+                        <q-item-label>No upcoming occurrences found</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+
+                  <div class="row justify-between q-mt-sm">
+                    <q-btn
+                      flat
+                      color="grey"
+                      label="Refresh Occurrences"
+                      @click="loadUpcomingOccurrences"
+                      class="text-weight-medium text-caption"
+                    />
+                    <q-btn
+                      flat
+                      color="primary"
+                      label="View Series"
+                      @click="navigateToEventSeries"
+                      icon-right="sym_r_arrow_forward"
+                    />
+                  </div>
+                </q-item-section>
+              </q-item>
+
+              <!-- Regular Recurrence Display Component (if event doesn't have seriesSlug) -->
+              <RecurrenceDisplayComponent v-else-if="event.isRecurring" :event="event" />
+
+              <q-item>
+                <q-item-section side>
+                  <q-icon
+                    label="In person"
+                    v-if="event.type === 'in-person'"
+                    icon="sym_r_person_pin_circle"
+                    name="sym_r_person_pin_circle"
+                  />
+                  <q-icon
+                    label="Online"
+                    v-if="event.type === 'online'"
+                    name="sym_r_videocam"
+                  />
+                  <q-icon
+                    label="Hybrid"
+                    v-if="event.type === 'hybrid'"
+                    name="sym_r_diversity_2"
+                  />
+                </q-item-section>
+                <q-item-section>
+                  <div class="row items-center">
+                    <q-item-label>{{ event.type }} event</q-item-label>
+                    <q-badge
+                      v-if="event.sourceType"
+                      :color="getSourceColor(event.sourceType)"
+                      class="q-ml-sm"
+                    >
+                      <q-icon
+                        v-if="event.sourceType === 'bluesky'"
+                        name="fa-brands fa-bluesky"
+                        size="xs"
+                        class="q-mr-xs"
+                      />
+                      {{ event.sourceType }}
+                    </q-badge>
+                  </div>
+                  <q-btn
+                    no-caps
+                    size="md"
+                    align="left"
+                    flat
+                    padding="none"
+                    target="_blank"
+                    :href="event.locationOnline"
+                    class="text-underline text-blue"
+                    >Online link
+                  </q-btn>
+                  <q-item-label class="text-blue">
+                    {{ event.location }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <!-- Map display when event has location -->
+              <q-item v-if="event.lat && event.lon">
+                <q-item-section>
+                  <div class="q-mt-md">
+                    <LeafletMapComponent
+                      disabled
+                      :lat="event.lat"
+                      :lon="event.lon"
+                    />
+                  </div>
+                </q-item-section>
+              </q-item>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- 5. Comments (Mobile: 5th, Desktop: in main column) -->
+        <div class="order-5">
+          <EventTopicsComponent />
+        </div>
+
+        <!-- 6. Attendees (Mobile: 6th, Desktop: in main column) -->
+        <div class="order-6">
+          <EventAttendeesComponent />
+        </div>
       </div>
-      <div class="col-12 col-md-4">
+
+      <!-- 3. Event Actions - Sidebar on desktop, after description on mobile -->
+      <div class="col-12 col-md-4 order-3 order-md-2">
         <div>
           <!-- Organizer tools -->
           <q-card
@@ -229,6 +322,131 @@
             </q-card-section>
           </q-card>
 
+          <!-- Event actions in sidebar -->
+          <q-card class="q-mb-md">
+            <q-card-section>
+              <div class="text-h6 q-mb-md">Event Actions</div>
+              <div class="column q-gutter-md">
+                <div class="text-body2 text-bold">
+                  <template v-if="isTemplateView && templateDate">
+                    <q-badge color="blue" class="q-mr-sm">Template View</q-badge>
+                    {{ dateFormatting.formatWithTimezone(
+                      templateDate,
+                      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+                      dateFormatting.getUserTimezone() || event.timeZone
+                    ) }}
+                  </template>
+                  <template v-else>
+                    {{ dateFormatting.formatWithTimezone(
+                      event.startDate,
+                      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
+                      dateFormatting.getUserTimezone() || event.timeZone
+                    ) }}
+                  </template>
+                </div>
+
+                <span v-if="event.maxAttendees">
+                  <span class="text-red">{{
+                    spotsLeft > 0
+                      ? `${spotsLeft} ${pluralize(spotsLeft, "spot")} left`
+                      : "No spots left"
+                  }}</span>
+                </span>
+                <div class="text-h6 text-bold">{{ event.name }}</div>
+                <div v-if="event.status === 'cancelled'" class="q-mt-sm">
+                  <q-badge color="red" class="text-bold">
+                    <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
+                    Event Cancelled
+                  </q-badge>
+                </div>
+                <div v-if="isTemplateView" class="text-caption text-blue">
+                  <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
+                  This is a future occurrence of this event. Editing or adding attendees will create a scheduled event.
+                </div>
+
+                <!-- Attendance status -->
+                <div
+                  v-if="useEventStore().getterUserIsAttendee()"
+                >
+                  <div
+                    data-cy="event-attendee-status-confirmed"
+                    class="text-subtitle1 text-bold"
+                    v-if="
+                      event.attendee?.status === EventAttendeeStatus.Confirmed
+                    "
+                  >
+                    You're going!
+                  </div>
+                  <div
+                    data-cy="event-attendee-status-pending"
+                    class="text-subtitle1 text-bold"
+                    v-if="
+                      event.attendee?.status === EventAttendeeStatus.Pending
+                    "
+                  >
+                    You're pending approval!
+                  </div>
+                  <div
+                    data-cy="event-attendee-status-waitlist"
+                    class="text-subtitle1 text-bold"
+                    v-if="
+                      event.attendee?.status === EventAttendeeStatus.Waitlist
+                    "
+                  >
+                    You're on the waitlist!
+                  </div>
+                  <div
+                    data-cy="event-attendee-status-rejected"
+                    class="text-subtitle1 text-bold"
+                    v-if="
+                      event.attendee?.status === EventAttendeeStatus.Rejected
+                    "
+                  >
+                    You're rejected!
+                  </div>
+                  <div
+                    data-cy="event-attendee-status-cancelled"
+                    class="text-subtitle1 text-bold"
+                    v-if="
+                      event.attendee?.status === EventAttendeeStatus.Cancelled
+                    "
+                  >
+                    You're cancelled!
+                  </div>
+                </div>
+
+                <div class="column q-gutter-md">
+                  <!-- Share button -->
+                  <ShareComponent />
+
+                  <!-- Attend button -->
+                  <EventAttendanceButton
+                    :event="event"
+                    :attendee="event.attendee"
+                    :is-template-view="isTemplateView"
+                    :template-date="templateDate"
+                  />
+
+                  <!-- Contact Organizers button - only show for attendees who don't have manage permissions -->
+                  <q-btn
+                    v-if="
+                      useEventStore().getterUserIsAttendee() &&
+                      !useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)
+                    "
+                    label="Contact Organizers"
+                    color="secondary"
+                    outline
+                    icon="sym_r_mail"
+                    @click="onContactOrganizers"
+                    data-cy="contact-organizers-btn"
+                  />
+
+                  <QRCodeComponent />
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+
           <!-- Organizer section -->
           <q-card v-if="event?.group">
             <q-card-section>
@@ -256,251 +474,6 @@
             </q-card-section>
           </q-card>
 
-          <!-- Details section -->
-          <q-card class="q-mb-lg">
-            <q-card-section>
-              <!-- Title -->
-              <div
-                data-cy="event-name"
-                :class="[Dark.isActive ? 'bg-dark' : 'bg-white']"
-                class="text-h4 text-bold bg-inherit q-py-sm"
-              >
-                {{ event.name }}
-              </div>
-              <!-- Series Information -->
-              <div v-if="event.seriesSlug" class="q-mb-md">
-                <q-badge color="primary" class="q-mb-sm">Part of a Series</q-badge>
-                <div class="text-h6 text-bold">{{ event.series?.name }}</div>
-                <div class="text-body2 q-mt-sm">{{ event.series?.description }}</div>
-              </div>
-              <q-card-section>
-                <div
-                  data-cy="event-description"
-                  class="text-body1 q-mt-md bio-content"
-                >
-                  <q-markdown v-if="event.description" :src="event.description" />
-                  <div v-else class="text-grey-6 text-italic">No description provided</div>
-                </div>
-              </q-card-section>
-            </q-card-section>
-            <q-card-section>
-              <!-- Lead block -->
-              <EventLeadComponent />
-            </q-card-section>
-            <q-card-section>
-              <q-item>
-                <q-item-section side>
-                  <q-icon name="sym_r_schedule" />
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>
-                    {{ dateFormatting.formatWithTimezone(
-                      event.startDate,
-                      { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      dateFormatting.getUserTimezone() || event.timeZone
-                    ) }}
-                  </q-item-label>
-                  <q-item-label v-if="event.endDate">
-                    {{ dateFormatting.formatWithTimezone(
-                      event.endDate,
-                      { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' },
-                      dateFormatting.getUserTimezone() || event.timeZone
-                    ) }}
-                  </q-item-label>
-                  <q-item-label caption v-if="event.timeZone && dateFormatting.getUserTimezone() && event.timeZone !== dateFormatting.getUserTimezone()">
-                    <div class="row items-center q-gutter-sm q-mt-sm">
-                      <span class="text-italic">
-                        Event time in original timezone ({{ event.timeZone }}):
-                        {{ dateFormatting.formatWithTimezone(event.startDate, { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) }}
-                      </span>
-                    </div>
-                  </q-item-label>
-                  <q-item-label caption>
-                    <div class="row items-center q-gutter-sm q-mt-sm">
-                      <span class="text-italic">
-                        Dates shown in your local time{{ dateFormatting.getUserTimezone() ? ` (${dateFormatting.getUserTimezone()})` : '' }}
-                      </span>
-                    </div>
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <!-- Recurrence information -->
-              <RecurrenceDisplayComponent v-if="event.isRecurring" :event="event" />
-
-              <!-- Enhanced Recurrence Display - Not hidden in expansion panel -->
-              <q-item v-if="event.seriesSlug" class="q-mt-md series-occurrences">
-                <q-item-section>
-                  <q-item-label class="text-weight-medium q-mb-sm">Upcoming Occurrences</q-item-label>
-
-                  <!-- Debug information for recurrence rule - only shown in development mode when showDebugRecurrenceInfo is true -->
-                  <div v-if="showDebugRecurrenceInfo" class="text-caption q-mb-sm" style="border: 1px solid #ddd; padding: 8px; background-color: #f9f9f9;">
-                    <div class="row justify-between items-center">
-                      <div class="text-weight-bold">Recurrence Rule Debug Info:</div>
-                      <q-btn flat dense size="sm" color="grey" label="Hide Debug Info" @click="toggleDebugInfo(false)" />
-                    </div>
-                    <div v-if="event.series?.templateEvent">
-                      <div><b>Series Template Event Slug:</b> {{ event.series.templateEvent?.slug }}</div>
-                      <div><b>Series Template Event Name:</b> {{ event.series.templateEvent?.name }}</div>
-                      <div><b>Series Timezone:</b> {{ event.series?.timeZone || 'Not set' }}</div>
-                    </div>
-                    <div v-else-if="event.recurrenceRule">
-                      <div><b>Event Start Date:</b> {{ event.startDate ? new Date(event.startDate).toISOString() : 'Not set' }}</div>
-                      <div><b>Event Start (Local):</b> {{ event.startDate ? dateFormatting.formatWithTimezone(event.startDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, event.timeZone) : 'Not set' }}</div>
-                      <div><b>Event Frequency:</b> {{ event.recurrenceRule.frequency }}</div>
-                      <div><b>Event Interval:</b> {{ event.recurrenceRule.interval || 1 }}</div>
-                      <div><b>Event Weekdays:</b> {{ Array.isArray(event.recurrenceRule.byweekday) ? event.recurrenceRule.byweekday.join(', ') : 'None' }}</div>
-                      <div><b>Event Month:</b> {{ Array.isArray(event.recurrenceRule.bymonth) ? event.recurrenceRule.bymonth.join(', ') : 'None' }}</div>
-                      <div><b>Event Day of Month:</b> {{ Array.isArray(event.recurrenceRule.bymonthday) ? event.recurrenceRule.bymonthday.join(', ') : 'None' }}</div>
-                      <div><b>Event Position:</b> {{ Array.isArray(event.recurrenceRule.bysetpos) ? event.recurrenceRule.bysetpos.join(', ') : 'None' }}</div>
-                      <div><b>Event Timezone:</b> {{ event.timeZone || 'Not set' }}</div>
-                      <div><b>User Explicit Selection:</b> {{ event.recurrenceRule._userExplicitSelection ? 'Yes' : 'No' }}</div>
-                    </div>
-                    <div v-else>No recurrence rule found in event or series</div>
-
-                    <div class="text-weight-bold q-mt-sm">API Request Info:</div>
-                    <div>Series Slug: {{ event.seriesSlug }}</div>
-                    <div>Series ID: {{ event.seriesId }}</div>
-                  </div>
-
-                  <!-- Button to show debug info when hidden - only in development mode -->
-                  <div v-if="!showDebugRecurrenceInfo && isDevelopmentMode" class="q-mb-sm">
-                    <q-btn flat dense size="sm" color="grey-7" icon="sym_r_bug_report" label="Show Debug Info" @click="toggleDebugInfo(true)" />
-                  </div>
-
-                  <q-list bordered separator class="rounded-borders">
-                    <q-item
-                      v-for="(occurrence, index) in upcomingOccurrences"
-                      :key="index"
-                      @click="occurrence.eventSlug ? navigateToEvent(occurrence.eventSlug) : handleUnmaterializedEvent(occurrence)"
-                      clickable
-                      v-ripple
-                      :class="[occurrence.eventSlug ? 'scheduled-event' : 'potential-event']"
-                    >
-                      <q-item-section avatar>
-                        <q-avatar size="28px" color="primary" text-color="white">
-                          {{ index + 1 }}
-                        </q-avatar>
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>{{ dateFormatting.formatWithTimezone(occurrence.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }, undefined) }}</q-item-label>
-                        <q-item-label caption v-if="occurrence.eventSlug" class="text-positive">
-                          <q-icon name="sym_r_check_circle" size="xs" class="q-mr-xs" />Scheduled event
-                        </q-item-label>
-                        <q-item-label caption v-else class="text-grey-7">
-                          <q-icon name="sym_r_today" size="xs" class="q-mr-xs" />Potential event
-                        </q-item-label>
-                        <!-- Detailed date info only shown when debug mode is enabled -->
-                        <q-item-label v-if="showDebugRecurrenceInfo" caption class="text-grey-8">
-                          <b>DOW:</b> {{ new Date(occurrence.date).toLocaleDateString('en-US', { weekday: 'long' }) }},
-                          <b>UTC:</b> {{ occurrence.date.toISOString() }},
-                          <b>Local day:</b> {{ formatInTimezone(occurrence.date, { weekday: 'long' }, event.timeZone) }}
-                        </q-item-label>
-                      </q-item-section>
-                      <q-item-section side>
-                        <q-icon
-                          :name="occurrence.eventSlug ? 'sym_r_arrow_forward' : 'sym_r_event_available'"
-                          :color="occurrence.eventSlug ? 'primary' : 'grey-7'"
-                        />
-                      </q-item-section>
-                    </q-item>
-
-                    <q-item v-if="upcomingOccurrences.length === 0">
-                      <q-item-section>
-                        <q-item-label>No upcoming occurrences found</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-
-                  <div class="row justify-between q-mt-sm">
-                    <q-btn
-                      flat
-                      color="grey"
-                      label="Refresh Occurrences"
-                      @click="loadUpcomingOccurrences"
-                      class="text-weight-medium text-caption"
-                    />
-                    <q-btn
-                      flat
-                      color="primary"
-                      label="View Series"
-                      @click="navigateToEventSeries"
-                      icon-right="sym_r_arrow_forward"
-                    />
-                  </div>
-                </q-item-section>
-              </q-item>
-
-              <!-- Regular Recurrence Display Component (if event doesn't have seriesSlug) -->
-              <RecurrenceDisplayComponent v-else-if="event.isRecurring" :event="event" />
-
-              <q-item>
-                <q-item-section side>
-                  <q-icon
-                    label="In person"
-                    v-if="event.type === 'in-person'"
-                    icon="sym_r_person_pin_circle"
-                    name="sym_r_person_pin_circle"
-                  />
-                  <q-icon
-                    label="Online"
-                    v-if="event.type === 'online'"
-                    name="sym_r_videocam"
-                  />
-                  <q-icon
-                    label="Hybrid"
-                    v-if="event.type === 'hybrid'"
-                    name="sym_r_diversity_2"
-                  />
-                </q-item-section>
-                <q-item-section>
-                  <div class="row items-center">
-                    <q-item-label>{{ event.type }} event</q-item-label>
-                    <q-badge
-                      v-if="event.sourceType"
-                      :color="getSourceColor(event.sourceType)"
-                      class="q-ml-sm"
-                    >
-                      <q-icon
-                        v-if="event.sourceType === 'bluesky'"
-                        name="fa-brands fa-bluesky"
-                        size="xs"
-                        class="q-mr-xs"
-                      />
-                      {{ event.sourceType }}
-                    </q-badge>
-                  </div>
-                  <q-btn
-                    no-caps
-                    size="md"
-                    align="left"
-                    flat
-                    padding="none"
-                    target="_blank"
-                    :href="event.locationOnline"
-                    class="text-underline text-blue"
-                    >Online link
-                  </q-btn>
-                  <q-item-label class="cursor-pointer text-underline text-blue">
-                    {{ event.location }}
-                    <q-popup-proxy>
-                      <q-card
-                        class="q-pa-md"
-                        style="height: 500px; width: 500px"
-                      >
-                        <LeafletMapComponent
-                          disabled
-                          style="height: 450px; width: 450px"
-                          :lat="event.lat"
-                          :lon="event.lon"
-                        />
-                      </q-card>
-                    </q-popup-proxy>
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-card-section>
-          </q-card>
         </div>
       </div>
     </div>
@@ -617,27 +590,6 @@ const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 const upcomingOccurrences = ref([])
 const usingClientSideGeneration = ref(false)
-const showDebugRecurrenceInfo = ref(false) // Debug flag for recurrence information
-
-// Helper function to format dates with timezone
-const formatInTimezone = (date: Date, options: Intl.DateTimeFormatOptions, tz?: string): string => {
-  try {
-    const timezone = tz || dateFormatting.getUserTimezone()
-    return new Intl.DateTimeFormat('en-US', { ...options, timeZone: timezone }).format(date)
-  } catch (error) {
-    console.error('Error formatting date with timezone:', error)
-    return String(date)
-  }
-}
-
-// Function to toggle debug info and save preference to localStorage
-const toggleDebugInfo = (show: boolean) => {
-  showDebugRecurrenceInfo.value = show
-  // Only save the preference in development mode
-  if (isDevelopmentMode.value) {
-    localStorage.setItem('openmeet_show_recurrence_debug', show ? 'true' : 'false')
-  }
-}
 
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
@@ -732,10 +684,6 @@ onMounted(async () => {
   if (!window.lastEventPageLoad) {
     window.lastEventPageLoad = {}
   }
-
-  // Only show debug button in development mode by default
-  showDebugRecurrenceInfo.value = isDevelopmentMode.value &&
-    (localStorage.getItem('openmeet_show_recurrence_debug') === 'true')
 
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
@@ -1204,6 +1152,63 @@ const isOwnerOrAdmin = computed(() => {
     &:hover {
       background-color: rgba(0, 0, 0, 0.03);
       opacity: 1;
+    }
+  }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+  .c-event-page {
+    /* Better mobile column layout */
+    .row.q-col-gutter-md {
+      /* On mobile, ensure proper stacking */
+      .col-8 {
+        width: 100%;
+        order: 1;
+      }
+
+      .col-12.col-md-4 {
+        width: 100%;
+        order: 2;
+        margin-top: 16px;
+      }
+    }
+
+    /* Improve button layouts on mobile */
+    .row.items-start.q-gutter-md {
+      flex-direction: column;
+      gap: 12px;
+
+      .col-4 {
+        width: 100%;
+      }
+    }
+
+    /* Better spacing for event actions */
+    .row.items-center.justify-between {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+
+      .col-12.col-sm-6 {
+        width: 100%;
+
+        &.row.q-gutter-md.justify-end {
+          justify-content: flex-start;
+        }
+      }
+    }
+
+    /* Make cards more mobile-friendly */
+    .q-card {
+      margin-bottom: 12px;
+    }
+
+    /* Better spacing for occurrence list */
+    .series-occurrences {
+      .q-list {
+        border-radius: 8px;
+      }
     }
   }
 }

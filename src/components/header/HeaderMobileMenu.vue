@@ -9,7 +9,7 @@ import HeaderDarkModeComponent from '../../components/header/HeaderDarkModeCompo
 import { useRouter } from 'vue-router'
 
 const { openCreateGroupDialog } = useGroupDialog()
-const { openCreateEventDialog } = useEventDialog()
+const { goToCreateEvent } = useEventDialog()
 const { goToLogin, goToRegister } = useAuth()
 
 const router = useRouter()
@@ -23,7 +23,7 @@ const openCreateGroupForm = () => {
 
 const openCreateEventForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateEventDialog()
+    goToCreateEvent()
   } else {
     goToLogin()
   }

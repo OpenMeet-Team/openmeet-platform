@@ -37,7 +37,7 @@ const $q = useQuasar()
 
 const { navigateToEvent } = useNavigation()
 const { openCreateGroupDialog } = useGroupDialog()
-const { openCreateEventDialog } = useEventDialog()
+const { goToCreateEvent } = useEventDialog()
 
 onMounted(() => {
   LoadingBar.start()
@@ -68,7 +68,7 @@ const onCalendarEventClick = (calendarEvent: { type: string; title: string; slug
 
 const onCalendarDateClick = (date: string) => {
   // Open event creation dialog with pre-selected date
-  openCreateEventDialog(undefined, date)
+  goToCreateEvent(undefined, date)
 }
 
 const onCalendarDateSelect = () => {
@@ -139,7 +139,7 @@ const onCalendarDateSelect = () => {
                 no-caps
                 unelevated
                 class="q-px-md"
-                @click="openCreateEventDialog()"
+                @click="goToCreateEvent()"
               />
             </div>
 
@@ -346,7 +346,7 @@ const onCalendarDateSelect = () => {
             </q-card>
           </div>
           <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="openCreateEventDialog()">
+            <q-card flat bordered class="text-center" clickable @click="goToCreateEvent()">
               <q-card-section>
                 <q-icon name="sym_r_edit_calendar" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Create Event</div>

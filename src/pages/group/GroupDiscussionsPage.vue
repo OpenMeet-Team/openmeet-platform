@@ -100,7 +100,7 @@ watch(() => groupStore.group?.slug, async (newSlug, oldSlug) => {
     <q-btn v-if="!errorMessage.includes('not implemented')" color="primary" label="Retry" @click="initializeGroupDiscussions" />
   </div>
 
-  <div data-cy="group-discussions-page" v-else-if="group && hasPermission">
+  <div data-cy="group-discussions-page" v-else-if="group && hasPermission" class="q-pb-xl">
     <SubtitleComponent class="q-mt-lg q-px-md" label="Discussions" :count="group?.topics?.length" hide-link />
 
     <!-- Discussions Section using unified MessagesComponent -->

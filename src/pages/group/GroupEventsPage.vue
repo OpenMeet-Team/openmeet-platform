@@ -1,5 +1,5 @@
 <template>
-  <div class="c-group-events-page">
+  <div class="c-group-events-page q-pb-xl">
     <SpinnerComponent v-if="isLoading" />
     <div data-cy="group-events-page"
       v-if="!isLoading && group && hasPermission">

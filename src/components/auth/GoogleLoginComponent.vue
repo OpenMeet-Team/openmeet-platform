@@ -4,6 +4,7 @@
     <!-- Google Button Container -->
     <div id="google-signin-button" :class="{ 'invisible': isLoading }" />
 
+
     <!-- Loading State -->
     <q-inner-loading :showing="isLoading">
       <q-spinner-dots size="30px" color="primary" />
@@ -115,8 +116,12 @@ let isAuthInProgress = false
 
 // Methods
 const initializeGoogleSignIn = () => {
-  if (isInitialized.value || !googleClientId) return
+  if (isInitialized.value || !googleClientId) {
+    console.log('GoogleLogin: Skipping initialization - already initialized or no client ID', { isInitialized: isInitialized.value, hasClientId: !!googleClientId })
+    return
+  }
 
+  console.log('GoogleLogin: Starting initialization with client ID:', googleClientId)
   cleanup()
 
   const script = document.createElement('script')
@@ -124,11 +129,14 @@ const initializeGoogleSignIn = () => {
   script.async = true
   script.defer = true
   script.onload = () => {
+    console.log('GoogleLogin: Script loaded, checking window.google:', !!window.google?.accounts?.id)
     if (!window.google?.accounts?.id || typeof googleClientId !== 'string') {
       error.value = 'Google Sign-In failed to load'
+      console.error('GoogleLogin: Failed to load Google API or invalid client ID')
       return
     }
 
+    console.log('GoogleLogin: Initializing Google Sign-In API')
     window.google.accounts.id.initialize({
       client_id: googleClientId,
       callback: handleGoogleResponse,
@@ -141,27 +149,57 @@ const initializeGoogleSignIn = () => {
     renderButton()
   }
 
+  script.onerror = (err) => {
+    console.error('GoogleLogin: Failed to load Google script:', err)
+    error.value = 'Failed to load Google authentication script'
+  }
+
   document.head.appendChild(script)
 }
 
 const renderButton = () => {
   const buttonContainer = document.getElementById('google-signin-button')
+  console.log('GoogleLogin: Attempting to render button', {
+    hasContainer: !!buttonContainer,
+    hasGoogleAPI: !!window.google?.accounts?.id,
+    containerRect: buttonContainer?.getBoundingClientRect()
+  })
+
   if (buttonContainer && window.google?.accounts?.id) {
     buttonContainer.innerHTML = ''
-    window.google.accounts.id.renderButton(
-      buttonContainer,
-      {
-        type: 'standard',
-        theme: props.theme,
-        size: props.size,
-        text: props.text,
-        shape: props.shape,
-        logo_alignment: 'left',
-        width: '100%',
-        click_listener: handleButtonClick
-      }
-    )
-    isInitialized.value = true
+
+    console.log('GoogleLogin: Rendering button with config:', {
+      type: 'standard',
+      theme: props.theme,
+      size: props.size,
+      text: props.text,
+      shape: props.shape,
+      logo_alignment: 'left',
+      width: '100%'
+    })
+
+    try {
+      window.google.accounts.id.renderButton(
+        buttonContainer,
+        {
+          type: 'standard',
+          theme: props.theme,
+          size: props.size,
+          text: props.text,
+          shape: props.shape,
+          logo_alignment: 'left',
+          width: '100%',
+          click_listener: handleButtonClick
+        }
+      )
+      console.log('GoogleLogin: Button rendered successfully')
+      isInitialized.value = true
+    } catch (renderError) {
+      console.error('GoogleLogin: Error rendering button:', renderError)
+      error.value = 'Failed to render Google Sign-In button'
+    }
+  } else {
+    console.error('GoogleLogin: Cannot render button - missing container or Google API')
   }
 }
 
