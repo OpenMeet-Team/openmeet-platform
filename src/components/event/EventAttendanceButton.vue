@@ -1,29 +1,55 @@
 <template>
   <!-- Attendance Button -->
-  <div class="attendance-button">
+  <div class="attendance-button" :class="$attrs.class">
     <!-- Loading State -->
-    <q-btn data-cy="event-attend-button" v-if="loading" :loading="true" color="primary">
+    <q-btn
+      data-cy="event-attend-button"
+      v-if="loading"
+      :loading="true"
+      color="primary"
+      no-caps
+      class="full-width"
+    >
       <template v-slot:loading>
         <q-spinner-dots />
       </template>
     </q-btn>
 
-    <!-- Template View State -->
+    <!-- Template View State - Only for authorized users -->
     <q-btn
       data-cy="event-template-materialize-button"
-      v-else-if="isTemplateView"
+      v-else-if="isTemplateView && canMaterializeEvent"
       color="primary"
+      outline
       @click="handleTemplateAttend"
-      :label="'Schedule & Attend'"
+      :label="'Click here to schedule & attend'"
+      no-caps
+      class="full-width"
     />
+
+    <!-- Template View - Unauthorized users -->
+    <q-btn
+      data-cy="event-template-unauthorized-button"
+      v-else-if="isTemplateView && !canMaterializeEvent"
+      color="grey-6"
+      outline
+      disable
+      no-caps
+      class="full-width"
+    >
+      Only organizers can schedule events
+    </q-btn>
 
     <!-- Not Attending or Cancelled State -->
     <q-btn
       data-cy="event-attend-button"
       v-else-if="!attendee || attendee.status === EventAttendeeStatus.Cancelled"
       color="primary"
+      outline
       @click="handleAttend"
-      :label="event.requireApproval ? 'Request to Attend' : 'Attend'"
+      :label="event.requireApproval ? 'Click here to request attendance' : 'Click here to attend this event'"
+      no-caps
+      class="full-width"
     />
 
     <!-- Pending Approval State -->
@@ -31,33 +57,44 @@
       data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Pending"
       color="warning"
+      outline
       disable
+      no-caps
+      class="full-width"
     >
       Pending Approval
     </q-btn>
 
     <!-- Waitlist State -->
-    <q-btn data-cy="event-attend-button"
+    <q-btn
+      data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Waitlist"
       color="orange"
+      outline
       @click="handleLeave"
+      no-caps
+      class="full-width"
     >
-      Leave Waitlist
+      Click here to leave waitlist
     </q-btn>
 
     <!-- Attending State -->
-    <q-btn data-cy="event-attend-button"
+    <q-btn
+      data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Confirmed"
       color="negative"
+      outline
       @click="handleLeave"
+      no-caps
+      class="full-width"
     >
-      Leave Event
+      Click here to leave this event
     </q-btn>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useEventStore } from '../../stores/event-store'
 import { useAuthStore } from '../../stores/auth-store'
@@ -66,6 +103,8 @@ import {
   EventAttendeeEntity,
   EventAttendeeStatus
 } from '../../types'
+import { GroupPermission } from '../../types/group'
+import { EventAttendeePermission } from '../../types/event'
 import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
 
@@ -84,6 +123,22 @@ const props = defineProps<{
 
 const loading = ref(false)
 const initialLoading = ref(true)
+
+// Check if user can materialize events (schedule new occurrences)
+const canMaterializeEvent = computed(() => {
+  if (!authStore.isFullyAuthenticated) return false
+
+  // Check if user is the series owner
+  const isSeriesOwner = props.event?.series?.user?.id === authStore.getUserId
+
+  // Check if user has group management permissions
+  const hasGroupManagePermission = eventStore.getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+
+  // Check if user has event management permissions
+  const hasEventManagePermission = eventStore.getterUserHasPermission(EventAttendeePermission.ManageEvent)
+
+  return isSeriesOwner || hasGroupManagePermission || hasEventManagePermission
+})
 
 // Watch for changes in authentication state
 watch(() => authStore.isFullyAuthenticated, async (isAuth) => {

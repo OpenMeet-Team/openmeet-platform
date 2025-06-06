@@ -641,11 +641,12 @@ describe('CustomCalendar', () => {
       expect(expandedEvents[1].isAllDay).toBe(true)
       expect(expandedEvents[1].id).toBe('multiday-1-day-1')
 
-      // Third day should be all-day style with day indicator
+      // Third day should show end time since it's the last day
       expect(expandedEvents[2].date).toBe('2025-06-17')
       expect(expandedEvents[2].title).toBe('Multi-Day Conference (Day 3)')
-      expect(expandedEvents[2].isAllDay).toBe(true)
+      expect(expandedEvents[2].isAllDay).toBe(false) // Last day shows actual end time
       expect(expandedEvents[2].id).toBe('multiday-1-day-2')
+      expect(expandedEvents[2].time).toBe('00:00-17:00') // Should show from midnight to end time
     })
 
     it('handles all-day multi-day events correctly', async () => {

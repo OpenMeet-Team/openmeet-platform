@@ -100,7 +100,9 @@ const dateRange = computed(() => {
   if (props.startDate && props.endDate) {
     return {
       start: props.startDate,
-      end: props.endDate
+      end: props.endDate,
+      viewStart: props.startDate,
+      viewEnd: props.endDate
     }
   }
 
@@ -110,7 +112,9 @@ const dateRange = computed(() => {
       const endOfMonth = new Date(year, month + 1, 0)
       return {
         start: formatDateString(startOfMonth),
-        end: formatDateString(endOfMonth)
+        end: formatDateString(endOfMonth),
+        viewStart: formatDateString(startOfMonth),
+        viewEnd: formatDateString(endOfMonth)
       }
     }
     case 'week': {
@@ -118,20 +122,41 @@ const dateRange = computed(() => {
       startOfWeek.setDate(date.getDate() - date.getDay())
       const endOfWeek = new Date(startOfWeek)
       endOfWeek.setDate(startOfWeek.getDate() + 6)
+
+      // Extend range to include multi-day events from previous/next weeks
+      const extendedStart = new Date(startOfWeek)
+      extendedStart.setDate(startOfWeek.getDate() - 21) // Look back 3 weeks
+      const extendedEnd = new Date(endOfWeek)
+      extendedEnd.setDate(endOfWeek.getDate() + 21) // Look ahead 3 weeks
+
       return {
-        start: formatDateString(startOfWeek),
-        end: formatDateString(endOfWeek)
+        start: formatDateString(extendedStart),
+        end: formatDateString(extendedEnd),
+        viewStart: formatDateString(startOfWeek),
+        viewEnd: formatDateString(endOfWeek)
       }
     }
-    case 'day':
+    case 'day': {
+      // Extend range to include multi-day events from previous/next days
+      const dayDate = new Date(year, month, day)
+      const extendedStart = new Date(dayDate)
+      extendedStart.setDate(dayDate.getDate() - 21) // Look back 3 weeks
+      const extendedEnd = new Date(dayDate)
+      extendedEnd.setDate(dayDate.getDate() + 21) // Look ahead 3 weeks
+
       return {
-        start: currentDate.value,
-        end: currentDate.value
+        start: formatDateString(extendedStart),
+        end: formatDateString(extendedEnd),
+        viewStart: currentDate.value,
+        viewEnd: currentDate.value
       }
+    }
     default:
       return {
         start: currentDate.value,
-        end: currentDate.value
+        end: currentDate.value,
+        viewStart: currentDate.value,
+        viewEnd: currentDate.value
       }
   }
 })
@@ -238,23 +263,61 @@ function formatDateString (date: Date): string {
 }
 
 // Helper function to expand multi-day events into daily instances
-function expandMultiDayEvents (events: CalendarEvent[]): CalendarEvent[] {
+function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, viewEnd?: string): CalendarEvent[] {
   const expandedEvents: CalendarEvent[] = []
 
   for (const event of events) {
+    // Validate event data first
+    if (!event.startDateTime && !event.date) {
+      console.warn('Event missing required date information:', event.title)
+      continue
+    }
+
     // If the event has no end date or is the same day, just add it as-is
     if (!event.endDateTime || event.date === formatDateString(new Date(event.endDateTime))) {
       expandedEvents.push(event)
       continue
     }
 
-    // Parse start and end dates
-    const startDate = new Date(event.startDateTime || event.date + 'T00:00:00')
-    const endDate = new Date(event.endDateTime)
+    // Parse start and end dates with error handling
+    let startDate: Date
+    let endDate: Date
+
+    try {
+      startDate = new Date(event.startDateTime || event.date + 'T00:00:00')
+      endDate = new Date(event.endDateTime)
+
+      // Validate dates are valid
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.warn('Invalid date values for multi-day event:', event.title, { startDateTime: event.startDateTime, endDateTime: event.endDateTime })
+        expandedEvents.push(event) // Add original event as fallback
+        continue
+      }
+
+      // If end date is before start date, just use the original event
+      if (endDate < startDate) {
+        console.warn('End date before start date for event:', event.title)
+        expandedEvents.push(event)
+        continue
+      }
+    } catch (error) {
+      console.warn('Error parsing dates for multi-day event:', event.title, error)
+      expandedEvents.push(event) // Add original event as fallback
+      continue
+    }
 
     // If it's all-day or the end date is different, create instances for each day
     const currentDate = new Date(startDate)
     let dayIndex = 0
+
+    // Calculate the actual day index from the original start date
+    const originalStartDate = new Date(event.startDateTime || event.date + 'T00:00:00')
+    let actualDayIndex = Math.floor((currentDate.getTime() - originalStartDate.getTime()) / (24 * 60 * 60 * 1000))
+
+    // For week view, limit expansion to only the visible week plus some context
+    const shouldLimitToView = viewStart && viewEnd
+    const viewStartDate = shouldLimitToView ? new Date(viewStart) : null
+    const viewEndDate = shouldLimitToView ? new Date(viewEnd) : null
 
     // eslint-disable-next-line no-unmodified-loop-condition
     while (currentDate <= endDate) {
@@ -263,24 +326,109 @@ function expandMultiDayEvents (events: CalendarEvent[]): CalendarEvent[] {
       // Skip if we've gone past the end date (for safety)
       if (currentDate > endDate) break
 
+      // For week and day views, only include days that are in or near the current view
+      if (shouldLimitToView && viewStartDate && viewEndDate) {
+        // For day view, only include the specific day being viewed
+        if (viewStart === viewEnd) {
+          // Day view - only include the exact day
+          if (formatDateString(currentDate) !== viewStart) {
+            currentDate.setDate(currentDate.getDate() + 1)
+            dayIndex++
+            actualDayIndex++
+            continue
+          }
+        } else {
+          // Week view - include days within the view plus one day buffer on each side
+          const dayBeforeView = new Date(viewStartDate)
+          dayBeforeView.setDate(viewStartDate.getDate() - 1)
+          const dayAfterView = new Date(viewEndDate)
+          dayAfterView.setDate(viewEndDate.getDate() + 1)
+
+          if (currentDate < dayBeforeView || currentDate > dayAfterView) {
+            currentDate.setDate(currentDate.getDate() + 1)
+            dayIndex++
+            actualDayIndex++
+            continue
+          }
+        }
+      }
+
+      // Determine if this is the first or last day of the event
+      const isFirstDayOfEvent = actualDayIndex === 0
+      const isLastDayOfEvent = formatDateString(currentDate) === formatDateString(endDate)
+      const isFirstDayInView = shouldLimitToView && viewStartDate ? currentDate >= viewStartDate && isFirstDayOfEvent : isFirstDayOfEvent
+      const isLastDayInView = shouldLimitToView && viewEndDate ? currentDate <= viewEndDate && isLastDayOfEvent : isLastDayOfEvent
+
+      // Check if event continues beyond the view
+      const continuesFromBefore = shouldLimitToView && viewStartDate ? originalStartDate < viewStartDate : false
+      const continuesAfter = shouldLimitToView && viewEndDate ? endDate > viewEndDate : false
+
+      // Determine the appropriate time display for this day
+      let dayTime: string | undefined
+      let dayIsAllDay: boolean
+
+      if (event.isAllDay) {
+        // Original event is all-day, keep all instances all-day
+        dayTime = undefined
+        dayIsAllDay = true
+      } else if (isFirstDayOfEvent && isLastDayOfEvent) {
+        // Single day event - use original time
+        dayTime = event.time
+        dayIsAllDay = false
+      } else if (isFirstDayOfEvent) {
+        // First day of multi-day event - use original start time, extend to end of day
+        if (event.time && typeof event.time === 'string' && event.time.includes('-')) {
+          const [startTimeStr] = event.time.split('-')
+          dayTime = `${startTimeStr}-23:59`
+        } else if (event.time && typeof event.time === 'string') {
+          dayTime = `${event.time}-23:59`
+        } else {
+          dayTime = undefined
+          dayIsAllDay = true
+        }
+        dayIsAllDay = false
+      } else if (isLastDayOfEvent) {
+        // Last day of multi-day event - start at midnight, use original end time
+        if (event.time && typeof event.time === 'string' && event.time.includes('-')) {
+          const [, endTimeStr] = event.time.split('-')
+          dayTime = `00:00-${endTimeStr}`
+        } else if (event.endDateTime) {
+          // Extract end time from endDateTime
+          const endTime = new Date(event.endDateTime)
+          const endTimeStr = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`
+          dayTime = `00:00-${endTimeStr}`
+        } else {
+          dayTime = undefined
+          dayIsAllDay = true
+        }
+        dayIsAllDay = false
+      } else {
+        // Middle day of multi-day event - all day
+        dayTime = undefined
+        dayIsAllDay = true
+      }
+
       // Create an event instance for this day
       const dayEvent: CalendarEvent = {
         ...event,
-        id: `${event.id}-day-${dayIndex}`,
+        id: `${event.id}-day-${actualDayIndex}`,
         date: currentDateStr,
-        // For first day, keep original time if not all-day
-        // For middle/last days of multi-day events, make them all-day or adjust times
-        time: event.isAllDay
-          ? undefined
-          : dayIndex === 0
-            ? event.time // Keep original time for first day
-            : undefined, // Make subsequent days all-day style
-        isAllDay: event.isAllDay || dayIndex > 0 // Make subsequent days appear as all-day
+        time: dayTime,
+        isAllDay: dayIsAllDay,
+        // Preserve other important fields
+        startDateTime: isFirstDayOfEvent ? event.startDateTime : `${currentDateStr}T00:00:00`,
+        endDateTime: isLastDayOfEvent ? event.endDateTime : `${currentDateStr}T23:59:59`
       }
 
-      // Add indicator for multi-day events
-      if (dayIndex > 0) {
-        dayEvent.title = `${event.title} (Day ${dayIndex + 1})`
+      // Add enhanced visual indicators for multi-day events
+      if (continuesFromBefore && continuesAfter) {
+        dayEvent.title = `← ${event.title} →`
+      } else if (continuesFromBefore) {
+        dayEvent.title = `← ${event.title}${isLastDayInView ? ' (ends)' : ''}`
+      } else if (continuesAfter) {
+        dayEvent.title = `${event.title}${isFirstDayInView ? '' : ` (Day ${actualDayIndex + 1})`} →`
+      } else if (actualDayIndex > 0) {
+        dayEvent.title = `${event.title} (Day ${actualDayIndex + 1})`
       }
 
       expandedEvents.push(dayEvent)
@@ -288,6 +436,7 @@ function expandMultiDayEvents (events: CalendarEvent[]): CalendarEvent[] {
       // Move to next day
       currentDate.setDate(currentDate.getDate() + 1)
       dayIndex++
+      actualDayIndex++
 
       // Safety check to prevent infinite loops
       if (dayIndex >= 365) {
@@ -319,36 +468,95 @@ function getEventPosition (event: CalendarEvent) {
   // Handle time ranges (e.g., "14:00-16:00")
   if (event.time.includes('-')) {
     const [startTimeStr, endTimeStr] = event.time.split('-')
+
+    // Validate time format and parse safely
+    if (!startTimeStr || !endTimeStr) {
+      console.warn('Invalid time format for event:', event.title, event.time)
+      return { top: '0px', height: '30px' }
+    }
+
     const [startHour, startMinute = 0] = startTimeStr.split(':').map(Number)
     const [endHour, endMinute = 0] = endTimeStr.split(':').map(Number)
 
+    // Validate parsed values
+    if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute)) {
+      console.warn('Invalid time values for event:', event.title, event.time)
+      return { top: '0px', height: '30px' }
+    }
+
     // Calculate start position as percentage within the entire day
     const startTotalMinutes = startHour * 60 + startMinute
-    const endTotalMinutes = endHour * 60 + endMinute
+    let endTotalMinutes = endHour * 60 + endMinute
+
+    // Handle events that cross midnight (end time appears before start time)
+    if (endTotalMinutes <= startTotalMinutes) {
+      // If this is a multi-day event or event crossing midnight,
+      // assume it ends at the end of the current day for display purposes
+      endTotalMinutes = totalDayMinutes // 23:59:59 equivalent
+    }
+
     const durationMinutes = endTotalMinutes - startTotalMinutes
+
+    // Validate calculated values
+    if (startTotalMinutes < 0 || endTotalMinutes < 0 || durationMinutes <= 0) {
+      console.warn('Invalid time calculation for event:', event.title, { startTotalMinutes, endTotalMinutes, durationMinutes })
+      return { top: '0px', height: '30px' }
+    }
 
     // Calculate position as percentage of the entire day
     const topPercentage = (startTotalMinutes / totalDayMinutes) * 100
     const heightPercentage = (durationMinutes / totalDayMinutes) * 100
 
+    // Validate percentages to prevent invalid CSS
+    if (isNaN(topPercentage) || isNaN(heightPercentage) || topPercentage < 0 || heightPercentage <= 0) {
+      console.warn('Invalid percentage calculation for event:', event.title, { topPercentage, heightPercentage })
+      return { top: '0px', height: '30px' }
+    }
+
     return {
-      top: `${topPercentage}%`,
-      height: `${heightPercentage}%`
+      top: `${Math.max(0, Math.min(100, topPercentage))}%`,
+      height: `${Math.max(2, Math.min(100, heightPercentage))}%`
     }
   }
 
   // Handle single time (e.g., "14:30")
-  const [hour, minute = 0] = event.time.split(':').map(Number)
+  const timeParts = event.time.split(':')
+  if (timeParts.length < 2) {
+    console.warn('Invalid single time format for event:', event.title, event.time)
+    return { top: '0px', height: '30px' }
+  }
+
+  const [hour, minute = 0] = timeParts.map(Number)
+
+  // Validate parsed values
+  if (isNaN(hour) || isNaN(minute)) {
+    console.warn('Invalid single time values for event:', event.title, event.time)
+    return { top: '0px', height: '30px' }
+  }
+
   const startTotalMinutes = hour * 60 + minute
+
+  // Validate calculated value
+  if (startTotalMinutes < 0 || startTotalMinutes >= totalDayMinutes) {
+    console.warn('Invalid single time calculation for event:', event.title, startTotalMinutes)
+    return { top: '0px', height: '30px' }
+  }
+
   const topPercentage = (startTotalMinutes / totalDayMinutes) * 100
 
   // Default duration for single time events (1 hour)
   const defaultDurationMinutes = 60
   const heightPercentage = (defaultDurationMinutes / totalDayMinutes) * 100
 
+  // Validate percentages
+  if (isNaN(topPercentage) || isNaN(heightPercentage)) {
+    console.warn('Invalid percentage calculation for single time event:', event.title, { topPercentage, heightPercentage })
+    return { top: '0px', height: '30px' }
+  }
+
   return {
-    top: `${topPercentage}%`,
-    height: `${heightPercentage}%`
+    top: `${Math.max(0, Math.min(100, topPercentage))}%`,
+    height: `${Math.max(2, Math.min(100, heightPercentage))}%`
   }
 }
 
@@ -402,11 +610,28 @@ async function loadEvents () {
   events.value = []
 
   try {
-    const { start, end } = dateRange.value
+    const { start, end, viewStart, viewEnd } = dateRange.value
 
     // Helper function to create event signature for deduplication
     const createEventSignature = (event: CalendarEvent) => {
       return `${event.title.toLowerCase().trim()}|${event.date}|${event.time || 'no-time'}`
+    }
+
+    // Helper function to check if an event intersects with the current view period
+    const eventIntersectsView = (event: { startDate: string, endDate?: string }) => {
+      if (viewMode.value === 'month') {
+        // For month view, use the original logic
+        const eventDate = event.startDate.split('T')[0]
+        return eventDate >= start && eventDate <= end
+      }
+
+      // For week and day views, check if event intersects with the visible period
+      const eventStart = new Date(event.startDate.split('T')[0])
+      const eventEnd = event.endDate ? new Date(event.endDate.split('T')[0]) : eventStart
+      const viewStartDate = new Date(viewStart)
+      const viewEndDate = new Date(viewEnd)
+
+      return eventStart <= viewEndDate && eventEnd >= viewStartDate
     }
 
     let mainEvents: CalendarEvent[] = []
@@ -414,10 +639,7 @@ async function loadEvents () {
     // Check if we have group events passed as props (group calendar mode)
     if (props.groupEvents && props.groupEvents.length > 0) {
       // Use provided group events
-      const filteredGroupEvents = props.groupEvents.filter(event => {
-        const eventDate = event.startDate.split('T')[0]
-        return eventDate >= start && eventDate <= end
-      })
+      const filteredGroupEvents = props.groupEvents.filter(eventIntersectsView)
 
       mainEvents = filteredGroupEvents.map(event => {
         const startTime = new Date(event.startDate)
@@ -456,8 +678,7 @@ async function loadEvents () {
 
       // Filter upcoming events by current date range and exclude cancelled RSVPs
       const filteredUpcomingEvents = upcomingEvents.filter(event => {
-        const eventDate = event.startDate.split('T')[0]
-        const withinDateRange = eventDate >= start && eventDate <= end
+        const withinDateRange = eventIntersectsView(event)
 
         // Exclude events where user has cancelled their RSVP
         const hasNotCancelledRSVP = !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
@@ -499,10 +720,7 @@ async function loadEvents () {
       }
       const rawHostedEvents = dashboardStore.events || []
 
-      const filteredHostedEvents = rawHostedEvents.filter(event => {
-        const eventDate = event.startDate.split('T')[0]
-        return eventDate >= start && eventDate <= end
-      })
+      const filteredHostedEvents = rawHostedEvents.filter(eventIntersectsView)
 
       const hostedEvents: CalendarEvent[] = filteredHostedEvents.map(event => {
         const startTime = new Date(event.startDate)
@@ -667,7 +885,7 @@ async function loadEvents () {
 
     // Expand multi-day events into daily instances before assigning
     const allEvents = [...mainEvents, ...externalCalendarEvents]
-    events.value = expandMultiDayEvents(allEvents)
+    events.value = expandMultiDayEvents(allEvents, viewStart, viewEnd)
   } catch (error) {
     console.error('Failed to load calendar events:', error)
     $q.notify({
@@ -941,7 +1159,12 @@ onMounted(() => {
                   v-for="event in getEventsForDate(day.date)"
                   :key="event.id"
                   class="positioned-event"
-                  :class="{ 'all-day-event': event.isAllDay }"
+                  :class="{
+                    'all-day-event': event.isAllDay,
+                    'continues-from-before': event.title.startsWith('←'),
+                    'continues-after': event.title.endsWith('→'),
+                    'continues-both': event.title.startsWith('←') && event.title.endsWith('→')
+                  }"
                   :style="{
                     backgroundColor: event.bgColor,
                     color: event.textColor || '#ffffff',
@@ -993,7 +1216,12 @@ onMounted(() => {
                   v-for="event in getEventsForDate(currentDate)"
                   :key="event.id"
                   class="positioned-event day-event"
-                  :class="{ 'all-day-event': event.isAllDay }"
+                  :class="{
+                    'all-day-event': event.isAllDay,
+                    'continues-from-before': event.title.startsWith('←'),
+                    'continues-after': event.title.endsWith('→'),
+                    'continues-both': event.title.startsWith('←') && event.title.endsWith('→')
+                  }"
                   :style="{
                     backgroundColor: event.bgColor,
                     color: event.textColor || '#ffffff',
@@ -1451,6 +1679,25 @@ onMounted(() => {
                 opacity: 0.8;
                 z-index: 2;
               }
+
+              // Enhanced visual indicators for multi-day events
+              &.continues-from-before {
+                border-left: 3px solid rgba(255, 255, 255, 0.8);
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+              }
+
+              &.continues-after {
+                border-right: 3px solid rgba(255, 255, 255, 0.8);
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+              }
+
+              &.continues-both {
+                border-radius: 0;
+                border-left: 3px solid rgba(255, 255, 255, 0.8);
+                border-right: 3px solid rgba(255, 255, 255, 0.8);
+              }
             }
           }
         }
@@ -1586,6 +1833,25 @@ onMounted(() => {
                 opacity: 0.8;
                 transform: scale(1.02);
                 z-index: 2;
+              }
+
+              // Enhanced visual indicators for multi-day events
+              &.continues-from-before {
+                border-left: 4px solid rgba(255, 255, 255, 0.8);
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+              }
+
+              &.continues-after {
+                border-right: 4px solid rgba(255, 255, 255, 0.8);
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+              }
+
+              &.continues-both {
+                border-radius: 0;
+                border-left: 4px solid rgba(255, 255, 255, 0.8);
+                border-right: 4px solid rgba(255, 255, 255, 0.8);
               }
             }
           }
