@@ -275,55 +275,68 @@
                   This is a future occurrence of this event. Editing or adding attendees will create a scheduled event.
                 </div>
 
-                <!-- Attendance status -->
-                <div
-                  v-if="useEventStore().getterUserIsAttendee()"
-                >
+                <!-- Combined Attendance Status and Button -->
+                <div class="attendance-section">
+                  <!-- Attendance status -->
                   <div
-                    data-cy="event-attendee-status-confirmed"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Confirmed
-                    "
+                    v-if="useEventStore().getterUserIsAttendee()"
+                    class="attendance-status q-mb-sm"
                   >
-                    You're going!
+                    <div
+                      data-cy="event-attendee-status-confirmed"
+                      class="text-subtitle2 text-bold text-positive"
+                      v-if="
+                        event.attendee?.status === EventAttendeeStatus.Confirmed
+                      "
+                    >
+                      <q-icon name="sym_r_check_circle" class="q-mr-xs" />You're going!
+                    </div>
+                    <div
+                      data-cy="event-attendee-status-pending"
+                      class="text-subtitle2 text-bold text-warning"
+                      v-if="
+                        event.attendee?.status === EventAttendeeStatus.Pending
+                      "
+                    >
+                      <q-icon name="sym_r_schedule" class="q-mr-xs" />Pending approval
+                    </div>
+                    <div
+                      data-cy="event-attendee-status-waitlist"
+                      class="text-subtitle2 text-bold text-orange"
+                      v-if="
+                        event.attendee?.status === EventAttendeeStatus.Waitlist
+                      "
+                    >
+                      <q-icon name="sym_r_hourglass_empty" class="q-mr-xs" />On waitlist
+                    </div>
+                    <div
+                      data-cy="event-attendee-status-rejected"
+                      class="text-subtitle2 text-bold text-negative"
+                      v-if="
+                        event.attendee?.status === EventAttendeeStatus.Rejected
+                      "
+                    >
+                      <q-icon name="sym_r_cancel" class="q-mr-xs" />Request rejected
+                    </div>
+                    <div
+                      data-cy="event-attendee-status-cancelled"
+                      class="text-subtitle2 text-bold text-grey"
+                      v-if="
+                        event.attendee?.status === EventAttendeeStatus.Cancelled
+                      "
+                    >
+                      <q-icon name="sym_r_event_busy" class="q-mr-xs" />Not attending
+                    </div>
                   </div>
-                  <div
-                    data-cy="event-attendee-status-pending"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Pending
-                    "
-                  >
-                    You're pending approval!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-waitlist"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Waitlist
-                    "
-                  >
-                    You're on the waitlist!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-rejected"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Rejected
-                    "
-                  >
-                    You're rejected!
-                  </div>
-                  <div
-                    data-cy="event-attendee-status-cancelled"
-                    class="text-subtitle1 text-bold"
-                    v-if="
-                      event.attendee?.status === EventAttendeeStatus.Cancelled
-                    "
-                  >
-                    You're cancelled!
-                  </div>
+
+                  <!-- Attend button -->
+                  <EventAttendanceButton
+                    :event="event"
+                    :attendee="event.attendee"
+                    :is-template-view="isTemplateView"
+                    :template-date="templateDate"
+                    class="action-button"
+                  />
                 </div>
 
                 <!-- Organizer tools -->
@@ -352,7 +365,7 @@
                     no-caps
                     label="Organizer tools"
                     icon="sym_r_settings"
-                    class="full-width"
+                    class="full-width action-button"
                   >
                     <q-list>
                       <MenuItemComponent
@@ -416,15 +429,54 @@
 
                 <div class="column q-gutter-md">
                   <!-- Share button -->
-                  <ShareComponent />
-
-                  <!-- Attend button -->
-                  <EventAttendanceButton
-                    :event="event"
-                    :attendee="event.attendee"
-                    :is-template-view="isTemplateView"
-                    :template-date="templateDate"
-                  />
+                  <q-btn-dropdown
+                    no-caps
+                    color="primary"
+                    outline
+                    icon="sym_r_share"
+                    label="Share"
+                    data-cy="share-button"
+                    class="full-width action-button"
+                  >
+                    <q-list>
+                      <MenuItemComponent
+                        label="Bluesky"
+                        icon="fab fa-bluesky"
+                        icon-color="blue"
+                        @click="shareTo('bluesky')"
+                      />
+                      <MenuItemComponent
+                        label="Facebook"
+                        icon="fab fa-facebook"
+                        icon-color="blue"
+                        @click="shareTo('facebook')"
+                      />
+                      <MenuItemComponent
+                        label="X"
+                        icon="fab fa-square-x-twitter"
+                        icon-color="black"
+                        @click="shareTo('x')"
+                      />
+                      <MenuItemComponent
+                        label="LinkedIn"
+                        icon="fab fa-linkedin"
+                        icon-color="blue-8"
+                        @click="shareTo('linkedin')"
+                      />
+                      <MenuItemComponent
+                        label="WhatsApp"
+                        icon="fab fa-whatsapp"
+                        icon-color="green"
+                        @click="shareTo('whatsapp')"
+                      />
+                      <MenuItemComponent
+                        label="Email"
+                        icon="sym_r_mail"
+                        icon-color="red"
+                        @click="shareToEmail"
+                      />
+                    </q-list>
+                  </q-btn-dropdown>
 
                   <!-- Contact Organizers button - only show for attendees who don't have manage permissions -->
                   <q-btn
@@ -433,14 +485,26 @@
                       !useEventStore().getterUserHasPermission(EventAttendeePermission.ManageEvent)
                     "
                     label="Contact Organizers"
-                    color="secondary"
+                    color="primary"
                     outline
                     icon="sym_r_mail"
                     @click="onContactOrganizers"
                     data-cy="contact-organizers-btn"
+                    no-caps
+                    class="full-width action-button"
                   />
 
-                  <QRCodeComponent />
+                  <!-- QR Code button -->
+                  <q-btn
+                    no-caps
+                    color="primary"
+                    outline
+                    icon="sym_r_qr_code"
+                    label="Generate QR Code"
+                    data-cy="qr-code-button"
+                    class="full-width action-button"
+                    @click="showQRCodePopup = true"
+                  />
                 </div>
               </div>
             </q-card-section>
@@ -695,6 +759,36 @@
       </div>
     </template>
 
+    <!-- QR Code Dialog -->
+    <q-dialog v-model="showQRCodePopup" @show="generateQRCode">
+      <q-card style="min-width: 300px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">QR Code</div>
+          <q-space />
+          <q-btn icon="sym_r_close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <div class="q-mb-md text-center">
+            <canvas ref="qrCanvas" style="max-width: 100%" />
+          </div>
+          <q-input
+            v-model="currentUrl"
+            label="Event Link"
+            outlined
+            readonly
+            class="q-mb-md"
+          />
+          <q-btn
+            label="Copy Link"
+            color="primary"
+            class="full-width"
+            @click="copyToClipboard"
+          />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
     <!-- We're keeping only the future events component and pointer to series, so removing the management dialogs -->
   </q-page>
 </template>
@@ -724,8 +818,6 @@ import {
   EventAttendeeStatus
 } from '../types'
 import { pluralize } from '../utils/stringUtils'
-import ShareComponent from '../components/common/ShareComponent.vue'
-import QRCodeComponent from '../components/common/QRCodeComponent.vue'
 import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
 import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
@@ -771,6 +863,11 @@ const similarEventsLoading = ref(false)
 const upcomingOccurrences = ref([])
 const usingClientSideGeneration = ref(false)
 
+// QR Code and sharing functionality
+const showQRCodePopup = ref(false)
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+const currentUrl = ref('')
+
 const onDeleteEvent = () => {
   if (event.value) openDeleteEventDialog(event.value)
 }
@@ -787,6 +884,72 @@ const onContactOrganizers = () => {
         name: event.value.name
       }
     })
+  }
+}
+
+// Sharing functionality
+const shareUrls = {
+  bluesky: (url: string) =>
+    `https://bsky.app/intent/compose?text=${encodeURIComponent(url)}`,
+  facebook: (url: string) =>
+    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+  x: (url: string, text: string) =>
+    `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+      url
+    )}&text=${encodeURIComponent(text)}`,
+  linkedin: (url: string) =>
+    `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+      url
+    )}`,
+  whatsapp: (url: string) =>
+    `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`
+}
+
+const shareTo = (platform: keyof typeof shareUrls) => {
+  const url = window.location.href
+  const text = 'Check out this event on OpenMeet!'
+
+  const shareUrl = shareUrls[platform](url, text)
+  try {
+    window.open(shareUrl, '_blank')
+  } catch (error) {
+    $q.notify({ type: 'negative', message: 'Failed to share content.' })
+  }
+}
+
+const shareToEmail = () => {
+  const subject = encodeURIComponent('Check out this event on OpenMeet!')
+  const body = encodeURIComponent(
+    `I found this interesting event: ${window.location.href}`
+  )
+
+  try {
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+  } catch (error) {
+    $q.notify({ type: 'negative', message: 'Failed to share via email.' })
+  }
+}
+
+// QR Code functionality
+const generateQRCode = async () => {
+  if (!qrCanvas.value) return
+
+  currentUrl.value = window.location.href
+
+  try {
+    const QRCode = await import('qrcode')
+    await QRCode.default.toCanvas(qrCanvas.value, currentUrl.value)
+  } catch (error) {
+    $q.notify({ type: 'negative', message: 'Failed to generate QR code.' })
+  }
+}
+
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(currentUrl.value)
+    $q.notify({ type: 'positive', message: 'Link copied to clipboard!' })
+  } catch (error) {
+    $q.notify({ type: 'negative', message: 'Failed to copy link.' })
   }
 }
 
@@ -1332,6 +1495,36 @@ const isOwnerOrAdmin = computed(() => {
     &:hover {
       background-color: rgba(0, 0, 0, 0.03);
       opacity: 1;
+    }
+  }
+}
+
+/* Action button styles for uniformity */
+.action-button {
+  min-height: 44px; /* Ensure consistent height */
+
+  :deep(.q-btn) {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  :deep(.q-btn__content) {
+    justify-content: flex-start;
+    padding: 0 16px;
+  }
+}
+
+/* Attendance section styling */
+.attendance-section {
+  .attendance-status {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    text-align: center;
+
+    .q-icon {
+      font-size: 1.1em;
     }
   }
 }
