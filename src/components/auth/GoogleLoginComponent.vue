@@ -4,7 +4,6 @@
     <!-- Google Button Container -->
     <div id="google-signin-button" :class="{ 'invisible': isLoading }" />
 
-
     <!-- Loading State -->
     <q-inner-loading :showing="isLoading">
       <q-spinner-dots size="30px" color="primary" />

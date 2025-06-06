@@ -44,7 +44,7 @@
 
     <!-- Spacer to ensure separation between content and similar events -->
     <div class="spacer-block" style="height: 120px; width: 100%; display: block;"></div>
-    
+
     <!-- Force similar events to appear at bottom with clear separation -->
     <div class="similar-events-container">
       <GroupSimilarEventsComponent />
@@ -172,11 +172,11 @@ onBeforeUnmount(() => {
   .router-view-container {
     margin-bottom: 5rem; /* Increase gap before similar events */
   }
-  
+
   .similar-events-container {
     margin-top: 5rem; /* Increase gap from router content */
   }
-  
+
   :deep(.c-group-members-page),
   :deep(.c-group-events-page),
   :deep(.c-group-discussions-page) {

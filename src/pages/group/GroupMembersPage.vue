@@ -136,7 +136,7 @@ const capitalizeFirstLetter = (string: string) => {
     min-height: auto;
     margin-bottom: 6rem; /* Large margin to separate from similar events */
   }
-  
+
   .members-list {
     /* Allow the list to flow naturally */
     margin-bottom: 4rem;
