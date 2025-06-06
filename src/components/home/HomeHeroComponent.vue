@@ -133,4 +133,55 @@ const onJoinNowClick = () => {
   background: linear-gradient(to right, $purple-400, $purple-200);
 }
 
+@media (max-width: 1024px) {
+  .bubble-wrapper-left,
+  .bubble-wrapper-right,
+  .profile-left,
+  .profile-right {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  .bubble-left {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+  .bubble-right {
+    right: 8px !important;
+    top: 8px !important;
+  }
+  .hero-container {
+    padding: 12px !important;
+    min-height: 140px !important;
+  }
+  .hero-content {
+    margin-top: 32px !important;
+    margin-bottom: 24px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .bubble-wrapper-left,
+  .bubble-wrapper-right,
+  .profile-left,
+  .profile-right {
+    width: 90px !important;
+    height: 90px !important;
+  }
+  .bubble-left {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+  .bubble-right {
+    right: 8px !important;
+    top: 8px !important;
+  }
+  .hero-container {
+    padding: 16px !important;
+    min-height: 180px !important;
+  }
+  .hero-content {
+    margin-top: 24px !important;
+    margin-bottom: 16px !important;
+  }
+}
 </style>
