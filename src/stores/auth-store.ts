@@ -163,15 +163,42 @@ export const useAuthStore = defineStore('authStore', {
       LocalStorage.setItem('tokenExpires', tokenExpires)
     },
     actionSetUser (user: ApiAuthUser) {
-      this.user = user
-      LocalStorage.setItem('user', JSON.stringify(user))
+      try {
+        console.log('🟢 actionSetUser: Starting')
+        this.user = user
+        console.log('🟢 actionSetUser: User set in store')
+        LocalStorage.setItem('user', JSON.stringify(user))
+        console.log('🟢 actionSetUser: User saved to localStorage')
 
-      analyticsService.identify(this.user.slug, {
-        email: this.user.email,
-        name: this.user.name,
-        ulid: this.user.ulid
-      })
-      analyticsService.trackEvent('user_authorized', { user_id: this.user.id, email: this.user.email, name: this.user.name })
+        // Construct name from firstName/lastName if name is not available
+        const userName = this.user.name ||
+          (this.user.firstName && this.user.lastName
+            ? `${this.user.firstName} ${this.user.lastName}`
+            : this.user.firstName || this.user.lastName || '')
+        console.log('🟢 actionSetUser: Username constructed:', userName)
+
+        try {
+          analyticsService.identify(this.user.slug, {
+            email: this.user.email,
+            name: userName,
+            ulid: this.user.ulid
+          })
+          console.log('🟢 actionSetUser: Analytics identify successful')
+          analyticsService.trackEvent('user_authorized', {
+            user_id: this.user.id,
+            email: this.user.email,
+            name: userName
+          })
+          console.log('🟢 actionSetUser: Analytics trackEvent successful')
+        } catch (analyticsError) {
+          console.warn('🟡 Analytics service failed:', analyticsError)
+          // Don't let analytics failures break authentication
+        }
+        console.log('🟢 actionSetUser: Completed successfully')
+      } catch (error) {
+        console.error('🔴 actionSetUser failed:', error)
+        throw error
+      }
     },
     actionClearAuth () {
       this.token = ''

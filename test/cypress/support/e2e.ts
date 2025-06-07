@@ -27,6 +27,8 @@ Cypress.on('uncaught:exception', (err) => {
 
 import './commands'
 import './bluesky-auth-command'
+import './performance-helpers'
+import './email-helpers'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

@@ -52,7 +52,7 @@ export default boot(async ({ app, router }) => {
     const authStore = useAuthStore()
     const token = authStore?.token
 
-    config.headers['X-Tenant-ID'] = getEnv('QENV') === 'test' ? 'testing' : window.APP_CONFIG?.APP_TENANT_ID || getEnv('APP_TENANT_ID')
+    config.headers['X-Tenant-ID'] = window.APP_CONFIG?.APP_TENANT_ID || getEnv('APP_TENANT_ID')
 
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`
