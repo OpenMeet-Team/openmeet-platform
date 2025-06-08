@@ -7,6 +7,25 @@ import { configure } from 'quasar/wrappers'
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
 import istanbul from 'vite-plugin-istanbul'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+// Helper function to get tenant ID from config
+function getTenantId() {
+  // First try environment variable
+  if (process.env.APP_TENANT_ID) {
+    return process.env.APP_TENANT_ID
+  }
+  
+  // Fallback to reading from config.json
+  try {
+    const configPath = join(process.cwd(), 'public/config.json')
+    const config = JSON.parse(readFileSync(configPath, 'utf8'))
+    return config.APP_TENANT_ID
+  } catch (error) {
+    return null
+  }
+}
 
 export default configure((ctx) => {
   return {
@@ -122,7 +141,31 @@ export default configure((ctx) => {
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
       port: Number(process.env.APP_DEV_SERVER_PORT) || 8080,
-      open: Boolean(process.env.APP_DEV_SERVER_OPEN) // opens browser window automatically
+      open: Boolean(process.env.APP_DEV_SERVER_OPEN), // opens browser window automatically
+      proxy: {
+        '/sitemap.xml': {
+          target: process.env.APP_API_URL || 'http://localhost:3000',
+          changeOrigin: true,
+          rewrite: (path, req) => {
+            const tenantId = getTenantId()
+            if (!tenantId) {
+              throw new Error('APP_TENANT_ID not found in environment variables or config.json')
+            }
+            
+            return `/api/sitemap/sitemap.xml?tenantId=${tenantId}`
+          },
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              const tenantId = getTenantId()
+              if (!tenantId) {
+                throw new Error('APP_TENANT_ID not found in environment variables or config.json')
+              }
+              
+              proxyReq.setHeader('x-tenant-id', tenantId)
+            })
+          }
+        }
+      }
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
