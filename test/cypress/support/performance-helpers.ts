@@ -93,9 +93,9 @@ export function monitorApiPerformance () {
       const endpoint = `${req.method} ${req.url.split('?')[0]}`
       apiTimes[endpoint] = duration
 
-      // Log slow API calls
+      // Store slow API calls for later logging (can't use cy.task inside callback)
       if (duration > 2000) {
-        cy.task('log', `Slow API call detected: ${endpoint} took ${duration}ms`)
+        apiTimes[`${endpoint}_SLOW`] = duration
       }
     })
   }).as('apiCalls')
@@ -162,14 +162,53 @@ export function generatePerformanceReport (metrics: PerformanceMetrics) {
 
 // Cypress commands for performance testing
 Cypress.Commands.add('measurePagePerformance', (thresholds?: PerformanceThresholds) => {
-  return trackPagePerformance().then((metrics: PerformanceMetrics) => {
+  // Use cy.window() instead of trackPagePerformance() to stay in Cypress chain
+  return cy.window().then((win): PerformanceMetrics => {
+    const navigation = win.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+    const paint = win.performance.getEntriesByType('paint')
+
+    const metrics: PerformanceMetrics = {
+      pageLoadTime: navigation.loadEventEnd - navigation.fetchStart,
+      domContentLoadedTime: navigation.domContentLoadedEventEnd - navigation.fetchStart,
+      apiResponseTimes: {},
+      resourceLoadTimes: {}
+    }
+
+    // First Contentful Paint
+    const fcp = paint.find(entry => entry.name === 'first-contentful-paint')
+    if (fcp) {
+      metrics.firstContentfulPaint = fcp.startTime
+    }
+
+    // Largest Contentful Paint (if available)
+    if ('PerformanceObserver' in win) {
+      const lcpElement = win.document.querySelector('[data-lcp]')
+      if (lcpElement) {
+        metrics.largestContentfulPaint = parseFloat(lcpElement.getAttribute('data-lcp-time') || '0')
+      }
+    }
+
+    // Get resource timings
+    const resources = win.performance.getEntriesByType('resource') as PerformanceResourceTiming[]
+    resources.forEach(resource => {
+      const url = new URL(resource.name)
+      const key = `${url.pathname}${url.search}`
+      metrics.resourceLoadTimes[key] = resource.responseEnd - resource.requestStart
+    })
+
+    return metrics
+  }).then((metrics) => {
     const validation = validatePerformance(metrics, thresholds)
     const report = generatePerformanceReport(metrics)
 
-    // Log performance summary using cy.then to ensure proper chaining
-    return cy.task('log', `Performance Report: Page Load ${metrics.pageLoadTime}ms, APIs: ${report.summary.totalApiCalls} (avg ${Math.round(report.summary.averageApiTime)}ms)`).then(() => {
+    // Log performance summary
+    const logMessage = `Performance Report: Page Load ${metrics.pageLoadTime}ms, APIs: ${report.summary.totalApiCalls} (avg ${Math.round(report.summary.averageApiTime || 0)}ms)`
+
+    return cy.task('log', logMessage).then(() => {
       if (!validation.passed) {
-        return cy.task('log', `Performance issues detected: ${validation.failures.join(', ')}`).then(() => {
+        const failureMessage = `Performance issues detected: ${validation.failures.join(', ')}`
+
+        return cy.task('log', failureMessage).then(() => {
           // In CI, we might want this to fail the test
           if (Cypress.env('FAIL_ON_PERFORMANCE_ISSUES')) {
             throw new Error(`Performance thresholds exceeded: ${validation.failures.join(', ')}`)
