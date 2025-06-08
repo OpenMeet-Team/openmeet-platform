@@ -11,12 +11,12 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 // Helper function to get tenant ID from config
-function getTenantId() {
+function getTenantId () {
   // First try environment variable
   if (process.env.APP_TENANT_ID) {
     return process.env.APP_TENANT_ID
   }
-  
+
   // Fallback to reading from config.json
   try {
     const configPath = join(process.cwd(), 'public/config.json')
@@ -146,21 +146,21 @@ export default configure((ctx) => {
         '/sitemap.xml': {
           target: process.env.APP_API_URL || 'http://localhost:3000',
           changeOrigin: true,
-          rewrite: (path, req) => {
+          rewrite: () => {
             const tenantId = getTenantId()
             if (!tenantId) {
               throw new Error('APP_TENANT_ID not found in environment variables or config.json')
             }
-            
+
             return `/api/sitemap/sitemap.xml?tenantId=${tenantId}`
           },
           configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq, req, res) => {
+            proxy.on('proxyReq', (proxyReq) => {
               const tenantId = getTenantId()
               if (!tenantId) {
                 throw new Error('APP_TENANT_ID not found in environment variables or config.json')
               }
-              
+
               proxyReq.setHeader('x-tenant-id', tenantId)
             })
           }
