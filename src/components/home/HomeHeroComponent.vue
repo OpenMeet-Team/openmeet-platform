@@ -1,6 +1,6 @@
 <template>
   <!-- HeroHomeComponent -->
-  <div class="col-12 q-mb-xl">
+  <div class="col-12 q-mb-md">
     <div class="hero-container">
       <img src="../../assets/openmeet/home/loops-min.png" alt="" class="background-loops">
       <div class="floating-profiles">

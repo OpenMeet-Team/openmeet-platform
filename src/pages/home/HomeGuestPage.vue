@@ -6,16 +6,17 @@
       <HomeHeroComponent />
 
       <!-- Introduction Section -->
-      <div class="col-12 q-mt-lg">
-        <div class="q-px-md">
-          <div class="text-body1 q-mb-md">
-            Connect with your community through interest groups, professional networks, and local events. OpenMeet makes it easy to find like-minded people and organize meaningful gatherings.
-          </div>
-
-          <div class="text-body2">
-            <strong>Private by design.</strong> No ads, no data selling, just real connections.
-          </div>
-        </div>
+      <div class="col-12">
+        <q-card flat bordered :class="Dark.isActive ? 'bg-purple-600' : 'bg-purple-100'">
+          <q-card-section>
+            <p :class="Dark.isActive ? 'text-white' : ''">
+              <span class="text-h5" :class="Dark.isActive ? 'text-purple-200' : 'text-purple-400'">OpenMeet</span> is a community platform that helps you discover and organize local events, join interest groups, and build meaningful connections with people who share your interests and passions.
+            </p>
+            <p class="q-mt-md" :class="Dark.isActive ? 'text-white' : ''">
+              <strong>Private by design.</strong> No ads, no data selling, just real connections.
+            </p>
+          </q-card-section>
+        </q-card>
       </div>
 
       <!-- Quick actions section similar to logged-in view -->
