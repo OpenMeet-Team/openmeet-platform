@@ -1,6 +1,19 @@
 import { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
+  // Sitemap routes - must be before main layout
+  {
+    path: '/sitemap.xml',
+    name: 'SitemapPage',
+    component: () => import('pages/SitemapPage.vue'),
+    meta: { layout: false }
+  },
+  {
+    path: '/sitemap',
+    name: 'SitemapAlias',
+    component: () => import('pages/SitemapPage.vue'),
+    meta: { layout: false }
+  },
   {
     path: '/',
     component: () => import('layouts/AppLayout.vue'),
