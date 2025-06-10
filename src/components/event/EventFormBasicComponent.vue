@@ -147,7 +147,7 @@
 
             <div class="row items-center q-col-gutter-md">
               <div class="col-12 col-sm-6">
-                <UploadComponent data-cy="event-image" label="Event image" @upload="onEventImageSelect" />
+                <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" />
               </div>
 
               <div class="col-12 col-sm-6" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path">

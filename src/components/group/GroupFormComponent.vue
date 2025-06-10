@@ -82,7 +82,7 @@
 
           <div class="row items-center q-col-gutter-md">
             <div class="col-12 col-sm-6">
-              <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 3 / 2 }"
+              <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
                 @upload="onGroupImageSelect" />
             </div>
 
