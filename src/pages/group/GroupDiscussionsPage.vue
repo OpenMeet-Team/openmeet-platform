@@ -57,15 +57,8 @@ const initializeGroupDiscussions = async () => {
       await messageStore.initializeMatrix()
     }
 
-    // Load or refresh group discussion data
-    await groupStore.actionGetGroupDiscussions(group.value.slug)
-
-    // Ensure we have a room ID
-    if (!group.value.roomId) {
-      console.warn('Missing roomId for group discussions - attempting to fetch from messages API')
-      // The actionGetGroupDiscussionMessages method will update the roomId in the group object
-      await groupStore.actionGetGroupDiscussionMessages()
-    }
+    // Group discussion data is now handled by the MessagesComponent via the chat API
+    // Legacy discussions API calls have been removed
   } catch (err) {
     console.error('Error initializing group discussions:', err)
     errorMessage.value = 'Failed to load group discussions. Please try again.'

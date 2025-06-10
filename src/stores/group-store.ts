@@ -71,8 +71,6 @@ export const useGroupStore = defineStore('group', {
         if (this.group) {
           this.group.events = res.data.events
           this.group.groupMembers = res.data.groupMembers
-          this.group.messages = res.data.messages
-          this.group.topics = res.data.topics
         }
       } catch (err) {
         console.log(err)
@@ -95,18 +93,6 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.getEvents(slug)
         if (this.group) {
           this.group.events = res.data
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to fetch group data')
-      }
-    },
-    async actionGetGroupDiscussions (slug: string) {
-      try {
-        const res = await groupsApi.getDiscussions(slug)
-        if (this.group) {
-          this.group.messages = res.data.messages
-          this.group.topics = res.data.topics
         }
       } catch (err) {
         console.log(err)
@@ -275,38 +261,6 @@ export const useGroupStore = defineStore('group', {
         }
 
         return { messages: [], end: '' }
-      }
-    },
-
-    /**
-     * Delete a message from the group discussion
-     * Uses the legacy API for now until the chat API is updated to support deletion
-     */
-    async actionDeleteGroupDiscussionMessage (messageId: number): Promise<number | undefined> {
-      try {
-        if (this.group?.slug) {
-          const res = await groupsApi.deleteDiscussionMessage(this.group.slug, messageId)
-          return res.data.id
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to delete group discussion message')
-      }
-    },
-
-    /**
-     * Update a message in the group discussion
-     * Uses the legacy API for now until the chat API is updated to support updates
-     */
-    async actionUpdateGroupDiscussionMessage (messageId: number, message: string): Promise<number | undefined> {
-      try {
-        if (this.group?.slug) {
-          const res = await groupsApi.updateDiscussionMessage(this.group.slug, messageId, message)
-          return res.data.id
-        }
-      } catch (err) {
-        console.log(err)
-        error('Failed to update group discussion message')
       }
     },
 

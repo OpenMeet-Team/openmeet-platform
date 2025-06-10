@@ -73,7 +73,7 @@
           <div class="text-subtitle2 q-mb-sm">Group Location</div>
           <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number"
             :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location"
-            placeholder="Neighborhood, city or zip" />
+            placeholder="Enter address or location" />
         </div>
 
         <!-- Group Image -->
@@ -87,8 +87,8 @@
             </div>
 
             <div class="col-12 col-sm-6" v-if="group && group.image && group.image.path">
-              <q-img ratio="16/9" :src="group.image.path" spinner-color="white"
-                class="rounded-borders" style="height: 120px; max-width: 220px" />
+              <q-img ratio="3/2" :src="group.image.path" spinner-color="white"
+                class="rounded-borders" style="height: 120px; max-width: 180px" />
             </div>
           </div>
         </div>
@@ -110,16 +110,16 @@
             option-label="label" emit-value map-options :options="[
               { label: 'The World', value: 'public' },
               { label: 'Authenticated Users', value: 'authenticated' },
-              { label: 'People You Invite', value: 'private' }
+              { label: 'Private Group', value: 'private' }
             ]" filled />
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Private">
-            Require approval for new group members. Not found in search and membership availabe only with group invite.
+            Only invited members can view and join this group. Not found in search and membership available only with group invite.
           </p>
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Authenticated">
-            Members must be authenticated. Found in search for authenticated users and can be joined by anyone with the link.
+            Only logged-in users can view and join. Found in search for authenticated users.
           </p>
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Public">
-            Everyone can join. Found in search.
+            Anyone can view and join this group. Found in search.
           </p>
         </div>
 

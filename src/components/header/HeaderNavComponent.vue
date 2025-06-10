@@ -1,16 +1,21 @@
 <script setup type="ts">
-import { useGroupDialog } from 'src/composables/useGroupDialog.ts'
 import { useEventDialog } from 'src/composables/useEventDialog.ts'
 import { useAuthStore } from '../../stores/auth-store.ts'
 import { useAuth } from 'src/composables/useAuth.ts'
+import { useRouter } from 'vue-router'
 
-const { openCreateGroupDialog } = useGroupDialog()
+const router = useRouter()
 const { goToCreateEvent } = useEventDialog()
 const { goToLogin } = useAuth()
 
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateGroupDialog()
+    router.push({
+      name: 'DashboardGroupCreatePage',
+      query: {
+        redirect: router.currentRoute.value.fullPath
+      }
+    })
   } else {
     goToLogin()
   }

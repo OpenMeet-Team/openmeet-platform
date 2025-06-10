@@ -1,53 +1,67 @@
 <template>
   <div :class="$attrs.class" class="relative relative-position">
-    <q-select
-      class="location-select"
-      ref="selectRef"
-      data-cy="location-select"
-      :label="label"
-      :placeholder="placeholder"
-      :model-value="location"
-      :filled="filled"
-      :outlined="outlined"
-      debounce="500"
-      :rules="rules"
-      :clearable="clearable"
-      @clear="onClear"
-      use-input
-      option-label="display_name"
-      hide-dropdown-icon
-      :loading="loading"
-      @update:model-value="selectLocation"
-      :options="locationSuggestions"
-      @blur="locationSuggestions = []"
-      @input-value="fetchLocationSuggestions"
-    >
-      <template v-slot:selected>
-        <span class="text-no-wrap overflow-hidden ellipsis" style="max-width: 70%">{{ location }}</span>
-      </template>
-      <template v-slot:append v-if="!hideSearchIcon">
-        <q-icon name="sym_r_search"/>
-      </template>
-      <template v-slot:prepend>
-        <q-icon :name="'sym_r_map'" @mousedown.stop="openProxyDialog"/>
-      </template>
-      <template v-slot:before-options>
-        <MenuItemComponent icon="sym_r_add_location_alt" @click="openProxyDialog" label="Add a New Address"/>
-      </template>
-      <template v-slot:no-option>
-        <MenuItemComponent icon="sym_r_add_location_alt" @click="openProxyDialog" label="Add a New Address"/>
-      </template>
-      <template v-slot:option="scope">
-        <q-item class="wrap" data-cy="location-item" v-bind="scope.itemProps">
-          <q-item-section side>
-            <q-icon name="sym_r_line_start_circle" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label data-cy="location-item-label">{{ scope.label }}</q-item-label>
-          </q-item-section>
-        </q-item>
-      </template>
-    </q-select>
+    <div class="location-input-container">
+      <!-- Input field row -->
+      <q-select
+        class="location-select"
+        ref="selectRef"
+        data-cy="location-select"
+        :label="label"
+        :placeholder="placeholder"
+        :hint="hint"
+        :model-value="''"
+        :filled="filled"
+        :outlined="outlined"
+        debounce="500"
+        :rules="rules"
+        use-input
+        option-label="display_name"
+        hide-dropdown-icon
+        hide-selected
+        :loading="loading"
+        @update:model-value="selectLocation"
+        :options="locationSuggestions"
+        @blur="locationSuggestions = []"
+        @input-value="fetchLocationSuggestions"
+      >
+        <template v-slot:append v-if="!hideSearchIcon">
+          <q-icon name="sym_r_search"/>
+        </template>
+        <template v-slot:prepend>
+          <q-icon :name="'sym_r_map'" @mousedown.stop="openProxyDialog"/>
+        </template>
+        <template v-slot:before-options>
+          <MenuItemComponent icon="sym_r_add_location_alt" @click="openProxyDialog" label="Select from map"/>
+        </template>
+        <template v-slot:no-option>
+          <MenuItemComponent icon="sym_r_add_location_alt" @click="openProxyDialog" label="Select from map"/>
+        </template>
+        <template v-slot:option="scope">
+          <q-item class="wrap" data-cy="location-item" v-bind="scope.itemProps">
+            <q-item-section side>
+              <q-icon name="sym_r_line_start_circle" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label data-cy="location-item-label">{{ scope.label }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </template>
+      </q-select>
+
+      <!-- Selected address chip row -->
+      <div v-if="location" class="selected-address-row q-mt-sm">
+        <q-chip
+          removable
+          @remove="onClear"
+          color="primary"
+          text-color="white"
+          icon="sym_r_location_on"
+          class="q-ma-none"
+        >
+          <span class="text-no-wrap overflow-hidden ellipsis">{{ location }}</span>
+        </q-chip>
+      </div>
+    </div>
 
 <!--    <q-list :class="[Dark.isActive ? 'bg-dark' : 'bg-white','absolute absolute-left absolute-right']" bordered v-if="searchQuery.length > 3" style="z-index: 1">-->
 <!--    <q-list bordered v-if="searchQuery.length > 3">-->
@@ -99,6 +113,7 @@ interface Props {
   label?: string
   location?: string
   placeholder?: string
+  hint?: string
   lat?: number
   lon?: number
   rules?: ValidationRule[]
@@ -178,8 +193,19 @@ const selectLocation = (suggestion: OSMLocationSuggestion | null) => {
 </script>
 
 <style scoped>
+.location-input-container {
+  width: 100%;
+}
+
 .location-select :deep(.q-field__native)  {
   flex-wrap: nowrap;
 }
-/* Optional styles for the component */
+
+.selected-address-row {
+  padding-left: 4px;
+}
+
+.selected-address-row .q-chip {
+  font-size: 0.875rem;
+}
 </style>
