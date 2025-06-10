@@ -2,16 +2,16 @@
   <!-- HeroHomeComponent -->
   <div class="col-12 q-mb-md">
     <div class="hero-container">
-      <img src="../../assets/openmeet/home/loops-min.png" alt="" class="background-loops">
+      <img src="../../assets/openmeet/home/loops-min.png" alt="" class="background-loops" width="100%" height="240" style="object-fit: cover;">
       <div class="floating-profiles">
         <div class="bubble-wrapper-left bubble-left">
           <q-avatar class="profile-left">
-            <img src="../../assets/openmeet/home/young-woman1-min.png" alt="Profile 1">
+            <img src="../../assets/openmeet/home/young-woman1-min.png" alt="Profile 1" width="160" height="160" style="object-fit: cover;">
           </q-avatar>
         </div>
         <div class="bubble-wrapper-right bubble-right">
           <q-avatar class="profile-right">
-            <img src="../../assets/openmeet/home/older-gentleman-min.png" alt="Profile 2">
+            <img src="../../assets/openmeet/home/older-gentleman-min.png" alt="Profile 2" width="160" height="160" style="object-fit: cover;">
           </q-avatar>
         </div>
       </div>

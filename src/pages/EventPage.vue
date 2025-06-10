@@ -6,7 +6,13 @@
       <div class="col-12 col-md-8">
         <!-- 1. Photo -->
         <q-card>
-          <q-img data-cy="event-image" :src="getImageSrc(event.image)" />
+          <q-img
+            data-cy="event-image"
+            :src="getImageSrc(event.image)"
+            :ratio="16/9"
+            spinner-color="primary"
+            style="min-height: 300px"
+          />
         </q-card>
 
         <!-- 2. Description -->

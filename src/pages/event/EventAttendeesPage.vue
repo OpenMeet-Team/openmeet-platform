@@ -41,12 +41,34 @@
         </div>
 
         <!-- Attendees list -->
-        <q-list bordered separator v-if="filteredAttendees.length">
+        <!-- Loading skeleton -->
+        <q-list bordered separator v-if="isLoading">
+          <q-item v-for="n in 5" :key="n" class="q-py-md">
+            <q-item-section avatar>
+              <q-skeleton type="QAvatar" size="48px" />
+            </q-item-section>
+            <q-item-section>
+              <q-skeleton type="text" width="60%" />
+              <q-skeleton type="text" width="40%" class="text-caption" />
+            </q-item-section>
+            <q-item-section side>
+              <q-skeleton type="QBadge" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+
+        <!-- Actual attendees list -->
+        <q-list bordered separator v-else-if="filteredAttendees.length">
           <q-item v-for="attendee in filteredAttendees" :key="attendee.id"
             class="q-py-md">
             <q-item-section avatar @click="viewProfile(attendee)" class="cursor-pointer">
-              <q-avatar>
-                <q-img :src="getImageSrc(attendee.user.photo?.path)" :alt="attendee.user.name" />
+              <q-avatar size="48px">
+                <q-img
+                  :src="getImageSrc(attendee.user.photo?.path)"
+                  :alt="attendee.user.name"
+                  style="width: 48px; height: 48px"
+                  spinner-color="primary"
+                />
               </q-avatar>
             </q-item-section>
 

@@ -27,6 +27,9 @@ const { navigateToGroup } = useNavigation()
         class="cursor-pointer group-image"
         @click="navigateToGroup(group)"
         :ratio="16 / 9"
+        style="min-height: 150px"
+        spinner-color="primary"
+        loading="lazy"
       />
     </div>
 
@@ -83,6 +86,7 @@ const { navigateToGroup } = useNavigation()
       .group-image {
         border-radius: 8px;
         overflow: hidden;
+        min-height: 150px;
       }
     }
 
@@ -112,6 +116,7 @@ const { navigateToGroup } = useNavigation()
       .group-image {
         border-radius: 8px;
         overflow: hidden;
+        min-height: 150px;
       }
     }
 

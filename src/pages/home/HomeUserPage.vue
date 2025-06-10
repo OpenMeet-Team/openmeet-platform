@@ -3,7 +3,6 @@ import { onMounted, computed } from 'vue'
 import { LoadingBar, useQuasar } from 'quasar'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
 import { useAuthStore } from '../../stores/auth-store'
-import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import { useHomeStore } from '../../stores/home-store'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
@@ -79,9 +78,7 @@ const onCalendarDateSelect = () => {
 
 <template>
   <q-page padding data-cy="home-user-page">
-    <SpinnerComponent v-if="useHomeStore().loading" />
-
-    <div v-if="!useHomeStore().loading">
+    <div>
       <!-- Introduction to OpenMeet -->
       <q-card flat bordered class="q-mb-md" :class="$q.dark.isActive ? 'bg-purple-600' : 'bg-purple-100'">
         <q-card-section>

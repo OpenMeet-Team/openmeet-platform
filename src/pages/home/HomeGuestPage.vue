@@ -1,7 +1,6 @@
 <template>
   <q-page padding>
-    <SpinnerComponent v-if="useHomeStore().loading" />
-    <div v-if="!useHomeStore().loading" class="row q-col-gutter-md">
+    <div class="row q-col-gutter-md">
 
       <HomeHeroComponent />
 
@@ -93,7 +92,6 @@ import { onMounted, computed } from 'vue'
 import { Dark, LoadingBar, useMeta } from 'quasar'
 import { useAuth } from '../../composables/useAuth'
 import { useHomeStore } from '../../stores/home-store'
-import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import HomeHeroComponent from '../../components/home/HomeHeroComponent.vue'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import { GroupEntity } from '../../types/group'
