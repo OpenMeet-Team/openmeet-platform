@@ -56,16 +56,16 @@
             </q-item-section>
           </q-item>
         </q-list>
-        
+
         <!-- Actual attendees list -->
         <q-list bordered separator v-else-if="filteredAttendees.length">
           <q-item v-for="attendee in filteredAttendees" :key="attendee.id"
             class="q-py-md">
             <q-item-section avatar @click="viewProfile(attendee)" class="cursor-pointer">
               <q-avatar size="48px">
-                <q-img 
-                  :src="getImageSrc(attendee.user.photo?.path)" 
-                  :alt="attendee.user.name" 
+                <q-img
+                  :src="getImageSrc(attendee.user.photo?.path)"
+                  :alt="attendee.user.name"
                   style="width: 48px; height: 48px"
                   spinner-color="primary"
                 />

@@ -2,7 +2,6 @@
 import { GroupEntity } from '../../types'
 import GroupsItemComponent from './GroupsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
-import SpinnerComponent from '../common/SpinnerComponent.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { RouteLocationRaw } from 'vue-router'
 
@@ -49,7 +48,29 @@ const onPageChange = (page: number) => {
       :hide-link="hideLink"
       :link-text="linkText"
     />
-    <SpinnerComponent v-if="loading" />
+    <!-- Loading skeleton -->
+    <div
+      v-if="loading"
+      :class="[
+        'groups-container',
+        { 'groups-grid': layout === 'grid' }
+      ]"
+    >
+      <div v-for="n in 6" :key="n" class="group-skeleton" :class="layout">
+        <div class="skeleton-image">
+          <q-skeleton height="150px" />
+        </div>
+        <div class="skeleton-content">
+          <q-skeleton type="text" width="70%" class="q-mb-sm" />
+          <q-skeleton type="text" width="50%" class="q-mb-xs" />
+          <q-skeleton type="text" width="40%" class="q-mb-xs" />
+          <div class="skeleton-footer">
+            <q-skeleton type="text" width="30%" class="q-mr-sm" />
+            <q-skeleton type="QBadge" />
+          </div>
+        </div>
+      </div>
+    </div>
 
     <template v-else>
       <!-- Groups Grid/List -->
@@ -89,6 +110,68 @@ const onPageChange = (page: number) => {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1rem;
+  }
+}
+
+.group-skeleton {
+  margin-bottom: 16px;
+
+  &.grid {
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+
+    .skeleton-image {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .skeleton-content {
+      padding: 16px;
+      flex: 1;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 8px;
+    }
+  }
+
+  &.list {
+    display: flex;
+    align-items: stretch;
+    min-height: 150px;
+
+    .skeleton-image {
+      width: 300px;
+      min-width: 100px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .skeleton-content {
+      padding: 16px;
+      flex: 1;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+  }
+}
+
+.skeleton-footer {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .group-skeleton.list {
+    flex-direction: column;
+
+    .skeleton-image {
+      width: 100%;
+      min-width: 0;
+    }
   }
 }
 </style>

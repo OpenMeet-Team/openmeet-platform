@@ -2,7 +2,6 @@
 import { EventEntity } from '../../types'
 import EventsItemComponent from './EventsItemComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
-import SpinnerComponent from '../common/SpinnerComponent.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { RouteLocationRaw } from 'vue-router'
 
@@ -121,18 +120,18 @@ const onPageChange = (page: number) => {
 
 .event-skeleton {
   margin-bottom: 16px;
-  
+
   &.grid {
     display: flex;
     flex-direction: column;
     height: 300px;
-    
+
     .skeleton-image {
       width: 100%;
       border-radius: 8px;
       overflow: hidden;
     }
-    
+
     .skeleton-content {
       padding: 16px;
       flex: 1;
@@ -140,19 +139,19 @@ const onPageChange = (page: number) => {
       border-radius: 8px;
     }
   }
-  
+
   &.list {
     display: flex;
     align-items: stretch;
     min-height: 150px;
-    
+
     .skeleton-image {
       width: 300px;
       min-width: 100px;
       border-radius: 8px;
       overflow: hidden;
     }
-    
+
     .skeleton-content {
       padding: 16px;
       flex: 1;
@@ -173,7 +172,7 @@ const onPageChange = (page: number) => {
 @media (max-width: 700px) {
   .event-skeleton.list {
     flex-direction: column;
-    
+
     .skeleton-image {
       width: 100%;
       min-width: 0;

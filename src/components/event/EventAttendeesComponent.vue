@@ -7,10 +7,10 @@
           <q-item v-for="attendee in event.attendees" :key="attendee.id" clickable class="q-px-sm"
             @click="router.push({ name: 'MemberPage', params: { slug: attendee.user?.slug } })">
             <q-avatar avatar rounded size="48px">
-              <q-img 
-                :src="getImageSrc(attendee.user?.photo)" 
-                :ratio="1" 
-                :alt="attendee.user?.name" 
+              <q-img
+                :src="getImageSrc(attendee.user?.photo)"
+                :ratio="1"
+                :alt="attendee.user?.name"
                 style="width: 48px; height: 48px"
                 spinner-color="primary"
               />
