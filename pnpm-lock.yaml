@@ -166,7 +166,7 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2(vite@5.4.19(@types/node@22.15.31)(sass-embedded@1.89.2)(terser@5.42.0))
       vitest:
-        specifier: ^2.1.4
+        specifier: ^2.1.9
         version: 2.1.9(@types/node@22.15.31)(@vitest/ui@2.1.9)(happy-dom@15.11.7)(sass-embedded@1.89.2)(terser@5.42.0)
       vue-router-mock:
         specifier: ^1.1.0
@@ -5963,7 +5963,7 @@ snapshots:
       '@babel/preset-env': 7.27.2(@babel/core@7.27.4)
       babel-loader: 10.0.0(@babel/core@7.27.4)(webpack@5.99.9)
       bluebird: 3.7.1
-      debug: 4.4.0
+      debug: 4.4.1(supports-color@8.1.1)
       lodash: 4.17.21
       semver: 7.7.2
       webpack: 5.99.9
