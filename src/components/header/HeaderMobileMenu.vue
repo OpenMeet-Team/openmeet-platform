@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useEventDialog } from '../../composables/useEventDialog'
 import { useAuthStore } from '../../stores/auth-store'
 import { useAuth } from '../../composables/useAuth'
@@ -8,14 +7,19 @@ import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
 import HeaderDarkModeComponent from '../../components/header/HeaderDarkModeComponent.vue'
 import { useRouter } from 'vue-router'
 
-const { openCreateGroupDialog } = useGroupDialog()
 const { goToCreateEvent } = useEventDialog()
 const { goToLogin, goToRegister } = useAuth()
 
 const router = useRouter()
 const openCreateGroupForm = () => {
   if (useAuthStore().isAuthenticated) {
-    openCreateGroupDialog()
+    router.push({
+      name: 'DashboardGroupCreatePage',
+      query: {
+        redirect: router.currentRoute.value.fullPath
+      }
+    })
+    rightDrawerOpen.value = false
   } else {
     goToLogin()
   }
