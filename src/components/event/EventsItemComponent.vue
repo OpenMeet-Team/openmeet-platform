@@ -34,6 +34,8 @@ const formatSeriesSlug = (slug: string): string => {
         @click="navigateToEvent(event)"
         :src="getImageSrc(event.image)"
         :ratio="16 / 9"
+        style="min-height: 150px"
+        spinner-color="primary"
       />
     </div>
 
@@ -106,6 +108,7 @@ const formatSeriesSlug = (slug: string): string => {
       .event-image {
         border-radius: 8px;
         min-width: 100px;
+        min-height: 150px;
 
         :deep(.q-img__content) {
           background-size: cover;
@@ -142,6 +145,7 @@ const formatSeriesSlug = (slug: string): string => {
         border-radius: 8px;
         overflow: hidden;
         min-width: 100px;
+        min-height: 150px;
       }
     }
 
