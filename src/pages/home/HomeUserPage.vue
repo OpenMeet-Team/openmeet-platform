@@ -11,7 +11,6 @@ import { useNavigation } from '../../composables/useNavigation'
 import { GroupEntity, EventEntity } from '../../types'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
-import { useGroupDialog } from '../../composables/useGroupDialog'
 import { useEventDialog } from '../../composables/useEventDialog'
 import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarComponent.vue'
 import { EventAttendeeStatus } from '../../types/event'
@@ -35,7 +34,6 @@ const router = useRouter()
 const $q = useQuasar()
 
 const { navigateToEvent } = useNavigation()
-const { openCreateGroupDialog } = useGroupDialog()
 const { goToCreateEvent } = useEventDialog()
 
 onMounted(() => {
@@ -125,7 +123,7 @@ const onCalendarDateSelect = () => {
                 no-caps
                 unelevated
                 class="q-px-md"
-                @click="openCreateGroupDialog()"
+                @click="router.push({ name: 'DashboardGroupCreatePage' })"
               />
             </div>
             <div class="col-auto">
@@ -335,7 +333,7 @@ const onCalendarDateSelect = () => {
             </q-card>
           </div>
           <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="openCreateGroupDialog()">
+            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'DashboardGroupCreatePage' })">
               <q-card-section>
                 <q-icon name="sym_r_add_circle" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
                 <div class="text-h6 q-mt-sm">Create Group</div>

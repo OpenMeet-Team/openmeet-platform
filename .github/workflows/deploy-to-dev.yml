@@ -41,6 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout infrastructure repository
+        if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@v4
         with:
           repository: openmeet-team/openmeet-infrastructure
@@ -95,6 +96,7 @@ jobs:
         run: aws eks update-kubeconfig --name openmeet-prod --region ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Deploy to dev environment
+        if: github.actor != 'dependabot[bot]'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
@@ -132,6 +134,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout infrastructure repository
+        if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@v4
         with:
           repository: openmeet-team/openmeet-infrastructure
