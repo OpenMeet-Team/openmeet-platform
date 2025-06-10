@@ -49,6 +49,7 @@ jobs:
           token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
 
       - name: Configure AWS credentials
+        if: github.actor != 'dependabot[bot]'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -56,6 +57,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Login to Amazon ECR
+        if: github.actor != 'dependabot[bot]'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -66,6 +68,7 @@ jobs:
           echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Build, tag, and push image to Amazon ECR
+        if: github.actor != 'dependabot[bot]'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: openmeet-ecr/openmeet-platform
@@ -88,11 +91,13 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:pr-$PR_NUMBER
 
       - name: Install kubectl
+        if: github.actor != 'dependabot[bot]'
         uses: azure/setup-kubectl@v3
         with:
           version: 'v1.30.1'
 
       - name: Update kubeconfig
+        if: github.actor != 'dependabot[bot]'
         run: aws eks update-kubeconfig --name openmeet-prod --region ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Deploy to dev environment
@@ -143,6 +148,7 @@ jobs:
           token: ${{ secrets.GH_PAT_INFRASTRUCTURE }}
 
       - name: Configure AWS credentials
+        if: github.actor != 'dependabot[bot]'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -150,6 +156,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Login to Amazon ECR
+        if: github.actor != 'dependabot[bot]'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -177,6 +184,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Install kubectl
+        if: github.actor != 'dependabot[bot]'
         uses: azure/setup-kubectl@v3
         with:
           version: 'v1.30.1'
