@@ -65,7 +65,7 @@
         <div class="q-mb-md">
           <div class="text-subtitle2 q-mb-sm">Categories</div>
           <q-select data-cy="group-categories" v-model="group.categories" :options="categoryOptions" filled multiple use-chips
-            emit-value map-options option-value="id" option-label="name" label="Categories (press Enter after each)" />
+            emit-value map-options option-value="id" option-label="name" label="Categories" />
         </div>
 
         <!-- Group Location -->
