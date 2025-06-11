@@ -42,7 +42,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(date-fns@4.1.0)
       dompurify:
-        specifier: ^3.1.7
+        specifier: ^3.2.6
         version: 3.2.6
       dotenv:
         specifier: ^16.4.5
