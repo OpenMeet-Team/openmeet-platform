@@ -388,7 +388,7 @@ const refreshOccurrencesPreview = async () => {
         date: occurrence.date,
         eventSlug: occurrence.event?.slug || null,
         materialized: occurrence.materialized
-      }))
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     } else {
       // For new series, we need to handle this differently
 
@@ -435,7 +435,7 @@ const refreshOccurrencesPreview = async () => {
         date: occurrence.date,
         eventSlug: null,
         materialized: false
-      }))
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
       console.log('Received occurrences from temporary series API:', upcomingOccurrences.value)
     }
