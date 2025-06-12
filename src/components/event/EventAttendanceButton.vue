@@ -22,7 +22,7 @@
       color="primary"
       outline
       @click="handleTemplateAttend"
-      :label="'Click here to schedule & attend'"
+      :label="'RSVP: Schedule & attend this event'"
       no-caps
       class="full-width"
     />
@@ -40,39 +40,28 @@
       Only organizers can schedule events
     </q-btn>
 
-    <!-- No RSVP yet - Show both options -->
-    <div v-else-if="!attendee" class="q-gutter-sm">
+    <!-- Not Attending or Cancelled State - Show both options -->
+    <div v-else-if="!attendee || attendee.status === EventAttendeeStatus.Cancelled" class="rsvp-button-group">
       <q-btn
         data-cy="event-attend-button"
-        color="primary"
-        outline
+        color="positive"
+        icon="sym_r_check_circle"
         @click="handleAttend"
-        :label="event.requireApproval ? 'Attending (pending approval)' : 'Attending'"
+        :label="event.requireApproval ? 'RSVP: Yes, I\'m attending (pending approval)' : 'RSVP: Yes, I\'m attending'"
         no-caps
-        class="full-width"
+        class="full-width rsvp-yes-button"
       />
       <q-btn
-        data-cy="event-not-attending-button"
+        data-cy="event-decline-button"
         color="grey-7"
+        icon="sym_r_cancel"
         outline
-        @click="handleNotAttending"
-        label="Not attending"
+        @click="handleDecline"
+        label="RSVP: No, I can't attend"
         no-caps
-        class="full-width"
+        class="full-width rsvp-no-button"
       />
     </div>
-
-    <!-- Already RSVP'd No (Cancelled State) -->
-    <q-btn
-      data-cy="event-not-attending-status"
-      v-else-if="attendee.status === EventAttendeeStatus.Cancelled"
-      color="grey-7"
-      outline
-      @click="handleAttend"
-      label="Not attending - Click to change to attending"
-      no-caps
-      class="full-width"
-    />
 
     <!-- Pending Approval State -->
     <q-btn
@@ -91,26 +80,28 @@
     <q-btn
       data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Waitlist"
-      color="orange"
+      color="grey-7"
+      icon="sym_r_cancel"
       outline
       @click="handleLeave"
       no-caps
-      class="full-width"
+      class="full-width rsvp-no-button"
     >
-      Click here to leave waitlist
+      RSVP: No, I can't attend (leave waitlist)
     </q-btn>
 
     <!-- Attending State -->
     <q-btn
       data-cy="event-attend-button"
       v-else-if="attendee.status === EventAttendeeStatus.Confirmed"
-      color="negative"
+      color="grey-7"
+      icon="sym_r_cancel"
       outline
       @click="handleLeave"
       no-caps
-      class="full-width"
+      class="full-width rsvp-no-button"
     >
-      Click here to leave this event
+      RSVP: No, I can't attend
     </q-btn>
   </div>
 </template>
@@ -382,7 +373,7 @@ const handleAttend = async () => {
   }
 }
 
-const handleNotAttending = async () => {
+const handleDecline = async () => {
   if (!authStore.isFullyAuthenticated) {
     console.log('User not authenticated, opening login dialog')
     goToLogin()
@@ -394,17 +385,15 @@ const handleNotAttending = async () => {
     // Verify auth status again to ensure token is valid
     await authSession.checkAuthStatus()
 
-    console.log('Setting RSVP to not attending (cancelled status)')
-    const attendee = await eventStore.actionAttendEvent(props.event.slug, {
-      status: EventAttendeeStatus.Cancelled
-    })
-    console.log('Not attending API response:', attendee)
+    console.log('Declining attendance for event:', props.event.slug)
+
+    // Create attendance record with cancelled status
+    await eventStore.actionAttendEvent(props.event.slug, { status: EventAttendeeStatus.Cancelled })
 
     // Force a refresh of event data to ensure UI reflects the latest state
     const eventSlug = props.event.slug
     window.lastEventAttendanceCheck[eventSlug] = Date.now()
     await eventStore.actionGetEventBySlug(eventSlug)
-    console.log('Updated event data after RSVP no:', eventStore.event?.attendee?.status)
 
     // Emit a custom event to notify other components about the status change
     window.dispatchEvent(new CustomEvent('attendee-status-changed', {
@@ -414,14 +403,13 @@ const handleNotAttending = async () => {
         timestamp: Date.now()
       }
     }))
-    console.log('Emitted attendee-status-changed event with cancelled status')
 
     $q.notify({
       type: 'info',
-      message: 'RSVP updated to not attending'
+      message: 'RSVP updated - you have declined this event'
     })
   } catch (error) {
-    console.error('Error setting not attending status:', error)
+    console.error('Error declining event:', error)
     $q.notify({
       type: 'negative',
       message: 'Failed to update RSVP. Please try again.'
@@ -501,5 +489,44 @@ const handleLeave = async () => {
 
 <style lang="scss" scoped>
 .attendance-button {
+  .rsvp-button-group {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rsvp-yes-button {
+    font-weight: 600;
+
+    &:not(.q-btn--outline) {
+      background: var(--q-positive);
+      color: white;
+    }
+
+    &.q-btn--outline {
+      border-color: var(--q-positive);
+      color: var(--q-positive);
+
+      &:hover {
+        background: var(--q-positive);
+        color: white;
+      }
+    }
+  }
+
+  .rsvp-no-button {
+    font-weight: 500;
+
+    &.q-btn--outline {
+      border-color: var(--q-grey-7);
+      color: var(--q-grey-7);
+
+      &:hover {
+        background: var(--q-grey-7);
+        color: white;
+      }
+    }
+  }
 }
 </style>

@@ -336,7 +336,7 @@ export const useEventStore = defineStore('event', {
         if (this.event?.slug) {
           console.log(`Attempting to join chat room for event ${this.event.slug}`)
           const response = await chatApi.joinEventChatRoom(this.event.slug)
-          console.log(`Successfully joined chat room for event`, response.data)
+          console.log('Successfully joined chat room for event', response.data)
 
           // Check if the response includes a roomId
           if (response.data && response.data.roomId) {
