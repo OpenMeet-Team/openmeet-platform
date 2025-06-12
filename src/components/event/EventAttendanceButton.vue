@@ -40,14 +40,36 @@
       Only organizers can schedule events
     </q-btn>
 
-    <!-- Not Attending or Cancelled State -->
+    <!-- No RSVP yet - Show both options -->
+    <div v-else-if="!attendee" class="q-gutter-sm">
+      <q-btn
+        data-cy="event-attend-button"
+        color="primary"
+        outline
+        @click="handleAttend"
+        :label="event.requireApproval ? 'Attending (pending approval)' : 'Attending'"
+        no-caps
+        class="full-width"
+      />
+      <q-btn
+        data-cy="event-not-attending-button"
+        color="grey-7"
+        outline
+        @click="handleNotAttending"
+        label="Not attending"
+        no-caps
+        class="full-width"
+      />
+    </div>
+
+    <!-- Already RSVP'd No (Cancelled State) -->
     <q-btn
-      data-cy="event-attend-button"
-      v-else-if="!attendee || attendee.status === EventAttendeeStatus.Cancelled"
-      color="primary"
+      data-cy="event-not-attending-status"
+      v-else-if="attendee.status === EventAttendeeStatus.Cancelled"
+      color="grey-7"
       outline
       @click="handleAttend"
-      :label="event.requireApproval ? 'Click here to request attendance' : 'Click here to attend this event'"
+      label="Not attending - Click to change to attending"
       no-caps
       class="full-width"
     />
@@ -354,6 +376,55 @@ const handleAttend = async () => {
     $q.notify({
       type: 'negative',
       message: 'Failed to join event. Please try again.'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleNotAttending = async () => {
+  if (!authStore.isFullyAuthenticated) {
+    console.log('User not authenticated, opening login dialog')
+    goToLogin()
+    return
+  }
+
+  try {
+    loading.value = true
+    // Verify auth status again to ensure token is valid
+    await authSession.checkAuthStatus()
+
+    console.log('Setting RSVP to not attending (cancelled status)')
+    const attendee = await eventStore.actionAttendEvent(props.event.slug, {
+      status: EventAttendeeStatus.Cancelled
+    })
+    console.log('Not attending API response:', attendee)
+
+    // Force a refresh of event data to ensure UI reflects the latest state
+    const eventSlug = props.event.slug
+    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    await eventStore.actionGetEventBySlug(eventSlug)
+    console.log('Updated event data after RSVP no:', eventStore.event?.attendee?.status)
+
+    // Emit a custom event to notify other components about the status change
+    window.dispatchEvent(new CustomEvent('attendee-status-changed', {
+      detail: {
+        eventSlug,
+        status: EventAttendeeStatus.Cancelled,
+        timestamp: Date.now()
+      }
+    }))
+    console.log('Emitted attendee-status-changed event with cancelled status')
+
+    $q.notify({
+      type: 'info',
+      message: 'RSVP updated to not attending'
+    })
+  } catch (error) {
+    console.error('Error setting not attending status:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to update RSVP. Please try again.'
     })
   } finally {
     loading.value = false
