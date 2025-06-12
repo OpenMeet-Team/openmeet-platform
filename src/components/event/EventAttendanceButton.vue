@@ -40,14 +40,14 @@
       Only organizers can schedule events
     </q-btn>
 
-    <!-- Not Attending or Cancelled State - Show both options -->
-    <div v-else-if="!attendee || attendee.status === EventAttendeeStatus.Cancelled" class="rsvp-button-group">
+    <!-- No RSVP yet - Show both options -->
+    <div v-else-if="!attendee" class="rsvp-button-group">
       <q-btn
         data-cy="event-attend-button"
         color="positive"
         icon="sym_r_check_circle"
         @click="handleAttend"
-        :label="event.requireApproval ? 'RSVP: Yes, I\'m attending (pending approval)' : 'RSVP: Yes, I\'m attending'"
+        :label="event.requireApproval ? 'Going (pending approval)' : 'Going'"
         no-caps
         class="full-width rsvp-yes-button"
       />
@@ -57,51 +57,82 @@
         icon="sym_r_cancel"
         outline
         @click="handleDecline"
-        label="RSVP: No, I can't attend"
+        label="Can't go"
         no-caps
         class="full-width rsvp-no-button"
       />
     </div>
 
-    <!-- Pending Approval State -->
+    <!-- Already RSVP'd No (Cancelled State) - Show current state with option to change -->
     <q-btn
-      data-cy="event-attend-button"
-      v-else-if="attendee.status === EventAttendeeStatus.Pending"
-      color="warning"
+      data-cy="event-not-attending-status"
+      v-else-if="attendee.status === EventAttendeeStatus.Cancelled"
+      color="positive"
       outline
-      disable
+      @click="handleChangeToGoing"
       no-caps
       class="full-width"
     >
-      Pending Approval
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_check_circle" class="q-mr-xs" />
+          {{ event.requireApproval ? 'Request to Go' : 'Change to Going' }}
+        </div>
+      </div>
+    </q-btn>
+
+    <!-- Pending Approval State -->
+    <q-btn
+      data-cy="event-pending-status"
+      v-else-if="attendee.status === EventAttendeeStatus.Pending"
+      color="grey-7"
+      outline
+      @click="handleLeave"
+      no-caps
+      class="full-width"
+    >
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_cancel" class="q-mr-xs" />
+          Cancel request
+        </div>
+      </div>
     </q-btn>
 
     <!-- Waitlist State -->
     <q-btn
-      data-cy="event-attend-button"
+      data-cy="event-waitlist-status"
       v-else-if="attendee.status === EventAttendeeStatus.Waitlist"
       color="grey-7"
-      icon="sym_r_cancel"
       outline
       @click="handleLeave"
       no-caps
-      class="full-width rsvp-no-button"
+      class="full-width"
     >
-      RSVP: No, I can't attend (leave waitlist)
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_cancel" class="q-mr-xs" />
+          Leave waitlist
+        </div>
+      </div>
     </q-btn>
 
     <!-- Attending State -->
     <q-btn
-      data-cy="event-attend-button"
+      data-cy="event-going-status"
       v-else-if="attendee.status === EventAttendeeStatus.Confirmed"
       color="grey-7"
-      icon="sym_r_cancel"
       outline
       @click="handleLeave"
       no-caps
-      class="full-width rsvp-no-button"
+      class="full-width"
     >
-      RSVP: No, I can't attend
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_cancel" class="q-mr-xs" />
+          Can't go anymore
+        </div>
+      </div>
     </q-btn>
   </div>
 </template>
@@ -373,6 +404,59 @@ const handleAttend = async () => {
   }
 }
 
+const handleChangeToGoing = async () => {
+  if (!authStore.isFullyAuthenticated) {
+    console.log('User not authenticated, opening login dialog')
+    goToLogin()
+    return
+  }
+
+  try {
+    loading.value = true
+    // Verify auth status again to ensure token is valid
+    await authSession.checkAuthStatus()
+
+    console.log('Changing from not going to going')
+
+    // Respect approval requirements - user needs approval each time they RSVP yes
+    const status = props.event.requireApproval
+      ? EventAttendeeStatus.Pending
+      : EventAttendeeStatus.Confirmed
+
+    console.log('Setting status to:', status)
+    await eventStore.actionAttendEvent(props.event.slug, { status })
+
+    // Force a refresh of event data to ensure UI reflects the latest state
+    const eventSlug = props.event.slug
+    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    await eventStore.actionGetEventBySlug(eventSlug)
+
+    // Emit a custom event to notify other components about the status change
+    window.dispatchEvent(new CustomEvent('attendee-status-changed', {
+      detail: {
+        eventSlug,
+        status,
+        timestamp: Date.now()
+      }
+    }))
+
+    $q.notify({
+      type: 'positive',
+      message: props.event.requireApproval
+        ? 'Request sent! Waiting for approval.'
+        : 'You are now attending this event!'
+    })
+  } catch (error) {
+    console.error('Error changing to going:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to update RSVP. Please try again.'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleDecline = async () => {
   if (!authStore.isFullyAuthenticated) {
     console.log('User not authenticated, opening login dialog')
@@ -527,6 +611,22 @@ const handleLeave = async () => {
         color: white;
       }
     }
+  }
+
+  // State-based button styling
+  .q-btn .column {
+    line-height: 1.2;
+
+    .text-caption {
+      opacity: 0.7;
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+  }
+
+  // Button hover effects for state buttons
+  .q-btn:not(.q-btn--disable):hover .text-caption {
+    opacity: 1;
   }
 }
 </style>
