@@ -69,20 +69,20 @@ const discussionPermissions = computed(() => {
     managePermission: eventStore.getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
   })
 
-  // Special case: if user is confirmed attendee and authenticated, always grant write permission
-  const isConfirmedAttendee = authStore.isAuthenticated && attendeeStatus === 'confirmed'
+  // Special case: if user is confirmed or cancelled attendee and authenticated, always grant write permission
+  const isConfirmedOrCancelledAttendee = authStore.isAuthenticated && (attendeeStatus === 'confirmed' || attendeeStatus === 'cancelled')
 
   return {
     canRead: Boolean(
       eventStore.getterIsPublicEvent ||
       (eventStore.getterIsAuthenticatedEvent && authStore.isAuthenticated) ||
       eventStore.getterUserHasPermission(EventAttendeePermission.ViewDiscussion) ||
-      isConfirmedAttendee
+      isConfirmedOrCancelledAttendee
     ),
-    // Grant writing permission if user has explicit permission OR is a confirmed attendee
+    // Grant writing permission if user has explicit permission OR is a confirmed/cancelled attendee
     canWrite: Boolean(
       eventStore.getterUserHasPermission(EventAttendeePermission.CreateDiscussion) ||
-      isConfirmedAttendee
+      isConfirmedOrCancelledAttendee
     ),
     canManage: !!eventStore.getterUserHasPermission(EventAttendeePermission.ManageDiscussions)
   }
@@ -96,9 +96,9 @@ const isInitializing = ref(false)
 const ensureChatRoomExists = async () => {
   if (!event.value || !event.value.slug) return false
 
-  // Early return if user is not a confirmed attendee
-  if (event.value.attendee?.status !== 'confirmed' || !discussionPermissions.value.canWrite) {
-    console.log('Not initializing chat room - user is not a confirmed attendee or lacks permissions', {
+  // Early return if user is not a confirmed or cancelled attendee
+  if ((event.value.attendee?.status !== 'confirmed' && event.value.attendee?.status !== 'cancelled') || !discussionPermissions.value.canWrite) {
+    console.log('Not initializing chat room - user is not a confirmed or cancelled attendee or lacks permissions', {
       attendeeStatus: event.value.attendee?.status,
       canWrite: discussionPermissions.value.canWrite
     })
@@ -117,12 +117,12 @@ const ensureChatRoomExists = async () => {
   const previousStatus = globalWindow.lastChatPermissionStatus?.[eventSlug]
 
   // Force refresh in either of these cases:
-  // 1. User just became confirmed (status changed to confirmed)
+  // 1. User just became confirmed or cancelled (status changed to confirmed/cancelled)
   // 2. Room ID exists but MessagesComponent isn't showing (needs re-render)
-  // 3. No roomId is found but user is a confirmed attendee (need to request room creation)
+  // 3. No roomId is found but user is a confirmed or cancelled attendee (need to request room creation)
   const statusChanged = currentStatus !== previousStatus
   const roomIdExistsButNoComponent = matrixRoomId.value && !document.querySelector('.messages-component')
-  const confirmedButNoRoomId = currentStatus === 'confirmed' && !matrixRoomId.value
+  const confirmedButNoRoomId = (currentStatus === 'confirmed' || currentStatus === 'cancelled') && !matrixRoomId.value
 
   // Add throttling check - only force refresh if it's been at least 5 seconds since the last attempt
   const lastAttemptTime = window.lastChatInitAttempt?.[eventSlug] || 0
@@ -132,7 +132,7 @@ const ensureChatRoomExists = async () => {
   const isThrottled = timeSinceLastAttempt < throttleMs
 
   // Only force refresh if we're not throttled
-  const forceRefresh = !isThrottled && ((currentStatus === 'confirmed' && statusChanged) ||
+  const forceRefresh = !isThrottled && (((currentStatus === 'confirmed' || currentStatus === 'cancelled') && statusChanged) ||
                       roomIdExistsButNoComponent ||
                       confirmedButNoRoomId)
 
@@ -243,8 +243,8 @@ const ensureChatRoomExists = async () => {
           window.lastChatPermissionStatus[eventSlug] = undefined
         }
 
-        // Add the current user to the event discussion
-        await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
+        // Join the event chat room (this handles Matrix credential provisioning)
+        await useEventStore().actionJoinEventChatRoom()
 
         // Add a small delay to let the server process
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -394,9 +394,9 @@ const handleAttendeeStatusChanged = (e: Event) => {
           roomId: useEventStore().event?.roomId || 'none'
         })
 
-        // Special handling for confirmed status - ensure chat components are properly initialized
-        if (status === 'confirmed') {
-          console.log('Confirmed status detected, ensuring chat components are properly reset')
+        // Special handling for confirmed or cancelled status - ensure chat components are properly initialized
+        if (status === 'confirmed' || status === 'cancelled') {
+          console.log('Confirmed or cancelled status detected, ensuring chat components are properly reset')
 
           // Force reset room initialization state to ensure components are recreated
           if (window.chatRoomInitializations) {
@@ -412,9 +412,9 @@ const handleAttendeeStatusChanged = (e: Event) => {
             roomId: event.value?.roomId
           })
 
-          // If we still don't have a successful result but attendee status is confirmed,
+          // If we still don't have a successful result but attendee status is confirmed or cancelled,
           // try calling the join API directly as a fallback
-          if (!success && event.value?.attendee?.status === 'confirmed' && useAuthStore().isAuthenticated) {
+          if (!success && (event.value?.attendee?.status === 'confirmed' || event.value?.attendee?.status === 'cancelled') && useAuthStore().isAuthenticated) {
             console.log('Attempting fallback direct room join API call')
             try {
               const joinResponse = await useEventStore().actionAddMemberToEventDiscussion(useAuthStore().user.slug)
@@ -476,8 +476,8 @@ onMounted(async () => {
         // to load the base data, and then we'll handle Matrix-specific operations
       }
 
-      // Only initialize the chat room if the user is a confirmed attendee
-      if (event.value.attendee?.status === 'confirmed' && discussionPermissions.value.canWrite) {
+      // Only initialize the chat room if the user is a confirmed or cancelled attendee
+      if ((event.value.attendee?.status === 'confirmed' || event.value.attendee?.status === 'cancelled') && discussionPermissions.value.canWrite) {
         if (event.value.roomId || matrixRoomId.value) {
           console.log('Already have room ID at mount:', event.value.roomId || matrixRoomId.value)
         } else {
@@ -565,7 +565,7 @@ const retryRoomInitialization = async () => {
 </script>
 
 <template>
-  <div class="c-event-topics-component" v-if="event && discussionPermissions.canWrite && event.attendee?.status === 'confirmed'">
+  <div class="c-event-topics-component" v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')">
     <SubtitleComponent label="Comments" class="q-mt-lg q-px-md c-event-topics-component" hide-link />
 
     <!-- Loading indicator -->
@@ -591,14 +591,14 @@ const retryRoomInitialization = async () => {
           <p v-if="!useAuthStore().isAuthenticated">Please <q-btn flat dense no-caps color="white" label="sign in" to="/auth/login" /> to enable chat.</p>
           <p v-else-if="!discussionPermissions.canWrite">You don't have permission to participate in discussions for this event.</p>
           <p v-else-if="!event?.attendee">You need to be an attendee of this event to participate in discussions.</p>
-          <p v-else-if="event?.attendee?.status !== 'confirmed'">Your attendance request is still pending. Once approved, you'll be able to join the discussion.</p>
+          <p v-else-if="event?.attendee?.status !== 'confirmed' && event?.attendee?.status !== 'cancelled'">Your attendance request is still pending. Once approved, you'll be able to join the discussion.</p>
           <p v-else>
             <span>The chat room could not be initialized. The discussion service may be temporarily unavailable.</span>
             <span v-if="isInitializing"> Attempting to connect...</span>
           </p>
 
         </div>
-        <template v-slot:action v-if="discussionPermissions.canWrite && event?.attendee?.status === 'confirmed'">
+        <template v-slot:action v-if="discussionPermissions.canWrite && (event?.attendee?.status === 'confirmed' || event?.attendee?.status === 'cancelled')">
           <q-btn
             flat
             color="white"

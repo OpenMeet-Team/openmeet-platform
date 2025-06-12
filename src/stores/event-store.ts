@@ -331,6 +331,34 @@ export const useEventStore = defineStore('event', {
       }
     },
 
+    async actionJoinEventChatRoom () {
+      try {
+        if (this.event?.slug) {
+          console.log(`Attempting to join chat room for event ${this.event.slug}`)
+          const response = await chatApi.joinEventChatRoom(this.event.slug)
+          console.log(`Successfully joined chat room for event`, response.data)
+
+          // Check if the response includes a roomId
+          if (response.data && response.data.roomId) {
+            console.log(`Received roomId from joinEventChatRoom: ${response.data.roomId}`)
+            // Save the roomId directly to the event object if provided
+            if (this.event) {
+              this.event.roomId = response.data.roomId
+              console.log(`Updated event with roomId: ${this.event.roomId}`)
+            }
+          } else {
+            console.warn('No roomId returned from joinEventChatRoom API call')
+          }
+
+          return response.data
+        }
+        return null
+      } catch (error) {
+        console.error('Error joining event chat room:', error)
+        throw error
+      }
+    },
+
     async actionAddMemberToEventDiscussion (userSlug: string) {
       try {
         if (this.event?.slug) {
