@@ -335,6 +335,20 @@
                     </div>
                   </div>
 
+                  <!-- RSVP Instructions -->
+                  <div
+                    v-if="!useEventStore().getterUserIsAttendee() || event.attendee?.status === EventAttendeeStatus.Cancelled"
+                    class="rsvp-instructions q-mb-sm text-center"
+                  >
+                    <div class="text-body2 text-grey-8 q-mb-xs">
+                      <q-icon name="sym_r_person_raised_hand" class="q-mr-xs" />
+                      Let the hosts know your plans!
+                    </div>
+                    <div class="text-caption text-grey-6">
+                      Click one of the buttons below to RSVP.
+                    </div>
+                  </div>
+
                   <!-- Attend button -->
                   <EventAttendanceButton
                     :event="event"
@@ -1530,6 +1544,18 @@ const isOwnerOrAdmin = computed(() => {
     text-align: center;
 
     .q-icon {
+      font-size: 1.1em;
+    }
+  }
+
+  .rsvp-instructions {
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(33, 150, 83, 0.05) 0%, rgba(33, 150, 83, 0.02) 100%);
+    border: 1px solid rgba(33, 150, 83, 0.15);
+
+    .q-icon {
+      color: var(--q-positive);
       font-size: 1.1em;
     }
   }
