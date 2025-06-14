@@ -66,6 +66,16 @@
 
     <!-- No RSVP yet - Show both options -->
     <div v-else-if="!attendee" class="rsvp-button-group">
+      <!-- RSVP Instructions -->
+      <div class="rsvp-instructions q-mb-sm text-center">
+        <div class="text-body2 text-grey-8 q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" class="q-mr-xs" />
+          Let the hosts know your plans!
+        </div>
+        <div class="text-caption text-grey-6">
+          Click one of the buttons below to RSVP.
+        </div>
+      </div>
       <q-btn
         data-cy="event-attend-button"
         color="positive"
