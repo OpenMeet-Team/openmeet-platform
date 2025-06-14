@@ -40,8 +40,42 @@
       Only organizers can schedule events
     </q-btn>
 
+    <!-- Need to join group before attending -->
+    <q-card
+      v-else-if="!attendee && needsToJoinGroup"
+      flat
+      bordered
+      class="q-pa-md text-center"
+    >
+      <q-card-section>
+        <q-icon name="sym_r_group" size="md" color="grey-6" class="q-mb-sm" />
+        <div class="text-h6 q-mb-sm">Join {{ event.group?.name }} to RSVP</div>
+        <p class="text-body2 text-grey-7 q-mb-md">
+          This event requires you to be a member of the {{ event.group?.name }} group before you can attend.
+        </p>
+        <q-btn
+          :to="`/groups/${event.group?.slug}`"
+          color="primary"
+          icon="sym_r_group_add"
+          label="View Group"
+          no-caps
+          class="full-width"
+        />
+      </q-card-section>
+    </q-card>
+
     <!-- No RSVP yet - Show both options -->
     <div v-else-if="!attendee" class="rsvp-button-group">
+      <!-- RSVP Instructions -->
+      <div class="rsvp-instructions q-mb-sm text-center">
+        <div class="text-body2 text-grey-8 q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" class="q-mr-xs" />
+          Let the hosts know your plans!
+        </div>
+        <div class="text-caption text-grey-6">
+          Click one of the buttons below to RSVP.
+        </div>
+      </div>
       <q-btn
         data-cy="event-attend-button"
         color="positive"
@@ -168,6 +202,21 @@ const props = defineProps<{
 const loading = ref(false)
 const initialLoading = ref(true)
 
+// Helper function to extract error message from API response
+const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const apiError = error as { response?: { data?: { message?: string } } }
+    if (apiError.response?.data?.message) {
+      return apiError.response.data.message
+    }
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const errorWithMessage = error as { message: string }
+    return errorWithMessage.message
+  }
+  return fallbackMessage
+}
+
 // Check if user can materialize events (schedule new occurrences)
 const canMaterializeEvent = computed(() => {
   if (!authStore.isFullyAuthenticated) return false
@@ -182,6 +231,23 @@ const canMaterializeEvent = computed(() => {
   const hasEventManagePermission = eventStore.getterUserHasPermission(EventAttendeePermission.ManageEvent)
 
   return isSeriesOwner || hasGroupManagePermission || hasEventManagePermission
+})
+
+// Check if user needs to join group before being able to attend
+const needsToJoinGroup = computed(() => {
+  // Must be authenticated to check membership
+  if (!authStore.isFullyAuthenticated) return false
+
+  // Only relevant for events that require group membership and have a group
+  if (!props.event.requireGroupMembership || !props.event.group) return false
+
+  // Check if user is not a member (groupMember is null) or is a guest
+  if (!props.event.groupMember) return true
+
+  // Guests are not allowed to attend group-restricted events
+  if (props.event.groupMember.groupRole?.name === 'guest') return true
+
+  return false
 })
 
 // Watch for changes in authentication state
@@ -339,7 +405,7 @@ const handleTemplateAttend = async () => {
     console.error('Error materializing and attending event:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to schedule and join event. Please try again.'
+      message: getErrorMessage(error, 'Failed to schedule and join event. Please try again.')
     })
   } finally {
     loading.value = false
@@ -397,7 +463,7 @@ const handleAttend = async () => {
     console.error('Error attending event:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to join event. Please try again.'
+      message: getErrorMessage(error, 'Failed to join event. Please try again.')
     })
   } finally {
     loading.value = false
@@ -450,7 +516,7 @@ const handleChangeToGoing = async () => {
     console.error('Error changing to going:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to update RSVP. Please try again.'
+      message: getErrorMessage(error, 'Failed to update RSVP. Please try again.')
     })
   } finally {
     loading.value = false
@@ -496,7 +562,7 @@ const handleDecline = async () => {
     console.error('Error declining event:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to update RSVP. Please try again.'
+      message: getErrorMessage(error, 'Failed to update RSVP. Please try again.')
     })
   } finally {
     loading.value = false
@@ -563,7 +629,7 @@ const handleLeave = async () => {
     console.error('Error leaving event:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to leave event. Please try again.'
+      message: getErrorMessage(error, 'Failed to leave event. Please try again.')
     })
   } finally {
     loading.value = false
