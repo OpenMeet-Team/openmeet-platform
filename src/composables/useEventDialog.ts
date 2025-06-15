@@ -8,11 +8,13 @@ import EventAttendPendingDialogComponent from '../components/event/dialogs/Event
 import EventAttendRejectedDialogComponent from '../components/event/dialogs/EventAttendRejectedDialogComponent.vue'
 import EventAttendeesNoRightsDialogComponent from '../components/event/dialogs/EventAttendeesNoRightsDialogComponent.vue'
 import { useRouter } from 'vue-router'
+import { useEventStore } from '../stores/event-store'
 
 export function useEventDialog () {
   const $q = useQuasar()
   const { success } = useNotification()
   const router = useRouter()
+  const eventStore = useEventStore()
 
   const openDeleteGroupDialog = () => {
     return $q.dialog({
@@ -107,6 +109,8 @@ export function useEventDialog () {
     }).onOk(() => {
       return eventsApi.update(event.slug, { status: EventStatus.Cancelled } as Partial<EventEntity>).then(() => {
         success('Event cancelled!')
+        // Refresh the event data to update the UI with the cancelled status
+        eventStore.actionGetEventBySlug(event.slug)
       })
     })
   }
