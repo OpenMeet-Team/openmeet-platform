@@ -990,12 +990,37 @@ const refreshOccurrencesPreview = () => {
 }
 
 // Handle updates to the recurrence rule from the RecurrenceComponent
-const handleRecurrenceRuleUpdate = (newRule: RecurrenceRule) => {
+const handleRecurrenceRuleUpdate = async (newRule: RecurrenceRule) => {
   console.log('Recurrence rule updated from component event:', newRule)
 
-  // If this is a series event, we may want to warn the user about changes
-  if (eventData.value.seriesSlug) {
-    console.log('Series event recurrence rule updated, will affect future events in the series')
+  // If this is a series event, update the event series immediately
+  if (eventData.value.seriesSlug && newRule?.frequency) {
+    console.log('Series event recurrence rule updated, updating series:', eventData.value.seriesSlug)
+
+    try {
+      // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
+      const mappedRule = toBackendRecurrenceRule(newRule)
+      console.log('Mapped recurrence rule for series update:', mappedRule)
+
+      // Update the event series with the new recurrence rule
+      const updateData = {
+        recurrenceRule: mappedRule,
+        timeZone: eventData.value.timeZone
+      }
+
+      const response = await eventSeriesApi.update(eventData.value.seriesSlug, updateData)
+      console.log('Successfully updated event series recurrence rule:', response.data)
+
+      // Update the series data in our form
+      if (response.data.recurrenceRule) {
+        recurrenceRule.value = newRule
+      }
+
+      success('Event series recurrence pattern updated successfully')
+    } catch (err) {
+      console.error('Failed to update event series recurrence rule:', err)
+      error('Failed to update recurrence pattern')
+    }
   }
 
   // The recurrence component will handle refreshing occurrences internally
