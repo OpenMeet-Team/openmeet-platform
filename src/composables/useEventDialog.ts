@@ -115,6 +115,21 @@ export function useEventDialog () {
     })
   }
 
+  const openRepublishEventDialog = (event: EventEntity) => {
+    $q.dialog({
+      title: 'Republish Event',
+      message: `Are you sure you want to republish the event '${event.name}'? This will make it visible again and send notifications to members.`,
+      cancel: true,
+      persistent: true
+    }).onOk(() => {
+      return eventsApi.update(event.slug, { status: EventStatus.Published } as Partial<EventEntity>).then(() => {
+        success('Event republished!')
+        // Refresh the event data to update the UI with the published status
+        eventStore.actionGetEventBySlug(event.slug)
+      })
+    })
+  }
+
   const openNoAttendeesRightsDialog = () => {
     return $q.dialog({
       component: EventAttendeesNoRightsDialogComponent
@@ -125,6 +140,7 @@ export function useEventDialog () {
     goToCreateEvent,
     openDeleteEventDialog,
     openCancelEventDialog,
+    openRepublishEventDialog,
     openAttendEventDialog,
     openCancelAttendingEventDialog,
     openDeleteGroupDialog,
