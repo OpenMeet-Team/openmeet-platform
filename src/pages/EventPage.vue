@@ -416,6 +416,22 @@
                         @click="onCancelEvent"
                       />
 
+                      <MenuItemComponent
+                        v-if="
+                          event.status === EventStatus.Cancelled &&
+                          (useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.CancelEvent
+                          ) ||
+                          isOwnerOrAdmin ||
+                          useEventStore().getterGroupMemberHasPermission(
+                            GroupPermission.ManageEvents
+                          ))
+                        "
+                        label="Republish event"
+                        icon="sym_r_event_available"
+                        @click="onRepublishEvent"
+                      />
+
                       <q-separator />
                       <MenuItemComponent
                         label="Delete event"
@@ -862,7 +878,7 @@ const route = useRoute()
 const router = useRouter()
 const $q = useQuasar()
 const { navigateToGroup } = useNavigation()
-const { openDeleteEventDialog, openCancelEventDialog } = useEventDialog()
+const { openDeleteEventDialog, openCancelEventDialog, openRepublishEventDialog } = useEventDialog()
 const { showContactDialog } = useContactEventOrganizersDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
@@ -882,6 +898,10 @@ const onDeleteEvent = () => {
 
 const onCancelEvent = () => {
   if (event.value) openCancelEventDialog(event.value)
+}
+
+const onRepublishEvent = () => {
+  if (event.value) openRepublishEventDialog(event.value)
 }
 
 const onContactOrganizers = () => {
