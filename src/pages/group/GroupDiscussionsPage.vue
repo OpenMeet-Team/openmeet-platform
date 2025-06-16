@@ -102,6 +102,7 @@ watch(() => groupStore.group?.slug, async (newSlug, oldSlug) => {
       :room-id="group.roomId"
       context-type="group"
       :context-id="group.slug || ''"
+      :context-entity="group"
       :can-read="canRead"
       :can-write="canWrite"
       :can-manage="canManage"

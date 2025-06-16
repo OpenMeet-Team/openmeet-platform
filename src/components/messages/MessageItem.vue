@@ -61,11 +61,10 @@
     </div>
 
     <!-- Message actions -->
-    <div class="message-actions q-mt-sm" v-if="!isSystemMessage && (isCurrentUser || canManage)">
-      <q-btn flat dense size="sm" icon="sym_r_edit" v-if="isCurrentUser" @click="$emit('edit', message)" />
-      <q-btn flat dense size="sm" icon="sym_r_delete" v-if="isCurrentUser || canManage" @click="$emit('delete', getMessageId())" />
-      <q-btn flat dense size="sm" icon="sym_r_reply" @click="$emit('reply', getMessageId())" />
-      <q-btn flat dense size="sm" icon="sym_r_add_reaction" @click="showReactionPicker = true" />
+    <div class="message-actions q-mt-sm" v-if="!isSystemMessage">
+      <q-btn flat dense size="sm" icon="sym_r_delete" v-if="canDelete" @click.stop="$emit('delete', getMessageId())" color="negative" />
+      <q-btn flat dense size="sm" icon="sym_r_reply" @click.stop="$emit('reply', getMessageId())" />
+      <q-btn flat dense size="sm" icon="sym_r_add_reaction" @click.stop="showReactionPicker = true" />
     </div>
 
     <!-- Reaction picker -->
@@ -80,11 +79,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { MatrixMessage } from '../../types/matrix'
+import { EventEntity } from '../../types/event'
+import { GroupEntity } from '../../types/group'
 import { formatDistanceToNow } from 'date-fns'
 import { useQuasar } from 'quasar'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useAuthStore } from '../../stores/auth-store'
+import { useChatPermissions } from '../../composables/useChatPermissions'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -105,14 +107,42 @@ const props = defineProps({
   isHighlighted: {
     type: Boolean,
     default: false
+  },
+  event: {
+    type: Object as () => EventEntity,
+    required: false
+  },
+  group: {
+    type: Object as () => GroupEntity,
+    required: false
   }
 })
 
-const emit = defineEmits(['reply', 'edit', 'delete', 'reaction'])
+const emit = defineEmits(['reply', 'delete', 'reaction'])
 
 // Local state
 const showReactionPicker = ref(false)
 const commonEmojis = ['👍', '👎', '❤️', '😂', '😮', '😢', '🎉', '🙏']
+
+// Permission checking
+const { useEventChatPermissions, useGroupChatPermissions } = useChatPermissions()
+
+const canDelete = computed(() => {
+  // Don't allow deleting system messages
+  if (isSystemMessage.value) return false
+
+  // Use new permission system if event or group context is provided
+  if (props.event) {
+    const eventPermissions = useEventChatPermissions(computed(() => props.event || null))
+    return eventPermissions.canRedactMessage(props.message).value
+  } else if (props.group) {
+    const groupPermissions = useGroupChatPermissions(computed(() => props.group || null))
+    return groupPermissions.canRedactMessage(props.message).value
+  }
+
+  // Fallback to legacy canManage prop or isCurrentUser
+  return props.isCurrentUser || props.canManage
+})
 
 // Message type detection
 const isSystemMessage = computed(() => {

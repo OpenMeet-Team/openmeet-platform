@@ -38,10 +38,11 @@
             :message="message"
             :is-current-user="isCurrentUser(message.sender)"
             :can-manage="canManage"
+            :event="contextType === 'event' ? (contextEntity as EventEntity) : undefined"
+            :group="contextType === 'group' ? (contextEntity as GroupEntity) : undefined"
             :ref="el => { if (message.event_id === unreadMessageId) unreadMessageRef = el }"
             @reply="replyToMessage"
             @delete="promptDeleteMessage"
-            @edit="startEditMessage"
           />
         </div>
       </template>
@@ -103,6 +104,9 @@ import MessageItem from './MessageItem.vue'
 import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { MatrixMessage } from '../../types/matrix'
+import { EventEntity } from '../../types/event'
+import { GroupEntity } from '../../types/group'
+import { chatApi } from '../../api/chat'
 
 const props = defineProps({
   roomId: {
@@ -129,6 +133,10 @@ const props = defineProps({
   canManage: {
     type: Boolean,
     default: false
+  },
+  contextEntity: {
+    type: Object as () => EventEntity | GroupEntity | null,
+    default: null
   }
 })
 
@@ -332,26 +340,82 @@ const sendMessage = async () => {
 }
 
 // Message actions
-const promptDeleteMessage = (messageId: string) => {
+const promptDeleteMessage = async (messageId: string) => {
+  // Find the message to get sender info for better UX
+  const message = messagesList.value.find(m => m.event_id === messageId || m.eventId === messageId)
+  const isOwnMessage = message ? isCurrentUser(message.sender) : false
+
+  const title = isOwnMessage ? 'Delete Your Message' : 'Remove Message'
+  const confirmMessage = isOwnMessage
+    ? 'Are you sure you want to delete your message? This action cannot be undone.'
+    : 'Are you sure you want to remove this message? This action cannot be undone and will be logged as a moderation action.'
+
   $q.dialog({
-    title: 'Delete Message',
-    message: 'Are you sure you want to delete this message?',
+    title,
+    message: confirmMessage,
     cancel: true,
-    persistent: true
-  }).onOk(async () => {
+    persistent: true,
+    prompt: !isOwnMessage ? {
+      model: '',
+      type: 'textarea',
+      label: 'Reason for removing this message (optional)'
+    } : undefined
+  }).onOk(async (reason?: string) => {
     try {
-      await messageStore.deleteMessage(messageId)
+      let response
+
+      if (props.contextType === 'event' && props.contextEntity) {
+        response = await chatApi.redactEventMessage(
+          (props.contextEntity as EventEntity).slug,
+          messageId,
+          reason
+        )
+      } else if (props.contextType === 'group' && props.contextEntity) {
+        response = await chatApi.redactGroupMessage(
+          (props.contextEntity as GroupEntity).slug,
+          messageId,
+          reason
+        )
+      } else {
+        // Fallback to old method for other contexts
+        await messageStore.deleteMessage(messageId)
+        $q.notify({
+          type: 'positive',
+          message: isOwnMessage ? 'Message deleted' : 'Message removed'
+        })
+        return
+      }
+
+      // Check if the API call was successful
+      if (response.data.success) {
+        // Remove message from local state immediately for better UX
+        // The real-time Matrix event will also update this when it comes through
+        await messageStore.deleteMessage(messageId)
+
+        // Verify the message was removed from local state
+        const messageStillExists = messagesList.value.find(m =>
+          m.event_id === messageId || m.eventId === messageId
+        )
+
+        if (messageStillExists) {
+          // If for some reason the local deletion didn't work, force a refresh
+          await loadMessages()
+        }
+
+        $q.notify({
+          type: 'positive',
+          message: isOwnMessage ? 'Message deleted' : 'Message removed'
+        })
+      } else {
+        throw new Error(response.data.message || 'Failed to delete message')
+      }
     } catch (err) {
       console.error('Error deleting message:', err)
+      $q.notify({
+        type: 'negative',
+        message: err instanceof Error ? err.message : 'Failed to delete message'
+      })
     }
-  })
-}
-
-const startEditMessage = (/* _message: MatrixMessage */) => {
-  // This is a placeholder for future edit functionality
-  $q.notify({
-    message: 'Edit functionality coming soon',
-    color: 'info'
   })
 }
 

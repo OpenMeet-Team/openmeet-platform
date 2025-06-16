@@ -578,6 +578,7 @@ const retryRoomInitialization = async () => {
       :room-id="matrixRoomId"
       context-type="event"
       :context-id="event?.slug ?? ''"
+      :context-entity="event"
       :can-read="discussionPermissions.canRead"
       :can-write="discussionPermissions.canWrite"
       :can-manage="discussionPermissions.canManage"

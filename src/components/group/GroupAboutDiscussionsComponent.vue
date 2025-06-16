@@ -25,6 +25,7 @@ defineProps<Props>()
         :room-id="group.roomId || group.slug || ''"
         context-type="group"
         :context-id="group?.slug || ''"
+        :context-entity="group"
         :can-read="!!canRead"
         :can-write="!!useGroupStore().getterUserHasPermission(GroupPermission.MessageDiscussion)"
         :can-manage="!!useGroupStore().getterUserHasPermission(GroupPermission.ManageDiscussions)"

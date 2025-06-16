@@ -42,6 +42,14 @@ export const chatApi = {
   removeMemberFromEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`),
 
+  // Redact (delete) an event message
+  redactEventMessage: (eventSlug: string, messageEventId: string, reason?: string): Promise<AxiosResponse<{
+    success: boolean;
+    redactionEventId?: string;
+    message?: string;
+  }>> =>
+    api.delete(`/api/chat/event/${eventSlug}/message/${messageEventId}`, { data: { reason } }),
+
   // Group discussion endpoints
   sendGroupMessage: (groupSlug: string, message: string): Promise<AxiosResponse<{ id: string }>> =>
     api.post(`/api/chat/group/${groupSlug}/message`, { message }),
@@ -62,6 +70,14 @@ export const chatApi = {
 
   removeMemberFromGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/chat/group/${groupSlug}/members/${userSlug}`),
+
+  // Redact (delete) a group message
+  redactGroupMessage: (groupSlug: string, messageEventId: string, reason?: string): Promise<AxiosResponse<{
+    success: boolean;
+    redactionEventId?: string;
+    message?: string;
+  }>> =>
+    api.delete(`/api/chat/group/${groupSlug}/message/${messageEventId}`, { data: { reason } }),
 
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>

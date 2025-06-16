@@ -786,13 +786,10 @@ export const useMessageStore = defineStore('messages', {
 
     // Delete a message
     async deleteMessage (eventId: string) {
-      // Matrix doesn't fully support message deletion through our API yet
-      this.isDeleting = false
-
-      // Update the local state for now
+      // Update the local state to immediately remove the message from UI
       if (this.activeRoomId) {
         this.messages[this.activeRoomId] = this.messages[this.activeRoomId].filter(m =>
-          m.event_id !== eventId
+          m.event_id !== eventId && m.eventId !== eventId
         )
       }
 
