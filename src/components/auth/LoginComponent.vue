@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from '../../utils/validation'
@@ -182,6 +182,11 @@ const handleOAuthSuccess = () => {
   // Check for OIDC flow after successful OAuth login
   handlePostLoginRedirect()
 }
+
+// Store OIDC flow data when component mounts
+onMounted(() => {
+  storeOidcFlowData()
+})
 
 </script>
 
