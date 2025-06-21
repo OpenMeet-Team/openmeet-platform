@@ -1363,7 +1363,8 @@ class MatrixClientService {
       }
 
       const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId') || ''
-      const response = await fetch('/api/matrix/generate-auth-code', {
+      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
+      const response = await fetch(`${apiUrl}/api/matrix/generate-auth-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
