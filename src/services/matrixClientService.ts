@@ -107,7 +107,10 @@ class MatrixClientService {
     try {
       // Get Matrix homeserver URL from environment
       const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      const homeserverUrl = typeof homeserverUrlConfig === 'string' ? homeserverUrlConfig : 'http://localhost:8448'
+      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
+        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
+      }
+      const homeserverUrl = homeserverUrlConfig
 
       // Check if user is authenticated with OpenMeet
       const authStore = useAuthStore()
@@ -135,7 +138,10 @@ class MatrixClientService {
     try {
       // Get Matrix homeserver URL from environment
       const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      const homeserverUrl = typeof homeserverUrlConfig === 'string' ? homeserverUrlConfig : 'http://localhost:8448'
+      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
+        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
+      }
+      const homeserverUrl = homeserverUrlConfig
 
       // Complete the Matrix login using the token
       const matrixCredentials = await this._completeMatrixLogin(homeserverUrl, loginToken)
@@ -1679,7 +1685,10 @@ class MatrixClientService {
     // Try silent OIDC authentication using iframe
     try {
       const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      const homeserverUrl = typeof homeserverUrlConfig === 'string' ? homeserverUrlConfig : 'http://localhost:8448'
+      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
+        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
+      }
+      const homeserverUrl = homeserverUrlConfig
 
       console.log('🔄 Attempting silent OIDC authentication')
 
