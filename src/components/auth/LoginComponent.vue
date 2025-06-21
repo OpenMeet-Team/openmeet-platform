@@ -186,6 +186,12 @@ const handleOAuthSuccess = () => {
 // Store OIDC flow data when component mounts
 onMounted(() => {
   storeOidcFlowData()
+
+  // If user is already authenticated and this is an OIDC flow, continue immediately
+  if (authStore.isAuthenticated && route.query.oidc_flow === 'true') {
+    console.log('🔄 OIDC Flow: User already authenticated, continuing OIDC flow immediately')
+    handlePostLoginRedirect()
+  }
 })
 
 </script>

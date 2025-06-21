@@ -226,7 +226,7 @@
 
         <!-- 5. Comments (Mobile: 5th, Desktop: in main column) -->
         <div class="order-5">
-          <EventTopicsComponent />
+          <EventMatrixChatComponent />
         </div>
 
         <!-- 6. Attendees (Mobile: 6th, Desktop: in main column) -->
@@ -823,7 +823,6 @@ import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
 import { Dark, LoadingBar, useMeta, useQuasar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { eventsApi } from '../api/events'
-import { chatApi } from '../api/chat'
 import LeafletMapComponent from '../components/common/LeafletMapComponent.vue'
 import MenuItemComponent from '../components/common/MenuItemComponent.vue'
 import { useEventDialog } from '../composables/useEventDialog'
@@ -836,7 +835,7 @@ import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
 import { EventAttendeePermission, EventStatus } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
-import EventTopicsComponent from '../components/event/EventTopicsComponent.vue'
+import EventMatrixChatComponent from '../components/event/EventMatrixChatComponent.vue'
 import {
   EventEntity,
   EventAttendeeStatus
@@ -981,7 +980,7 @@ const copyToClipboard = async () => {
   }
 }
 
-// Handle attendee status changes to automatically join chat room when a user becomes confirmed
+// Handle attendee status changes - EventMatrixChatComponent now handles Matrix integration
 const handleAttendeeStatusChanged = async (e: Event) => {
   // Custom events have a detail property
   if (!e || !('detail' in e)) return
@@ -991,30 +990,10 @@ const handleAttendeeStatusChanged = async (e: Event) => {
   const { eventSlug, status, timestamp } = customEvent.detail
   console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
 
-  // Only handle changes for the current event
+  // The EventMatrixChatComponent will handle Matrix room joining automatically
+  // We just need to log the change here for debugging purposes
   if (eventSlug === route.params.slug) {
-    // If the user just became a confirmed attendee, join the chat room
-    if (status === 'confirmed') {
-      console.log('User attendance status changed to confirmed, joining chat room')
-
-      // Add a small delay to ensure backend state is updated
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      try {
-        const userSlug = useAuthStore().user?.slug
-        if (userSlug) {
-          console.log(`Joining chat room for event ${eventSlug} after status change to confirmed`)
-          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-          console.log('Chat room join result after status change:', joinResult.data)
-
-          if (joinResult.data?.roomId) {
-            console.log(`Successfully joined Matrix room after status change: ${joinResult.data.roomId}`)
-          }
-        }
-      } catch (err) {
-        console.error('Failed to join chat room after attendance status change:', err)
-      }
-    }
+    console.log(`Attendance status changed for current event to: ${status}`)
   }
 }
 
@@ -1106,29 +1085,9 @@ onMounted(async () => {
       console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
     }
 
-    // Automatically join chat room if user is a confirmed attendee
-    // This ensures the user is added to the Matrix room for this event
-    if (useEventStore().event?.attendee?.status === 'confirmed') {
-      try {
-        console.log('User is a confirmed attendee, ensuring chat room membership')
-        const userSlug = useAuthStore().user?.slug
-
-        if (userSlug) {
-          console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
-          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-          console.log('Chat room join result:', joinResult.data)
-
-          if (joinResult.data?.roomId) {
-            console.log(`Successfully joined Matrix room: ${joinResult.data.roomId}`)
-          }
-        }
-      } catch (err) {
-        // Non-critical error, just log it but don't interrupt page load
-        console.error('Failed to auto-join event chat room:', err)
-      }
-    } else {
-      console.log('User is not a confirmed attendee, skipping chat room join')
-    }
+    // Matrix chat room joining is now handled by EventMatrixChatComponent
+    // This ensures proper separation of concerns and avoids duplicate API calls
+    console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
@@ -1164,27 +1123,8 @@ onBeforeRouteUpdate(async (to) => {
         loadSimilarEvents(String(to.params.slug))
       ])
 
-      // After loading the event, check if user is a confirmed attendee and join chat room
-      const eventSlug = String(to.params.slug)
-      if (useEventStore().event?.attendee?.status === 'confirmed') {
-        try {
-          console.log('User is a confirmed attendee after route update, ensuring chat room membership')
-          const userSlug = useAuthStore().user?.slug
-
-          if (userSlug) {
-            console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
-            const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-            console.log('Chat room join result after route update:', joinResult.data)
-
-            if (joinResult.data?.roomId) {
-              console.log(`Successfully joined Matrix room after route update: ${joinResult.data.roomId}`)
-            }
-          }
-        } catch (err) {
-          // Non-critical error, just log it but don't interrupt page load
-          console.error('Failed to auto-join event chat room after route update:', err)
-        }
-      }
+      // Matrix chat room joining is handled by EventMatrixChatComponent
+      console.log('Route updated to event:', String(to.params.slug))
     } catch (error) {
       console.error('Failed to load event:', error)
     } finally {

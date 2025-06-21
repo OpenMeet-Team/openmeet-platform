@@ -49,7 +49,12 @@ export default route(function (/* { store, ssrContext } */) {
       }
     } else {
       if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
-        next({ name: 'HomePage' })
+        // Allow OIDC flows even when authenticated
+        if (to.query.oidc_flow === 'true') {
+          next()
+        } else {
+          next({ name: 'HomePage' })
+        }
       } else {
         next()
       }

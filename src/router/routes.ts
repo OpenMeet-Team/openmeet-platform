@@ -58,7 +58,7 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'members/:slug', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
-      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } },
+      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPageUnified.vue'), meta: { requiresAuth: true } },
       { path: 'privacy', name: 'PrivacyPolicyPage', component: () => import('pages/PrivacyPolicyPage.vue') },
       { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') }
     ],
@@ -96,7 +96,8 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'AdminPage', component: () => import('pages/admin/AdminPage.vue') },
       { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') },
-      { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') }
+      { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') },
+      { path: 'matrix-test', name: 'MatrixTestPage', component: () => import('pages/admin/MatrixTestPage.vue') }
     ],
     meta: { requiresAuth: true }
   },
