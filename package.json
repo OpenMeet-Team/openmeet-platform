@@ -37,6 +37,7 @@
     "dotenv": "^16.4.5",
     "leaflet": "^1.9.4",
     "marked": "^15.0.7",
+    "matrix-js-sdk": "^37.9.0",
     "pinia": "^2.2.6",
     "posthog-js": "^1.252.0",
     "qrcode": "^1.5.4",
@@ -49,6 +50,7 @@
     "vue-router": "^4.0.12"
   },
   "devDependencies": {
+    "@babel/runtime": "^7.26.10",
     "@intlify/unplugin-vue-i18n": "^2.0.0",
     "@pinia/testing": "^0.1.7",
     "@quasar/app-vite": "^2.2.1",
@@ -65,7 +67,6 @@
     "@vue/test-utils": "^2.4.4",
     "autoprefixer": "^10.4.2",
     "axios-mock-adapter": "^2.1.0",
-    "@babel/runtime": "^7.26.10",
     "cypress": "^13.2.0",
     "eslint": "^8.57.0",
     "eslint-config-standard": "^17.0.0",

@@ -142,7 +142,15 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     async actionLogout () {
-      return authApi.logout().finally(() => {
+      return authApi.logout().finally(async () => {
+        // Clear Matrix session before clearing OpenMeet auth
+        try {
+          const { matrixClientService } = await import('../services/matrixClientService')
+          await matrixClientService.clearSession()
+        } catch (error) {
+          console.warn('Failed to clear Matrix session during logout:', error)
+        }
+
         this.actionClearAuth()
         analyticsService.trackEvent('user_logged_out')
         analyticsService.reset()
@@ -315,15 +323,33 @@ export const useAuthStore = defineStore('authStore', {
       this.isInitializing = true
 
       try {
-        // Check if we have a token
+        // Check if we have a token and it hasn't expired
         if (this.token) {
+          // Check token expiry before making API call
+          const now = Date.now()
+          const tokenExpires = Number(this.tokenExpires)
+          if (tokenExpires && now > tokenExpires) {
+            console.warn('Token has expired, clearing auth')
+            this.actionClearAuth()
+            return
+          }
           try {
             // Validate the token by fetching user data
             const response = await authApi.getMe()
             this.actionSetUser(response.data)
           } catch (error) {
-            console.error('Token validation failed, clearing auth:', error)
-            this.actionClearAuth()
+            // Don't clear auth on network errors or aborted requests (e.g., during OIDC redirects)
+            if (error.code === 'ECONNABORTED' || (error.name === 'AxiosError' && error.message.includes('aborted'))) {
+              console.warn('Token validation aborted (likely due to navigation), preserving auth:', error.message)
+              // Keep existing auth state during navigation
+            } else if (error.response?.status === 401 || error.response?.status === 403) {
+              // Clear auth on actual authentication errors (expired/invalid tokens)
+              console.error('Token validation failed with auth error, clearing auth:', error.response.status)
+              this.actionClearAuth()
+            } else {
+              // For other network errors, preserve auth but log the issue
+              console.warn('Token validation failed with network error, preserving auth:', error.message)
+            }
           }
         }
       } finally {
