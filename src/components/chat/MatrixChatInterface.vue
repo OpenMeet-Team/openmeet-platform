@@ -1007,19 +1007,48 @@ const reconnect = async () => {
     const errorMessage = (error as Error).message
 
     if ((nestedError as Record<string, unknown>).errcode === 'M_LIMIT_EXCEEDED' || (errorMessage && errorMessage.includes('Too Many Requests'))) {
-      const retryAfterMs = (nestedError as Record<string, unknown>).retry_after_ms as number
-      if (retryAfterMs) {
-        const retryAfterMinutes = Math.ceil(retryAfterMs / 60000)
-        console.warn(`⚠️ Rate limited - please try again in ${retryAfterMinutes} minutes (${retryAfterMs}ms)`)
-        // Store the retry time for UI display
-        window.matrixRetryAfter = Date.now() + retryAfterMs
-        rateLimitCountdown.value = retryAfterMs
+      // FIRST: Check if rate limit was already set by Matrix client service (most reliable)
+      const existingRetryTime = window.matrixRetryAfter
+      console.warn('🔍 Rate limit detected - checking existing timer:', {
+        existingRetryTime,
+        currentTime: Date.now(),
+        hasValidExisting: !!(existingRetryTime && existingRetryTime > Date.now())
+      })
+
+      if (existingRetryTime && existingRetryTime > Date.now()) {
+        // Use the existing rate limit set by Matrix client service
+        const remainingMs = existingRetryTime - Date.now()
+        const remainingSeconds = Math.ceil(remainingMs / 1000)
+        console.warn(`⚠️ Using Matrix client service rate limit - retry in ${remainingSeconds} seconds (${remainingMs}ms remaining)`)
+        rateLimitCountdown.value = remainingMs
         startCountdownTimer()
       } else {
-        console.warn('⚠️ Rate limited - no retry time provided')
-        window.matrixRetryAfter = Date.now() + 300000 // Default to 5 minutes
-        rateLimitCountdown.value = 300000
-        startCountdownTimer()
+        // Fallback: try to extract retry_after_ms from the error
+        let retryAfterMs = (nestedError as Record<string, unknown>).retry_after_ms as number
+
+        // Check alternative locations for retry time
+        if (!retryAfterMs) {
+          retryAfterMs = (nestedError as Record<string, unknown>).retry_after as number
+        }
+        if (!retryAfterMs && (errorObj as { retry_after_ms?: number }).retry_after_ms) {
+          retryAfterMs = (errorObj as { retry_after_ms?: number }).retry_after_ms
+        }
+        if (!retryAfterMs && (errorObj as { data?: { retry_after_ms?: number } }).data?.retry_after_ms) {
+          retryAfterMs = (errorObj as { data?: { retry_after_ms?: number } }).data.retry_after_ms
+        }
+
+        if (retryAfterMs && retryAfterMs > 0) {
+          const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
+          console.warn(`⚠️ Rate limited - extracted from error, retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
+          window.matrixRetryAfter = Date.now() + retryAfterMs
+          rateLimitCountdown.value = retryAfterMs
+          startCountdownTimer()
+        } else {
+          console.warn('⚠️ Rate limited - no retry time found anywhere, using 5 minute default')
+          window.matrixRetryAfter = Date.now() + 300000 // Default to 5 minutes
+          rateLimitCountdown.value = 300000
+          startCountdownTimer()
+        }
       }
     } else if (errorMessage && errorMessage.includes('OIDC authentication is not configured')) {
       console.warn('⚠️ Matrix OIDC is not configured on the server')

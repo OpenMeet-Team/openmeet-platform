@@ -59,42 +59,31 @@ class MatrixClientService {
       throw new Error('Matrix client not authenticated. Manual authentication required.')
     }
 
-    // Try silent authentication using existing OpenMeet session
-    console.log('🔄 Attempting silent Matrix authentication')
+    // Skip broken silent authentication and go directly to working redirect flow
+    console.log('🔄 Initiating Matrix authentication via redirect (silent auth disabled due to 0% success rate)')
+
+    // Clear any potentially stale stored credentials since restore failed
+    this._clearStoredCredentials()
+
+    // Prevent concurrent initialization attempts
+    if (this.isInitializing && this.initPromise) {
+      console.log('🔄 Matrix initialization already in progress, waiting...')
+      return this.initPromise
+    }
+
+    this.isInitializing = true
+    this.initPromise = this._performFullPageRedirectAuth().then(() => {
+      throw new Error('Redirect flow initiated - client will be created after redirect')
+    })
+
     try {
-      return await this._attemptSilentAuth()
-    } catch (error) {
-      console.warn('⚠️ Silent auth failed:', error.message)
-      // Now clear stored credentials since both restore and silent auth failed
-      this._clearStoredCredentials()
-
-      // Check if this is a 404 error (OIDC not configured)
-      if (error.message && error.message.includes('404')) {
-        throw new Error('Matrix OIDC authentication is not configured on the server. Please contact the administrator.')
-      }
-
-      // For other silent auth failures, offer full redirect option
-      console.log('🔄 Silent auth failed, attempting full redirect authentication')
-      // Prevent concurrent initialization attempts
-      if (this.isInitializing && this.initPromise) {
-        console.log('🔄 Matrix initialization already in progress, waiting...')
-        return this.initPromise
-      }
-
-      this.isInitializing = true
-      this.initPromise = this._performFullPageRedirectAuth().then(() => {
-        throw new Error('Redirect flow initiated - client will be created after redirect')
-      })
-
-      try {
-        const client = await this.initPromise
-        this.isInitializing = false
-        return client
-      } catch (redirectError) {
-        this.isInitializing = false
-        this.initPromise = null
-        throw new Error('Matrix authentication failed. Please try refreshing the page.')
-      }
+      const client = await this.initPromise
+      this.isInitializing = false
+      return client
+    } catch (redirectError) {
+      this.isInitializing = false
+      this.initPromise = null
+      throw new Error('Matrix authentication failed. Please try refreshing the page.')
     }
   }
 
@@ -204,8 +193,68 @@ class MatrixClientService {
       return this.client
     } catch (error) {
       console.error('❌ Failed to complete Matrix login from redirect:', error)
+
+      // Check if this is an invalid token error
+      console.log('🔍 Error details for token detection:', {
+        message: (error as Error).message,
+        errcode: (error as { errcode?: string }).errcode,
+        error: (error as { error?: string }).error,
+        fullError: error
+      })
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid loginToken detected - clearing from URL and falling back to manual auth')
+
+        // Clear the invalid loginToken from URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete('loginToken')
+        window.history.replaceState({}, '', url.toString())
+
+        // Clear any stored Matrix credentials
+        this._clearStoredCredentials()
+
+        // Throw specific error for invalid token
+        throw new Error('Login session expired. Please use the Connect button to authenticate again.')
+      }
+
       throw new Error(`Matrix login completion failed: ${error.message}`)
     }
+  }
+
+  /**
+   * Check if an error indicates an invalid token
+   */
+  private _isInvalidTokenError (error: unknown): boolean {
+    const errorMessage = (error as Error).message?.toLowerCase() || ''
+    const errorData = (error as { data?: unknown }).data || {}
+    const errorObj = error as { errcode?: string; error?: string }
+
+    // Check for Matrix error codes that indicate invalid/expired tokens
+    // Error codes can be either on the main error object or in error.data
+    const errcode = errorObj.errcode || (errorData as { errcode?: string }).errcode
+    if (errcode) {
+      const invalidTokenCodes = [
+        'M_UNKNOWN_TOKEN',
+        'M_INVALID_TOKEN',
+        'M_MISSING_TOKEN',
+        'M_FORBIDDEN' // Can indicate invalid token in auth context
+      ]
+      if (invalidTokenCodes.includes(errcode)) {
+        return true
+      }
+    }
+
+    // Check for common invalid token error messages
+    const invalidTokenMessages = [
+      'invalid token',
+      'unknown token',
+      'token expired',
+      'token not found',
+      'invalid logintoken',
+      'unknown logintoken',
+      'invalid login token' // Matrix specific error message
+    ]
+
+    return invalidTokenMessages.some(msg => errorMessage.includes(msg))
   }
 
   /**
@@ -272,6 +321,23 @@ class MatrixClientService {
     if (tenantId) {
       ssoParams.set('tenant_id', tenantId)
       console.log('🏢 Including tenant ID in SSO redirect:', tenantId)
+    }
+
+    // SECURITY: Add auth code directly as parameter for seamless authentication
+    // This is more secure than JWT tokens as auth codes expire in 5 minutes and are single-use
+    if (stateWithAuthCode) {
+      try {
+        const stateData = JSON.parse(atob(stateWithAuthCode))
+        if (stateData.authCode) {
+          ssoParams.set('auth_code', stateData.authCode)
+          console.log('🔑 Adding auth code parameter for seamless authentication')
+          console.log('🔑 Auth code (first 10 chars):', stateData.authCode.substring(0, 10))
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to extract auth code from state, user will be prompted for email')
+      }
+    } else {
+      console.warn('⚠️ No auth code available - user will be prompted for email')
     }
 
     // First, let's discover the correct SSO provider ID
@@ -390,6 +456,17 @@ class MatrixClientService {
       if (!loginResponse.ok) {
         const errorData = await loginResponse.json()
         console.error('❌ Matrix login failed:', errorData)
+
+        // Handle rate limiting with proper retry time
+        if (errorData.errcode === 'M_LIMIT_EXCEEDED') {
+          const retryAfterMs = errorData.retry_after_ms || 300000 // Default to 5 minutes
+          const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
+          console.warn(`⚠️ Matrix rate limited - retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
+
+          // Store rate limit info globally for UI components
+          window.matrixRetryAfter = Date.now() + retryAfterMs
+        }
+
         // Throw the full error object for rate limiting detection
         const error = new Error(`Matrix login failed: ${errorData.error || 'Unknown error'}`)
         // Attach the original error data for access to errcode and retry_after_ms
@@ -1694,10 +1771,15 @@ class MatrixClientService {
       console.log('🔄 Attempting silent OIDC authentication')
 
       // Use silent OIDC flow with prompt=none
-      const oidcUrl = this._buildOIDCUrl(homeserverUrl, {
-        prompt: 'none', // Silent authentication
-        login_hint: authStore.user?.email
-      })
+      const oidcParams: Record<string, string> = {
+        prompt: 'none' // Silent authentication
+      }
+
+      if (authStore.user?.email) {
+        oidcParams.login_hint = authStore.user.email
+      }
+
+      const oidcUrl = this._buildOIDCUrl(homeserverUrl, oidcParams)
 
       // Create hidden iframe for silent auth
       const authResult = await this._performSilentOIDCAuth(oidcUrl)
