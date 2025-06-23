@@ -621,11 +621,8 @@ class MatrixClientService {
 
     console.log(`📨 Processing ${toStartOfTimeline ? 'historical' : 'live'} message:`, messageData)
 
-    // Emit custom event for UI components to listen to
-    const customEvent = new CustomEvent('matrix:timeline', {
-      detail: messageData
-    })
-    window.dispatchEvent(customEvent)
+    // Note: UI components now listen directly to Matrix SDK events via room.on(RoomEvent.Timeline)
+    // Custom events removed to prevent interference with direct reactivity
   }
 
   /**
@@ -641,16 +638,8 @@ class MatrixClientService {
     this._handleTimelineEvent(event, room, false)
     console.log('📨 New message in room', room.roomId, 'from', event.getSender())
 
-    // Emit custom event for components that need to react to new messages
-    window.dispatchEvent(new CustomEvent('matrix:message', {
-      detail: {
-        eventId: event.getId(),
-        roomId: room.roomId,
-        sender: event.getSender(),
-        content: event.getContent(),
-        timestamp: event.getTs()
-      }
-    }))
+    // Note: UI components now listen directly to Matrix SDK events
+    // Custom matrix:message events removed to prevent duplicate processing
   }
 
   /**

@@ -241,6 +241,7 @@
 
           <!-- Message Input Field -->
           <q-input
+            ref="messageInput"
             v-model="messageText"
             :placeholder="getInputPlaceholder()"
             dense
@@ -394,6 +395,7 @@ const typingNotificationTimer = ref<number | null>(null)
 
 // Refs
 const messagesContainer = ref<HTMLElement>()
+const messageInput = ref()
 const fileInput = ref()
 const countdownTimer = ref<number | null>(null)
 
@@ -689,6 +691,10 @@ const sendMessage = async () => {
 
     messages.value.push(optimisticMessage)
     messageText.value = ''
+
+    // Focus the input field after sending message
+    await nextTick()
+    messageInput.value?.$el?.querySelector('input')?.focus()
 
     await scrollToBottom()
 
@@ -1431,6 +1437,9 @@ onMounted(async () => {
     lastAuthError.value = '' // Clear any previous errors
     roomName.value = `${props.contextType} Chat`
 
+    // Set up Matrix event listeners for real-time updates
+    setupMatrixEventListeners()
+
     // Load messages only if we have a room ID
     if (props.roomId) {
       await loadMessages()
@@ -1582,23 +1591,7 @@ const setupMatrixEventListeners = () => {
     // Attach the listener to the specific room
     room.on(RoomEvent.Timeline, matrixTimelineListener)
 
-    // Also listen for custom Matrix events from the service
-    const handleMatrixTimeline = (event: CustomEvent) => {
-      if (event.detail.roomId === props.roomId) {
-        console.log('📡 Custom Matrix timeline event received:', event.detail)
-        // Reload messages to ensure sync
-        setTimeout(() => loadMessages(), 100)
-      }
-    }
-
-    const handleMatrixMessage = (event: CustomEvent) => {
-      if (event.detail.roomId === props.roomId) {
-        console.log('📨 Custom Matrix message event received:', event.detail)
-        // Reload messages to ensure sync
-        setTimeout(() => loadMessages(), 100)
-      }
-    }
-
+    // Handle timeline reset events that require full reload
     const handleMatrixTimelineReset = (event: CustomEvent) => {
       if (event.detail.roomId === props.roomId) {
         console.log('🔄 Matrix timeline reset detected for room:', props.roomId)
@@ -1685,17 +1678,13 @@ const setupMatrixEventListeners = () => {
       }
     }
 
-    // Add custom event listeners
-    window.addEventListener('matrix:timeline', handleMatrixTimeline)
-    window.addEventListener('matrix:message', handleMatrixMessage)
+    // Add custom event listeners (only for events that need special handling)
     window.addEventListener('matrix:timeline-reset', handleMatrixTimelineReset)
     window.addEventListener('matrix:typing', handleMatrixTyping)
     window.addEventListener('matrix:redaction', handleMatrixRedaction)
 
     // Store cleanup functions
     customEventListeners = [
-      () => window.removeEventListener('matrix:timeline', handleMatrixTimeline),
-      () => window.removeEventListener('matrix:message', handleMatrixMessage),
       () => window.removeEventListener('matrix:timeline-reset', handleMatrixTimelineReset),
       () => window.removeEventListener('matrix:typing', handleMatrixTyping),
       () => window.removeEventListener('matrix:redaction', handleMatrixRedaction)
