@@ -657,21 +657,43 @@ const getFileIcon = (mimetype?: string): string => {
 }
 
 const getImageUrl = (url: string): string => {
-  if (!url) return ''
+  if (!url) {
+    console.warn('⚠️ getImageUrl: Empty URL provided')
+    return ''
+  }
 
   // If it's already an HTTP URL, return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) {
+    console.log('🔗 getImageUrl: Using HTTP URL as-is:', url)
     return url
   }
 
   // If it's a Matrix content URL (mxc://), convert it to HTTP
   if (url.startsWith('mxc://')) {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.error('❌ getImageUrl: Matrix client not available')
+      return ''
+    }
+
     const convertedUrl = matrixClientService.getContentUrl(url)
-    console.log('🖼️ Converting Matrix URL:', { original: url, converted: convertedUrl })
+    console.log('🖼️ getImageUrl: Converting Matrix URL:', { 
+      original: url, 
+      converted: convertedUrl,
+      baseUrl: client.baseUrl,
+      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http')
+    })
+    
+    if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
+      console.error('❌ getImageUrl: Matrix URL conversion failed or invalid')
+      return ''
+    }
+    
     return convertedUrl
   }
 
   // Fallback - return original URL
+  console.log('🔗 getImageUrl: Using original URL:', url)
   return url
 }
 
@@ -805,10 +827,16 @@ const handleFileUpload = async () => {
     }
 
     // Upload file via Matrix client
-    console.log('🚀 Uploading file via Matrix client...')
+    console.log('🚀 Uploading file via Matrix client:', {
+      fileName: selectedFile.value.name,
+      fileType: selectedFile.value.type,
+      fileSize: selectedFile.value.size,
+      roomId: props.roomId
+    })
+    
     await matrixClientService.uploadAndSendFile(props.roomId, selectedFile.value)
 
-    console.log('✅ File uploaded and sent successfully')
+    console.log('✅ File uploaded and sent successfully - waiting for Matrix timeline event...')
 
     // Show success notification
     quasar.notify({
@@ -1809,18 +1837,32 @@ const addMessageToTimeline = (event: MatrixEvent, toStartOfTimeline: boolean) =>
     const room = matrixClientService.getClient()?.getRoom(props.roomId)
     const member = room?.getMember(senderId)
 
+    // Determine message type based on msgtype and mimetype
+    const content = event.getContent()
+    const msgtype = content.msgtype
+    const mimetype = content.info?.mimetype || ''
+    
+    let messageType: 'text' | 'image' | 'file' = 'text'
+    if (msgtype === 'm.image' || (msgtype === 'm.file' && mimetype.startsWith('image/'))) {
+      messageType = 'image'
+    } else if (msgtype === 'm.file') {
+      messageType = 'file'
+    }
+
     const messageData = {
       id: event.getId(),
-      type: event.getContent().msgtype === 'm.image' ? 'image' as const : 'text' as const,
+      type: messageType,
       sender: {
         id: senderId,
         name: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
         avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
       },
       content: {
-        body: event.getContent().body || '',
-        url: event.getContent().url,
-        filename: event.getContent().filename
+        body: content.body || '',
+        url: content.url,
+        filename: content.filename,
+        mimetype: mimetype,
+        size: content.info?.size
       },
       timestamp: new Date(event.getTs()),
       isOwn: event.getSender() === matrixClientService.getClient()?.getUserId(),
