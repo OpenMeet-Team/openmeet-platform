@@ -134,11 +134,11 @@
                 <!-- Image Message -->
                 <div v-else-if="message.type === 'image'" class="image-message">
                   <img
-                    :src="message.content.url"
+                    :src="getImageUrl(message.content.url)"
                     :alt="message.content.filename"
                     class="message-image cursor-pointer"
                     :style="getImageStyle()"
-                    @click="showImageModal(message.content.url)"
+                    @click="showImageModal(getImageUrl(message.content.url))"
                   />
                   <div v-if="message.content.filename" class="text-caption q-mt-xs">
                     {{ message.content.filename }}
@@ -162,7 +162,7 @@
                           flat
                           round
                           size="sm"
-                          @click="downloadFile(message.content.url, message.content.filename)"
+                          @click="downloadFile(getImageUrl(message.content.url), message.content.filename)"
                         />
                       </div>
                     </q-card-section>
@@ -224,18 +224,18 @@
         <div class="row items-end q-gutter-sm">
           <!-- File Upload Button -->
           <q-btn
-            icon="fas fa-paperclip"
+            :icon="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-paperclip'"
             flat
             round
             :size="mode === 'mobile' ? 'md' : 'sm'"
             @click="triggerFileUpload"
-            :disable="!canSendMessages"
+            :disable="!canSendMessages || isSending"
+            :title="isSending ? 'Uploading file...' : 'Attach file'"
           />
           <q-file
             ref="fileInput"
             v-model="selectedFile"
             style="display: none;"
-            @input="handleFileUpload"
             accept="*/*"
           />
 
@@ -278,6 +278,20 @@
             :loading="isSending"
             :disable="!canSendMessage"
           />
+        </div>
+
+        <!-- Upload Progress Indicator -->
+        <div v-if="isSending" class="upload-progress q-mt-sm">
+          <q-linear-progress
+            indeterminate
+            color="primary"
+            size="2px"
+            class="q-mb-xs"
+          />
+          <div class="text-caption text-grey-6 text-center">
+            <q-icon name="fas fa-cloud-upload-alt" size="xs" class="q-mr-xs" />
+            Uploading file...
+          </div>
         </div>
 
         <!-- Emoji Picker -->
@@ -642,6 +656,25 @@ const getFileIcon = (mimetype?: string): string => {
   return 'attach_file'
 }
 
+const getImageUrl = (url: string): string => {
+  if (!url) return ''
+  
+  // If it's already an HTTP URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  
+  // If it's a Matrix content URL (mxc://), convert it to HTTP
+  if (url.startsWith('mxc://')) {
+    const convertedUrl = matrixClientService.getContentUrl(url)
+    console.log('🖼️ Converting Matrix URL:', { original: url, converted: convertedUrl })
+    return convertedUrl
+  }
+  
+  // Fallback - return original URL
+  return url
+}
+
 const getMessageStatusIcon = (status?: string): string => {
   switch (status) {
     case 'sending': return 'schedule'
@@ -733,17 +766,85 @@ const triggerFileUpload = () => {
   fileInput.value?.$el?.querySelector('input')?.click()
 }
 
+
 const handleFileUpload = async () => {
-  if (!selectedFile.value) return
+  console.log('🚀 handleFileUpload called', { 
+    hasFile: !!selectedFile.value, 
+    fileName: selectedFile.value?.name,
+    roomId: props.roomId 
+  })
+  
+  if (!selectedFile.value || !props.roomId) {
+    console.warn('❌ Missing file or roomId', { 
+      hasFile: !!selectedFile.value, 
+      roomId: props.roomId 
+    })
+    return
+  }
 
   try {
-    // Upload file and send message
-    console.log('Uploading file:', selectedFile.value.name)
-    // await matrixService.uploadFile(props.roomId, selectedFile.value)
+    console.log('📎 Starting file upload:', selectedFile.value.name)
+    isSending.value = true
 
-    selectedFile.value = null
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024
+    if (selectedFile.value.size > maxSize) {
+      throw new Error('File too large. Maximum size is 50MB.')
+    }
+
+    // Validate file type (basic security check)
+    const allowedTypes = [
+      // Images
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      // Documents
+      'application/pdf', 'text/plain', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Archives
+      'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
+      // Media
+      'audio/mpeg', 'audio/wav', 'audio/ogg', 'video/mp4', 'video/webm', 'video/ogg'
+    ]
+    
+    if (!allowedTypes.includes(selectedFile.value.type) && selectedFile.value.type !== '') {
+      console.warn('⚠️ Unknown file type, allowing upload:', selectedFile.value.type)
+    }
+
+    // Upload file via Matrix client
+    console.log('🚀 Uploading file via Matrix client...')
+    await matrixClientService.uploadAndSendFile(props.roomId, selectedFile.value)
+    
+    console.log('✅ File uploaded and sent successfully')
+    
+    // Show success notification
+    quasar.notify({
+      type: 'positive',
+      message: 'File uploaded successfully',
+      icon: 'fas fa-check',
+      position: 'top',
+      timeout: 2000
+    })
+    
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    console.error('❌ Failed to upload file:', error)
+    
+    // Show error notification
+    quasar.notify({
+      type: 'negative',
+      message: `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      icon: 'fas fa-exclamation-triangle',
+      position: 'top',
+      timeout: 5000
+    })
+  } finally {
+    selectedFile.value = null
+    isSending.value = false
+    
+    // Clear the file input
+    if (fileInput.value) {
+      fileInput.value.removeFile()
+    }
   }
 }
 
@@ -1378,6 +1479,19 @@ watch(typingUsers, async (newTypingUsers, oldTypingUsers) => {
     }
   }, 100)
 }, { deep: true })
+
+// Watch for file selection
+watch(selectedFile, (newFile, oldFile) => {
+  console.log('📁 selectedFile changed:', {
+    old: oldFile?.name || 'null',
+    new: newFile?.name || 'null',
+    hasFile: !!newFile
+  })
+  if (newFile && !oldFile) {
+    console.log('🚀 New file selected, triggering upload...')
+    handleFileUpload()
+  }
+})
 
 // Start countdown timer
 const startCountdownTimer = () => {
