@@ -677,18 +677,18 @@ const getImageUrl = (url: string): string => {
     }
 
     const convertedUrl = matrixClientService.getContentUrl(url)
-    console.log('🖼️ getImageUrl: Converting Matrix URL:', { 
-      original: url, 
+    console.log('🖼️ getImageUrl: Converting Matrix URL:', {
+      original: url,
       converted: convertedUrl,
       baseUrl: client.baseUrl,
       isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http')
     })
-    
+
     if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
       console.error('❌ getImageUrl: Matrix URL conversion failed or invalid')
       return ''
     }
-    
+
     return convertedUrl
   }
 
@@ -833,7 +833,7 @@ const handleFileUpload = async () => {
       fileSize: selectedFile.value.size,
       roomId: props.roomId
     })
-    
+
     await matrixClientService.uploadAndSendFile(props.roomId, selectedFile.value)
 
     console.log('✅ File uploaded and sent successfully - waiting for Matrix timeline event...')
@@ -1841,7 +1841,7 @@ const addMessageToTimeline = (event: MatrixEvent, toStartOfTimeline: boolean) =>
     const content = event.getContent()
     const msgtype = content.msgtype
     const mimetype = content.info?.mimetype || ''
-    
+
     let messageType: 'text' | 'image' | 'file' = 'text'
     if (msgtype === 'm.image' || (msgtype === 'm.file' && mimetype.startsWith('image/'))) {
       messageType = 'image'
@@ -1861,7 +1861,7 @@ const addMessageToTimeline = (event: MatrixEvent, toStartOfTimeline: boolean) =>
         body: content.body || '',
         url: content.url,
         filename: content.filename,
-        mimetype: mimetype,
+        mimetype,
         size: content.info?.size
       },
       timestamp: new Date(event.getTs()),
