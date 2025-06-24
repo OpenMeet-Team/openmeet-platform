@@ -1488,7 +1488,7 @@ class MatrixClientService {
   }
 
   /**
-   * Store Matrix session data securely
+   * Store Matrix session data securely with user-specific keys
    */
   private _storeCredentials (credentials: {
     homeserverUrl: string
@@ -1497,27 +1497,41 @@ class MatrixClientService {
     deviceId: string
   }): void {
     try {
+      // Get current OpenMeet user ID for user-specific storage keys
+      const authStore = useAuthStore()
+      const openMeetUserId = authStore.getUserId
+
+      if (!openMeetUserId) {
+        console.warn('⚠️ No OpenMeet user ID available, using Matrix user ID for storage key')
+      }
+
+      // Create user-specific storage keys to prevent session sharing between users
+      const storageUserId = openMeetUserId || credentials.userId
+      const accessTokenKey = `matrix_access_token_${storageUserId}`
+      const sessionKey = `matrix_session_${storageUserId}`
+
       // Use sessionStorage for access token (cleared on tab close) for better security
       // Use localStorage for basic session info (persists across tabs/sessions)
-      sessionStorage.setItem('matrix_access_token', credentials.accessToken)
+      sessionStorage.setItem(accessTokenKey, credentials.accessToken)
 
       const basicSessionData = {
         homeserverUrl: credentials.homeserverUrl,
         userId: credentials.userId,
         deviceId: credentials.deviceId,
         timestamp: Date.now(),
-        hasSession: true
+        hasSession: true,
+        openMeetUserId: storageUserId // Store for validation
       }
-      localStorage.setItem('matrix_session', JSON.stringify(basicSessionData))
+      localStorage.setItem(sessionKey, JSON.stringify(basicSessionData))
 
-      console.log('💾 Stored Matrix session info for reliable restoration')
+      console.log(`💾 Stored Matrix session info for user ${storageUserId} with user-specific keys`)
     } catch (error) {
       console.warn('⚠️ Failed to store Matrix session info:', error)
     }
   }
 
   /**
-   * Get stored Matrix session info with access token
+   * Get stored Matrix session info with access token using user-specific keys
    */
   private _getStoredCredentials (): {
     homeserverUrl: string
@@ -1528,10 +1542,43 @@ class MatrixClientService {
     hasSession: boolean
   } | null {
     try {
-      const stored = localStorage.getItem('matrix_session')
-      if (!stored) return null
+      // Get current OpenMeet user ID for user-specific storage keys
+      const authStore = useAuthStore()
+      const openMeetUserId = authStore.getUserId
+
+      if (!openMeetUserId) {
+        console.log('🔍 No OpenMeet user ID available, checking for legacy session')
+        // Fallback to legacy key for backward compatibility
+        const legacyStored = localStorage.getItem('matrix_session')
+        if (legacyStored) {
+          console.log('📦 Found legacy Matrix session, will migrate to user-specific storage')
+          const legacyData = JSON.parse(legacyStored)
+          // Clear legacy session to prevent future conflicts
+          localStorage.removeItem('matrix_session')
+          sessionStorage.removeItem('matrix_access_token')
+          return legacyData
+        }
+        return null
+      }
+
+      // Create user-specific storage keys
+      const accessTokenKey = `matrix_access_token_${openMeetUserId}`
+      const sessionKey = `matrix_session_${openMeetUserId}`
+
+      const stored = localStorage.getItem(sessionKey)
+      if (!stored) {
+        console.log(`🔍 No Matrix session found for user ${openMeetUserId}`)
+        return null
+      }
 
       const sessionData = JSON.parse(stored)
+
+      // Validate that this session belongs to the current user
+      if (sessionData.openMeetUserId && sessionData.openMeetUserId !== openMeetUserId) {
+        console.warn(`🚨 Session user mismatch: stored=${sessionData.openMeetUserId}, current=${openMeetUserId}`)
+        this._clearStoredCredentials()
+        return null
+      }
 
       // Check if session is too old (older than 7 days for localStorage, 1 day for access token)
       const maxAge = 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -1544,7 +1591,7 @@ class MatrixClientService {
       }
 
       // Try to get access token from sessionStorage (more recent and secure)
-      const accessToken = sessionStorage.getItem('matrix_access_token')
+      const accessToken = sessionStorage.getItem(accessTokenKey)
 
       // If access token is available and not too old, include it
       if (accessToken && (Date.now() - sessionData.timestamp) < accessTokenMaxAge) {
@@ -1563,13 +1610,28 @@ class MatrixClientService {
   }
 
   /**
-   * Clear stored Matrix session info and cleanup client
+   * Clear stored Matrix session info and cleanup client using user-specific keys
    */
   private _clearStoredCredentials (): void {
     try {
+      // Get current OpenMeet user ID for user-specific storage keys
+      const authStore = useAuthStore()
+      const openMeetUserId = authStore.getUserId
+
+      if (openMeetUserId) {
+        // Clear user-specific storage
+        const accessTokenKey = `matrix_access_token_${openMeetUserId}`
+        const sessionKey = `matrix_session_${openMeetUserId}`
+        localStorage.removeItem(sessionKey)
+        sessionStorage.removeItem(accessTokenKey)
+        console.log(`🗑️ Cleared Matrix session info for user ${openMeetUserId}`)
+      } else {
+        console.log('🗑️ No user ID available, clearing legacy session keys')
+      }
+
+      // Also clear legacy keys for cleanup
       localStorage.removeItem('matrix_session')
       sessionStorage.removeItem('matrix_access_token')
-      console.log('🗑️ Cleared stored Matrix session info')
     } catch (error) {
       console.warn('⚠️ Failed to clear stored session:', error)
     }
