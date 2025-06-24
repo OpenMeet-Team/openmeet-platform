@@ -199,7 +199,7 @@
           </div>
           <!-- Show typing dots animation -->
           <div class="typing-dots-container q-mr-sm">
-            <q-icon name="more_horiz" size="16px" class="typing-dots" color="grey-6" />
+            <q-icon name="fas fa-ellipsis-h" size="16px" class="typing-dots" color="grey-6" />
           </div>
           <!-- Show typing text -->
           <span class="text-caption text-grey-6 typing-text">
