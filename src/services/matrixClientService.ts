@@ -251,7 +251,10 @@ class MatrixClientService {
       'token not found',
       'invalid logintoken',
       'unknown logintoken',
-      'invalid login token' // Matrix specific error message
+      'invalid login token', // Matrix specific error message
+      'invalid access token passed', // Matrix 401 error
+      'macaroon', // Matrix macaroon token errors
+      'cannot determine data format of binary-encoded macaroon' // Specific Matrix error we saw
     ]
 
     return invalidTokenMessages.some(msg => errorMessage.includes(msg))
@@ -708,6 +711,13 @@ class MatrixClientService {
     } catch (error) {
       console.error('❌ Failed to send message:', error)
 
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during message send - clearing stored credentials')
+        this._clearStoredCredentials()
+        throw new Error('Your session has expired. Please click "Connect" to authenticate again.')
+      }
+
       // Provide helpful error message for encryption issues
       const errorMessage = (error as Error).message
       if (errorMessage && errorMessage.includes('encryption')) {
@@ -743,6 +753,14 @@ class MatrixClientService {
       console.log('📖 Read receipt sent for event:', eventId)
     } catch (error) {
       console.error('❌ Failed to send read receipt:', error)
+
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during read receipt - clearing stored credentials')
+        this._clearStoredCredentials()
+        throw new Error('Your session has expired. Please click "Connect" to authenticate again.')
+      }
+
       throw error
     }
   }
@@ -807,6 +825,16 @@ class MatrixClientService {
       await this.client.sendTyping(roomId, isTyping, timeout || 10000)
     } catch (error) {
       console.error('❌ Failed to send typing notification:', error)
+
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during typing notification - clearing stored credentials')
+        this._clearStoredCredentials()
+        // Don't throw error for typing notifications - they're not critical
+        console.warn('⚠️ Session expired during typing notification. Please click "Connect" to authenticate again.')
+        return
+      }
+
       throw error
     }
   }
@@ -985,6 +1013,14 @@ class MatrixClientService {
       return room
     } catch (error) {
       console.error('❌ Failed to join room:', error)
+
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during room join - clearing stored credentials')
+        this._clearStoredCredentials()
+        throw new Error('Your session has expired. Please click "Connect" to authenticate again.')
+      }
+
       throw error
     }
   }
@@ -1664,6 +1700,13 @@ class MatrixClientService {
       console.log('✅ Matrix client created successfully')
     } catch (error) {
       console.error('❌ Failed to create Matrix client from credentials:', error)
+
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during client creation - clearing stored credentials')
+        this._clearStoredCredentials()
+      }
+
       throw error
     }
   }
@@ -1736,6 +1779,13 @@ class MatrixClientService {
       }
     } catch (error) {
       console.warn('⚠️ Failed to restore Matrix client from storage:', error)
+
+      // Check if this is an authentication error and clear corrupted tokens
+      if (this._isInvalidTokenError(error)) {
+        console.warn('🚫 Invalid access token detected during restoration - clearing stored credentials')
+        this._clearStoredCredentials()
+      }
+
       throw error
     }
   }
