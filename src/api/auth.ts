@@ -17,7 +17,7 @@ export const authApi = {
     email: string
     password: string
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/email/login`, credentials),
+    api.post(`${BASE_URL}/email/login`, credentials, { withCredentials: true }),
 
   register: (credentials: {
     email: string
@@ -25,7 +25,7 @@ export const authApi = {
     firstName?: string
     lastName?: string
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/email/register`, credentials),
+    api.post(`${BASE_URL}/email/register`, credentials, { withCredentials: true }),
 
   provisionMatrixUser: (): Promise<AxiosResponse<{ matrixUserId: string }>> =>
     api.post(`${MATRIX_BASE_URL}/provision-user`),
@@ -70,13 +70,13 @@ export const authApi = {
     api.post(`${BASE_URL}/logout`),
 
   googleLogin: (idToken: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/google/login`, { idToken }),
+    api.post(`${BASE_URL}/google/login`, { idToken }, { withCredentials: true }),
 
   githubLogin: (code: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/github/login`, { code }),
+    api.post(`${BASE_URL}/github/login`, { code }, { withCredentials: true }),
 
   blueskyLogin: (handle: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/bluesky/authorize`, { handle }),
+    api.post(`${BASE_URL}/bluesky/authorize`, { handle }, { withCredentials: true }),
 
   devLogin: (credentials: { identifier: string, password: string }) => {
     if (getEnv('NODE_ENV') !== 'development') {
@@ -89,7 +89,8 @@ export const authApi = {
         identifier: credentials.identifier,
         password: credentials.password,
         tenantId
-      }
+      },
+      { withCredentials: true }
     )
   }
 }

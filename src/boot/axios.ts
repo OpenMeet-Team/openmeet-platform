@@ -44,9 +44,6 @@ export default boot(async ({ app, router }) => {
 
   // Now we can safely set the baseURL
   api.defaults.baseURL = window.APP_CONFIG.APP_API_URL
-  
-  // Enable credentials for cross-domain requests to handle OIDC session cookies
-  api.defaults.withCredentials = true
 
   // for use inside Vue files (Options API) through this.$axios and this.$api
   app.config.globalProperties.$axios = axios
