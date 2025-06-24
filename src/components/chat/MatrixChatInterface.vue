@@ -98,7 +98,11 @@
                       :color="getMessageStatusColor(message.status)"
                       size="12px"
                       class="q-ml-xs"
-                    />
+                    >
+                      <q-tooltip v-if="message.status === 'failed'" class="text-body2">
+                        {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
+                      </q-tooltip>
+                    </q-icon>
                     <!-- Read Receipt Indicators -->
                     <q-chip
                       v-if="message.isOwn && message.readReceipts && message.readReceipts.length > 0"
@@ -363,6 +367,7 @@ interface Message {
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
   readReceipts?: Array<{ userId: string, userName: string, timestamp: number }>
   isRedacted?: boolean
+  errorMessage?: string
 }
 
 interface Props {
@@ -703,7 +708,7 @@ const getMessageStatusIcon = (status?: string): string => {
     case 'sent': return 'check'
     case 'delivered': return 'sym_r_done_all'
     case 'read': return 'sym_r_done_all'
-    case 'failed': return 'error'
+    case 'failed': return 'fas fa-exclamation-triangle'
     default: return 'check'
   }
 }
@@ -778,6 +783,7 @@ const sendMessage = async () => {
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage) {
       lastMessage.status = 'failed'
+      lastMessage.errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     }
   } finally {
     isSending.value = false
