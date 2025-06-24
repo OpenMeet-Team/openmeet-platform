@@ -187,10 +187,15 @@ const handleOAuthSuccess = () => {
 onMounted(() => {
   storeOidcFlowData()
 
-  // If user is already authenticated and this is an OIDC flow, continue immediately
-  if (authStore.isAuthenticated && route.query.oidc_flow === 'true') {
-    console.log('🔄 OIDC Flow: User already authenticated, continuing OIDC flow immediately')
-    handlePostLoginRedirect()
+  // If this is an OIDC flow, wait for auth store initialization before checking authentication
+  if (route.query.oidc_flow === 'true') {
+    // Wait for auth store to initialize before checking authentication
+    authStore.waitForInitialization().then(() => {
+      if (authStore.isAuthenticated) {
+        console.log('🔄 OIDC Flow: User already authenticated, continuing OIDC flow immediately')
+        handlePostLoginRedirect()
+      }
+    })
   }
 })
 
