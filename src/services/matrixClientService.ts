@@ -309,10 +309,8 @@ class MatrixClientService {
       redirectUrl
     })
 
-    // Add state parameter with embedded auth code if available
-    if (stateWithAuthCode) {
-      ssoParams.set('state', stateWithAuthCode)
-    }
+    // IMPORTANT: DO NOT override Matrix's state parameter - it contains session macaroons
+    // The auth_code will be passed as a separate parameter below
 
     // Try to include user context and OIDC hints for existing session
     if (authStore.user?.email) {
