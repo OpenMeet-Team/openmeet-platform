@@ -307,7 +307,7 @@ class MatrixClientService {
     // Add tenant ID to help backend identify user context
     const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
     if (tenantId) {
-      masLoginParams.set('tenantId', tenantId)  // Use camelCase to match backend expectation
+      masLoginParams.set('tenantId', tenantId) // Use camelCase to match backend expectation
       console.log('🏢 Including tenant ID in MAS login:', tenantId)
     }
 
