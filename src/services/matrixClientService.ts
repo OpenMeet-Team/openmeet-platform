@@ -1,14 +1,25 @@
 /**
- * Matrix JS SDK Client Service with OIDC Authentication
+ * Matrix JS SDK Client Service with MAS (Matrix Authentication Service) OIDC Authentication
  *
  * This service provides direct Matrix client functionality using the Matrix JS SDK
- * with transparent OIDC authentication, replacing the server-side WebSocket proxy.
+ * with MAS OIDC authentication flow through the OpenMeet backend, replacing direct
+ * Matrix SSO authentication.
+ *
+ * Authentication Flow:
+ * 1. User initiates Matrix connection via connectToMatrix()
+ * 2. Service redirects to /api/oidc/auth with OpenMeet credentials
+ * 3. Backend handles MAS OIDC flow and tenant authentication
+ * 4. User returns with authorization code
+ * 5. Service exchanges code for Matrix credentials via /api/oidc/token
+ * 6. Matrix client is initialized with received credentials
+ *
+ * This approach provides secure, tenant-aware Matrix authentication while
+ * maintaining compatibility with Matrix JS SDK features.
  */
 
 import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } from 'matrix-js-sdk'
 import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, createClient, IndexedDBCryptoStore, Direction } from 'matrix-js-sdk'
 import { useAuthStore } from '../stores/auth-store'
-import getEnv from '../utils/env'
 import type { MatrixMessageContent } from '../types/matrix'
 
 class MatrixClientService {
@@ -44,14 +55,15 @@ class MatrixClientService {
       }
     }
 
-    // Check if we're returning from Matrix SSO with credentials
+    // Check if we're returning from MAS OIDC with authorization code
     const urlParams = new URLSearchParams(window.location.search)
-    const loginToken = urlParams.get('loginToken')
+    const authCode = urlParams.get('code')
+    const state = urlParams.get('state')
 
-    if (loginToken) {
-      // We're returning from Matrix SSO, complete the login
-      console.log('🎫 Found loginToken in URL, completing Matrix login')
-      return this._completeLoginFromRedirect(loginToken)
+    if (authCode) {
+      // We're returning from MAS OIDC, complete the login
+      console.log('🎫 Found OIDC authorization code in URL, completing Matrix login')
+      return this._completeOIDCLogin(authCode, state)
     }
 
     // Only attempt authentication if explicitly requested (forceAuth = true)
@@ -88,29 +100,22 @@ class MatrixClientService {
   }
 
   /**
-   * Perform full-page redirect OIDC authentication
+   * Perform full-page redirect using MAS (Matrix Authentication Service) OIDC flow
    */
   private async _performFullPageRedirectAuth (): Promise<void> {
-    console.log('🔐 Starting full-page redirect OIDC authentication for Matrix client')
+    console.log('🔐 Starting MAS OIDC authentication flow for Matrix client')
 
     try {
-      // Get Matrix homeserver URL from environment
-      const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
-        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
-      }
-      const homeserverUrl = homeserverUrlConfig
-
       // Check if user is authenticated with OpenMeet
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) {
         throw new Error('User must be logged into OpenMeet first')
       }
 
-      // Perform full-page redirect authentication flow
-      await this._redirectToMatrixSSO(homeserverUrl)
+      // Use MAS OIDC flow instead of direct Matrix SSO
+      await this._redirectToMASLogin()
 
-      // This function will not return normally - the page redirects to Matrix
+      // This function will not return normally - the page redirects to MAS/OIDC
       // The user will return via the redirect URL with loginToken
     } catch (error) {
       console.error('❌ Failed to initialize Matrix client:', error)
@@ -119,25 +124,24 @@ class MatrixClientService {
   }
 
   /**
-   * Complete login when returning from Matrix SSO redirect
+   * Complete login when returning from MAS OIDC with authorization code
    */
-  private async _completeLoginFromRedirect (loginToken: string): Promise<MatrixClient> {
-    console.log('🎫 Completing Matrix login from redirect with token')
+  private async _completeOIDCLogin (authCode: string, state?: string | null): Promise<MatrixClient> {
+    console.log('🎫 Completing Matrix login from MAS OIDC with authorization code')
 
     try {
-      // Get Matrix homeserver URL from environment
-      const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
-        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
+      // Get API URL from configuration
+      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
+      if (!apiUrl) {
+        throw new Error('APP_API_URL is not configured. Please check your environment configuration.')
       }
-      const homeserverUrl = homeserverUrlConfig
 
-      // Complete the Matrix login using the token
-      const matrixCredentials = await this._completeMatrixLogin(homeserverUrl, loginToken)
+      // Exchange authorization code for Matrix credentials via backend
+      const matrixCredentials = await this._exchangeOIDCCodeForMatrixCredentials(authCode, state)
 
       // Store credentials for future sessions
       this._storeCredentials({
-        homeserverUrl,
+        homeserverUrl: matrixCredentials.homeserverUrl,
         accessToken: matrixCredentials.accessToken,
         userId: matrixCredentials.userId,
         deviceId: matrixCredentials.deviceId
@@ -145,7 +149,7 @@ class MatrixClientService {
 
       // Create Matrix client with persistent storage
       await this._createClientFromCredentials({
-        homeserverUrl,
+        homeserverUrl: matrixCredentials.homeserverUrl,
         accessToken: matrixCredentials.accessToken,
         userId: matrixCredentials.userId,
         deviceId: matrixCredentials.deviceId
@@ -184,15 +188,16 @@ class MatrixClientService {
         checkReady()
       })
 
-      // Clean up URL by removing loginToken parameter
+      // Clean up URL by removing OIDC parameters
       const url = new URL(window.location.href)
-      url.searchParams.delete('loginToken')
+      url.searchParams.delete('code')
+      url.searchParams.delete('state')
       window.history.replaceState({}, document.title, url.toString())
 
-      console.log('✅ Matrix client initialized successfully from redirect:', matrixCredentials.userId)
+      console.log('✅ Matrix client initialized successfully from MAS OIDC:', matrixCredentials.userId)
       return this.client
     } catch (error) {
-      console.error('❌ Failed to complete Matrix login from redirect:', error)
+      console.error('❌ Failed to complete Matrix login from MAS OIDC:', error)
 
       // Check if this is an invalid token error
       console.log('🔍 Error details for token detection:', {
@@ -202,11 +207,12 @@ class MatrixClientService {
         fullError: error
       })
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid loginToken detected - clearing from URL and falling back to manual auth')
+        console.warn('🚫 Invalid authorization code detected - clearing from URL and falling back to manual auth')
 
-        // Clear the invalid loginToken from URL
+        // Clear the invalid code from URL
         const url = new URL(window.location.href)
-        url.searchParams.delete('loginToken')
+        url.searchParams.delete('code')
+        url.searchParams.delete('state')
         window.history.replaceState({}, '', url.toString())
 
         // Clear any stored Matrix credentials
@@ -261,10 +267,10 @@ class MatrixClientService {
   }
 
   /**
-   * Redirect to Matrix SSO for full-page authentication
+   * Redirect to MAS (Matrix Authentication Service) OIDC login
    */
-  private async _redirectToMatrixSSO (homeserverUrl: string): Promise<void> {
-    console.log('🔄 Starting full-page Matrix SSO authentication with OpenMeet OIDC')
+  private async _redirectToMASLogin (): Promise<void> {
+    console.log('🔄 Starting MAS OIDC authentication flow')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
@@ -275,191 +281,102 @@ class MatrixClientService {
     // Save current location so we can return to it after authentication
     sessionStorage.setItem('matrixReturnUrl', window.location.href)
 
-    // Matrix SSO requires redirectUrl parameter for where to redirect after successful auth
-    const redirectUrl = `${window.location.origin}${window.location.pathname}` // Return to current page
-
-    // Generate auth code and embed in state parameter for OIDC state parameter
-    let stateWithAuthCode
-    try {
-      const authCode = await this._generateMatrixAuthCode()
-      if (authCode) {
-        // Embed auth code and tenant ID in state parameter - Matrix will preserve state through SSO redirects
-        const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
-        const stateData = {
-          random: Math.random().toString(36).substring(2, 15), // Random component for security
-          authCode,
-          tenantId,
-          timestamp: Date.now()
-        }
-        stateWithAuthCode = btoa(JSON.stringify(stateData))
-        console.log('🔐 Generated auth code and embedded in state parameter for seamless auth')
-        console.log('🔐 Auth code (first 10 chars):', authCode.substring(0, 10))
-        console.log('🔐 State parameter (first 20 chars):', stateWithAuthCode.substring(0, 20))
-      } else {
-        console.error('❌ Failed to generate auth code - this will cause email prompt')
-        throw new Error('Auth code generation failed - user will be prompted for email')
-      }
-    } catch (error) {
-      console.error('❌ Auth code generation failed:', error.message)
-      console.warn('⚠️ Falling back to regular flow - user will be prompted for email')
+    // Get API URL from configuration
+    const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
+    if (!apiUrl) {
+      throw new Error('APP_API_URL is not configured. Please check your environment configuration.')
     }
 
-    // Add session hints to help with SSO flow
-    const ssoParams = new URLSearchParams({
-      redirectUrl
+    // The redirect URL where MAS will send user back after authentication
+    const redirectUrl = `${window.location.origin}${window.location.pathname}`
+
+    // Build MAS OIDC login URL with proper parameters
+    const masLoginParams = new URLSearchParams({
+      client_id: 'mas_client', // MAS client ID configured in backend
+      redirect_uri: redirectUrl,
+      response_type: 'code', // OIDC authorization code flow
+      scope: 'openid profile email'
     })
 
-    // IMPORTANT: DO NOT override Matrix's state parameter - it contains session macaroons
-    // The auth_code will be passed as a separate parameter below
-
-    // Try to include user context and OIDC hints for existing session
+    // Add user email as login hint to make flow seamless
     if (authStore.user?.email) {
-      ssoParams.set('login_hint', authStore.user.email)
+      masLoginParams.set('login_hint', authStore.user.email)
+      console.log('🔐 Adding login hint for seamless authentication:', authStore.user.email)
     }
 
-    // Include tenant ID so backend doesn't need to scan all tenants
+    // Add tenant ID to help backend identify user context
     const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
     if (tenantId) {
-      ssoParams.set('tenant_id', tenantId)
-      console.log('🏢 Including tenant ID in SSO redirect:', tenantId)
+      masLoginParams.set('tenant_id', tenantId)
+      console.log('🏢 Including tenant ID in MAS login:', tenantId)
     }
 
-    // SECURITY: Add auth code directly as parameter for seamless authentication
-    // This is more secure than JWT tokens as auth codes expire in 5 minutes and are single-use
-    if (stateWithAuthCode) {
-      try {
-        const stateData = JSON.parse(atob(stateWithAuthCode))
-        if (stateData.authCode) {
-          ssoParams.set('auth_code', stateData.authCode)
-          console.log('🔑 Adding auth code parameter for seamless authentication')
-          console.log('🔑 Auth code (first 10 chars):', stateData.authCode.substring(0, 10))
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to extract auth code from state, user will be prompted for email')
-      }
-    } else {
-      console.warn('⚠️ No auth code available - user will be prompted for email')
+    // Add user token for seamless authentication
+    if (authStore.token) {
+      masLoginParams.set('user_token', authStore.token)
+      console.log('🔑 Adding user token for seamless authentication')
     }
 
-    // First, let's discover the correct SSO provider ID
-    const providerId = await this._discoverSSOProvider(homeserverUrl)
-    if (!providerId) {
-      throw new Error('No OpenMeet SSO provider found on Matrix server. Please check Matrix configuration.')
-    }
+    // Construct the MAS OIDC authorization URL
+    const masLoginUrl = `${apiUrl}/api/oidc/auth?${masLoginParams}`
 
-    const ssoUrl = `${homeserverUrl}/_matrix/client/v3/login/sso/redirect/${providerId}?${ssoParams}`
-
-    console.log('🔗 Redirecting to Matrix SSO:', ssoUrl)
+    console.log('🔗 Redirecting to MAS OIDC login:', masLoginUrl)
     console.log('🔄 Redirect URL:', redirectUrl)
-    console.log('👤 Current user context:', authStore.user?.email || 'No email found')
+    console.log('👤 User context:', authStore.user?.email || 'No email found')
 
-    // Perform full-page redirect to Matrix SSO
-    window.location.href = ssoUrl
+    // Perform full-page redirect to MAS OIDC login
+    window.location.href = masLoginUrl
 
     // Function will not return - page redirects away
     throw new Error('Redirect initiated - this should never be reached')
   }
 
-  /**
-   * Discover available SSO providers and find OpenMeet provider
-   */
-  private async _discoverSSOProvider (homeserverUrl: string): Promise<string | null> {
-    console.log('🔍 Discovering available SSO providers...')
-
-    try {
-      // Check login flows
-      const loginResponse = await fetch(`${homeserverUrl}/_matrix/client/v3/login`)
-      if (!loginResponse.ok) {
-        console.warn('⚠️ Could not fetch login flows')
-        return null
-      }
-
-      const loginData = await loginResponse.json()
-      console.log('🔍 Available login flows:', loginData)
-
-      // Look for SSO flows with identity providers
-      const ssoFlow = loginData.flows?.find((flow: { type: string }) => flow.type === 'm.login.sso')
-      if (!ssoFlow) {
-        console.warn('⚠️ No SSO flow available')
-        return null
-      }
-
-      // If there are identity providers listed, find OpenMeet
-      if ((ssoFlow as { identity_providers?: Array<{ id: string; name?: string; brand?: string }> }).identity_providers) {
-        const identityProviders = (ssoFlow as { identity_providers: Array<{ id: string; name?: string; brand?: string }> }).identity_providers
-        console.log('🔍 Available identity providers:', identityProviders)
-
-        const openMeetProvider = identityProviders.find((provider) =>
-          provider.id === 'oidc-openmeet' ||
-          provider.id === 'openmeet' ||
-          provider.name?.toLowerCase().includes('openmeet') ||
-          provider.brand === 'org.matrix.openmeet'
-        )
-
-        if (openMeetProvider) {
-          console.log('✅ Found OpenMeet provider:', openMeetProvider)
-          return openMeetProvider.id
-        }
-      }
-
-      // Fallback: try common provider IDs
-      const commonIds = ['oidc-openmeet', 'openmeet', 'oidc', 'openid']
-      for (const id of commonIds) {
-        console.log(`🔍 Trying provider ID: ${id}`)
-
-        // Test if this provider ID works by checking if the URL exists
-        const testResponse = await fetch(`${homeserverUrl}/_matrix/client/v3/login/sso/redirect/${id}`, {
-          method: 'HEAD'
-        })
-
-        if (testResponse.status !== 404) {
-          console.log(`✅ Found working provider ID: ${id}`)
-          return id
-        }
-      }
-
-      console.warn('⚠️ No OpenMeet SSO provider found')
-      return null
-    } catch (error) {
-      console.error('❌ Error discovering SSO providers:', error)
-      return null
-    }
-  }
+  // Removed _discoverSSOProvider - no longer needed with MAS OIDC flow
+  // MAS handles the Matrix authentication internally
 
   // Note: Removed iframe/popup authentication methods in favor of full-page redirect
   // Full-page redirect is more reliable, mobile-friendly, and follows OAuth best practices
 
   /**
-   * Complete Matrix login using SSO token
+   * Exchange OIDC authorization code for Matrix credentials via backend
    */
-  private async _completeMatrixLogin (homeserverUrl: string, loginToken: string): Promise<{
+  private async _exchangeOIDCCodeForMatrixCredentials (authCode: string, state?: string | null): Promise<{
     userId: string;
     accessToken: string;
     deviceId: string;
+    homeserverUrl: string;
   }> {
-    console.log('🎫 Completing Matrix login with SSO token')
+    console.log('🎫 Exchanging OIDC authorization code for Matrix credentials')
 
     try {
-      // Use the loginToken to complete the Matrix login
-      const loginResponse = await fetch(`${homeserverUrl}/_matrix/client/v3/login`, {
+      // Get API URL and auth store
+      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
+      const authStore = useAuthStore()
+      const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
+
+      // Call backend to exchange OIDC code for Matrix credentials
+      const response = await fetch(`${apiUrl}/api/oidc/token`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${authStore.token}`,
+          'X-Tenant-ID': tenantId || ''
         },
-        body: JSON.stringify({
-          type: 'm.login.token',
-          token: loginToken,
-          device_id: `web_${Date.now()}`,
-          initial_device_display_name: 'OpenMeet Web Client'
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: authCode,
+          client_id: 'mas_client',
+          redirect_uri: `${window.location.origin}${window.location.pathname}`,
+          ...(state && { state })
         })
       })
 
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json()
-        console.error('❌ Matrix login failed:', errorData)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ OIDC token exchange failed:', errorData)
 
         // Handle rate limiting with proper retry time
-        if (errorData.errcode === 'M_LIMIT_EXCEEDED') {
+        if (errorData.error === 'rate_limit_exceeded') {
           const retryAfterMs = errorData.retry_after_ms || 300000 // Default to 5 minutes
           const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
           console.warn(`⚠️ Matrix rate limited - retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
@@ -469,23 +386,26 @@ class MatrixClientService {
         }
 
         // Throw the full error object for rate limiting detection
-        const error = new Error(`Matrix login failed: ${errorData.error || 'Unknown error'}`)
-        // Attach the original error data for access to errcode and retry_after_ms
+        const error = new Error(`OIDC token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
+        // Attach the original error data for access to error codes
         Object.assign(error, errorData)
         throw error
       }
 
-      const loginData = await loginResponse.json()
-      console.log('✅ Matrix login successful:', loginData.user_id)
+      const tokenData = await response.json()
+      console.log('✅ OIDC token exchange successful, received Matrix credentials')
 
+      // Extract Matrix credentials from the response
+      // The backend should return Matrix access token and user info
       return {
-        userId: loginData.user_id,
-        accessToken: loginData.access_token,
-        deviceId: loginData.device_id
+        userId: tokenData.matrix_user_id,
+        accessToken: tokenData.matrix_access_token,
+        deviceId: tokenData.matrix_device_id,
+        homeserverUrl: tokenData.matrix_homeserver_url
       }
     } catch (error) {
-      console.error('❌ Error completing Matrix login:', error)
-      throw new Error(`Failed to complete Matrix login: ${error.message}`)
+      console.error('❌ Error exchanging OIDC code for Matrix credentials:', error)
+      throw new Error(`Failed to exchange OIDC code: ${error.message}`)
     }
   }
 
@@ -494,7 +414,7 @@ class MatrixClientService {
 
   /**
    * Public method to start Matrix authentication flow
-   * This will redirect the user to Matrix SSO if not already authenticated
+   * This will redirect the user to MAS (Matrix Authentication Service) OIDC if not already authenticated
    */
   async connectToMatrix (): Promise<MatrixClient> {
     console.log('🔗 Starting Matrix connection flow')
@@ -1438,52 +1358,8 @@ class MatrixClientService {
     this.initPromise = null
   }
 
-  /**
-   * Generate a short-lived auth code for Matrix SSO
-   */
-  private async _generateMatrixAuthCode (): Promise<string | null> {
-    try {
-      const authStore = useAuthStore()
-
-      // Check if token is expired or about to expire (within 5 minutes)
-      const now = Date.now()
-      const tokenExpires = Number(authStore.tokenExpires)
-      const threshold = 5 * 60 * 1000 // 5 minutes
-
-      // Refresh token if expired or about to expire
-      if (tokenExpires && now + threshold > tokenExpires) {
-        console.log('🔄 Matrix: Token expires soon, refreshing before auth code request')
-        try {
-          await authStore.actionRefreshToken()
-          console.log('✅ Matrix: Token refreshed successfully')
-        } catch (error) {
-          console.error('❌ Matrix: Failed to refresh token before auth code request:', error)
-          throw error
-        }
-      }
-
-      const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId') || ''
-      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
-      const response = await fetch(`${apiUrl}/api/matrix/generate-auth-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
-          'X-Tenant-ID': tenantId
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate auth code: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return data.authCode
-    } catch (error) {
-      console.error('Failed to generate Matrix auth code:', error)
-      return null
-    }
-  }
+  // Removed _generateMatrixAuthCode - no longer needed with MAS OIDC flow
+  // MAS handles authentication internally without requiring auth codes
 
   /**
    * Store Matrix session data securely with user-specific keys
@@ -1850,125 +1726,14 @@ class MatrixClientService {
     }
   }
 
-  /**
-   * Attempt silent OIDC authentication using stored tokens
-   */
-  private async _attemptSilentAuth (): Promise<MatrixClient> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) {
-      throw new Error('User not authenticated with OpenMeet')
-    }
+  // Removed _attemptSilentAuth - replaced with MAS OIDC flow
+  // Silent authentication now handled by MAS with user tokens
 
-    // Try silent OIDC authentication using iframe
-    try {
-      const homeserverUrlConfig = getEnv('APP_MATRIX_HOMESERVER_URL')
-      if (typeof homeserverUrlConfig !== 'string' || !homeserverUrlConfig) {
-        throw new Error('APP_MATRIX_HOMESERVER_URL is not configured. Please check your environment configuration.')
-      }
-      const homeserverUrl = homeserverUrlConfig
+  // Removed _performSilentOIDCAuth - iframe auth not needed with MAS
+  // MAS provides seamless authentication via server-side token validation
 
-      console.log('🔄 Attempting silent OIDC authentication')
-
-      // Use silent OIDC flow with prompt=none
-      const oidcParams: Record<string, string> = {
-        prompt: 'none' // Silent authentication
-      }
-
-      if (authStore.user?.email) {
-        oidcParams.login_hint = authStore.user.email
-      }
-
-      const oidcUrl = this._buildOIDCUrl(homeserverUrl, oidcParams)
-
-      // Create hidden iframe for silent auth
-      const authResult = await this._performSilentOIDCAuth(oidcUrl)
-
-      if (authResult.loginToken) {
-        return await this._completeLoginFromRedirect(authResult.loginToken)
-      } else {
-        throw new Error('Silent OIDC authentication failed - no login token received')
-      }
-    } catch (error) {
-      console.warn('⚠️ Silent OIDC authentication failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Perform silent OIDC authentication using iframe
-   */
-  private async _performSilentOIDCAuth (authUrl: string): Promise<{ loginToken?: string }> {
-    return new Promise((resolve, reject) => {
-      const iframe = document.createElement('iframe')
-      iframe.style.display = 'none'
-      iframe.src = authUrl
-
-      const timeout = setTimeout(() => {
-        document.body.removeChild(iframe)
-        reject(new Error('Silent authentication timeout'))
-      }, 10000) // 10 second timeout
-
-      iframe.onload = () => {
-        try {
-          // Check if iframe loaded a 404 page
-          const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document
-          if (iframeDocument) {
-            const title = iframeDocument.title?.toLowerCase() || ''
-            const bodyText = iframeDocument.body?.innerText?.toLowerCase() || ''
-
-            if (title.includes('404') || title.includes('not found') ||
-                bodyText.includes('404') || bodyText.includes('not found')) {
-              clearTimeout(timeout)
-              document.body.removeChild(iframe)
-              reject(new Error('404 - Matrix OIDC endpoint not found'))
-              return
-            }
-          }
-
-          const iframeUrl = iframe.contentWindow?.location.href
-          if (iframeUrl && iframeUrl.includes('loginToken=')) {
-            const urlParams = new URLSearchParams(iframeUrl.split('?')[1])
-            const loginToken = urlParams.get('loginToken')
-
-            clearTimeout(timeout)
-            document.body.removeChild(iframe)
-
-            if (loginToken) {
-              resolve({ loginToken })
-            } else {
-              reject(new Error('No login token in response'))
-            }
-          }
-        } catch (error) {
-          // Cross-origin access error - this is expected during auth flow
-          // We'll check for completion via other means
-        }
-      }
-
-      iframe.onerror = () => {
-        clearTimeout(timeout)
-        document.body.removeChild(iframe)
-        reject(new Error('404 - Matrix OIDC endpoint not found'))
-      }
-
-      document.body.appendChild(iframe)
-    })
-  }
-
-  /**
-   * Build OIDC authentication URL with parameters
-   */
-  private _buildOIDCUrl (homeserverUrl: string, params: Record<string, string> = {}): string {
-    const baseUrl = `${homeserverUrl}/_matrix/client/v3/login/sso/redirect/oidc-openmeet`
-    const defaultParams = {
-      redirectUrl: window.location.origin + window.location.pathname
-    }
-
-    const allParams = { ...defaultParams, ...params }
-    const paramString = new URLSearchParams(allParams).toString()
-
-    return `${baseUrl}?${paramString}`
-  }
+  // Removed _buildOIDCUrl - direct Matrix URLs not used with MAS
+  // MAS handles Matrix authentication through backend OIDC endpoints
 }
 
 // Export singleton instance
