@@ -549,7 +549,7 @@ const retryRoomInitialization = async () => {
 
   try {
     // First make sure Matrix connection is initialized
-    await matrixClientService.connect()
+    await matrixClientService.connectToMatrix()
 
     // Force a fresh fetch of the event data to ensure we have current permissions
     console.log(`Performing fresh fetch of event data for ${eventSlug}`)

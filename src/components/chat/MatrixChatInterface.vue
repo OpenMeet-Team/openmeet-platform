@@ -1118,7 +1118,7 @@ const reconnect = async () => {
     }
 
     // Try to connect to Matrix client (this will handle authentication)
-    await matrixClientService.connect()
+    await matrixClientService.connectToMatrix()
     console.log('✅ Matrix client connected successfully')
 
     isConnected.value = true
