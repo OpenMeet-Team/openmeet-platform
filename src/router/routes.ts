@@ -117,6 +117,11 @@ const routes: RouteRecordRaw[] = [
         name: 'CalendarCallbackPage',
         component: () => import('pages/auth/CalendarCallbackPage.vue')
       },
+      {
+        path: 'matrix/callback',
+        name: 'AuthMatrixCallbackPage',
+        component: () => import('pages/auth/MatrixCallbackPage.vue')
+      },
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },
       {
