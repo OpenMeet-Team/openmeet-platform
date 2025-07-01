@@ -21,6 +21,7 @@ import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } 
 import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, createClient, IndexedDBCryptoStore, Direction } from 'matrix-js-sdk'
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
+import getEnv from '../utils/env'
 
 class MatrixClientService {
   private client: MatrixClient | null = null
@@ -36,6 +37,12 @@ class MatrixClientService {
     if (this.client && this.client.isLoggedIn()) {
       console.log('✅ Matrix client already initialized and logged in')
       return this.client
+    }
+
+    // Prevent concurrent initialization attempts
+    if (this.isInitializing && this.initPromise) {
+      console.log('🔄 Matrix initialization already in progress, waiting...')
+      return this.initPromise
     }
 
     // First, try to restore from stored credentials (including access token)
@@ -61,9 +68,26 @@ class MatrixClientService {
     const state = urlParams.get('state')
 
     if (authCode) {
-      // We're returning from MAS OIDC, complete the login
-      console.log('🎫 Found OIDC authorization code in URL, completing Matrix login')
-      return this._completeOIDCLogin(authCode, state)
+      // Immediately clear the code from URL to prevent reuse
+      console.log('🎫 Found OAuth2 authorization code in URL, clearing and completing Matrix login')
+      const url = new URL(window.location.href)
+      url.searchParams.delete('code')
+      url.searchParams.delete('state')
+      window.history.replaceState({}, document.title, url.toString())
+
+      // Set initialization tracking
+      this.isInitializing = true
+      this.initPromise = this.completeOAuthLogin(authCode, state)
+
+      try {
+        const client = await this.initPromise
+        this.isInitializing = false
+        return client
+      } catch (error) {
+        this.isInitializing = false
+        this.initPromise = null
+        throw error
+      }
     }
 
     // Only attempt authentication if explicitly requested (forceAuth = true)
@@ -83,20 +107,15 @@ class MatrixClientService {
       return this.initPromise
     }
 
+    // Start redirect authentication flow - this will redirect away from the page
     this.isInitializing = true
-    this.initPromise = this._performFullPageRedirectAuth().then(() => {
-      throw new Error('Redirect flow initiated - client will be created after redirect')
-    })
 
-    try {
-      const client = await this.initPromise
-      this.isInitializing = false
-      return client
-    } catch (redirectError) {
-      this.isInitializing = false
-      this.initPromise = null
-      throw new Error('Matrix authentication failed. Please try refreshing the page.')
-    }
+    // Call redirect method and let it handle the redirect
+    await this._performFullPageRedirectAuth()
+
+    // This code should never execute since we redirect away
+    this.isInitializing = false
+    throw new Error('Unexpected: redirect did not occur')
   }
 
   /**
@@ -124,19 +143,26 @@ class MatrixClientService {
   }
 
   /**
-   * Complete login when returning from MAS OIDC with authorization code
+   * Complete login when returning from MAS OAuth2 with authorization code
+   * Public method for use by callback page
    */
-  private async _completeOIDCLogin (authCode: string, state?: string | null): Promise<MatrixClient> {
+  async completeOAuthLogin (authCode: string, state?: string | null): Promise<MatrixClient> {
     console.log('🎫 Completing Matrix login from MAS OIDC with authorization code')
 
     try {
-      // Get API URL from configuration
-      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
-      if (!apiUrl) {
-        throw new Error('APP_API_URL is not configured. Please check your environment configuration.')
+      // Validate state parameter for CSRF protection
+      const storedState = sessionStorage.getItem('mas_oauth_state')
+      if (storedState && storedState !== state) {
+        console.error('❌ OAuth2 state mismatch - possible CSRF attack')
+        sessionStorage.removeItem('mas_oauth_state')
+        throw new Error('OAuth2 state validation failed - possible CSRF attack')
       }
 
-      // Exchange authorization code for Matrix credentials via backend
+      // Clean up stored state
+      sessionStorage.removeItem('mas_oauth_state')
+      console.log('✅ OAuth2 state validation passed')
+
+      // Exchange authorization code for Matrix credentials via MAS
       const matrixCredentials = await this._exchangeOIDCCodeForMatrixCredentials(authCode, state)
 
       // Store credentials for future sessions
@@ -267,10 +293,11 @@ class MatrixClientService {
   }
 
   /**
-   * Redirect to MAS (Matrix Authentication Service) OIDC login
+   * Redirect to MAS (Matrix Authentication Service) OAuth2 login
+   * Uses direct MAS OAuth2 endpoints instead of OpenMeet backend
    */
   private async _redirectToMASLogin (): Promise<void> {
-    console.log('🔄 Starting MAS OIDC authentication flow')
+    console.log('🔄 Starting direct MAS OAuth2 authentication flow')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
@@ -281,21 +308,33 @@ class MatrixClientService {
     // Save current location so we can return to it after authentication
     sessionStorage.setItem('matrixReturnUrl', window.location.href)
 
-    // Get API URL from configuration
-    const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
-    if (!apiUrl) {
-      throw new Error('APP_API_URL is not configured. Please check your environment configuration.')
+    // Get MAS configuration from environment using getEnv utility
+    const masUrl = getEnv('APP_MAS_URL') as string
+    const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
+    const masScopes = getEnv('APP_MAS_SCOPES') as string
+    const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
+
+    if (!masUrl) {
+      throw new Error('APP_MAS_URL is not configured. Please check your environment configuration.')
+    }
+    if (!masClientId) {
+      throw new Error('APP_MAS_CLIENT_ID is not configured. Please check your environment configuration.')
     }
 
     // The redirect URL where MAS will send user back after authentication
-    const redirectUrl = `${window.location.origin}${window.location.pathname}`
+    const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
 
-    // Build MAS OIDC login URL with proper parameters
+    // Generate state for CSRF protection
+    const state = this._generateRandomState()
+    sessionStorage.setItem('mas_oauth_state', state)
+
+    // Build MAS OAuth2 authorization URL with proper parameters
     const masLoginParams = new URLSearchParams({
-      client_id: 'mas_client', // MAS client ID configured in backend
+      client_id: masClientId,
       redirect_uri: redirectUrl,
-      response_type: 'code', // OIDC authorization code flow
-      scope: 'openid profile email'
+      response_type: 'code', // OAuth2 authorization code flow
+      scope: masScopes || 'openid email urn:matrix:org.matrix.msc2967.client:api:*',
+      state
     })
 
     // Add user email as login hint to make flow seamless
@@ -304,31 +343,38 @@ class MatrixClientService {
       console.log('🔐 Adding login hint for seamless authentication:', authStore.user.email)
     }
 
-    // Add tenant ID to help backend identify user context
-    const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
-    if (tenantId) {
-      masLoginParams.set('tenantId', tenantId) // Use camelCase to match backend expectation
-      console.log('🏢 Including tenant ID in MAS login:', tenantId)
-    }
+    // Store OpenMeet context for later use in callback
+    sessionStorage.setItem('mas_openmeet_context', JSON.stringify({
+      userId: authStore.getUserId,
+      token: authStore.token,
+      tenantId: (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+    }))
 
-    // Add user token for seamless authentication
-    if (authStore.token) {
-      masLoginParams.set('user_token', authStore.token)
-      console.log('🔑 Adding user token for seamless authentication')
-    }
+    // Construct the MAS OAuth2 authorization URL
+    const masLoginUrl = `${masUrl}/authorize?${masLoginParams}`
 
-    // Construct the MAS OIDC authorization URL
-    const masLoginUrl = `${apiUrl}/api/oidc/auth?${masLoginParams}`
-
-    console.log('🔗 Redirecting to MAS OIDC login:', masLoginUrl)
+    console.log('🔗 Redirecting to direct MAS OAuth2 login:', masLoginUrl)
     console.log('🔄 Redirect URL:', redirectUrl)
     console.log('👤 User context:', authStore.user?.email || 'No email found')
+    console.log('🏛️ MAS URL:', masUrl)
+    console.log('🆔 Client ID:', masClientId)
 
-    // Perform full-page redirect to MAS OIDC login
+    // Perform full-page redirect to MAS OAuth2 login
     window.location.href = masLoginUrl
 
-    // Function will not return - page redirects away
-    throw new Error('Redirect initiated - this should never be reached')
+    // Return a promise that never resolves since we're redirecting away
+    return new Promise(() => {
+      // This promise intentionally never resolves since the page redirects
+    })
+  }
+
+  /**
+   * Generate random state parameter for OAuth2 CSRF protection
+   */
+  private _generateRandomState (): string {
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
   }
 
   // Removed _discoverSSOProvider - no longer needed with MAS OIDC flow
@@ -338,7 +384,7 @@ class MatrixClientService {
   // Full-page redirect is more reliable, mobile-friendly, and follows OAuth best practices
 
   /**
-   * Exchange OIDC authorization code for Matrix credentials via backend
+   * Exchange OAuth2 authorization code for Matrix credentials via MAS directly
    */
   private async _exchangeOIDCCodeForMatrixCredentials (authCode: string, state?: string | null): Promise<{
     userId: string;
@@ -346,67 +392,148 @@ class MatrixClientService {
     deviceId: string;
     homeserverUrl: string;
   }> {
-    console.log('🎫 Exchanging OIDC authorization code for Matrix credentials')
+    console.log('🎫 Exchanging OAuth2 authorization code for Matrix credentials via MAS')
 
     try {
-      // Get API URL and auth store
-      const apiUrl = window.APP_CONFIG?.APP_API_URL || ''
-      const authStore = useAuthStore()
-      const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
+      // Get MAS configuration
+      const masUrl = getEnv('APP_MAS_URL') as string
+      const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
+      const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
-      // Call backend to exchange OIDC code for Matrix credentials
-      const response = await fetch(`${apiUrl}/api/oidc/token`, {
+      if (!masUrl || !masClientId) {
+        throw new Error('MAS configuration not available')
+      }
+
+      const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
+
+      // Call MAS directly to exchange authorization code for access token
+      const response = await fetch(`${masUrl}/oauth2/token`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Bearer ${authStore.token}`,
-          'X-Tenant-ID': tenantId || ''
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
           code: authCode,
-          client_id: 'mas_client',
-          redirect_uri: `${window.location.origin}${window.location.pathname}`,
+          client_id: masClientId,
+          redirect_uri: redirectUrl,
           ...(state && { state })
         })
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('❌ OIDC token exchange failed:', errorData)
-
-        // Handle rate limiting with proper retry time
-        if (errorData.error === 'rate_limit_exceeded') {
-          const retryAfterMs = errorData.retry_after_ms || 300000 // Default to 5 minutes
-          const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
-          console.warn(`⚠️ Matrix rate limited - retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
-
-          // Store rate limit info globally for UI components
-          window.matrixRetryAfter = Date.now() + retryAfterMs
-        }
+        console.error('❌ MAS token exchange failed:', errorData)
 
         // Throw the full error object for rate limiting detection
-        const error = new Error(`OIDC token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
-        // Attach the original error data for access to error codes
+        const error = new Error(`MAS token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
         Object.assign(error, errorData)
         throw error
       }
 
       const tokenData = await response.json()
-      console.log('✅ OIDC token exchange successful, received Matrix credentials')
+      console.log('✅ MAS token exchange successful, received token data:', tokenData)
 
-      // Extract Matrix credentials from the response
-      // The backend should return Matrix access token and user info
-      return {
-        userId: tokenData.matrix_user_id,
-        accessToken: tokenData.matrix_access_token,
-        deviceId: tokenData.matrix_device_id,
-        homeserverUrl: tokenData.matrix_homeserver_url
+      // Debug: Log what we received to understand the token structure
+      console.log('🔍 Token data details:', {
+        sub: tokenData.sub,
+        access_token: tokenData.access_token,
+        device_id: tokenData.device_id,
+        token_type: tokenData.token_type,
+        scope: tokenData.scope,
+        expires_in: tokenData.expires_in,
+        has_id_token: !!tokenData.id_token
+      })
+
+      const homeserverUrl = (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'http://localhost:8448'
+      console.log('🏠 Using homeserver URL:', homeserverUrl)
+
+      // Extract Matrix credentials from MAS response
+      // Need to get user info from MAS userinfo endpoint to get matrix_handle
+      let userId = tokenData.sub
+
+      // Get user info from MAS userinfo endpoint
+      try {
+        const masUrl = getEnv('APP_MAS_URL') as string
+        const userinfoResponse = await fetch(`${masUrl}/oauth2/userinfo`, {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`
+          }
+        })
+
+        if (userinfoResponse.ok) {
+          const userInfo = await userinfoResponse.json()
+          console.log('👤 MAS userinfo response:', userInfo)
+          // Extract Matrix username from userinfo response
+          // MAS returns the Matrix username in different possible fields
+          userId = userInfo.matrix_handle || userInfo.preferred_username || userInfo.username
+          console.log('🔍 Extracted userId from userinfo:', userId)
+        } else {
+          console.warn('⚠️ Failed to get userinfo from MAS:', userinfoResponse.status)
+        }
+      } catch (userinfoError) {
+        console.error('❌ Error getting userinfo from MAS:', userinfoError)
       }
+
+      // Fallback: If userinfo failed, extract userId from the id_token JWT
+      if (!userId && tokenData.id_token) {
+        try {
+          // Decode JWT payload (base64 decode the middle part)
+          const jwtPayload = tokenData.id_token.split('.')[1]
+          const decodedPayload = JSON.parse(atob(jwtPayload))
+          userId = decodedPayload.sub
+          console.log('🔍 Extracted userId from JWT id_token:', userId)
+        } catch (jwtError) {
+          console.error('❌ Failed to decode JWT id_token:', jwtError)
+        }
+      }
+
+      // Format Matrix user ID properly (@username:server.name)
+      let matrixUserId = userId
+      if (userId && !userId.startsWith('@')) {
+        // Use configured Matrix server name for user ID format (not homeserver URL hostname)
+        const matrixServerName = getEnv('APP_MATRIX_SERVER_NAME') as string
+        if (!matrixServerName) {
+          throw new Error('APP_MATRIX_SERVER_NAME is required but not configured')
+        }
+        matrixUserId = `@${userId}:${matrixServerName}`
+      }
+
+      const credentials = {
+        userId: matrixUserId, // Matrix user ID in proper format
+        accessToken: tokenData.access_token,
+        deviceId: tokenData.device_id || this._generateDeviceId(),
+        homeserverUrl
+      }
+
+      console.log('🎫 Final Matrix credentials:', {
+        userId: credentials.userId,
+        hasAccessToken: !!credentials.accessToken,
+        accessTokenPrefix: credentials.accessToken?.substring(0, 10) + '...',
+        deviceId: credentials.deviceId,
+        homeserverUrl: credentials.homeserverUrl
+      })
+
+      // Validate that we have the required credentials
+      if (!credentials.userId) {
+        throw new Error('Failed to extract userId from MAS response')
+      }
+      if (!credentials.accessToken) {
+        throw new Error('Failed to extract accessToken from MAS response')
+      }
+
+      return credentials
     } catch (error) {
-      console.error('❌ Error exchanging OIDC code for Matrix credentials:', error)
-      throw new Error(`Failed to exchange OIDC code: ${error.message}`)
+      console.error('❌ Error exchanging OAuth2 code for Matrix credentials:', error)
+      throw new Error(`Failed to exchange OAuth2 code: ${error.message}`)
     }
+  }
+
+  /**
+   * Generate a device ID for Matrix client
+   */
+  private _generateDeviceId (): string {
+    return `openmeet_web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
   // Note: Removed unused session checking and interactive OIDC methods
@@ -426,7 +553,7 @@ class MatrixClientService {
     }
 
     // Initialize client - this will either complete from redirect or start new flow
-    return this.initializeClient()
+    return this.initializeClient(true)
   }
 
   /**
@@ -914,7 +1041,20 @@ class MatrixClientService {
   getContentUrl (mxcUrl: string, width?: number, height?: number): string {
     if (!this.client || !mxcUrl.startsWith('mxc://')) return mxcUrl
 
-    return this.client.mxcUrlToHttp(mxcUrl, width, height) || mxcUrl
+    try {
+      // Check if client has a valid base URL before attempting conversion
+      const baseUrl = this.client.getHomeserverUrl()
+      if (!baseUrl) {
+        console.warn('⚠️ Matrix client baseUrl is undefined, cannot convert mxc URL:', mxcUrl)
+        return mxcUrl
+      }
+
+      const httpUrl = this.client.mxcUrlToHttp(mxcUrl, width, height)
+      return httpUrl || mxcUrl
+    } catch (error) {
+      console.warn('⚠️ Failed to convert Matrix content URL:', mxcUrl, error)
+      return mxcUrl
+    }
   }
 
   /**
@@ -1022,7 +1162,7 @@ class MatrixClientService {
 
       // First, join via the API to ensure permissions are handled
       const authStore = useAuthStore()
-      const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
 
       const joinResponse = await fetch(`/api/chat/event/${eventSlug}/join`, {
         method: 'POST',
@@ -1068,7 +1208,7 @@ class MatrixClientService {
 
       // First, join via the API to ensure permissions are handled
       const authStore = useAuthStore()
-      const tenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId')
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
 
       const joinResponse = await fetch(`/api/chat/group/${groupSlug}/join`, {
         method: 'POST',
@@ -1621,8 +1761,34 @@ class MatrixClientService {
         `matrix-crypto-${credentials.userId}`
       )
 
-      this.client = createClient({
+      console.log('🔧 Creating Matrix client with credentials:', {
         baseUrl: credentials.homeserverUrl,
+        userId: credentials.userId,
+        deviceId: credentials.deviceId,
+        hasAccessToken: !!credentials.accessToken
+      })
+
+      if (!credentials.homeserverUrl) {
+        throw new Error('homeserverUrl is required but not provided')
+      }
+
+      if (!credentials.accessToken) {
+        throw new Error('accessToken is required but not provided')
+      }
+
+      if (!credentials.userId) {
+        throw new Error('userId is required but not provided')
+      }
+
+      // Validate homeserver URL format
+      const baseUrl = credentials.homeserverUrl.endsWith('/')
+        ? credentials.homeserverUrl.slice(0, -1)
+        : credentials.homeserverUrl
+
+      console.log('🏠 Creating Matrix client with baseUrl:', baseUrl)
+
+      this.client = createClient({
+        baseUrl,
         accessToken: credentials.accessToken,
         userId: credentials.userId,
         deviceId: credentials.deviceId,
@@ -1632,6 +1798,13 @@ class MatrixClientService {
       })
 
       // Verify the client works
+      const clientBaseUrl = this.client.getHomeserverUrl()
+      console.log('🔍 Matrix client initialized with baseUrl:', clientBaseUrl)
+
+      if (!clientBaseUrl) {
+        throw new Error('Matrix client initialization failed - no homeserver URL')
+      }
+
       await this.client.whoami()
       console.log('✅ Matrix client created successfully')
     } catch (error) {
@@ -1669,8 +1842,15 @@ class MatrixClientService {
       if (sessionInfo.accessToken) {
         console.log('🔑 Using stored access token for immediate client restoration')
 
+        // Validate homeserver URL format
+        const baseUrl = sessionInfo.homeserverUrl.endsWith('/')
+          ? sessionInfo.homeserverUrl.slice(0, -1)
+          : sessionInfo.homeserverUrl
+
+        console.log('🏠 Restoring Matrix client with baseUrl:', baseUrl)
+
         this.client = createClient({
-          baseUrl: sessionInfo.homeserverUrl,
+          baseUrl,
           accessToken: sessionInfo.accessToken,
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
@@ -1696,8 +1876,15 @@ class MatrixClientService {
         // Fallback: try to restore from Matrix SDK's own persistence
         console.log('🔄 No access token available, trying Matrix SDK restoration')
 
+        // Validate homeserver URL format
+        const baseUrl = sessionInfo.homeserverUrl.endsWith('/')
+          ? sessionInfo.homeserverUrl.slice(0, -1)
+          : sessionInfo.homeserverUrl
+
+        console.log('🏠 Restoring Matrix client (no access token) with baseUrl:', baseUrl)
+
         this.client = createClient({
-          baseUrl: sessionInfo.homeserverUrl,
+          baseUrl,
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
           timelineSupport: true,
