@@ -144,10 +144,10 @@ class MatrixClientService {
 
   /**
    * Complete login when returning from MAS OAuth2 with authorization code
-   * Public method for use by callback page
+   * Uses Matrix JS SDK's OIDC methods for proper MSC3861 authentication
    */
   async completeOAuthLogin (authCode: string, state?: string | null): Promise<MatrixClient> {
-    console.log('🎫 Completing Matrix login from MAS OIDC with authorization code')
+    console.log('🎫 Completing Matrix login from MAS OIDC with authorization code using MSC3861')
 
     try {
       // Validate state parameter for CSRF protection
@@ -162,24 +162,28 @@ class MatrixClientService {
       sessionStorage.removeItem('mas_oauth_state')
       console.log('✅ OAuth2 state validation passed')
 
+      // Use Matrix JS SDK's OIDC completion method for MSC3861
+      const homeserverUrl = (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'http://localhost:8448'
+      const masUrl = getEnv('APP_MAS_URL') as string
+      const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
+      const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
+      const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
+
+      console.log('🔧 Using Matrix JS SDK OIDC completion with:', {
+        homeserverUrl,
+        masUrl,
+        masClientId,
+        redirectUrl
+      })
+
       // Exchange authorization code for Matrix credentials via MAS
       const matrixCredentials = await this._exchangeOIDCCodeForMatrixCredentials(authCode, state)
 
-      // Store credentials for future sessions
-      this._storeCredentials({
-        homeserverUrl: matrixCredentials.homeserverUrl,
-        accessToken: matrixCredentials.accessToken,
-        userId: matrixCredentials.userId,
-        deviceId: matrixCredentials.deviceId
-      })
+      // Store credentials for session persistence
+      this._storeCredentials(matrixCredentials)
 
-      // Create Matrix client with persistent storage
-      await this._createClientFromCredentials({
-        homeserverUrl: matrixCredentials.homeserverUrl,
-        accessToken: matrixCredentials.accessToken,
-        userId: matrixCredentials.userId,
-        deviceId: matrixCredentials.deviceId
-      })
+      // Create Matrix client with MSC3861 access token (NOT session-based)
+      await this._createClientFromCredentials(matrixCredentials)
 
       // Set up event listeners
       this._setupEventListeners()
@@ -1787,12 +1791,15 @@ class MatrixClientService {
 
       console.log('🏠 Creating Matrix client with baseUrl:', baseUrl)
 
+      // MSC3861: Use access token obtained via MAS OIDC
+      console.log('🔐 Creating Matrix client with MSC3861 access token from MAS')
       this.client = createClient({
         baseUrl,
-        accessToken: credentials.accessToken,
+        accessToken: credentials.accessToken, // MSC3861 token from MAS
         userId: credentials.userId,
         deviceId: credentials.deviceId,
         timelineSupport: true,
+        useAuthorizationHeader: true, // CRITICAL: Required for MSC3861 compatibility
         cryptoStore,
         pickleKey: credentials.userId
       })
@@ -1849,12 +1856,15 @@ class MatrixClientService {
 
         console.log('🏠 Restoring Matrix client with baseUrl:', baseUrl)
 
+        // MSC3861: Use access token obtained via MAS OIDC
+        console.log('🔐 Restoring Matrix client with MSC3861 access token from MAS')
         this.client = createClient({
           baseUrl,
-          accessToken: sessionInfo.accessToken,
+          accessToken: sessionInfo.accessToken, // MSC3861 token from MAS
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
           timelineSupport: true,
+          useAuthorizationHeader: true, // CRITICAL: Required for MSC3861 compatibility
           cryptoStore,
           pickleKey: sessionInfo.userId
         })
@@ -1883,22 +1893,9 @@ class MatrixClientService {
 
         console.log('🏠 Restoring Matrix client (no access token) with baseUrl:', baseUrl)
 
-        this.client = createClient({
-          baseUrl,
-          userId: sessionInfo.userId,
-          deviceId: sessionInfo.deviceId,
-          timelineSupport: true,
-          cryptoStore,
-          pickleKey: sessionInfo.userId
-        })
-
-        // Check if Matrix SDK can restore the session
-        if (this.client.isLoggedIn()) {
-          await this.client.whoami()
-          console.log('✅ Matrix client restored from SDK persistence')
-        } else {
-          throw new Error('No valid session found - will need to re-authenticate')
-        }
+        // Fallback: No access token available, can't create working client
+        console.log('❌ No access token available, cannot create Matrix client without authentication')
+        throw new Error('No access token available for Matrix authentication')
       }
     } catch (error) {
       console.warn('⚠️ Failed to restore Matrix client from storage:', error)

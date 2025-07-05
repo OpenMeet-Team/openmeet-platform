@@ -24,6 +24,9 @@ export default defineConfig({
 
       return config
     },
+    experimentalOriginDependencies: true,
+    chromeWebSecurity: false,
+    experimentalSessionAndOrigin: true,
     env: {
       // These is place to set cypress.env() values
       APP_TESTING_USER_EMAIL: process.env.APP_TESTING_USER_EMAIL,

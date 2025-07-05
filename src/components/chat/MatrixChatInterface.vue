@@ -1,5 +1,5 @@
 <template>
-  <div class="matrix-chat-interface" :class="[`mode-${mode}`]">
+  <div class="matrix-chat-interface" :class="[`mode-${mode}`]" data-cy="matrix-chat-interface">
     <!-- Chat Header (for inline mode only - mobile header is handled by parent) -->
     <div
       v-if="mode === 'inline'"
@@ -26,6 +26,7 @@
       class="messages-container q-pa-md"
       :style="getMessagesContainerStyle()"
       ref="messagesContainer"
+      data-cy="messages-container"
     >
       <!-- Connection Status -->
       <div v-if="!isConnected" class="connection-status text-center q-pa-md">
@@ -45,11 +46,12 @@
           @click="reconnect"
           :disable="isRateLimited()"
           class="q-mt-sm"
+          data-cy="matrix-connect-button"
         />
       </div>
 
       <!-- Messages -->
-      <div v-else-if="messages.length > 0" class="messages-list">
+      <div v-else-if="messages.length > 0" class="messages-list" data-cy="messages-list">
         <div
           v-for="message in messages"
           :key="message.id"
@@ -258,6 +260,7 @@
             @keydown.enter.exact.prevent="sendMessage"
             @keydown="handleTyping"
             @blur="stopTyping"
+            data-cy="chat-input"
           >
             <!-- Emoji Picker Button -->
             <template v-slot:prepend>
@@ -281,6 +284,7 @@
             @click="sendMessage"
             :loading="isSending"
             :disable="!canSendMessage"
+            data-cy="send-button"
           />
         </div>
 
@@ -1198,6 +1202,64 @@ const reconnect = async () => {
   }
 }
 
+/**
+ * Recreate an event Matrix room when it's missing from the server
+ */
+const recreateEventRoom = async (eventSlug: string) => {
+  console.log('🔧 Attempting to recreate event room for:', eventSlug)
+
+  try {
+    const response = await chatApi.ensureEventRoom(eventSlug)
+    console.log('✅ Event room recreation response:', response.data)
+
+    if (response.data.success && response.data.roomId) {
+      console.log('🎉 Event room recreated successfully:', response.data.roomId)
+
+      // Try to join the new room
+      try {
+        await matrixClientService.joinRoom(response.data.roomId)
+        console.log('✅ Successfully joined recreated event room')
+      } catch (joinError) {
+        console.error('❌ Failed to join recreated event room:', joinError)
+      }
+    } else {
+      console.error('❌ Event room recreation failed:', response.data.message)
+    }
+  } catch (error) {
+    console.error('❌ Error calling event room recreation API:', error)
+    throw error
+  }
+}
+
+/**
+ * Recreate a group Matrix room when it's missing from the server
+ */
+const recreateGroupRoom = async (groupSlug: string) => {
+  console.log('🔧 Attempting to recreate group room for:', groupSlug)
+
+  try {
+    const response = await chatApi.ensureGroupRoom(groupSlug)
+    console.log('✅ Group room recreation response:', response.data)
+
+    if (response.data.success && response.data.roomId) {
+      console.log('🎉 Group room recreated successfully:', response.data.roomId)
+
+      // Try to join the new room
+      try {
+        await matrixClientService.joinRoom(response.data.roomId)
+        console.log('✅ Successfully joined recreated group room')
+      } catch (joinError) {
+        console.error('❌ Failed to join recreated group room:', joinError)
+      }
+    } else {
+      console.error('❌ Group room recreation failed:', response.data.message)
+    }
+  } catch (error) {
+    console.error('❌ Error calling group room recreation API:', error)
+    throw error
+  }
+}
+
 // Prevent duplicate loading
 const isLoading = ref(false)
 
@@ -1241,6 +1303,16 @@ const loadMessages = async () => {
           console.log('✅ Successfully joined Matrix room via client')
         } catch (error) {
           console.warn('⚠️ Failed to join Matrix room via client:', error.message)
+
+          // Check if this is a 404 error indicating room doesn't exist on Matrix server
+          if (error.message && (error.message.includes('404') || error.message.includes("Can't join remote room"))) {
+            console.log('🔧 Room 404 detected, attempting to recreate room for group:', props.contextId)
+            try {
+              await recreateGroupRoom(props.contextId)
+            } catch (recreateError) {
+              console.error('❌ Failed to recreate group room:', recreateError)
+            }
+          }
         }
       }
 
@@ -1305,6 +1377,16 @@ const loadMessages = async () => {
           console.log('✅ Successfully joined Matrix room via client')
         } catch (error) {
           console.warn('⚠️ Failed to join Matrix room via client:', error.message)
+
+          // Check if this is a 404 error indicating room doesn't exist on Matrix server
+          if (error.message && (error.message.includes('404') || error.message.includes("Can't join remote room"))) {
+            console.log('🔧 Room 404 detected, attempting to recreate room for event:', props.contextId)
+            try {
+              await recreateEventRoom(props.contextId)
+            } catch (recreateError) {
+              console.error('❌ Failed to recreate event room:', recreateError)
+            }
+          }
         }
       }
 

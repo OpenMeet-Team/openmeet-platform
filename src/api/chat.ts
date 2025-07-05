@@ -63,6 +63,23 @@ export const chatApi = {
   removeMemberFromGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/chat/group/${groupSlug}/members/${userSlug}`),
 
+  // Room ensure endpoints - ensure rooms exist and are accessible
+  ensureEventRoom: (eventSlug: string): Promise<AxiosResponse<{
+    success: boolean;
+    roomId?: string;
+    recreated: boolean;
+    message?: string;
+  }>> =>
+    api.post(`/api/chat/event/${eventSlug}/ensure-room`),
+
+  ensureGroupRoom: (groupSlug: string): Promise<AxiosResponse<{
+    success: boolean;
+    roomId?: string;
+    recreated: boolean;
+    message?: string;
+  }>> =>
+    api.post(`/api/chat/group/${groupSlug}/ensure-room`),
+
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>
     api.post('/api/chat/messages/read', { messages: messageIds }),
