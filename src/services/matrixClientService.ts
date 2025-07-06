@@ -298,10 +298,10 @@ class MatrixClientService {
 
   /**
    * Redirect to MAS (Matrix Authentication Service) OAuth2 login
-   * Uses direct MAS OAuth2 endpoints instead of OpenMeet backend
+   * Uses dynamic client registration like Element-web for better security
    */
   private async _redirectToMASLogin (): Promise<void> {
-    console.log('🔄 Starting direct MAS OAuth2 authentication flow')
+    console.log('🔄 Starting MAS OAuth2 authentication flow with dynamic client registration')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
@@ -312,64 +312,140 @@ class MatrixClientService {
     // Save current location so we can return to it after authentication
     sessionStorage.setItem('matrixReturnUrl', window.location.href)
 
-    // Get MAS configuration from environment using getEnv utility
+    // Get MAS configuration from environment
     const masUrl = getEnv('APP_MAS_URL') as string
-    const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
-    const masScopes = getEnv('APP_MAS_SCOPES') as string
     const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
     if (!masUrl) {
       throw new Error('APP_MAS_URL is not configured. Please check your environment configuration.')
     }
-    if (!masClientId) {
-      throw new Error('APP_MAS_CLIENT_ID is not configured. Please check your environment configuration.')
+
+    // Use current origin for redirect URL - if user is on ngrok, use ngrok; if localhost, use localhost
+    const currentOrigin = window.location.origin
+    const redirectUrl = `${currentOrigin}${masRedirectPath || '/auth/matrix/callback'}`
+    
+    console.log('🔗 Using redirect URL from current origin:', redirectUrl)
+
+    try {
+      // Step 1: Register OAuth2 client dynamically (like Element-web)
+      console.log('📝 Registering dynamic OAuth2 client with MAS')
+      const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
+
+      // Step 2: Generate device ID and build scopes with device-specific permission
+      const deviceId = this._generateDeviceId()
+      const scopes = this._buildMatrixScopes(deviceId)
+
+      // Step 3: Store client info and device ID for token exchange
+      sessionStorage.setItem('mas_client_id', clientRegistration.client_id)
+      sessionStorage.setItem('mas_device_id', deviceId)
+
+      // Generate state for CSRF protection
+      const state = this._generateRandomState()
+      sessionStorage.setItem('mas_oauth_state', state)
+
+      // Build MAS OAuth2 authorization URL with dynamic client
+      const masLoginParams = new URLSearchParams({
+        client_id: clientRegistration.client_id,
+        redirect_uri: redirectUrl,
+        response_type: 'code',
+        scope: scopes,
+        state
+      })
+
+      // Add user email as login hint
+      if (authStore.user?.email) {
+        masLoginParams.set('login_hint', authStore.user.email)
+        console.log('🔐 Adding login hint for seamless authentication:', authStore.user.email)
+      }
+
+      // Store OpenMeet context for callback
+      sessionStorage.setItem('mas_openmeet_context', JSON.stringify({
+        userId: authStore.getUserId,
+        token: authStore.token,
+        tenantId: (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      }))
+
+      const masLoginUrl = `${masUrl}/authorize?${masLoginParams}`
+
+      console.log('🔗 Redirecting to MAS OAuth2 login with dynamic client')
+      console.log('🆔 Dynamic Client ID:', clientRegistration.client_id)
+      console.log('🎯 Device ID:', deviceId)
+      console.log('🔧 Scopes:', scopes)
+
+      // Perform full-page redirect to MAS OAuth2 login
+      window.location.href = masLoginUrl
+
+      return new Promise(() => {
+        // Promise never resolves since we're redirecting
+      })
+    } catch (error) {
+      console.error('❌ Failed to register OAuth2 client:', error)
+      throw new Error(`OAuth2 client registration failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Register OAuth2 client dynamically with MAS (like Element-web)
+   */
+  private async _registerOAuth2Client (masUrl: string, redirectUrl: string): Promise<{client_id: string}> {
+    // Extract base URL from redirect URL to ensure client_uri matches redirect domain
+    const redirectUrlObj = new URL(redirectUrl)
+    const clientUri = `${redirectUrlObj.protocol}//${redirectUrlObj.host}`
+    
+    // Match Element-web's exact registration format that works with MAS
+    const registrationPayload = {
+      client_name: 'OpenMeet',
+      client_uri: clientUri, // Use same domain as redirect URL to satisfy policy
+      response_types: ['code'],
+      grant_types: ['authorization_code', 'refresh_token'],
+      redirect_uris: [redirectUrl], // This is the only localhost URL needed
+      id_token_signed_response_alg: 'RS256',
+      token_endpoint_auth_method: 'none',
+      application_type: 'web',
+      logo_uri: `${clientUri}/openmeet/openmeet-logo.png` // Logo must be on same domain as client_uri
     }
 
-    // The redirect URL where MAS will send user back after authentication
-    const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
+    console.log('📝 Registering OAuth2 client:', registrationPayload)
 
-    // Generate state for CSRF protection
-    const state = this._generateRandomState()
-    sessionStorage.setItem('mas_oauth_state', state)
-
-    // Build MAS OAuth2 authorization URL with proper parameters
-    const masLoginParams = new URLSearchParams({
-      client_id: masClientId,
-      redirect_uri: redirectUrl,
-      response_type: 'code', // OAuth2 authorization code flow
-      scope: masScopes || 'openid email urn:matrix:org.matrix.msc2967.client:api:*',
-      state
+    const response = await fetch(`${masUrl}/oauth2/registration`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(registrationPayload)
     })
 
-    // Add user email as login hint to make flow seamless
-    if (authStore.user?.email) {
-      masLoginParams.set('login_hint', authStore.user.email)
-      console.log('🔐 Adding login hint for seamless authentication:', authStore.user.email)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('❌ OAuth2 client registration failed:', errorData)
+      throw new Error(`Client registration failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
     }
 
-    // Store OpenMeet context for later use in callback
-    sessionStorage.setItem('mas_openmeet_context', JSON.stringify({
-      userId: authStore.getUserId,
-      token: authStore.token,
-      tenantId: (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-    }))
+    const clientData = await response.json()
+    console.log('✅ OAuth2 client registered successfully:', clientData.client_id)
+    return clientData
+  }
 
-    // Construct the MAS OAuth2 authorization URL
-    const masLoginUrl = `${masUrl}/authorize?${masLoginParams}`
+  /**
+   * Generate device ID for Matrix client (like Element-web)
+   */
+  private _generateDeviceId (): string {
+    // Generate device ID similar to Element-web format
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    let result = ''
+    for (let i = 0; i < 10; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
+  }
 
-    console.log('🔗 Redirecting to direct MAS OAuth2 login:', masLoginUrl)
-    console.log('🔄 Redirect URL:', redirectUrl)
-    console.log('👤 User context:', authStore.user?.email || 'No email found')
-    console.log('🏛️ MAS URL:', masUrl)
-    console.log('🆔 Client ID:', masClientId)
-
-    // Perform full-page redirect to MAS OAuth2 login
-    window.location.href = masLoginUrl
-
-    // Return a promise that never resolves since we're redirecting away
-    return new Promise(() => {
-      // This promise intentionally never resolves since the page redirects
-    })
+  /**
+   * Build Matrix scopes including device-specific scope (like Element-web)
+   */
+  private _buildMatrixScopes (deviceId: string): string {
+    const baseScopes = getEnv('APP_MAS_SCOPES') as string || 'openid urn:matrix:org.matrix.msc2967.client:api:*'
+    const deviceScope = `urn:matrix:org.matrix.msc2967.client:device:${deviceId}`
+    return `${baseScopes} ${deviceScope}`
   }
 
   /**
@@ -399,16 +475,28 @@ class MatrixClientService {
     console.log('🎫 Exchanging OAuth2 authorization code for Matrix credentials via MAS')
 
     try {
-      // Get MAS configuration
+      // Get MAS configuration and dynamic client info
       const masUrl = getEnv('APP_MAS_URL') as string
-      const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
       const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
-      if (!masUrl || !masClientId) {
-        throw new Error('MAS configuration not available')
+      // Use dynamic client ID stored during registration, fallback to static
+      const dynamicClientId = sessionStorage.getItem('mas_client_id')
+      const staticClientId = getEnv('APP_MAS_CLIENT_ID') as string
+      const clientId = dynamicClientId || staticClientId
+      const storedDeviceId = sessionStorage.getItem('mas_device_id')
+
+      if (!masUrl || !clientId) {
+        throw new Error('MAS configuration not available - no client ID found')
       }
 
       const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
+
+      console.log('🔧 Using client for token exchange:', {
+        clientType: dynamicClientId ? 'dynamic' : 'static',
+        clientId,
+        deviceId: storedDeviceId,
+        redirectUrl
+      })
 
       // Call MAS directly to exchange authorization code for access token
       const response = await fetch(`${masUrl}/oauth2/token`, {
@@ -419,7 +507,7 @@ class MatrixClientService {
         body: new URLSearchParams({
           grant_type: 'authorization_code',
           code: authCode,
-          client_id: masClientId,
+          client_id: clientId, // Use dynamic or static client ID
           redirect_uri: redirectUrl,
           ...(state && { state })
         })
@@ -452,9 +540,9 @@ class MatrixClientService {
       const homeserverUrl = (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'http://localhost:8448'
       console.log('🏠 Using homeserver URL:', homeserverUrl)
 
-      // Extract Matrix credentials from MAS response
-      // Need to get user info from MAS userinfo endpoint to get matrix_handle
+      // Extract Matrix credentials from MAS response using stored device ID
       let userId = tokenData.sub
+      const deviceId = storedDeviceId || tokenData.device_id || this._generateDeviceId()
 
       // Get user info from MAS userinfo endpoint
       try {
@@ -506,14 +594,17 @@ class MatrixClientService {
       const credentials = {
         userId: matrixUserId, // Matrix user ID in proper format
         accessToken: tokenData.access_token,
-        deviceId: tokenData.device_id || this._generateDeviceId(),
-        homeserverUrl
+        deviceId, // Use device ID from dynamic registration
+        homeserverUrl,
+        refreshToken: tokenData.refresh_token // Store refresh token if provided
       }
 
       console.log('🎫 Final Matrix credentials:', {
         userId: credentials.userId,
         hasAccessToken: !!credentials.accessToken,
+        hasRefreshToken: !!credentials.refreshToken,
         accessTokenPrefix: credentials.accessToken?.substring(0, 10) + '...',
+        refreshTokenPrefix: credentials.refreshToken?.substring(0, 10) + '...',
         deviceId: credentials.deviceId,
         homeserverUrl: credentials.homeserverUrl
       })
@@ -534,10 +625,59 @@ class MatrixClientService {
   }
 
   /**
-   * Generate a device ID for Matrix client
+   * Refresh Matrix access token using refresh token (compatible with dynamic clients)
    */
-  private _generateDeviceId (): string {
-    return `openmeet_web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  private async _refreshAccessToken (refreshToken: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    console.log('🔄 Refreshing Matrix access token using refresh token')
+
+    try {
+      // Get MAS configuration
+      const masUrl = getEnv('APP_MAS_URL') as string
+
+      // Try to get stored client ID from current session, fallback to static config
+      const dynamicClientId = sessionStorage.getItem('mas_client_id')
+      const staticClientId = getEnv('APP_MAS_CLIENT_ID') as string
+      const clientId = dynamicClientId || staticClientId
+
+      if (!masUrl || !clientId) {
+        throw new Error('MAS configuration not available for token refresh')
+      }
+
+      console.log('🔄 Using client ID for refresh:', dynamicClientId ? 'dynamic' : 'static', clientId)
+
+      // Call MAS token endpoint with refresh_token grant
+      const response = await fetch(`${masUrl}/oauth2/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: clientId
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Token refresh failed:', errorData)
+        throw new Error(`Token refresh failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
+      }
+
+      const tokenData = await response.json()
+      console.log('✅ Token refresh successful')
+
+      return {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token || refreshToken // Use new refresh token or fallback to old one
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing access token:', error)
+      throw new Error(`Failed to refresh token: ${error.message}`)
+    }
   }
 
   // Note: Removed unused session checking and interactive OIDC methods
@@ -1513,6 +1653,7 @@ class MatrixClientService {
     accessToken: string
     userId: string
     deviceId: string
+    refreshToken?: string
   }): void {
     try {
       // Get current OpenMeet user ID for user-specific storage keys
@@ -1526,11 +1667,16 @@ class MatrixClientService {
       // Create user-specific storage keys to prevent session sharing between users
       const storageUserId = openMeetUserId || credentials.userId
       const accessTokenKey = `matrix_access_token_${storageUserId}`
+      const refreshTokenKey = `matrix_refresh_token_${storageUserId}`
       const sessionKey = `matrix_session_${storageUserId}`
 
       // Use sessionStorage for access token (cleared on tab close) for better security
-      // Use localStorage for basic session info (persists across tabs/sessions)
+      // Use localStorage for refresh token (persists for token refresh) and basic session info
       sessionStorage.setItem(accessTokenKey, credentials.accessToken)
+
+      if (credentials.refreshToken) {
+        localStorage.setItem(refreshTokenKey, credentials.refreshToken)
+      }
 
       const basicSessionData = {
         homeserverUrl: credentials.homeserverUrl,
@@ -1556,6 +1702,7 @@ class MatrixClientService {
     userId: string
     deviceId: string
     accessToken?: string
+    refreshToken?: string
     timestamp: number
     hasSession: boolean
   } | null {
@@ -1581,6 +1728,7 @@ class MatrixClientService {
 
       // Create user-specific storage keys
       const accessTokenKey = `matrix_access_token_${openMeetUserId}`
+      const refreshTokenKey = `matrix_refresh_token_${openMeetUserId}`
       const sessionKey = `matrix_session_${openMeetUserId}`
 
       const stored = localStorage.getItem(sessionKey)
@@ -1611,12 +1759,23 @@ class MatrixClientService {
       // Try to get access token from sessionStorage (more recent and secure)
       const accessToken = sessionStorage.getItem(accessTokenKey)
 
+      // Try to get refresh token from localStorage (persists longer)
+      const refreshToken = localStorage.getItem(refreshTokenKey)
+
       // If access token is available and not too old, include it
       if (accessToken && (Date.now() - sessionData.timestamp) < accessTokenMaxAge) {
         sessionData.accessToken = accessToken
         console.log('🔑 Found stored access token for immediate restoration')
+      } else if (refreshToken) {
+        console.log('🔄 No valid access token found, but refresh token available')
       } else {
-        console.log('🔑 No valid access token found, will attempt silent auth')
+        console.log('🔑 No valid access token or refresh token found, will attempt silent auth')
+      }
+
+      // Always include refresh token if available (needed for token refresh)
+      if (refreshToken) {
+        sessionData.refreshToken = refreshToken
+        console.log('🔄 Found stored refresh token for token refresh capability')
       }
 
       return sessionData
@@ -1639,8 +1798,10 @@ class MatrixClientService {
       if (openMeetUserId) {
         // Clear user-specific storage
         const accessTokenKey = `matrix_access_token_${openMeetUserId}`
+        const refreshTokenKey = `matrix_refresh_token_${openMeetUserId}`
         const sessionKey = `matrix_session_${openMeetUserId}`
         localStorage.removeItem(sessionKey)
+        localStorage.removeItem(refreshTokenKey)
         sessionStorage.removeItem(accessTokenKey)
         console.log(`🗑️ Cleared Matrix session info for user ${openMeetUserId}`)
       } else {
@@ -1757,6 +1918,7 @@ class MatrixClientService {
     accessToken: string
     userId: string
     deviceId: string
+    refreshToken?: string
   }): Promise<void> {
     try {
       // Create persistent crypto store
@@ -1791,11 +1953,45 @@ class MatrixClientService {
 
       console.log('🏠 Creating Matrix client with baseUrl:', baseUrl)
 
-      // MSC3861: Use access token obtained via MAS OIDC
-      console.log('🔐 Creating Matrix client with MSC3861 access token from MAS')
+      // Create token refresh function if refresh token is available (like Element Web)
+      const tokenRefreshFunction = credentials.refreshToken
+        ? async () => {
+          console.log('🔄 Token refresh triggered by Matrix client')
+          try {
+            const refreshed = await this._refreshAccessToken(credentials.refreshToken!)
+
+            // Update stored credentials with new tokens
+            this._storeCredentials({
+              ...credentials,
+              accessToken: refreshed.accessToken,
+              refreshToken: refreshed.refreshToken
+            })
+
+            console.log('✅ Token refresh completed successfully')
+            return {
+              accessToken: refreshed.accessToken,
+              refreshToken: refreshed.refreshToken
+            }
+          } catch (error) {
+            console.error('❌ Token refresh failed:', error)
+            // Clear invalid tokens and require re-authentication
+            this._clearStoredCredentials()
+            throw error
+          }
+        }
+        : undefined
+
+      // MSC3861: Use access token obtained via MAS OIDC with refresh token support
+      console.log('🔐 Creating Matrix client with MSC3861 access token from MAS', {
+        hasRefreshToken: !!credentials.refreshToken,
+        hasTokenRefreshFunction: !!tokenRefreshFunction
+      })
+
       this.client = createClient({
         baseUrl,
         accessToken: credentials.accessToken, // MSC3861 token from MAS
+        refreshToken: credentials.refreshToken, // Pass refresh token like Element Web
+        tokenRefreshFunction, // Pass refresh function like Element Web
         userId: credentials.userId,
         deviceId: credentials.deviceId,
         timelineSupport: true,
@@ -1835,6 +2031,7 @@ class MatrixClientService {
     userId: string
     deviceId: string
     accessToken?: string
+    refreshToken?: string
   }): Promise<void> {
     try {
       console.log('🔄 Attempting to restore Matrix client from stored credentials')
@@ -1845,9 +2042,12 @@ class MatrixClientService {
         `matrix-crypto-${sessionInfo.userId}`
       )
 
-      // If we have an access token, use it directly for immediate restoration
-      if (sessionInfo.accessToken) {
-        console.log('🔑 Using stored access token for immediate client restoration')
+      // Check if we have credentials for restoration
+      if (sessionInfo.accessToken || sessionInfo.refreshToken) {
+        console.log('🔑 Using stored credentials for client restoration', {
+          hasAccessToken: !!sessionInfo.accessToken,
+          hasRefreshToken: !!sessionInfo.refreshToken
+        })
 
         // Validate homeserver URL format
         const baseUrl = sessionInfo.homeserverUrl.endsWith('/')
@@ -1856,11 +2056,78 @@ class MatrixClientService {
 
         console.log('🏠 Restoring Matrix client with baseUrl:', baseUrl)
 
-        // MSC3861: Use access token obtained via MAS OIDC
-        console.log('🔐 Restoring Matrix client with MSC3861 access token from MAS')
+        // If no access token but we have refresh token, try to get new access token
+        let accessToken = sessionInfo.accessToken
+        let refreshToken = sessionInfo.refreshToken
+
+        if (!accessToken && refreshToken) {
+          console.log('🔄 No access token available, attempting to refresh using stored refresh token')
+          try {
+            const refreshed = await this._refreshAccessToken(refreshToken)
+            accessToken = refreshed.accessToken
+            refreshToken = refreshed.refreshToken
+
+            // Update stored credentials with new tokens
+            this._storeCredentials({
+              homeserverUrl: sessionInfo.homeserverUrl,
+              userId: sessionInfo.userId,
+              deviceId: sessionInfo.deviceId,
+              accessToken,
+              refreshToken
+            })
+
+            console.log('✅ Successfully refreshed access token during restoration')
+          } catch (error) {
+            console.error('❌ Failed to refresh access token during restoration:', error)
+            throw new Error('Failed to refresh access token for Matrix authentication')
+          }
+        }
+
+        if (!accessToken) {
+          throw new Error('No valid access token available for Matrix authentication')
+        }
+
+        // Create token refresh function if refresh token is available (like Element Web)
+        const tokenRefreshFunction = refreshToken
+          ? async () => {
+            console.log('🔄 Token refresh triggered by Matrix client during restoration')
+            try {
+              const refreshed = await this._refreshAccessToken(refreshToken!)
+
+              // Update stored credentials with new tokens
+              this._storeCredentials({
+                homeserverUrl: sessionInfo.homeserverUrl,
+                userId: sessionInfo.userId,
+                deviceId: sessionInfo.deviceId,
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken
+              })
+
+              console.log('✅ Token refresh completed successfully during restoration')
+              return {
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken
+              }
+            } catch (error) {
+              console.error('❌ Token refresh failed during restoration:', error)
+              // Clear invalid tokens and require re-authentication
+              this._clearStoredCredentials()
+              throw error
+            }
+          }
+          : undefined
+
+        // MSC3861: Use access token obtained via MAS OIDC with refresh token support
+        console.log('🔐 Restoring Matrix client with MSC3861 access token from MAS', {
+          hasRefreshToken: !!refreshToken,
+          hasTokenRefreshFunction: !!tokenRefreshFunction
+        })
+
         this.client = createClient({
           baseUrl,
-          accessToken: sessionInfo.accessToken, // MSC3861 token from MAS
+          accessToken, // MSC3861 token from MAS
+          refreshToken, // Pass refresh token like Element Web
+          tokenRefreshFunction, // Pass refresh function like Element Web
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
           timelineSupport: true,

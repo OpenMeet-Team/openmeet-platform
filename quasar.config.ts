@@ -142,6 +142,8 @@ export default configure((ctx) => {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
       port: Number(process.env.APP_DEV_SERVER_PORT) || 8080,
       open: Boolean(process.env.APP_DEV_SERVER_OPEN), // opens browser window automatically
+      host: '0.0.0.0', // Allow external connections
+      allowedHosts: ['localhost', '127.0.0.1', '00d23135e123.ngrok.app'], // Allow ngrok
       proxy: {
         '/sitemap.xml': {
           target: process.env.APP_API_URL || 'http://localhost:3000',
