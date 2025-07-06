@@ -322,7 +322,7 @@ class MatrixClientService {
     // Use current origin for redirect URL - if user is on ngrok, use ngrok; if localhost, use localhost
     const currentOrigin = window.location.origin
     const redirectUrl = `${currentOrigin}${masRedirectPath || '/auth/matrix/callback'}`
-    
+
     console.log('🔗 Using redirect URL from current origin:', redirectUrl)
 
     try {
@@ -390,7 +390,7 @@ class MatrixClientService {
     // Extract base URL from redirect URL to ensure client_uri matches redirect domain
     const redirectUrlObj = new URL(redirectUrl)
     const clientUri = `${redirectUrlObj.protocol}//${redirectUrlObj.host}`
-    
+
     // Match Element-web's exact registration format that works with MAS
     const registrationPayload = {
       client_name: 'OpenMeet',
