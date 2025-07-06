@@ -2,8 +2,7 @@
  * Matrix JS SDK Client Service with MAS (Matrix Authentication Service) OIDC Authentication
  *
  * This service provides direct Matrix client functionality using the Matrix JS SDK
- * with MAS OIDC authentication flow through the OpenMeet backend, replacing direct
- * Matrix SSO authentication.
+ * with MAS OIDC authentication flow through the OpenMeet backend.
  *
  * Authentication Flow:
  * 1. User initiates Matrix connection via connectToMatrix()
@@ -131,7 +130,7 @@ class MatrixClientService {
         throw new Error('User must be logged into OpenMeet first')
       }
 
-      // Use MAS OIDC flow instead of direct Matrix SSO
+      // Use MAS OIDC flow for authentication
       await this._redirectToMASLogin()
 
       // This function will not return normally - the page redirects to MAS/OIDC
@@ -457,7 +456,7 @@ class MatrixClientService {
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
   }
 
-  // Removed _discoverSSOProvider - no longer needed with MAS OIDC flow
+  // Note: Legacy SSO methods removed in favor of MAS OIDC flow
   // MAS handles the Matrix authentication internally
 
   // Note: Removed iframe/popup authentication methods in favor of full-page redirect
