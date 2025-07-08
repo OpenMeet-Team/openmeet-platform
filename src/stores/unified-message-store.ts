@@ -4,10 +4,10 @@ import { MatrixMessage } from '../types/matrix'
 import { useGroupStore } from './group-store'
 import { useEventStore } from './event-store'
 import { useAuthStore } from './auth-store'
-import { matrixService } from '../services/matrixService'
 import { ChatEntity } from '../types/model'
 import { chatApi } from '../api/chat'
 import { RouteQueryAndHash } from 'vue-router'
+import { matrixClientService } from '../services/matrixClientService'
 
 const { error } = useNotification()
 
@@ -245,32 +245,25 @@ export const useMessageStore = defineStore('messages', {
 
     // Initialize Matrix connection
     async initializeMatrix () {
-      // Don't try to connect again if we've already attempted
-      if (this.matrixConnectionAttempted) return this.matrixConnected
+      // LEGACY: WebSocket-based Matrix service disabled
+      // We now use Matrix JS SDK client directly (matrixClientService.ts)
+      // The MatrixChatInterface component handles all Matrix communication
 
+      if (this.matrixConnectionAttempted) return this.matrixConnected
       this.matrixConnectionAttempted = true
 
       try {
-        console.log('Initializing Matrix connection for real-time updates')
+        console.log('💡 Matrix JS SDK client handles real-time updates directly - legacy WebSocket service disabled')
 
-        // Connect to Matrix events service
-        const success = await matrixService.connect()
-        this.matrixConnected = success
+        // Mark as connected since Matrix JS SDK handles everything
+        this.matrixConnected = true
 
-        if (success) {
-          console.log('Successfully connected to Matrix events')
+        console.log('✅ Matrix connection status set - using Matrix JS SDK client')
 
-          // We don't need to register a handler here anymore as matrixService
-          // will directly call our addNewMessage method when handling events
-          // This prevents duplicate event processing
-          console.log('Using centralized event routing through matrixService')
-        } else {
-          console.error('Failed to connect to Matrix events')
-        }
-
-        return success
+        return true
       } catch (err) {
         console.error('Error initializing Matrix connection:', err)
+        this.matrixConnected = false
         return false
       }
     },
@@ -527,8 +520,8 @@ export const useMessageStore = defineStore('messages', {
         // Update state
         this.isUserTyping = isTyping
 
-        // Send typing status to server
-        await matrixService.sendTyping(roomId, isTyping)
+        // Send typing status to server via Matrix JS SDK
+        await matrixClientService.sendTyping(roomId, isTyping)
 
         // Clear any existing timer
         if (this.typingTimer) {
@@ -573,7 +566,20 @@ export const useMessageStore = defineStore('messages', {
           result = await useGroupStore().actionGetGroupDiscussionMessages(limit, from)
         } else {
           // Direct messages or other types
-          result = await matrixService.getMessages(this.activeRoomId, limit, from)
+          // Use Matrix JS SDK for message fetching
+          const events = await matrixClientService.loadRoomHistory(this.activeRoomId, limit)
+          const messages: MatrixMessage[] = events.map(event => ({
+            eventId: event.getId() || '',
+            sender: event.getSender() || '',
+            content: {
+              body: event.getContent().body || '',
+              msgtype: event.getContent().msgtype || 'm.text',
+              ...event.getContent()
+            },
+            timestamp: event.getTs(),
+            type: event.getType()
+          }))
+          result = { messages, end: events.length > 0 ? events[events.length - 1].getId() || '' : '' }
         }
 
         // Process and store messages
@@ -675,7 +681,12 @@ export const useMessageStore = defineStore('messages', {
           console.log('!!!DEBUG!!! Sending message through matrixService', {
             roomId: this.activeRoomId
           })
-          const result = await matrixService.sendMessage(this.activeRoomId, message)
+          // Send message via Matrix JS SDK
+          await matrixClientService.sendMessage(this.activeRoomId, {
+            body: typeof message === 'string' ? message : message.content || '',
+            msgtype: 'm.text'
+          })
+          const result = 'matrix_event_sent'
           eventId = result ? String(result) : undefined
         }
 

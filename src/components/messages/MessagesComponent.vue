@@ -97,8 +97,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useMessageStore } from '../../stores/unified-message-store'
 import { useAuthStore } from '../../stores/auth-store'
-import { ensureMatrixUser, getMatrixDisplayName } from '../../utils/matrixUtils'
-import { matrixService } from '../../services/matrixService'
+import { getMatrixDisplayName } from '../../utils/matrixUtils'
 import MessageItem from './MessageItem.vue'
 import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
@@ -371,45 +370,13 @@ onMounted(async () => {
     canManage: props.canManage
   })
 
-  // Ensure user has Matrix credentials if they can write
-  if (props.canWrite) {
-    await ensureMatrixUser()
-  }
+  // With MAS (MSC3861), users are auto-provisioned during authentication
+  // No manual provisioning needed for users who can write
 
-  // Initialize Matrix connection and load messages
-  if (!messageStore.matrixConnected) {
-    await messageStore.initializeMatrix()
-  }
-
-  // Explicitly join this specific room to ensure we receive messages for it
-  // This is critical to fix the issue where some users don't receive messages
-  try {
-    console.log('!!!DEBUG!!! Explicitly joining room in MessagesComponent:', props.roomId)
-
-    // Make one single attempt to initialize Matrix
-    try {
-      await messageStore.initializeMatrix()
-    } catch (e) {
-      console.warn('!!!DEBUG!!! Failed to initialize Matrix, continuing anyway:', e)
-      // We continue even after failure so the rest of the UI can work
-    }
-
-    // Only attempt to join if we have a connection to avoid unnecessary errors
-    if (matrixService.isConnected) {
-      const joinSuccess = await matrixService.joinRoom(props.roomId)
-
-      if (joinSuccess) {
-        console.log('!!!DEBUG!!! Room joined successfully')
-      } else {
-        console.warn('!!!DEBUG!!! Unable to join room - messages may be delayed until connection is established')
-      }
-    } else {
-      console.warn('!!!DEBUG!!! Matrix WebSocket not connected - skipping room join attempt')
-    }
-  } catch (err) {
-    console.error('Error joining room:', err)
-    // Continue anyway so the UI can still work even without real-time updates
-  }
+  // LEGACY: WebSocket-based Matrix integration disabled
+  // We now use Matrix JS SDK client directly (matrixClientService.ts)
+  // The MatrixChatInterface component handles all Matrix communication
+  console.log('💡 Using Matrix JS SDK client instead of legacy WebSocket service')
 
   await loadMessages()
 
@@ -468,18 +435,8 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     showScrollToBottom.value = false
     unreadMessageId.value = ''
 
-    // Explicitly join the new room to make sure we receive events
-    try {
-      console.log('!!!DEBUG!!! Explicitly joining new room after change:', newRoomId)
-      const joinSuccess = await matrixService.joinRoom(newRoomId)
-      if (joinSuccess) {
-        console.log('!!!DEBUG!!! New room joined successfully')
-      } else {
-        console.warn('!!!DEBUG!!! Could not join new room - messages may be delayed until connection is established')
-      }
-    } catch (err) {
-      console.error('Error joining new room:', err)
-    }
+    // LEGACY: Room joining now handled automatically by Matrix JS SDK client
+    console.log('💡 Room joining handled by Matrix JS SDK client:', newRoomId)
 
     // Load messages for new room
     await loadMessages()
