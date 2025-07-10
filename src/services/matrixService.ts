@@ -1,7 +1,6 @@
 import { useAuthStore } from '../stores/auth-store'
 import { useChatStore } from '../stores/chat-store'
 import { useMessageStore } from '../stores/unified-message-store'
-import { ensureMatrixUser } from '../utils/matrixUtils'
 import { MatrixMessage } from '../types'
 import { matrixApi } from '../api/matrix'
 import { api } from '../boot/axios'
@@ -76,19 +75,11 @@ class MatrixServiceImpl {
       }
 
       try {
-        // Ensure the user has a Matrix ID provisioned on the server
-        // The server will handle all credential management
-        const hasMatrix = await ensureMatrixUser()
-        if (!hasMatrix) {
-          console.warn('Cannot connect to Matrix: failed to provision Matrix user')
-          return true // Return true to allow app to continue
-        }
-
-        // Verify that the user has a Matrix ID
-        // Credentials are now managed server-side
+        // With MAS (MSC3861), users are auto-provisioned during authentication
+        // No manual provisioning needed - just verify user is authenticated
         const user = authStore.user
-        if (!user || !user.matrixUserId) {
-          console.warn('Cannot connect to Matrix: user missing Matrix ID')
+        if (!user) {
+          console.warn('Cannot connect to Matrix: user not authenticated')
           return true // Return true to allow app to continue
         }
 
