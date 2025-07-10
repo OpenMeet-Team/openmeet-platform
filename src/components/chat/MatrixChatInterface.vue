@@ -52,6 +52,12 @@
 
       <!-- Messages -->
       <div v-else-if="messages.length > 0" class="messages-list" data-cy="messages-list">
+        <!-- Loading indicator for older messages -->
+        <div v-if="isLoading && messages.length === 0" class="loading-older-messages text-center q-pa-md">
+          <q-spinner size="20px" color="primary" />
+          <div class="text-caption text-grey-6 q-mt-xs">Loading messages...</div>
+        </div>
+
         <div
           v-for="message in messages"
           :key="message.id"
@@ -288,7 +294,7 @@
           />
         </div>
 
-        <!-- Upload Progress Indicator -->
+        <!-- Sending Progress Indicator -->
         <div v-if="isSending" class="upload-progress q-mt-sm">
           <q-linear-progress
             indeterminate
@@ -297,8 +303,8 @@
             class="q-mb-xs"
           />
           <div class="text-caption text-grey-6 text-center">
-            <q-icon name="fas fa-cloud-upload-alt" size="xs" class="q-mr-xs" />
-            Uploading file...
+            <q-icon name="fas fa-paper-plane" size="xs" class="q-mr-xs" />
+            Sending message...
           </div>
         </div>
 
@@ -338,11 +344,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
-import type { MatrixEvent, Room } from 'matrix-js-sdk'
-import { RoomEvent } from 'matrix-js-sdk'
+import { RoomEvent, MatrixEvent, Room } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
-import { chatApi } from '../../api/chat'
-import { groupsApi } from '../../api/groups'
 
 // Add type declaration for global window property
 declare global {
@@ -420,7 +423,10 @@ const typingNotificationTimer = ref<number | null>(null)
 const messagesContainer = ref<HTMLElement>()
 const messageInput = ref()
 const fileInput = ref()
-const countdownTimer = ref<number | null>(null)
+const countdownTimer = ref<ReturnType<typeof setInterval> | null>(null)
+
+// Custom event listeners tracking for cleanup
+let customEventListeners: (() => void)[] = []
 
 // Mock data
 const commonEmojis = ['😀', '😊', '😂', '❤️', '👍', '👏', '🎉', '🔥', '💯', '🤔', '😎', '👋']
@@ -709,22 +715,22 @@ const getImageUrl = (url: string): string => {
 const getMessageStatusIcon = (status?: string): string => {
   switch (status) {
     case 'sending': return 'schedule'
-    case 'sent': return 'check'
+    case 'sent': return 'sym_r_done'
     case 'delivered': return 'sym_r_done_all'
     case 'read': return 'sym_r_done_all'
     case 'failed': return 'fas fa-exclamation-triangle'
-    default: return 'check'
+    default: return 'sym_r_done'
   }
 }
 
 const getMessageStatusColor = (status?: string): string => {
   switch (status) {
-    case 'sending': return 'grey'
-    case 'sent': return 'grey'
-    case 'delivered': return 'blue'
-    case 'read': return 'blue'
+    case 'sending': return 'grey-6'
+    case 'sent': return 'white'
+    case 'delivered': return 'green'
+    case 'read': return 'green'
     case 'failed': return 'negative'
-    default: return 'grey'
+    default: return 'white'
   }
 }
 
@@ -737,58 +743,39 @@ const sendMessage = async () => {
   isSending.value = true
 
   try {
-    // Create optimistic message
-    const optimisticMessage: Message = {
-      id: Date.now().toString(),
-      type: 'text',
-      sender: {
-        id: 'current-user',
-        name: 'You'
-      },
-      content: {
-        body: text
-      },
-      timestamp: new Date(),
-      isOwn: true,
-      status: 'sending'
-    }
-
-    messages.value.push(optimisticMessage)
+    // Clear message input immediately
     messageText.value = ''
 
     // Focus the input field after sending message
     await nextTick()
     messageInput.value?.$el?.querySelector('input')?.focus()
 
-    await scrollToBottom()
-
-    // Send message via Matrix client directly
+    // Send message via Matrix client directly - let Matrix SDK handle optimistic rendering
     if (props.roomId) {
       console.log('📤 Sending Matrix message to room:', props.roomId)
       await matrixClientService.sendMessage(props.roomId, {
         body: text,
         msgtype: 'm.text'
       })
+      console.log('✅ Message sent successfully - Matrix SDK will handle display')
     } else {
       console.error('❌ No Matrix room ID available for sending message')
       throw new Error('No Matrix room ID available')
     }
 
-    // Update message status
-    optimisticMessage.status = 'sent'
-
     // Stop typing indicator when message is sent
     await stopTyping()
-
-    console.log('✅ Message sent successfully')
   } catch (error) {
     console.error('❌ Failed to send message:', error)
-    // Update message status to failed
-    const lastMessage = messages.value[messages.value.length - 1]
-    if (lastMessage) {
-      lastMessage.status = 'failed'
-      lastMessage.errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    }
+    // Show error to user but don't manipulate messages array
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to send message: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      timeout: 3000
+    })
+
+    // Put the text back in the input if sending failed
+    messageText.value = text
   } finally {
     isSending.value = false
   }
@@ -798,85 +785,7 @@ const triggerFileUpload = () => {
   fileInput.value?.$el?.querySelector('input')?.click()
 }
 
-const handleFileUpload = async () => {
-  console.log('🚀 handleFileUpload called', {
-    hasFile: !!selectedFile.value,
-    fileName: selectedFile.value?.name,
-    roomId: props.roomId
-  })
-
-  if (!selectedFile.value || !props.roomId) {
-    console.warn('❌ Missing file or roomId', {
-      hasFile: !!selectedFile.value,
-      roomId: props.roomId
-    })
-    return
-  }
-
-  try {
-    console.log('📎 Starting file upload:', selectedFile.value.name)
-    isSending.value = true
-
-    // Validate file type (basic security check)
-    const allowedTypes = [
-      // Images
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      // Documents
-      'application/pdf', 'text/plain', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      // Archives
-      'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
-      // Media
-      'audio/mpeg', 'audio/wav', 'audio/ogg', 'video/mp4', 'video/webm', 'video/ogg'
-    ]
-
-    if (!allowedTypes.includes(selectedFile.value.type) && selectedFile.value.type !== '') {
-      console.warn('⚠️ Unknown file type, allowing upload:', selectedFile.value.type)
-    }
-
-    // Upload file via Matrix client
-    console.log('🚀 Uploading file via Matrix client:', {
-      fileName: selectedFile.value.name,
-      fileType: selectedFile.value.type,
-      fileSize: selectedFile.value.size,
-      roomId: props.roomId
-    })
-
-    await matrixClientService.uploadAndSendFile(props.roomId, selectedFile.value)
-
-    console.log('✅ File uploaded and sent successfully - waiting for Matrix timeline event...')
-
-    // Show success notification
-    quasar.notify({
-      type: 'positive',
-      message: 'File uploaded successfully',
-      icon: 'fas fa-check',
-      position: 'top',
-      timeout: 2000
-    })
-  } catch (error) {
-    console.error('❌ Failed to upload file:', error)
-
-    // Show error notification
-    quasar.notify({
-      type: 'negative',
-      message: `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      icon: 'fas fa-exclamation-triangle',
-      position: 'top',
-      timeout: 5000
-    })
-  } finally {
-    selectedFile.value = null
-    isSending.value = false
-
-    // Clear the file input
-    if (fileInput.value) {
-      fileInput.value.removeFile()
-    }
-  }
-}
+// Removed unused handleFileUpload function in Phase 2
 
 const addEmoji = (emoji: string) => {
   messageText.value += emoji
@@ -1202,62 +1111,91 @@ const reconnect = async () => {
   }
 }
 
-/**
- * Recreate an event Matrix room when it's missing from the server
- */
-const recreateEventRoom = async (eventSlug: string) => {
-  console.log('🔧 Attempting to recreate event room for:', eventSlug)
+// Removed unused recreateEventRoom and recreateGroupRoom functions in Phase 2
 
-  try {
-    const response = await chatApi.ensureEventRoom(eventSlug)
-    console.log('✅ Event room recreation response:', response.data)
-
-    if (response.data.success && response.data.roomId) {
-      console.log('🎉 Event room recreated successfully:', response.data.roomId)
-
-      // Try to join the new room
-      try {
-        await matrixClientService.joinRoom(response.data.roomId)
-        console.log('✅ Successfully joined recreated event room')
-      } catch (joinError) {
-        console.error('❌ Failed to join recreated event room:', joinError)
-      }
-    } else {
-      console.error('❌ Event room recreation failed:', response.data.message)
-    }
-  } catch (error) {
-    console.error('❌ Error calling event room recreation API:', error)
-    throw error
+// Start countdown timer for rate limiting
+const startCountdownTimer = () => {
+  if (countdownTimer.value) {
+    clearInterval(countdownTimer.value)
   }
+
+  countdownTimer.value = setInterval(() => {
+    if (rateLimitCountdown.value > 0) {
+      rateLimitCountdown.value -= 1000
+    } else {
+      clearInterval(countdownTimer.value!)
+      countdownTimer.value = null
+    }
+  }, 1000)
 }
 
-/**
- * Recreate a group Matrix room when it's missing from the server
- */
-const recreateGroupRoom = async (groupSlug: string) => {
-  console.log('🔧 Attempting to recreate group room for:', groupSlug)
+// Set up service-based event listeners for Matrix events
+const setupServiceEventListeners = () => {
+  console.log('🎧 Setting up service-based event listeners for room:', props.roomId)
 
-  try {
-    const response = await chatApi.ensureGroupRoom(groupSlug)
-    console.log('✅ Group room recreation response:', response.data)
+  // Clear any existing listeners
+  customEventListeners.forEach(cleanup => cleanup())
+  customEventListeners = []
 
-    if (response.data.success && response.data.roomId) {
-      console.log('🎉 Group room recreated successfully:', response.data.roomId)
-
-      // Try to join the new room
-      try {
-        await matrixClientService.joinRoom(response.data.roomId)
-        console.log('✅ Successfully joined recreated group room')
-      } catch (joinError) {
-        console.error('❌ Failed to join recreated group room:', joinError)
-      }
-    } else {
-      console.error('❌ Group room recreation failed:', response.data.message)
-    }
-  } catch (error) {
-    console.error('❌ Error calling group room recreation API:', error)
-    throw error
+  // Listen directly to Matrix SDK events (Element-web pattern)
+  const client = matrixClientService.getClient()
+  if (!client) {
+    console.warn('⚠️ Matrix client not available for event listeners')
+    return
   }
+
+  const handleTimelineEvent = (event: MatrixEvent, room: Room, toStartOfTimeline: boolean) => {
+    if (room.roomId !== props.roomId || toStartOfTimeline) {
+      return // Only handle live events for this room
+    }
+
+    const eventType = event.getType()
+    if (eventType !== 'm.room.message') {
+      return // Only handle message events
+    }
+
+    console.log('📨 Matrix timeline event received for room:', props.roomId)
+
+    // Process the Matrix event directly
+    const content = event.getContent()
+    const senderId = event.getSender()
+    const currentUserId = client.getUserId()
+    const member = room.getMember(senderId)
+
+    const newMessage = {
+      id: event.getId(),
+      type: (content.msgtype === 'm.image' ? 'image' : content.msgtype === 'm.file' ? 'file' : 'text') as 'text' | 'image' | 'file',
+      sender: {
+        id: senderId,
+        name: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
+        avatar: member?.getAvatarUrl?.(client.baseUrl || '', 32, 32, 'crop', false, false) || undefined
+      },
+      content: {
+        body: content.body,
+        url: content.url,
+        filename: content.filename,
+        mimetype: content.info?.mimetype,
+        size: content.info?.size
+      },
+      timestamp: new Date(event.getTs()),
+      isOwn: senderId === currentUserId,
+      status: (senderId === currentUserId ? 'sent' : 'read') as const
+    }
+
+    // Add message - Matrix SDK should handle deduplication
+    messages.value.push(newMessage)
+
+    // Auto-scroll to new message
+    nextTick(() => {
+      scrollToBottom(true)
+    })
+  }
+
+  // Add Matrix SDK event listener
+  client.on(RoomEvent.Timeline, handleTimelineEvent)
+  customEventListeners.push(() => client.off(RoomEvent.Timeline, handleTimelineEvent))
+
+  console.log('✅ Direct Matrix SDK event listeners set up')
 }
 
 // Prevent duplicate loading
@@ -1269,226 +1207,73 @@ const loadMessages = async () => {
     return
   }
 
+  console.log('🏗️ DEBUG: Starting loadMessages(), setting isLoading=true')
   isLoading.value = true
   try {
-    console.log('📨 Loading messages for room:', props.roomId, 'context:', props.contextType, 'contextId:', props.contextId)
+    console.log('🏗️ Phase 2: Loading messages with pure Matrix SDK for room:', props.roomId)
 
-    let roomMessages = []
-    let actualRoomId = props.roomId
+    // Use new waitForRoomReady method (Element-web pattern)
+    console.log('⏳ Waiting for room to be ready...')
+    const room = await matrixClientService.waitForRoomReady(props.roomId)
+    if (!room) {
+      console.warn('⚠️ Room not available after sync:', props.roomId)
+      messages.value = []
+      console.log('🏗️ DEBUG: Room not found, setting isLoading=false in early return')
+      // Early return will still trigger finally block, so isLoading will be reset
+      return
+    }
+    console.log('✅ Room ready, proceeding with message loading')
 
-    // First, ensure we're joined to the room and get the real Matrix room ID
-    if (props.contextType === 'group' && props.contextId) {
-      try {
-        console.log('🏘️ Joining group chat for:', props.contextId)
-        const joinResponse = await groupsApi.joinGroupChat(props.contextId)
-        console.log('🔍 Group join response:', joinResponse.data)
-
-        // Check different possible response structures
-        const responseData = joinResponse.data as Record<string, unknown>
-        if (responseData.matrixRoomId && typeof responseData.matrixRoomId === 'string') {
-          actualRoomId = responseData.matrixRoomId
-        } else if (responseData.roomId && typeof responseData.roomId === 'string') {
-          actualRoomId = responseData.roomId
-        }
-        console.log('✅ Joined group chat, room ID:', actualRoomId)
-      } catch (error) {
-        console.warn('⚠️ Failed to join group chat:', error.response?.data || error.message)
-      }
-
-      // Now join the Matrix room directly using the Matrix client
-      if (actualRoomId) {
-        try {
-          console.log('🚪 Joining Matrix room directly:', actualRoomId)
-          await matrixClientService.joinRoom(actualRoomId)
-          console.log('✅ Successfully joined Matrix room via client')
-        } catch (error) {
-          console.warn('⚠️ Failed to join Matrix room via client:', error.message)
-
-          // Check if this is a 404 error indicating room doesn't exist on Matrix server
-          if (error.message && (error.message.includes('404') || error.message.includes("Can't join remote room"))) {
-            console.log('🔧 Room 404 detected, attempting to recreate room for group:', props.contextId)
-            try {
-              await recreateGroupRoom(props.contextId)
-            } catch (recreateError) {
-              console.error('❌ Failed to recreate group room:', recreateError)
-            }
-          }
-        }
-      }
-
-      // Load group messages
-      try {
-        const messagesResponse = await chatApi.getGroupMessages(props.contextId)
-        console.log('🔍 Group messages response:', messagesResponse.data)
-        roomMessages = messagesResponse.data.messages || []
-        console.log('📨 Loaded', roomMessages.length, 'group messages')
-      } catch (error) {
-        console.warn('⚠️ Failed to load group messages:', error.response?.data || error.message)
-      }
-
-      // If no messages from API and we have a Matrix room ID, try loading historical messages
-      if ((!roomMessages || roomMessages.length === 0) && actualRoomId) {
-        try {
-          console.log('📨 No API messages found, loading Matrix historical messages for room:', actualRoomId)
-          const matrixEvents = await matrixClientService.loadRoomHistory(actualRoomId, 100)
-          const currentUserId = matrixClientService.getClient()?.getUserId()
-          roomMessages = matrixEvents.map(event => {
-            const senderId = event.getSender()
-            const room = matrixClientService.getClient()?.getRoom(actualRoomId)
-            const member = room?.getMember(senderId)
-            return {
-              eventId: event.getId(),
-              senderId,
-              senderName: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
-              senderAvatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined,
-              content: event.getContent(),
-              timestamp: event.getTs(),
-              type: event.getContent().msgtype,
-              isOwn: senderId === currentUserId
-            }
-          })
-          console.log('📨 Loaded', roomMessages.length, 'Matrix historical messages for group')
-        } catch (error) {
-          console.warn('⚠️ Failed to load Matrix historical messages for group:', error)
-        }
-      }
-    } else if (props.contextType === 'event' && props.contextId) {
-      try {
-        console.log('🎉 Joining event chat for:', props.contextId)
-        const joinResponse = await chatApi.joinEventChatRoom(props.contextId)
-        console.log('🔍 Event join response:', joinResponse.data)
-
-        const responseData = joinResponse.data as Record<string, unknown>
-        if (responseData.roomId && typeof responseData.roomId === 'string') {
-          actualRoomId = responseData.roomId
-        } else if (responseData.matrixRoomId && typeof responseData.matrixRoomId === 'string') {
-          actualRoomId = responseData.matrixRoomId
-        }
-        console.log('✅ Joined event chat, room ID:', actualRoomId)
-      } catch (error) {
-        console.warn('⚠️ Failed to join event chat:', error.response?.data || error.message)
-      }
-
-      // Now join the Matrix room directly using the Matrix client
-      if (actualRoomId) {
-        try {
-          console.log('🚪 Joining Matrix room directly:', actualRoomId)
-          await matrixClientService.joinRoom(actualRoomId)
-          console.log('✅ Successfully joined Matrix room via client')
-        } catch (error) {
-          console.warn('⚠️ Failed to join Matrix room via client:', error.message)
-
-          // Check if this is a 404 error indicating room doesn't exist on Matrix server
-          if (error.message && (error.message.includes('404') || error.message.includes("Can't join remote room"))) {
-            console.log('🔧 Room 404 detected, attempting to recreate room for event:', props.contextId)
-            try {
-              await recreateEventRoom(props.contextId)
-            } catch (recreateError) {
-              console.error('❌ Failed to recreate event room:', recreateError)
-            }
-          }
-        }
-      }
-
-      // Load event messages
-      try {
-        const messagesResponse = await chatApi.getEventMessages(props.contextId)
-        console.log('🔍 Event messages response:', messagesResponse.data)
-        roomMessages = messagesResponse.data.messages || []
-        console.log('📨 Loaded', roomMessages.length, 'event messages')
-      } catch (error) {
-        console.warn('⚠️ Failed to load event messages:', error.response?.data || error.message)
-      }
-
-      // If no messages from API and we have a Matrix room ID, try loading historical messages
-      if ((!roomMessages || roomMessages.length === 0) && actualRoomId) {
-        try {
-          console.log('📨 No API messages found, loading Matrix historical messages for room:', actualRoomId)
-          const matrixEvents = await matrixClientService.loadRoomHistory(actualRoomId, 100)
-          const currentUserId = matrixClientService.getClient()?.getUserId()
-          roomMessages = matrixEvents.map(event => {
-            const senderId = event.getSender()
-            const room = matrixClientService.getClient()?.getRoom(actualRoomId)
-            const member = room?.getMember(senderId)
-            return {
-              eventId: event.getId(),
-              senderId,
-              senderName: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
-              senderAvatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined,
-              content: event.getContent(),
-              timestamp: event.getTs(),
-              type: event.getContent().msgtype,
-              isOwn: senderId === currentUserId
-            }
-          })
-          console.log('📨 Loaded', roomMessages.length, 'Matrix historical messages for event')
-        } catch (error) {
-          console.warn('⚠️ Failed to load Matrix historical messages for event:', error)
-        }
-      }
-    } else if (props.roomId) {
-      // Use the provided room ID directly, but ensure we're joined
-      actualRoomId = props.roomId
-
-      // Ensure we're joined to the Matrix room
-      try {
-        console.log('🚪 Ensuring Matrix room membership for:', props.roomId)
-        await matrixClientService.joinRoom(props.roomId)
-        console.log('✅ Successfully joined Matrix room via client')
-      } catch (error) {
-        console.warn('⚠️ Failed to join Matrix room via client:', error.message)
-      }
-
-      // Load from Matrix client directly with historical message support
-      try {
-        console.log('📨 Loading Matrix messages with history for room:', props.roomId)
-        const matrixEvents = await matrixClientService.loadRoomHistory(props.roomId, 50)
-        const currentUserId = matrixClientService.getClient()?.getUserId()
-        roomMessages = matrixEvents.map(event => {
-          const senderId = event.getSender()
-          const room = matrixClientService.getClient()?.getRoom(props.roomId)
-          const member = room?.getMember(senderId)
-          return {
-            eventId: event.getId(),
-            senderId,
-            senderName: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
-            senderAvatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined,
-            content: event.getContent(),
-            timestamp: event.getTs(),
-            type: event.getContent().msgtype,
-            isOwn: senderId === currentUserId
-          }
-        })
-        console.log('📨 Loaded', roomMessages.length, 'Matrix messages with history')
-      } catch (error) {
-        console.warn('⚠️ Failed to load Matrix messages with history:', error)
-        roomMessages = []
-      }
+    // Load historical messages using the robust pagination method from matrixClientService
+    console.log('📨 Loading historical messages with pagination support')
+    let events: MatrixEvent[] = []
+    
+    try {
+      // Use the service's loadRoomHistory method which handles proper pagination
+      events = await matrixClientService.loadRoomHistory(props.roomId, 50)
+      console.log(`📊 Loaded ${events.length} historical messages via pagination`)
+    } catch (error) {
+      console.warn('⚠️ Failed to load historical messages, falling back to timeline:', error)
+      // Fallback to timeline events if pagination fails
+      const timeline = room.getLiveTimeline()
+      events = timeline.getEvents().filter(event => event.getType() === 'm.room.message')
+      console.log(`📊 Fallback: ${events.length} events from timeline`)
     }
 
-    if (roomMessages && roomMessages.length > 0) {
-      // Convert Matrix messages to our Message interface
-      messages.value = roomMessages.map(msg => ({
-        id: msg.eventId || msg.id || Date.now().toString(),
-        type: msg.type === 'm.image' ? 'image' : 'text',
-        sender: {
-          id: msg.senderId || msg.sender?.id || 'unknown',
-          name: msg.senderName || msg.sender?.name || msg.senderId || 'Unknown',
-          avatar: msg.senderAvatar || msg.sender?.avatar
-        },
-        content: {
-          body: msg.content?.body || msg.body || '',
-          url: msg.content?.url,
-          filename: msg.content?.filename
-        },
-        timestamp: new Date(msg.timestamp || msg.createdAt || Date.now()),
-        isOwn: msg.isOwn !== undefined ? msg.isOwn : (msg.senderId === matrixClientService.getClient()?.getUserId()),
-        status: 'read' as const
-      }))
+    const currentUserId = matrixClientService.getClient()?.getUserId()
+    const roomMessages = events
+      .map(event => {
+        const senderId = event.getSender()
+        const member = room?.getMember(senderId)
+        const content = event.getContent()
+        const msgtype = content.msgtype
 
-      console.log('✅ Converted', messages.value.length, 'messages for display')
-      console.log('👤 Current user ID:', matrixClientService.getClient()?.getUserId())
-      console.log('📝 Message ownership summary:', {
+        return {
+          id: event.getId(),
+          type: (msgtype === 'm.image' ? 'image' : msgtype === 'm.file' ? 'file' : 'text') as 'text' | 'image' | 'file',
+          sender: {
+            id: senderId,
+            name: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
+            avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
+          },
+          content: {
+            body: content.body,
+            url: content.url,
+            filename: content.filename,
+            mimetype: content.info?.mimetype,
+            size: content.info?.size
+          },
+          timestamp: new Date(event.getTs()),
+          isOwn: senderId === currentUserId,
+          status: 'read' as const
+        }
+      })
+
+    // Set the converted messages to display
+    if (roomMessages && roomMessages.length > 0) {
+      messages.value = roomMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      messageCount.value = messages.value.length
+      console.log('✅ Messages loaded and sorted:', {
         totalMessages: messages.value.length,
         ownMessages: messages.value.filter(m => m.isOwn).length,
         otherMessages: messages.value.filter(m => !m.isOwn).length
@@ -1515,9 +1300,12 @@ const loadMessages = async () => {
     console.error('❌ Failed to load messages:', error)
     messages.value = []
   } finally {
+    console.log('🏗️ DEBUG: loadMessages() completed, setting isLoading=false')
     isLoading.value = false
   }
 }
+
+// Removed unused loadOlderMessages function in Phase 2
 
 // Watchers - only reload when roomId actually changes
 watch(() => props.roomId, async (newRoomId, oldRoomId) => {
@@ -1560,478 +1348,87 @@ watch(typingUsers, async (newTypingUsers, oldTypingUsers) => {
   }
 
   // Always handle typing state changes - auto-scroll when someone is typing
-  console.log('⌨️ Processing typing state:', {
-    oldCount: oldTypingUsers?.length || 0,
-    newCount: newTypingUsers.length,
-    users: newTypingUsers.map(u => u.userName)
-  })
-
-  // Small delay to ensure typing indicator is rendered
-  await nextTick()
-  setTimeout(() => {
-    if (newTypingUsers.length > 0) {
-      // Someone is typing - always auto-scroll to show typing indicator
-      console.log('📜 Auto-scrolling to show typing indicator for:', newTypingUsers.map(u => u.userName))
-      scrollToBottom(true) // Use smooth scrolling for typing indicators
-      showTypingNotification.value = false
-
-      // Set timer to auto-dismiss if no activity for 10 seconds
-      typingNotificationTimer.value = setTimeout(() => {
-        showTypingNotification.value = false
-        console.log('📜 Auto-dismissed typing notification after timeout')
-      }, 10000) as unknown as number
-    } else {
-      // No one is typing anymore, hide notification
-      console.log('📜 No one typing anymore, hiding notification')
-      showTypingNotification.value = false
-    }
-  }, 100)
-}, { deep: true })
-
-// Watch for file selection
-watch(selectedFile, (newFile, oldFile) => {
-  console.log('📁 selectedFile changed:', {
-    old: oldFile?.name || 'null',
-    new: newFile?.name || 'null',
-    hasFile: !!newFile
-  })
-  if (newFile && !oldFile) {
-    console.log('🚀 New file selected, triggering upload...')
-    handleFileUpload()
+  if (newTypingUsers.length > 0) {
+    console.log('⌨️ Someone is typing, scrolling to bottom')
+    await scrollToBottom()
   }
 })
 
-// Start countdown timer
-const startCountdownTimer = () => {
-  if (countdownTimer.value) {
-    clearInterval(countdownTimer.value)
-  }
+// Generate unique instance ID for debugging
+const instanceId = Math.random().toString(36).substring(2, 8)
 
-  countdownTimer.value = window.setInterval(() => {
-    if (rateLimitCountdown.value > 0) {
-      rateLimitCountdown.value -= 1000
-      if (rateLimitCountdown.value <= 0) {
-        rateLimitCountdown.value = 0
-        if (countdownTimer.value) {
-          clearInterval(countdownTimer.value)
-          countdownTimer.value = null
-        }
-      }
-    }
-  }, 1000)
-}
-
-// Lifecycle
+// Connection and room management
 onMounted(async () => {
   isConnecting.value = true
 
   try {
-    console.log('🔌 MatrixChatInterface initializing for:', {
+    console.log(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
       roomId: props.roomId,
       contextType: props.contextType,
       contextId: props.contextId,
       mode: props.mode
     })
 
+    let messagesLoaded = false
+
     // Check if Matrix client is already ready
     if (matrixClientService.isReady()) {
-      console.log('✅ Matrix client already initialized and ready')
+      console.log(`✅ [${instanceId}] Matrix client already initialized and ready`)
       isConnected.value = true
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = `${props.contextType} Chat`
 
-      // Set up Matrix event listeners for real-time updates
-      setupMatrixEventListeners()
+      // Set up service-based event listeners for real-time updates
+      setupServiceEventListeners()
 
       // Load messages only if we have a room ID
       if (props.roomId) {
+        console.log(`📨 [${instanceId}] Loading messages (client ready path)`)
+        await loadMessages()
+        await scrollToBottom()
+        messagesLoaded = true
+        console.log(`✅ [${instanceId}] Messages loaded and UI ready`)
+      }
+    } else {
+      console.log(`⚠️ [${instanceId}] Matrix client not ready, will need to authenticate`)
+      isConnected.value = false
+
+      // Try to initialize Matrix connection (but don't force auth)
+      await matrixClientService.initializeClient()
+      console.log(`✅ [${instanceId}] Matrix client initialized successfully`)
+
+      isConnected.value = true
+      lastAuthError.value = '' // Clear any previous errors
+      roomName.value = `${props.contextType} Chat`
+
+      // Set up service-based event listeners for real-time updates
+      setupServiceEventListeners()
+
+      // Load messages if we have a room ID and we haven't loaded them already
+      if (props.roomId && !messagesLoaded) {
+        console.log(`📨 [${instanceId}] Loading messages (initialization path)`)
         await loadMessages()
         await scrollToBottom()
       }
-      return
     }
-
-    // Try to initialize Matrix connection (but don't force auth)
-    await matrixClientService.initializeClient()
-    console.log('✅ Matrix client initialized successfully')
-
-    isConnected.value = true
-    lastAuthError.value = '' // Clear any previous errors
-    roomName.value = `${props.contextType} Chat`
-
-    // Set up Matrix event listeners for real-time updates
-    setupMatrixEventListeners()
-
-    // Load messages only if we have a room ID
-    if (props.roomId) {
-      await loadMessages()
-      await scrollToBottom()
-    }
-  } catch (error: unknown) {
-    console.log('💬 Matrix client not authenticated, showing connect button')
+  } catch (error) {
+    console.error('❌ Failed to initialize Matrix chat:', error)
     isConnected.value = false
-
-    // Check for rate limiting error - handle both object and nested error formats
-    const errorObj = (error as Record<string, unknown>)
-    const nestedError = errorObj.errcode ? errorObj : (errorObj.data || errorObj)
-    const errorMessage = (error as Error).message
-
-    if ((nestedError as Record<string, unknown>).errcode === 'M_LIMIT_EXCEEDED' || (errorMessage && errorMessage.includes('Too Many Requests'))) {
-      const retryAfterMs = (nestedError as Record<string, unknown>).retry_after_ms as number
-      if (retryAfterMs) {
-        const retryAfterMinutes = Math.ceil(retryAfterMs / 60000)
-        console.warn(`⚠️ Rate limited - please try again in ${retryAfterMinutes} minutes (${retryAfterMs}ms)`)
-        // Store the retry time for UI display
-        window.matrixRetryAfter = Date.now() + retryAfterMs
-        rateLimitCountdown.value = retryAfterMs
-        startCountdownTimer()
-      } else {
-        console.warn('⚠️ Rate limited - no retry time provided')
-        window.matrixRetryAfter = Date.now() + 300000 // Default to 5 minutes
-        rateLimitCountdown.value = 300000
-        startCountdownTimer()
-      }
-    } else if (errorMessage && errorMessage.includes('Manual authentication required')) {
-      console.log('🔑 Manual authentication required - user needs to click Connect')
-    } else {
-      console.warn('⚠️ Matrix connection issue:', errorMessage)
-    }
+    lastAuthError.value = error.message || 'Connection failed'
   } finally {
     isConnecting.value = false
   }
-
-  // Set up periodic sync health check to detect and fix sync issues
-  const syncHealthCheckInterval = setInterval(() => {
-    if (isConnected.value && matrixClientService.isReady()) {
-      const client = matrixClientService.getClient()
-      if (client) {
-        const syncState = client.getSyncState()
-
-        if (syncState === 'ERROR' || syncState === 'STOPPED') {
-          console.warn('⚠️ Matrix sync is in error state, attempting to restart...')
-          try {
-            client.startClient({
-              initialSyncLimit: 20,
-              includeArchivedRooms: false,
-              lazyLoadMembers: true
-            })
-          } catch (error) {
-            console.error('❌ Failed to restart Matrix sync:', error)
-          }
-        } else if (syncState === 'SYNCING' || syncState === 'PREPARED') {
-          // Check if messages are stale (no new timeline events in a while)
-          const room = client.getRoom(props.roomId)
-          if (room && messages.value.length > 0) {
-            const lastMessage = messages.value[messages.value.length - 1]
-            const timeSinceLastMessage = Date.now() - lastMessage.timestamp.getTime()
-
-            // If it's been more than 5 minutes since last message and we suspect there should be activity
-            // we can optionally trigger a gentle refresh (but be careful not to be too aggressive)
-            if (timeSinceLastMessage > 300000) { // 5 minutes
-              // Just log for now - aggressive refreshing can cause issues
-              console.log('📊 No recent messages detected in Matrix sync health check')
-            }
-          }
-        }
-      }
-    }
-  }, 30000) // Check every 30 seconds
-
-  // Store interval for cleanup
-  customEventListeners.push(() => clearInterval(syncHealthCheckInterval))
-
-  // Set up scroll listener to detect when user manually scrolls to bottom
-  const setupScrollListener = () => {
-    const handleScroll = () => {
-      const container = messagesContainer.value
-      if (container && showTypingNotification.value) {
-        const scrollTop = container.scrollTop
-        const scrollHeight = container.scrollHeight
-        const clientHeight = container.clientHeight
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-
-        // If user manually scrolled to bottom, hide typing notification
-        if (distanceFromBottom < 50) {
-          showTypingNotification.value = false
-        }
-      }
-    }
-
-    // Add scroll listener
-    setTimeout(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.addEventListener('scroll', handleScroll)
-        customEventListeners.push(() => {
-          if (messagesContainer.value) {
-            messagesContainer.value.removeEventListener('scroll', handleScroll)
-          }
-        })
-      }
-    }, 100)
-  }
-
-  setupScrollListener()
 })
 
-// Matrix event listener cleanup functions
-let matrixTimelineListener: ((event: MatrixEvent, room: Room, toStartOfTimeline: boolean) => void) | null = null
-let customEventListeners: (() => void)[] = []
-
-// Set up Matrix SDK event listeners for real-time message updates
-const setupMatrixEventListeners = () => {
-  if (!props.roomId) return
-
-  try {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      console.warn('⚠️ Matrix client not available for event listeners')
-      return
-    }
-
-    const room = client.getRoom(props.roomId)
-    if (!room) {
-      console.warn('⚠️ Matrix room not found for event listeners:', props.roomId)
-      return
-    }
-
-    console.log('🎧 Setting up Matrix event listeners for room:', props.roomId)
-
-    // Listen directly to Matrix room timeline events
-    matrixTimelineListener = (event: MatrixEvent, room: Room, toStartOfTimeline: boolean) => {
-      if (event.getType() === 'm.room.message' && room.roomId === props.roomId) {
-        console.log('📨 Real-time Matrix message received:', {
-          eventId: event.getId(),
-          sender: event.getSender(),
-          isHistorical: toStartOfTimeline
-        })
-
-        // Add message to the messages array reactively
-        addMessageToTimeline(event, toStartOfTimeline)
-      }
-    }
-
-    // Attach the listener to the specific room
-    room.on(RoomEvent.Timeline, matrixTimelineListener)
-
-    // Handle timeline reset events that require full reload
-    const handleMatrixTimelineReset = (event: CustomEvent) => {
-      if (event.detail.roomId === props.roomId) {
-        console.log('🔄 Matrix timeline reset detected for room:', props.roomId)
-        // Force reload messages after timeline reset
-        setTimeout(() => {
-          console.log('🔄 Reloading messages after timeline reset...')
-          loadMessages()
-        }, 500)
-      }
-    }
-
-    const handleMatrixTyping = (event: CustomEvent) => {
-      console.log('🎯 handleMatrixTyping called with:', {
-        eventRoomId: event.detail.roomId,
-        propsRoomId: props.roomId,
-        matches: event.detail.roomId === props.roomId,
-        detail: event.detail
-      })
-
-      if (event.detail.roomId === props.roomId) {
-        const { userId, userName, typing } = event.detail
-        const currentUserId = matrixClientService.getClient()?.getUserId()
-
-        // Don't show our own typing indicator
-        if (userId === currentUserId) return
-
-        console.log('⌨️ Typing event received:', { userId, userName, typing })
-
-        if (typing) {
-          // Add user to typing list if not already there
-          const existingIndex = typingUsers.value.findIndex(user => user.userId === userId)
-          if (existingIndex === -1) {
-            console.log('➕ Adding user to typing list:', userName, 'Current count:', typingUsers.value.length)
-            typingUsers.value.push({ userId, userName })
-            console.log('✅ User added. New count:', typingUsers.value.length, 'Users:', typingUsers.value.map(u => u.userName))
-
-            // Set timeout to automatically remove user after 10 seconds (Matrix timeout)
-            setTimeout(() => {
-              const index = typingUsers.value.findIndex(user => user.userId === userId)
-              if (index !== -1) {
-                typingUsers.value.splice(index, 1)
-                console.log('⌨️ Auto-removed typing user due to timeout:', userName)
-              }
-            }, 12000) // Slightly longer than Matrix timeout for safety
-          } else {
-            console.log('👤 User already in typing list:', userName)
-          }
-        } else {
-          // Remove user from typing list
-          const existingIndex = typingUsers.value.findIndex(user => user.userId === userId)
-          if (existingIndex !== -1) {
-            console.log('➖ Removing user from typing list:', userName, 'Current count:', typingUsers.value.length)
-            typingUsers.value.splice(existingIndex, 1)
-            console.log('✅ User removed. New count:', typingUsers.value.length, 'Users:', typingUsers.value.map(u => u.userName))
-          } else {
-            console.log('❌ User not found in typing list:', userName)
-          }
-        }
-      }
-    }
-
-    const handleMatrixRedaction = (event: CustomEvent) => {
-      if (event.detail.roomId === props.roomId) {
-        const { redactedEventId, sender } = event.detail
-        console.log('🗑️ Redaction event received:', { redactedEventId, sender })
-
-        // Find and remove the redacted message from our messages array
-        const messageIndex = messages.value.findIndex(msg => msg.id === redactedEventId)
-        if (messageIndex !== -1) {
-          const redactedMessage = messages.value[messageIndex]
-          console.log('🗑️ Removing redacted message:', redactedMessage.content.body?.substring(0, 50))
-
-          // Replace message content with redaction placeholder
-          redactedMessage.content = {
-            body: '[This message was deleted]',
-            msgtype: 'm.text'
-          } as { body: string; msgtype: string; [key: string]: unknown }
-          redactedMessage.isRedacted = true
-
-          console.log('✅ Message marked as redacted')
-        } else {
-          console.log('⚠️ Could not find message to redact:', redactedEventId)
-        }
-      }
-    }
-
-    // Add custom event listeners (only for events that need special handling)
-    window.addEventListener('matrix:timeline-reset', handleMatrixTimelineReset)
-    window.addEventListener('matrix:typing', handleMatrixTyping)
-    window.addEventListener('matrix:redaction', handleMatrixRedaction)
-
-    // Store cleanup functions
-    customEventListeners = [
-      () => window.removeEventListener('matrix:timeline-reset', handleMatrixTimelineReset),
-      () => window.removeEventListener('matrix:typing', handleMatrixTyping),
-      () => window.removeEventListener('matrix:redaction', handleMatrixRedaction)
-    ]
-
-    console.log('✅ Matrix event listeners configured successfully')
-  } catch (error) {
-    console.error('❌ Failed to set up Matrix event listeners:', error)
-  }
-}
-
-// Add a new message to the timeline reactively
-const addMessageToTimeline = (event: MatrixEvent, toStartOfTimeline: boolean) => {
-  try {
-    const senderId = event.getSender()
-    const room = matrixClientService.getClient()?.getRoom(props.roomId)
-    const member = room?.getMember(senderId)
-
-    // Determine message type based on msgtype and mimetype
-    const content = event.getContent()
-    const msgtype = content.msgtype
-    const mimetype = content.info?.mimetype || ''
-
-    let messageType: 'text' | 'image' | 'file' = 'text'
-    if (msgtype === 'm.image' || (msgtype === 'm.file' && mimetype.startsWith('image/'))) {
-      messageType = 'image'
-    } else if (msgtype === 'm.file') {
-      messageType = 'file'
-    }
-
-    const messageData = {
-      id: event.getId(),
-      type: messageType,
-      sender: {
-        id: senderId,
-        name: member?.name || member?.rawDisplayName || senderId.split(':')[0].substring(1) || 'Unknown',
-        avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
-      },
-      content: {
-        body: content.body || '',
-        url: content.url,
-        filename: content.filename,
-        mimetype,
-        size: content.info?.size
-      },
-      timestamp: new Date(event.getTs()),
-      isOwn: event.getSender() === matrixClientService.getClient()?.getUserId(),
-      status: 'read' as const
-    }
-
-    // Check for duplicates - either by ID or by content + timestamp for optimistic messages
-    const existingIndex = messages.value.findIndex(msg => {
-      // Exact ID match
-      if (msg.id === messageData.id) return true
-
-      // For own messages, check if optimistic message matches content and is recent
-      if (messageData.isOwn && msg.isOwn && msg.content.body === messageData.content.body) {
-        const timeDiff = Math.abs(messageData.timestamp.getTime() - msg.timestamp.getTime())
-        return timeDiff < 10000 // Within 10 seconds
-      }
-
-      return false
-    })
-
-    if (existingIndex === -1) {
-      if (toStartOfTimeline) {
-        // Historical message - add to beginning
-        messages.value.unshift(messageData)
-      } else {
-        // Live message - add to end
-        messages.value.push(messageData)
-        // Scroll to bottom for new messages
-        nextTick(() => scrollToBottom())
-      }
-      console.log('✅ Added new message to timeline:', messageData.id)
-    } else {
-      // Replace optimistic message with real Matrix event
-      messages.value[existingIndex] = messageData
-      console.log('🔄 Replaced optimistic message with Matrix event:', messageData.id)
-    }
-  } catch (error) {
-    console.error('❌ Failed to add message to timeline:', error)
-  }
-}
-
+// Component cleanup
 onUnmounted(() => {
-  // Cleanup Matrix event listeners
-  if (matrixTimelineListener && props.roomId) {
-    try {
-      const client = matrixClientService.getClient()
-      const room = client?.getRoom(props.roomId)
-      if (room) {
-        room.off(RoomEvent.Timeline, matrixTimelineListener)
-        console.log('🧹 Removed Matrix room timeline listener')
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to remove Matrix room timeline listener:', error)
-    }
-  }
+  console.log(`🧹 [${instanceId}] MatrixChatInterface cleanup started`)
 
   // Cleanup custom event listeners
   customEventListeners.forEach(cleanup => cleanup())
   customEventListeners = []
 
-  // Cleanup countdown timer
-  if (countdownTimer.value) {
-    clearInterval(countdownTimer.value)
-  }
-
-  // Cleanup typing notification timer
-  if (typingNotificationTimer.value) {
-    clearTimeout(typingNotificationTimer.value)
-  }
-
-  // Cleanup typing timer and stop typing indicator
-  if (typingTimer.value) {
-    clearTimeout(typingTimer.value)
-  }
-
-  // Stop typing indicator on cleanup
-  if (isTyping.value) {
-    stopTyping().catch(console.warn)
-  }
-
-  console.log('🧹 MatrixChatInterface cleanup completed')
+  console.log(`🧹 [${instanceId}] MatrixChatInterface cleanup completed`)
 })
 </script>
 
@@ -2046,420 +1443,151 @@ onUnmounted(() => {
   height: 100%;
 }
 
-.mode-mobile {
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.mode-mobile .messages-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 140px; /* Reserve even more space for input + footer */
-  overflow-y: auto;
-  padding: 16px;
-  padding-bottom: 20px;
-}
-
-.mode-mobile .message-input-container {
-  position: fixed;
-  bottom: 60px; /* Increased spacing above system footer/navigation */
-  left: 0;
-  right: 0;
-  min-height: 70px;
-  background: var(--q-color-surface);
-  border-top: 1px solid var(--q-color-separator);
-  border-radius: 8px 8px 0 0;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-  z-index: 1000;
-  padding: 12px;
-  margin: 0 4px;
-}
-
-.mode-mobile .message-input {
-  padding: 0 !important;
-}
-
 .mode-inline {
-  border-radius: 8px;
-  overflow: hidden;
+  height: 100%;
+}
+
+.mode-desktop {
+  height: 100%;
+  max-height: 80vh;
+}
+
+.chat-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--q-separator-color);
 }
 
 .messages-container {
-  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-list {
+  flex: 1;
+  padding: 1rem;
 }
 
 .message-item {
-  margin-bottom: 8px;
+  margin-bottom: 0.75rem;
 }
 
 .own-message-item {
   margin-left: 20%;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .other-message-item {
   margin-right: 20%;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .message-content {
-  flex: 1;
-}
-
-.own-message .message-body {
-  background: #1976d2;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 18px 18px 4px 18px;
-  margin-left: auto;
-  max-width: fit-content;
-  position: relative;
-}
-
-.message-body {
-  background: #f3e5f5;
-  color: var(--q-color-on-surface);
-  padding: 8px 12px;
-  border-radius: 18px 18px 18px 4px;
-  max-width: fit-content;
-  position: relative;
-}
-
-/* Ensure all messages have bubble styling */
-.message-content:not(.own-message) .message-body {
-  background: #f3e5f5;
-  color: var(--q-color-on-surface);
-  border-radius: 4px 18px 18px 18px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.message-content.own-message .message-body {
-  background: #1976d2;
-  color: white;
-  border-radius: 18px 4px 18px 18px;
-  margin-left: auto;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-}
-
-/* Dark mode support for message bubbles */
-.body--dark .message-body {
-  background: #4a148c;
-  color: var(--q-color-grey-2);
-}
-
-.body--dark .message-content:not(.own-message) .message-body {
-  background: #4a148c;
-  color: var(--q-color-grey-2);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.body--dark .message-content.own-message .message-body {
-  background: #1976d2;
-  color: white;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
-}
-
-/* Message input container styling */
-.message-input-container {
-  background: var(--q-color-surface);
-  border-top: 1px solid var(--q-color-separator);
-}
-
-.message-input {
-  border-top: 1px solid var(--q-color-separator);
-}
-
-/* Dark mode input field styling */
-.body--dark .message-input-container {
-  background: var(--q-color-surface);
-  border-top: 1px solid var(--q-color-separator);
-}
-
-/* Chat header styling */
-.chat-header {
-  background: var(--q-color-grey-2);
-  color: var(--q-color-on-surface);
-}
-
-/* Dark mode chat header */
-.body--dark .chat-header {
-  background: var(--q-color-grey-9);
-  color: var(--q-color-grey-2);
-}
-
-/* Matrix ID subscript styling */
-.matrix-id-subscript {
-  font-size: 0.65em;
-  font-weight: normal;
-  color: var(--q-color-grey-6);
-  margin-left: 0.25em;
-  vertical-align: baseline;
-  opacity: 0.8;
-}
-
-/* Dark mode matrix ID subscript */
-.body--dark .matrix-id-subscript {
-  color: var(--q-color-grey-5);
-}
-
-/* Inline timestamp styling */
-.message-time-inline {
-  font-size: 0.75em;
-  opacity: 0.8;
-  white-space: nowrap;
-  align-self: flex-end;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* Timestamp color for non-own messages */
-.message-content:not(.own-message) .message-time-inline {
-  color: var(--q-color-grey-6);
-}
-
-/* Dark mode timestamp colors */
-.body--dark .message-content:not(.own-message) .message-time-inline {
-  color: var(--q-color-grey-5);
-}
-
-.body--dark .message-content.own-message .message-time-inline {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* Make text message container flex to position timestamp */
-.text-message {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 0.25em;
-}
-
-.message-text {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Message formatting styles */
-.message-text .message-link {
-  color: #1976d2;
-  text-decoration: underline;
-  word-break: break-all;
-}
-
-.message-text .message-link:hover {
-  color: #1565c0;
-  text-decoration: underline;
-}
-
-.message-text .inline-code {
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-}
-
-.message-text strong {
-  font-weight: 600;
-}
-
-.message-text em {
-  font-style: italic;
-}
-
-.message-text del {
-  text-decoration: line-through;
-  opacity: 0.7;
-}
-
-/* Delete button styling */
-.delete-message-btn {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  vertical-align: middle;
-}
-
-/* Show delete button on message hover */
-.message-content:hover .delete-message-btn {
-  opacity: 0.9;
-}
-
-.delete-message-btn:hover {
-  opacity: 1 !important;
-  transform: scale(1.1);
-}
-
-/* Read receipts chip styling */
-.read-receipts-chip {
-  font-size: 10px;
-  height: 18px;
-  vertical-align: middle;
-}
-
-.read-receipts-chip .read-receipt-text {
-  font-size: 10px;
-  line-height: 1;
-}
-
-.message-image {
-  border-radius: 8px;
   max-width: 100%;
 }
 
-/* Avatar fallback styling */
+.own-message .message-body {
+  background: var(--q-primary);
+  color: white;
+  border-radius: 18px 4px 18px 18px;
+}
+
+.message-body {
+  background: var(--q-dark-page);
+  border-radius: 4px 18px 18px 18px;
+  padding: 0.75rem 1rem;
+  display: inline-block;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.sender-name {
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.matrix-id-subscript {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-left: 0.25rem;
+}
+
 .avatar-fallback {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  font-size: 0.85em;
   border-radius: 50%;
-  text-transform: uppercase;
 }
 
-/* Responsive avatar font sizes */
-.mode-mobile .avatar-fallback {
-  font-size: 0.75em;
-}
-
-.mode-desktop .avatar-fallback,
-.mode-inline .avatar-fallback {
-  font-size: 0.9em;
-}
-
-/* Read receipt indicators */
-.read-receipts {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.7em;
-  opacity: 0.8;
-}
-
-.read-receipt-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  padding: 1px 4px;
-  font-size: 0.75em;
-  font-weight: bold;
-  min-width: 12px;
-  text-align: center;
-}
-
-.read-receipt-count.multiple-readers {
-  background: rgba(76, 175, 80, 0.3);
-  color: rgba(255, 255, 255, 0.95);
-}
-
-/* Read receipts for non-own messages in bubbles */
-.message-content:not(.own-message) .read-receipt-count {
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--q-color-grey-7);
-}
-
-.message-content:not(.own-message) .read-receipt-count.multiple-readers {
-  background: rgba(76, 175, 80, 0.2);
-  color: var(--q-color-grey-8);
-}
-
-/* Dark mode read receipts */
-.body--dark .message-content:not(.own-message) .read-receipt-count {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--q-color-grey-4);
-}
-
-.body--dark .message-content:not(.own-message) .read-receipt-count.multiple-readers {
-  background: rgba(76, 175, 80, 0.3);
-  color: var(--q-color-grey-3);
-}
-
-.file-card {
-  max-width: 300px;
-}
-
-.emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
-}
-
-.emoji-btn {
-  min-width: 40px;
-  height: 40px;
-}
-
-/* Typing indicator styles */
 .typing-indicator {
-  padding: 8px 16px;
-  margin-bottom: 8px;
+  padding: 0.5rem 1rem;
+  font-style: italic;
+  opacity: 0.7;
+  background: var(--q-dark-page);
+  border-radius: 18px;
+  margin: 0.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
-.typing-user-avatar {
-  position: relative;
+.input-container {
+  flex-shrink: 0;
+  padding: 1rem;
+  border-top: 1px solid var(--q-separator-color);
+  background: var(--q-card);
 }
 
-.typing-avatar {
-  font-size: 0.7em;
-  opacity: 0.9;
-}
-
-.typing-dots-container {
+.connection-status {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 50%;
+  height: 200px;
 }
 
-/* Dark mode typing dots container */
-.body--dark .typing-dots-container {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.typing-dots {
-  animation: typing 1.5s infinite;
-}
-
-.typing-text {
-  font-style: italic;
-  opacity: 0.8;
-}
-
-@keyframes typing {
-  0%, 20% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
-  80%, 100% { opacity: 0.4; transform: scale(1); }
-}
-
-/* Typing notification badge */
-.typing-notification-badge {
+.emoji-picker-container {
   position: absolute;
-  bottom: 85px; /* Above message input */
-  right: 16px;
-  z-index: 100;
-  animation: slideUpFade 0.3s ease-out;
+  bottom: 60px;
+  right: 1rem;
+  z-index: 1000;
 }
 
-.mode-mobile .typing-notification-badge {
-  bottom: 155px; /* Account for mobile input positioning */
-  right: 20px;
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-.typing-scroll-btn {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  font-size: 0.75em;
-  max-width: 250px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
+.message-slide-enter-active {
+  transition: all 0.3s ease-out;
 }
 
-@keyframes slideUpFade {
+.message-slide-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.message-slide-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes slideInUp {
   from {
     opacity: 0;
     transform: translateY(20px);

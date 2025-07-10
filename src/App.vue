@@ -11,6 +11,7 @@ import UpdateNotificationComponent from './components/common/UpdateNotificationC
 import { versionService } from './services/versionService'
 import { setupGlobalErrorHandling } from './composables/useVersionErrorHandling'
 import { useAuthStore } from './stores/auth-store'
+import matrixDebug from './utils/matrixDebug'
 
 defineOptions({
   name: 'App'
@@ -42,6 +43,12 @@ onMounted(async () => {
     // Then initialize version checking
     await versionService.initializeVersionChecking()
     setupGlobalErrorHandling()
+
+    // Initialize Matrix debug utilities in development
+    if (import.meta.env.DEV) {
+      console.log('🔍 Matrix debug utilities available at window.matrixDebug')
+      console.log('🔍 Available methods:', Object.keys(matrixDebug))
+    }
   } catch (error) {
     console.error('Failed to initialize app:', error)
   }
