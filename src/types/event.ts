@@ -171,6 +171,7 @@ export interface EventEntity {
   topics?: { name: string }[]
   messages?: MatrixMessage[]
   roomId?: string
+  matrixRoomId?: string
   sourceType?: string
   sourceId?: string
   sourceUrl?: string

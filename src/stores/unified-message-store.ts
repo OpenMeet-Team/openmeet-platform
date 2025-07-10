@@ -683,7 +683,7 @@ export const useMessageStore = defineStore('messages', {
           })
           // Send message via Matrix JS SDK
           await matrixClientService.sendMessage(this.activeRoomId, {
-            body: typeof message === 'string' ? message : message.content || '',
+            body: message,
             msgtype: 'm.text'
           })
           const result = 'matrix_event_sent'
