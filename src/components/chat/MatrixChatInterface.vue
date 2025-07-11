@@ -254,6 +254,7 @@
             <q-avatar
               :size="mode === 'mobile' ? '32px' : '40px'"
               v-if="!message.isOwn || mode === 'desktop'"
+              class="message-avatar"
             >
               <img v-if="message.sender.avatar" :src="message.sender.avatar" />
               <div v-else class="avatar-fallback" :style="{ backgroundColor: getSenderColor(message.sender.id) }">
@@ -268,11 +269,10 @@
                 v-if="!message.isOwn && showSenderNames"
                 class="sender-name q-mb-xs row items-baseline"
               >
-                <div class="text-weight-bold" :style="{ color: getSenderColor(message.sender.id) }">
+                <div class="text-weight-bold sender-display-name" :style="{ color: getSenderColor(message.sender.id) }">
                   {{ cleanDisplayName(message.sender.name, message.sender.id) }}
-                  <span class="matrix-id-subscript">{{ message.sender.id }}</span>
                 </div>
-                <div class="message-time text-caption text-grey-6 q-ml-sm">
+                <div class="message-time text-caption q-ml-sm">
                   {{ formatTime(message.timestamp) }}
                 </div>
               </div>
@@ -282,15 +282,12 @@
                 <!-- Text Message -->
                 <div v-if="message.type === 'text'" class="text-message">
                   <div class="message-text" v-html="formatMessageText(message.content.body)"></div>
-                  <!-- Timestamp and status - always show for all messages within bubble -->
-                  <span class="message-time-inline text-caption q-ml-sm">
-                    {{ formatTime(message.timestamp) }}
+                  <!-- Status and actions - only show for own messages -->
+                  <div v-if="message.isOwn" class="message-actions text-caption q-mt-xs">
                     <q-icon
-                      v-if="message.isOwn"
                       :name="getMessageStatusIcon(message.status)"
                       :color="getMessageStatusColor(message.status)"
                       size="12px"
-                      class="q-ml-xs"
                     >
                       <q-tooltip v-if="message.status === 'failed'" class="text-body2">
                         {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
@@ -298,7 +295,7 @@
                     </q-icon>
                     <!-- Read Receipt Indicators -->
                     <q-chip
-                      v-if="message.isOwn && message.readReceipts && message.readReceipts.length > 0"
+                      v-if="message.readReceipts && message.readReceipts.length > 0"
                       dense
                       size="10px"
                       color="primary"
@@ -314,7 +311,7 @@
                       </span>
                     </q-chip>
 
-                    <!-- Delete button inline with timestamp -->
+                    <!-- Delete button -->
                     <q-icon
                       v-if="canDeleteMessage(message)"
                       name="fas fa-trash"
@@ -325,7 +322,7 @@
                     >
                       <q-tooltip class="text-body2">Delete message</q-tooltip>
                     </q-icon>
-                  </span>
+                  </div>
                 </div>
 
                 <!-- Image Message -->
@@ -347,20 +344,32 @@
                   <q-card flat bordered class="file-card">
                     <q-card-section class="q-pa-sm">
                       <div class="row items-center">
-                        <q-icon :name="getFileIcon(message.content.mimetype)" class="q-mr-sm" />
+                        <q-icon :name="getFileIcon(message.content.mimetype)" class="q-mr-sm" size="24px" />
                         <div class="col">
-                          <div class="text-body2">{{ message.content.filename }}</div>
+                          <div class="text-body2 file-name">{{ message.content.filename }}</div>
                           <div class="text-caption text-grey-6">
                             {{ formatFileSize(message.content.size) }}
                           </div>
                         </div>
-                        <q-btn
-                          icon="download"
-                          flat
-                          round
-                          size="sm"
-                          @click="downloadFile(getImageUrl(message.content.url), message.content.filename)"
-                        />
+                        <div class="file-actions">
+                          <q-btn
+                            icon="sym_r_visibility"
+                            flat
+                            round
+                            size="sm"
+                            @click="previewFile(message.content)"
+                            :title="'Preview ' + message.content.filename"
+                            class="q-mr-xs"
+                          />
+                          <q-btn
+                            icon="sym_r_download"
+                            flat
+                            round
+                            size="sm"
+                            @click="downloadFile(getImageUrl(message.content.url), message.content.filename)"
+                            :title="'Download ' + message.content.filename"
+                          />
+                        </div>
                       </div>
                     </q-card-section>
                   </q-card>
@@ -1253,6 +1262,42 @@ const downloadFile = (url: string, filename: string) => {
   a.click()
 }
 
+const previewFile = (content: { url?: string; filename?: string; mimetype?: string }) => {
+  if (!content.url || !content.filename) {
+    console.warn('Missing file URL or filename for preview')
+    return
+  }
+
+  const fileUrl = getImageUrl(content.url)
+  console.log('📎 Previewing file:', {
+    originalUrl: content.url,
+    convertedUrl: fileUrl,
+    filename: content.filename,
+    mimetype: content.mimetype
+  })
+
+  if (!fileUrl) {
+    console.error('❌ Failed to convert file URL for preview')
+    return
+  }
+
+  // For images, show in a dialog
+  if (content.mimetype?.startsWith('image/')) {
+    showImageModal(fileUrl)
+    return
+  }
+
+  // For text files, try to open inline
+  if (content.mimetype?.startsWith('text/') || content.filename.endsWith('.txt')) {
+    // Open in a new tab for text files
+    window.open(fileUrl, '_blank')
+    return
+  }
+
+  // For other files, try to open in new tab
+  window.open(fileUrl, '_blank')
+}
+
 const scrollToBottom = async (smooth = false) => {
   await nextTick()
   if (messagesContainer.value) {
@@ -2111,22 +2156,45 @@ onUnmounted(() => {
 }
 
 .message-content {
-  max-width: 100%;
+  max-width: 70%;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
-.own-message .message-body {
-  background: var(--q-primary);
-  color: white;
-  border-radius: 18px 4px 18px 18px;
-}
-
+/* Base message body styles */
 .message-body {
-  background: var(--q-dark-page);
-  border-radius: 4px 18px 18px 18px;
   padding: 0.75rem 1rem;
   display: inline-block;
   max-width: 100%;
   word-wrap: break-word;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Own message styling */
+.own-message-item .message-body {
+  background: var(--q-primary) !important;
+  color: white !important;
+  border-radius: 1rem 1rem 0.25rem 1rem !important;
+}
+
+/* Other users' message styling */
+.other-message-item .message-body {
+  background: #AF9EE8 !important;
+  color: white !important;
+  border-radius: 0.25rem 1rem 1rem 1rem !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Dark mode overrides */
+.q-dark .other-message-item .message-body {
+  background: #D2ACEE !important;
+  color: #1a1a1a !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.q-dark .own-message-item .message-body {
+  background: #1976d2 !important;
+  color: white !important;
 }
 
 .message-time {
@@ -2229,5 +2297,142 @@ onUnmounted(() => {
   .other-message-item {
     margin-right: 10%;
   }
+}
+
+/* Improved Message Styling */
+.message-item {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  align-items: flex-start;
+}
+
+.own-message-item {
+  flex-direction: row-reverse;
+  margin-left: 20%;
+  justify-content: flex-start;
+}
+
+.other-message-item {
+  flex-direction: row;
+  margin-right: 20%;
+  justify-content: flex-start;
+}
+
+.message-avatar {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sender-name {
+  margin-bottom: 0.25rem;
+}
+
+.sender-display-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.message-time {
+  opacity: 0.7;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.message-text {
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.text-message {
+  position: relative;
+}
+
+
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}
+
+.file-card {
+  border-radius: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  max-width: 300px;
+  transition: all 0.2s ease;
+}
+
+.file-card:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.file-name {
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Dark mode support - duplicate rule removed */
+
+.q-dark .avatar-fallback {
+  border-color: rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Light mode avatar improvements */
+.avatar-fallback {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.q-dark .avatar-fallback {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.q-dark .file-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.q-dark .file-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.q-dark .diagnostic-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.q-dark .chat-diagnostics {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 </style>
