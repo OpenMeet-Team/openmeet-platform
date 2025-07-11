@@ -228,5 +228,9 @@ export const matrixApi = {
   // Get a fresh Matrix token (for direct Matrix operations)
   getToken: async (): Promise<string> => {
     return matrixTokenService.getToken()
-  }
+  },
+
+  // Sync Matrix user identity with backend after MAS authentication
+  syncUserIdentity: (matrixUserId: string): Promise<AxiosResponse<{ success: boolean; matrixUserId: string; handle: string }>> =>
+    api.post('/api/matrix/sync-user-identity', { matrixUserId })
 }
