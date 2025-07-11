@@ -35,6 +35,7 @@ export const useAuthStore = defineStore('authStore', {
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id,
+    getUserSlug: state => state.user.slug,
     getBlueskyDid: state => state.blueskyDid,
     getBlueskyHandle: state => state.blueskyHandle,
     getBlueskEndpoint: state => {

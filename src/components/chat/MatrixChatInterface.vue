@@ -13,6 +13,34 @@
           </div>
         </div>
         <q-btn
+          icon="sym_r_more_vert"
+          flat
+          round
+        >
+          <q-menu>
+            <q-list style="min-width: 180px">
+              <q-item clickable v-close-popup @click="clearMatrixSessions">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_clear_all" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Clear Matrix Sessions</q-item-label>
+                  <q-item-label caption>Fix authentication issues</q-item-label>
+                </q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="reconnect">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_refresh" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Reconnect</q-item-label>
+                  <q-item-label caption>Retry connection</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
+        <q-btn
           icon="sym_r_fullscreen"
           flat
           round
@@ -50,9 +78,166 @@
         />
       </div>
 
+      <!-- Chat Room Diagnostics Section (Collapsible) -->
+      <div v-if="isConnected" class="chat-diagnostics q-mb-sm">
+        <q-expansion-item
+          v-model="showDiagnostics"
+          icon="sym_r_bug_report"
+          label="🔍 Chat Room Diagnostics"
+          header-class="bg-grey-2 text-grey-8"
+          dense
+        >
+          <div class="diagnostics-content q-pa-md bg-grey-1">
+            <div class="row items-center q-mb-sm">
+              <q-space />
+              <q-btn
+                icon="sym_r_refresh"
+                flat
+                round
+                size="sm"
+                @click="refreshDiagnostics"
+                class="q-ml-sm"
+              >
+                <q-tooltip>Refresh diagnostics</q-tooltip>
+              </q-btn>
+              <q-btn
+                icon="sym_r_sync"
+                flat
+                round
+                size="sm"
+                @click="forceSync"
+                color="primary"
+                class="q-ml-sm"
+              >
+                <q-tooltip>Force Matrix sync</q-tooltip>
+              </q-btn>
+            </div>
+
+            <div class="diagnostics-grid">
+              <!-- Room Information -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Room ID</div>
+                <div class="text-body2 text-weight-medium">{{ props.roomId || 'Not set' }}</div>
+              </div>
+
+              <!-- Matrix Client Status -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Client Status</div>
+                <div class="text-body2">
+                  <q-chip
+                    :color="getClientStatusColor()"
+                    text-color="white"
+                    size="sm"
+                    dense
+                  >
+                    {{ getClientStatus() }}
+                  </q-chip>
+                </div>
+              </div>
+
+              <!-- Sync State -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Sync State</div>
+                <div class="text-body2">
+                  <q-chip
+                    :color="getSyncStateColor()"
+                    text-color="white"
+                    size="sm"
+                    dense
+                  >
+                    {{ getSyncState() }}
+                  </q-chip>
+                </div>
+              </div>
+
+              <!-- Room Members -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Room Members</div>
+                <div class="text-body2">
+                  {{ getRoomMemberCount() }} total
+                  <span v-if="getLiveMemberCount() !== getRoomMemberCount()">
+                    ({{ getLiveMemberCount() }} live)
+                  </span>
+                </div>
+              </div>
+
+              <!-- Message Count -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Messages Loaded</div>
+                <div class="text-body2">{{ messages.length }} / {{ currentHistoryLimit }}</div>
+              </div>
+
+              <!-- Timeline Events -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Timeline Events</div>
+                <div class="text-body2">{{ getTimelineEventCount() }}</div>
+              </div>
+
+              <!-- Room Name -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Room Name</div>
+                <div class="text-body2">{{ getRoomName() || 'Unnamed room' }}</div>
+              </div>
+
+              <!-- User ID -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">User ID</div>
+                <div class="text-body2 text-mono">{{ getCurrentUserId() || 'Not authenticated' }}</div>
+              </div>
+
+              <!-- Last Activity -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Last Activity</div>
+                <div class="text-body2">{{ getLastActivity() }}</div>
+              </div>
+
+              <!-- Sync Progress -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Sync Progress</div>
+                <div class="text-body2">{{ getSyncProgress() }}</div>
+              </div>
+
+              <!-- Room Status -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Room Status</div>
+                <div class="text-body2">{{ getRoomStatus() }}</div>
+              </div>
+
+              <!-- Connection Age -->
+              <div class="diagnostic-item">
+                <div class="text-caption text-grey-7">Connection Age</div>
+                <div class="text-body2">{{ getConnectionAge() }}</div>
+              </div>
+            </div>
+          </div>
+        </q-expansion-item>
+      </div>
+
       <!-- Messages -->
-      <div v-else-if="messages.length > 0" class="messages-list" data-cy="messages-list">
-        <!-- Loading indicator for older messages -->
+      <div v-if="isConnected && messages.length > 0" class="messages-list" data-cy="messages-list">
+        <!-- Load More History Button -->
+        <div class="load-more-history text-center q-pa-md">
+          <q-btn
+            v-if="!isLoadingOlderMessages && hasMoreHistory"
+            @click="loadOlderMessages"
+            label="Load More History"
+            icon="sym_r_keyboard_arrow_up"
+            color="primary"
+            outline
+            size="sm"
+            dense
+            data-cy="load-more-history-btn"
+          />
+          <div v-if="isLoadingOlderMessages" class="loading-older-messages text-center q-pa-sm">
+            <q-spinner size="20px" color="primary" />
+            <div class="text-caption text-grey-6 q-mt-xs">Loading older messages...</div>
+          </div>
+          <div v-if="!hasMoreHistory && messages.length > 4" class="text-caption text-grey-6">
+            No more history available
+          </div>
+        </div>
+
+        <!-- Loading indicator for initial messages -->
         <div v-if="isLoading && messages.length === 0" class="loading-older-messages text-center q-pa-md">
           <q-spinner size="20px" color="primary" />
           <div class="text-caption text-grey-6 q-mt-xs">Loading messages...</div>
@@ -187,8 +372,30 @@
         </div>
       </div>
 
-      <!-- Empty State -->
-      <div v-else class="empty-state text-center q-pa-lg">
+      <!-- Empty State with Load More History -->
+      <div v-else-if="isConnected && messages.length === 0" class="empty-state text-center q-pa-lg">
+        <!-- Load More History Button (show even when no messages) -->
+        <div v-if="isConnected" class="load-more-history text-center q-pa-md">
+          <q-btn
+            v-if="!isLoadingOlderMessages && hasMoreHistory"
+            @click="loadOlderMessages"
+            label="Load More History"
+            icon="sym_r_keyboard_arrow_up"
+            color="primary"
+            outline
+            size="sm"
+            dense
+            data-cy="load-more-history-btn"
+          />
+          <div v-if="isLoadingOlderMessages" class="loading-older-messages text-center q-pa-sm">
+            <q-spinner size="20px" color="primary" />
+            <div class="text-caption text-grey-6 q-mt-xs">Loading older messages...</div>
+          </div>
+          <div v-if="!hasMoreHistory" class="text-caption text-grey-6 q-mb-md">
+            No history available
+          </div>
+        </div>
+
         <q-icon name="fas fa-comments" size="48px" color="grey-5" />
         <div class="text-h6 q-mt-md text-grey-6">Start the conversation</div>
         <div class="text-body2 text-grey-5">Send a message to begin</div>
@@ -344,7 +551,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
-import { RoomEvent, MatrixEvent, Room } from 'matrix-js-sdk'
+import { RoomEvent, MatrixEvent, Room, ClientEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 
 // Add type declaration for global window property
@@ -417,6 +624,14 @@ const lastReadReceiptSent = ref<string | null>(null)
 const messageCount = ref(0)
 const typingNotificationTimer = ref<number | null>(null)
 
+// Load More History state
+const isLoadingOlderMessages = ref(false)
+const hasMoreHistory = ref(true)
+const currentHistoryLimit = ref(50)
+
+// Diagnostics state
+const showDiagnostics = ref(false)
+
 // Use Matrix client service directly for real Matrix integration
 
 // Refs
@@ -443,6 +658,193 @@ const canSendMessage = computed(() => {
 const showSenderNames = computed(() => {
   return props.contextType !== 'direct'
 })
+
+// Diagnostic Functions
+const refreshDiagnostics = () => {
+  console.log('🔍 Refreshing diagnostics')
+  // Force reactivity update
+  messageCount.value = messages.value.length
+}
+
+const forceSync = async () => {
+  console.log('🔄 Force syncing Matrix client')
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.error('❌ No Matrix client available for force sync')
+      return
+    }
+
+    // Stop and restart the client to force a fresh sync
+    console.log('🛑 Stopping Matrix client...')
+    client.stopClient()
+
+    // Wait a moment then restart
+    setTimeout(async () => {
+      console.log('🔄 Restarting Matrix client...')
+      await client.startClient({
+        initialSyncLimit: 50,
+        includeArchivedRooms: false,
+        lazyLoadMembers: true
+      })
+      console.log('✅ Matrix client restarted')
+    }, 1000)
+  } catch (error) {
+    console.error('❌ Error forcing Matrix sync:', error)
+  }
+}
+
+const getClientStatus = () => {
+  const client = matrixClientService.getClient()
+  if (!client) return 'Not initialized'
+  if (client.isLoggedIn()) return 'Logged in'
+  return 'Not logged in'
+}
+
+const getClientStatusColor = () => {
+  const status = getClientStatus()
+  if (status === 'Logged in') return 'positive'
+  if (status === 'Not logged in') return 'negative'
+  return 'warning'
+}
+
+const getSyncState = () => {
+  const client = matrixClientService.getClient()
+  if (!client) return 'No client'
+  const syncState = client.getSyncState()
+  const isInitialSyncComplete = client.isInitialSyncComplete()
+  return `${syncState || 'Unknown'} (Initial: ${isInitialSyncComplete ? 'Complete' : 'Pending'})`
+}
+
+const getSyncStateColor = () => {
+  const state = getSyncState()
+  if (state.includes('PREPARED')) return 'positive'
+  if (state.includes('SYNCING')) return 'warning'
+  if (state.includes('ERROR')) return 'negative'
+  return 'grey'
+}
+
+const getRoomMemberCount = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return 0
+    return room.getJoinedMemberCount()
+  } catch (error) {
+    console.error('Error getting room member count:', error)
+    return 0
+  }
+}
+
+const getLiveMemberCount = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return 0
+    const members = room.getJoinedMembers()
+    return members.filter(member => member.powerLevel !== undefined).length
+  } catch (error) {
+    console.error('Error getting live member count:', error)
+    return getRoomMemberCount()
+  }
+}
+
+const getTimelineEventCount = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return 0
+    const timeline = room.getLiveTimeline()
+    return timeline ? timeline.getEvents().length : 0
+  } catch (error) {
+    console.error('Error getting timeline event count:', error)
+    return 0
+  }
+}
+
+const getRoomName = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return null
+    return room.name || room.getCanonicalAlias() || null
+  } catch (error) {
+    console.error('Error getting room name:', error)
+    return null
+  }
+}
+
+const getCurrentUserId = () => {
+  try {
+    const client = matrixClientService.getClient()
+    return client?.getUserId() || null
+  } catch (error) {
+    console.error('Error getting current user ID:', error)
+    return null
+  }
+}
+
+const getLastActivity = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return 'No room'
+    const timeline = room.getLiveTimeline()
+    if (!timeline) return 'No timeline'
+    const events = timeline.getEvents()
+    if (events.length === 0) return 'No events'
+    const lastEvent = events[events.length - 1]
+    const timestamp = new Date(lastEvent.getTs())
+    return timestamp.toLocaleString()
+  } catch (error) {
+    console.error('Error getting last activity:', error)
+    return 'Error'
+  }
+}
+
+const getSyncProgress = () => {
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) return 'No client'
+
+    const syncState = client.getSyncState()
+    const isInitialSyncComplete = client.isInitialSyncComplete()
+    const rooms = client.getRooms()
+
+    return `${syncState} | ${rooms.length} rooms | ${isInitialSyncComplete ? 'Initial sync done' : 'Syncing...'}`
+  } catch (error) {
+    console.error('Error getting sync progress:', error)
+    return 'Error'
+  }
+}
+
+const getRoomStatus = () => {
+  try {
+    const room = matrixClientService.getRoom(props.roomId)
+    if (!room) return 'Room not found'
+
+    const myMembership = room.getMyMembership()
+    const roomState = room.currentState
+    const hasTimeline = room.timeline && room.timeline.length > 0
+
+    return `${myMembership} | ${hasTimeline ? 'Has timeline' : 'No timeline'} | ${roomState ? 'Has state' : 'No state'}`
+  } catch (error) {
+    console.error('Error getting room status:', error)
+    return 'Error'
+  }
+}
+
+const getConnectionAge = () => {
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) return 'No client'
+
+    // This is a rough estimate based on when we think the connection was established
+    const now = new Date()
+    const estimatedStart = new Date(now.getTime() - 30000) // Assume 30 seconds ago
+    const age = Math.floor((now.getTime() - estimatedStart.getTime()) / 1000)
+
+    return `~${age}s`
+  } catch (error) {
+    console.error('Error getting connection age:', error)
+    return 'Error'
+  }
+}
 
 // Methods
 const getMessagesContainerStyle = () => {
@@ -768,7 +1170,7 @@ const sendMessage = async () => {
   } catch (error) {
     console.error('❌ Failed to send message:', error)
     // Show error to user but don't manipulate messages array
-    $q.notify({
+    quasar.notify({
       type: 'negative',
       message: 'Failed to send message: ' + (error instanceof Error ? error.message : 'Unknown error'),
       timeout: 3000
@@ -982,7 +1384,7 @@ const updateReadReceipts = async () => {
       const messageReadBy: Array<{ userId: string, userName: string, timestamp: number }> = []
 
       // Check if each user has read this message (if they read this message or any later message)
-      for (const [userId, readPosition] of userReadPositions.entries()) {
+      for (const [userId, readPosition] of Array.from(userReadPositions.entries())) {
         if (readPosition.messageIndex >= i) {
           const member = room.getMember(userId)
           messageReadBy.push({
@@ -1111,6 +1513,36 @@ const reconnect = async () => {
   }
 }
 
+const clearMatrixSessions = async () => {
+  try {
+    console.log('🧹 User requested Matrix session clearing...')
+
+    // Show confirmation dialog
+    const confirmed = confirm(
+      'This will clear all Matrix sessions and require you to sign in again. ' +
+      'This can help fix authentication and message history issues. Continue?'
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    // Clear all Matrix sessions via service
+    await matrixClientService.clearAllMatrixSessions()
+
+    // Reset component state
+    isConnected.value = false
+    isConnecting.value = false
+    messages.value = []
+
+    console.log('✅ Matrix sessions cleared, user will need to re-authenticate')
+    alert('Matrix sessions cleared successfully! Please refresh the page to sign in again.')
+  } catch (error) {
+    console.error('❌ Failed to clear Matrix sessions:', error)
+    alert('Failed to clear Matrix sessions. Please try again or contact support.')
+  }
+}
+
 // Removed unused recreateEventRoom and recreateGroupRoom functions in Phase 2
 
 // Start countdown timer for rate limiting
@@ -1143,6 +1575,10 @@ const setupServiceEventListeners = () => {
     console.warn('⚠️ Matrix client not available for event listeners')
     return
   }
+
+  // Listen for sync state changes to retry loading messages
+  client.on(ClientEvent.Sync, handleSyncStateChange)
+  customEventListeners.push(() => client.off(ClientEvent.Sync, handleSyncStateChange))
 
   const handleTimelineEvent = (event: MatrixEvent, room: Room, toStartOfTimeline: boolean) => {
     if (room.roomId !== props.roomId || toStartOfTimeline) {
@@ -1179,7 +1615,7 @@ const setupServiceEventListeners = () => {
       },
       timestamp: new Date(event.getTs()),
       isOwn: senderId === currentUserId,
-      status: (senderId === currentUserId ? 'sent' : 'read') as const
+      status: senderId === currentUserId ? 'sent' as const : 'read' as const
     }
 
     // Add message - Matrix SDK should handle deduplication
@@ -1198,6 +1634,92 @@ const setupServiceEventListeners = () => {
   console.log('✅ Direct Matrix SDK event listeners set up')
 }
 
+// Load older messages with pagination
+const loadOlderMessages = async () => {
+  if (isLoadingOlderMessages.value || !hasMoreHistory.value) {
+    console.log('⚠️ Already loading older messages or no more history available')
+    return
+  }
+
+  console.log('📜 Loading older messages with increased limit')
+  isLoadingOlderMessages.value = true
+
+  try {
+    const previousMessageCount = messages.value.length
+    const newLimit = currentHistoryLimit.value + 25 // Load 25 more messages
+
+    console.log(`🔄 Loading room history with limit ${newLimit} (currently have ${previousMessageCount} messages)`)
+
+    // Skip waitForRoomReady if sync is stuck - try to get room directly
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.warn('⚠️ No Matrix client available')
+      return
+    }
+
+    const room = client.getRoom(props.roomId)
+    if (!room) {
+      console.warn('⚠️ Room not available for loading older messages:', props.roomId)
+      console.log('🔍 Available rooms:', client.getRooms().map(r => r.roomId))
+      return
+    }
+
+    console.log(`✅ Got room directly (sync state: ${client.getSyncState()})`)
+
+    // Use the loadRoomHistory method with increased limit
+    const events = await matrixClientService.loadRoomHistory(props.roomId, newLimit)
+
+    if (events.length === 0) {
+      console.log('📭 No messages found in room history')
+      hasMoreHistory.value = false
+      return
+    }
+
+    // Convert Matrix events to our Message format
+    const formattedMessages = events.map(event => {
+      const content = event.getContent()
+      const sender = event.getSender()
+      const senderName = event.sender?.name || sender || 'Unknown'
+      const currentUser = matrixClientService.getClient()?.getUserId()
+
+      return {
+        id: event.getId() || `${event.getTs()}-${sender}`,
+        type: content.msgtype === 'm.image' ? 'image' as const : 'text' as const,
+        sender: {
+          id: sender || 'unknown',
+          name: senderName,
+          avatar: event.sender?.getAvatarUrl(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
+        },
+        content: {
+          body: content.body || '',
+          url: content.url,
+          filename: content.body,
+          mimetype: content.info?.mimetype,
+          size: content.info?.size
+        },
+        timestamp: new Date(event.getTs()),
+        isOwn: sender === currentUser,
+        status: 'sent' as const
+      }
+    })
+
+    messages.value = formattedMessages
+    currentHistoryLimit.value = newLimit
+
+    // Check if we loaded new messages
+    if (formattedMessages.length === previousMessageCount) {
+      console.log('📭 No new messages loaded - reached end of history')
+      hasMoreHistory.value = false
+    } else {
+      console.log(`📨 Loaded ${formattedMessages.length - previousMessageCount} new older messages`)
+    }
+  } catch (error) {
+    console.error('❌ Failed to load older messages:', error)
+  } finally {
+    isLoadingOlderMessages.value = false
+  }
+}
+
 // Prevent duplicate loading
 const isLoading = ref(false)
 
@@ -1208,36 +1730,66 @@ const loadMessages = async () => {
   }
 
   console.log('🏗️ DEBUG: Starting loadMessages(), setting isLoading=true')
+  console.log('🏗️ DEBUG: Current Matrix client sync state:', matrixClientService.getClient()?.getSyncState())
   isLoading.value = true
   try {
-    console.log('🏗️ Phase 2: Loading messages with pure Matrix SDK for room:', props.roomId)
+    console.log('🏗️ Phase 2: Loading messages with Element-web pattern for room:', props.roomId)
 
-    // Use new waitForRoomReady method (Element-web pattern)
-    console.log('⏳ Waiting for room to be ready...')
-    const room = await matrixClientService.waitForRoomReady(props.roomId)
-    if (!room) {
-      console.warn('⚠️ Room not available after sync:', props.roomId)
+    // Element-web pattern: Work with SYNCING state, don't wait for PREPARED
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.warn('⚠️ No Matrix client available')
       messages.value = []
-      console.log('🏗️ DEBUG: Room not found, setting isLoading=false in early return')
-      // Early return will still trigger finally block, so isLoading will be reset
       return
     }
-    console.log('✅ Room ready, proceeding with message loading')
+
+    const syncState = client.getSyncState()
+    console.log(`🔄 Matrix client sync state: ${syncState}`)
+
+    // Element-web accepts SYNCING, PREPARED, CATCHUP, RECONNECTING as working states
+    const workingStates = ['SYNCING', 'PREPARED', 'CATCHUP', 'RECONNECTING']
+    if (!workingStates.includes(syncState || '')) {
+      console.warn(`⚠️ Matrix client not in working state: ${syncState}`)
+      messages.value = []
+      return
+    }
+
+    // Get room directly without waiting for PREPARED state
+    const room = client.getRoom(props.roomId)
+    if (!room) {
+      console.warn('⚠️ Room not available:', props.roomId)
+      console.log('🏗️ DEBUG: Available rooms:', client.getRooms().map(r => r.roomId))
+      messages.value = []
+      return
+    }
+
+    console.log('✅ Room available, proceeding with message loading')
+    console.log('🏗️ DEBUG: Room member count:', room.getJoinedMembers().length)
 
     // Load historical messages using the robust pagination method from matrixClientService
     console.log('📨 Loading historical messages with pagination support')
     let events: MatrixEvent[] = []
-    
-    try {
-      // Use the service's loadRoomHistory method which handles proper pagination
-      events = await matrixClientService.loadRoomHistory(props.roomId, 50)
-      console.log(`📊 Loaded ${events.length} historical messages via pagination`)
-    } catch (error) {
-      console.warn('⚠️ Failed to load historical messages, falling back to timeline:', error)
-      // Fallback to timeline events if pagination fails
-      const timeline = room.getLiveTimeline()
-      events = timeline.getEvents().filter(event => event.getType() === 'm.room.message')
-      console.log(`📊 Fallback: ${events.length} events from timeline`)
+
+    // First, try to get immediate timeline events without pagination
+    const timeline = room.getLiveTimeline()
+    const timelineEvents = timeline.getEvents().filter(event => event.getType() === 'm.room.message')
+    console.log(`📊 Current timeline has ${timelineEvents.length} message events`)
+
+    if (timelineEvents.length > 0) {
+      events = timelineEvents
+      console.log(`📊 Using ${events.length} messages from current timeline`)
+    } else {
+      console.log('📨 No messages in current timeline, attempting pagination...')
+      try {
+        // Use the service's loadRoomHistory method which handles proper pagination
+        events = await matrixClientService.loadRoomHistory(props.roomId, 50)
+        console.log(`📊 Loaded ${events.length} historical messages via pagination`)
+      } catch (error) {
+        console.warn('⚠️ Failed to load historical messages via pagination:', error)
+        // Final fallback - try direct timeline access
+        events = timelineEvents
+        console.log(`📊 Final fallback: ${events.length} events from timeline`)
+      }
     }
 
     const currentUserId = matrixClientService.getClient()?.getUserId()
@@ -1276,9 +1828,27 @@ const loadMessages = async () => {
       console.log('✅ Messages loaded and sorted:', {
         totalMessages: messages.value.length,
         ownMessages: messages.value.filter(m => m.isOwn).length,
-        otherMessages: messages.value.filter(m => !m.isOwn).length
+        otherMessages: messages.value.filter(m => !m.isOwn).length,
+        oldestMessage: messages.value[0]?.timestamp,
+        newestMessage: messages.value[messages.value.length - 1]?.timestamp
       })
     } else {
+      console.log('⚠️ No messages found after processing. Debug info:', {
+        eventsCount: events.length,
+        eventsTypes: events.map(e => e.getType()),
+        roomId: props.roomId,
+        currentUserId: matrixClientService.getClient()?.getUserId(),
+        syncState: matrixClientService.getClient()?.getSyncState()
+      })
+
+      // For debugging, let's try to get more info about the room
+      console.log('🔍 Room debug info:', {
+        roomMembers: room.getJoinedMembers().map(m => ({ id: m.userId, name: m.name })),
+        allTimelineEvents: timeline.getEvents().length,
+        roomName: room.name,
+        roomTopic: room.currentState?.getStateEvents('m.room.topic', '')?.getContent()?.topic
+      })
+
       // No messages found - create a welcome message
       messages.value = [{
         id: 'welcome',
@@ -1315,6 +1885,16 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     await scrollToBottom()
   }
 })
+
+// Add a retry mechanism for loading messages when sync state changes
+const handleSyncStateChange = async (state: string) => {
+  console.log('🔄 Matrix sync state changed to:', state)
+  if (state === 'PREPARED' && props.roomId && messages.value.length === 0) {
+    console.log('🔄 Sync completed and no messages loaded yet, retrying loadMessages')
+    await loadMessages()
+    await scrollToBottom()
+  }
+}
 
 // Update message count when messages change
 watch(messages, (newMessages) => {
@@ -1437,6 +2017,49 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* Chat Diagnostics Styles */
+.chat-diagnostics {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.diagnostics-content {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.diagnostic-item {
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+}
+
+.diagnostic-item .text-caption {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.text-mono {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+@media (max-width: 600px) {
+  .diagnostics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mode-mobile {

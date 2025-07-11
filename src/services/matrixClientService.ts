@@ -224,6 +224,10 @@ class MatrixClientService {
       window.history.replaceState({}, document.title, url.toString())
 
       console.log('✅ Matrix client initialized successfully from MAS OIDC:', matrixCredentials.userId)
+
+      // Sync Matrix user identity with backend
+      await this._syncMatrixUserIdentityWithBackend(matrixCredentials.userId)
+
       return this.client
     } catch (error) {
       console.error('❌ Failed to complete Matrix login from MAS OIDC:', error)
@@ -880,8 +884,21 @@ class MatrixClientService {
     })
 
     // Listen for room membership changes using proper Matrix SDK event types
-    this.client.on(RoomMemberEvent.Membership, (event: MatrixEvent, member: RoomMember) => {
-      console.log('👥 Room membership change:', member.userId, (member as unknown as { membership: string }).membership)
+    this.client.on(RoomMemberEvent.Membership, async (event: MatrixEvent, member: RoomMember) => {
+      const membership = (member as unknown as { membership: string }).membership
+      console.log('👥 Room membership change:', member.userId, membership)
+
+      // Auto-join rooms when invited
+      if (membership === 'invite' && member.userId === this.client?.getUserId()) {
+        const roomId = event.getRoomId()
+        console.log(`🎯 Auto-joining room ${roomId} after receiving invitation`)
+        try {
+          await this.joinRoom(roomId)
+          console.log(`✅ Successfully auto-joined room ${roomId}`)
+        } catch (error) {
+          console.error(`❌ Failed to auto-join room ${roomId}:`, error)
+        }
+      }
     })
 
     console.log('🎧 Matrix client event listeners configured')
@@ -1499,17 +1516,42 @@ class MatrixClientService {
       // Clear localStorage and sessionStorage session info (contains tenant-specific session data)
       this._clearStoredCredentials()
 
-      // Clear IndexedDB crypto store data (tenant-specific encryption data)
+      // Clear IndexedDB crypto store data (user-specific encryption data)
       if (storedSession) {
         try {
-          const cryptoStoreName = `matrix-crypto-${storedSession.userId}`
-          console.log(`🗑️ Clearing tenant-specific Matrix crypto store: ${cryptoStoreName}`)
+          // Get current user slug for database cleanup
+          const authStore = useAuthStore()
+          const userSlug = authStore.getUserSlug
 
-          const deleteReq = indexedDB.deleteDatabase(cryptoStoreName)
-          deleteReq.onsuccess = () => console.log('✅ Cleared Matrix IndexedDB crypto store')
-          deleteReq.onerror = (e) => console.warn('⚠️ Failed to clear IndexedDB:', e)
+          if (userSlug) {
+            // Clear new slug-based storage
+            const cryptoStoreName = `matrix-crypto-${userSlug}-${storedSession.userId}`
+            const mainStoreName = `matrix-store-${userSlug}-${storedSession.userId}`
+
+            console.log(`🗑️ Clearing user-specific Matrix stores: ${cryptoStoreName}, ${mainStoreName}`)
+
+            const deleteCrypto = indexedDB.deleteDatabase(cryptoStoreName)
+            deleteCrypto.onsuccess = () => console.log('✅ Cleared Matrix IndexedDB crypto store')
+            deleteCrypto.onerror = (e) => console.warn('⚠️ Failed to clear crypto IndexedDB:', e)
+
+            const deleteMain = indexedDB.deleteDatabase(mainStoreName)
+            deleteMain.onsuccess = () => console.log('✅ Cleared Matrix IndexedDB main store')
+            deleteMain.onerror = (e) => console.warn('⚠️ Failed to clear main IndexedDB:', e)
+          }
+
+          // Also clean up legacy storage that might exist
+          const legacyCryptoName = `matrix-crypto-${storedSession.userId}`
+          const legacyMainName = `matrix-store-${storedSession.userId}`
+
+          const deleteLegacyCrypto = indexedDB.deleteDatabase(legacyCryptoName)
+          deleteLegacyCrypto.onsuccess = () => console.log('✅ Cleared legacy Matrix crypto store')
+          deleteLegacyCrypto.onerror = () => {} // Ignore errors for legacy cleanup
+
+          const deleteLegacyMain = indexedDB.deleteDatabase(legacyMainName)
+          deleteLegacyMain.onsuccess = () => console.log('✅ Cleared legacy Matrix main store')
+          deleteLegacyMain.onerror = () => {} // Ignore errors for legacy cleanup
         } catch (error) {
-          console.warn('⚠️ Failed to clear IndexedDB crypto store:', error)
+          console.warn('⚠️ Failed to clear IndexedDB stores:', error)
         }
       }
 
@@ -1875,16 +1917,16 @@ class MatrixClientService {
     refreshToken?: string
   }): void {
     try {
-      // Get current OpenMeet user ID for user-specific storage keys
+      // Get current OpenMeet user slug for user-specific storage keys
       const authStore = useAuthStore()
-      const openMeetUserId = authStore.getUserId
+      const openMeetUserSlug = authStore.getUserSlug
 
-      if (!openMeetUserId) {
-        console.warn('⚠️ No OpenMeet user ID available, using Matrix user ID for storage key')
+      if (!openMeetUserSlug) {
+        console.warn('⚠️ No OpenMeet user slug available, using Matrix user ID for storage key')
       }
 
       // Create user-specific storage keys to prevent session sharing between users
-      const storageUserId = openMeetUserId || credentials.userId
+      const storageUserId = openMeetUserSlug || credentials.userId
       const accessTokenKey = `matrix_access_token_${storageUserId}`
       const refreshTokenKey = `matrix_refresh_token_${storageUserId}`
       const sessionKey = `matrix_session_${storageUserId}`
@@ -1903,7 +1945,7 @@ class MatrixClientService {
         deviceId: credentials.deviceId,
         timestamp: Date.now(),
         hasSession: true,
-        openMeetUserId: storageUserId // Store for validation
+        openMeetUserSlug: storageUserId // Store for validation
       }
       localStorage.setItem(sessionKey, JSON.stringify(basicSessionData))
 
@@ -1926,12 +1968,12 @@ class MatrixClientService {
     hasSession: boolean
   } | null {
     try {
-      // Get current OpenMeet user ID for user-specific storage keys
+      // Get current OpenMeet user slug for user-specific storage keys
       const authStore = useAuthStore()
-      const openMeetUserId = authStore.getUserId
+      const openMeetUserSlug = authStore.getUserSlug
 
-      if (!openMeetUserId) {
-        console.log('🔍 No OpenMeet user ID available, checking for legacy session')
+      if (!openMeetUserSlug) {
+        console.log('🔍 No OpenMeet user slug available, checking for legacy session')
         // Fallback to legacy key for backward compatibility
         const legacyStored = localStorage.getItem('matrix_session')
         if (legacyStored) {
@@ -1946,21 +1988,21 @@ class MatrixClientService {
       }
 
       // Create user-specific storage keys
-      const accessTokenKey = `matrix_access_token_${openMeetUserId}`
-      const refreshTokenKey = `matrix_refresh_token_${openMeetUserId}`
-      const sessionKey = `matrix_session_${openMeetUserId}`
+      const accessTokenKey = `matrix_access_token_${openMeetUserSlug}`
+      const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+      const sessionKey = `matrix_session_${openMeetUserSlug}`
 
       const stored = localStorage.getItem(sessionKey)
       if (!stored) {
-        console.log(`🔍 No Matrix session found for user ${openMeetUserId}`)
+        console.log(`🔍 No Matrix session found for user ${openMeetUserSlug}`)
         return null
       }
 
       const sessionData = JSON.parse(stored)
 
       // Validate that this session belongs to the current user
-      if (sessionData.openMeetUserId && sessionData.openMeetUserId !== openMeetUserId) {
-        console.warn(`🚨 Session user mismatch: stored=${sessionData.openMeetUserId}, current=${openMeetUserId}`)
+      if (sessionData.openMeetUserSlug && sessionData.openMeetUserSlug !== openMeetUserSlug) {
+        console.warn(`🚨 Session user mismatch: stored=${sessionData.openMeetUserSlug}, current=${openMeetUserSlug}`)
         this._clearStoredCredentials()
         return null
       }
@@ -2012,17 +2054,17 @@ class MatrixClientService {
     try {
       // Get current OpenMeet user ID for user-specific storage keys
       const authStore = useAuthStore()
-      const openMeetUserId = authStore.getUserId
+      const openMeetUserSlug = authStore.getUserId
 
-      if (openMeetUserId) {
+      if (openMeetUserSlug) {
         // Clear user-specific storage
-        const accessTokenKey = `matrix_access_token_${openMeetUserId}`
-        const refreshTokenKey = `matrix_refresh_token_${openMeetUserId}`
-        const sessionKey = `matrix_session_${openMeetUserId}`
+        const accessTokenKey = `matrix_access_token_${openMeetUserSlug}`
+        const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+        const sessionKey = `matrix_session_${openMeetUserSlug}`
         localStorage.removeItem(sessionKey)
         localStorage.removeItem(refreshTokenKey)
         sessionStorage.removeItem(accessTokenKey)
-        console.log(`🗑️ Cleared Matrix session info for user ${openMeetUserId}`)
+        console.log(`🗑️ Cleared Matrix session info for user ${openMeetUserSlug}`)
       } else {
         console.log('🗑️ No user ID available, clearing legacy session keys')
       }
@@ -2046,10 +2088,18 @@ class MatrixClientService {
     refreshToken?: string
   }): Promise<void> {
     try {
-      // Create persistent crypto store
+      // Get OpenMeet user slug for storage isolation
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        throw new Error('Matrix client creation requires OpenMeet user context - cannot proceed without user isolation')
+      }
+
+      // Create persistent crypto store with OpenMeet user slug to prevent cross-user sharing
       const cryptoStore = new IndexedDBCryptoStore(
         window.indexedDB,
-        `matrix-crypto-${credentials.userId}`
+        `matrix-crypto-${openMeetUserSlug}-${credentials.userId}`
       )
 
       console.log('🔧 Creating Matrix client with credentials:', {
@@ -2112,10 +2162,10 @@ class MatrixClientService {
         hasTokenRefreshFunction: !!tokenRefreshFunction
       })
 
-      // Create persistent IndexedDB store for main storage
+      // Create persistent IndexedDB store for main storage with user slug isolation
       const store = new IndexedDBStore({
         indexedDB: window.indexedDB,
-        dbName: `matrix-store-${credentials.userId}`,
+        dbName: `matrix-store-${openMeetUserSlug}-${credentials.userId}`,
         localStorage: window.localStorage
       })
 
@@ -2377,6 +2427,75 @@ class MatrixClientService {
 
   // Removed _buildOIDCUrl - direct Matrix URLs not used with MAS
   // MAS handles Matrix authentication through backend OIDC endpoints
+
+  /**
+   * Sync Matrix user identity with backend after successful MAS authentication
+   */
+  private async _syncMatrixUserIdentityWithBackend (matrixUserId: string): Promise<void> {
+    try {
+      console.log('🔄 Syncing Matrix user identity with backend:', matrixUserId)
+
+      const { matrixApi } = await import('../api/matrix')
+      const response = await matrixApi.syncUserIdentity(matrixUserId)
+
+      if (!response.data.success) {
+        throw new Error('Failed to sync Matrix user identity')
+      }
+
+      console.log('✅ Matrix user identity synced with backend:', response.data)
+    } catch (error) {
+      console.error('❌ Failed to sync Matrix user identity with backend:', error)
+      // Don't throw - this is non-critical for Matrix functionality
+      // The user can still use Matrix, they just won't get auto-invitations until this is fixed
+    }
+  }
+
+  /**
+   * Clear all Matrix sessions and storage (for troubleshooting)
+   * This will force users to re-authenticate with Matrix
+   */
+  async clearAllMatrixSessions (): Promise<void> {
+    try {
+      console.log('🧹 Clearing all Matrix sessions and storage...')
+
+      // Stop and clear current client
+      if (this.client) {
+        this.client.stopClient()
+        this.client = null
+        console.log('✅ Matrix client stopped and cleared')
+      }
+
+      // Clear all Matrix-related localStorage items
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith('matrix_') || key.startsWith('mas_'))) {
+          keysToRemove.push(key)
+        }
+      }
+
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key)
+        console.log(`🗑️ Removed localStorage key: ${key}`)
+      })
+
+      // Clear all Matrix IndexedDB stores
+      const databases = await indexedDB.databases()
+      for (const db of databases) {
+        if (db.name && (db.name.includes('matrix-crypto-') || db.name.includes('matrix-store-'))) {
+          const deleteRequest = indexedDB.deleteDatabase(db.name)
+          deleteRequest.onsuccess = () => console.log(`🗑️ Deleted IndexedDB: ${db.name}`)
+          deleteRequest.onerror = () => console.warn(`❌ Failed to delete IndexedDB: ${db.name}`)
+        }
+      }
+
+      console.log('✅ All Matrix sessions and storage cleared')
+      console.log('ℹ️ User will need to re-authenticate with Matrix on next access')
+    } catch (error) {
+      console.error('❌ Error clearing Matrix sessions:', error)
+      throw error
+    }
+  }
 }
 
 // Export singleton instance
