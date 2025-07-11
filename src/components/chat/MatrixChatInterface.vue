@@ -2368,8 +2368,6 @@ onUnmounted(() => {
   position: relative;
 }
 
-
-
 .message-actions {
   display: flex;
   align-items: center;
