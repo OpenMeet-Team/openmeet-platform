@@ -562,6 +562,7 @@ import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
 import { RoomEvent, MatrixEvent, Room, ClientEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
+import { chatApi } from '../../api/chat'
 
 // Add type declaration for global window property
 declare global {
@@ -1481,6 +1482,42 @@ const reconnect = async () => {
     await matrixClientService.connectToMatrix()
     console.log('✅ Matrix client connected successfully')
 
+    // After successful Matrix connection, ensure we're invited to the chat room
+    // This handles cases where the bot invitation failed during RSVP
+    if (props.contextType === 'event' && props.contextId) {
+      try {
+        console.log(`🎯 Ensuring invitation to event chat room: ${props.contextId}`)
+        const response = await chatApi.joinEventChatRoom(props.contextId)
+        if (response.data.success) {
+          console.log('✅ Successfully ensured event chat room invitation')
+
+          // Force Matrix client to sync to pick up new invitation
+          await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+        } else {
+          console.warn('⚠️ Backend reported issue with event chat room invitation:', response.data.message)
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to ensure event chat room invitation (continuing anyway):', error)
+        // Don't throw - connection to Matrix itself succeeded
+      }
+    } else if (props.contextType === 'group' && props.contextId) {
+      try {
+        console.log(`🎯 Ensuring invitation to group chat room: ${props.contextId}`)
+        const response = await chatApi.joinGroupChatRoom(props.contextId)
+        if (response.data.success) {
+          console.log('✅ Successfully ensured group chat room invitation')
+
+          // Force Matrix client to sync to pick up new invitation
+          await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+        } else {
+          console.warn('⚠️ Backend reported issue with group chat room invitation:', response.data.message)
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to ensure group chat room invitation (continuing anyway):', error)
+        // Don't throw - connection to Matrix itself succeeded
+      }
+    }
+
     isConnected.value = true
     lastAuthError.value = '' // Clear any previous errors
     roomName.value = `${props.contextType} Chat`
@@ -2021,6 +2058,42 @@ onMounted(async () => {
       // Try to initialize Matrix connection (but don't force auth)
       await matrixClientService.initializeClient()
       console.log(`✅ [${instanceId}] Matrix client initialized successfully`)
+
+      // After successful Matrix connection, ensure we're invited to the chat room
+      // This handles cases where the bot invitation failed during RSVP
+      if (props.contextType === 'event' && props.contextId) {
+        try {
+          console.log(`🎯 [${instanceId}] Ensuring invitation to event chat room: ${props.contextId}`)
+          const response = await chatApi.joinEventChatRoom(props.contextId)
+          if (response.data.success) {
+            console.log(`✅ [${instanceId}] Successfully ensured event chat room invitation`)
+
+            // Force Matrix client to sync to pick up new invitation
+            await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+          } else {
+            console.warn(`⚠️ [${instanceId}] Backend reported issue with event chat room invitation:`, response.data.message)
+          }
+        } catch (error) {
+          console.warn(`⚠️ [${instanceId}] Failed to ensure event chat room invitation (continuing anyway):`, error)
+          // Don't throw - connection to Matrix itself succeeded
+        }
+      } else if (props.contextType === 'group' && props.contextId) {
+        try {
+          console.log(`🎯 [${instanceId}] Ensuring invitation to group chat room: ${props.contextId}`)
+          const response = await chatApi.joinGroupChatRoom(props.contextId)
+          if (response.data.success) {
+            console.log(`✅ [${instanceId}] Successfully ensured group chat room invitation`)
+
+            // Force Matrix client to sync to pick up new invitation
+            await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+          } else {
+            console.warn(`⚠️ [${instanceId}] Backend reported issue with group chat room invitation:`, response.data.message)
+          }
+        } catch (error) {
+          console.warn(`⚠️ [${instanceId}] Failed to ensure group chat room invitation (continuing anyway):`, error)
+          // Don't throw - connection to Matrix itself succeeded
+        }
+      }
 
       isConnected.value = true
       lastAuthError.value = '' // Clear any previous errors

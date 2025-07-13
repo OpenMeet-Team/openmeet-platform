@@ -6,6 +6,7 @@ import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import { matrixClientService } from '../../services/matrixClientService'
 import MatrixChatInterface from '../chat/MatrixChatInterface.vue'
+import { chatApi } from '../../api/chat'
 
 // Add type declaration for global window property
 declare global {
@@ -22,6 +23,7 @@ declare global {
 
 // Removed unused useQuasar
 const event = computed(() => useEventStore().event)
+const eventStore = useEventStore()
 // Use Matrix client service directly
 
 // Get the Matrix room ID from the event - try different properties
@@ -143,13 +145,36 @@ const ensureChatRoomExists = async () => {
       throw new Error('Matrix client not available')
     }
 
-    // Use new waitForRoomReady method (Element-web pattern)
-    const room = await matrixClientService.waitForRoomReady(matrixRoomId.value)
+    // First, check if room is already available
+    let room = matrixClientService.getRoom(matrixRoomId.value)
     if (room) {
-      console.log('✅ Room ready for operations:', room.roomId)
+      console.log('✅ Room already available:', room.roomId)
       return true
-    } else {
-      console.warn('⚠️ Room not found in Matrix client after sync')
+    }
+
+    // Room not found - trigger backend invitation and force sync
+    console.log('⚠️ Room not found, triggering backend invitation and force sync')
+    try {
+      const response = await chatApi.joinEventChatRoom(event.value.slug)
+      if (response.data.success) {
+        console.log('✅ Backend invitation sent, forcing Matrix sync')
+        await matrixClientService.forceSyncAfterInvitation('event', event.value.slug)
+
+        // Check again after sync
+        room = matrixClientService.getRoom(matrixRoomId.value)
+        if (room) {
+          console.log('✅ Room now available after forced sync:', room.roomId)
+          return true
+        } else {
+          console.warn('⚠️ Room still not available after backend invitation and sync')
+          return false
+        }
+      } else {
+        console.warn('⚠️ Backend invitation failed:', response.data.message)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring room access:', error)
       return false
     }
   } catch (error) {
@@ -188,9 +213,10 @@ const handleAttendeeStatusChanged = (e: Event) => {
 
     setTimeout(async () => {
       try {
-        // For confirmed/cancelled status, simply ensure room is ready
+        // For confirmed/cancelled status, trigger full retry including backend invitation
         if (status === 'confirmed' || status === 'cancelled') {
-          await ensureChatRoomExists()
+          console.log('🎯 User confirmed/cancelled - triggering backend invitation retry')
+          await retryRoomInitialization()
         }
       } catch (error) {
         console.error('❌ Error handling attendance status change:', error)
@@ -230,19 +256,38 @@ onBeforeUnmount(() => {
   console.log('Removed attendee-status-changed event listener')
 })
 
-// Simplified retry using pure Matrix SDK pattern
+// Simplified retry using pure Matrix SDK pattern with backend invitation retry
 const retryRoomInitialization = async () => {
-  if (!event.value || !matrixRoomId.value) return
+  if (!event.value) {
+    console.warn('⚠️ Cannot retry - no event data available')
+    return
+  }
 
   try {
     isInitializing.value = true
     console.log('🔄 Retrying Matrix room initialization')
 
-    // Simply ensure Matrix client is connected and room is ready
+    // Step 1: Ensure Matrix client is connected
     await matrixClientService.connectToMatrix()
-    await ensureChatRoomExists()
+    console.log('✅ Matrix client connected')
+
+    // Step 2: Refresh event data to get latest room ID
+    console.log('🔄 Refreshing event data to get updated Matrix room ID')
+    await eventStore.actionGetEventBySlug(event.value.slug)
+
+    // Give a moment for the reactive data to update
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Step 3: If we now have a room ID, try to initialize (this will handle backend invitation internally)
+    if (matrixRoomId.value) {
+      console.log('✅ Found Matrix room ID after refresh, initializing chat')
+      await ensureChatRoomExists()
+    } else {
+      console.warn('⚠️ Matrix room ID still not available after event refresh')
+    }
   } catch (error) {
     console.error('❌ Error retrying room initialization:', error)
+    // Show user-friendly error message could be added here
   } finally {
     isInitializing.value = false
   }

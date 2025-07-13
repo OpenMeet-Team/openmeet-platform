@@ -2496,6 +2496,46 @@ class MatrixClientService {
       throw error
     }
   }
+
+  /**
+   * Force Matrix client to sync after backend bot invitation
+   * This ensures the client picks up new room invitations immediately
+   *
+   * @param contextType - Type of context (event/group) for logging
+   * @param contextId - ID of the context for logging
+   */
+  async forceSyncAfterInvitation (contextType: string, contextId: string): Promise<void> {
+    console.log(`🔄 Forcing Matrix client sync after ${contextType} invitation: ${contextId}`)
+
+    const client = this.getClient()
+    if (!client) {
+      console.warn('⚠️ No Matrix client available for force sync')
+      return
+    }
+
+    try {
+      // Stop and restart the client to force a fresh sync
+      console.log('🛑 Stopping Matrix client to force sync...')
+      client.stopClient()
+
+      // Wait a moment then restart to pick up new room
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('🔄 Restarting Matrix client...')
+      await client.startClient({
+        initialSyncLimit: 50,
+        includeArchivedRooms: false,
+        lazyLoadMembers: true
+      })
+      console.log('✅ Matrix client restarted and syncing')
+
+      // Wait for sync to complete
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log('✅ Matrix client force sync completed')
+    } catch (error) {
+      console.error('❌ Error during Matrix client force sync:', error)
+      throw error
+    }
+  }
 }
 
 // Export singleton instance
