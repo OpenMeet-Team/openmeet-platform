@@ -79,7 +79,7 @@
       </div>
 
       <!-- Chat Room Diagnostics Section (Collapsible) -->
-      <div v-if="isConnected" class="chat-diagnostics q-mb-sm">
+      <div class="chat-diagnostics q-mb-sm">
         <q-expansion-item
           v-model="showDiagnostics"
           icon="sym_r_bug_report"
@@ -117,7 +117,7 @@
               <!-- Room Information -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Room ID</div>
-                <div class="text-body2 text-weight-medium">{{ props.roomId || 'Not set' }}</div>
+                <div class="text-body2 text-weight-medium text-grey-8">{{ props.roomId || 'Not set' }}</div>
               </div>
 
               <!-- Matrix Client Status -->
@@ -130,7 +130,7 @@
                     size="sm"
                     dense
                   >
-                    {{ getClientStatus() }}
+                    {{ clientStatus }}
                   </q-chip>
                 </div>
               </div>
@@ -145,7 +145,7 @@
                     size="sm"
                     dense
                   >
-                    {{ getSyncState() }}
+                    {{ syncState }}
                   </q-chip>
                 </div>
               </div>
@@ -153,9 +153,9 @@
               <!-- Room Members -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Room Members</div>
-                <div class="text-body2">
-                  {{ getRoomMemberCount() }} total
-                  <span v-if="getLiveMemberCount() !== getRoomMemberCount()">
+                <div class="text-body2 text-grey-8">
+                  {{ roomMemberCount }} total
+                  <span v-if="getLiveMemberCount() !== roomMemberCount">
                     ({{ getLiveMemberCount() }} live)
                   </span>
                 </div>
@@ -164,49 +164,49 @@
               <!-- Message Count -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Messages Loaded</div>
-                <div class="text-body2">{{ messages.length }} / {{ currentHistoryLimit }}</div>
+                <div class="text-body2 text-grey-8">{{ messages.length }} / {{ currentHistoryLimit }}</div>
               </div>
 
               <!-- Timeline Events -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Timeline Events</div>
-                <div class="text-body2">{{ getTimelineEventCount() }}</div>
+                <div class="text-body2 text-grey-8">{{ getTimelineEventCount() }}</div>
               </div>
 
               <!-- Room Name -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Room Name</div>
-                <div class="text-body2">{{ getRoomName() || 'Unnamed room' }}</div>
+                <div class="text-body2 text-grey-8">{{ matrixRoomName || 'Unnamed room' }}</div>
               </div>
 
               <!-- User ID -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">User ID</div>
-                <div class="text-body2 text-mono">{{ getCurrentUserId() || 'Not authenticated' }}</div>
+                <div class="text-body2 text-mono text-grey-8">{{ getCurrentUserId() || 'Not authenticated' }}</div>
               </div>
 
               <!-- Last Activity -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Last Activity</div>
-                <div class="text-body2">{{ getLastActivity() }}</div>
+                <div class="text-body2 text-grey-8">{{ getLastActivity() }}</div>
               </div>
 
               <!-- Sync Progress -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Sync Progress</div>
-                <div class="text-body2">{{ getSyncProgress() }}</div>
+                <div class="text-body2 text-grey-8">{{ getSyncProgress() }}</div>
               </div>
 
               <!-- Room Status -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Room Status</div>
-                <div class="text-body2">{{ getRoomStatus() }}</div>
+                <div class="text-body2 text-grey-8">{{ getRoomStatus() }}</div>
               </div>
 
               <!-- Connection Age -->
               <div class="diagnostic-item">
                 <div class="text-caption text-grey-7">Connection Age</div>
-                <div class="text-body2">{{ getConnectionAge() }}</div>
+                <div class="text-body2 text-grey-8">{{ getConnectionAge() }}</div>
               </div>
             </div>
           </div>
@@ -562,6 +562,7 @@ import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
 import { RoomEvent, MatrixEvent, Room, ClientEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { chatApi } from '../../api/chat'
 
 // Add type declaration for global window property
@@ -619,7 +620,20 @@ const messageText = ref('')
 const selectedFile = ref<File | null>(null)
 const messages = ref<Message[]>([])
 const typingUsers = ref<{ userId: string, userName: string }[]>([])
-const isConnected = ref(false)
+// Connection state tracking
+const connectionState = ref('disconnected') // 'disconnected', 'connecting', 'connected'
+const diagnosticTrigger = ref(0) // Used to force reactivity updates
+
+const isConnected = computed(() => {
+  // Force reactivity by accessing the trigger
+  diagnosticTrigger.value
+
+  const client = matrixClientService.getClient()
+  const isReady = matrixClientService.isReady()
+  const isLoggedIn = client?.isLoggedIn() ?? false
+  console.debug('🔍 isConnected computed:', { hasClient: !!client, isReady, isLoggedIn })
+  return isReady && isLoggedIn
+})
 const isConnecting = ref(false)
 const isSending = ref(false)
 const showEmojiPicker = ref(false)
@@ -672,78 +686,101 @@ const showSenderNames = computed(() => {
 // Diagnostic Functions
 const refreshDiagnostics = () => {
   console.log('🔍 Refreshing diagnostics')
-  // Force reactivity update
+
+  // Trigger reactivity updates
+  diagnosticTrigger.value++
   messageCount.value = messages.value.length
+
+  // Log current diagnostic values for debugging
+  const client = matrixClientService.getClient()
+  const room = matrixClientService.getRoom(props.roomId)
+
+  console.log('🔍 Diagnostic values:', {
+    roomId: props.roomId,
+    hasClient: !!client,
+    clientIsLoggedIn: client?.isLoggedIn(),
+    clientSyncState: client?.getSyncState(),
+    hasRoom: !!room,
+    roomName: room?.name,
+    roomAlias: room?.getCanonicalAlias(),
+    userId: client?.getUserId(),
+    clientStatus: getClientStatus(),
+    syncState: getSyncState(),
+    roomMemberCount: getRoomMemberCount(),
+    matrixRoomName: getRoomName(),
+    currentUserId: getCurrentUserId()
+  })
 }
 
 const forceSync = async () => {
   console.log('🔄 Force syncing Matrix client')
   try {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      console.error('❌ No Matrix client available for force sync')
-      return
-    }
-
-    // Stop and restart the client to force a fresh sync
-    console.log('🛑 Stopping Matrix client...')
-    client.stopClient()
-
-    // Wait a moment then restart
-    setTimeout(async () => {
-      console.log('🔄 Restarting Matrix client...')
-      await client.startClient({
-        initialSyncLimit: 50,
-        includeArchivedRooms: false,
-        lazyLoadMembers: true
-      })
-      console.log('✅ Matrix client restarted')
-    }, 1000)
+    // Use MatrixClientManager for proper restart to avoid redundant startClient() calls
+    await matrixClientManager.restartClient()
+    console.log('✅ Matrix client restarted via MatrixClientManager')
   } catch (error) {
     console.error('❌ Error forcing Matrix sync:', error)
   }
 }
 
-const getClientStatus = () => {
+// Reactive diagnostic computed properties
+const clientStatus = computed(() => {
+  diagnosticTrigger.value // Force reactivity
   const client = matrixClientService.getClient()
   if (!client) return 'Not initialized'
   if (client.isLoggedIn()) return 'Logged in'
   return 'Not logged in'
-}
+})
+
+const getClientStatus = () => clientStatus.value
 
 const getClientStatusColor = () => {
-  const status = getClientStatus()
+  const status = clientStatus.value
   if (status === 'Logged in') return 'positive'
   if (status === 'Not logged in') return 'negative'
   return 'warning'
 }
 
-const getSyncState = () => {
+const syncState = computed(() => {
+  diagnosticTrigger.value // Force reactivity
   const client = matrixClientService.getClient()
   if (!client) return 'No client'
   const syncState = client.getSyncState()
   const isInitialSyncComplete = client.isInitialSyncComplete()
   return `${syncState || 'Unknown'} (Initial: ${isInitialSyncComplete ? 'Complete' : 'Pending'})`
-}
+})
+
+const getSyncState = () => syncState.value
 
 const getSyncStateColor = () => {
-  const state = getSyncState()
+  const state = syncState.value
   if (state.includes('PREPARED')) return 'positive'
   if (state.includes('SYNCING')) return 'warning'
   if (state.includes('ERROR')) return 'negative'
   return 'grey'
 }
 
-const getRoomMemberCount = () => {
+const roomMemberCount = computed(() => {
   try {
+    console.debug('🔍 getRoomMemberCount: roomId =', props.roomId)
+    const client = matrixClientService.getClient()
+    console.debug('🔍 getRoomMemberCount: client =', !!client)
     const room = matrixClientService.getRoom(props.roomId)
-    if (!room) return 0
-    return room.getJoinedMemberCount()
+    console.debug('🔍 getRoomMemberCount: room =', !!room, room?.roomId)
+    if (!room) {
+      console.debug('🔍 getRoomMemberCount: no room found, returning 0')
+      return 0
+    }
+    const count = room.getJoinedMemberCount()
+    console.debug('🔍 getRoomMemberCount: count =', count)
+    return count
   } catch (error) {
     console.error('Error getting room member count:', error)
     return 0
   }
-}
+})
+
+const getRoomMemberCount = () => roomMemberCount.value
 
 const getLiveMemberCount = () => {
   try {
@@ -769,7 +806,7 @@ const getTimelineEventCount = () => {
   }
 }
 
-const getRoomName = () => {
+const matrixRoomName = computed(() => {
   try {
     const room = matrixClientService.getRoom(props.roomId)
     if (!room) return null
@@ -778,17 +815,25 @@ const getRoomName = () => {
     console.error('Error getting room name:', error)
     return null
   }
-}
+})
 
-const getCurrentUserId = () => {
+const getRoomName = () => matrixRoomName.value
+
+const currentUserId = computed(() => {
   try {
+    console.debug('🔍 getCurrentUserId: getting client')
     const client = matrixClientService.getClient()
-    return client?.getUserId() || null
+    console.debug('🔍 getCurrentUserId: client =', !!client)
+    const userId = client?.getUserId() || null
+    console.debug('🔍 getCurrentUserId: userId =', userId)
+    return userId
   } catch (error) {
     console.error('Error getting current user ID:', error)
     return null
   }
-}
+})
+
+const getCurrentUserId = () => currentUserId.value
 
 const getLastActivity = () => {
   try {
@@ -809,12 +854,16 @@ const getLastActivity = () => {
 
 const getSyncProgress = () => {
   try {
+    console.debug('🔍 getSyncProgress: getting client')
     const client = matrixClientService.getClient()
+    console.debug('🔍 getSyncProgress: client =', !!client)
     if (!client) return 'No client'
 
     const syncState = client.getSyncState()
     const isInitialSyncComplete = client.isInitialSyncComplete()
     const rooms = client.getRooms()
+
+    console.debug('🔍 getSyncProgress: syncState =', syncState, 'rooms =', rooms?.length, 'initialComplete =', isInitialSyncComplete)
 
     return `${syncState} | ${rooms.length} rooms | ${isInitialSyncComplete ? 'Initial sync done' : 'Syncing...'}`
   } catch (error) {
@@ -1483,24 +1532,37 @@ const reconnect = async () => {
     console.log('✅ Matrix client connected successfully')
 
     // After successful Matrix connection, ensure we're invited to the chat room
-    // This handles cases where the bot invitation failed during RSVP
     if (props.contextType === 'event' && props.contextId) {
       try {
-        console.log(`🎯 Ensuring invitation to event chat room: ${props.contextId}`)
         const response = await chatApi.joinEventChatRoom(props.contextId)
-        if (response.data.success) {
-          console.log('✅ Successfully ensured event chat room invitation')
 
+        if (response.data.success) {
+          console.log('✅ Event chat room invitation confirmed')
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
         } else {
           console.warn('⚠️ Backend reported issue with event chat room invitation:', response.data.message)
         }
       } catch (error) {
-        console.warn('⚠️ Failed to ensure event chat room invitation (continuing anyway):', error)
-        // Don't throw - connection to Matrix itself succeeded
+        console.error('❌ EXCEPTION: Failed to call joinEventChatRoom API')
+        console.error('❌ Error details:', error)
+        console.error('❌ Error message:', error.message)
+        console.error('❌ Error response:', error.response?.data)
+
+        // Check if this is a Matrix authentication requirement error
+        const errorMessage = error.response?.data?.message || error.message || ''
+        if (errorMessage.includes('has not authenticated with Matrix') ||
+            errorMessage.includes('must complete Matrix authentication')) {
+          console.log('🔑 User needs Matrix authentication before accessing chat')
+          // Don't throw - this is a normal flow that requires authentication
+        } else {
+          // Other errors - log but don't break the connection
+          console.warn('⚠️ Non-authentication error calling joinEventChatRoom API')
+        }
       }
-    } else if (props.contextType === 'group' && props.contextId) {
+    }
+
+    if (props.contextType === 'group' && props.contextId) {
       try {
         console.log(`🎯 Ensuring invitation to group chat room: ${props.contextId}`)
         const response = await chatApi.joinGroupChatRoom(props.contextId)
