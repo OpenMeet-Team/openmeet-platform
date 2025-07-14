@@ -621,12 +621,11 @@ const selectedFile = ref<File | null>(null)
 const messages = ref<Message[]>([])
 const typingUsers = ref<{ userId: string, userName: string }[]>([])
 // Connection state tracking
-const connectionState = ref('disconnected') // 'disconnected', 'connecting', 'connected'
 const diagnosticTrigger = ref(0) // Used to force reactivity updates
 
 const isConnected = computed(() => {
   // Force reactivity by accessing the trigger
-  diagnosticTrigger.value
+  void diagnosticTrigger.value
 
   const client = matrixClientService.getClient()
   const isReady = matrixClientService.isReady()
@@ -725,7 +724,7 @@ const forceSync = async () => {
 
 // Reactive diagnostic computed properties
 const clientStatus = computed(() => {
-  diagnosticTrigger.value // Force reactivity
+  void diagnosticTrigger.value // Force reactivity
   const client = matrixClientService.getClient()
   if (!client) return 'Not initialized'
   if (client.isLoggedIn()) return 'Logged in'
@@ -742,7 +741,7 @@ const getClientStatusColor = () => {
 }
 
 const syncState = computed(() => {
-  diagnosticTrigger.value // Force reactivity
+  void diagnosticTrigger.value // Force reactivity
   const client = matrixClientService.getClient()
   if (!client) return 'No client'
   const syncState = client.getSyncState()
@@ -1508,7 +1507,7 @@ const updateReadReceipts = async () => {
 
 const reconnect = async () => {
   isConnecting.value = true
-  isConnected.value = false
+  diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
   try {
     console.log('🔄 Attempting to reconnect Matrix client...')
@@ -1516,7 +1515,7 @@ const reconnect = async () => {
     // Check if Matrix client is already available and just needs to reconnect
     if (matrixClientService.isReady()) {
       console.log('🔌 Matrix client already ready, just updating connection status')
-      isConnected.value = true
+      diagnosticTrigger.value++ // Trigger reactivity update
       roomName.value = `${props.contextType} Chat`
 
       // Reload messages if we have a room ID
@@ -1580,7 +1579,7 @@ const reconnect = async () => {
       }
     }
 
-    isConnected.value = true
+    diagnosticTrigger.value++ // Trigger reactivity update
     lastAuthError.value = '' // Clear any previous errors
     roomName.value = `${props.contextType} Chat`
 
@@ -1591,7 +1590,7 @@ const reconnect = async () => {
     }
   } catch (error: unknown) {
     console.error('❌ Failed to connect Matrix client:', error)
-    isConnected.value = false
+    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
     // Check for rate limiting error - handle both object and nested error formats
     const errorObj = (error as Record<string, unknown>)
@@ -1675,7 +1674,7 @@ const clearMatrixSessions = async () => {
     await matrixClientService.clearAllMatrixSessions()
 
     // Reset component state
-    isConnected.value = false
+    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
     isConnecting.value = false
     messages.value = []
 
@@ -2098,7 +2097,7 @@ onMounted(async () => {
     // Check if Matrix client is already ready
     if (matrixClientService.isReady()) {
       console.log(`✅ [${instanceId}] Matrix client already initialized and ready`)
-      isConnected.value = true
+      diagnosticTrigger.value++ // Trigger reactivity update
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = `${props.contextType} Chat`
 
@@ -2115,7 +2114,7 @@ onMounted(async () => {
       }
     } else {
       console.log(`⚠️ [${instanceId}] Matrix client not ready, will need to authenticate`)
-      isConnected.value = false
+      diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
       // Try to initialize Matrix connection (but don't force auth)
       await matrixClientService.initializeClient()
@@ -2157,7 +2156,7 @@ onMounted(async () => {
         }
       }
 
-      isConnected.value = true
+      diagnosticTrigger.value++ // Trigger reactivity update
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = `${props.contextType} Chat`
 
@@ -2173,7 +2172,7 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('❌ Failed to initialize Matrix chat:', error)
-    isConnected.value = false
+    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
     lastAuthError.value = error.message || 'Connection failed'
   } finally {
     isConnecting.value = false

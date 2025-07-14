@@ -3,7 +3,6 @@ import { api } from '../boot/axios'
 import { ChatEntity } from '../types'
 import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
-import { matrixApi } from './matrix'
 import { Socket as SocketIOClient } from 'socket.io-client'
 
 // Define a Socket type that's compatible with what matrixApi returns
@@ -88,11 +87,9 @@ export const chatApi = {
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-  // Create WebSocket connection for chat events (reuse Matrix WebSocket)
+  // @deprecated WebSocket functionality removed for performance optimization
   createSocketConnection: async (): Promise<Socket> => {
-    // Reuse the matrix API's createSocketConnection method to ensure consistency
-    const socket = await matrixApi.createSocketConnection()
-    return socket as Socket
+    throw new Error('WebSocket functionality removed - use Matrix client for real-time events')
   },
 
   // Legacy method for backward compatibility - throws error to identify usage

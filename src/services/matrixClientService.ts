@@ -17,25 +17,46 @@
  */
 
 import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } from 'matrix-js-sdk'
-import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore, Direction } from 'matrix-js-sdk'
+import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User } from 'matrix-js-sdk'
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
+import { matrixClientManager } from './MatrixClientManager'
 import getEnv from '../utils/env'
 
 class MatrixClientService {
   private client: MatrixClient | null = null
   private isInitializing = false
   private initPromise: Promise<MatrixClient> | null = null
-  pla
+
   /**
-   * Initialize Matrix client with persistent authentication
+   * Get the current Matrix client instance from MatrixClientManager
+   */
+  getClient (): MatrixClient | null {
+    // Always return the client from MatrixClientManager if available
+    const managerClient = matrixClientManager.getClient()
+    if (managerClient) {
+      this.client = managerClient
+    }
+    return this.client
+  }
+
+  /**
+   * Check if Matrix client is ready for operations
+   */
+  isReady (): boolean {
+    return matrixClientManager.isReady() || (this.client?.isLoggedIn() ?? false)
+  }
+
+  /**
+   * Initialize Matrix client with persistent authentication using MatrixClientManager
    * Now requires manual initiation to avoid rate limiting
    */
   async initializeClient (forceAuth = false): Promise<MatrixClient> {
-    // Return existing client if already logged in
-    if (this.client && this.client.isLoggedIn()) {
-      console.log('✅ Matrix client already initialized and logged in')
-      return this.client
+    // Check if MatrixClientManager already has a ready client
+    if (matrixClientManager.isReady()) {
+      console.log('✅ Matrix client already initialized via MatrixClientManager')
+      this.client = matrixClientManager.getClient()
+      return this.client!
     }
 
     // Prevent concurrent initialization attempts
@@ -181,41 +202,58 @@ class MatrixClientService {
       // Store credentials for session persistence
       this._storeCredentials(matrixCredentials)
 
-      // Create Matrix client with MSC3861 access token (NOT session-based)
-      await this._createClientFromCredentials(matrixCredentials)
-
-      // Set up event listeners
-      this._setupEventListeners()
-
-      // Start the client with crypto initialization
-      console.log('🔐 Starting Matrix client with encryption support...')
-      await this.client.startClient({
-        initialSyncLimit: 100,
-        includeArchivedRooms: false,
-        lazyLoadMembers: true
+      // Use MatrixClientManager for optimized client creation and startup
+      console.log('🔐 Creating Matrix client via MatrixClientManager...')
+      this.client = await matrixClientManager.initializeClient({
+        homeserverUrl: matrixCredentials.homeserverUrl,
+        accessToken: matrixCredentials.accessToken,
+        userId: matrixCredentials.userId,
+        deviceId: matrixCredentials.deviceId
       })
 
-      // Wait for client to be ready and check crypto status
-      await new Promise<void>((resolve) => {
-        const checkReady = () => {
-          if (this.client && this.client.isInitialSyncComplete()) {
-            console.log('✅ Matrix client ready and synced')
+      // OPTIMIZATION: Set up event listeners in parallel with client startup
+      console.log('🔐 Starting Matrix client with optimized configuration...')
+      await Promise.all([
+        // Start the client
+        matrixClientManager.startClient(),
+        // Set up event listeners in parallel (doesn't require client to be started)
+        (async () => {
+          matrixClientManager.setupEventListeners()
+          this._setupEventListeners()
+          console.log('🎧 Event listeners configured')
+        })()
+      ])
 
-            // Log crypto status
-            const crypto = this.client.getCrypto()
-            if (crypto) {
-              console.log('🔐 Matrix encryption is available and ready')
+      // OPTIMIZATION: Parallel execution of client readiness check and backend sync
+      await Promise.all([
+        // Wait for client to be ready and check crypto status
+        new Promise<void>((resolve) => {
+          const checkReady = () => {
+            if (this.client && this.client.isInitialSyncComplete()) {
+              console.log('✅ Matrix client ready and synced')
+
+              // Log crypto status
+              const crypto = this.client.getCrypto()
+              if (crypto) {
+                console.log('🔐 Matrix encryption is available and ready')
+              } else {
+                console.log('⚠️ Matrix encryption not available - some private rooms may not work')
+              }
+
+              resolve()
             } else {
-              console.log('⚠️ Matrix encryption not available - some private rooms may not work')
+              setTimeout(checkReady, 100)
             }
-
-            resolve()
-          } else {
-            setTimeout(checkReady, 100)
           }
-        }
-        checkReady()
-      })
+          checkReady()
+        }),
+
+        // Sync Matrix user identity with backend in parallel (non-critical)
+        (async () => {
+          await this._syncMatrixUserIdentityWithBackend(matrixCredentials.userId)
+          console.log('🔄 Backend user identity sync completed')
+        })()
+      ])
 
       // Clean up URL by removing OIDC parameters
       const url = new URL(window.location.href)
@@ -224,9 +262,6 @@ class MatrixClientService {
       window.history.replaceState({}, document.title, url.toString())
 
       console.log('✅ Matrix client initialized successfully from MAS OIDC:', matrixCredentials.userId)
-
-      // Sync Matrix user identity with backend
-      await this._syncMatrixUserIdentityWithBackend(matrixCredentials.userId)
 
       return this.client
     } catch (error) {
@@ -554,27 +589,37 @@ class MatrixClientService {
       let userId = tokenData.sub
       const deviceId = storedDeviceId || tokenData.device_id || this._generateDeviceId()
 
-      // Get user info from MAS userinfo endpoint
-      try {
-        const masUrl = getEnv('APP_MAS_URL') as string
-        const userinfoResponse = await fetch(`${masUrl}/oauth2/userinfo`, {
-          headers: {
-            Authorization: `Bearer ${tokenData.access_token}`
-          }
-        })
+      // OPTIMIZATION: Get user info from MAS userinfo endpoint in parallel with token processing
+      const userinfoPromise = (async () => {
+        try {
+          const masUrl = getEnv('APP_MAS_URL') as string
+          const userinfoResponse = await fetch(`${masUrl}/oauth2/userinfo`, {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`
+            }
+          })
 
-        if (userinfoResponse.ok) {
-          const userInfo = await userinfoResponse.json()
-          console.log('👤 MAS userinfo response:', userInfo)
-          // Extract Matrix username from userinfo response
-          // MAS returns the Matrix username in different possible fields
-          userId = userInfo.matrix_handle || userInfo.preferred_username || userInfo.username
-          console.log('🔍 Extracted userId from userinfo:', userId)
-        } else {
-          console.warn('⚠️ Failed to get userinfo from MAS:', userinfoResponse.status)
+          if (userinfoResponse.ok) {
+            const userInfo = await userinfoResponse.json()
+            console.log('👤 MAS userinfo response:', userInfo)
+            // Extract Matrix username from userinfo response
+            // MAS returns the Matrix username in different possible fields
+            return userInfo.matrix_handle || userInfo.preferred_username || userInfo.username
+          } else {
+            console.warn('⚠️ Failed to get userinfo from MAS:', userinfoResponse.status)
+            return null
+          }
+        } catch (userinfoError) {
+          console.error('❌ Error getting userinfo from MAS:', userinfoError)
+          return null
         }
-      } catch (userinfoError) {
-        console.error('❌ Error getting userinfo from MAS:', userinfoError)
+      })()
+
+      // Now wait for userinfo result and update userId if available
+      const userinfoUserId = await userinfoPromise
+      if (userinfoUserId) {
+        userId = userinfoUserId
+        console.log('🔍 Updated userId from userinfo:', userId)
       }
 
       // Fallback: If userinfo failed, extract userId from the id_token JWT
@@ -839,15 +884,11 @@ class MatrixClientService {
         }
 
         // Attempt to restart sync after a delay for non-token errors
-        setTimeout(() => {
+        setTimeout(async () => {
           if (this.client && this.client.getSyncState() === 'ERROR') {
             console.log('🔄 Restarting Matrix sync after error...')
             try {
-              this.client.startClient({
-                initialSyncLimit: 50,
-                includeArchivedRooms: false,
-                lazyLoadMembers: true
-              })
+              await matrixClientManager.restartClient()
             } catch (error) {
               console.error('❌ Failed to restart Matrix sync:', error)
             }
@@ -1654,8 +1695,15 @@ class MatrixClientService {
    * Get a specific room by room ID
    */
   getRoom (roomId: string): Room | null {
+    // Always use the client from MatrixClientManager if available
+    const managerClient = matrixClientManager.getClient()
+    if (managerClient) {
+      this.client = managerClient
+    }
+
     if (!this.client) {
-      throw new Error('Matrix client not initialized')
+      console.warn('Matrix client not initialized for getRoom call')
+      return null
     }
 
     return this.client.getRoom(roomId)
@@ -1862,20 +1910,6 @@ class MatrixClientService {
   }
 
   /**
-   * Get current Matrix client
-   */
-  getClient (): MatrixClient | null {
-    return this.client
-  }
-
-  /**
-   * Check if client is ready
-   */
-  isReady (): boolean {
-    return this.client !== null && this.client.isLoggedIn()
-  }
-
-  /**
    * Manually connect to Matrix (for user-initiated connection)
    */
   async connect (): Promise<MatrixClient> {
@@ -2078,148 +2112,6 @@ class MatrixClientService {
   }
 
   /**
-   * Create Matrix client from credentials with persistent storage
-   */
-  private async _createClientFromCredentials (credentials: {
-    homeserverUrl: string
-    accessToken: string
-    userId: string
-    deviceId: string
-    refreshToken?: string
-  }): Promise<void> {
-    try {
-      // Get OpenMeet user slug for storage isolation
-      const authStore = useAuthStore()
-      const openMeetUserSlug = authStore.getUserSlug
-
-      if (!openMeetUserSlug) {
-        throw new Error('Matrix client creation requires OpenMeet user context - cannot proceed without user isolation')
-      }
-
-      // Create persistent crypto store with OpenMeet user slug to prevent cross-user sharing
-      const cryptoStore = new IndexedDBCryptoStore(
-        window.indexedDB,
-        `matrix-crypto-${openMeetUserSlug}-${credentials.userId}`
-      )
-
-      console.log('🔧 Creating Matrix client with credentials:', {
-        baseUrl: credentials.homeserverUrl,
-        userId: credentials.userId,
-        deviceId: credentials.deviceId,
-        hasAccessToken: !!credentials.accessToken
-      })
-
-      if (!credentials.homeserverUrl) {
-        throw new Error('homeserverUrl is required but not provided')
-      }
-
-      if (!credentials.accessToken) {
-        throw new Error('accessToken is required but not provided')
-      }
-
-      if (!credentials.userId) {
-        throw new Error('userId is required but not provided')
-      }
-
-      // Validate homeserver URL format
-      const baseUrl = credentials.homeserverUrl.endsWith('/')
-        ? credentials.homeserverUrl.slice(0, -1)
-        : credentials.homeserverUrl
-
-      console.log('🏠 Creating Matrix client with baseUrl:', baseUrl)
-
-      // Create token refresh function if refresh token is available (like Element Web)
-      const tokenRefreshFunction = credentials.refreshToken
-        ? async () => {
-          console.log('🔄 Token refresh triggered by Matrix client')
-          try {
-            const refreshed = await this._refreshAccessToken(credentials.refreshToken!)
-
-            // Update stored credentials with new tokens
-            this._storeCredentials({
-              ...credentials,
-              accessToken: refreshed.accessToken,
-              refreshToken: refreshed.refreshToken
-            })
-
-            console.log('✅ Token refresh completed successfully')
-            return {
-              accessToken: refreshed.accessToken,
-              refreshToken: refreshed.refreshToken
-            }
-          } catch (error) {
-            console.error('❌ Token refresh failed:', error)
-            // Clear invalid tokens and require re-authentication
-            this._clearStoredCredentials()
-            throw error
-          }
-        }
-        : undefined
-
-      // MSC3861: Use access token obtained via MAS OIDC with refresh token support
-      console.log('🔐 Creating Matrix client with MSC3861 access token from MAS', {
-        hasRefreshToken: !!credentials.refreshToken,
-        hasTokenRefreshFunction: !!tokenRefreshFunction
-      })
-
-      // Create persistent IndexedDB store for main storage with user slug isolation
-      const store = new IndexedDBStore({
-        indexedDB: window.indexedDB,
-        dbName: `matrix-store-${openMeetUserSlug}-${credentials.userId}`,
-        localStorage: window.localStorage
-      })
-
-      this.client = createClient({
-        baseUrl,
-        accessToken: credentials.accessToken, // MSC3861 token from MAS
-        refreshToken: credentials.refreshToken, // Pass refresh token like Element Web
-        tokenRefreshFunction, // Pass refresh function like Element Web
-        userId: credentials.userId,
-        deviceId: credentials.deviceId,
-        timelineSupport: true,
-        useAuthorizationHeader: true, // CRITICAL: Required for MSC3861 compatibility
-        store, // Use IndexedDB for main storage
-        cryptoStore,
-        pickleKey: credentials.userId
-      })
-
-      // Verify the client works
-      const clientBaseUrl = this.client.getHomeserverUrl()
-      console.log('🔍 Matrix client initialized with baseUrl:', clientBaseUrl)
-
-      if (!clientBaseUrl) {
-        throw new Error('Matrix client initialization failed - no homeserver URL')
-      }
-
-      await this.client.whoami()
-      console.log('✅ Matrix client created successfully')
-
-      // Set up event listeners for live updates
-      this._setupEventListeners()
-
-      // Start the client to enable live synchronization
-      console.log('🔄 Starting Matrix client for live synchronization...')
-      await this.client.startClient({
-        initialSyncLimit: 50,
-        includeArchivedRooms: false,
-        lazyLoadMembers: true
-      })
-
-      console.log('✅ Matrix client started and syncing live events')
-    } catch (error) {
-      console.error('❌ Failed to create Matrix client from credentials:', error)
-
-      // Check if this is an authentication error and clear corrupted tokens
-      if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during client creation - clearing stored credentials')
-        this._clearStoredCredentials()
-      }
-
-      throw error
-    }
-  }
-
-  /**
    * Try to restore Matrix client from stored credentials
    */
   private async _createClientFromStoredCredentials (sessionInfo: {
@@ -2231,12 +2123,6 @@ class MatrixClientService {
   }): Promise<void> {
     try {
       console.log('🔄 Attempting to restore Matrix client from stored credentials')
-
-      // Create crypto store for encryption support
-      const cryptoStore = new IndexedDBCryptoStore(
-        window.indexedDB,
-        `matrix-crypto-${sessionInfo.userId}`
-      )
 
       // Check if we have credentials for restoration
       if (sessionInfo.accessToken || sessionInfo.refreshToken) {
@@ -2320,39 +2206,66 @@ class MatrixClientService {
         })
 
         // Create persistent IndexedDB store for main storage
-        const store = new IndexedDBStore({
-          indexedDB: window.indexedDB,
+        let store = new IndexedDBStore({
+          indexedDB,
           dbName: `matrix-store-${sessionInfo.userId}`,
           localStorage: window.localStorage
         })
 
-        this.client = createClient({
-          baseUrl,
-          accessToken, // MSC3861 token from MAS
-          refreshToken, // Pass refresh token like Element Web
-          tokenRefreshFunction, // Pass refresh function like Element Web
-          userId: sessionInfo.userId,
-          deviceId: sessionInfo.deviceId,
-          timelineSupport: true,
-          useAuthorizationHeader: true, // CRITICAL: Required for MSC3861 compatibility
-          store, // Use IndexedDB for main storage
-          cryptoStore,
-          pickleKey: sessionInfo.userId
+        // CRITICAL: Set user creator before store startup (Matrix-js-sdk v30+ requirement)
+        store.setUserCreator((userId: string) => {
+          return new User(userId)
         })
 
-        // Verify the client works with the stored token
-        await this.client.whoami()
-        console.log('✅ Matrix client restored successfully with access token')
+        // CRITICAL: Await store startup before creating client (required for IndexedDB initialization)
+        console.log('🔄 Starting IndexedDB store during restoration...')
+        try {
+          await store.startup()
+          console.log('✅ IndexedDB store startup completed during restoration')
+        } catch (error) {
+          console.warn('⚠️ IndexedDB store startup failed during restoration, clearing incompatible data:', error)
+          if (error.message && error.message.includes('setPresenceEvent')) {
+            console.log('🧹 Clearing incompatible presence data and retrying restoration...')
+            // Clear the problematic database and recreate
+            try {
+              const dbName = `matrix-store-${sessionInfo.userId}`
+              await this._clearIncompatibleStoreData(dbName)
+              // Recreate store after clearing incompatible data
+              store = new IndexedDBStore({
+                indexedDB,
+                dbName,
+                localStorage: window.localStorage
+              })
+              store.setUserCreator((userId: string) => {
+                return new User(userId)
+              })
+              await store.startup()
+              console.log('✅ IndexedDB store recreated successfully during restoration after clearing incompatible data')
+            } catch (retryError) {
+              console.error('❌ Failed to recreate store during restoration, falling back to memory store:', retryError)
+              throw error // Re-throw original error
+            }
+          } else {
+            throw error // Re-throw if not a known compatibility issue
+          }
+        }
+
+        // Use MatrixClientManager instead of direct client creation
+        console.log('🔄 Using MatrixClientManager for client initialization...')
+        this.client = await matrixClientManager.initializeClient({
+          homeserverUrl: baseUrl,
+          accessToken: accessToken!,
+          userId: sessionInfo.userId,
+          deviceId: sessionInfo.deviceId
+        })
+
+        console.log('✅ Matrix client restored successfully via MatrixClientManager')
 
         // Set up event listeners
         this._setupEventListeners()
 
-        // Start the client
-        await this.client.startClient({
-          initialSyncLimit: 50,
-          includeArchivedRooms: false,
-          lazyLoadMembers: true
-        })
+        // Start the client (MatrixClientManager handles this internally)
+        await matrixClientManager.startClient()
       } else {
         // Fallback: try to restore from Matrix SDK's own persistence
         console.log('🔄 No access token available, trying Matrix SDK restoration')
@@ -2498,6 +2411,40 @@ class MatrixClientService {
   }
 
   /**
+   * Clear incompatible IndexedDB store data when SDK version changes
+   * This handles cases where stored presence data format is incompatible with current SDK
+   *
+   * @param dbName - Name of the IndexedDB database to clear
+   */
+  private async _clearIncompatibleStoreData (dbName: string): Promise<void> {
+    try {
+      console.log(`🧹 Clearing incompatible IndexedDB store: ${dbName}`)
+
+      // Delete the entire database to clear incompatible data
+      const deleteRequest = indexedDB.deleteDatabase(dbName)
+
+      await new Promise<void>((resolve, reject) => {
+        deleteRequest.onsuccess = () => {
+          console.log(`✅ Successfully cleared incompatible store: ${dbName}`)
+          resolve()
+        }
+        deleteRequest.onerror = (event) => {
+          console.error(`❌ Failed to clear incompatible store: ${dbName}`, event)
+          reject(new Error(`Failed to delete database: ${dbName}`))
+        }
+        deleteRequest.onblocked = () => {
+          console.warn(`⚠️ Database deletion blocked for: ${dbName}`)
+          // Still resolve as the database will be cleared when other connections close
+          resolve()
+        }
+      })
+    } catch (error) {
+      console.error(`❌ Error clearing incompatible store data for ${dbName}:`, error)
+      throw error
+    }
+  }
+
+  /**
    * Force Matrix client to sync after backend bot invitation
    * This ensures the client picks up new room invitations immediately
    *
@@ -2521,11 +2468,7 @@ class MatrixClientService {
       // Wait a moment then restart to pick up new room
       await new Promise(resolve => setTimeout(resolve, 1000))
       console.log('🔄 Restarting Matrix client...')
-      await client.startClient({
-        initialSyncLimit: 50,
-        includeArchivedRooms: false,
-        lazyLoadMembers: true
-      })
+      await matrixClientManager.restartClient()
       console.log('✅ Matrix client restarted and syncing')
 
       // Wait for sync to complete

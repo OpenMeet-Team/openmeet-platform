@@ -12,7 +12,6 @@ export const matrixApi = {
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-
   // Get messages for a room with token checking
   getMessages: async (roomId: string, limit = 50, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> => {
     try {
