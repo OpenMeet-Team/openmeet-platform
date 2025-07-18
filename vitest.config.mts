@@ -18,8 +18,8 @@ export default defineConfig({
       'test/vitest/__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
     ],
     // Set timeout to help with complex tests
-    testTimeout: 5000,     // Reduced for faster test runs - adjust as needed
-    hookTimeout: 5000      // Reduced for faster test runs - adjust as needed
+    testTimeout: 5000, // Reduced for faster test runs - adjust as needed
+    hookTimeout: 5000 // Reduced for faster test runs - adjust as needed
   },
   plugins: [
     vue({
@@ -28,6 +28,6 @@ export default defineConfig({
     quasar({
       sassVariables: 'src/quasar-variables.scss'
     }),
-    tsconfigPaths() as any
+    tsconfigPaths()
   ]
 })

@@ -96,5 +96,43 @@ export const chatApi = {
   createEventSource: (): EventSource => {
     console.error('EventSource is no longer supported - please update your code to use WebSocket')
     throw new Error('EventSource is deprecated in favor of WebSockets for chat events')
-  }
+  },
+
+  // Matrix room permission management (admin endpoints)
+  listRoomsWithPermissionIssues: (): Promise<AxiosResponse<{
+    success: boolean;
+    roomsWithIssues: Array<{
+      roomType: 'event' | 'group';
+      slug: string;
+      roomId: string;
+      botCurrentPowerLevel: number;
+      botExpectedPowerLevel: number;
+      canBeFixed: boolean;
+      issues: string[];
+    }>;
+    summary: {
+      totalRooms: number;
+      roomsWithIssues: number;
+      fixableRooms: number;
+    };
+    message?: string;
+  }>> =>
+    api.get('/api/chat/admin/rooms/permission-issues'),
+
+  fixRoomPermissions: (roomIds: string[]): Promise<AxiosResponse<{
+    success: boolean;
+    results: Array<{
+      roomId: string;
+      fixed: boolean;
+      newPowerLevel: number;
+      error?: string;
+    }>;
+    summary: {
+      totalAttempted: number;
+      successfulFixes: number;
+      failedFixes: number;
+    };
+    message?: string;
+  }>> =>
+    api.post('/api/chat/admin/rooms/fix-permissions', { roomIds })
 }

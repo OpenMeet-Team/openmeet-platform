@@ -41,6 +41,21 @@ export default route(function (/* { store, ssrContext } */) {
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 
+    // Check for admin routes and prevent access for non-admin users
+    if (to.path.startsWith('/admin')) {
+      if (!authStore.isAuthenticated) {
+        next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
+        return
+      }
+
+      // Import UserRole to check admin access
+      const { UserRole } = await import('../types')
+      if (!authStore.hasRole(UserRole.Admin)) {
+        next({ name: 'HomePage' })
+        return
+      }
+    }
+
     if (to.matched.some(record => record.meta.requiresAuth)) {
       if (!authStore.isAuthenticated) {
         next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
