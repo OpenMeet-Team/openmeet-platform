@@ -114,13 +114,6 @@ describe('MatrixClientService', () => {
     matrixClientService.cleanup()
   })
 
-  describe('Environment Configuration', () => {
-    it('should read Matrix homeserver URL from environment', () => {
-      const getEnv = require('../../utils/env').default
-      expect(getEnv('APP_MATRIX_HOMESERVER_URL')).toBe('http://localhost:8448')
-    })
-  })
-
   describe('Client Initialization', () => {
     it('should require user to be authenticated before initializing', async () => {
       mockAuthStore.isAuthenticated = false

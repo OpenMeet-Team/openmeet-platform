@@ -122,10 +122,32 @@ const ensureChatRoomExists = async () => {
   console.log('🏗️ DEBUG: attendee status:', event.value?.attendee?.status)
   console.log('🏗️ DEBUG: discussionPermissions.canWrite:', discussionPermissions.value.canWrite)
 
-  if (!event.value || !event.value.slug || !matrixRoomId.value) {
-    console.log('❌ Cannot initialize - missing event or room ID')
-    console.log('❌ Missing: event=', !event.value, 'slug=', !event.value?.slug, 'roomId=', !matrixRoomId.value)
+  if (!event.value || !event.value.slug) {
+    console.log('❌ Cannot initialize - missing event or slug')
+    console.log('❌ Missing: event=', !event.value, 'slug=', !event.value?.slug)
     return false
+  }
+
+  // If no matrix room ID, call ensure room API to create one
+  if (!matrixRoomId.value) {
+    console.log('🔧 No Matrix room ID found, calling ensure room API')
+    try {
+      const response = await chatApi.ensureEventRoom(event.value.slug)
+      if (response.data.success && response.data.roomId) {
+        console.log('✅ Matrix room ensured:', response.data.roomId)
+        // Update the event data with the new room ID
+        event.value.matrixRoomId = response.data.roomId
+        console.log('✅ Updated event.matrixRoomId to:', event.value.matrixRoomId)
+        // The matrixRoomId computed property should now return the new value
+        console.log('✅ matrixRoomId computed value:', matrixRoomId.value)
+      } else {
+        console.error('❌ Failed to ensure Matrix room:', response.data.message)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Error calling ensure room API:', error)
+      return false
+    }
   }
 
   // Early return if user is not a confirmed or cancelled attendee
