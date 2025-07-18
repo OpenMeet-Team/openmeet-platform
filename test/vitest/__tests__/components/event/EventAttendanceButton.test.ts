@@ -176,7 +176,7 @@ describe('EventAttendanceButton.vue', () => {
 
       const attendButton = wrapper.find('[data-cy="event-attend-button"]')
       expect(attendButton.exists()).toBe(true)
-      expect(attendButton.attributes('color')).toBe('primary')
+      expect(attendButton.attributes('color')).toBe('positive')
       expect(attendButton.attributes('outline')).toBeDefined()
     })
 
@@ -193,7 +193,7 @@ describe('EventAttendanceButton.vue', () => {
 
       const attendButton = wrapper.find('[data-cy="event-attend-button"]')
       expect(attendButton.exists()).toBe(true)
-      expect(attendButton.attributes('color')).toBe('primary')
+      expect(attendButton.attributes('color')).toBe('positive')
       expect(attendButton.attributes('outline')).toBeDefined()
     })
 
@@ -264,7 +264,7 @@ describe('EventAttendanceButton.vue', () => {
       expect(attendButton.attributes('outline')).toBeDefined()
     })
 
-    it('applies primary color to attend buttons', () => {
+    it('applies positive color to attend buttons', () => {
       wrapper = shallowMount(EventAttendanceButton, {
         props: {
           event: mockEvent,
@@ -274,7 +274,7 @@ describe('EventAttendanceButton.vue', () => {
       })
 
       const attendButton = wrapper.find('[data-cy="event-attend-button"]')
-      expect(attendButton.attributes('color')).toBe('primary')
+      expect(attendButton.attributes('color')).toBe('positive')
     })
 
     it('applies negative color to leave buttons', () => {

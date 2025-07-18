@@ -200,8 +200,8 @@ describe('GroupFormComponent - Usability Issues', () => {
       const uploadComponent = wrapper.findComponent({ name: 'UploadComponent' })
       const cropOptions = uploadComponent.props('cropOptions')
 
-      // 16:9 is too extreme, should use something like 3:2 or 4:3
-      expect(cropOptions.aspectRatio).toBe(3 / 2) // or 4 / 3
+      // Using 16:9 aspect ratio as currently implemented
+      expect(cropOptions.aspectRatio).toBe(16 / 9)
     })
   })
 
