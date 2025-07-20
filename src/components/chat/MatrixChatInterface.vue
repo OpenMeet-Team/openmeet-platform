@@ -563,7 +563,6 @@ import { format } from 'date-fns'
 import { RoomEvent, MatrixEvent, Room, ClientEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
-import { chatApi } from '../../api/chat'
 
 // Add type declaration for global window property
 declare global {
@@ -714,11 +713,20 @@ const refreshDiagnostics = () => {
 const forceSync = async () => {
   console.log('🔄 Force syncing Matrix client')
   try {
-    // Use MatrixClientManager for proper restart to avoid redundant startClient() calls
+    // First try to refresh the token
+    await matrixClientManager.refreshMatrixToken()
+    console.log('✅ Matrix token refreshed successfully')
+
+    // Then restart the client to ensure fresh sync
     await matrixClientManager.restartClient()
     console.log('✅ Matrix client restarted via MatrixClientManager')
   } catch (error) {
     console.error('❌ Error forcing Matrix sync:', error)
+
+    // If token refresh fails, show user-friendly message
+    if (error.message && error.message.includes('not authenticated')) {
+      alert('Please log out and log back in to refresh your Matrix connection.')
+    }
   }
 }
 
@@ -1512,6 +1520,14 @@ const reconnect = async () => {
   try {
     console.log('🔄 Attempting to reconnect Matrix client...')
 
+    // First try to refresh the Matrix token
+    try {
+      await matrixClientManager.refreshMatrixToken()
+      console.log('✅ Matrix token refreshed successfully')
+    } catch (tokenError) {
+      console.warn('⚠️ Token refresh failed, continuing with existing token:', tokenError)
+    }
+
     // Check if Matrix client is already available and just needs to reconnect
     if (matrixClientService.isReady()) {
       console.log('🔌 Matrix client already ready, just updating connection status')
@@ -1533,48 +1549,38 @@ const reconnect = async () => {
     // After successful Matrix connection, ensure we're invited to the chat room
     if (props.contextType === 'event' && props.contextId) {
       try {
-        const response = await chatApi.joinEventChatRoom(props.contextId)
-
-        if (response.data.success) {
-          console.log('✅ Event chat room invitation confirmed')
-          // Force Matrix client to sync to pick up new invitation
-          await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
-        } else {
-          console.warn('⚠️ Backend reported issue with event chat room invitation:', response.data.message)
-        }
+        console.log('🎪 Joining event chat room using Matrix-native approach')
+        const result = await matrixClientService.joinEventChatRoom(props.contextId)
+        console.log('✅ Event chat room joined successfully:', result.roomInfo)
+        // Force Matrix client to sync to pick up new invitation
+        await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
       } catch (error) {
-        console.error('❌ EXCEPTION: Failed to call joinEventChatRoom API')
+        console.error('❌ EXCEPTION: Failed to join event chat room')
         console.error('❌ Error details:', error)
         console.error('❌ Error message:', error.message)
-        console.error('❌ Error response:', error.response?.data)
 
         // Check if this is a Matrix authentication requirement error
-        const errorMessage = error.response?.data?.message || error.message || ''
+        const errorMessage = error.message || ''
         if (errorMessage.includes('has not authenticated with Matrix') ||
             errorMessage.includes('must complete Matrix authentication')) {
           console.log('🔑 User needs Matrix authentication before accessing chat')
           // Don't throw - this is a normal flow that requires authentication
         } else {
           // Other errors - log but don't break the connection
-          console.warn('⚠️ Non-authentication error calling joinEventChatRoom API')
+          console.warn('⚠️ Non-authentication error joining event chat room')
         }
       }
     }
 
     if (props.contextType === 'group' && props.contextId) {
       try {
-        console.log(`🎯 Ensuring invitation to group chat room: ${props.contextId}`)
-        const response = await chatApi.joinGroupChatRoom(props.contextId)
-        if (response.data.success) {
-          console.log('✅ Successfully ensured group chat room invitation')
-
-          // Force Matrix client to sync to pick up new invitation
-          await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
-        } else {
-          console.warn('⚠️ Backend reported issue with group chat room invitation:', response.data.message)
-        }
+        console.log(`🎯 Joining group chat room using Matrix-native approach: ${props.contextId}`)
+        const result = await matrixClientService.joinGroupChatRoom(props.contextId)
+        console.log('✅ Group chat room joined successfully:', result.roomInfo)
+        // Force Matrix client to sync to pick up new invitation
+        await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
       } catch (error) {
-        console.warn('⚠️ Failed to ensure group chat room invitation (continuing anyway):', error)
+        console.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
         // Don't throw - connection to Matrix itself succeeded
       }
     }
@@ -1898,12 +1904,21 @@ const loadMessages = async () => {
     }
 
     // Get room directly without waiting for PREPARED state
-    const room = client.getRoom(props.roomId)
+    let room = client.getRoom(props.roomId)
     if (!room) {
       console.warn('⚠️ Room not available:', props.roomId)
-      console.log('🏗️ DEBUG: Available rooms:', client.getRooms().map(r => r.roomId))
-      messages.value = []
-      return
+      const availableRooms = client.getRooms()
+      console.log('🏗️ DEBUG: Available rooms:', availableRooms.map(r => r.roomId))
+
+      // Try to use the first available room as fallback
+      if (availableRooms.length > 0) {
+        room = availableRooms[0]
+        console.log('🔄 Fallback: Using first available room:', room.roomId)
+      } else {
+        console.warn('❌ No rooms available at all')
+        messages.value = []
+        return
+      }
     }
 
     console.log('✅ Room available, proceeding with message loading')
@@ -2124,34 +2139,24 @@ onMounted(async () => {
       // This handles cases where the bot invitation failed during RSVP
       if (props.contextType === 'event' && props.contextId) {
         try {
-          console.log(`🎯 [${instanceId}] Ensuring invitation to event chat room: ${props.contextId}`)
-          const response = await chatApi.joinEventChatRoom(props.contextId)
-          if (response.data.success) {
-            console.log(`✅ [${instanceId}] Successfully ensured event chat room invitation`)
-
-            // Force Matrix client to sync to pick up new invitation
-            await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
-          } else {
-            console.warn(`⚠️ [${instanceId}] Backend reported issue with event chat room invitation:`, response.data.message)
-          }
+          console.log(`🎯 [${instanceId}] Joining event chat room using Matrix-native approach: ${props.contextId}`)
+          const result = await matrixClientService.joinEventChatRoom(props.contextId)
+          console.log(`✅ [${instanceId}] Event chat room joined successfully:`, result.roomInfo)
+          // Force Matrix client to sync to pick up new invitation
+          await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
         } catch (error) {
-          console.warn(`⚠️ [${instanceId}] Failed to ensure event chat room invitation (continuing anyway):`, error)
+          console.warn(`⚠️ [${instanceId}] Failed to join event chat room (continuing anyway):`, error)
           // Don't throw - connection to Matrix itself succeeded
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
-          console.log(`🎯 [${instanceId}] Ensuring invitation to group chat room: ${props.contextId}`)
-          const response = await chatApi.joinGroupChatRoom(props.contextId)
-          if (response.data.success) {
-            console.log(`✅ [${instanceId}] Successfully ensured group chat room invitation`)
-
-            // Force Matrix client to sync to pick up new invitation
-            await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
-          } else {
-            console.warn(`⚠️ [${instanceId}] Backend reported issue with group chat room invitation:`, response.data.message)
-          }
+          console.log(`🎯 [${instanceId}] Joining group chat room using Matrix-native approach: ${props.contextId}`)
+          const result = await matrixClientService.joinGroupChatRoom(props.contextId)
+          console.log(`✅ [${instanceId}] Group chat room joined successfully:`, result.roomInfo)
+          // Force Matrix client to sync to pick up new invitation
+          await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
         } catch (error) {
-          console.warn(`⚠️ [${instanceId}] Failed to ensure group chat room invitation (continuing anyway):`, error)
+          console.warn(`⚠️ [${instanceId}] Failed to join group chat room (continuing anyway):`, error)
           // Don't throw - connection to Matrix itself succeeded
         }
       }

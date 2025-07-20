@@ -334,23 +334,24 @@ export const useEventStore = defineStore('event', {
     async actionJoinEventChatRoom () {
       try {
         if (this.event?.slug) {
-          console.log(`Attempting to join chat room for event ${this.event.slug}`)
-          const response = await chatApi.joinEventChatRoom(this.event.slug)
-          console.log('Successfully joined chat room for event', response.data)
+          console.log(`Attempting to join chat room for event ${this.event.slug} via Matrix-native approach`)
+          const { matrixClientService } = await import('../services/matrixClientService')
+          const joinResult = await matrixClientService.joinEventChatRoom(this.event.slug)
+          console.log('Successfully joined chat room for event via Matrix-native approach', joinResult.roomInfo)
 
-          // Check if the response includes a roomId
-          if (response.data && response.data.roomId) {
-            console.log(`Received roomId from joinEventChatRoom: ${response.data.roomId}`)
-            // Save the roomId directly to the event object if provided
+          // The Matrix-native approach returns room info with roomId and alias
+          if (joinResult.room) {
+            console.log(`Received roomId from Matrix-native join: ${joinResult.room.roomId}`)
+            // Save the roomId directly to the event object
             if (this.event) {
-              this.event.roomId = response.data.roomId
+              this.event.roomId = joinResult.room.roomId
               console.log(`Updated event with roomId: ${this.event.roomId}`)
             }
           } else {
-            console.warn('No roomId returned from joinEventChatRoom API call')
+            console.warn('No roomId returned from Matrix-native join')
           }
 
-          return response.data
+          return joinResult.roomInfo
         }
         return null
       } catch (error) {

@@ -49,15 +49,15 @@ class MatrixServiceImpl {
   /**
    * Get messages for a room
    */
-  public async getMessages (roomId: string, limit = 50, from?: string): Promise<{ messages: MatrixMessage[], end: string }> {
+  public async getMessages (roomId: string, limit = 50): Promise<{ messages: MatrixMessage[], end: string }> {
     if (!roomId) {
       console.error('Cannot get messages - no room ID provided')
       return { messages: [], end: '' }
     }
 
     try {
-      const response = await matrixApi.getMessages(roomId, limit, from)
-      return response.data
+      const response = await matrixApi.getMessages(roomId, limit)
+      return response
     } catch (error) {
       console.error('Error getting messages:', error)
       return { messages: [], end: '' }
@@ -81,9 +81,9 @@ class MatrixServiceImpl {
     try {
       const response = await matrixApi.sendMessage(roomId, message)
 
-      if (response.data && response.data.id) {
-        console.log('Message sent successfully, ID:', response.data.id)
-        return response.data.id
+      if (response && response.id) {
+        console.log('Message sent successfully, ID:', response.id)
+        return response.id
       } else {
         console.error('No message ID returned from server')
         return undefined

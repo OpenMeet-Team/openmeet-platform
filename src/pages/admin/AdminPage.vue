@@ -46,6 +46,16 @@
                     <q-item-label caption>Check and fix Matrix bot permissions in chat rooms</q-item-label>
                   </q-item-section>
                 </q-item>
+
+                <q-item to="/admin/matrix-sync" clickable v-ripple>
+                  <q-item-section avatar>
+                    <q-icon name="sym_r_sync" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Matrix Attendee Sync</q-item-label>
+                    <q-item-label caption>Sync all event attendees to Matrix chat rooms</q-item-label>
+                  </q-item-section>
+                </q-item>
               </q-list>
             </q-card-section>
           </q-card>

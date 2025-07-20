@@ -6,7 +6,7 @@ import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import { matrixClientService } from '../../services/matrixClientService'
 import MatrixChatInterface from '../chat/MatrixChatInterface.vue'
-import { chatApi } from '../../api/chat'
+import getEnv from '../../utils/env'
 
 // Add type declaration for global window property
 declare global {
@@ -128,26 +128,15 @@ const ensureChatRoomExists = async () => {
     return false
   }
 
-  // If no matrix room ID, call ensure room API to create one
-  if (!matrixRoomId.value) {
-    console.log('🔧 No Matrix room ID found, calling ensure room API')
-    try {
-      const response = await chatApi.ensureEventRoom(event.value.slug)
-      if (response.data.success && response.data.roomId) {
-        console.log('✅ Matrix room ensured:', response.data.roomId)
-        // Update the event data with the new room ID
-        event.value.matrixRoomId = response.data.roomId
-        console.log('✅ Updated event.matrixRoomId to:', event.value.matrixRoomId)
-        // The matrixRoomId computed property should now return the new value
-        console.log('✅ matrixRoomId computed value:', matrixRoomId.value)
-      } else {
-        console.error('❌ Failed to ensure Matrix room:', response.data.message)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ Error calling ensure room API:', error)
-      return false
-    }
+  // Matrix-native approach: Use room aliases, no need to store room IDs
+  // The Matrix Application Service will create rooms on-demand when accessed
+  console.log('🏠 Using Matrix-native approach with room aliases - no backend API calls needed')
+
+  // Generate room alias for this event
+  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+  if (!tenantId) {
+    console.error('❌ No tenant ID available')
+    return false
   }
 
   // Early return if user is not a confirmed or cancelled attendee
@@ -168,35 +157,33 @@ const ensureChatRoomExists = async () => {
     }
 
     // First, check if room is already available
-    let room = matrixClientService.getRoom(matrixRoomId.value)
+    const room = matrixClientService.getRoom(matrixRoomId.value)
     if (room) {
       console.log('✅ Room already available:', room.roomId)
       return true
     }
 
-    // Room not found - trigger backend invitation and force sync
-    console.log('⚠️ Room not found, triggering backend invitation and force sync')
+    // Matrix-native approach: Join room directly using room alias
+    // The Matrix Application Service will create the room on-demand if it doesn't exist
+    console.log('🏠 Room not found, joining via Matrix-native room alias')
     try {
-      const response = await chatApi.joinEventChatRoom(event.value.slug)
-      if (response.data.success) {
-        console.log('✅ Backend invitation sent, forcing Matrix sync')
-        await matrixClientService.forceSyncAfterInvitation('event', event.value.slug)
+      const { generateEventRoomAlias } = await import('../../utils/matrixUtils')
+      const roomAlias = generateEventRoomAlias(event.value.slug, tenantId)
 
-        // Check again after sync
-        room = matrixClientService.getRoom(matrixRoomId.value)
-        if (room) {
-          console.log('✅ Room now available after forced sync:', room.roomId)
-          return true
-        } else {
-          console.warn('⚠️ Room still not available after backend invitation and sync')
-          return false
-        }
+      console.log('🏠 Generated room alias:', roomAlias)
+
+      // Join the room using the alias - this will trigger Application Service room creation
+      const joinResult = await matrixClientService.joinEventChatRoom(event.value.slug)
+
+      if (joinResult.room) {
+        console.log('✅ Room joined via Matrix-native approach:', joinResult.room.roomId)
+        return true
       } else {
-        console.warn('⚠️ Backend invitation failed:', response.data.message)
+        console.error('❌ Failed to join room via Matrix-native approach')
         return false
       }
     } catch (error) {
-      console.error('❌ Error ensuring room access:', error)
+      console.error('❌ Error joining room via Matrix-native approach:', error)
       return false
     }
   } catch (error) {

@@ -24,3 +24,25 @@ export const getMatrixDisplayName = (matrixUserId: string): string => {
   const match = matrixUserId.match(/@([^:]+)/)
   return match ? match[1] : matrixUserId
 }
+
+/**
+ * Generate a Matrix room alias for an event
+ * @param eventSlug The event slug
+ * @param tenantId The tenant ID
+ * @returns The Matrix room alias (e.g., #event-my-event-tenant123:matrix.openmeet.net)
+ */
+export const generateEventRoomAlias = (eventSlug: string, tenantId: string): string => {
+  const serverName = 'matrix.openmeet.net' // This should match your Matrix server configuration
+  return `#event-${eventSlug}-${tenantId}:${serverName}`
+}
+
+/**
+ * Generate a Matrix room alias for a group
+ * @param groupSlug The group slug
+ * @param tenantId The tenant ID
+ * @returns The Matrix room alias (e.g., #group-my-group-tenant123:matrix.openmeet.net)
+ */
+export const generateGroupRoomAlias = (groupSlug: string, tenantId: string): string => {
+  const serverName = 'matrix.openmeet.net' // This should match your Matrix server configuration
+  return `#group-${groupSlug}-${tenantId}:${serverName}`
+}

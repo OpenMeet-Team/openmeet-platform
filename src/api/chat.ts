@@ -24,12 +24,8 @@ export const chatApi = {
   getEventMessages: (eventSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/event/${eventSlug}/messages`, { params: { limit, from } }),
 
-  joinEventChatRoom: (eventSlug: string): Promise<AxiosResponse<{
-    success: boolean;
-    roomId?: string;
-    message?: string;
-  }>> =>
-    api.post(`/api/chat/event/${eventSlug}/join`, {}),
+  // Matrix-native approach: joinEventChatRoom removed
+  // Room joining is now handled directly via Matrix JS SDK using room aliases
 
   addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<{
     success?: boolean;
@@ -48,9 +44,8 @@ export const chatApi = {
   getGroupMessages: (groupSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/group/${groupSlug}/messages`, { params: { limit, from } }),
 
-  // Group chat room membership
-  joinGroupChatRoom: (groupSlug: string): Promise<AxiosResponse<{ success: boolean; roomId?: string; message?: string }>> =>
-    api.post(`/api/chat/group/${groupSlug}/join`),
+  // Matrix-native approach: joinGroupChatRoom removed
+  // Room joining is now handled directly via Matrix JS SDK using room aliases
 
   addMemberToGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<{
     success?: boolean;
@@ -62,22 +57,9 @@ export const chatApi = {
   removeMemberFromGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/chat/group/${groupSlug}/members/${userSlug}`),
 
-  // Room ensure endpoints - ensure rooms exist and are accessible
-  ensureEventRoom: (eventSlug: string): Promise<AxiosResponse<{
-    success: boolean;
-    roomId?: string;
-    recreated: boolean;
-    message?: string;
-  }>> =>
-    api.post(`/api/chat/event/${eventSlug}/ensure-room`),
-
-  ensureGroupRoom: (groupSlug: string): Promise<AxiosResponse<{
-    success: boolean;
-    roomId?: string;
-    recreated: boolean;
-    message?: string;
-  }>> =>
-    api.post(`/api/chat/group/${groupSlug}/ensure-room`),
+  // Matrix-native approach: Room ensure endpoints removed
+  // Rooms are now created on-demand via Matrix Application Service using room aliases
+  // No need for explicit room creation/ensure endpoints
 
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>

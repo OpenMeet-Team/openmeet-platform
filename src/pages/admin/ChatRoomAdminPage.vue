@@ -40,8 +40,8 @@
               <q-form @submit="handleEventAction" class="q-gutter-md">
                 <q-input
                   v-model="eventSlug"
-                  label="Event Slug"
-                  placeholder="event-slug"
+                  label="Event Slug or Room ID"
+                  placeholder="event-slug or !roomId:matrix.openmeet.net"
                   outlined
                   :error="!!eventSlugError"
                   :error-message="eventSlugError"
@@ -96,8 +96,8 @@
               <q-form @submit="handleGroupAction" class="q-gutter-md">
                 <q-input
                   v-model="groupSlug"
-                  label="Group Slug"
-                  placeholder="group-slug"
+                  label="Group Slug or Room ID"
+                  placeholder="group-slug or !roomId:matrix.openmeet.net"
                   outlined
                   :error="!!groupSlugError"
                   :error-message="groupSlugError"
@@ -185,7 +185,9 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth-store'
 import { UserRole } from '../../types'
-import { api } from '../../boot/axios'
+import { matrixClientService } from '../../services/matrixClientService'
+import { generateEventRoomAlias, generateGroupRoomAlias } from '../../utils/matrixUtils'
+import getEnv from '../../utils/env'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -219,16 +221,57 @@ onMounted(() => {
 // Event room management
 async function deleteEventRoom () {
   if (!eventSlug.value) {
-    eventSlugError.value = 'Please enter a valid event slug'
+    eventSlugError.value = 'Please enter a valid event slug or room ID'
     return
   }
 
   try {
     loading.value = true
-    const response = await api.delete(`/api/chat/admin/event/${eventSlug.value}/chatroom`)
 
-    resultSuccess.value = response.data?.success || false
-    resultMessage.value = response.data?.message || 'Chat room deleted successfully'
+    // Ensure Matrix client is connected
+    if (!matrixClientService.isReady()) {
+      console.log('🔌 Matrix client not ready, attempting to initialize...')
+      await matrixClientService.initializeClient()
+    }
+
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not available. Please connect to Matrix first by visiting any event page.')
+    }
+
+    let room = null
+
+    // Check if input is a Matrix room ID (starts with !)
+    if (eventSlug.value.startsWith('!')) {
+      console.log('🗑️ Attempting to delete room by ID:', eventSlug.value)
+      room = client.getRoom(eventSlug.value)
+    } else {
+      // Generate room alias for event slug
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
+
+      const roomAlias = generateEventRoomAlias(eventSlug.value, tenantId)
+      console.log('🗑️ Attempting to delete room with alias:', roomAlias)
+
+      // Find room by alias
+      const rooms = client.getRooms()
+      room = rooms.find(r => r.getCanonicalAlias() === roomAlias || r.getAltAliases().includes(roomAlias))
+    }
+
+    if (room) {
+      // Leave the room (admin action)
+      await client.leave(room.roomId)
+      console.log('✅ Successfully left room:', room.roomId)
+
+      resultSuccess.value = true
+      resultMessage.value = `Successfully left Matrix room: ${room.roomId}`
+    } else {
+      resultSuccess.value = false
+      resultMessage.value = `Room not found: ${eventSlug.value}`
+    }
+
     resultDialog.value = true
   } catch (error) {
     console.error('Error deleting event chat room:', error)
@@ -248,10 +291,15 @@ async function createEventRoom () {
 
   try {
     loading.value = true
-    const response = await api.post(`/api/chat/admin/event/${eventSlug.value}/chatroom`)
 
-    resultSuccess.value = response.data?.success || false
-    resultMessage.value = response.data?.message || 'Chat room created successfully'
+    // Matrix-native approach: Join room using room alias
+    // The Application Service will create the room on-demand if it doesn't exist
+    const result = await matrixClientService.joinEventChatRoom(eventSlug.value)
+
+    console.log('✅ Event chat room created/joined successfully:', result.roomInfo)
+
+    resultSuccess.value = true
+    resultMessage.value = `Successfully created/joined Matrix room for event: ${eventSlug.value} (Room ID: ${result.room.roomId})`
     resultDialog.value = true
   } catch (error) {
     console.error('Error creating event chat room:', error)
@@ -283,16 +331,57 @@ async function resetEventRoom () {
 // Group room management
 async function deleteGroupRoom () {
   if (!groupSlug.value) {
-    groupSlugError.value = 'Please enter a valid group slug'
+    groupSlugError.value = 'Please enter a valid group slug or room ID'
     return
   }
 
   try {
     loading.value = true
-    const response = await api.delete(`/api/chat/admin/group/${groupSlug.value}/chatroom`)
 
-    resultSuccess.value = response.data?.success || false
-    resultMessage.value = response.data?.message || 'Chat room deleted successfully'
+    // Ensure Matrix client is connected
+    if (!matrixClientService.isReady()) {
+      console.log('🔌 Matrix client not ready, attempting to initialize...')
+      await matrixClientService.initializeClient()
+    }
+
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not available. Please connect to Matrix first by visiting any event page.')
+    }
+
+    let room = null
+
+    // Check if input is a Matrix room ID (starts with !)
+    if (groupSlug.value.startsWith('!')) {
+      console.log('🗑️ Attempting to delete group room by ID:', groupSlug.value)
+      room = client.getRoom(groupSlug.value)
+    } else {
+      // Generate room alias for group slug
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
+
+      const roomAlias = generateGroupRoomAlias(groupSlug.value, tenantId)
+      console.log('🗑️ Attempting to delete group room with alias:', roomAlias)
+
+      // Find room by alias
+      const rooms = client.getRooms()
+      room = rooms.find(r => r.getCanonicalAlias() === roomAlias || r.getAltAliases().includes(roomAlias))
+    }
+
+    if (room) {
+      // Leave the room (admin action)
+      await client.leave(room.roomId)
+      console.log('✅ Successfully left group room:', room.roomId)
+
+      resultSuccess.value = true
+      resultMessage.value = `Successfully left Matrix room: ${room.roomId}`
+    } else {
+      resultSuccess.value = false
+      resultMessage.value = `Room not found: ${groupSlug.value}`
+    }
+
     resultDialog.value = true
   } catch (error) {
     console.error('Error deleting group chat room:', error)
@@ -312,10 +401,15 @@ async function createGroupRoom () {
 
   try {
     loading.value = true
-    const response = await api.post(`/api/chat/admin/group/${groupSlug.value}/chatroom`)
 
-    resultSuccess.value = response.data?.success || false
-    resultMessage.value = response.data?.message || 'Chat room created successfully'
+    // Matrix-native approach: Join room using room alias
+    // The Application Service will create the room on-demand if it doesn't exist
+    const result = await matrixClientService.joinGroupChatRoom(groupSlug.value)
+
+    console.log('✅ Group chat room created/joined successfully:', result.roomInfo)
+
+    resultSuccess.value = true
+    resultMessage.value = `Successfully created/joined Matrix room for group: ${groupSlug.value} (Room ID: ${result.room.roomId})`
     resultDialog.value = true
   } catch (error) {
     console.error('Error creating group chat room:', error)

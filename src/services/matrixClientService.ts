@@ -1470,7 +1470,7 @@ class MatrixClientService {
   }
 
   /**
-   * Join an event chat room by event slug
+   * Join an event chat room by event slug using Matrix-native room aliases
    */
   async joinEventChatRoom (eventSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
     if (!this.client) {
@@ -1480,35 +1480,31 @@ class MatrixClientService {
     try {
       console.log('🎪 Joining event chat room for event:', eventSlug)
 
-      // First, join via the API to ensure permissions are handled
-      const authStore = useAuthStore()
+      // Matrix-native approach: Use room aliases instead of backend API calls
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
 
-      const joinResponse = await fetch(`/api/chat/event/${eventSlug}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
-          'X-Tenant-ID': tenantId || ''
+      // Import room alias utility (assuming it's added to matrixUtils)
+      const { generateEventRoomAlias } = await import('../utils/matrixUtils')
+      const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
+
+      console.log('🏠 Generated room alias:', roomAlias)
+
+      // Join the Matrix room directly using the room alias
+      // The Matrix Application Service will create the room on-demand if it doesn't exist
+      const room = await this.joinRoom(roomAlias)
+
+      console.log('✅ Joined event chat room via room alias:', roomAlias)
+      return {
+        room,
+        roomInfo: {
+          matrixRoomId: room.roomId,
+          roomAlias,
+          source: 'matrix-native'
         }
-      })
-
-      if (!joinResponse.ok) {
-        throw new Error(`Failed to join event chat: ${joinResponse.status} ${joinResponse.statusText}`)
       }
-
-      const roomInfo = await joinResponse.json()
-      const roomId = roomInfo.matrixRoomId
-
-      if (!roomId) {
-        throw new Error('No Matrix room ID provided by API')
-      }
-
-      // Join the Matrix room directly
-      const room = await this.joinRoom(roomId)
-
-      console.log('✅ Joined event chat room:', roomId)
-      return { room, roomInfo }
     } catch (error) {
       console.error('❌ Failed to join event chat room:', error)
       throw error
@@ -1635,7 +1631,7 @@ class MatrixClientService {
   }
 
   /**
-   * Join a group chat room by group slug
+   * Join a group chat room by group slug using Matrix-native room aliases
    */
   async joinGroupChatRoom (groupSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
     if (!this.client) {
@@ -1645,35 +1641,31 @@ class MatrixClientService {
     try {
       console.log('👥 Joining group chat room for group:', groupSlug)
 
-      // First, join via the API to ensure permissions are handled
-      const authStore = useAuthStore()
+      // Matrix-native approach: Use room aliases instead of backend API calls
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
 
-      const joinResponse = await fetch(`/api/chat/group/${groupSlug}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
-          'X-Tenant-ID': tenantId || ''
+      // Import room alias utility
+      const { generateGroupRoomAlias } = await import('../utils/matrixUtils')
+      const roomAlias = generateGroupRoomAlias(groupSlug, tenantId)
+
+      console.log('🏠 Generated room alias:', roomAlias)
+
+      // Join the Matrix room directly using the room alias
+      // The Matrix Application Service will create the room on-demand if it doesn't exist
+      const room = await this.joinRoom(roomAlias)
+
+      console.log('✅ Joined group chat room via room alias:', roomAlias)
+      return {
+        room,
+        roomInfo: {
+          matrixRoomId: room.roomId,
+          roomAlias,
+          source: 'matrix-native'
         }
-      })
-
-      if (!joinResponse.ok) {
-        throw new Error(`Failed to join group chat: ${joinResponse.status} ${joinResponse.statusText}`)
       }
-
-      const roomInfo = await joinResponse.json()
-      const roomId = roomInfo.matrixRoomId
-
-      if (!roomId) {
-        throw new Error('No Matrix room ID provided by API')
-      }
-
-      // Join the Matrix room directly
-      const room = await this.joinRoom(roomId)
-
-      console.log('✅ Joined group chat room:', roomId)
-      return { room, roomInfo }
     } catch (error) {
       console.error('❌ Failed to join group chat room:', error)
       throw error
