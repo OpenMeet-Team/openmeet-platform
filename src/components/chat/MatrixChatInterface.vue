@@ -1904,21 +1904,14 @@ const loadMessages = async () => {
     }
 
     // Get room directly without waiting for PREPARED state
-    let room = client.getRoom(props.roomId)
+    const room = client.getRoom(props.roomId)
     if (!room) {
       console.warn('⚠️ Room not available:', props.roomId)
       const availableRooms = client.getRooms()
       console.log('🏗️ DEBUG: Available rooms:', availableRooms.map(r => r.roomId))
-
-      // Try to use the first available room as fallback
-      if (availableRooms.length > 0) {
-        room = availableRooms[0]
-        console.log('🔄 Fallback: Using first available room:', room.roomId)
-      } else {
-        console.warn('❌ No rooms available at all')
-        messages.value = []
-        return
-      }
+      console.log('❌ Expected room not found, not falling back to wrong room')
+      messages.value = []
+      return
     }
 
     console.log('✅ Room available, proceeding with message loading')

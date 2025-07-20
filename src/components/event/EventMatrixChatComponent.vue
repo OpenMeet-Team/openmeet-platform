@@ -150,8 +150,9 @@ const ensureChatRoomExists = async () => {
     isInitializing.value = true
     console.log('🏗️ Phase 2: Initializing Matrix room using pure SDK pattern')
 
-    // Ensure Matrix client is connected
-    const client = await matrixClientService.initializeClient()
+    // Ensure Matrix client is connected - force authentication for confirmed attendees
+    console.log('🔑 Forcing Matrix authentication for confirmed attendee')
+    const client = await matrixClientService.initializeClient(true) // forceAuth = true
     if (!client) {
       throw new Error('Matrix client not available')
     }

@@ -46,3 +46,47 @@ export const generateGroupRoomAlias = (groupSlug: string, tenantId: string): str
   const serverName = 'matrix.openmeet.net' // This should match your Matrix server configuration
   return `#group-${groupSlug}-${tenantId}:${serverName}`
 }
+
+/**
+ * Interface for parsed Matrix room alias information
+ */
+export interface RoomAliasInfo {
+  type: string
+  slug: string
+  tenantId: string
+  roomAlias: string
+}
+
+/**
+ * Parse a Matrix room alias to extract type, slug, and tenant ID
+ * Format: #type-slug-tenantId:server.com
+ * @param roomAlias The full room alias
+ * @returns Parsed room alias info or null if invalid format
+ */
+export const parseRoomAlias = (roomAlias: string): RoomAliasInfo | null => {
+  if (!roomAlias) return null
+
+  // Remove # prefix if present
+  const alias = roomAlias.startsWith('#') ? roomAlias.substring(1) : roomAlias
+
+  // Split by colon to get localpart
+  const [localpart] = alias.split(':')
+  if (!localpart) return null
+
+  // Split by hyphen
+  const parts = localpart.split('-')
+  if (parts.length < 3) return null
+
+  const type = parts[0] // First part is type
+  const tenantId = parts[parts.length - 1] // Last part is tenant ID
+  const slug = parts.slice(1, -1).join('-') // Everything in between is slug
+
+  if (!type || !slug || !tenantId) return null
+
+  return {
+    type,
+    slug,
+    tenantId,
+    roomAlias
+  }
+}
