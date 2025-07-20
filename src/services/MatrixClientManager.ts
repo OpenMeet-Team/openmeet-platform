@@ -62,6 +62,8 @@ export class MatrixClientManager {
     accessToken: string
     userId: string
     deviceId?: string
+    refreshToken?: string
+    tokenRefreshFunction?: () => Promise<{ accessToken: string; refreshToken?: string }>
   }): Promise<MatrixClient> {
     // Return existing client if already initialized
     if (this.client && this.client.isLoggedIn() && this.isStarted) {
@@ -290,8 +292,8 @@ export class MatrixClientManager {
         `matrix-js-sdk-crypto:${userId}:${deviceId}`
       )
 
-      // Create the client first
-      this.client = createClient({
+      // Create the client with refresh token support
+      const clientOptions: any = {
         baseUrl,
         accessToken: credentials.accessToken,
         userId,
@@ -300,7 +302,20 @@ export class MatrixClientManager {
         cryptoStore,
         useAuthorizationHeader: true, // More efficient auth
         timelineSupport: true
-      })
+      }
+
+      // Add refresh token support if available (enables SDK's automatic token refresh)
+      if (credentials.refreshToken) {
+        clientOptions.refreshToken = credentials.refreshToken
+        console.log('🔑 Matrix client will be created with refresh token support')
+      }
+
+      if (credentials.tokenRefreshFunction) {
+        clientOptions.tokenRefreshFunction = credentials.tokenRefreshFunction
+        console.log('🔄 Matrix client will use provided token refresh function')
+      }
+
+      this.client = createClient(clientOptions)
 
       // OPTIMIZATION: Batch store startup with initial client preparation
       console.log('🔄 Batching store startup and client preparation...')
@@ -387,11 +402,12 @@ export class MatrixClientManager {
       throw new Error('Cannot refresh token: no client initialized')
     }
 
-    console.log('🔄 Matrix access token refresh requested (Matrix-native approach)')
+    console.log('🔄 Matrix access token refresh requested')
 
-    // In Matrix-native approach with MAS OIDC, token refresh is handled automatically
-    // by the Matrix client itself when needed. We don't need to manually refresh tokens.
-    console.log('✅ Matrix-native approach: Token refresh handled by MAS OIDC flow')
+    // With proper SDK configuration (refreshToken + tokenRefreshFunction),
+    // the Matrix JS SDK handles token refresh automatically on M_UNKNOWN_TOKEN errors.
+    // This method is kept for compatibility but should rarely be needed.
+    console.log('✅ Matrix SDK handles token refresh automatically when properly configured')
   }
 
   /**
@@ -527,6 +543,108 @@ export class MatrixClientManager {
       // Don't throw - these are all non-critical operations
       console.warn('⚠️ Some initial data preload operations failed (non-critical):', error)
     }
+  }
+
+  /**
+   * Clean up Matrix state when navigating between different contexts
+   * This helps prevent state pollution when switching between groups, events, etc.
+   */
+  public async cleanupOnNavigation (newContext: string, oldContext?: string): Promise<void> {
+    if (!this.client || !this.isStarted) {
+      console.log('🔄 No Matrix client active, skipping navigation cleanup')
+      return
+    }
+
+    console.log(`🧹 Cleaning up Matrix state for context switch: ${oldContext || 'unknown'} → ${newContext}`)
+
+    try {
+      // Get current rooms
+      const rooms = this.client.getRooms()
+
+      // Identify rooms that don't belong to the new context
+      const roomsToLeave = rooms.filter(room => {
+        return !this.isEssentialRoom(room.roomId, newContext)
+      })
+
+      if (roomsToLeave.length > 0) {
+        console.log(`🚪 Leaving ${roomsToLeave.length} non-essential rooms for context switch`)
+
+        // Leave non-essential rooms in parallel (with timeout)
+        // IMPORTANT: Navigation cleanup errors should NOT clear credentials
+        const leavePromises = roomsToLeave.map(room =>
+          this.client!.leave(room.roomId).catch(error => {
+            console.warn(`⚠️ Failed to leave room ${room.roomId} during navigation:`, error.message)
+            // Don't clear credentials for navigation cleanup failures
+            // Room leave failures during navigation are not authentication failures
+          })
+        )
+
+        // Wait max 3 seconds for room cleanup to avoid blocking navigation
+        await Promise.race([
+          Promise.all(leavePromises),
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ])
+
+        console.log(`✅ Navigation cleanup completed for context: ${newContext}`)
+      } else {
+        console.log(`ℹ️ No rooms to clean up for context: ${newContext}`)
+      }
+    } catch (error) {
+      console.warn('⚠️ Error during navigation cleanup:', error)
+      // IMPORTANT: Navigation cleanup errors should NOT clear credentials
+      // These are operational failures, not authentication failures
+      // Don't throw - navigation should continue even if cleanup fails
+    }
+  }
+
+  /**
+   * Determine if a room is essential for the given context
+   * Essential rooms are kept during navigation cleanup
+   */
+  private isEssentialRoom (roomId: string, context: string): boolean {
+    if (!this.client) return false
+
+    const room = this.client.getRoom(roomId)
+    if (!room) return false
+
+    // Keep direct message rooms
+    if (roomId.includes(':dm-') || roomId.includes('-dm-')) {
+      return true
+    }
+
+    // Keep admin/system rooms
+    if (roomId.includes('admin') || roomId.includes('system')) {
+      return true
+    }
+
+    // Check if room matches current context by examining room aliases
+    const roomAliases = room.getAltAliases()
+    for (const alias of roomAliases) {
+      // Parse each alias to extract type-slug-tenantId
+      const { parseRoomAlias } = require('../utils/matrixUtils')
+      const parsed = parseRoomAlias(alias)
+      if (parsed) {
+        const roomContext = `${parsed.type}-${parsed.slug}-${parsed.tenantId}`
+        if (roomContext === context) {
+          return true
+        }
+      }
+    }
+
+    // Fallback: check canonical alias
+    const canonicalAlias = room.getCanonicalAlias()
+    if (canonicalAlias) {
+      const { parseRoomAlias } = require('../utils/matrixUtils')
+      const parsed = parseRoomAlias(canonicalAlias)
+      if (parsed) {
+        const roomContext = `${parsed.type}-${parsed.slug}-${parsed.tenantId}`
+        if (roomContext === context) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 
   /**

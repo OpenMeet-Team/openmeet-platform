@@ -303,14 +303,16 @@ class MatrixClientService {
     const errorObj = error as { errcode?: string; error?: string }
 
     // Check for Matrix error codes that indicate invalid/expired tokens
+    // Following Element Web pattern: be conservative about clearing credentials
     // Error codes can be either on the main error object or in error.data
     const errcode = errorObj.errcode || (errorData as { errcode?: string }).errcode
     if (errcode) {
       const invalidTokenCodes = [
-        'M_UNKNOWN_TOKEN',
-        'M_INVALID_TOKEN',
-        'M_MISSING_TOKEN',
-        'M_FORBIDDEN' // Can indicate invalid token in auth context
+        'M_UNKNOWN_TOKEN', // Definitely invalid token
+        'M_INVALID_TOKEN', // Definitely invalid token
+        'M_MISSING_TOKEN' // Definitely missing token
+        // NOTE: M_FORBIDDEN removed - can be room access denial, not auth failure
+        // Following Element Web pattern of conservative credential clearing
       ]
       if (invalidTokenCodes.includes(errcode)) {
         return true
@@ -676,6 +678,47 @@ class MatrixClientService {
     } catch (error) {
       console.error('❌ Error exchanging OAuth2 code for Matrix credentials:', error)
       throw new Error(`Failed to exchange OAuth2 code: ${error.message}`)
+    }
+  }
+
+  /**
+   * Public method to refresh stored tokens - used by MatrixClientManager
+   */
+  async refreshStoredTokens (): Promise<void> {
+    console.log('🔄 Public refreshStoredTokens called')
+    
+    const storedSession = this._getStoredCredentials()
+    if (!storedSession || !storedSession.refreshToken) {
+      throw new Error('No stored refresh token available for token refresh')
+    }
+
+    try {
+      const refreshed = await this._refreshAccessToken(storedSession.refreshToken)
+      
+      // Store the new tokens
+      await this._storeCredentials({
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        matrixUserId: storedSession.matrixUserId,
+        homeserverUrl: storedSession.homeserverUrl,
+        deviceId: storedSession.deviceId
+      })
+      
+      console.log('✅ Successfully refreshed and stored new tokens')
+    } catch (error) {
+      console.error('❌ Failed to refresh stored tokens:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Public method to get stored credentials - used by MatrixClientManager
+   */
+  async getStoredCredentials (): Promise<{ accessToken?: string; refreshToken?: string }> {
+    const storedSession = this._getStoredCredentials()
+    return {
+      accessToken: storedSession?.accessToken,
+      refreshToken: storedSession?.refreshToken
     }
   }
 
@@ -1055,8 +1098,9 @@ class MatrixClientService {
       console.error('❌ Failed to send message:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
+      // Note: With proper SDK token refresh configuration, this should rarely happen
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during message send - clearing stored credentials')
+        console.warn('🚫 Invalid access token detected during message send - SDK token refresh may have failed')
         this._clearStoredCredentials()
 
         // Emit token error event
@@ -1492,9 +1536,23 @@ class MatrixClientService {
 
       console.log('🏠 Generated room alias:', roomAlias)
 
-      // Join the Matrix room directly using the room alias
-      // The Matrix Application Service will create the room on-demand if it doesn't exist
-      const room = await this.joinRoom(roomAlias)
+      // First, ensure the room exists by querying the alias
+      // This will trigger Application Service room creation if the room doesn't exist
+      let roomId: string
+      try {
+        console.log('🔍 Resolving room alias to trigger Application Service if needed...')
+        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+        roomId = aliasResult.room_id
+        console.log('✅ Room alias resolved to room ID:', roomId)
+      } catch (aliasError) {
+        console.log('⚠️ Room alias not found, attempting direct join which may trigger creation')
+        // If alias resolution fails, the room might not exist yet
+        // Try direct join which might work if Application Service creates it immediately
+        roomId = roomAlias // Fallback to using alias as room identifier
+      }
+
+      // Now join the room using the resolved room ID or alias
+      const room = await this.joinRoom(roomId)
 
       console.log('✅ Joined event chat room via room alias:', roomAlias)
       return {
@@ -2248,7 +2306,9 @@ class MatrixClientService {
           homeserverUrl: baseUrl,
           accessToken: accessToken!,
           userId: sessionInfo.userId,
-          deviceId: sessionInfo.deviceId
+          deviceId: sessionInfo.deviceId,
+          refreshToken: refreshToken,
+          tokenRefreshFunction: tokenRefreshFunction
         })
 
         console.log('✅ Matrix client restored successfully via MatrixClientManager')
