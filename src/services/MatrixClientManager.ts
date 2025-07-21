@@ -1,4 +1,4 @@
-import type { MatrixClient } from 'matrix-js-sdk'
+import type { MatrixClient, ICreateClientOpts } from 'matrix-js-sdk'
 import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore } from 'matrix-js-sdk'
 
 // Interface for Matrix error objects
@@ -293,7 +293,7 @@ export class MatrixClientManager {
       )
 
       // Create the client with refresh token support
-      const clientOptions: any = {
+      const clientOptions: ICreateClientOpts = {
         baseUrl,
         accessToken: credentials.accessToken,
         userId,

@@ -686,7 +686,7 @@ class MatrixClientService {
    */
   async refreshStoredTokens (): Promise<void> {
     console.log('🔄 Public refreshStoredTokens called')
-    
+
     const storedSession = this._getStoredCredentials()
     if (!storedSession || !storedSession.refreshToken) {
       throw new Error('No stored refresh token available for token refresh')
@@ -694,7 +694,7 @@ class MatrixClientService {
 
     try {
       const refreshed = await this._refreshAccessToken(storedSession.refreshToken)
-      
+
       // Store the new tokens
       await this._storeCredentials({
         accessToken: refreshed.accessToken,
@@ -703,7 +703,7 @@ class MatrixClientService {
         homeserverUrl: storedSession.homeserverUrl,
         deviceId: storedSession.deviceId
       })
-      
+
       console.log('✅ Successfully refreshed and stored new tokens')
     } catch (error) {
       console.error('❌ Failed to refresh stored tokens:', error)
@@ -2307,8 +2307,8 @@ class MatrixClientService {
           accessToken: accessToken!,
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
-          refreshToken: refreshToken,
-          tokenRefreshFunction: tokenRefreshFunction
+          refreshToken,
+          tokenRefreshFunction
         })
 
         console.log('✅ Matrix client restored successfully via MatrixClientManager')
