@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth-store'
 import { matrixClientService } from '../../services/matrixClientService'
 import MatrixChatInterface from '../chat/MatrixChatInterface.vue'
 import getEnv from '../../utils/env'
+import { generateEventRoomAlias } from '../../utils/matrixUtils'
 
 // Add type declaration for global window property
 declare global {
@@ -28,47 +29,33 @@ const eventStore = useEventStore()
 
 // Get the Matrix room ID from the event - try different properties
 const matrixRoomId = computed(() => {
-  if (!event.value) {
-    console.log('🔍 No event data available')
+  if (!event.value?.slug) {
+    console.log('🔍 No event slug available')
     return null
   }
 
-  console.log('🔍 Event data:', {
-    slug: event.value.slug,
-    name: event.value.name,
-    roomId: event.value.roomId,
-    messagesCount: event.value.messages?.length || 0,
-    fullEventObject: event.value // DEBUG: Log full event to see all properties
-  })
-
-  // Check for matrixRoomId first (this is the correct field from API)
-  if (event.value.matrixRoomId) {
-    console.log('✅ Found matrixRoomId on event object:', event.value.matrixRoomId)
-    return event.value.matrixRoomId
-  }
-
-  // Fallback: Check if we have a roomId property (legacy)
+  // First check if we have a cached room ID (efficient)
   if (event.value.roomId) {
-    console.log('✅ Found roomId on event object:', event.value.roomId)
+    console.log('✅ Using cached room ID:', event.value.roomId)
     return event.value.roomId
   }
 
-  // Check if we have a roomId in event messages
-  if (event.value.messages && event.value.messages.length > 0) {
-    // Loop through messages to find the first with a room_id field
-    for (const message of event.value.messages) {
-      if (message.room_id) {
-        console.log('✅ Found room_id in message:', message.room_id)
-        return message.room_id
-      }
-    }
+  // Fallback: generate room alias dynamically (fresh)
+  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+  if (!tenantId) {
+    console.error('❌ No tenant ID available for room alias generation')
+    return null
   }
 
-  // At this point, we don't have a valid room ID, so return null
-  console.log('❌ No Matrix room ID found for event:', event.value.slug)
-  console.log('💡 This might mean the Matrix room was not created or is not exposed in the API response')
-  console.log('💡 Event properties:', Object.keys(event.value))
-  return null
+  try {
+    const roomAlias = generateEventRoomAlias(event.value.slug, tenantId)
+
+    console.log('🏠 Generated fresh room alias (no cached room ID):', roomAlias)
+    return roomAlias
+  } catch (error) {
+    console.error('❌ Failed to generate room alias:', error)
+    return null
+  }
 })
 
 // Permissions for the discussion
@@ -168,23 +155,15 @@ const ensureChatRoomExists = async () => {
     // The Matrix Application Service will create the room on-demand if it doesn't exist
     console.log('🏠 Room not found, joining via Matrix-native room alias')
     try {
-      const { generateEventRoomAlias } = await import('../../utils/matrixUtils')
-      const roomAlias = generateEventRoomAlias(event.value.slug, tenantId)
+      console.log('🏠 Using event store to join room and update event object')
 
-      console.log('🏠 Generated room alias:', roomAlias)
+      // Use the event store's actionJoinEventChatRoom method which properly updates the event object
+      await eventStore.actionJoinEventChatRoom()
 
-      // Join the room using the alias - this will trigger Application Service room creation
-      const joinResult = await matrixClientService.joinEventChatRoom(event.value.slug)
-
-      if (joinResult.room) {
-        console.log('✅ Room joined via Matrix-native approach:', joinResult.room.roomId)
-        return true
-      } else {
-        console.error('❌ Failed to join room via Matrix-native approach')
-        return false
-      }
+      console.log('✅ Room joined via event store - event object updated with correct room ID')
+      return true
     } catch (error) {
-      console.error('❌ Error joining room via Matrix-native approach:', error)
+      console.error('❌ Error joining room via event store:', error)
       return false
     }
   } catch (error) {

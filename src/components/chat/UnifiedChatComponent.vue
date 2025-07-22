@@ -9,6 +9,7 @@
           :width="280"
           bordered
           class="bg-grey-1"
+          :class="{ 'dark-purple-bg': $q.dark.isActive }"
         >
           <ChatListPanel
             :context-type="contextType"
@@ -24,6 +25,7 @@
           :width="260"
           bordered
           class="bg-grey-1"
+          :class="{ 'dark-purple-bg': $q.dark.isActive }"
         >
           <ChatInfoPanel
             v-if="activeChat"
@@ -43,7 +45,7 @@
         <q-page-container>
           <q-page class="chat-page">
             <!-- Mobile Chat Header -->
-            <q-header class="mobile-chat-header bg-grey-2 text-dark">
+            <q-header class="mobile-chat-header bg-grey-2 text-dark" :class="{ 'dark-purple-bg': $q.dark.isActive }">
               <q-toolbar>
                 <q-btn
                   flat
@@ -100,7 +102,7 @@
     <!-- Desktop Chat Interface -->
     <div class="desktop-chat-container gt-xs row no-wrap">
       <!-- Chat List Sidebar -->
-      <div class="chat-list-sidebar bg-grey-1" style="width: 300px; border-right: 1px solid #e0e0e0;">
+      <div class="chat-list-sidebar bg-grey-1" :class="{ 'dark-purple-bg': $q.dark.isActive }" style="width: 300px; border-right: 1px solid #e0e0e0;">
         <ChatListPanel
           :context-type="contextType"
           :context-id="contextId"
@@ -128,7 +130,7 @@
       </div>
 
       <!-- Chat Info Sidebar (optional) -->
-      <div v-if="activeChat && showInfoSidebar" class="chat-info-sidebar bg-grey-1" style="width: 250px; border-left: 1px solid #e0e0e0;">
+      <div v-if="activeChat && showInfoSidebar" class="chat-info-sidebar bg-grey-1" :class="{ 'dark-purple-bg': $q.dark.isActive }" style="width: 250px; border-left: 1px solid #e0e0e0;">
         <ChatInfoPanel
           :chat="activeChat"
           :context-type="contextType"
@@ -215,6 +217,7 @@ const rightDrawerOpen = ref(false)
 const activeChat = ref<Chat | null>(null)
 const router = useRouter()
 const $q = useQuasar()
+
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
@@ -227,6 +230,7 @@ onMounted(async () => {
 // Methods
 const selectChat = (chat: Chat) => {
   activeChat.value = chat
+  console.log(`🔗 Selected chat: ${chat.name} (${chat.matrixRoomId})`)
 
   // Update URL if in dashboard mode
   if (props.mode === 'dashboard') {
@@ -369,6 +373,12 @@ onMounted(() => {
 
 .inline-chat-header {
   border-bottom: 1px solid #e0e0e0;
+}
+
+/* Dark background for sidebars in dark mode using OpenMeet palette */
+.dark-purple-bg {
+  background-color: #1E1A43 !important; /* $purple-600 from OpenMeet palette */
+  color: white !important; /* Ensure text is white on dark background */
 }
 
 @media (max-width: 599px) {

@@ -27,6 +27,7 @@ class MatrixClientService {
   private client: MatrixClient | null = null
   private isInitializing = false
   private initPromise: Promise<MatrixClient> | null = null
+  private _lastRestartAttempt: number = 0
 
   /**
    * Get the current Matrix client instance from MatrixClientManager
@@ -699,7 +700,7 @@ class MatrixClientService {
       await this._storeCredentials({
         accessToken: refreshed.accessToken,
         refreshToken: refreshed.refreshToken,
-        matrixUserId: storedSession.matrixUserId,
+        userId: storedSession.userId,
         homeserverUrl: storedSession.homeserverUrl,
         deviceId: storedSession.deviceId
       })
@@ -910,10 +911,14 @@ class MatrixClientService {
 
         // Handle token errors differently from regular sync errors
         if (isTokenError) {
-          console.warn('🚫 Token-related sync error detected - clearing credentials')
-          this._clearStoredCredentials()
+          console.warn('🚫 Token-related sync error detected')
 
-          // Emit token refresh failure event
+          // OPTION A QUICK FIX: Don't clear credentials on sync errors during navigation
+          // These are often temporary room operation failures, not true auth failures
+          console.log('ℹ️ Sync token error detected - logging but not clearing credentials to prevent navigation cascade failures')
+          console.log('ℹ️ If this persists, user can manually reconnect using Connect button')
+
+          // Emit token refresh failure event (but don't clear credentials)
           const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
             detail: {
               error: data,
@@ -927,16 +932,22 @@ class MatrixClientService {
         }
 
         // Attempt to restart sync after a delay for non-token errors
-        setTimeout(async () => {
-          if (this.client && this.client.getSyncState() === 'ERROR') {
-            console.log('🔄 Restarting Matrix sync after error...')
-            try {
-              await matrixClientManager.restartClient()
-            } catch (error) {
-              console.error('❌ Failed to restart Matrix sync:', error)
+        // Add throttling to prevent infinite restart loops
+        if (!this._lastRestartAttempt || (Date.now() - this._lastRestartAttempt) > 30000) {
+          setTimeout(async () => {
+            if (this.client && this.client.getSyncState() === 'ERROR') {
+              console.log('🔄 Restarting Matrix sync after error...')
+              this._lastRestartAttempt = Date.now()
+              try {
+                await matrixClientManager.restartClient()
+              } catch (error) {
+                console.error('❌ Failed to restart Matrix sync:', error)
+              }
             }
-          }
-        }, 5000)
+          }, 5000)
+        } else {
+          console.log('⏳ Skipping Matrix restart - throttled (last attempt was too recent)')
+        }
       } else if (state === 'RECONNECTING') {
         console.log('🔄 Matrix client reconnecting...')
       } else if (state === 'STOPPED') {

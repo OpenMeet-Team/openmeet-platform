@@ -18,7 +18,7 @@
         class="q-mb-sm"
       >
         <template v-slot:prepend>
-          <q-icon name="fas fa-search" />
+          <q-icon name="sym_r_search" />
         </template>
         <template v-slot:append>
           <q-btn
@@ -33,7 +33,7 @@
       </q-input>
 
       <!-- Filters for 'all' context -->
-      <div v-if="contextType === 'all'" class="chat-filters">
+      <div v-if="contextType === 'all'" class="chat-filters q-mb-sm">
         <q-btn-toggle
           v-model="chatFilter"
           :options="[
@@ -47,6 +47,68 @@
           dense
           class="full-width"
         />
+      </div>
+
+      <!-- Enhanced controls row -->
+      <div class="row q-gutter-xs">
+        <!-- Sort options -->
+        <q-select
+          v-model="sortBy"
+          :options="[
+            { label: 'Recent Activity', value: 'activity' },
+            { label: 'Name (A-Z)', value: 'name' },
+            { label: 'Unread First', value: 'unread' },
+            { label: 'Type', value: 'type' }
+          ]"
+          option-label="label"
+          option-value="value"
+          emit-value
+          map-options
+          dense
+          outlined
+          style="min-width: 120px;"
+          label="Sort by"
+          class="col"
+        />
+
+        <!-- Show only unread toggle -->
+        <q-btn
+          :color="showUnreadOnly ? 'primary' : 'grey-5'"
+          :outline="!showUnreadOnly"
+          :unelevated="showUnreadOnly"
+          icon="sym_r_notifications"
+          size="sm"
+          @click="showUnreadOnly = !showUnreadOnly"
+          class="q-px-sm"
+        >
+          <q-tooltip>{{ showUnreadOnly ? 'Show all chats' : 'Show only unread' }}</q-tooltip>
+        </q-btn>
+
+        <!-- Settings menu -->
+        <q-btn
+          color="grey-5"
+          outline
+          icon="sym_r_settings"
+          size="sm"
+          class="q-px-sm"
+        >
+          <q-menu>
+            <q-list style="min-width: 150px">
+              <q-item clickable @click="refreshRooms">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_refresh" />
+                </q-item-section>
+                <q-item-section>Refresh</q-item-section>
+              </q-item>
+              <q-item clickable @click="markAllRead">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_done_all" />
+                </q-item-section>
+                <q-item-section>Mark All Read</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
       </div>
     </div>
 
@@ -98,7 +160,7 @@
               </div>
               <q-icon
                 v-if="chat.isEncrypted"
-                name="fas fa-lock"
+                name="sym_r_lock"
                 size="12px"
                 color="green"
                 class="q-mt-xs"
@@ -136,7 +198,7 @@
 
           <q-item-section side>
             <q-btn
-              icon="fas fa-plus"
+              icon="sym_r_add"
               size="sm"
               round
               flat
@@ -177,7 +239,7 @@
     <q-page-sticky position="bottom-right" :offset="[18, 18]" class="gt-xs-hide">
       <q-btn
         fab
-        icon="fas fa-plus"
+        icon="sym_r_add"
         color="primary"
         @click="showNewChatDialog = true"
       />
@@ -194,9 +256,9 @@
           <q-btn-toggle
             v-model="newChatType"
             :options="[
-              { label: 'Direct Message', value: 'direct', icon: 'fas fa-user' },
-              { label: 'Find Group', value: 'group', icon: 'groups' },
-              { label: 'Find Event', value: 'event', icon: 'event' }
+              { label: 'Direct Message', value: 'direct', icon: 'sym_r_person' },
+              { label: 'Find Group', value: 'group', icon: 'sym_r_group' },
+              { label: 'Find Event', value: 'event', icon: 'sym_r_event' }
             ]"
             color="primary"
             class="full-width q-mb-md"
@@ -258,6 +320,7 @@ import { matrixClientService } from '../../services/matrixClientService'
 import { groupsApi } from '../../api/groups'
 import { eventsApi } from '../../api/events'
 import { formatDistanceToNow } from 'date-fns'
+import { Room, RoomMember } from 'matrix-js-sdk'
 import type { GroupEntity, EventEntity } from '../../types'
 
 interface Chat {
@@ -288,6 +351,8 @@ const emit = defineEmits<{
 // State
 const searchTerm = ref('')
 const chatFilter = ref('all')
+const sortBy = ref('activity')
+const showUnreadOnly = ref(false)
 const showNewChatDialog = ref(false)
 const newChatType = ref('direct')
 const newChatSearch = ref('')
@@ -301,70 +366,184 @@ const router = useRouter()
 const realRooms = ref<Chat[]>([])
 const isLoadingRooms = ref(false)
 
-// Load real OpenMeet groups and events
+// Load ALL Matrix rooms that user has joined, then identify which are OpenMeet rooms
 const loadRealRooms = async () => {
   isLoadingRooms.value = true
   try {
-    console.log('🔄 Loading user\'s joined groups and events...')
+    console.log('🔄 Loading ALL Matrix rooms user has joined...')
 
-    // Get user's joined groups and events from OpenMeet APIs
-    const [groupsResponse, eventsResponse] = await Promise.all([
-      groupsApi.getAllMe(), // User's joined groups
-      eventsApi.getDashboardEvents() // User's events
-    ])
+    // Initialize Matrix client to get actual room information
+    const matrixClient = await matrixClientService.initializeClient()
+    if (!matrixClient) {
+      console.warn('⚠️ No Matrix client available')
+      return
+    }
 
-    const groups = groupsResponse.data
-    const events = eventsResponse.data
+    // Get ALL Matrix rooms from client
+    const matrixRooms = matrixClient.getRooms() || []
+    console.log('🏠 Matrix client has', matrixRooms.length, 'total rooms')
 
-    console.log('📋 Found', groups.length, 'groups and', events.length, 'events')
+    if (matrixRooms.length === 0) {
+      console.log('ℹ️ No Matrix rooms found - user may not be in any rooms yet')
+      return
+    }
 
-    // Convert groups to chat format - only include groups that have Matrix rooms
-    const groupChats: Chat[] = groups
-      .filter((group: GroupEntity) => group.roomId) // Only groups with actual Matrix rooms
-      .map((group: GroupEntity) => ({
-        id: `group-${group.slug}`,
-        name: group.name,
-        type: 'group' as const,
-        matrixRoomId: group.roomId!, // We know it exists due to filter
-        lastMessage: undefined,
-        lastActivity: undefined, // Will be populated from Matrix data
-        unreadCount: undefined,
-        participants: [],
-        isEncrypted: false,
-        description: group.description
-      }))
+    // Get user's OpenMeet groups and events for context (optional)
+    let groups: GroupEntity[] = []
+    let events: EventEntity[] = []
 
-    // Convert events to chat format - only include events that have Matrix rooms
-    const eventChats: Chat[] = events
-      .filter((event: EventEntity) => event.roomId) // Only events with actual Matrix rooms
-      .map((event: EventEntity) => ({
-        id: `event-${event.slug}`,
-        name: event.name,
-        type: 'event' as const,
-        matrixRoomId: event.roomId!, // We know it exists due to filter
-        lastMessage: undefined,
-        lastActivity: undefined, // Will be populated from Matrix data
-        unreadCount: undefined,
-        participants: [],
-        isEncrypted: false,
-        description: event.description
-      }))
+    try {
+      const [groupsResponse, eventsResponse] = await Promise.all([
+        groupsApi.getAllMe(), // User's joined groups
+        eventsApi.getDashboardEvents() // User's events
+      ])
+      groups = groupsResponse.data
+      events = eventsResponse.data
+      console.log('📋 Found', groups.length, 'OpenMeet groups and', events.length, 'events for context')
+    } catch (apiError) {
+      console.warn('⚠️ Could not load OpenMeet groups/events, will show Matrix rooms without context:', apiError)
+    }
 
-    // Combine all chats
-    realRooms.value = [...groupChats, ...eventChats]
+    // Create lookup maps for OpenMeet context
+    const groupsByRoomId = new Map()
+    const eventsByRoomId = new Map()
 
-    console.log('🏠 Loaded', realRooms.value.length, 'real OpenMeet chats:')
+    groups.forEach(group => {
+      if (group.roomId) groupsByRoomId.set(group.roomId, group)
+    })
+
+    events.forEach(event => {
+      if (event.roomId) eventsByRoomId.set(event.roomId, event)
+    })
+
+    // Convert ALL Matrix rooms to chat format
+    const allChats: Chat[] = []
+
+    matrixRooms.forEach(matrixRoom => {
+      const roomId = matrixRoom.roomId
+      const lastMessage = getLastMessage(matrixRoom)
+      const unreadCount = getUnreadCount(matrixRoom)
+      const participants = getParticipants(matrixRoom)
+
+      // Try to identify what type of room this is
+      let roomName = matrixRoom.name || 'Unnamed Room'
+      let roomType: 'group' | 'event' | 'direct' = 'direct' // Default
+      let description: string | undefined
+      let chatId: string
+
+      // Check if it's a known OpenMeet group room
+      const linkedGroup = groupsByRoomId.get(roomId)
+      if (linkedGroup) {
+        roomName = linkedGroup.name
+        roomType = 'group'
+        description = linkedGroup.description
+        chatId = `group-${linkedGroup.slug}`
+      } else {
+        // Check if it's a known OpenMeet event room
+        const linkedEvent = eventsByRoomId.get(roomId)
+        if (linkedEvent) {
+          roomName = linkedEvent.name
+          roomType = 'event'
+          description = linkedEvent.description
+          chatId = `event-${linkedEvent.slug}`
+        } else {
+          // Check room alias to infer type
+          const canonicalAlias = matrixRoom.getCanonicalAlias()
+          const altAliases = matrixRoom.getAltAliases()
+          const allAliases = [canonicalAlias, ...altAliases].filter(Boolean)
+
+          // Look for OpenMeet room alias patterns
+          const groupAlias = allAliases.find(alias => alias?.startsWith('#group-'))
+          const eventAlias = allAliases.find(alias => alias?.startsWith('#event-'))
+
+          if (groupAlias) {
+            roomType = 'group'
+            chatId = `matrix-group-${roomId}`
+            console.log(`🏷️ Found group room via alias: ${groupAlias}`)
+          } else if (eventAlias) {
+            roomType = 'event'
+            chatId = `matrix-event-${roomId}`
+            console.log(`🏷️ Found event room via alias: ${eventAlias}`)
+          } else {
+            // Assume direct message if 2 members, otherwise generic room
+            roomType = participants.length <= 2 ? 'direct' : 'group'
+            chatId = `matrix-${roomType}-${roomId}`
+          }
+        }
+      }
+
+      allChats.push({
+        id: chatId,
+        name: roomName,
+        type: roomType,
+        matrixRoomId: roomId,
+        lastMessage: lastMessage?.body || lastMessage?.msgtype || undefined,
+        lastActivity: lastMessage ? new Date(lastMessage.origin_server_ts) : undefined,
+        unreadCount,
+        participants,
+        isEncrypted: matrixRoom.hasEncryptionStateEvent(),
+        description
+      })
+    })
+
+    // Sort by last activity (most recent first), then by name
+    realRooms.value = allChats.sort((a, b) => {
+      // Sort by last activity (most recent first)
+      if (!a.lastActivity && !b.lastActivity) return a.name.localeCompare(b.name)
+      if (!a.lastActivity) return 1
+      if (!b.lastActivity) return -1
+      return b.lastActivity.getTime() - a.lastActivity.getTime()
+    })
+
+    console.log('🏠 Loaded', realRooms.value.length, 'Matrix rooms:')
     realRooms.value.forEach((room, index) => {
-      console.log(`  ${index + 1}. ${room.name} (${room.type})`)
+      const activity = room.lastActivity ? room.lastActivity.toLocaleString() : 'no activity'
+      const unread = room.unreadCount ? `(${room.unreadCount} unread)` : ''
+      const context = room.description ? ' - ' + room.description.substring(0, 50) : ''
+      console.log(`  ${index + 1}. ${room.name} (${room.type}) - ${activity} ${unread}${context}`)
     })
   } catch (error) {
-    console.error('❌ Failed to load real OpenMeet chats:', error)
+    console.error('❌ Failed to load Matrix rooms:', error)
     console.error('   Error details:', error.message)
-    console.warn('⚠️ Will show mock data as fallback')
-    // Keep mock data as fallback
+    // No fallback - real data only
   } finally {
     isLoadingRooms.value = false
   }
+}
+
+// Helper functions for Matrix room data extraction
+const getLastMessage = (room: Room) => {
+  const timeline = room.getLiveTimeline()
+  const events = timeline.getEvents()
+
+  // Find the last message event (ignore state events, reactions, etc.)
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
+    if (event.getType() === 'm.room.message' && !event.isRedacted()) {
+      return {
+        body: event.getContent().body,
+        msgtype: event.getContent().msgtype,
+        origin_server_ts: event.getTs(),
+        sender: event.getSender()
+      }
+    }
+  }
+  return null
+}
+
+const getUnreadCount = (room: Room): number => {
+  // Get unread count from Matrix room
+  const unreadCount = room.getUnreadNotificationCount()
+  return unreadCount > 0 ? unreadCount : 0
+}
+
+const getParticipants = (room: Room) => {
+  const members = room.getJoinedMembers()
+  return members.map((member: RoomMember) => ({
+    id: member.userId,
+    name: member.name || member.userId,
+    avatar: member.getAvatarUrl('', 32, 32, 'crop', false, false) || undefined
+  }))
 }
 
 // Initialize Matrix and load chats on component mount
@@ -377,94 +556,81 @@ onMounted(async () => {
     await loadRealRooms()
   } catch (error) {
     console.error('❌ Failed to load chats:', error)
-    console.error('   Will fall back to mock data')
   }
 })
 
-// Mock data for fallback only
-const mockRecentChats = ref<Chat[]>([
-  {
-    id: 'direct-1',
-    name: 'John Doe',
-    type: 'direct',
-    matrixRoomId: '!abc123:matrix.openmeet.net',
-    lastMessage: 'Hey, how are you?',
-    lastActivity: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-    unreadCount: 2,
-    isEncrypted: true
-  },
-  {
-    id: 'group-1',
-    name: 'Tech Meetup Group',
-    type: 'group',
-    matrixRoomId: '!def456:matrix.openmeet.net',
-    lastMessage: 'Looking forward to the next event!',
-    lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    participants: [{ id: '1', name: 'John' }, { id: '2', name: 'Jane' }],
-    isEncrypted: false
-  }
-])
+// Enhanced sorting function
+const sortChats = (chats: Chat[]): Chat[] => {
+  return [...chats].sort((a, b) => {
+    switch (sortBy.value) {
+      case 'name':
+        return a.name.localeCompare(b.name)
+      case 'unread': {
+        // Unread first, then by recent activity
+        const unreadDiff = (b.unreadCount || 0) - (a.unreadCount || 0)
+        if (unreadDiff !== 0) return unreadDiff
+        return (b.lastActivity?.getTime() || 0) - (a.lastActivity?.getTime() || 0)
+      }
+      case 'type': {
+        // Sort by type, then by name
+        const typeDiff = a.type.localeCompare(b.type)
+        if (typeDiff !== 0) return typeDiff
+        return a.name.localeCompare(b.name)
+      }
+      case 'activity':
+      default:
+        return (b.lastActivity?.getTime() || 0) - (a.lastActivity?.getTime() || 0)
+    }
+  })
+}
 
-const mockAvailableChats = ref<Chat[]>([
-  {
-    id: 'event-1',
-    name: 'JavaScript Workshop',
-    type: 'event',
-    matrixRoomId: '!ghi789:matrix.openmeet.net',
-    description: 'Learn modern JavaScript techniques',
-    isEncrypted: false
-  }
-])
-
-// Get recent chats (prefer real data over mock)
+// Get recent chats - real data only
 const recentChats = computed(() => {
-  // Use real Matrix rooms if available
-  if (realRooms.value.length > 0) {
-    return realRooms.value.filter(chat =>
-      chat.lastActivity &&
-      (Date.now() - chat.lastActivity.getTime()) < 7 * 24 * 60 * 60 * 1000 // Last 7 days
-    ).sort((a, b) =>
-      (b.lastActivity?.getTime() || 0) - (a.lastActivity?.getTime() || 0)
-    )
-  }
-
-  // Fall back to mock data
-  return mockRecentChats.value
+  const chats = realRooms.value.filter(chat =>
+    chat.lastActivity &&
+    (Date.now() - chat.lastActivity.getTime()) < 7 * 24 * 60 * 60 * 1000 // Last 7 days
+  )
+  return sortChats(chats)
 })
 
-// Get available chats (prefer real data over mock)
+// Get available chats - real data only
 const availableChats = computed(() => {
-  // Use real Matrix rooms if available
-  if (realRooms.value.length > 0) {
-    return realRooms.value.filter(chat =>
-      !chat.lastActivity ||
-      (Date.now() - chat.lastActivity.getTime()) >= 7 * 24 * 60 * 60 * 1000
-    ).sort((a, b) => a.name.localeCompare(b.name))
-  }
-
-  // Fall back to mock data
-  return mockAvailableChats.value
+  const chats = realRooms.value.filter(chat =>
+    !chat.lastActivity ||
+    (Date.now() - chat.lastActivity.getTime()) >= 7 * 24 * 60 * 60 * 1000
+  )
+  return sortChats(chats)
 })
 
-// Computed filters - now using real data when available
+// Enhanced filtering with unread-only and better search
 const filteredRecentChats = computed(() => {
   return recentChats.value.filter(chat => {
+    // Search filter
     const matchesSearch = !searchTerm.value ||
       chat.name.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-      (chat.lastMessage && chat.lastMessage.toLowerCase().includes(searchTerm.value.toLowerCase()))
+      (chat.lastMessage && chat.lastMessage.toLowerCase().includes(searchTerm.value.toLowerCase())) ||
+      (chat.description && chat.description.toLowerCase().includes(searchTerm.value.toLowerCase())) ||
+      chat.participants?.some(p => p.name.toLowerCase().includes(searchTerm.value.toLowerCase()))
 
+    // Type filter
     const matchesFilter = chatFilter.value === 'all' || chat.type === chatFilter.value
     const matchesContext = props.contextType === 'all' || chat.type === props.contextType
 
-    return matchesSearch && matchesFilter && matchesContext
+    // Unread filter
+    const matchesUnread = !showUnreadOnly.value || (chat.unreadCount && chat.unreadCount > 0)
+
+    return matchesSearch && matchesFilter && matchesContext && matchesUnread
   })
 })
 
 const filteredAvailableChats = computed(() => {
   return availableChats.value.filter(chat => {
+    // Search filter
     const matchesSearch = !searchTerm.value ||
-      chat.name.toLowerCase().includes(searchTerm.value.toLowerCase())
+      chat.name.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      (chat.description && chat.description.toLowerCase().includes(searchTerm.value.toLowerCase()))
 
+    // Type filter
     const matchesFilter = chatFilter.value === 'all' || chat.type === chatFilter.value
     const matchesContext = props.contextType === 'all' || chat.type === props.contextType
 
@@ -493,10 +659,10 @@ const getChatColor = (chat: Chat): string => {
 
 const getChatIcon = (chat: Chat): string => {
   switch (chat.type) {
-    case 'direct': return chat.isEncrypted ? 'fas fa-lock' : 'fas fa-user'
-    case 'group': return 'groups'
-    case 'event': return 'event'
-    default: return 'fas fa-comments'
+    case 'direct': return chat.isEncrypted ? 'sym_r_lock' : 'sym_r_person'
+    case 'group': return 'sym_r_group'
+    case 'event': return 'sym_r_event'
+    default: return 'sym_r_chat'
   }
 }
 
@@ -517,10 +683,10 @@ const formatTime = (date: Date): string => {
 
 const getEmptyIcon = (): string => {
   switch (props.contextType) {
-    case 'direct': return 'fas fa-user'
-    case 'group': return 'groups'
-    case 'event': return 'event'
-    default: return 'fas fa-comments'
+    case 'direct': return 'sym_r_person'
+    case 'group': return 'sym_r_group'
+    case 'event': return 'sym_r_event'
+    default: return 'sym_r_chat'
   }
 }
 
@@ -564,6 +730,41 @@ const startDirectMessage = () => {
 
 const browseGroups = () => {
   router.push('/groups')
+}
+
+const refreshRooms = async () => {
+  console.log('🔄 Refreshing room list...')
+  await loadRealRooms()
+}
+
+const markAllRead = async () => {
+  try {
+    const matrixClient = await matrixClientService.initializeClient()
+    if (!matrixClient) return
+
+    console.log('📖 Marking all rooms as read...')
+
+    // Mark all rooms as read
+    for (const chat of realRooms.value) {
+      if (chat.unreadCount && chat.unreadCount > 0) {
+        const room = matrixClient.getRoom(chat.matrixRoomId)
+        if (room) {
+          const timeline = room.getLiveTimeline()
+          const events = timeline.getEvents()
+          if (events.length > 0) {
+            const lastEvent = events[events.length - 1]
+            await matrixClient.sendReadReceipt(lastEvent)
+          }
+        }
+      }
+    }
+
+    // Refresh the room list to update unread counts
+    await loadRealRooms()
+    console.log('✅ All rooms marked as read')
+  } catch (error) {
+    console.error('❌ Failed to mark all rooms as read:', error)
+  }
 }
 
 const searchNewChat = async () => {
@@ -624,6 +825,11 @@ onMounted(async () => {
 
 .chat-item:hover {
   background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Dark mode hover */
+.q-dark .chat-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .available-chat {

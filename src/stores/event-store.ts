@@ -339,16 +339,16 @@ export const useEventStore = defineStore('event', {
           const joinResult = await matrixClientService.joinEventChatRoom(this.event.slug)
           console.log('Successfully joined chat room for event via Matrix-native approach', joinResult.roomInfo)
 
-          // The Matrix-native approach returns room info with roomId and alias
+          // Cache the room ID for efficiency (hybrid approach)
           if (joinResult.room) {
             console.log(`Received roomId from Matrix-native join: ${joinResult.room.roomId}`)
-            // Save the roomId directly to the event object
+            // Store the resolved room ID to avoid recalculating alias
             if (this.event) {
               this.event.roomId = joinResult.room.roomId
-              console.log(`Updated event with roomId: ${this.event.roomId}`)
+              console.log(`Cached room ID in event: ${this.event.roomId}`)
             }
           } else {
-            console.warn('No roomId returned from Matrix-native join')
+            console.warn('No room returned from Matrix-native join')
           }
 
           return joinResult.roomInfo
@@ -373,7 +373,7 @@ export const useEventStore = defineStore('event', {
             // Save the roomId directly to the event object if provided
             if (this.event) {
               this.event.roomId = response.data.roomId
-              console.log(`Updated event with roomId: ${this.event.roomId}`)
+              console.log(`Cached room ID in event: ${this.event.roomId}`)
             }
           } else {
             console.warn('No roomId returned from addMemberToEventDiscussion API call')

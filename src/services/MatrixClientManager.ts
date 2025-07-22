@@ -1,5 +1,6 @@
 import type { MatrixClient, ICreateClientOpts } from 'matrix-js-sdk'
 import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore } from 'matrix-js-sdk'
+import { parseRoomAlias } from '../utils/matrixUtils'
 
 // Interface for Matrix error objects
 interface MatrixError {
@@ -265,6 +266,8 @@ export class MatrixClientManager {
     accessToken: string
     userId: string
     deviceId?: string
+    refreshToken?: string
+    tokenRefreshFunction?: () => Promise<{ accessToken: string; refreshToken?: string }>
   }): Promise<MatrixClient> {
     try {
       console.log('🔄 Creating Matrix client with optimized stores...')
@@ -547,7 +550,11 @@ export class MatrixClientManager {
 
   /**
    * Clean up Matrix state when navigating between different contexts
-   * This helps prevent state pollution when switching between groups, events, etc.
+   *
+   * IMPORTANT: We no longer automatically leave rooms during navigation context switches
+   * because Matrix Application Services may not automatically re-invite users when they
+   * return to those contexts. Rooms should only be left when users explicitly leave
+   * groups/events permanently (e.g., "Leave Group", "Not Going" buttons).
    */
   public async cleanupOnNavigation (newContext: string, oldContext?: string): Promise<void> {
     if (!this.client || !this.isStarted) {
@@ -555,51 +562,22 @@ export class MatrixClientManager {
       return
     }
 
-    console.log(`🧹 Cleaning up Matrix state for context switch: ${oldContext || 'unknown'} → ${newContext}`)
+    console.log(`🧹 Matrix context change detected: ${oldContext || 'unknown'} → ${newContext}`)
+    console.log('ℹ️ Skipping automatic room cleanup to prevent invitation loss')
 
-    try {
-      // Get current rooms
-      const rooms = this.client.getRooms()
+    // We no longer automatically leave rooms during navigation.
+    // This prevents the invitation loss issue where users couldn't rejoin
+    // event/group rooms after navigating away and back.
 
-      // Identify rooms that don't belong to the new context
-      const roomsToLeave = rooms.filter(room => {
-        return !this.isEssentialRoom(room.roomId, newContext)
-      })
-
-      if (roomsToLeave.length > 0) {
-        console.log(`🚪 Leaving ${roomsToLeave.length} non-essential rooms for context switch`)
-
-        // Leave non-essential rooms in parallel (with timeout)
-        // IMPORTANT: Navigation cleanup errors should NOT clear credentials
-        const leavePromises = roomsToLeave.map(room =>
-          this.client!.leave(room.roomId).catch(error => {
-            console.warn(`⚠️ Failed to leave room ${room.roomId} during navigation:`, error.message)
-            // Don't clear credentials for navigation cleanup failures
-            // Room leave failures during navigation are not authentication failures
-          })
-        )
-
-        // Wait max 3 seconds for room cleanup to avoid blocking navigation
-        await Promise.race([
-          Promise.all(leavePromises),
-          new Promise(resolve => setTimeout(resolve, 3000))
-        ])
-
-        console.log(`✅ Navigation cleanup completed for context: ${newContext}`)
-      } else {
-        console.log(`ℹ️ No rooms to clean up for context: ${newContext}`)
-      }
-    } catch (error) {
-      console.warn('⚠️ Error during navigation cleanup:', error)
-      // IMPORTANT: Navigation cleanup errors should NOT clear credentials
-      // These are operational failures, not authentication failures
-      // Don't throw - navigation should continue even if cleanup fails
-    }
+    // Future enhancement: We could implement smarter cleanup that only
+    // leaves rooms when users explicitly indicate they're no longer interested
+    // in a group or event (e.g., clicking "Leave Group" or "Not Going").
   }
 
   /**
    * Determine if a room is essential for the given context
-   * Essential rooms are kept during navigation cleanup
+   * NOTE: This method is currently unused since we disabled automatic room cleanup,
+   * but kept for potential future use with smarter cleanup logic.
    */
   private isEssentialRoom (roomId: string, context: string): boolean {
     if (!this.client) return false
@@ -621,7 +599,6 @@ export class MatrixClientManager {
     const roomAliases = room.getAltAliases()
     for (const alias of roomAliases) {
       // Parse each alias to extract type-slug-tenantId
-      const { parseRoomAlias } = require('../utils/matrixUtils')
       const parsed = parseRoomAlias(alias)
       if (parsed) {
         const roomContext = `${parsed.type}-${parsed.slug}-${parsed.tenantId}`
@@ -634,7 +611,6 @@ export class MatrixClientManager {
     // Fallback: check canonical alias
     const canonicalAlias = room.getCanonicalAlias()
     if (canonicalAlias) {
-      const { parseRoomAlias } = require('../utils/matrixUtils')
       const parsed = parseRoomAlias(canonicalAlias)
       if (parsed) {
         const roomContext = `${parsed.type}-${parsed.slug}-${parsed.tenantId}`
