@@ -221,6 +221,12 @@ const $q = useQuasar()
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
+    // Only initialize if user has already chosen to connect to Matrix
+    if (!matrixClientService.hasUserChosenToConnect()) {
+      console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
+      return
+    }
+
     await matrixClientService.initializeClient()
   } catch (error) {
     console.error('Failed to initialize Matrix:', error)

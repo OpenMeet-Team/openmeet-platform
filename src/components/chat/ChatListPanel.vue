@@ -320,7 +320,7 @@ import { matrixClientService } from '../../services/matrixClientService'
 import { groupsApi } from '../../api/groups'
 import { eventsApi } from '../../api/events'
 import { formatDistanceToNow } from 'date-fns'
-import { Room, RoomMember } from 'matrix-js-sdk'
+import { Room, RoomMember, ClientEvent } from 'matrix-js-sdk'
 import type { GroupEntity, EventEntity } from '../../types'
 
 interface Chat {
@@ -362,9 +362,50 @@ const isSearching = ref(false)
 const router = useRouter()
 // Use Matrix client service directly
 
-// Real Matrix rooms state
+// Real Matrix rooms state with persistence (caching currently disabled)
+// const ROOMS_CACHE_KEY = 'openmeet_cached_rooms'
+// const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+
 const realRooms = ref<Chat[]>([])
 const isLoadingRooms = ref(false)
+
+// Load cached rooms from localStorage (currently unused)
+// const loadCachedRooms = (): Chat[] => {
+//   try {
+//     const cached = localStorage.getItem(ROOMS_CACHE_KEY)
+//     if (!cached) return []
+
+//     const { data, timestamp } = JSON.parse(cached)
+
+//     // Check if cache has expired
+//     if (Date.now() - timestamp > CACHE_EXPIRY_MS) {
+//       localStorage.removeItem(ROOMS_CACHE_KEY)
+//       return []
+//     }
+
+//     // Convert cached data back to proper format
+//     return data.map((room: any) => ({
+//       ...room,
+//       lastActivity: room.lastActivity ? new Date(room.lastActivity) : null
+//     }))
+//   } catch (error) {
+//     console.warn('⚠️ Failed to load cached rooms:', error)
+//     return []
+//   }
+// }
+
+// Save rooms to localStorage (currently unused)
+// const cacheRooms = (rooms: Chat[]) => {
+//   try {
+//     const cacheData = {
+//       data: rooms,
+//       timestamp: Date.now()
+//     }
+//     localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(cacheData))
+//   } catch (error) {
+//     console.warn('⚠️ Failed to cache rooms:', error)
+//   }
+// }
 
 // Load ALL Matrix rooms that user has joined, then identify which are OpenMeet rooms
 const loadRealRooms = async () => {
@@ -549,9 +590,27 @@ const getParticipants = (room: Room) => {
 // Initialize Matrix and load chats on component mount
 onMounted(async () => {
   try {
-    console.log('🚀 ChatListPanel mounted, initializing Matrix...')
-    await matrixClientService.initializeClient()
+    console.log('🚀 ChatListPanel mounted, checking Matrix connection...')
+
+    // Only initialize if user has already chosen to connect to Matrix
+    if (!matrixClientService.hasUserChosenToConnect()) {
+      console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
+      return
+    }
+
+    const matrixClient = await matrixClientService.initializeClient()
     console.log('✅ Message store Matrix initialized')
+
+    // Listen for Matrix sync completion to refresh room list
+    if (matrixClient) {
+      matrixClient.on(ClientEvent.Sync, (state: string) => {
+        console.log('🔄 Matrix sync state:', state, 'Current rooms:', realRooms.value.length)
+        if (state === 'PREPARED' && realRooms.value.length === 0) {
+          console.log('🔄 Matrix sync completed, refreshing room list')
+          loadRealRooms()
+        }
+      })
+    }
 
     await loadRealRooms()
   } catch (error) {
