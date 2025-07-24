@@ -49,6 +49,54 @@ class MatrixClientService {
   }
 
   /**
+   * Check if user has explicitly chosen to connect to Matrix (persists across sessions)
+   * Uses localStorage with tenant/user-specific keys following matrix-js-sdk patterns
+   */
+  hasUserChosenToConnect (): boolean {
+    const authStore = useAuthStore()
+    if (!authStore.user?.slug) {
+      return false
+    }
+
+    const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+    if (!tenantId) {
+      return false
+    }
+
+    // Use same pattern as Matrix session storage: user-specific and tenant-aware
+    const choiceKey = `matrix_user_choice_${authStore.user.slug}_${tenantId}`
+    return localStorage.getItem(choiceKey) === 'true'
+  }
+
+  /**
+   * Set flag indicating user has chosen to connect to Matrix (persists across sessions)
+   * Uses localStorage with tenant/user-specific keys following matrix-js-sdk patterns
+   */
+  setUserChosenToConnect (consent: boolean = true): void {
+    const authStore = useAuthStore()
+    if (!authStore.user?.slug) {
+      console.warn('Cannot set Matrix user choice: no authenticated user')
+      return
+    }
+
+    const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+    if (!tenantId) {
+      console.warn('Cannot set Matrix user choice: no tenant ID available')
+      return
+    }
+
+    // Use same pattern as Matrix session storage: user-specific and tenant-aware
+    const choiceKey = `matrix_user_choice_${authStore.user.slug}_${tenantId}`
+    if (consent) {
+      localStorage.setItem(choiceKey, 'true')
+      console.log('✅ User choice to connect to Matrix saved (persists across sessions)')
+    } else {
+      localStorage.removeItem(choiceKey)
+      console.log('❌ User choice to connect to Matrix removed')
+    }
+  }
+
+  /**
    * Initialize Matrix client with persistent authentication using MatrixClientManager
    * Now requires manual initiation to avoid rate limiting
    */
@@ -66,7 +114,17 @@ class MatrixClientService {
       return this.initPromise
     }
 
-    // First, try to restore from stored credentials (including access token)
+    // Only attempt authentication if explicitly requested (forceAuth = true) and user has consented
+    if (!forceAuth) {
+      throw new Error('Matrix client not authenticated. Manual authentication required.')
+    }
+
+    // Check if user has explicitly chosen to connect to Matrix in this session
+    if (!this.hasUserChosenToConnect()) {
+      throw new Error('Matrix connection requires explicit user consent. Use connectToMatrix() first.')
+    }
+
+    // Now try to restore from stored credentials (after consent check)
     const storedSession = this._getStoredCredentials()
     if (storedSession && storedSession.hasSession && !this.client) {
       console.log('🔑 Found stored Matrix session, attempting restore')
@@ -109,11 +167,6 @@ class MatrixClientService {
         this.initPromise = null
         throw error
       }
-    }
-
-    // Only attempt authentication if explicitly requested (forceAuth = true)
-    if (!forceAuth) {
-      throw new Error('Matrix client not authenticated. Manual authentication required.')
     }
 
     // Skip broken silent authentication and go directly to working redirect flow
@@ -1592,28 +1645,11 @@ class MatrixClientService {
 
       // Stop Matrix client if running
       if (this.client) {
-        console.log('🛑 Stopping Matrix client and leaving rooms')
+        console.log('🛑 Stopping Matrix client (local session cleanup)')
 
-        // Leave all rooms before stopping client to clean up server-side state
-        try {
-          const rooms = this.client.getRooms()
-          console.log(`🚪 Leaving ${rooms.length} Matrix rooms for proper cleanup`)
-
-          // Leave rooms in parallel but don't wait too long
-          const leavePromises = rooms.map(room =>
-            this.client!.leave(room.roomId).catch(err =>
-              console.warn(`⚠️ Failed to leave room ${room.roomId}:`, err)
-            )
-          )
-
-          // Wait max 5 seconds for room cleanup
-          await Promise.race([
-            Promise.all(leavePromises),
-            new Promise(resolve => setTimeout(resolve, 5000))
-          ])
-        } catch (error) {
-          console.warn('⚠️ Failed to leave some rooms during cleanup:', error)
-        }
+        // Skip leaving rooms - this is a local session cleanup only
+        // Leaving rooms would affect other Matrix clients using the same account
+        console.log('ℹ️ Performing local session cleanup without leaving Matrix rooms')
 
         this.client.stopClient()
         this.client = null
@@ -1979,9 +2015,12 @@ class MatrixClientService {
   }
 
   /**
-   * Alternative name for connect method
+   * Connect to Matrix after user has explicitly chosen to do so
+   * Sets user consent flag and initiates connection
    */
   async connectToMatrix (): Promise<MatrixClient> {
+    // Set flag indicating user has explicitly chosen to connect
+    this.setUserChosenToConnect(true)
     return this.connect()
   }
 

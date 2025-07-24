@@ -99,76 +99,77 @@ const discussionPermissions = computed(() => {
 // Loading states
 const isLoading = ref(false)
 const isInitializing = ref(false)
+const isConnectingToMatrix = ref(false)
 
-// Simple room initialization using pure Matrix JS SDK pattern
-const ensureChatRoomExists = async () => {
-  console.log('🏗️ DEBUG: ensureChatRoomExists called')
-  console.log('🏗️ DEBUG: event.value:', !!event.value)
-  console.log('🏗️ DEBUG: event.value.slug:', event.value?.slug)
-  console.log('🏗️ DEBUG: matrixRoomId.value:', matrixRoomId.value)
-  console.log('🏗️ DEBUG: attendee status:', event.value?.attendee?.status)
-  console.log('🏗️ DEBUG: discussionPermissions.canWrite:', discussionPermissions.value.canWrite)
-
-  if (!event.value || !event.value.slug) {
-    console.log('❌ Cannot initialize - missing event or slug')
-    console.log('❌ Missing: event=', !event.value, 'slug=', !event.value?.slug)
+// Check if user should see the connect prompt or the chat interface
+const shouldShowConnectPrompt = computed(() => {
+  // Only show prompt for confirmed/cancelled attendees with write permissions
+  if (!event.value ||
+      (event.value.attendee?.status !== 'confirmed' && event.value.attendee?.status !== 'cancelled') ||
+      !discussionPermissions.value.canWrite) {
+    console.log('🚫 Not showing connect prompt - ineligible user')
     return false
   }
 
-  // Matrix-native approach: Use room aliases, no need to store room IDs
-  // The Matrix Application Service will create rooms on-demand when accessed
-  console.log('🏠 Using Matrix-native approach with room aliases - no backend API calls needed')
+  // Show prompt if user hasn't chosen to connect yet
+  const hasChosen = matrixClientService.hasUserChosenToConnect()
+  console.log('🤔 shouldShowConnectPrompt - hasUserChosenToConnect:', hasChosen)
+  return !hasChosen
+})
 
-  // Generate room alias for this event
-  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-  if (!tenantId) {
-    console.error('❌ No tenant ID available')
+// Check if chat should be shown
+const shouldShowChat = computed(() => {
+  // Only show chat for confirmed/cancelled attendees with read permissions
+  if (!event.value ||
+      (event.value.attendee?.status !== 'confirmed' && event.value.attendee?.status !== 'cancelled') ||
+      !discussionPermissions.value.canRead) {
+    console.log('🚫 Not showing chat - ineligible user')
     return false
   }
 
-  // Early return if user is not a confirmed or cancelled attendee
-  if ((event.value.attendee?.status !== 'confirmed' && event.value.attendee?.status !== 'cancelled') || !discussionPermissions.value.canWrite) {
-    console.log('❌ Not initializing chat room - user is not a confirmed or cancelled attendee or lacks permissions')
-    console.log('❌ Status check: attendee status=', event.value.attendee?.status, 'canWrite=', discussionPermissions.value.canWrite)
+  // Only show if user has chosen to connect and we have Matrix client ready
+  const hasChosen = matrixClientService.hasUserChosenToConnect()
+  const isReady = matrixClientService.isReady()
+  const hasRoomId = !!matrixRoomId.value
+
+  console.log('🎯 shouldShowChat - hasChosen:', hasChosen, 'isReady:', isReady, 'hasRoomId:', hasRoomId)
+
+  return hasChosen && isReady && hasRoomId
+})
+
+// Initialize Matrix connection and room when user has chosen to connect
+const initializeMatrixRoom = async () => {
+  if (!event.value?.slug) {
+    console.error('❌ Cannot initialize Matrix room: no event slug')
     return false
   }
 
   try {
     isInitializing.value = true
-    console.log('🏗️ Phase 2: Initializing Matrix room using pure SDK pattern')
+    console.log('🏗️ Initializing Matrix room for event:', event.value.slug)
 
-    // Ensure Matrix client is connected - force authentication for confirmed attendees
-    console.log('🔑 Forcing Matrix authentication for confirmed attendee')
-    const client = await matrixClientService.initializeClient(true) // forceAuth = true
+    // Initialize Matrix client (this will redirect to consent if needed)
+    const client = await matrixClientService.initializeClient(true)
     if (!client) {
       throw new Error('Matrix client not available')
     }
 
-    // First, check if room is already available
+    // Check if room is already available
     const room = matrixClientService.getRoom(matrixRoomId.value)
     if (room) {
-      console.log('✅ Room already available:', room.roomId)
+      console.log('✅ Matrix room already available:', room.roomId)
       return true
     }
 
-    // Matrix-native approach: Join room directly using room alias
-    // The Matrix Application Service will create the room on-demand if it doesn't exist
-    console.log('🏠 Room not found, joining via Matrix-native room alias')
-    try {
-      console.log('🏠 Using event store to join room and update event object')
+    // Join/create room via event store
+    console.log('🏠 Joining Matrix room via event store')
+    await eventStore.actionJoinEventChatRoom()
+    console.log('✅ Successfully joined Matrix room')
 
-      // Use the event store's actionJoinEventChatRoom method which properly updates the event object
-      await eventStore.actionJoinEventChatRoom()
-
-      console.log('✅ Room joined via event store - event object updated with correct room ID')
-      return true
-    } catch (error) {
-      console.error('❌ Error joining room via event store:', error)
-      return false
-    }
+    return true
   } catch (error) {
-    console.error('❌ Error initializing Matrix room:', error)
-    return false
+    console.error('❌ Matrix room initialization failed:', error)
+    throw error
   } finally {
     isInitializing.value = false
   }
@@ -216,26 +217,31 @@ const handleAttendeeStatusChanged = (e: Event) => {
   }
 }
 
-// Simplified component mounting with Matrix SDK pattern
+// Component mounting - initialize Matrix if user has already chosen to connect
 onMounted(async () => {
-  if (event.value && event.value.slug) {
-    console.log('🏗️ Phase 2: EventMatrixChatComponent mounted for event:', event.value.slug)
+  if (!event.value?.slug) {
+    console.log('🚫 No event available for Matrix chat component')
+    return
+  }
 
+  console.log('🏗️ EventMatrixChatComponent mounted for event:', event.value.slug)
+
+  // Add event listener for attendee status changes
+  window.addEventListener('attendee-status-changed', handleAttendeeStatusChanged)
+
+  // If user has already chosen to connect to Matrix, initialize the room
+  if (matrixClientService.hasUserChosenToConnect()) {
+    console.log('✅ User has previously chosen to connect - initializing Matrix room')
     try {
       isLoading.value = true
-
-      // Only initialize if user is confirmed/cancelled attendee with permissions
-      if ((event.value.attendee?.status === 'confirmed' || event.value.attendee?.status === 'cancelled') && discussionPermissions.value.canWrite) {
-        await ensureChatRoomExists()
-        window.addEventListener('attendee-status-changed', handleAttendeeStatusChanged)
-      } else {
-        console.log('Not initializing chat - user lacks required status or permissions')
-      }
-    } catch (err) {
-      console.error('❌ Error in Matrix chat initialization:', err)
+      await initializeMatrixRoom()
+    } catch (error) {
+      console.error('❌ Error initializing Matrix room on mount:', error)
     } finally {
       isLoading.value = false
     }
+  } else {
+    console.log('💭 User has not chosen to connect to Matrix - will show connect prompt if eligible')
   }
 })
 
@@ -270,7 +276,7 @@ const retryRoomInitialization = async () => {
     // Step 3: If we now have a room ID, try to initialize (this will handle backend invitation internally)
     if (matrixRoomId.value) {
       console.log('✅ Found Matrix room ID after refresh, initializing chat')
-      await ensureChatRoomExists()
+      await initializeMatrixRoom()
     } else {
       console.warn('⚠️ Matrix room ID still not available after event refresh')
     }
@@ -279,6 +285,56 @@ const retryRoomInitialization = async () => {
     // Show user-friendly error message could be added here
   } finally {
     isInitializing.value = false
+  }
+}
+
+// Handle user choosing to connect to Matrix chat
+const connectToMatrixChat = async () => {
+  console.log('🔘 Join Discussion button clicked')
+
+  if (!event.value) {
+    console.warn('⚠️ Cannot connect - no event data available')
+    return
+  }
+
+  try {
+    isConnectingToMatrix.value = true
+    console.log('🔌 User chose to connect to Matrix chat for event:', event.value.slug)
+
+    // First, set the user choice flag
+    console.log('📝 Setting user choice to connect to Matrix')
+    matrixClientService.setUserChosenToConnect(true)
+
+    // Force reactivity update by triggering computed property checks
+    console.log('🔄 After setting choice - shouldShowConnectPrompt:', shouldShowConnectPrompt.value)
+    console.log('🔄 After setting choice - shouldShowChat:', shouldShowChat.value)
+
+    // Always force Matrix authentication to show consent screen if needed
+    // This ensures the consent flow happens immediately on button click
+    console.log('🚀 Forcing Matrix authentication (will redirect to consent if needed)')
+    try {
+      await matrixClientService.initializeClient(true)
+
+      // If we reach here, Matrix is ready - initialize the room
+      console.log('✅ Matrix client ready - initializing room')
+      await initializeMatrixRoom()
+    } catch (error) {
+      // If this fails, it might be because we're redirecting to consent
+      if (error.message?.includes('redirect')) {
+        console.log('🔄 Redirecting to Matrix consent screen')
+        // The redirect will happen, so we don't need to do anything else
+        return
+      }
+      throw error // Re-throw other errors
+    }
+  } catch (error) {
+    console.error('❌ Error connecting to Matrix chat:', error)
+    console.error('Error stack:', error.stack)
+
+    // Show user-friendly error
+    alert(`Failed to connect to chat: ${error.message}`)
+  } finally {
+    isConnectingToMatrix.value = false
   }
 }
 
@@ -293,8 +349,32 @@ const retryRoomInitialization = async () => {
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Matrix connection prompt -->
+    <div v-else-if="shouldShowConnectPrompt" class="q-pa-md">
+      <q-banner class="bg-primary text-white">
+        <div>
+          <div class="text-h6 q-mb-sm">💬 Join the Event Discussion</div>
+          <p>As a confirmed attendee, you can join the live chat with other participants to discuss this event, ask questions, and share insights.</p>
+          <p class="text-caption q-mt-sm">
+            <q-icon name="security" class="q-mr-xs" />
+            This connects you securely to our Matrix chat system using your OpenMeet account.
+          </p>
+        </div>
+        <template v-slot:action>
+          <q-btn
+            flat
+            color="white"
+            label="Join Discussion"
+            icon="chat"
+            :loading="isConnectingToMatrix"
+            @click="connectToMatrixChat"
+          />
+        </template>
+      </q-banner>
+    </div>
+
     <MatrixChatInterface
-      v-if="!isLoading && matrixRoomId && discussionPermissions.canRead"
+      v-else-if="shouldShowChat"
       :room-id="matrixRoomId"
       context-type="event"
       :context-id="event?.slug ?? ''"
