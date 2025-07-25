@@ -337,6 +337,8 @@ import { useRouter } from 'vue-router'
 import { matrixClientService } from '../../services/matrixClientService'
 import { groupsApi } from '../../api/groups'
 import { eventsApi } from '../../api/events'
+import { searchApi } from '../../api/search'
+import { usersApi } from '../../api/users'
 import { formatDistanceToNow } from 'date-fns'
 import { Room, RoomMember, ClientEvent } from 'matrix-js-sdk'
 import type { GroupEntity, EventEntity } from '../../types'
@@ -615,7 +617,7 @@ onMounted(async () => {
     // Accessing the chats dashboard implies user consent to connect to Matrix
     console.log('💡 Setting user consent for Matrix connection (dashboard mode)')
     matrixClientService.setUserChosenToConnect(true)
-    
+
     // Use forceAuth = true to initialize with stored credentials or fresh auth
     const matrixClient = await matrixClientService.initializeClient(true)
     console.log('✅ Matrix client initialized')
@@ -800,9 +802,107 @@ const getNewChatPlaceholder = (): string => {
 }
 
 const joinChat = async (chat: Chat) => {
-  // Call API to join the chat/room
-  // Then emit the select event
-  emit('select-chat', chat)
+  try {
+    console.log('🔗 Joining chat:', chat.name, `(${chat.type})`)
+
+    if (chat.type === 'group') {
+      // Extract group slug from chat ID (format: 'group-slug' or 'matrix-group-roomId')
+      let groupSlug = ''
+      if (chat.id.startsWith('group-')) {
+        groupSlug = chat.id.replace('group-', '')
+      } else if (chat.id.startsWith('matrix-group-')) {
+        // For Matrix-discovered groups without OpenMeet context, we need the slug
+        // Try to find it via the room alias or description
+        console.warn('⚠️ Matrix-discovered group without OpenMeet context - may need manual join')
+        // For now, emit selection anyway as Matrix client should handle it
+        emit('select-chat', chat)
+        return
+      }
+
+      if (groupSlug) {
+        // Use Matrix client service to join the group chat room
+        console.log(`🎯 Joining group chat room using Matrix client: ${groupSlug}`)
+        const result = await matrixClientService.joinGroupChatRoom(groupSlug)
+        console.log('✅ Group chat room joined successfully:', result.roomInfo)
+
+        // Force Matrix client to sync to pick up new invitation
+        await matrixClientService.forceSyncAfterInvitation('group', groupSlug)
+
+        // Update the chat's Matrix room ID if different
+        if (result.room?.roomId && result.room.roomId !== chat.matrixRoomId) {
+          chat.matrixRoomId = result.room.roomId
+        }
+      }
+    } else if (chat.type === 'event') {
+      // Extract event slug from chat ID (format: 'event-slug')
+      let eventSlug = ''
+      if (chat.id.startsWith('event-')) {
+        eventSlug = chat.id.replace('event-', '')
+      }
+
+      if (eventSlug) {
+        // Use Matrix client service to join the event chat room
+        console.log(`🎪 Joining event chat room using Matrix client: ${eventSlug}`)
+        const result = await matrixClientService.joinEventChatRoom(eventSlug)
+        console.log('✅ Event chat room joined successfully:', result.roomInfo)
+
+        // Force Matrix client to sync to pick up new invitation
+        await matrixClientService.forceSyncAfterInvitation('event', eventSlug)
+
+        // Update the chat's Matrix room ID if different
+        if (result.room?.roomId && result.room.roomId !== chat.matrixRoomId) {
+          chat.matrixRoomId = result.room.roomId
+        }
+      }
+    } else if (chat.type === 'direct') {
+      // For direct messages, use Matrix client service to create/join DM room
+      console.log('💭 Creating/joining direct message room')
+
+      // Extract user identifier from chat ID (format: 'matrix-direct-roomId' or 'direct-userSlug')
+      let userIdentifier = ''
+      if (chat.id.startsWith('direct-')) {
+        userIdentifier = chat.id.replace('direct-', '')
+      } else if (chat.id.startsWith('matrix-direct-')) {
+        // For Matrix-discovered DMs, we might need to extract from participants
+        if (chat.participants && chat.participants.length > 0) {
+          // Find the other participant (not the current user)
+          const otherParticipant = chat.participants.find(p => p.id !== 'current-user-id') // TODO: Get actual current user ID
+          userIdentifier = otherParticipant?.id || ''
+        }
+      }
+
+      if (userIdentifier) {
+        // Use Matrix client service to create/join DM room
+        // Convert user slug to Matrix user ID format if needed
+        let matrixUserId = userIdentifier
+        if (!matrixUserId.startsWith('@')) {
+          // Assume it's a user slug, convert to Matrix user ID
+          const getEnv = (await import('../../utils/env')).default
+          const tenantId = getEnv('APP_TENANT_ID') || localStorage.getItem('tenantId')
+          matrixUserId = `@${userIdentifier}-${tenantId}:matrix.openmeet.net`
+        }
+
+        console.log(`💬 Creating DM room with Matrix user: ${matrixUserId}`)
+        const room = await matrixClientService.joinDirectMessageRoom(matrixUserId)
+        console.log('✅ Direct message room created/joined:', room.roomId)
+
+        // Update the chat's Matrix room ID
+        if (room.roomId !== chat.matrixRoomId) {
+          chat.matrixRoomId = room.roomId
+        }
+      }
+    }
+
+    // Refresh the room list to get updated room information
+    await loadRealRooms()
+
+    // Select the chat for viewing
+    emit('select-chat', chat)
+  } catch (error) {
+    console.error('❌ Failed to join chat:', error)
+    // Still try to select it in case Matrix client can handle it directly
+    emit('select-chat', chat)
+  }
 }
 
 const startDirectMessage = () => {
@@ -854,31 +954,98 @@ const searchNewChat = async () => {
 
   isSearching.value = true
   try {
-    // Call appropriate API based on newChatType
-    // Mock results for now
-    newChatResults.value = [
-      {
-        id: 'search-1',
-        name: newChatSearch.value,
-        type: newChatType.value as 'direct' | 'group' | 'event',
-        matrixRoomId: '',
-        description: `Search result for ${newChatSearch.value}`
+    newChatResults.value = []
+
+    if (newChatType.value === 'group') {
+      // Search for groups using the real groups API
+      const response = await groupsApi.getAll({
+        search: newChatSearch.value,
+        page: 1,
+        limit: 10
+      })
+
+      // Convert group entities to chat format
+      newChatResults.value = response.data.data.map(group => ({
+        id: `group-${group.slug}`,
+        name: group.name,
+        type: 'group' as const,
+        matrixRoomId: group.roomId || '',
+        description: group.description || `${group.membersCount || 0} members`,
+        participants: []
+      }))
+    } else if (newChatType.value === 'event') {
+      // Search for events using the search API
+      const response = await searchApi.searchEvents({
+        search: newChatSearch.value,
+        page: 1,
+        limit: 10
+      })
+
+      // Convert event entities to chat format
+      newChatResults.value = response.data.map(event => ({
+        id: `event-${event.slug}`,
+        name: event.name,
+        type: 'event' as const,
+        matrixRoomId: event.roomId || '',
+        description: event.description || new Date(event.startDate).toLocaleDateString(),
+        participants: []
+      }))
+    } else if (newChatType.value === 'direct') {
+      // Search for users for direct messages
+      try {
+        const response = await usersApi.search({
+          search: newChatSearch.value,
+          limit: 10
+        })
+
+        // Convert user entities to chat format
+        newChatResults.value = response.data.map(user => ({
+          id: `direct-${user.slug}`,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.slug,
+          type: 'direct' as const,
+          matrixRoomId: '', // Will be created when chat is started
+          description: `@${user.name || user.slug}`,
+          participants: []
+        }))
+      } catch (error) {
+        console.error('❌ User search failed - endpoint may not be implemented yet:', error)
+        newChatResults.value = []
       }
-    ]
+    }
+  } catch (error) {
+    console.error('❌ Failed to search chats:', error)
+    newChatResults.value = []
   } finally {
     isSearching.value = false
   }
 }
 
 const startNewChat = async (result: Chat) => {
-  // Create or join the chat based on the search result
-  showNewChatDialog.value = false
-  newChatSearch.value = ''
-  newChatResults.value = []
+  try {
+    // Close the dialog
+    showNewChatDialog.value = false
+    newChatSearch.value = ''
+    newChatResults.value = []
 
-  // Add to recent chats and select
-  recentChats.value.unshift(result)
-  emit('select-chat', result)
+    // Join the chat using the same logic as joinChat
+    console.log('🆕 Starting new chat:', result.name, `(${result.type})`)
+
+    if (result.type === 'group' || result.type === 'event') {
+      // Use the joinChat function we already implemented
+      await joinChat(result)
+    } else if (result.type === 'direct') {
+      // For direct messages, we'll use the Matrix client service
+      console.log('💭 Creating direct message room')
+      await joinChat(result)
+    } else {
+      // Fallback: just select the chat
+      emit('select-chat', result)
+    }
+  } catch (error) {
+    console.error('❌ Failed to start new chat:', error)
+    // Still try to select it
+    emit('select-chat', result)
+  }
 }
 
 // Load chats on mount

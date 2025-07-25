@@ -102,8 +102,8 @@
     <!-- Desktop Chat Interface -->
     <div class="desktop-chat-container gt-xs row no-wrap q-pa-md q-gutter-md">
       <!-- Chat List Sidebar Card -->
-      <q-card 
-        class="chat-list-sidebar-card" 
+      <q-card
+        class="chat-list-sidebar-card"
         style="width: 320px; max-height: calc(100vh - 120px);"
         flat
         bordered
@@ -116,8 +116,8 @@
       </q-card>
 
       <!-- Active Chat Area Card -->
-      <q-card 
-        class="chat-area-card flex column" 
+      <q-card
+        class="chat-area-card flex column"
         style="flex: 1; max-height: calc(100vh - 120px);"
         flat
         bordered
@@ -140,9 +140,9 @@
       </q-card>
 
       <!-- Chat Info Sidebar Card (optional) -->
-      <q-card 
-        v-if="activeChat && showInfoSidebar" 
-        class="chat-info-sidebar-card" 
+      <q-card
+        v-if="activeChat && showInfoSidebar"
+        class="chat-info-sidebar-card"
         style="width: 250px; max-height: calc(100vh - 120px);"
         flat
         bordered
