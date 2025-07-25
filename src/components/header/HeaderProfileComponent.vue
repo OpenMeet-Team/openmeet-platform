@@ -9,7 +9,7 @@
     <q-menu>
       <MenuItemComponent label="My events" icon="sym_r_event_note" to="/dashboard/events"/>
       <MenuItemComponent label="My groups" icon="sym_r_group" to="/dashboard/groups"/>
-      <MenuItemComponent label="My chats" icon="sym_r_chat" to="/messages"/>
+      <MenuItemComponent label="My chats" icon="sym_r_chat" to="/dashboard/chats"/>
       <MenuItemComponent v-if="isAdmin" label="Admin" icon="sym_r_admin_panel_settings" to="/admin"/>
       <q-separator/>
       <MenuItemComponent label="Profile" icon="sym_r_person" :to="{ name: 'MemberPage', params: {slug: useAuthStore().getUser.slug }}"/>

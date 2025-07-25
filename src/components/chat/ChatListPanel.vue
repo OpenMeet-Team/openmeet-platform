@@ -4,9 +4,9 @@
     <div class="chat-list-header q-pa-md">
       <div class="text-subtitle1 q-mb-md">
         {{ getHeaderTitle() }}
-        <q-spinner v-if="isLoadingRooms" size="16px" class="q-ml-sm" />
+        <q-spinner v-if="isMatrixInitializing || isLoadingRooms" size="16px" class="q-ml-sm" />
         <q-badge v-else-if="realRooms.length > 0" color="green" class="q-ml-sm">{{ realRooms.length }}</q-badge>
-        <q-badge v-else color="orange" class="q-ml-sm">demo</q-badge>
+        <q-badge v-else color="orange" class="q-ml-sm">0</q-badge>
       </div>
 
       <!-- Search -->
@@ -114,21 +114,25 @@
 
     <!-- Chat List -->
     <div class="chat-list q-pa-sm">
-      <q-list>
-        <!-- Recent Chats Section -->
-        <q-item-label header v-if="recentChats.length > 0">
-          Recent
-        </q-item-label>
 
-        <q-item
+      <!-- Recent Chats Section -->
+      <div v-if="recentChats.length > 0" class="text-subtitle2 text-grey-7 q-pa-sm q-pb-xs">
+        Recent
+      </div>
+
+      <div class="chat-items-container">
+        <q-card
           v-for="chat in filteredRecentChats"
           :key="chat.id"
           clickable
           @click="$emit('select-chat', chat)"
-          :class="{ 'bg-blue-1': selectedChatId === chat.id }"
-          class="chat-item"
+          :class="{ 'selected-chat': selectedChatId === chat.id }"
+          class="chat-item-card q-mb-xs"
+          flat
+          bordered
         >
-          <q-item-section avatar>
+          <q-item class="q-pa-sm">
+            <q-item-section avatar>
             <q-badge
               v-if="chat.unreadCount && chat.unreadCount > 0"
               :label="chat.unreadCount"
@@ -167,20 +171,26 @@
               />
             </div>
           </q-item-section>
-        </q-item>
+          </q-item>
+        </q-card>
+      </div>
 
-        <!-- Available Chats Section -->
-        <q-item-label header v-if="availableChats.length > 0" class="q-mt-md">
-          Available
-        </q-item-label>
+      <!-- Available Chats Section -->
+      <div v-if="availableChats.length > 0" class="text-subtitle2 text-grey-7 q-pa-sm q-pb-xs q-mt-md">
+        Available
+      </div>
 
-        <q-item
+      <div class="available-chat-items-container">
+        <q-card
           v-for="chat in filteredAvailableChats"
           :key="chat.id"
           clickable
           @click="joinChat(chat)"
-          class="chat-item available-chat"
+          class="chat-item-card available-chat-card q-mb-xs"
+          flat
+          bordered
         >
+          <q-item class="q-pa-sm">
           <q-item-section avatar>
             <q-avatar size="40px" :color="getChatColor(chat)" text-color="white">
               <q-icon :name="getChatIcon(chat)" />
@@ -206,13 +216,22 @@
               @click.stop="joinChat(chat)"
             />
           </q-item-section>
-        </q-item>
+          </q-item>
+        </q-card>
+      </div>
 
-        <!-- Empty State -->
-        <div v-if="filteredRecentChats.length === 0 && filteredAvailableChats.length === 0" class="empty-state q-pa-lg text-center">
-          <q-icon :name="getEmptyIcon()" size="48px" color="grey-5" />
-          <div class="text-h6 q-mt-md text-grey-6">{{ getEmptyTitle() }}</div>
-          <div class="text-body2 text-grey-5">{{ getEmptySubtitle() }}</div>
+      <!-- Loading State -->
+      <div v-if="(isMatrixInitializing || isLoadingRooms) && realRooms.length === 0" class="loading-state q-pa-lg text-center">
+        <q-spinner-dots color="primary" size="40px" />
+        <div class="text-h6 q-mt-md text-grey-6">Loading chats...</div>
+        <div class="text-body2 text-grey-5">Connecting to Matrix and syncing rooms</div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="filteredRecentChats.length === 0 && filteredAvailableChats.length === 0" class="empty-state q-pa-lg text-center">
+        <q-icon :name="getEmptyIcon()" size="48px" color="grey-5" />
+        <div class="text-h6 q-mt-md text-grey-6">{{ getEmptyTitle() }}</div>
+        <div class="text-body2 text-grey-5">{{ getEmptySubtitle() }}</div>
 
           <!-- Action buttons for different contexts -->
           <div v-if="contextType === 'all'" class="q-mt-md">
@@ -232,11 +251,10 @@
             />
           </div>
         </div>
-      </q-list>
     </div>
 
     <!-- Floating Action Button for mobile -->
-    <q-page-sticky position="bottom-right" :offset="[18, 18]" class="gt-xs-hide">
+    <q-page-sticky position="bottom-right" :offset="[18, 18]" class="gt-xs-hide" style="z-index: 2000;">
       <q-btn
         fab
         icon="sym_r_add"
@@ -367,7 +385,8 @@ const router = useRouter()
 // const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 
 const realRooms = ref<Chat[]>([])
-const isLoadingRooms = ref(false)
+const isLoadingRooms = ref(true) // Start with loading true
+const isMatrixInitializing = ref(true)
 
 // Load cached rooms from localStorage (currently unused)
 // const loadCachedRooms = (): Chat[] => {
@@ -592,21 +611,23 @@ onMounted(async () => {
   try {
     console.log('🚀 ChatListPanel mounted, checking Matrix connection...')
 
-    // Only initialize if user has already chosen to connect to Matrix
-    if (!matrixClientService.hasUserChosenToConnect()) {
-      console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
-      return
-    }
-
-    const matrixClient = await matrixClientService.initializeClient()
-    console.log('✅ Message store Matrix initialized')
+    // For the main chats page, we want to show available chats proactively
+    // Accessing the chats dashboard implies user consent to connect to Matrix
+    console.log('💡 Setting user consent for Matrix connection (dashboard mode)')
+    matrixClientService.setUserChosenToConnect(true)
+    
+    // Use forceAuth = true to initialize with stored credentials or fresh auth
+    const matrixClient = await matrixClientService.initializeClient(true)
+    console.log('✅ Matrix client initialized')
+    isMatrixInitializing.value = false
 
     // Listen for Matrix sync completion to refresh room list
     if (matrixClient) {
       matrixClient.on(ClientEvent.Sync, (state: string) => {
         console.log('🔄 Matrix sync state:', state, 'Current rooms:', realRooms.value.length)
-        if (state === 'PREPARED' && realRooms.value.length === 0) {
+        if (state === 'PREPARED') {
           console.log('🔄 Matrix sync completed, refreshing room list')
+          // Always reload on PREPARED to ensure fresh data after page reload
           loadRealRooms()
         }
       })
@@ -615,6 +636,8 @@ onMounted(async () => {
     await loadRealRooms()
   } catch (error) {
     console.error('❌ Failed to load chats:', error)
+    isMatrixInitializing.value = false
+    isLoadingRooms.value = false
   }
 })
 
@@ -877,26 +900,43 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
-.chat-item {
-  margin-bottom: 4px;
-  border-radius: 8px;
+/* Card-based chat items */
+.chat-item-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-.chat-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+.chat-item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Dark mode hover */
-.q-dark .chat-item:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+.chat-item-card.selected-chat {
+  border-color: var(--q-primary);
+  background-color: rgba(25, 118, 210, 0.08);
 }
 
-.available-chat {
-  opacity: 0.8;
+.q-dark .chat-item-card:hover {
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
 }
 
-.available-chat:hover {
+.q-dark .chat-item-card.selected-chat {
+  background-color: rgba(25, 118, 210, 0.15);
+}
+
+.available-chat-card {
+  opacity: 0.9;
+}
+
+.available-chat-card:hover {
   opacity: 1;
+}
+
+/* Responsive card spacing */
+@media (max-width: 599px) {
+  .chat-item-card {
+    margin-bottom: 6px;
+  }
 }
 
 .empty-state {

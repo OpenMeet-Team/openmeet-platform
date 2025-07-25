@@ -127,7 +127,7 @@ const formatTimestamp = (timestamp: Date) => {
 
 const navigateToObject = (obj: object) => {
   console.log(obj)
-  router.push({ name: 'MessagesPage' })
+  router.push({ name: 'DashboardChatsPage' })
 }
 
 const markAllAsRead = () => {

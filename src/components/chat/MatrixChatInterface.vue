@@ -614,6 +614,9 @@ interface Message {
   readReceipts?: Array<{ userId: string, userName: string, timestamp: number }>
   isRedacted?: boolean
   errorMessage?: string
+  // Authenticated image blob URLs
+  imageBlobUrl?: string
+  fullImageBlobUrl?: string
 }
 
 interface Props {
@@ -1278,47 +1281,6 @@ const getFileIcon = (mimetype?: string): string => {
   return 'sym_r_attach_file'
 }
 
-const getImageUrl = (url: string): string => {
-  if (!url) {
-    console.warn('⚠️ getImageUrl: Empty URL provided')
-    return ''
-  }
-
-  // If it's already an HTTP URL, return as-is
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    console.log('🔗 getImageUrl: Using HTTP URL as-is:', url)
-    return url
-  }
-
-  // If it's a Matrix content URL (mxc://), convert it to HTTP
-  if (url.startsWith('mxc://')) {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      console.error('❌ getImageUrl: Matrix client not available')
-      return ''
-    }
-
-    // For images, provide thumbnail dimensions (300x300)
-    const convertedUrl = matrixClientService.getContentUrl(url, 300, 300)
-    console.log('🖼️ getImageUrl: Converting Matrix URL:', {
-      original: url,
-      converted: convertedUrl,
-      baseUrl: client.baseUrl,
-      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http')
-    })
-
-    if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
-      console.error('❌ getImageUrl: Matrix URL conversion failed or invalid')
-      return ''
-    }
-
-    return convertedUrl
-  }
-
-  // Fallback - return original URL
-  console.log('🔗 getImageUrl: Using original URL:', url)
-  return url
-}
 
 const getFileUrl = (url: string): string => {
   if (!url) {
@@ -1363,7 +1325,7 @@ const getFileUrl = (url: string): string => {
 }
 
 // Load authenticated images and create blob URLs
-const loadAuthenticatedImage = async (message: any): Promise<void> => {
+const loadAuthenticatedImage = async (message: Message): Promise<void> => {
   if (!message.content?.url || message.imageBlobUrl) return
 
   try {
@@ -1377,7 +1339,7 @@ const loadAuthenticatedImage = async (message: any): Promise<void> => {
 
     // Get thumbnail URL for timeline display (300x300)
     const thumbnailUrl = matrixClientService.getContentUrl(message.content.url, 300, 300)
-    
+
     // Get full-size URL for modal display
     const fullSizeUrl = matrixClientService.getContentUrl(message.content.url)
 
@@ -1404,7 +1366,6 @@ const loadAuthenticatedImage = async (message: any): Promise<void> => {
     } else {
       message.fullImageBlobUrl = message.imageBlobUrl
     }
-
   } catch (error) {
     console.error('❌ Failed to load authenticated image:', error)
   }
@@ -1708,10 +1669,9 @@ const previewFile = async (content: { url?: string; filename?: string; mimetype?
 
     // For text files and other previewable content, open in new tab
     window.open(blobUrl, '_blank')
-    
+
     // Clean up blob URL after a delay
     setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
-
   } catch (error) {
     console.error('❌ File preview failed:', error)
     quasar.notify({
@@ -2407,7 +2367,6 @@ const loadMessages = async () => {
       const imageMessages = messages.value.filter(m => m.type === 'image')
       console.log(`🖼️ Loading ${imageMessages.length} authenticated images...`)
       imageMessages.forEach(message => loadAuthenticatedImage(message))
-      
     } else {
       console.log('⚠️ No messages found after processing. Debug info:', {
         eventsCount: events.length,

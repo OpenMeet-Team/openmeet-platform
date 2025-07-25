@@ -91,7 +91,7 @@ const signUp = () => {
 
         <MenuItemComponent data-cy="my-events-button" label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
         <MenuItemComponent data-cy="my-groups-button" label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
-        <MenuItemComponent data-cy="my-chats-button" label="My chats" icon="sym_r_chat" :to="{name: 'MessagesPage'}"/>
+        <MenuItemComponent data-cy="my-chats-button" label="My chats" icon="sym_r_chat" :to="{name: 'DashboardChatsPage'}"/>
 
         <MenuItemComponent data-cy="profile-button" label="Profile" icon="sym_r_person" :to="{name: 'MemberPage', params: {slug: useAuthStore().user?.slug}}"/>
         <MenuItemComponent data-cy="account-settings-button" label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>

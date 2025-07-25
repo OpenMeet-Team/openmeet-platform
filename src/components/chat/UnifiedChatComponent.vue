@@ -100,19 +100,29 @@
     </div>
 
     <!-- Desktop Chat Interface -->
-    <div class="desktop-chat-container gt-xs row no-wrap">
-      <!-- Chat List Sidebar -->
-      <div class="chat-list-sidebar bg-grey-1" :class="{ 'dark-purple-bg': $q.dark.isActive }" style="width: 300px; border-right: 1px solid #e0e0e0;">
+    <div class="desktop-chat-container gt-xs row no-wrap q-pa-md q-gutter-md">
+      <!-- Chat List Sidebar Card -->
+      <q-card 
+        class="chat-list-sidebar-card" 
+        style="width: 320px; max-height: calc(100vh - 120px);"
+        flat
+        bordered
+      >
         <ChatListPanel
           :context-type="contextType"
           :context-id="contextId"
           @select-chat="selectChat"
         />
-      </div>
+      </q-card>
 
-      <!-- Active Chat Area -->
-      <div class="chat-area flex column" style="flex: 1;">
-        <div v-if="activeChat">
+      <!-- Active Chat Area Card -->
+      <q-card 
+        class="chat-area-card flex column" 
+        style="flex: 1; max-height: calc(100vh - 120px);"
+        flat
+        bordered
+      >
+        <div v-if="activeChat" class="full-height">
           <MatrixChatInterface
             :room-id="activeChat.matrixRoomId"
             :context-type="activeChat.type"
@@ -127,16 +137,22 @@
             <div class="text-body2 text-grey-5">Choose from your recent conversations</div>
           </div>
         </div>
-      </div>
+      </q-card>
 
-      <!-- Chat Info Sidebar (optional) -->
-      <div v-if="activeChat && showInfoSidebar" class="chat-info-sidebar bg-grey-1" :class="{ 'dark-purple-bg': $q.dark.isActive }" style="width: 250px; border-left: 1px solid #e0e0e0;">
+      <!-- Chat Info Sidebar Card (optional) -->
+      <q-card 
+        v-if="activeChat && showInfoSidebar" 
+        class="chat-info-sidebar-card" 
+        style="width: 250px; max-height: calc(100vh - 120px);"
+        flat
+        bordered
+      >
         <ChatInfoPanel
           :chat="activeChat"
           :context-type="contextType"
           :context-id="contextId"
         />
-      </div>
+      </q-card>
     </div>
 
     <!-- Inline Mode (for embedding in event/group pages) -->
@@ -221,13 +237,21 @@ const $q = useQuasar()
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
-    // Only initialize if user has already chosen to connect to Matrix
-    if (!matrixClientService.hasUserChosenToConnect()) {
-      console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
-      return
+    // For the main chats dashboard, we want to show available chats proactively
+    // This differs from inline/event contexts where we wait for user opt-in
+    if (props.mode === 'dashboard') {
+      // Accessing the chats dashboard implies user consent to connect to Matrix
+      console.log('💡 Setting user consent for Matrix connection (dashboard mode)')
+      matrixClientService.setUserChosenToConnect(true)
+      await matrixClientService.initializeClient(true)
+    } else {
+      // Only initialize if user has already chosen to connect to Matrix (for inline/event contexts)
+      if (!matrixClientService.hasUserChosenToConnect()) {
+        console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
+        return
+      }
+      await matrixClientService.initializeClient()
     }
-
-    await matrixClientService.initializeClient()
   } catch (error) {
     console.error('Failed to initialize Matrix:', error)
   }
@@ -241,7 +265,7 @@ const selectChat = (chat: Chat) => {
   // Update URL if in dashboard mode
   if (props.mode === 'dashboard') {
     router.push({
-      name: 'MessagesPage',
+      name: 'DashboardChatsPage',
       query: { chat: chat.id }
     })
   }
@@ -257,7 +281,7 @@ const selectChatMobile = (chat: Chat) => {
 
 const openFullscreen = () => {
   router.push({
-    name: 'MessagesPage',
+    name: 'DashboardChatsPage',
     query: {
       chat: props.inlineRoomId,
       return: router.currentRoute.value.fullPath
@@ -379,6 +403,49 @@ onMounted(() => {
 
 .inline-chat-header {
   border-bottom: 1px solid #e0e0e0;
+}
+
+/* Desktop card-based layout */
+.desktop-chat-container {
+  height: calc(100vh - 80px);
+}
+
+.chat-list-sidebar-card {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.chat-list-sidebar-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.chat-area-card {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.chat-info-sidebar-card {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.chat-info-sidebar-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode card styling */
+.q-dark .chat-list-sidebar-card,
+.q-dark .chat-area-card,
+.q-dark .chat-info-sidebar-card {
+  box-shadow: 0 1px 5px rgba(255, 255, 255, 0.1);
+}
+
+.q-dark .chat-list-sidebar-card:hover,
+.q-dark .chat-info-sidebar-card:hover {
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
 }
 
 /* Dark background for sidebars in dark mode using OpenMeet palette */

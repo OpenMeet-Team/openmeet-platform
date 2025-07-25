@@ -58,7 +58,6 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'members/:slug', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
-      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPageUnified.vue'), meta: { requiresAuth: true } },
       { path: 'privacy', name: 'PrivacyPolicyPage', component: () => import('pages/PrivacyPolicyPage.vue') },
       { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') }
     ],
@@ -86,6 +85,7 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') },
+      { path: 'chats', name: 'DashboardChatsPage', component: () => import('pages/dashboard/ChatsPage.vue') },
       { path: 'calendar-demo', name: 'CalendarDemoPage', component: () => import('pages/dashboard/CalendarDemoPage.vue') }
     ],
     meta: { requiresAuth: true }
