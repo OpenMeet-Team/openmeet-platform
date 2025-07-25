@@ -327,13 +327,19 @@
 
                 <!-- Image Message -->
                 <div v-else-if="message.type === 'image'" class="image-message">
-                  <img
-                    :src="getImageUrl(message.content.url)"
-                    :alt="message.content.filename"
-                    class="message-image cursor-pointer"
-                    :style="getImageStyle()"
-                    @click="showImageModal(getImageUrl(message.content.url))"
-                  />
+                  <div v-if="message.imageBlobUrl" class="authenticated-image-container">
+                    <img
+                      :src="message.imageBlobUrl"
+                      :alt="message.content.filename"
+                      class="message-image cursor-pointer"
+                      :style="getImageStyle()"
+                      @click="showImageModal(message.fullImageBlobUrl || message.imageBlobUrl)"
+                    />
+                  </div>
+                  <div v-else class="image-loading">
+                    <q-spinner color="primary" size="2em" />
+                    <div class="text-caption q-mt-xs">Loading image...</div>
+                  </div>
                   <div v-if="message.content.filename" class="text-caption q-mt-xs">
                     {{ message.content.filename }}
                   </div>
@@ -1356,6 +1362,54 @@ const getFileUrl = (url: string): string => {
   return url
 }
 
+// Load authenticated images and create blob URLs
+const loadAuthenticatedImage = async (message: any): Promise<void> => {
+  if (!message.content?.url || message.imageBlobUrl) return
+
+  try {
+    const client = matrixClientService.getClient()
+    const accessToken = client?.getAccessToken()
+
+    if (!accessToken) {
+      console.error('❌ No access token for image loading')
+      return
+    }
+
+    // Get thumbnail URL for timeline display (300x300)
+    const thumbnailUrl = matrixClientService.getContentUrl(message.content.url, 300, 300)
+    
+    // Get full-size URL for modal display
+    const fullSizeUrl = matrixClientService.getContentUrl(message.content.url)
+
+    // Load thumbnail image
+    const thumbnailResponse = await fetch(thumbnailUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    })
+
+    if (thumbnailResponse.ok) {
+      const thumbnailBlob = await thumbnailResponse.blob()
+      message.imageBlobUrl = URL.createObjectURL(thumbnailBlob)
+    }
+
+    // Load full-size image for modal
+    if (thumbnailUrl !== fullSizeUrl) {
+      const fullSizeResponse = await fetch(fullSizeUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+
+      if (fullSizeResponse.ok) {
+        const fullSizeBlob = await fullSizeResponse.blob()
+        message.fullImageBlobUrl = URL.createObjectURL(fullSizeBlob)
+      }
+    } else {
+      message.fullImageBlobUrl = message.imageBlobUrl
+    }
+
+  } catch (error) {
+    console.error('❌ Failed to load authenticated image:', error)
+  }
+}
+
 const getMessageStatusIcon = (status?: string): string => {
   switch (status) {
     case 'sending': return 'schedule'
@@ -1599,7 +1653,7 @@ const downloadFile = async (url: string, filename: string) => {
   }
 }
 
-const previewFile = (content: { url?: string; filename?: string; mimetype?: string }) => {
+const previewFile = async (content: { url?: string; filename?: string; mimetype?: string }) => {
   if (!content.url || !content.filename) {
     console.warn('Missing file URL or filename for preview')
     return
@@ -1618,21 +1672,54 @@ const previewFile = (content: { url?: string; filename?: string; mimetype?: stri
     return
   }
 
-  // For images, show in a dialog
-  if (content.mimetype?.startsWith('image/')) {
-    showImageModal(fileUrl)
-    return
-  }
+  try {
+    // Get Matrix access token for authenticated preview
+    const client = matrixClientService.getClient()
+    const accessToken = client?.getAccessToken()
 
-  // For text files, try to open inline
-  if (content.mimetype?.startsWith('text/') || content.filename.endsWith('.txt')) {
-    // Open in a new tab for text files
-    window.open(fileUrl, '_blank')
-    return
-  }
+    if (!accessToken) {
+      throw new Error('No Matrix access token available')
+    }
 
-  // For other files, try to open in new tab
-  window.open(fileUrl, '_blank')
+    console.log('🔑 Using authenticated preview for file:', content.filename)
+
+    // Fetch file with authentication
+    const response = await fetch(fileUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Preview failed: ${response.status} ${response.statusText}`)
+    }
+
+    // Get the blob data
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+
+    // For images, show in a dialog
+    if (content.mimetype?.startsWith('image/')) {
+      showImageModal(blobUrl)
+      // Clean up blob URL after a delay to allow image to load
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000)
+      return
+    }
+
+    // For text files and other previewable content, open in new tab
+    window.open(blobUrl, '_blank')
+    
+    // Clean up blob URL after a delay
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
+
+  } catch (error) {
+    console.error('❌ File preview failed:', error)
+    quasar.notify({
+      type: 'negative',
+      message: 'Failed to preview file: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      timeout: 3000
+    })
+  }
 }
 
 const scrollToBottom = async (smooth = false) => {
@@ -2074,6 +2161,11 @@ const setupServiceEventListeners = () => {
     messages.value.push(newMessage)
     console.log('✅ New message added to UI:', newMessage.id)
 
+    // Load authenticated image if it's an image message
+    if (newMessage.type === 'image') {
+      loadAuthenticatedImage(newMessage)
+    }
+
     // Auto-scroll to new message
     nextTick(() => {
       scrollToBottom(true)
@@ -2310,6 +2402,12 @@ const loadMessages = async () => {
         oldestMessage: messages.value[0]?.timestamp,
         newestMessage: messages.value[messages.value.length - 1]?.timestamp
       })
+
+      // Load authenticated images for all image messages
+      const imageMessages = messages.value.filter(m => m.type === 'image')
+      console.log(`🖼️ Loading ${imageMessages.length} authenticated images...`)
+      imageMessages.forEach(message => loadAuthenticatedImage(message))
+      
     } else {
       console.log('⚠️ No messages found after processing. Debug info:', {
         eventsCount: events.length,
@@ -2942,6 +3040,35 @@ onUnmounted(() => {
 .file-actions {
   display: flex;
   gap: 0.25rem;
+}
+
+/* Authenticated image styling */
+.authenticated-image-container {
+  max-width: 400px;
+}
+
+.image-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  min-height: 150px;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+
+.message-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.message-image:hover {
+  transform: scale(1.02);
 }
 
 /* Dark mode support - duplicate rule removed */
