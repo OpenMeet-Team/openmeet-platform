@@ -356,7 +356,7 @@ const connectToMatrixChat = async () => {
           <div class="text-h6 q-mb-sm">💬 Join the Event Discussion</div>
           <p>As a confirmed attendee, you can join the live chat with other participants to discuss this event, ask questions, and share insights.</p>
           <p class="text-caption q-mt-sm">
-            <q-icon name="security" class="q-mr-xs" />
+            <q-icon name="sym_r_security" class="q-mr-xs" />
             This connects you securely to our Matrix chat system using your OpenMeet account.
           </p>
         </div>
@@ -365,7 +365,7 @@ const connectToMatrixChat = async () => {
             flat
             color="white"
             label="Join Discussion"
-            icon="chat"
+            icon="sym_r_chat"
             :loading="isConnectingToMatrix"
             @click="connectToMatrixChat"
           />
