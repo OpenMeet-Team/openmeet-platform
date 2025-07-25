@@ -1281,7 +1281,6 @@ const getFileIcon = (mimetype?: string): string => {
   return 'sym_r_attach_file'
 }
 
-
 const getFileUrl = (url: string): string => {
   if (!url) {
     console.warn('⚠️ getFileUrl: Empty URL provided')

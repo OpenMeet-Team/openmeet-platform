@@ -73,7 +73,7 @@ const onLeaveGroup = () => {
           <q-route-tab :to="{ name: 'GroupAboutPage', params: { slug: group?.slug } }" label="About" />
           <q-route-tab :to="{ name: 'GroupEventsPage', params: { slug: group?.slug } }" name="events" label="Events" />
           <q-route-tab :to="{ name: 'GroupMembersPage', params: { slug: group?.slug } }" name="members" label="Members" />
-          <q-route-tab :to="{ name: 'GroupDiscussionsPage', params: { slug: group?.slug } }" name="discussions" label="Discussions" />
+          <q-route-tab :to="{ name: 'GroupChatroomPage', params: { slug: group?.slug } }" name="chatroom" label="Chatroom" />
         </q-tabs>
       </div>
       <div class="col-12 col-sm-6 q-px-lg row items-center q-gutter-md">

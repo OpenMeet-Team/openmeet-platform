@@ -115,7 +115,7 @@ const fetchRecentEvents = async () => {
 
 // Navigation to specific chats
 const navigateToGroupChat = (groupSlug) => {
-  router.push({ name: 'GroupDiscussionsPage', params: { slug: groupSlug } })
+  router.push({ name: 'GroupChatroomPage', params: { slug: groupSlug } })
 }
 
 const navigateToEventChat = (eventSlug) => {

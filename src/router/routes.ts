@@ -52,7 +52,7 @@ const routes: RouteRecordRaw[] = [
               { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
               { path: 'events', name: 'GroupEventsPage', component: () => import('pages/group/GroupEventsPage.vue') },
               { path: 'members', name: 'GroupMembersPage', component: () => import('pages/group/GroupMembersPage.vue') },
-              { path: 'discussions', name: 'GroupDiscussionsPage', component: () => import('pages/group/GroupDiscussionsPage.vue') }
+              { path: 'chatroom', name: 'GroupChatroomPage', component: () => import('pages/group/GroupChatroomPage.vue') }
             ]
           }
         ]
