@@ -366,7 +366,7 @@
                             flat
                             round
                             size="sm"
-                            @click="downloadFile(getImageUrl(message.content.url), message.content.filename)"
+                            @click="downloadFile(getFileUrl(message.content.url), message.content.filename)"
                             :title="'Download ' + message.content.filename"
                           />
                         </div>
@@ -562,7 +562,7 @@
       <q-card>
         <q-card-section class="row items-center">
           <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
+          <q-btn icon="sym_r_close" flat round dense v-close-popup />
         </q-card-section>
         <q-card-section class="q-pa-none flex flex-center">
           <img :src="imageModalSrc" style="max-width: 100%; max-height: 90vh;" />
@@ -1263,13 +1263,13 @@ const formatTypingUsers = (users: { userId: string, userName: string }[]): strin
 }
 
 const getFileIcon = (mimetype?: string): string => {
-  if (!mimetype) return 'attach_file'
-  if (mimetype.startsWith('image/')) return 'image'
-  if (mimetype.startsWith('video/')) return 'videocam'
-  if (mimetype.startsWith('audio/')) return 'audiotrack'
-  if (mimetype.includes('pdf')) return 'picture_as_pdf'
-  if (mimetype.includes('zip') || mimetype.includes('rar')) return 'archive'
-  return 'attach_file'
+  if (!mimetype) return 'sym_r_attach_file'
+  if (mimetype.startsWith('image/')) return 'sym_r_image'
+  if (mimetype.startsWith('video/')) return 'sym_r_videocam'
+  if (mimetype.startsWith('audio/')) return 'sym_r_audiotrack'
+  if (mimetype.includes('pdf')) return 'sym_r_picture_as_pdf'
+  if (mimetype.includes('zip') || mimetype.includes('rar')) return 'sym_r_archive'
+  return 'sym_r_attach_file'
 }
 
 const getImageUrl = (url: string): string => {
@@ -1292,7 +1292,8 @@ const getImageUrl = (url: string): string => {
       return ''
     }
 
-    const convertedUrl = matrixClientService.getContentUrl(url)
+    // For images, provide thumbnail dimensions (300x300)
+    const convertedUrl = matrixClientService.getContentUrl(url, 300, 300)
     console.log('🖼️ getImageUrl: Converting Matrix URL:', {
       original: url,
       converted: convertedUrl,
@@ -1310,6 +1311,48 @@ const getImageUrl = (url: string): string => {
 
   // Fallback - return original URL
   console.log('🔗 getImageUrl: Using original URL:', url)
+  return url
+}
+
+const getFileUrl = (url: string): string => {
+  if (!url) {
+    console.warn('⚠️ getFileUrl: Empty URL provided')
+    return ''
+  }
+
+  // If it's already an HTTP URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    console.log('🔗 getFileUrl: Using HTTP URL as-is:', url)
+    return url
+  }
+
+  // Handle Matrix content URLs (mxc://) for file downloads
+  if (url.startsWith('mxc://')) {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.error('❌ getFileUrl: Matrix client not available')
+      return ''
+    }
+
+    // For files, use download endpoint without dimensions
+    const convertedUrl = matrixClientService.getContentUrl(url)
+    console.log('📎 getFileUrl: Converting Matrix URL for file download:', {
+      original: url,
+      converted: convertedUrl,
+      baseUrl: client.baseUrl,
+      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http')
+    })
+
+    if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
+      console.error('❌ getFileUrl: Matrix URL conversion failed or invalid')
+      return ''
+    }
+
+    return convertedUrl
+  }
+
+  // Fallback - return original URL
+  console.log('🔗 getFileUrl: Using original URL:', url)
   return url
 }
 
@@ -1507,11 +1550,53 @@ const showImageModal = (src: string) => {
   imageModal.value = true
 }
 
-const downloadFile = (url: string, filename: string) => {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
+const downloadFile = async (url: string, filename: string) => {
+  try {
+    console.log('📥 Starting file download:', { url, filename })
+
+    // Get Matrix access token for direct authentication (Element Web approach)
+    const client = matrixClientService.getClient()
+    const accessToken = client?.getAccessToken()
+
+    if (!accessToken) {
+      throw new Error('No Matrix access token available')
+    }
+
+    console.log('🔑 Using direct token auth, token available:', !!accessToken)
+
+    // Make authenticated request directly to Matrix server
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`)
+    }
+
+    // Get the blob data
+    const blob = await response.blob()
+
+    // Create blob URL and download
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    a.click()
+
+    // Clean up blob URL
+    URL.revokeObjectURL(blobUrl)
+
+    console.log('✅ File download completed:', filename)
+  } catch (error) {
+    console.error('❌ File download failed:', error)
+    // Fallback to direct link
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+  }
 }
 
 const previewFile = (content: { url?: string; filename?: string; mimetype?: string }) => {
@@ -1520,7 +1605,7 @@ const previewFile = (content: { url?: string; filename?: string; mimetype?: stri
     return
   }
 
-  const fileUrl = getImageUrl(content.url)
+  const fileUrl = getFileUrl(content.url)
   console.log('📎 Previewing file:', {
     originalUrl: content.url,
     convertedUrl: fileUrl,
@@ -2315,6 +2400,68 @@ watch([messageCount, isConnected], async ([newCount]) => {
   }
 })
 
+// Handle file upload when a file is selected
+watch(selectedFile, async (newFile) => {
+  console.log('🔍 File watcher triggered:', { newFile: newFile?.name, roomId: props.roomId })
+
+  if (!newFile || !props.roomId) {
+    console.log('⚠️ File upload cancelled - missing file or room ID')
+    return
+  }
+
+  console.log('📎 Starting file upload process:', {
+    fileName: newFile.name,
+    fileSize: newFile.size,
+    fileType: newFile.type,
+    roomId: props.roomId
+  })
+
+  isSending.value = true
+
+  try {
+    console.log('🔄 Checking Matrix client availability...')
+
+    // Check if Matrix client is available
+    const client = matrixClientService.getClient()
+    console.log('🔍 Matrix client check result:', { hasClient: !!client })
+
+    if (!client) {
+      console.error('❌ Matrix client not available')
+      throw new Error('Matrix client not available - please connect to Matrix first')
+    }
+
+    console.log('🔑 Matrix client status:', {
+      hasClient: !!client,
+      isLoggedIn: client.isLoggedIn(),
+      userId: client.getUserId(),
+      baseUrl: client.getHomeserverUrl()
+    })
+
+    console.log('📤 About to call uploadAndSendFile...')
+    const result = await matrixClientService.uploadAndSendFile(props.roomId, newFile)
+    console.log('✅ uploadAndSendFile completed, result:', result)
+    console.log('✅ File uploaded successfully!')
+
+    // Clear the selected file
+    selectedFile.value = null
+  } catch (error) {
+    console.error('❌ Failed to upload file:', error)
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error
+    })
+
+    quasar.notify({
+      type: 'negative',
+      message: 'Failed to upload file: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      timeout: 3000
+    })
+  } finally {
+    isSending.value = false
+  }
+})
+
 // Auto-scroll when typing indicators appear or disappear
 watch(typingUsers, async (newTypingUsers, oldTypingUsers) => {
   console.log('🎯 Typing users watcher triggered!', {
@@ -2775,15 +2922,16 @@ onUnmounted(() => {
 
 .file-card {
   border-radius: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: #4238A6; /* Purple-500 from palette for white text readability */
+  border: 1px solid #4238A6;
   max-width: 300px;
   transition: all 0.2s ease;
+  color: white; /* White text for readability on dark background */
 }
 
 .file-card:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
+  background: #5b4fc7; /* Slightly lighter purple on hover */
+  border-color: #5b4fc7;
 }
 
 .file-name {

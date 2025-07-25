@@ -1316,44 +1316,76 @@ class MatrixClientService {
    * Upload file and send to room
    */
   async uploadAndSendFile (roomId: string, file: File): Promise<void> {
+    console.log('🚀 ENTRY: uploadAndSendFile called with:', { fileName: file.name, roomId })
+
+    console.log('🔍 ENTRY: Checking Matrix client...')
     if (!this.client) {
+      console.error('🚨 ENTRY: Matrix client not initialized!')
       throw new Error('Matrix client not initialized')
     }
 
+    console.log('🚀 ENTRY: Matrix client is available, proceeding...')
+
+    // Use a completely separate try-catch to isolate the issue
+    let contentUri = ''
+
+    console.log('📎 Starting uploadAndSendFile for:', file.name)
+    console.log('🔄 Step 1: Uploading file to Matrix media repository...')
+
     try {
-      console.log('📎 Uploading file:', file.name)
-      const contentUri = await this.uploadFile(file)
+      console.log('🔄 Step 1a: About to call uploadFile...')
+      contentUri = await this.uploadFile(file)
+      console.log('✅ Step 1b: uploadFile returned:', contentUri)
+    } catch (uploadError) {
+      console.error('❌ Step 1 FAILED: Upload error:', uploadError)
+      throw uploadError
+    }
 
-      // Determine message type based on file type
-      let msgtype = 'm.file'
-      const content = {
-        msgtype,
-        body: file.name,
-        filename: file.name,
-        info: {
-          size: file.size,
-          mimetype: file.type
-        },
-        url: contentUri
-      }
+    console.log('✅ Step 1 complete: File uploaded, got content URI:', contentUri)
 
-      if (file.type.startsWith('image/')) {
-        msgtype = 'm.image'
-        content.msgtype = msgtype
-      } else if (file.type.startsWith('video/')) {
-        msgtype = 'm.video'
-        content.msgtype = msgtype
-      } else if (file.type.startsWith('audio/')) {
-        msgtype = 'm.audio'
-        content.msgtype = msgtype
-      }
+    console.log('🔄 Step 2: Preparing message content...')
 
+    // Determine message type based on file type
+    let msgtype = 'm.file'
+    const content = {
+      msgtype,
+      body: file.name,
+      filename: file.name,
+      info: {
+        size: file.size,
+        mimetype: file.type
+      },
+      url: contentUri
+    }
+
+    if (file.type.startsWith('image/')) {
+      msgtype = 'm.image'
+      content.msgtype = msgtype
+    } else if (file.type.startsWith('video/')) {
+      msgtype = 'm.video'
+      content.msgtype = msgtype
+    } else if (file.type.startsWith('audio/')) {
+      msgtype = 'm.audio'
+      content.msgtype = msgtype
+    }
+
+    console.log('📝 Message content prepared:', {
+      msgtype,
+      filename: file.name,
+      size: file.size,
+      contentUri
+    })
+
+    console.log('🔄 Step 3: Sending message to room...')
+
+    try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.client.sendEvent(roomId, EventType.RoomMessage, content as any)
-      console.log('📤 File sent to room:', roomId)
-    } catch (error) {
-      console.error('❌ Failed to upload and send file:', error)
-      throw error
+      console.log('✅ Step 3 complete: Message sent to room:', roomId)
+      console.log('🎉 File upload and send process completed successfully!')
+    } catch (sendError) {
+      console.error('❌ Step 3 FAILED: Send error:', sendError)
+      throw sendError
     }
   }
 
@@ -1470,15 +1502,29 @@ class MatrixClientService {
     if (!this.client || !mxcUrl.startsWith('mxc://')) return mxcUrl
 
     try {
-      // Check if client has a valid base URL before attempting conversion
-      const baseUrl = this.client.getHomeserverUrl()
-      if (!baseUrl) {
-        console.warn('⚠️ Matrix client baseUrl is undefined, cannot convert mxc URL:', mxcUrl)
-        return mxcUrl
+      let httpUrl: string | null = null
+
+      // If width/height provided, use thumbnail endpoint; otherwise use download endpoint
+      if (width !== undefined && height !== undefined) {
+        // Use thumbnail endpoint with dimensions
+        httpUrl = this.client.mxcUrlToHttp(mxcUrl, width, height, 'scale')
+      } else {
+        // Use download endpoint without dimensions for direct file access
+        httpUrl = this.client.mxcUrlToHttp(mxcUrl)
       }
 
-      const httpUrl = this.client.mxcUrlToHttp(mxcUrl, width, height)
-      return httpUrl || mxcUrl
+      if (!httpUrl) return mxcUrl
+
+      // Transform v3 media URLs to v1 authenticated endpoints for MSC3861/MAS
+      if (httpUrl.includes('/_matrix/media/v3/download/')) {
+        httpUrl = httpUrl.replace('/_matrix/media/v3/download/', '/_matrix/client/v1/media/download/')
+        console.log('🔄 Transformed to v1 download endpoint:', httpUrl)
+      } else if (httpUrl.includes('/_matrix/media/v3/thumbnail/')) {
+        httpUrl = httpUrl.replace('/_matrix/media/v3/thumbnail/', '/_matrix/client/v1/media/thumbnail/')
+        console.log('🔄 Transformed to v1 thumbnail endpoint:', httpUrl)
+      }
+
+      return httpUrl
     } catch (error) {
       console.warn('⚠️ Failed to convert Matrix content URL:', mxcUrl, error)
       return mxcUrl
@@ -1520,11 +1566,26 @@ class MatrixClientService {
     }
 
     try {
+      console.log('🔄 uploadFile: Starting upload to Matrix media repository...')
+      console.log('🔄 uploadFile: File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })
+      console.log('🔄 uploadFile: Matrix client ready, calling uploadContent...')
+
       const upload = await this.client.uploadContent(file)
-      console.log('📎 File uploaded:', upload.content_uri)
+
+      console.log('✅ uploadFile: Upload successful!')
+      console.log('📎 uploadFile: File uploaded with content URI:', upload.content_uri)
+      console.log('📎 uploadFile: Full upload response:', upload)
+
       return upload.content_uri
     } catch (error) {
-      console.error('❌ Failed to upload file:', error)
+      console.error('❌ uploadFile: Failed to upload file:', error)
+      console.error('❌ uploadFile: Error type:', typeof error)
+      console.error('❌ uploadFile: Error message:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('❌ uploadFile: Error stack:', error instanceof Error ? error.stack : 'No stack trace')
       throw error
     }
   }
