@@ -957,15 +957,15 @@ const searchNewChat = async () => {
     newChatResults.value = []
 
     if (newChatType.value === 'group') {
-      // Search for groups using the real groups API
-      const response = await groupsApi.getAll({
+      // Search for groups using the search API
+      const response = await searchApi.searchGroups({
         search: newChatSearch.value,
         page: 1,
         limit: 10
       })
 
       // Convert group entities to chat format
-      newChatResults.value = response.data.data.map(group => ({
+      newChatResults.value = response.data.map(group => ({
         id: `group-${group.slug}`,
         name: group.name,
         type: 'group' as const,

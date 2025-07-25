@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import UnifiedChatComponent from '../chat/UnifiedChatComponent.vue'
-import { groupsApi } from '../../api/groups'
+import { matrixClientService } from '../../services/matrixClientService'
 
 interface Props {
   groupSlug: string
@@ -29,9 +29,11 @@ const groupRoomId = ref<string>('')
 // Get or create the Matrix room for this group
 const initializeGroupChat = async () => {
   try {
-    // Call API to get or create group chat room
-    const response = await groupsApi.joinGroupChat(props.groupSlug)
-    groupRoomId.value = response.data.matrixRoomId
+    // Use Matrix client service to join group chat room
+    const result = await matrixClientService.joinGroupChatRoom(props.groupSlug)
+    if (result && result.room?.roomId) {
+      groupRoomId.value = result.room.roomId
+    }
   } catch (error) {
     console.error('Failed to initialize group chat:', error)
   }
