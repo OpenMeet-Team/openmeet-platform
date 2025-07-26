@@ -101,6 +101,10 @@ const isLoading = ref(false)
 const isInitializing = ref(false)
 const isConnectingToMatrix = ref(false)
 
+// Reactive state for Matrix service status
+const hasUserChosenToConnect = ref(matrixClientService.hasUserChosenToConnect())
+const isMatrixClientReady = ref(matrixClientService.isReady())
+
 // Check if user should see the connect prompt or the chat interface
 const shouldShowConnectPrompt = computed(() => {
   // Only show prompt for confirmed/cancelled attendees with write permissions
@@ -112,9 +116,8 @@ const shouldShowConnectPrompt = computed(() => {
   }
 
   // Show prompt if user hasn't chosen to connect yet
-  const hasChosen = matrixClientService.hasUserChosenToConnect()
-  console.log('🤔 shouldShowConnectPrompt - hasUserChosenToConnect:', hasChosen)
-  return !hasChosen
+  console.log('🤔 shouldShowConnectPrompt - hasUserChosenToConnect:', hasUserChosenToConnect.value)
+  return !hasUserChosenToConnect.value
 })
 
 // Check if chat should be shown
@@ -128,13 +131,11 @@ const shouldShowChat = computed(() => {
   }
 
   // Only show if user has chosen to connect and we have Matrix client ready
-  const hasChosen = matrixClientService.hasUserChosenToConnect()
-  const isReady = matrixClientService.isReady()
   const hasRoomId = !!matrixRoomId.value
 
-  console.log('🎯 shouldShowChat - hasChosen:', hasChosen, 'isReady:', isReady, 'hasRoomId:', hasRoomId)
+  console.log('🎯 shouldShowChat - hasChosen:', hasUserChosenToConnect.value, 'isReady:', isMatrixClientReady.value, 'hasRoomId:', hasRoomId)
 
-  return hasChosen && isReady && hasRoomId
+  return hasUserChosenToConnect.value && isMatrixClientReady.value && hasRoomId
 })
 
 // Initialize Matrix connection and room when user has chosen to connect
@@ -304,6 +305,7 @@ const connectToMatrixChat = async () => {
     // First, set the user choice flag
     console.log('📝 Setting user choice to connect to Matrix')
     matrixClientService.setUserChosenToConnect(true)
+    hasUserChosenToConnect.value = true // Update reactive ref
 
     // Force reactivity update by triggering computed property checks
     console.log('🔄 After setting choice - shouldShowConnectPrompt:', shouldShowConnectPrompt.value)
@@ -317,6 +319,7 @@ const connectToMatrixChat = async () => {
 
       // If we reach here, Matrix is ready - initialize the room
       console.log('✅ Matrix client ready - initializing room')
+      isMatrixClientReady.value = true // Update reactive ref
       await initializeMatrixRoom()
     } catch (error) {
       // If this fails, it might be because we're redirecting to consent

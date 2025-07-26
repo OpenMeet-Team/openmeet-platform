@@ -87,7 +87,9 @@ const handleCallback = async () => {
 
       // Return to the original page or dashboard
       if (returnUrl && returnUrl !== window.location.href) {
-        window.location.href = returnUrl
+        // Use Vue router to navigate instead of full page reload
+        const url = new URL(returnUrl, window.location.origin)
+        router.push(url.pathname + url.search + url.hash)
       } else {
         router.push('/dashboard')
       }

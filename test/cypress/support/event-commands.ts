@@ -25,6 +25,7 @@ Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
     // Add required fields that were missing and caused 422 errors
     type: 'in-person', // Required field
     categories: [4], // Required field
+    timeZone: 'America/New_York', // Required field
     ...options
   }
 
@@ -95,7 +96,8 @@ Cypress.Commands.add('createEventApi', (name: string, options = {}) => {
         visibility: eventOptions.visibility,
         // Add required fields that were missing
         type: eventOptions.type,
-        categories: eventOptions.categories
+        categories: eventOptions.categories,
+        timeZone: eventOptions.timeZone
       }
     }).then((response) => {
       // Check for a successful API response (status 201-Created)

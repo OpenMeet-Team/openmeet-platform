@@ -421,25 +421,44 @@ class MatrixClientService {
     console.log('🔗 Using redirect URL from current origin:', redirectUrl)
 
     try {
-      // Step 1: Register OAuth2 client dynamically (like Element-web)
-      console.log('📝 Registering dynamic OAuth2 client with MAS')
-      const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
+      // Check if we should use static client (for tests) or dynamic registration
+      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
+      const staticClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
 
-      // Step 2: Generate device ID and build scopes with device-specific permission
-      const deviceId = this._generateDeviceId()
+      let clientId: string
+      let deviceId: string
+
+      if (useStaticClient && staticClientId) {
+        // Use static client configuration (for tests)
+        console.log('📝 Using static OAuth2 client for testing:', staticClientId)
+        clientId = staticClientId
+        deviceId = this._generateDeviceId()
+
+        // Store client info for token exchange (no dynamic registration needed)
+        sessionStorage.setItem('mas_client_id', clientId)
+        sessionStorage.setItem('mas_device_id', deviceId)
+      } else {
+        // Step 1: Register OAuth2 client dynamically (like Element-web)
+        console.log('📝 Registering dynamic OAuth2 client with MAS')
+        const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
+        clientId = clientRegistration.client_id
+        deviceId = this._generateDeviceId()
+
+        // Store client info and device ID for token exchange
+        sessionStorage.setItem('mas_client_id', clientId)
+        sessionStorage.setItem('mas_device_id', deviceId)
+      }
+
+      // Step 2: Generate scopes with device-specific permission
       const scopes = this._buildMatrixScopes(deviceId)
-
-      // Step 3: Store client info and device ID for token exchange
-      sessionStorage.setItem('mas_client_id', clientRegistration.client_id)
-      sessionStorage.setItem('mas_device_id', deviceId)
 
       // Generate state for CSRF protection
       const state = this._generateRandomState()
       sessionStorage.setItem('mas_oauth_state', state)
 
-      // Build MAS OAuth2 authorization URL with dynamic client
+      // Build MAS OAuth2 authorization URL
       const masLoginParams = new URLSearchParams({
-        client_id: clientRegistration.client_id,
+        client_id: clientId,
         redirect_uri: redirectUrl,
         response_type: 'code',
         scope: scopes,
@@ -468,8 +487,8 @@ class MatrixClientService {
 
       const masLoginUrl = `${masUrl}/authorize?${masLoginParams}`
 
-      console.log('🔗 Redirecting to MAS OAuth2 login with dynamic client')
-      console.log('🆔 Dynamic Client ID:', clientRegistration.client_id)
+      console.log('🔗 Redirecting to MAS OAuth2 login')
+      console.log('🆔 Client ID:', clientId)
       console.log('🎯 Device ID:', deviceId)
       console.log('🔧 Scopes:', scopes)
 
@@ -580,10 +599,12 @@ class MatrixClientService {
       const masUrl = getEnv('APP_MAS_URL') as string
       const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
-      // Use dynamic client ID stored during registration, fallback to static
+      // Use static test client if configured for testing, otherwise use dynamic client
+      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
+      const staticTestClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
       const dynamicClientId = sessionStorage.getItem('mas_client_id')
-      const staticClientId = getEnv('APP_MAS_CLIENT_ID') as string
-      const clientId = dynamicClientId || staticClientId
+
+      const clientId = useStaticClient && staticTestClientId ? staticTestClientId : dynamicClientId
       const storedDeviceId = sessionStorage.getItem('mas_device_id')
 
       if (!masUrl || !clientId) {
@@ -789,10 +810,12 @@ class MatrixClientService {
       // Get MAS configuration
       const masUrl = getEnv('APP_MAS_URL') as string
 
-      // Try to get stored client ID from current session, fallback to static config
+      // Use static test client if configured for testing, otherwise use dynamic client
+      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
+      const staticTestClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
       const dynamicClientId = sessionStorage.getItem('mas_client_id')
-      const staticClientId = getEnv('APP_MAS_CLIENT_ID') as string
-      const clientId = dynamicClientId || staticClientId
+
+      const clientId = useStaticClient && staticTestClientId ? staticTestClientId : dynamicClientId
 
       if (!masUrl || !clientId) {
         const configError = new Error('MAS configuration not available for token refresh')

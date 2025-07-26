@@ -2580,8 +2580,16 @@ onMounted(async () => {
       diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
       // Try to initialize Matrix connection (but don't force auth)
-      await matrixClientService.initializeClient()
-      console.log(`✅ [${instanceId}] Matrix client initialized successfully`)
+      try {
+        await matrixClientService.initializeClient()
+        console.log(`✅ [${instanceId}] Matrix client initialized successfully`)
+      } catch (authError) {
+        console.log(`🔑 [${instanceId}] Matrix client needs authentication:`, authError.message)
+        // Don't throw - just log and show connect button to user
+        lastAuthError.value = '' // Clear error to show connect button
+        isConnecting.value = false
+        return // Exit early to show connect button
+      }
 
       // After successful Matrix connection, ensure we're invited to the chat room
       // This handles cases where the bot invitation failed during RSVP
