@@ -89,10 +89,8 @@ class MatrixClientService {
     const choiceKey = `matrix_user_choice_${authStore.user.slug}_${tenantId}`
     if (consent) {
       localStorage.setItem(choiceKey, 'true')
-      console.log('✅ User choice to connect to Matrix saved (persists across sessions)')
     } else {
       localStorage.removeItem(choiceKey)
-      console.log('❌ User choice to connect to Matrix removed')
     }
   }
 
@@ -103,7 +101,6 @@ class MatrixClientService {
   async initializeClient (forceAuth = false): Promise<MatrixClient> {
     // Check if MatrixClientManager already has a ready client
     if (matrixClientManager.isReady()) {
-      console.log('✅ Matrix client already initialized via MatrixClientManager')
       this.client = matrixClientManager.getClient()
       return this.client!
     }

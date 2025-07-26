@@ -78,140 +78,6 @@
         />
       </div>
 
-      <!-- Chat Room Diagnostics Section (Collapsible) -->
-      <div class="chat-diagnostics q-mb-sm">
-        <q-expansion-item
-          v-model="showDiagnostics"
-          icon="sym_r_bug_report"
-          label="🔍 Chat Room Diagnostics"
-          header-class="bg-grey-2 text-grey-8"
-          dense
-        >
-          <div class="diagnostics-content q-pa-md bg-grey-1">
-            <div class="row items-center q-mb-sm">
-              <q-space />
-              <q-btn
-                icon="sym_r_refresh"
-                flat
-                round
-                size="sm"
-                @click="refreshDiagnostics"
-                class="q-ml-sm"
-              >
-                <q-tooltip>Refresh diagnostics</q-tooltip>
-              </q-btn>
-              <q-btn
-                icon="sym_r_sync"
-                flat
-                round
-                size="sm"
-                @click="forceSync"
-                color="primary"
-                class="q-ml-sm"
-              >
-                <q-tooltip>Force Matrix sync</q-tooltip>
-              </q-btn>
-            </div>
-
-            <div class="diagnostics-grid">
-              <!-- Room Information -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Room ID</div>
-                <div class="text-body2 text-weight-medium text-grey-8">{{ props.roomId || 'Not set' }}</div>
-              </div>
-
-              <!-- Matrix Client Status -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Client Status</div>
-                <div class="text-body2">
-                  <q-chip
-                    :color="getClientStatusColor()"
-                    text-color="white"
-                    size="sm"
-                    dense
-                  >
-                    {{ clientStatus }}
-                  </q-chip>
-                </div>
-              </div>
-
-              <!-- Sync State -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Sync State</div>
-                <div class="text-body2">
-                  <q-chip
-                    :color="getSyncStateColor()"
-                    text-color="white"
-                    size="sm"
-                    dense
-                  >
-                    {{ syncState }}
-                  </q-chip>
-                </div>
-              </div>
-
-              <!-- Room Members -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Room Members</div>
-                <div class="text-body2 text-grey-8">
-                  {{ roomMemberCount }} total
-                  <span v-if="getLiveMemberCount() !== roomMemberCount">
-                    ({{ getLiveMemberCount() }} live)
-                  </span>
-                </div>
-              </div>
-
-              <!-- Message Count -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Messages Loaded</div>
-                <div class="text-body2 text-grey-8">{{ messages.length }} / {{ currentHistoryLimit }}</div>
-              </div>
-
-              <!-- Timeline Events -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Timeline Events</div>
-                <div class="text-body2 text-grey-8">{{ getTimelineEventCount() }}</div>
-              </div>
-
-              <!-- Room Name -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Room Name</div>
-                <div class="text-body2 text-grey-8">{{ matrixRoomName || 'Unnamed room' }}</div>
-              </div>
-
-              <!-- User ID -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">User ID</div>
-                <div class="text-body2 text-mono text-grey-8">{{ getCurrentUserId() || 'Not authenticated' }}</div>
-              </div>
-
-              <!-- Last Activity -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Last Activity</div>
-                <div class="text-body2 text-grey-8">{{ getLastActivity() }}</div>
-              </div>
-
-              <!-- Sync Progress -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Sync Progress</div>
-                <div class="text-body2 text-grey-8">{{ getSyncProgress() }}</div>
-              </div>
-
-              <!-- Room Status -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Room Status</div>
-                <div class="text-body2 text-grey-8">{{ getRoomStatus() }}</div>
-              </div>
-
-              <!-- Connection Age -->
-              <div class="diagnostic-item">
-                <div class="text-caption text-grey-7">Connection Age</div>
-                <div class="text-body2 text-grey-8">{{ getConnectionAge() }}</div>
-              </div>
-            </div>
-          </div>
-        </q-expansion-item>
-      </div>
 
       <!-- Messages -->
       <div v-if="isConnected && messages.length > 0" class="messages-list" data-cy="messages-list">
@@ -645,16 +511,11 @@ const selectedFile = ref<File | null>(null)
 const messages = ref<Message[]>([])
 const typingUsers = ref<{ userId: string, userName: string }[]>([])
 // Connection state tracking
-const diagnosticTrigger = ref(0) // Used to force reactivity updates
 
 const isConnected = computed(() => {
-  // Force reactivity by accessing the trigger
-  void diagnosticTrigger.value
-
   const client = matrixClientService.getClient()
   const isReady = matrixClientService.isReady()
   const isLoggedIn = client?.isLoggedIn() ?? false
-  console.debug('🔍 isConnected computed:', { hasClient: !!client, isReady, isLoggedIn })
   return isReady && isLoggedIn
 })
 const isConnecting = ref(false)
@@ -677,8 +538,6 @@ const isLoadingOlderMessages = ref(false)
 const hasMoreHistory = ref(true)
 const currentHistoryLimit = ref(50)
 
-// Diagnostics state
-const showDiagnostics = ref(false)
 
 // Use Matrix client service directly for real Matrix integration
 
@@ -783,34 +642,6 @@ const showSenderNames = computed(() => {
   return props.contextType !== 'direct'
 })
 
-// Diagnostic Functions
-const refreshDiagnostics = () => {
-  console.log('🔍 Refreshing diagnostics')
-
-  // Trigger reactivity updates
-  diagnosticTrigger.value++
-  messageCount.value = messages.value.length
-
-  // Log current diagnostic values for debugging
-  const client = matrixClientService.getClient()
-  const room = currentRoom.value
-
-  console.log('🔍 Diagnostic values:', {
-    roomId: props.roomId,
-    hasClient: !!client,
-    clientIsLoggedIn: client?.isLoggedIn(),
-    clientSyncState: client?.getSyncState(),
-    hasRoom: !!room,
-    roomName: room?.name,
-    roomAlias: room?.getCanonicalAlias(),
-    userId: client?.getUserId(),
-    clientStatus: getClientStatus(),
-    syncState: getSyncState(),
-    roomMemberCount: getRoomMemberCount(),
-    matrixRoomName: getRoomName(),
-    currentUserId: getCurrentUserId()
-  })
-}
 
 const forceSync = async () => {
   console.log('🔄 Force syncing Matrix client')
@@ -832,56 +663,14 @@ const forceSync = async () => {
   }
 }
 
-// Reactive diagnostic computed properties
-const clientStatus = computed(() => {
-  void diagnosticTrigger.value // Force reactivity
-  const client = matrixClientService.getClient()
-  if (!client) return 'Not initialized'
-  if (client.isLoggedIn()) return 'Logged in'
-  return 'Not logged in'
-})
-
-const getClientStatus = () => clientStatus.value
-
-const getClientStatusColor = () => {
-  const status = clientStatus.value
-  if (status === 'Logged in') return 'positive'
-  if (status === 'Not logged in') return 'negative'
-  return 'warning'
-}
-
-const syncState = computed(() => {
-  void diagnosticTrigger.value // Force reactivity
-  const client = matrixClientService.getClient()
-  if (!client) return 'No client'
-  const syncState = client.getSyncState()
-  const isInitialSyncComplete = client.isInitialSyncComplete()
-  return `${syncState || 'Unknown'} (Initial: ${isInitialSyncComplete ? 'Complete' : 'Pending'})`
-})
-
-const getSyncState = () => syncState.value
-
-const getSyncStateColor = () => {
-  const state = syncState.value
-  if (state.includes('PREPARED')) return 'positive'
-  if (state.includes('SYNCING')) return 'warning'
-  if (state.includes('ERROR')) return 'negative'
-  return 'grey'
-}
 
 const roomMemberCount = computed(() => {
   try {
-    console.debug('🔍 getRoomMemberCount: roomId =', props.roomId)
-    const client = matrixClientService.getClient()
-    console.debug('🔍 getRoomMemberCount: client =', !!client)
     const room = currentRoom.value
-    console.debug('🔍 getRoomMemberCount: room =', !!room, room?.roomId)
     if (!room) {
-      console.debug('🔍 getRoomMemberCount: no room found, returning 0')
       return 0
     }
     const count = room.getJoinedMemberCount()
-    console.debug('🔍 getRoomMemberCount: count =', count)
     return count
   } catch (error) {
     console.error('Error getting room member count:', error)
@@ -1410,12 +1199,10 @@ const sendMessage = async () => {
 
     // Send message via Matrix client directly - let Matrix SDK handle optimistic rendering
     if (props.roomId) {
-      console.log('📤 Sending Matrix message to room:', props.roomId)
       await matrixClientService.sendMessage(props.roomId, {
         body: text,
         msgtype: 'm.text'
       })
-      console.log('✅ Message sent successfully - Matrix SDK will handle display')
     } else {
       console.error('❌ No Matrix room ID available for sending message')
       throw new Error('No Matrix room ID available')
@@ -1706,7 +1493,6 @@ const sendReadReceipts = async () => {
       .find(msg => !msg.isOwn && msg.id && !msg.id.includes('welcome'))
 
     if (lastOtherMessage && lastOtherMessage.id && lastOtherMessage.id !== lastReadReceiptSent.value) {
-      console.log('📨 Sending read receipt for message:', lastOtherMessage.id)
       await matrixClientService.sendReadReceipt(props.roomId, lastOtherMessage.id)
       lastReadReceiptSent.value = lastOtherMessage.id
     }
@@ -1841,7 +1627,6 @@ const updateReadReceipts = async () => {
 
 const reconnect = async () => {
   isConnecting.value = true
-  diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
   try {
     console.log('🔄 Attempting to reconnect Matrix client...')
@@ -1857,7 +1642,6 @@ const reconnect = async () => {
     // Check if Matrix client is already available and just needs to reconnect
     if (matrixClientService.isReady()) {
       console.log('🔌 Matrix client already ready, just updating connection status')
-      diagnosticTrigger.value++ // Trigger reactivity update
       roomName.value = `${props.contextType} Chat`
 
       // Reload messages if we have a room ID
@@ -1911,7 +1695,6 @@ const reconnect = async () => {
       }
     }
 
-    diagnosticTrigger.value++ // Trigger reactivity update
     lastAuthError.value = '' // Clear any previous errors
     roomName.value = `${props.contextType} Chat`
 
@@ -1922,7 +1705,6 @@ const reconnect = async () => {
     }
   } catch (error: unknown) {
     console.error('❌ Failed to connect Matrix client:', error)
-    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
 
     // Check for rate limiting error - handle both object and nested error formats
     const errorObj = (error as Record<string, unknown>)
@@ -2006,7 +1788,6 @@ const clearMatrixSessions = async () => {
     await matrixClientService.clearAllMatrixSessions()
 
     // Reset component state
-    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
     isConnecting.value = false
     messages.value = []
 
@@ -2559,8 +2340,6 @@ onMounted(async () => {
 
     // Check if Matrix client is already ready
     if (matrixClientService.isReady()) {
-      console.log(`✅ [${instanceId}] Matrix client already initialized and ready`)
-      diagnosticTrigger.value++ // Trigger reactivity update
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = `${props.contextType} Chat`
 
@@ -2569,22 +2348,16 @@ onMounted(async () => {
 
       // Load messages only if we have a room ID
       if (props.roomId) {
-        console.log(`📨 [${instanceId}] Loading messages (client ready path)`)
         await loadMessages()
         await scrollToBottom()
         messagesLoaded = true
-        console.log(`✅ [${instanceId}] Messages loaded and UI ready`)
       }
     } else {
-      console.log(`⚠️ [${instanceId}] Matrix client not ready, will need to authenticate`)
-      diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
-
       // Try to initialize Matrix connection (but don't force auth)
       try {
         await matrixClientService.initializeClient()
-        console.log(`✅ [${instanceId}] Matrix client initialized successfully`)
       } catch (authError) {
-        console.log(`🔑 [${instanceId}] Matrix client needs authentication:`, authError.message)
+        console.log(`🔑 Matrix client needs authentication:`, authError.message)
         // Don't throw - just log and show connect button to user
         lastAuthError.value = '' // Clear error to show connect button
         isConnecting.value = false
@@ -2595,29 +2368,24 @@ onMounted(async () => {
       // This handles cases where the bot invitation failed during RSVP
       if (props.contextType === 'event' && props.contextId) {
         try {
-          console.log(`🎯 [${instanceId}] Joining event chat room using Matrix-native approach: ${props.contextId}`)
           const result = await matrixClientService.joinEventChatRoom(props.contextId)
-          console.log(`✅ [${instanceId}] Event chat room joined successfully:`, result.roomInfo)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
         } catch (error) {
-          console.warn(`⚠️ [${instanceId}] Failed to join event chat room (continuing anyway):`, error)
+          console.warn('Failed to join event chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
-          console.log(`🎯 [${instanceId}] Joining group chat room using Matrix-native approach: ${props.contextId}`)
           const result = await matrixClientService.joinGroupChatRoom(props.contextId)
-          console.log(`✅ [${instanceId}] Group chat room joined successfully:`, result.roomInfo)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
         } catch (error) {
-          console.warn(`⚠️ [${instanceId}] Failed to join group chat room (continuing anyway):`, error)
+          console.warn('Failed to join group chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
         }
       }
 
-      diagnosticTrigger.value++ // Trigger reactivity update
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = `${props.contextType} Chat`
 
@@ -2626,14 +2394,12 @@ onMounted(async () => {
 
       // Load messages if we have a room ID and we haven't loaded them already
       if (props.roomId && !messagesLoaded) {
-        console.log(`📨 [${instanceId}] Loading messages (initialization path)`)
         await loadMessages()
         await scrollToBottom()
       }
     }
   } catch (error) {
     console.error('❌ Failed to initialize Matrix chat:', error)
-    diagnosticTrigger.value++ // Trigger reactivity update instead of direct assignment
     lastAuthError.value = error.message || 'Connection failed'
   } finally {
     isConnecting.value = false
@@ -2659,48 +2425,6 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-/* Chat Diagnostics Styles */
-.chat-diagnostics {
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-}
-
-.diagnostics-content {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.diagnostics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.diagnostic-item {
-  padding: 8px 12px;
-  background: white;
-  border-radius: 4px;
-  border: 1px solid #f0f0f0;
-}
-
-.diagnostic-item .text-caption {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.text-mono {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  word-break: break-all;
-}
-
-@media (max-width: 600px) {
-  .diagnostics-grid {
-    grid-template-columns: 1fr;
-  }
-}
 
 .mode-mobile {
   height: 100%;
@@ -3063,12 +2787,4 @@ onUnmounted(() => {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.q-dark .diagnostic-item {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.q-dark .chat-diagnostics {
-  border-color: rgba(255, 255, 255, 0.1);
-}
 </style>
