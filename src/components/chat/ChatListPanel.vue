@@ -425,8 +425,6 @@ const isMatrixInitializing = ref(true)
 const loadRealRooms = async () => {
   isLoadingRooms.value = true
   try {
-    console.log('🔄 Loading ALL Matrix rooms user has joined...')
-
     // Initialize Matrix client to get actual room information
     const matrixClient = await matrixClientService.initializeClient()
     if (!matrixClient) {
@@ -436,7 +434,6 @@ const loadRealRooms = async () => {
 
     // Get ALL Matrix rooms from client
     const matrixRooms = matrixClient.getRooms() || []
-    console.log('🏠 Matrix client has', matrixRooms.length, 'total rooms')
 
     if (matrixRooms.length === 0) {
       console.log('ℹ️ No Matrix rooms found - user may not be in any rooms yet')
@@ -454,7 +451,6 @@ const loadRealRooms = async () => {
       ])
       groups = groupsResponse.data
       events = eventsResponse.data
-      console.log('📋 Found', groups.length, 'OpenMeet groups and', events.length, 'events for context')
     } catch (apiError) {
       console.warn('⚠️ Could not load OpenMeet groups/events, will show Matrix rooms without context:', apiError)
     }
@@ -514,11 +510,9 @@ const loadRealRooms = async () => {
           if (groupAlias) {
             roomType = 'group'
             chatId = `matrix-group-${roomId}`
-            console.log(`🏷️ Found group room via alias: ${groupAlias}`)
           } else if (eventAlias) {
             roomType = 'event'
             chatId = `matrix-event-${roomId}`
-            console.log(`🏷️ Found event room via alias: ${eventAlias}`)
           } else {
             // Assume direct message if 2 members, otherwise generic room
             roomType = participants.length <= 2 ? 'direct' : 'group'
@@ -548,14 +542,6 @@ const loadRealRooms = async () => {
       if (!a.lastActivity) return 1
       if (!b.lastActivity) return -1
       return b.lastActivity.getTime() - a.lastActivity.getTime()
-    })
-
-    console.log('🏠 Loaded', realRooms.value.length, 'Matrix rooms:')
-    realRooms.value.forEach((room, index) => {
-      const activity = room.lastActivity ? room.lastActivity.toLocaleString() : 'no activity'
-      const unread = room.unreadCount ? `(${room.unreadCount} unread)` : ''
-      const context = room.description ? ' - ' + room.description.substring(0, 50) : ''
-      console.log(`  ${index + 1}. ${room.name} (${room.type}) - ${activity} ${unread}${context}`)
     })
   } catch (error) {
     console.error('❌ Failed to load Matrix rooms:', error)
@@ -635,8 +621,6 @@ const updateChatFromRoom = (room: Room, event?: MatrixEvent) => {
       lastActivity,
       lastMessage
     }
-
-    console.log(`📱 Updated chat "${existingChat.name}": unread=${newUnreadCount}, lastActivity=${lastActivity?.toLocaleTimeString()}`)
   }
 }
 
@@ -647,20 +631,16 @@ onMounted(async () => {
 
     // For the main chats page, we want to show available chats proactively
     // Accessing the chats dashboard implies user consent to connect to Matrix
-    console.log('💡 Setting user consent for Matrix connection (dashboard mode)')
     matrixClientService.setUserChosenToConnect(true)
 
     // Use forceAuth = true to initialize with stored credentials or fresh auth
     const matrixClient = await matrixClientService.initializeClient(true)
-    console.log('✅ Matrix client initialized')
     isMatrixInitializing.value = false
 
     // Listen for Matrix events to keep chat list reactive
     if (matrixClient) {
       matrixClient.on(ClientEvent.Sync, (state: string) => {
-        console.log('🔄 Matrix sync state:', state, 'Current rooms:', realRooms.value.length)
         if (state === 'PREPARED') {
-          console.log('🔄 Matrix sync completed, refreshing room list')
           // Always reload on PREPARED to ensure fresh data after page reload
           loadRealRooms()
         }
@@ -669,14 +649,12 @@ onMounted(async () => {
       // Listen for new messages to update unread counts and last activity
       matrixClient.on(RoomEvent.Timeline, (event, room) => {
         if (event.getType() === 'm.room.message' && !event.isRedacted()) {
-          console.log('💬 New message in room:', room?.roomId, 'updating chat list')
           if (room) updateChatFromRoom(room, event)
         }
       })
 
       // Listen for read receipts to update unread counts
-      matrixClient.on(RoomEvent.Receipt, (event, room) => {
-        console.log('📖 Read receipt in room:', room?.roomId, 'updating unread count')
+      matrixClient.on(RoomEvent.Receipt, (_, room) => {
         if (room) updateChatFromRoom(room)
       })
     }
@@ -849,8 +827,6 @@ const getNewChatPlaceholder = (): string => {
 
 const joinChat = async (chat: Chat) => {
   try {
-    console.log('🔗 Joining chat:', chat.name, `(${chat.type})`)
-
     if (chat.type === 'group') {
       // Extract group slug from chat ID (format: 'group-slug' or 'matrix-group-roomId')
       let groupSlug = ''
@@ -869,7 +845,6 @@ const joinChat = async (chat: Chat) => {
         // Use Matrix client service to join the group chat room
         console.log(`🎯 Joining group chat room using Matrix client: ${groupSlug}`)
         const result = await matrixClientService.joinGroupChatRoom(groupSlug)
-        console.log('✅ Group chat room joined successfully:', result.roomInfo)
 
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('group', groupSlug)
@@ -890,7 +865,6 @@ const joinChat = async (chat: Chat) => {
         // Use Matrix client service to join the event chat room
         console.log(`🎪 Joining event chat room using Matrix client: ${eventSlug}`)
         const result = await matrixClientService.joinEventChatRoom(eventSlug)
-        console.log('✅ Event chat room joined successfully:', result.roomInfo)
 
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('event', eventSlug)
@@ -928,9 +902,7 @@ const joinChat = async (chat: Chat) => {
           matrixUserId = `@${userIdentifier}-${tenantId}:matrix.openmeet.net`
         }
 
-        console.log(`💬 Creating DM room with Matrix user: ${matrixUserId}`)
         const room = await matrixClientService.joinDirectMessageRoom(matrixUserId)
-        console.log('✅ Direct message room created/joined:', room.roomId)
 
         // Update the chat's Matrix room ID
         if (room.roomId !== chat.matrixRoomId) {
@@ -961,7 +933,6 @@ const browseGroups = () => {
 }
 
 const refreshRooms = async () => {
-  console.log('🔄 Refreshing room list...')
   await loadRealRooms()
 }
 
@@ -989,7 +960,6 @@ const markAllRead = async () => {
 
     // Refresh the room list to update unread counts
     await loadRealRooms()
-    console.log('✅ All rooms marked as read')
   } catch (error) {
     console.error('❌ Failed to mark all rooms as read:', error)
   }
