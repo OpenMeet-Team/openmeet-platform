@@ -37,11 +37,21 @@
                   <q-item-label caption>Retry connection</q-item-label>
                 </q-item-section>
               </q-item>
+              <q-separator />
+              <q-item clickable v-close-popup @click="showChatHelp">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_help" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Chat Help</q-item-label>
+                  <q-item-label caption>Use other Element clients</q-item-label>
+                </q-item-section>
+              </q-item>
             </q-list>
           </q-menu>
         </q-btn>
         <q-btn
-          icon="sym_r_fullscreen"
+          icon="sym_r_open_in_new"
           flat
           round
           @click="$emit('expand')"
@@ -280,21 +290,7 @@
         <div class="text-h6 q-mt-md text-grey-6">Start the conversation</div>
         <div class="text-body2 text-grey-5">Send a message to begin</div>
 
-        <!-- Join Room Button for event contexts -->
-        <div v-if="props.contextType === 'event' && props.contextId" class="q-mt-md">
-          <q-btn
-            @click="joinEventRoom"
-            label="Join Room"
-            icon="sym_r_login"
-            color="primary"
-            outline
-            size="sm"
-            :loading="isJoiningRoom"
-          />
-          <div class="text-caption text-grey-6 q-mt-xs">
-            Click to join or rejoin this event's chat room
-          </div>
-        </div>
+        <!-- Simplified: Use the unified connect button instead of separate join room button -->
       </div>
 
       <!-- Typing Indicators -->
@@ -450,6 +446,7 @@ import { format } from 'date-fns'
 import { MatrixEvent, Room, ClientEvent, RoomEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
+import getEnv from '../../utils/env'
 
 // Add type declaration for global window property
 declare global {
@@ -519,7 +516,6 @@ const isConnected = computed(() => {
 })
 const isConnecting = ref(false)
 const isSending = ref(false)
-const isJoiningRoom = ref(false)
 const showEmojiPicker = ref(false)
 const imageModal = ref(false)
 const imageModalSrc = ref('')
@@ -713,7 +709,7 @@ const getRoomStatusText = (): string => {
   switch (props.contextType) {
     case 'direct': return isConnected.value ? 'Online' : 'Offline'
     case 'group': return `${count} messages`
-    case 'event': return 'Event discussion'
+    case 'event': return isConnected.value ? `${count} messages` : 'Not connected'
     default: return ''
   }
 }
@@ -1035,8 +1031,9 @@ const sendMessage = async () => {
     messageInput.value?.$el?.querySelector('input')?.focus()
 
     // Send message via Matrix client directly - let Matrix SDK handle optimistic rendering
-    if (props.roomId) {
-      await matrixClientService.sendMessage(props.roomId, {
+    const roomId = currentRoom.value?.roomId
+    if (roomId) {
+      await matrixClientService.sendMessage(roomId, {
         body: text,
         msgtype: 'm.text'
       })
@@ -1074,79 +1071,62 @@ const addEmoji = (emoji: string) => {
   showEmojiPicker.value = false
 }
 
-// Join room functionality
-const joinEventRoom = async () => {
-  if (!props.contextId || isJoiningRoom.value) return
+// Show chat help dialog
+const showChatHelp = () => {
+  // Get the homeserver URL from environment
+  const homeserverUrl = getEnv('MATRIX_HOMESERVER_URL')
 
-  isJoiningRoom.value = true
-
-  try {
-    console.log('🔄 Attempting to join event room via Matrix-native approach:', props.contextId)
-
-    // Matrix-native approach: Try to join the room by alias directly
-    // The Application Service will create the room if it doesn't exist
-    const client = matrixClientService.getClient()
-    if (!client) {
-      throw new Error('Matrix client not available')
-    }
-
-    // Generate the room alias Matrix-native way
-    const tenantId = localStorage.getItem('tenantId') || 'default'
-    const roomAlias = `#event-${props.contextId}-${tenantId}:matrix.openmeet.net`
-
-    console.log('🏠 Joining room by alias:', roomAlias)
-
-    // Try direct Matrix SDK join by alias - this should trigger AS room creation if needed
-    const result = await client.joinRoom(roomAlias)
-    console.log('✅ Successfully joined room via alias:', result.roomId)
-
-    // Update component state
-    await updateCurrentRoom()
-
-    // Reload messages after joining
-    await loadMessages()
-
-    // Show success message
-    quasar.notify({
-      type: 'positive',
-      message: 'Successfully joined the chat room!',
-      position: 'top'
-    })
-  } catch (error) {
-    console.error('❌ Failed to join event room:', error)
-
-    // Provide more specific error message based on Matrix-native approach
-    let errorMessage = 'Failed to join the chat room.'
-    if (error.message && error.message.includes('M_FORBIDDEN')) {
-      errorMessage = 'Unable to join this room. The room may require an invitation or your permissions may have changed.'
-    } else if (error.message && error.message.includes('M_NOT_FOUND')) {
-      errorMessage = 'Chat room not found. The event may not have chat enabled yet.'
-    } else if (error.message && error.message.includes('M_UNKNOWN')) {
-      errorMessage = 'Room service temporarily unavailable. Please try again in a moment.'
-    }
-
-    quasar.notify({
-      type: 'negative',
-      message: errorMessage,
-      timeout: 5000,
-      position: 'top'
-    })
-  } finally {
-    isJoiningRoom.value = false
-  }
+  quasar.dialog({
+    title: 'Chat Help - Use Other Element Clients',
+    message: `
+      <div style="text-align: left;">
+        <p><strong>Did you know?</strong> You can use other Matrix/Element clients to access this chat from your phone or computer:</p>
+        
+        <p><strong>Mobile Apps:</strong></p>
+        <ul>
+          <li><strong>Element:</strong> Available on iOS and Android app stores</li>
+          <li><strong>FluffyChat:</strong> Alternative client for mobile</li>
+          <li><strong>SchildiChat:</strong> Enhanced Element fork</li>
+        </ul>
+        
+        <p><strong>Desktop Apps:</strong></p>
+        <ul>
+          <li><strong>Element Desktop:</strong> Available for Windows, Mac, and Linux</li>
+          <li><strong>Nheko:</strong> Lightweight desktop client</li>
+        </ul>
+        
+        <p><strong>How to connect:</strong></p>
+        <ol>
+          <li>Download and install any Matrix/Element client</li>
+          <li><strong>Set the homeserver to:</strong> <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">${homeserverUrl}</code></li>
+          <li><strong>Sign in using your OpenMeet credentials</strong> (same username/email and password you use for OpenMeet)</li>
+          <li>Look for your event/group chatrooms in the room list</li>
+        </ol>
+        
+        <p><em>Your messages will sync across all clients!</em></p>
+        <p><small><strong>Note:</strong> Make sure to use the correct homeserver URL above - this connects you to OpenMeet's Matrix server.</small></p>
+      </div>
+    `,
+    html: true,
+    ok: 'Got it',
+    class: 'chat-help-dialog'
+  })
 }
+
+// Room joining is now handled in the unified reconnect function
 
 // Typing indicator state
 const isTyping = ref(false)
 const typingTimer = ref<number | null>(null)
 
 const handleTyping = async () => {
-  if (!isConnected.value || !props.roomId) return
+  const roomId = currentRoom.value?.roomId
+  if (!isConnected.value || !roomId) return
 
   try {
     // Only send typing if we weren't already typing
     if (!isTyping.value) {
-      await matrixClientService.sendTyping(props.roomId, true, 10000) // 10 second timeout
+      await matrixClientService.sendTyping(roomId, true, 10000) // 10 second timeout
       isTyping.value = true
       console.log('⌨️ Started typing indicator')
     }
@@ -1166,10 +1146,11 @@ const handleTyping = async () => {
 }
 
 const stopTyping = async () => {
-  if (!isConnected.value || !props.roomId || !isTyping.value) return
+  const roomId = currentRoom.value?.roomId
+  if (!isConnected.value || !roomId || !isTyping.value) return
 
   try {
-    await matrixClientService.sendTyping(props.roomId, false)
+    await matrixClientService.sendTyping(roomId, false)
     isTyping.value = false
     console.log('⌨️ Stopped typing indicator')
 
@@ -1330,7 +1311,10 @@ const sendReadReceipts = async () => {
       .find(msg => !msg.isOwn && msg.id && !msg.id.includes('welcome'))
 
     if (lastOtherMessage && lastOtherMessage.id && lastOtherMessage.id !== lastReadReceiptSent.value) {
-      await matrixClientService.sendReadReceipt(props.roomId, lastOtherMessage.id)
+      const roomId = currentRoom.value?.roomId
+      if (roomId) {
+        await matrixClientService.sendReadReceipt(roomId, lastOtherMessage.id)
+      }
       lastReadReceiptSent.value = lastOtherMessage.id
     }
   } catch (error) {
@@ -1479,7 +1463,7 @@ const reconnect = async () => {
     // Check if Matrix client is already available and just needs to reconnect
     if (matrixClientService.isReady()) {
       console.log('🔌 Matrix client already ready, just updating connection status')
-      roomName.value = `${props.contextType} Chat`
+      roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
       // Reload messages if we have a room ID
       if (props.roomId) {
@@ -1501,6 +1485,17 @@ const reconnect = async () => {
         console.log('✅ Event chat room joined successfully:', result.roomInfo)
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+        // Update current room to use the actual room ID from join result
+        if (result.room?.roomId) {
+          console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+          currentRoom.value = result.room
+          // Load messages with the correct room ID
+          await loadMessages()
+        } else {
+          // Fallback: update current room state and load messages
+          await updateCurrentRoom()
+          await loadMessages()
+        }
       } catch (error) {
         console.error('❌ EXCEPTION: Failed to join event chat room')
         console.error('❌ Error details:', error)
@@ -1526,6 +1521,17 @@ const reconnect = async () => {
         console.log('✅ Group chat room joined successfully:', result.roomInfo)
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+        // Update current room to use the actual room ID from join result
+        if (result.room?.roomId) {
+          console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+          currentRoom.value = result.room
+          // Load messages with the correct room ID
+          await loadMessages()
+        } else {
+          // Fallback: update current room state and load messages
+          await updateCurrentRoom()
+          await loadMessages()
+        }
       } catch (error) {
         console.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
         // Don't throw - connection to Matrix itself succeeded
@@ -2178,7 +2184,7 @@ onMounted(async () => {
     // Check if Matrix client is already ready
     if (matrixClientService.isReady()) {
       lastAuthError.value = '' // Clear any previous errors
-      roomName.value = `${props.contextType} Chat`
+      roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
       // Set up service-based event listeners for real-time updates
       setupServiceEventListeners()
@@ -2205,18 +2211,40 @@ onMounted(async () => {
       // This handles cases where the bot invitation failed during RSVP
       if (props.contextType === 'event' && props.contextId) {
         try {
-          await matrixClientService.joinEventChatRoom(props.contextId)
+          const result = await matrixClientService.joinEventChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+          // Update current room to use the actual room ID from join result
+          if (result.room?.roomId) {
+            console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+            currentRoom.value = result.room
+            // Load messages with the correct room ID
+            await loadMessages()
+          } else {
+            // Fallback: update current room state and load messages
+            await updateCurrentRoom()
+            await loadMessages()
+          }
         } catch (error) {
           console.warn('Failed to join event chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
-          await matrixClientService.joinGroupChatRoom(props.contextId)
+          const result = await matrixClientService.joinGroupChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+          // Update current room to use the actual room ID from join result
+          if (result.room?.roomId) {
+            console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+            currentRoom.value = result.room
+            // Load messages with the correct room ID
+            await loadMessages()
+          } else {
+            // Fallback: update current room state and load messages
+            await updateCurrentRoom()
+            await loadMessages()
+          }
         } catch (error) {
           console.warn('Failed to join group chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
@@ -2224,7 +2252,7 @@ onMounted(async () => {
       }
 
       lastAuthError.value = '' // Clear any previous errors
-      roomName.value = `${props.contextType} Chat`
+      roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
       // Set up service-based event listeners for real-time updates
       setupServiceEventListeners()

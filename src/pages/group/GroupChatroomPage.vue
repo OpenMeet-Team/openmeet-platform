@@ -1,21 +1,47 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useGroupStore } from '../../stores/group-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { GroupPermission } from '../../types'
 import MatrixChatInterface from '../../components/chat/MatrixChatInterface.vue'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
-import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
-import { matrixClientService } from '../../services/matrixClientService'
+import getEnv from '../../utils/env'
+import { generateGroupRoomAlias } from '../../utils/matrixUtils'
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 
 const group = computed(() => groupStore.group)
-const groupRoomId = ref<string>('')
-const isLoadingRoom = ref<boolean>(false)
-const errorMessage = ref<string>('')
-const needsAuthentication = ref<boolean>(false)
+
+// Get the Matrix room ID from the group - similar to event logic
+const matrixRoomId = computed(() => {
+  if (!group.value?.slug) {
+    console.log('🔍 No group slug available')
+    return null
+  }
+
+  // First check if we have a cached room ID (efficient)
+  if (group.value.roomId) {
+    console.log('✅ Using cached group room ID:', group.value.roomId)
+    return group.value.roomId
+  }
+
+  // Fallback: generate room alias dynamically (fresh)
+  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+  if (!tenantId) {
+    console.error('❌ No tenant ID available for group room alias generation')
+    return null
+  }
+
+  try {
+    const roomAlias = generateGroupRoomAlias(group.value.slug, tenantId)
+    console.log('🏠 Generated fresh group room alias (no cached room ID):', roomAlias)
+    return roomAlias
+  } catch (error) {
+    console.error('❌ Failed to generate group room alias:', error)
+    return null
+  }
+})
 
 // Group chat permissions - similar to EventPage attendee check
 const hasPermission = computed(() => {
@@ -33,177 +59,33 @@ const isGroupMember = computed(() => {
     ['owner', 'admin', 'moderator', 'member'].includes(groupMember.groupRole.name)
 })
 
-// Initialize the group chat room
-const initializeGroupChat = async () => {
-  if (!group.value || !hasPermission.value || !isGroupMember.value) {
-    console.log('GroupChatroomPage: Cannot initialize - missing group, permission, or membership', {
-      hasGroup: !!group.value,
-      hasPermission: hasPermission.value,
-      isGroupMember: isGroupMember.value,
-      groupSlug: group.value?.slug
-    })
-    return
-  }
+// Group chat initialization is now handled internally by MatrixChatInterface
 
-  console.log('GroupChatroomPage: Initializing group chat for:', group.value.slug)
-  isLoadingRoom.value = true
-  errorMessage.value = ''
-  needsAuthentication.value = false
-
-  try {
-    // First, make sure Matrix client is initialized
-    if (!matrixClientService.getClient()) {
-      console.log('GroupChatroomPage: Initializing Matrix client first')
-      await matrixClientService.initializeClient()
-    }
-    // Use Matrix client service to join group chat room
-    const result = await matrixClientService.joinGroupChatRoom(group.value.slug)
-    console.log('GroupChatroomPage: Join result:', result)
-
-    if (result && result.room?.roomId) {
-      groupRoomId.value = result.room.roomId
-      console.log('GroupChatroomPage: Successfully got room ID:', result.room.roomId)
-    } else {
-      console.warn('GroupChatroomPage: No room ID in result:', result)
-      errorMessage.value = 'No room ID returned from Matrix service'
-    }
-  } catch (error) {
-    console.error('GroupChatroomPage: Failed to initialize group chat:', error)
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred'
-
-    // Check if this is a Matrix authentication error (401, token expired, etc.)
-    if (errorMsg.includes('401') ||
-        errorMsg.includes('Token is not active') ||
-        errorMsg.includes('Matrix session expired') ||
-        errorMsg.includes('session has expired') ||
-        errorMsg.includes('Matrix client not authenticated') ||
-        errorMsg.includes('Manual authentication required')) {
-      console.log('🔑 Matrix authentication required - showing connect button')
-      needsAuthentication.value = true
-      errorMessage.value = ''
-    } else {
-      errorMessage.value = errorMsg
-    }
-  } finally {
-    isLoadingRoom.value = false
-  }
-}
-
-// Connect to Matrix (handles authentication)
-const connectToMatrix = async () => {
-  if (!group.value) return
-
-  console.log('GroupChatroomPage: Attempting Matrix connection...')
-  isLoadingRoom.value = true
-
-  try {
-    // Use the proper connectToMatrix method that handles user consent
-    await matrixClientService.connectToMatrix()
-    // Try to initialize the group chat again
-    await initializeGroupChat()
-  } catch (error) {
-    console.error('GroupChatroomPage: Matrix connection failed:', error)
-    const errorMsg = error instanceof Error ? error.message : 'Connection failed'
-    errorMessage.value = errorMsg
-    needsAuthentication.value = true
-  } finally {
-    isLoadingRoom.value = false
-  }
-}
-
-// Watch for group changes (including initial load)
-watch(
-  () => [group.value, hasPermission.value, isGroupMember.value],
-  ([newGroup, newPermission, newIsGroupMember]) => {
-    console.log('GroupChatroomPage: Group, permission, or membership changed', {
-      hasGroup: !!newGroup,
-      hasPermission: newPermission,
-      isGroupMember: newIsGroupMember,
-      groupSlug: typeof newGroup === 'object' && newGroup ? newGroup.slug : undefined
-    })
-
-    if (newGroup && newPermission && newIsGroupMember && !groupRoomId.value) {
-      initializeGroupChat()
-    }
-  },
-  { immediate: true }
-)
-
-onMounted(async () => {
-  console.log('GroupChatroomPage: Component mounted', {
-    hasGroup: !!group.value,
-    hasPermission: hasPermission.value,
-    isGroupMember: isGroupMember.value,
-    groupSlug: group.value?.slug
-  })
-
-  // Auto-connect eligible users (group members with permission)
-  if (group.value && hasPermission.value && isGroupMember.value) {
-    console.log('✅ Auto-connecting eligible group member to Matrix chat')
-    await initializeGroupChat()
-  }
+// Simplified - MatrixChatInterface handles all initialization internally
+onMounted(() => {
+  console.log('🏗️ GroupChatroomPage mounted for group:', group.value?.slug)
 })
 </script>
 
 <template>
   <div data-cy="group-chatroom-page" class="group-chatroom-page q-pb-xl">
-    <!-- Loading State -->
-    <SpinnerComponent v-if="isLoadingRoom" />
-
-    <!-- Group Chat using MatrixChatInterface with specific room ID -->
+    <!-- Single unified chat interface - handles all connection logic internally -->
     <MatrixChatInterface
-      v-else-if="group && hasPermission && isGroupMember && groupRoomId"
-      :room-id="groupRoomId"
+      v-if="group && hasPermission && isGroupMember"
+      :room-id="matrixRoomId"
       context-type="group"
       :context-id="group.slug"
       mode="inline"
       height="calc(100vh - 200px)"
     />
 
-    <!-- Matrix Authentication Needed -->
-    <div
-      v-else-if="group && hasPermission && isGroupMember && !groupRoomId && !isLoadingRoom && needsAuthentication"
-      class="q-pa-lg text-center"
-    >
-      <q-icon name="sym_r_chat" size="4rem" color="grey-6" class="q-mb-md" />
-      <div class="text-h6 q-mb-sm">Connect to Matrix Chat</div>
-      <div class="text-body2 text-grey-7 q-mb-lg">
-        Your Matrix session has expired. Please reconnect to access the group chatroom.
-      </div>
-      <q-btn
-        label="Connect to Matrix"
-        color="primary"
-        outline
-        size="md"
-        @click="connectToMatrix"
-        :loading="isLoadingRoom"
-        data-cy="matrix-connect-button"
-        class="q-mb-sm"
-      />
-    </div>
-
-    <!-- Error State -->
-    <NoContentComponent
-      v-else-if="group && hasPermission && isGroupMember && !groupRoomId && !isLoadingRoom && errorMessage"
-      :label="`Unable to load group chatroom: ${errorMessage}`"
-      icon="sym_r_chat"
-    />
-
-    <!-- No Room ID Available -->
-    <NoContentComponent
-      v-else-if="group && hasPermission && isGroupMember && !groupRoomId && !isLoadingRoom && !errorMessage && !needsAuthentication"
-      label="Unable to load group chatroom"
-      icon="sym_r_chat"
-    />
-
-    <!-- Not a Group Member -->
+    <!-- Permission/eligibility messages only -->
     <NoContentComponent
       v-else-if="group && hasPermission && !isGroupMember"
       label="You need to be a member of this group to access the chatroom"
       icon="sym_r_group"
     />
 
-    <!-- No Permission Content -->
     <NoContentComponent
       data-cy="no-permission-group-chatroom-page"
       v-else-if="group && !hasPermission"
