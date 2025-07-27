@@ -71,8 +71,14 @@ const initializeGroupChat = async () => {
     console.error('GroupChatroomPage: Failed to initialize group chat:', error)
     const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred'
 
-    // Check if this is an authentication error
-    if (errorMsg.includes('Matrix client not authenticated') || errorMsg.includes('Manual authentication required')) {
+    // Check if this is a Matrix authentication error (401, token expired, etc.)
+    if (errorMsg.includes('401') ||
+        errorMsg.includes('Token is not active') ||
+        errorMsg.includes('Matrix session expired') ||
+        errorMsg.includes('session has expired') ||
+        errorMsg.includes('Matrix client not authenticated') ||
+        errorMsg.includes('Manual authentication required')) {
+      console.log('🔑 Matrix authentication required - showing connect button')
       needsAuthentication.value = true
       errorMessage.value = ''
     } else {
@@ -123,13 +129,19 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   console.log('GroupChatroomPage: Component mounted', {
     hasGroup: !!group.value,
     hasPermission: hasPermission.value,
     isGroupMember: isGroupMember.value,
     groupSlug: group.value?.slug
   })
+
+  // Auto-connect eligible users (group members with permission)
+  if (group.value && hasPermission.value && isGroupMember.value) {
+    console.log('✅ Auto-connecting eligible group member to Matrix chat')
+    await initializeGroupChat()
+  }
 })
 </script>
 
@@ -156,7 +168,7 @@ onMounted(() => {
       <q-icon name="sym_r_chat" size="4rem" color="grey-6" class="q-mb-md" />
       <div class="text-h6 q-mb-sm">Connect to Matrix Chat</div>
       <div class="text-body2 text-grey-7 q-mb-lg">
-        You need to authenticate with Matrix to access the group chatroom.
+        Your Matrix session has expired. Please reconnect to access the group chatroom.
       </div>
       <q-btn
         label="Connect to Matrix"

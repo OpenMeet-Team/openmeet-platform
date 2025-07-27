@@ -78,7 +78,6 @@
         />
       </div>
 
-
       <!-- Messages -->
       <div v-if="isConnected && messages.length > 0" class="messages-list" data-cy="messages-list">
         <!-- Load More History Button -->
@@ -538,7 +537,6 @@ const isLoadingOlderMessages = ref(false)
 const hasMoreHistory = ref(true)
 const currentHistoryLimit = ref(50)
 
-
 // Use Matrix client service directly for real Matrix integration
 
 // Refs
@@ -641,167 +639,6 @@ const canSendMessage = computed(() => {
 const showSenderNames = computed(() => {
   return props.contextType !== 'direct'
 })
-
-
-const forceSync = async () => {
-  console.log('🔄 Force syncing Matrix client')
-  try {
-    // First try to refresh the token
-    await matrixClientManager.refreshMatrixToken()
-    console.log('✅ Matrix token refreshed successfully')
-
-    // Then restart the client to ensure fresh sync
-    await matrixClientManager.restartClient()
-    console.log('✅ Matrix client restarted via MatrixClientManager')
-  } catch (error) {
-    console.error('❌ Error forcing Matrix sync:', error)
-
-    // If token refresh fails, show user-friendly message
-    if (error.message && error.message.includes('not authenticated')) {
-      alert('Please log out and log back in to refresh your Matrix connection.')
-    }
-  }
-}
-
-
-const roomMemberCount = computed(() => {
-  try {
-    const room = currentRoom.value
-    if (!room) {
-      return 0
-    }
-    const count = room.getJoinedMemberCount()
-    return count
-  } catch (error) {
-    console.error('Error getting room member count:', error)
-    return 0
-  }
-})
-
-const getRoomMemberCount = () => roomMemberCount.value
-
-const getLiveMemberCount = () => {
-  try {
-    const room = currentRoom.value
-    if (!room) return 0
-    const members = room.getJoinedMembers()
-    return members.filter(member => member.powerLevel !== undefined).length
-  } catch (error) {
-    console.error('Error getting live member count:', error)
-    return getRoomMemberCount()
-  }
-}
-
-const getTimelineEventCount = () => {
-  try {
-    const room = currentRoom.value
-    if (!room) return 0
-    const timeline = room.getLiveTimeline()
-    return timeline ? timeline.getEvents().length : 0
-  } catch (error) {
-    console.error('Error getting timeline event count:', error)
-    return 0
-  }
-}
-
-const matrixRoomName = computed(() => {
-  try {
-    const room = currentRoom.value
-    if (!room) return null
-    return room.name || room.getCanonicalAlias() || null
-  } catch (error) {
-    console.error('Error getting room name:', error)
-    return null
-  }
-})
-
-const getRoomName = () => matrixRoomName.value
-
-const currentUserId = computed(() => {
-  try {
-    console.debug('🔍 getCurrentUserId: getting client')
-    const client = matrixClientService.getClient()
-    console.debug('🔍 getCurrentUserId: client =', !!client)
-    const userId = client?.getUserId() || null
-    console.debug('🔍 getCurrentUserId: userId =', userId)
-    return userId
-  } catch (error) {
-    console.error('Error getting current user ID:', error)
-    return null
-  }
-})
-
-const getCurrentUserId = () => currentUserId.value
-
-const getLastActivity = () => {
-  try {
-    const room = currentRoom.value
-    if (!room) return 'No room'
-    const timeline = room.getLiveTimeline()
-    if (!timeline) return 'No timeline'
-    const events = timeline.getEvents()
-    if (events.length === 0) return 'No events'
-    const lastEvent = events[events.length - 1]
-    const timestamp = new Date(lastEvent.getTs())
-    return timestamp.toLocaleString()
-  } catch (error) {
-    console.error('Error getting last activity:', error)
-    return 'Error'
-  }
-}
-
-const getSyncProgress = () => {
-  try {
-    console.debug('🔍 getSyncProgress: getting client')
-    const client = matrixClientService.getClient()
-    console.debug('🔍 getSyncProgress: client =', !!client)
-    if (!client) return 'No client'
-
-    const syncState = client.getSyncState()
-    const isInitialSyncComplete = client.isInitialSyncComplete()
-    const rooms = client.getRooms()
-
-    console.debug('🔍 getSyncProgress: syncState =', syncState, 'rooms =', rooms?.length, 'initialComplete =', isInitialSyncComplete)
-
-    return `${syncState} | ${rooms.length} rooms | ${isInitialSyncComplete ? 'Initial sync done' : 'Syncing...'}`
-  } catch (error) {
-    console.error('Error getting sync progress:', error)
-    return 'Error'
-  }
-}
-
-const getRoomStatus = () => {
-  try {
-    const room = currentRoom.value
-    if (!room) return 'Room not found'
-
-    const myMembership = room.getMyMembership()
-    const roomState = room.currentState
-    const hasTimeline = room.timeline && room.timeline.length > 0
-
-    return `${myMembership} | ${hasTimeline ? 'Has timeline' : 'No timeline'} | ${roomState ? 'Has state' : 'No state'}`
-  } catch (error) {
-    console.error('Error getting room status:', error)
-    return 'Error'
-  }
-}
-
-const getConnectionAge = () => {
-  try {
-    const client = matrixClientService.getClient()
-    if (!client) return 'No client'
-
-    // This is a rough estimate based on when we think the connection was established
-    const now = new Date()
-    const estimatedStart = new Date(now.getTime() - 30000) // Assume 30 seconds ago
-    const age = Math.floor((now.getTime() - estimatedStart.getTime()) / 1000)
-
-    return `~${age}s`
-  } catch (error) {
-    console.error('Error getting connection age:', error)
-    return 'Error'
-  }
-}
 
 // Methods
 const getMessagesContainerStyle = () => {
@@ -2357,7 +2194,7 @@ onMounted(async () => {
       try {
         await matrixClientService.initializeClient()
       } catch (authError) {
-        console.log(`🔑 Matrix client needs authentication:`, authError.message)
+        console.log('🔑 Matrix client needs authentication:', authError.message)
         // Don't throw - just log and show connect button to user
         lastAuthError.value = '' // Clear error to show connect button
         isConnecting.value = false
@@ -2368,7 +2205,7 @@ onMounted(async () => {
       // This handles cases where the bot invitation failed during RSVP
       if (props.contextType === 'event' && props.contextId) {
         try {
-          const result = await matrixClientService.joinEventChatRoom(props.contextId)
+          await matrixClientService.joinEventChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
         } catch (error) {
@@ -2377,7 +2214,7 @@ onMounted(async () => {
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
-          const result = await matrixClientService.joinGroupChatRoom(props.contextId)
+          await matrixClientService.joinGroupChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
           await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
         } catch (error) {
@@ -2424,7 +2261,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
 }
-
 
 .mode-mobile {
   height: 100%;

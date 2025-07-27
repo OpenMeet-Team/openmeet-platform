@@ -99,26 +99,9 @@ const discussionPermissions = computed(() => {
 // Loading states
 const isLoading = ref(false)
 const isInitializing = ref(false)
-const isConnectingToMatrix = ref(false)
 
 // Reactive state for Matrix service status
-const hasUserChosenToConnect = ref(matrixClientService.hasUserChosenToConnect())
 const isMatrixClientReady = ref(matrixClientService.isReady())
-
-// Check if user should see the connect prompt or the chat interface
-const shouldShowConnectPrompt = computed(() => {
-  // Only show prompt for confirmed/cancelled attendees with write permissions
-  if (!event.value ||
-      (event.value.attendee?.status !== 'confirmed' && event.value.attendee?.status !== 'cancelled') ||
-      !discussionPermissions.value.canWrite) {
-    console.log('🚫 Not showing connect prompt - ineligible user')
-    return false
-  }
-
-  // Show prompt if user hasn't chosen to connect yet
-  console.log('🤔 shouldShowConnectPrompt - hasUserChosenToConnect:', hasUserChosenToConnect.value)
-  return !hasUserChosenToConnect.value
-})
 
 // Check if chat should be shown
 const shouldShowChat = computed(() => {
@@ -130,12 +113,9 @@ const shouldShowChat = computed(() => {
     return false
   }
 
-  // Only show if user has chosen to connect and we have Matrix client ready
+  // Show if Matrix client is ready and we have a room ID
   const hasRoomId = !!matrixRoomId.value
-
-  console.log('🎯 shouldShowChat - hasChosen:', hasUserChosenToConnect.value, 'isReady:', isMatrixClientReady.value, 'hasRoomId:', hasRoomId)
-
-  return hasUserChosenToConnect.value && isMatrixClientReady.value && hasRoomId
+  return isMatrixClientReady.value && hasRoomId
 })
 
 // Initialize Matrix connection and room when user has chosen to connect
@@ -230,19 +210,22 @@ onMounted(async () => {
   // Add event listener for attendee status changes
   window.addEventListener('attendee-status-changed', handleAttendeeStatusChanged)
 
-  // If user has already chosen to connect to Matrix, initialize the room
-  if (matrixClientService.hasUserChosenToConnect()) {
-    console.log('✅ User has previously chosen to connect - initializing Matrix room')
+  // Auto-connect eligible users only if they have previously connected to Matrix
+  if (event.value &&
+      (event.value.attendee?.status === 'confirmed' || event.value.attendee?.status === 'cancelled') &&
+      discussionPermissions.value.canRead &&
+      matrixClientService.hasStoredSession()) {
+    console.log('✅ Auto-connecting returning user to Matrix chat')
     try {
       isLoading.value = true
       await initializeMatrixRoom()
     } catch (error) {
-      console.error('❌ Error initializing Matrix room on mount:', error)
+      console.error('❌ Error auto-connecting to Matrix room:', error)
     } finally {
       isLoading.value = false
     }
   } else {
-    console.log('💭 User has not chosen to connect to Matrix - will show connect prompt if eligible')
+    console.log('💭 User not eligible for auto-connect to Matrix (first-time user or not eligible)')
   }
 })
 
@@ -289,58 +272,6 @@ const retryRoomInitialization = async () => {
   }
 }
 
-// Handle user choosing to connect to Matrix chat
-const connectToMatrixChat = async () => {
-  console.log('🔘 Join Discussion button clicked')
-
-  if (!event.value) {
-    console.warn('⚠️ Cannot connect - no event data available')
-    return
-  }
-
-  try {
-    isConnectingToMatrix.value = true
-    console.log('🔌 User chose to connect to Matrix chat for event:', event.value.slug)
-
-    // First, set the user choice flag
-    console.log('📝 Setting user choice to connect to Matrix')
-    matrixClientService.setUserChosenToConnect(true)
-    hasUserChosenToConnect.value = true // Update reactive ref
-
-    // Force reactivity update by triggering computed property checks
-    console.log('🔄 After setting choice - shouldShowConnectPrompt:', shouldShowConnectPrompt.value)
-    console.log('🔄 After setting choice - shouldShowChat:', shouldShowChat.value)
-
-    // Always force Matrix authentication to show consent screen if needed
-    // This ensures the consent flow happens immediately on button click
-    console.log('🚀 Forcing Matrix authentication (will redirect to consent if needed)')
-    try {
-      await matrixClientService.initializeClient(true)
-
-      // If we reach here, Matrix is ready - initialize the room
-      console.log('✅ Matrix client ready - initializing room')
-      isMatrixClientReady.value = true // Update reactive ref
-      await initializeMatrixRoom()
-    } catch (error) {
-      // If this fails, it might be because we're redirecting to consent
-      if (error.message?.includes('redirect')) {
-        console.log('🔄 Redirecting to Matrix consent screen')
-        // The redirect will happen, so we don't need to do anything else
-        return
-      }
-      throw error // Re-throw other errors
-    }
-  } catch (error) {
-    console.error('❌ Error connecting to Matrix chat:', error)
-    console.error('Error stack:', error.stack)
-
-    // Show user-friendly error
-    alert(`Failed to connect to chat: ${error.message}`)
-  } finally {
-    isConnectingToMatrix.value = false
-  }
-}
-
 </script>
 
 <template>
@@ -350,30 +281,6 @@ const connectToMatrixChat = async () => {
     <!-- Loading indicator -->
     <div class="q-pa-md text-center" v-if="isLoading">
       <q-spinner-dots color="primary" size="40px" />
-    </div>
-
-    <!-- Matrix connection prompt -->
-    <div v-else-if="shouldShowConnectPrompt" class="q-pa-md">
-      <q-banner class="bg-primary text-white">
-        <div>
-          <div class="text-h6 q-mb-sm">💬 Join the Event Discussion</div>
-          <p>As a confirmed attendee, you can join the live chat with other participants to discuss this event, ask questions, and share insights.</p>
-          <p class="text-caption q-mt-sm">
-            <q-icon name="sym_r_security" class="q-mr-xs" />
-            This connects you securely to our Matrix chat system using your OpenMeet account.
-          </p>
-        </div>
-        <template v-slot:action>
-          <q-btn
-            flat
-            color="white"
-            label="Join Discussion"
-            icon="sym_r_chat"
-            :loading="isConnectingToMatrix"
-            @click="connectToMatrixChat"
-          />
-        </template>
-      </q-banner>
     </div>
 
     <MatrixChatInterface

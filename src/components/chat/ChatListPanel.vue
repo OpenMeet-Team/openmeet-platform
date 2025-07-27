@@ -133,43 +133,36 @@
         >
           <q-item class="q-pa-sm">
             <q-item-section avatar>
-            <q-badge
-              v-if="chat.unreadCount && chat.unreadCount > 0"
-              :label="chat.unreadCount"
-              color="red"
-              floating
-            >
-              <q-avatar size="40px" :color="getChatColor(chat)" text-color="white">
-                <q-icon :name="getChatIcon(chat)" />
-              </q-avatar>
-            </q-badge>
-            <q-avatar v-else size="40px" :color="getChatColor(chat)" text-color="white">
-              <q-icon :name="getChatIcon(chat)" />
-            </q-avatar>
-          </q-item-section>
+              <div class="relative-position">
+                <q-avatar size="40px" :color="getChatColor(chat)" text-color="white">
+                  <q-icon :name="getChatIcon(chat)" />
+                </q-avatar>
+                <q-badge
+                  v-if="chat.unreadCount && chat.unreadCount > 0"
+                  :label="chat.unreadCount > 99 ? '99+' : chat.unreadCount"
+                  color="red"
+                  rounded
+                  class="absolute-top-right"
+                  style="transform: translate(25%, -25%); min-width: 18px; font-size: 10px;"
+                />
+              </div>
+            </q-item-section>
 
           <q-item-section>
             <q-item-label lines="1" class="text-weight-medium">
               {{ chat.name }}
             </q-item-label>
-            <q-item-label caption lines="1">
-              {{ chat.lastMessage || getChatSubtitle(chat) }}
-            </q-item-label>
-          </q-item-section>
-
-          <q-item-section side>
-            <div class="column items-end">
-              <div v-if="chat.lastActivity" class="text-caption text-grey-6">
+            <q-item-label caption class="row items-center q-gutter-xs">
+              <span v-if="chat.lastActivity" class="text-grey-6">
                 {{ formatTime(chat.lastActivity) }}
-              </div>
+              </span>
               <q-icon
                 v-if="chat.isEncrypted"
                 name="sym_r_lock"
                 size="12px"
                 color="green"
-                class="q-mt-xs"
               />
-            </div>
+            </q-item-label>
           </q-item-section>
           </q-item>
         </q-card>
@@ -340,7 +333,7 @@ import { eventsApi } from '../../api/events'
 import { searchApi } from '../../api/search'
 import { usersApi } from '../../api/users'
 import { formatDistanceToNow } from 'date-fns'
-import { Room, RoomMember, ClientEvent } from 'matrix-js-sdk'
+import { Room, RoomMember, ClientEvent, RoomEvent, MatrixEvent } from 'matrix-js-sdk'
 import type { GroupEntity, EventEntity } from '../../types'
 
 interface Chat {
@@ -608,6 +601,45 @@ const getParticipants = (room: Room) => {
   }))
 }
 
+// Update a single chat item when its room receives updates
+const updateChatFromRoom = (room: Room, event?: MatrixEvent) => {
+  const roomId = room.roomId
+  const existingChatIndex = realRooms.value.findIndex(chat => chat.matrixRoomId === roomId)
+
+  if (existingChatIndex !== -1) {
+    const existingChat = realRooms.value[existingChatIndex]
+
+    // Update unread count
+    const newUnreadCount = getUnreadCount(room)
+
+    // Update last activity if there's a new message event
+    let lastActivity = existingChat.lastActivity
+    let lastMessage = existingChat.lastMessage
+
+    if (event && event.getType() === 'm.room.message') {
+      lastActivity = new Date(event.getTs())
+      lastMessage = event.getContent().body || event.getContent().msgtype
+    } else if (!event) {
+      // If no specific event, get the latest message
+      const latestMessage = getLastMessage(room)
+      if (latestMessage) {
+        lastActivity = new Date(latestMessage.origin_server_ts)
+        lastMessage = latestMessage.body || latestMessage.msgtype
+      }
+    }
+
+    // Update the chat item
+    realRooms.value[existingChatIndex] = {
+      ...existingChat,
+      unreadCount: newUnreadCount,
+      lastActivity,
+      lastMessage
+    }
+
+    console.log(`📱 Updated chat "${existingChat.name}": unread=${newUnreadCount}, lastActivity=${lastActivity?.toLocaleTimeString()}`)
+  }
+}
+
 // Initialize Matrix and load chats on component mount
 onMounted(async () => {
   try {
@@ -623,7 +655,7 @@ onMounted(async () => {
     console.log('✅ Matrix client initialized')
     isMatrixInitializing.value = false
 
-    // Listen for Matrix sync completion to refresh room list
+    // Listen for Matrix events to keep chat list reactive
     if (matrixClient) {
       matrixClient.on(ClientEvent.Sync, (state: string) => {
         console.log('🔄 Matrix sync state:', state, 'Current rooms:', realRooms.value.length)
@@ -632,6 +664,20 @@ onMounted(async () => {
           // Always reload on PREPARED to ensure fresh data after page reload
           loadRealRooms()
         }
+      })
+
+      // Listen for new messages to update unread counts and last activity
+      matrixClient.on(RoomEvent.Timeline, (event, room) => {
+        if (event.getType() === 'm.room.message' && !event.isRedacted()) {
+          console.log('💬 New message in room:', room?.roomId, 'updating chat list')
+          if (room) updateChatFromRoom(room, event)
+        }
+      })
+
+      // Listen for read receipts to update unread counts
+      matrixClient.on(RoomEvent.Receipt, (event, room) => {
+        console.log('📖 Read receipt in room:', room?.roomId, 'updating unread count')
+        if (room) updateChatFromRoom(room)
       })
     }
 

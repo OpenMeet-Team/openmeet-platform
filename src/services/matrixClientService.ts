@@ -116,10 +116,8 @@ class MatrixClientService {
       throw new Error('Matrix client not authenticated. Manual authentication required.')
     }
 
-    // Check if user has explicitly chosen to connect to Matrix in this session
-    if (!this.hasUserChosenToConnect()) {
-      throw new Error('Matrix connection requires explicit user consent. Use connectToMatrix() first.')
-    }
+    // Auto-consent for Matrix connection since we control both services
+    this.setUserChosenToConnect(true)
 
     // Now try to restore from stored credentials (after consent check)
     const storedSession = this._getStoredCredentials()
@@ -792,6 +790,15 @@ class MatrixClientService {
       accessToken: storedSession?.accessToken,
       refreshToken: storedSession?.refreshToken
     }
+  }
+
+  /**
+   * Check if user has previously connected to Matrix (has stored credentials)
+   * This can be used to determine if auto-connect should happen
+   */
+  hasStoredSession (): boolean {
+    const storedSession = this._getStoredCredentials()
+    return !!(storedSession && storedSession.hasSession)
   }
 
   /**
@@ -1570,7 +1577,7 @@ class MatrixClientService {
       if (this._isInvalidTokenError(error)) {
         console.warn('🚫 Invalid access token detected during room join - clearing stored credentials')
         this._clearStoredCredentials()
-        throw new Error('Your session has expired. Please click "Connect" to authenticate again.')
+        throw new Error('Matrix session expired. Please reconnect to access the chatroom.')
       }
 
       throw error
@@ -1603,9 +1610,20 @@ class MatrixClientService {
       return upload.content_uri
     } catch (error) {
       console.error('❌ uploadFile: Failed to upload file:', error)
-      console.error('❌ uploadFile: Error type:', typeof error)
-      console.error('❌ uploadFile: Error message:', error instanceof Error ? error.message : 'Unknown error')
-      console.error('❌ uploadFile: Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
+      // Provide more user-friendly error messages for common issues
+      if (error instanceof Error) {
+        // Check for network/CORS errors that often indicate file size limits or timeouts
+        if (error.message === '' && error.stack?.includes('onreadystatechange')) {
+          throw new Error('Upload failed: File may be too large or connection timed out. Try a smaller file.')
+        }
+
+        // Check for DOMException which often indicates CORS/network issues from large files
+        if (error.constructor.name === 'DOMException') {
+          throw new Error('Upload failed: The file may be too large for the server. Try a smaller file.')
+        }
+      }
+
       throw error
     }
   }
