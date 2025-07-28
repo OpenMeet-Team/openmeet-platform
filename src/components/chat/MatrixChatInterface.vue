@@ -2244,6 +2244,9 @@ onMounted(async () => {
 
   // Listen for Matrix client ready events to ensure event listeners are set up
   window.addEventListener('matrix:ready', handleMatrixReady)
+  
+  // Listen for invalid token recovery events to reset UI state
+  window.addEventListener('matrix:invalidTokenRecovery', handleInvalidTokenRecovery)
 
   try {
     console.log(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {

@@ -124,10 +124,13 @@ class MatrixClientService {
     if (storedSession && storedSession.hasSession && !this.client) {
       console.log('🔑 Found stored Matrix session, attempting restore')
       try {
-        await this._createClientFromStoredCredentials(storedSession)
-        if (this.client?.isLoggedIn()) {
+        const restoredClient = await this._createClientFromStoredCredentials(storedSession)
+        if (restoredClient && restoredClient.isLoggedIn()) {
           console.log('✅ Successfully restored Matrix session from stored credentials')
-          return this.client
+          return restoredClient
+        } else if (restoredClient === null) {
+          console.log('🔑 Stored credentials were invalid, user needs to re-authenticate')
+          // Credentials were cleared in _createClientFromStoredCredentials, continue to fresh auth
         }
       } catch (error) {
         console.warn('⚠️ Failed to restore stored session:', error)
@@ -853,6 +856,14 @@ class MatrixClientService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error('❌ Token refresh failed:', errorData)
+
+        // If the refresh token is invalid/expired/revoked, perform complete recovery
+        if (errorData.error === 'invalid_grant' || response.status === 400) {
+          // Use async method but don't await to prevent hanging the current flow
+          this._handleInvalidRefreshToken().catch(error => {
+            console.error('❌ Error during invalid token recovery:', error)
+          })
+        }
 
         const refreshError = new Error(`Token refresh failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
 
@@ -2326,7 +2337,7 @@ class MatrixClientService {
     deviceId: string
     accessToken?: string
     refreshToken?: string
-  }): Promise<void> {
+  }): Promise<MatrixClient | null> {
     try {
       console.log('🔄 Attempting to restore Matrix client from stored credentials')
 
@@ -2367,12 +2378,21 @@ class MatrixClientService {
             console.log('✅ Successfully refreshed access token during restoration')
           } catch (error) {
             console.error('❌ Failed to refresh access token during restoration:', error)
+            
+            // If it's an invalid_grant error, the tokens were already cleared in _refreshAccessToken
+            // Don't throw error - instead allow the user to re-authenticate
+            if (error.message && error.message.includes('invalid_grant')) {
+              console.log('🔄 Invalid refresh token cleared, user will need to re-authenticate')
+              return null // Return null to indicate authentication is needed
+            }
+            
             throw new Error('Failed to refresh access token for Matrix authentication')
           }
         }
 
         if (!accessToken) {
-          throw new Error('No valid access token available for Matrix authentication')
+          console.log('🔑 No valid access token available - user needs to authenticate')
+          return null // Return null to indicate authentication is needed
         }
 
         // Create token refresh function if refresh token is available (like Element Web)
@@ -2474,28 +2494,24 @@ class MatrixClientService {
 
         // Start the client (MatrixClientManager handles this internally)
         await matrixClientManager.startClient()
+        
+        return this.client // Return the successfully created client
       } else {
         // Fallback: try to restore from Matrix SDK's own persistence
         console.log('🔄 No access token available, trying Matrix SDK restoration')
 
-        // Validate homeserver URL format
-        const baseUrl = sessionInfo.homeserverUrl.endsWith('/')
-          ? sessionInfo.homeserverUrl.slice(0, -1)
-          : sessionInfo.homeserverUrl
-
-        console.log('🏠 Restoring Matrix client (no access token) with baseUrl:', baseUrl)
-
-        // Fallback: No access token available, can't create working client
+        // No access token available, can't create working client
         console.log('❌ No access token available, cannot create Matrix client without authentication')
-        throw new Error('No access token available for Matrix authentication')
+        return null // Return null to indicate authentication is needed
       }
     } catch (error) {
       console.warn('⚠️ Failed to restore Matrix client from storage:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
-      if (this._isInvalidTokenError(error)) {
+      if (this._isInvalidTokenError(error) || (error.message && error.message.includes('invalid_grant'))) {
         console.warn('🚫 Invalid access token detected during restoration - clearing stored credentials')
         this._clearStoredCredentials()
+        return null // Return null to allow re-authentication instead of throwing
       }
 
       throw error
@@ -2568,6 +2584,38 @@ class MatrixClientService {
       console.error('❌ Failed to sync Matrix user identity with backend:', error)
       // Don't throw - this is non-critical for Matrix functionality
       // The user can still use Matrix, they just won't get auto-invitations until this is fixed
+    }
+  }
+
+  /**
+   * Handle invalid refresh token by completely resetting Matrix state
+   * This stops all retry loops and clears everything to allow fresh authentication
+   */
+  private async _handleInvalidRefreshToken (): Promise<void> {
+    try {
+      console.warn('🚨 Handling invalid refresh token - performing complete Matrix reset')
+      
+      // Stop all Matrix clients immediately
+      if (this.client) {
+        this.client.stopClient()
+        this.client = null
+      }
+      
+      // Use MatrixClientManager's specialized method for clearing client and credentials
+      await matrixClientManager.clearClientAndCredentials()
+      
+      // Emit an event that the UI can listen for to show re-authentication prompt
+      const invalidTokenEvent = new CustomEvent('matrix:invalidTokenRecovery', {
+        detail: {
+          message: 'Matrix authentication expired. Please refresh the page to re-authenticate.',
+          timestamp: Date.now()
+        }
+      })
+      window.dispatchEvent(invalidTokenEvent)
+      
+      console.log('✅ Invalid refresh token recovery completed - user needs to re-authenticate')
+    } catch (error) {
+      console.error('❌ Error during invalid token recovery:', error)
     }
   }
 
