@@ -943,7 +943,7 @@ class MatrixClientService {
     })
 
     // Listen for sync state changes to detect connection issues
-    this.client.on(ClientEvent.Sync, (state: string, prevState: string | null, data: unknown) => {
+    this.client.on(ClientEvent.Sync, async (state: string, prevState: string | null, data: unknown) => {
       console.log(`🔄 Matrix sync state: ${prevState} → ${state}`, data)
 
       // Emit connection state events for UI components
@@ -989,26 +989,33 @@ class MatrixClientService {
         })
         window.dispatchEvent(syncErrorEvent)
 
-        // Handle token errors differently from regular sync errors
+        // Handle token errors by attempting token refresh
         if (isTokenError) {
-          console.warn('🚫 Token-related sync error detected')
+          console.warn('🚫 Token-related sync error detected - attempting token refresh')
 
-          // OPTION A QUICK FIX: Don't clear credentials on sync errors during navigation
-          // These are often temporary room operation failures, not true auth failures
-          console.log('ℹ️ Sync token error detected - logging but not clearing credentials to prevent navigation cascade failures')
-          console.log('ℹ️ If this persists, user can manually reconnect using Connect button')
+          try {
+            // Attempt to refresh the token
+            await this.refreshStoredTokens()
+            console.log('✅ Token refreshed successfully, restarting client')
 
-          // Emit token refresh failure event (but don't clear credentials)
-          const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
-            detail: {
-              error: data,
-              timestamp: Date.now()
-            }
-          })
-          window.dispatchEvent(tokenRefreshFailureEvent)
+            // Restart the client with new tokens
+            await matrixClientManager.restartClient()
+            return
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed:', refreshError)
 
-          // Don't attempt automatic restart for token errors
-          return
+            // Clear credentials and emit failure event
+            await this.clearSession()
+            const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
+              detail: {
+                error: data,
+                refreshError,
+                timestamp: Date.now()
+              }
+            })
+            window.dispatchEvent(tokenRefreshFailureEvent)
+            return
+          }
         }
 
         // Attempt to restart sync after a delay for non-token errors

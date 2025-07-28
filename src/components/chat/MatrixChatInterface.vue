@@ -1982,6 +1982,9 @@ watch([messageCount, isConnected], async ([newCount]) => {
   }
 })
 
+// Track if listeners are already set up to prevent duplicates
+let listenersSetUp = false
+
 // Set up Matrix client event listeners
 const setupMatrixEventListeners = () => {
   const client = matrixClientService.getClient()
@@ -1990,78 +1993,136 @@ const setupMatrixEventListeners = () => {
     return
   }
 
+  if (listenersSetUp) {
+    console.log('✅ Matrix client event listeners already set up, skipping')
+    return
+  }
+
   console.log('🔌 Setting up Matrix client event listeners')
+  listenersSetUp = true
 
   // Listen for sync state changes to retry room resolution
   client.on(ClientEvent.Sync, handleSyncStateChange)
 
-  // Listen for live timeline events (new messages)
-  const handleTimelineEvent = async (event: MatrixEvent, room: Room, toStartOfTimeline: boolean) => {
-    // Only process live events (not historical) for the current room
-    if (!toStartOfTimeline && room && props.roomId) {
-      const roomId = room.roomId
-      const roomAlias = room.getCanonicalAlias() || room.getAltAliases()?.[0]
-      const eventType = event.getType()
+  // Listen for live timeline events (new messages) - following Element Web's pattern
+  const handleTimelineEvent = async (
+    event: MatrixEvent,
+    room: Room | undefined,
+    toStartOfTimeline: boolean | undefined,
+    removed: boolean,
+    data: { timeline?: unknown; liveEvent?: boolean }
+  ) => {
+    // Debug: Log all timeline events to understand filtering
+    console.log('🔍 Timeline event received:', {
+      eventType: event.getType(),
+      roomId: room?.roomId,
+      currentRoomId: props.roomId,
+      toStartOfTimeline,
+      dataStructure: data,
+      hasRoom: !!room,
+      hasData: !!data,
+      liveEvent: data?.liveEvent
+    })
 
-      // Debug log for all live events to see what we're comparing
-      if (eventType === 'm.room.message') {
-        console.log('🔍 Timeline event room comparison:', {
-          eventRoomId: roomId,
-          eventRoomAlias: roomAlias,
-          propsRoomId: props.roomId,
-          roomIdMatch: roomId === props.roomId,
-          aliasMatch: roomAlias === props.roomId,
-          overallMatch: roomId === props.roomId || roomAlias === props.roomId
-        })
+    // Follow Element Web's filtering pattern exactly
+
+    // ignore events for other rooms - check both room ID and aliases
+    if (!room) {
+      console.log('❌ Filtered: no room')
+      return
+    }
+
+    const roomId = room.roomId
+    const roomAlias = room.getCanonicalAlias() || room.getAltAliases()?.[0]
+    const matchesRoom = roomId === props.roomId || roomAlias === props.roomId
+
+    if (!matchesRoom) {
+      console.log('❌ Filtered: wrong room', {
+        eventRoomId: roomId,
+        eventRoomAlias: roomAlias,
+        currentRoomId: props.roomId,
+        matches: matchesRoom
+      })
+      return
+    }
+
+    console.log('✅ Room match found:', { eventRoomId: roomId, currentRoomId: props.roomId })
+
+    // ignore events from filtered timelines
+    if (data?.timeline && typeof data.timeline === 'object' && 'getTimelineSet' in data.timeline) {
+      const timeline = data.timeline as { getTimelineSet(): unknown }
+      if (timeline.getTimelineSet() !== room.getUnfilteredTimelineSet()) {
+        console.log('❌ Filtered: filtered timeline')
+        return
+      }
+    }
+
+    // ignore anything but real-time updates at the end of the room
+    if (toStartOfTimeline || !data?.liveEvent) {
+      console.log('❌ Filtered: not live event', { toStartOfTimeline, liveEvent: data?.liveEvent })
+      return
+    }
+
+    const eventType = event.getType()
+    if (eventType === 'm.room.message') {
+      console.log('📨 Live timeline event (Element Web pattern):', {
+        eventId: event.getId(),
+        roomId: room.roomId,
+        currentRoomId: props.roomId,
+        sender: event.getSender(),
+        content: event.getContent(),
+        timestamp: new Date(event.getTs()).toLocaleTimeString()
+      })
+
+      // Instead of reloading all messages, just add this new message
+      const content = event.getContent()
+      const senderId = event.getSender()
+      const member = room.getMember(senderId || '')
+
+      // Create the new message object with proper type detection
+      const msgtype = content.msgtype || 'm.text'
+      const messageType = msgtype === 'm.image' ? 'image' : msgtype === 'm.file' ? 'file' : 'text'
+
+      const newMessage = {
+        id: event.getId() || '',
+        type: messageType as 'text' | 'image' | 'file',
+        sender: {
+          id: senderId || '',
+          name: member?.name || member?.rawDisplayName || senderId?.split(':')[0].substring(1) || 'Unknown',
+          avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
+        },
+        content: messageType === 'text' ? {
+          body: content.body || ''
+        } : {
+          body: content.body || content.filename || '',
+          filename: content.filename,
+          url: content.url,
+          info: content.info,
+          msgtype: content.msgtype
+        },
+        timestamp: new Date(event.getTs()),
+        isOwn: senderId === matrixClientService.getClient()?.getUserId(),
+        status: 'read' as const
       }
 
-      // Check if this event is for our current room (by room ID or alias)
-      if (roomId === props.roomId || roomAlias === props.roomId) {
-        if (eventType === 'm.room.message') {
-          console.log('📨 Live timeline event received for current room:', {
-            eventId: event.getId(),
-            roomId,
-            roomAlias,
-            currentRoomId: props.roomId,
-            sender: event.getSender(),
-            content: event.getContent(),
-            timestamp: new Date(event.getTs()).toLocaleTimeString()
-          })
+      console.log('📄 Message type detected:', { msgtype, messageType, content })
 
-          // Instead of reloading all messages, just add this new message
-          const content = event.getContent()
-          const senderId = event.getSender()
-          const member = room.getMember(senderId || '')
+      // Add to messages array and scroll to bottom smoothly
+      messages.value = [...messages.value, newMessage]
+      messageCount.value = messages.value.length
 
-          // Create the new message object
-          const newMessage = {
-            id: event.getId() || '',
-            type: 'text' as const,
-            sender: {
-              id: senderId || '',
-              name: member?.name || member?.rawDisplayName || senderId?.split(':')[0].substring(1) || 'Unknown',
-              avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
-            },
-            content: {
-              body: content.body || ''
-            },
-            timestamp: new Date(event.getTs()),
-            isOwn: senderId === matrixClientService.getClient()?.getUserId(),
-            status: 'read' as const
-          }
+      console.log('✅ Added new live message to chat:', newMessage.content.body)
 
-          // Add to messages array and scroll to bottom smoothly
-          messages.value = [...messages.value, newMessage]
-          messageCount.value = messages.value.length
+      // Load authenticated image for image messages
+      if (newMessage.type === 'image') {
+        console.log('🖼️ Loading authenticated image for new live message:', newMessage.content.filename)
+        loadAuthenticatedImage(newMessage)
+      }
 
-          console.log('✅ Added new live message to chat:', newMessage.content.body)
-
-          // Only scroll if this is not our own message (to avoid disrupting typing)
-          if (!newMessage.isOwn) {
-            await nextTick()
-            await scrollToBottom(true) // smooth scroll for new messages
-          }
-        }
+      // Only scroll if this is not our own message (to avoid disrupting typing)
+      if (!newMessage.isOwn) {
+        await nextTick()
+        await scrollToBottom(true) // smooth scroll for new messages
       }
     }
   }
@@ -2079,9 +2140,10 @@ const setupMatrixEventListeners = () => {
 
 // Handle file upload when a file is selected
 watch(selectedFile, async (newFile) => {
-  console.log('🔍 File watcher triggered:', { newFile: newFile?.name, roomId: props.roomId })
+  const roomId = currentRoom.value?.roomId
+  console.log('🔍 File watcher triggered:', { newFile: newFile?.name, roomId })
 
-  if (!newFile || !props.roomId) {
+  if (!newFile || !roomId) {
     console.log('⚠️ File upload cancelled - missing file or room ID')
     return
   }
@@ -2114,8 +2176,14 @@ watch(selectedFile, async (newFile) => {
       baseUrl: client.getHomeserverUrl()
     })
 
-    console.log('📤 About to call uploadAndSendFile...')
-    const result = await matrixClientService.uploadAndSendFile(props.roomId, newFile)
+    // Use the resolved room ID (same as text messages) instead of the room alias
+    const roomId = currentRoom.value?.roomId
+    if (!roomId) {
+      throw new Error('No room ID available for file upload')
+    }
+
+    console.log('📤 About to call uploadAndSendFile with resolved room ID:', roomId)
+    const result = await matrixClientService.uploadAndSendFile(roomId, newFile)
     console.log('✅ uploadAndSendFile completed, result:', result)
     console.log('✅ File uploaded successfully!')
 
@@ -2165,8 +2233,17 @@ watch(typingUsers, async (newTypingUsers, oldTypingUsers) => {
 const instanceId = Math.random().toString(36).substring(2, 8)
 
 // Connection and room management
+// Matrix ready event handler (defined outside onMounted for cleanup access)
+const handleMatrixReady = () => {
+  console.log('🎧 Matrix client ready - setting up timeline event listeners')
+  setupMatrixEventListeners()
+}
+
 onMounted(async () => {
   isConnecting.value = true
+
+  // Listen for Matrix client ready events to ensure event listeners are set up
+  window.addEventListener('matrix:ready', handleMatrixReady)
 
   try {
     console.log(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
@@ -2183,7 +2260,7 @@ onMounted(async () => {
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
-      // Set up Matrix client event listeners for sync state changes
+      // Set up Matrix client event listeners (with duplicate protection)
       setupMatrixEventListeners()
 
       // Load messages only if we have a room ID
@@ -2251,7 +2328,7 @@ onMounted(async () => {
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
-      // Set up Matrix client event listeners for sync state changes
+      // Set up Matrix client event listeners (with duplicate protection)
       setupMatrixEventListeners()
 
       // Load messages if we have a room ID and we haven't loaded them already
@@ -2271,6 +2348,12 @@ onMounted(async () => {
 // Component cleanup
 onUnmounted(() => {
   console.log(`🧹 [${instanceId}] MatrixChatInterface cleanup started`)
+
+  // Reset listener flag so next instance can set up listeners
+  listenersSetUp = false
+
+  // Cleanup Matrix ready event listener
+  window.removeEventListener('matrix:ready', handleMatrixReady)
 
   // Cleanup custom event listeners
   customEventListeners.forEach(cleanup => cleanup())
