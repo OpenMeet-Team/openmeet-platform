@@ -1,6 +1,8 @@
-import type { MatrixClient, ICreateClientOpts } from 'matrix-js-sdk'
-import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore } from 'matrix-js-sdk'
+import type { MatrixClient, ICreateClientOpts, MatrixError as SdkMatrixError } from 'matrix-js-sdk'
+import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore, HttpApiEvent } from 'matrix-js-sdk'
+import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
+import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
 
 // Interface for Matrix error objects
 interface MatrixError {
@@ -33,6 +35,7 @@ export class MatrixClientManager {
   private eventListenersSetup = false
   private syncStateHandler: ((state: string, prevState: string, data: unknown) => void) | null = null
   private readyHandler: ((state: string) => void) | null = null
+  private sessionLoggedOutHandler: ((error: SdkMatrixError) => void) | null = null
 
   public static getInstance (): MatrixClientManager {
     if (!MatrixClientManager.instance) {
@@ -64,7 +67,10 @@ export class MatrixClientManager {
     userId: string
     deviceId?: string
     refreshToken?: string
-    tokenRefreshFunction?: () => Promise<{ accessToken: string; refreshToken?: string }>
+    oidcIssuer?: string
+    oidcClientId?: string
+    oidcRedirectUri?: string
+    idTokenClaims?: IdTokenClaims
   }): Promise<MatrixClient> {
     // Return existing client if already initialized
     if (this.client && this.client.isLoggedIn() && this.isStarted) {
@@ -222,6 +228,16 @@ export class MatrixClientManager {
   public async clearClientAndCredentials (): Promise<void> {
     console.log('🚫 Clearing Matrix client and stored credentials due to token error')
 
+    // Emit token error event for UI components to react
+    const tokenErrorEvent = new CustomEvent('matrix:tokenError', {
+      detail: {
+        error: 'Token expired or invalid',
+        context: 'matrix_client_manager',
+        action: 'clearing_credentials'
+      }
+    })
+    window.dispatchEvent(tokenErrorEvent)
+
     // Clear the client
     await this.clearClient()
 
@@ -267,7 +283,10 @@ export class MatrixClientManager {
     userId: string
     deviceId?: string
     refreshToken?: string
-    tokenRefreshFunction?: () => Promise<{ accessToken: string; refreshToken?: string }>
+    oidcIssuer?: string
+    oidcClientId?: string
+    oidcRedirectUri?: string
+    idTokenClaims?: IdTokenClaims
   }): Promise<MatrixClient> {
     try {
       console.log('🔄 Creating Matrix client with optimized stores...')
@@ -307,15 +326,50 @@ export class MatrixClientManager {
         timelineSupport: true
       }
 
-      // Add refresh token support if available (enables SDK's automatic token refresh)
-      if (credentials.refreshToken) {
-        clientOptions.refreshToken = credentials.refreshToken
-        console.log('🔑 Matrix client will be created with refresh token support')
-      }
+      // Add refresh token support with Element Web-style TokenRefresher pattern
+      if (credentials.refreshToken && credentials.oidcIssuer && credentials.oidcClientId) {
+        console.log('🔑 Creating TokenRefresher for OIDC token management', {
+          hasRefreshToken: !!credentials.refreshToken,
+          oidcIssuer: credentials.oidcIssuer,
+          oidcClientId: credentials.oidcClientId,
+          deviceId
+        })
 
-      if (credentials.tokenRefreshFunction) {
-        clientOptions.tokenRefreshFunction = credentials.tokenRefreshFunction
-        console.log('🔄 Matrix client will use provided token refresh function')
+        // Create TokenRefresher similar to Element Web's approach
+        const tokenRefresher = new TokenRefresher(
+          credentials.oidcIssuer,
+          credentials.oidcClientId,
+          credentials.oidcRedirectUri || `${window.location.origin}/auth/matrix`,
+          deviceId,
+          credentials.idTokenClaims || {} as IdTokenClaims,
+          userId
+        )
+
+        // Use Element Web pattern: pass tokenRefresher's doRefreshAccessToken method
+        clientOptions.refreshToken = credentials.refreshToken
+
+        // Create a wrapped function for better debugging
+        const tokenRefreshFunction = async (refreshToken: string) => {
+          console.log('🔄 tokenRefreshFunction called by Matrix SDK - delegating to TokenRefresher', {
+            hasRefreshToken: !!refreshToken
+          })
+          try {
+            const result = await tokenRefresher.doRefreshAccessToken(refreshToken)
+            console.log('✅ tokenRefreshFunction completed successfully')
+            return result
+          } catch (error) {
+            console.error('❌ tokenRefreshFunction failed:', error)
+            throw error
+          }
+        }
+
+        clientOptions.tokenRefreshFunction = tokenRefreshFunction
+        console.log('🔑 Matrix client configured with Element Web-style TokenRefresher')
+        console.log('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
+      } else if (credentials.refreshToken) {
+        // Fallback to basic refresh token support for non-OIDC scenarios
+        clientOptions.refreshToken = credentials.refreshToken
+        console.log('🔑 Matrix client created with basic refresh token - SDK will handle automatic token refresh')
       }
 
       this.client = createClient(clientOptions)
@@ -368,6 +422,17 @@ export class MatrixClientManager {
             console.log('✅ Token refresh successful, client initialization completed')
           } catch (refreshError) {
             console.error('❌ Token refresh failed during initialization:', refreshError)
+
+            // Emit token refresh failure event
+            const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
+              detail: {
+                error: refreshError,
+                originalError: error,
+                context: 'matrix_client_manager_init'
+              }
+            })
+            window.dispatchEvent(tokenRefreshFailureEvent)
+
             await this.clearClientAndCredentials()
             throw new Error(`Matrix token validation failed: ${(error as MatrixError).errcode || (error as Error).message}`)
           }
@@ -402,15 +467,16 @@ export class MatrixClientManager {
    */
   public async refreshMatrixToken (): Promise<void> {
     if (!this.client) {
-      throw new Error('Cannot refresh token: no client initialized')
+      console.log('🔄 No Matrix client available for token refresh - authentication needed')
+      return // Don't throw, just return - this indicates auth is needed
     }
 
     console.log('🔄 Matrix access token refresh requested')
 
-    // With proper SDK configuration (refreshToken + tokenRefreshFunction),
+    // With native SDK OIDC configuration (refreshToken),
     // the Matrix JS SDK handles token refresh automatically on M_UNKNOWN_TOKEN errors.
     // This method is kept for compatibility but should rarely be needed.
-    console.log('✅ Matrix SDK handles token refresh automatically when properly configured')
+    console.log('✅ Matrix SDK handles token refresh automatically with native OIDC support')
   }
 
   /**
@@ -472,6 +538,8 @@ export class MatrixClientManager {
         console.log('✅ Matrix client fully synced and ready')
       } else if (state === 'ERROR') {
         console.error('❌ Matrix sync error:', data)
+        // Note: Token errors are now handled by HttpApiEvent.SessionLoggedOut listener
+        // This follows Element Web's pattern of letting the SDK handle token refresh attempts
       }
     }
 
@@ -483,9 +551,33 @@ export class MatrixClientManager {
       }
     }
 
+    // Store session logged out handler for cleanup (Element Web pattern)
+    this.sessionLoggedOutHandler = (error: SdkMatrixError) => {
+      console.warn('🚫 Matrix session logged out - SDK determined token refresh failed', error)
+
+      // Emit token error event for UI components to react (following our existing pattern)
+      const tokenErrorEvent = new CustomEvent('matrix:tokenError', {
+        detail: {
+          error,
+          context: 'matrix_session_logged_out',
+          sdkManagedTokenRefresh: true
+        }
+      })
+      window.dispatchEvent(tokenErrorEvent)
+
+      // Clear credentials to force re-authentication
+      this.clearClientAndCredentials().catch(clearError => {
+        console.error('❌ Failed to clear credentials after session logged out:', clearError)
+      })
+    }
+
     // Only essential listeners for performance
     this.client.on(ClientEvent.Sync, this.syncStateHandler)
     this.client.once(ClientEvent.Sync, this.readyHandler)
+
+    // Listen for session logged out events (Element Web pattern)
+    // This is emitted by the SDK when token refresh has failed and user action is required
+    this.client.on(HttpApiEvent.SessionLoggedOut, this.sessionLoggedOutHandler)
 
     this.eventListenersSetup = true
     console.log('✅ Matrix client event listeners configured')
@@ -507,6 +599,9 @@ export class MatrixClientManager {
       }
       if (this.readyHandler) {
         this.client.removeListener(ClientEvent.Sync, this.readyHandler)
+      }
+      if (this.sessionLoggedOutHandler) {
+        this.client.removeListener(HttpApiEvent.SessionLoggedOut, this.sessionLoggedOutHandler)
       }
 
       this.eventListenersSetup = false

@@ -43,25 +43,18 @@ const handleCallback = async () => {
   try {
     const code = route.query.code as string
     const returnedState = route.query.state as string
-    const originalState = sessionStorage.getItem('mas_oauth_state')
 
     if (!code) {
       throw new Error('No authorization code received from Matrix Authentication Service')
     }
 
-    // Verify state parameter for CSRF protection
-    if (!originalState || returnedState !== originalState) {
-      throw new Error('Invalid state parameter - possible CSRF attack')
-    }
-
-    console.log('🎫 Matrix OAuth2 callback received with valid state parameter')
+    console.log('🎫 Matrix OAuth2 callback received - state validation handled by native SDK')
 
     // Complete Matrix authentication using the authorization code
+    // State validation is now handled by the native matrix-js-sdk
     await matrixClientService.completeOAuthLogin(code, returnedState)
 
-    // Clean up OAuth state from session storage
-    sessionStorage.removeItem('mas_oauth_state')
-    sessionStorage.removeItem('mas_openmeet_context')
+    // The native SDK cleans up its own state storage
 
     // Get the original return URL if available
     const returnUrl = sessionStorage.getItem('matrixReturnUrl')

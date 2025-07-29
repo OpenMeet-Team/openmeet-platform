@@ -17,7 +17,9 @@
  */
 
 import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } from 'matrix-js-sdk'
-import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User } from 'matrix-js-sdk'
+import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User, completeAuthorizationCodeGrant, generateOidcAuthorizationUrl, discoverAndValidateOIDCIssuerWellKnown } from 'matrix-js-sdk'
+import type { IdTokenClaims } from 'oidc-client-ts'
+import { persistOidcAuthenticatedSettings, getStoredOidcTokenIssuer, getStoredOidcClientId, getStoredOidcIdTokenClaims, clearStoredOidcSettings } from '../utils/oidc/persistOidcSettings'
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
@@ -222,45 +224,138 @@ class MatrixClientService {
     console.log('🎫 Completing Matrix login from MAS OIDC with authorization code using MSC3861')
 
     try {
-      // Validate state parameter for CSRF protection
-      const storedState = sessionStorage.getItem('mas_oauth_state')
-      if (storedState && storedState !== state) {
-        console.error('❌ OAuth2 state mismatch - possible CSRF attack')
-        sessionStorage.removeItem('mas_oauth_state')
-        throw new Error('OAuth2 state validation failed - possible CSRF attack')
-      }
+      // State validation is now handled by the native matrix-js-sdk completeAuthorizationCodeGrant
+      console.log('🔧 State validation will be handled by native SDK')
 
-      // Clean up stored state
-      sessionStorage.removeItem('mas_oauth_state')
-      console.log('✅ OAuth2 state validation passed')
+      // Use Matrix JS SDK's native OIDC completion method for MSC3861
+      console.log('🔧 Using Matrix JS SDK native OIDC completion for MSC3861')
 
-      // Use Matrix JS SDK's OIDC completion method for MSC3861
-      const homeserverUrl = (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'http://localhost:8448'
-      const masUrl = getEnv('APP_MAS_URL') as string
-      const masClientId = getEnv('APP_MAS_CLIENT_ID') as string
-      const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
-      const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
+      // Use native matrix-js-sdk OIDC completion instead of custom implementation
+      const oidcResult = await completeAuthorizationCodeGrant(authCode, state || '')
 
-      console.log('🔧 Using Matrix JS SDK OIDC completion with:', {
-        homeserverUrl,
-        masUrl,
-        masClientId,
-        redirectUrl
+      console.log('✅ Matrix JS SDK OIDC completion successful:', {
+        homeserverUrl: oidcResult.homeserverUrl,
+        clientId: oidcResult.oidcClientSettings.clientId,
+        issuer: oidcResult.oidcClientSettings.issuer,
+        hasAccessToken: !!oidcResult.tokenResponse.access_token,
+        hasRefreshToken: !!oidcResult.tokenResponse.refresh_token,
+        tokenType: oidcResult.tokenResponse.token_type,
+        scope: oidcResult.tokenResponse.scope
       })
 
-      // Exchange authorization code for Matrix credentials via MAS
-      const matrixCredentials = await this._exchangeOIDCCodeForMatrixCredentials(authCode, state)
+      console.log('🔍 Full OIDC result for debugging:', oidcResult)
 
-      // Store credentials for session persistence
-      this._storeCredentials(matrixCredentials)
+      // Following Element-web pattern: Use the access token to get the real user ID from homeserver
+      // This avoids user ID format mismatches between ID token claims and Matrix server expectations
+      console.log('🔍 Getting user ID from Matrix homeserver using access token...')
+      const { createClient } = await import('matrix-js-sdk')
+
+      // Create a temporary client to call whoami
+      const tempClient = createClient({
+        baseUrl: oidcResult.homeserverUrl,
+        accessToken: oidcResult.tokenResponse.access_token,
+        useAuthorizationHeader: true
+      })
+
+      const whoamiResponse = await tempClient.whoami()
+      const actualUserId = whoamiResponse.user_id
+      const actualDeviceId = whoamiResponse.device_id
+
+      console.log('✅ Got actual user ID from homeserver:', {
+        userId: actualUserId,
+        deviceId: actualDeviceId
+      })
+
+      // Stop the temporary client
+      tempClient.stopClient()
+
+      const matrixCredentials = {
+        userId: actualUserId, // Use the homeserver-provided user ID
+        accessToken: oidcResult.tokenResponse.access_token,
+        deviceId: actualDeviceId || this._generateDeviceId(), // Use homeserver device ID if available
+        homeserverUrl: oidcResult.homeserverUrl,
+        refreshToken: oidcResult.tokenResponse.refresh_token,
+        // Include OIDC configuration for TokenRefresher
+        oidcIssuer: oidcResult.oidcClientSettings.issuer,
+        oidcClientId: oidcResult.oidcClientSettings.clientId,
+        oidcRedirectUri: `${window.location.origin}/auth/matrix`,
+        idTokenClaims: oidcResult.tokenResponse.id_token ? this._parseJWTClaims(oidcResult.tokenResponse.id_token) : undefined
+      }
+
+      console.log('🔍 Final Matrix credentials being used:', {
+        userId: matrixCredentials.userId,
+        homeserverUrl: matrixCredentials.homeserverUrl,
+        hasAccessToken: !!matrixCredentials.accessToken,
+        hasRefreshToken: !!matrixCredentials.refreshToken,
+        deviceId: matrixCredentials.deviceId
+      })
+
+      // Store credentials for session persistence (Element Web approach)
+      this._storeCredentials({
+        homeserverUrl: matrixCredentials.homeserverUrl,
+        accessToken: matrixCredentials.accessToken,
+        userId: matrixCredentials.userId,
+        deviceId: matrixCredentials.deviceId,
+        refreshToken: matrixCredentials.refreshToken
+      })
+
+      // Persist OIDC settings using Element Web's pattern - AFTER storing credentials
+      if (oidcResult.tokenResponse.id_token) {
+        console.log('🔧 Persisting OIDC settings with Element Web approach:', {
+          clientId: oidcResult.oidcClientSettings.clientId,
+          issuer: oidcResult.oidcClientSettings.issuer,
+          hasIdToken: !!oidcResult.tokenResponse.id_token
+        })
+
+        persistOidcAuthenticatedSettings(
+          oidcResult.oidcClientSettings.clientId,
+          oidcResult.oidcClientSettings.issuer,
+          oidcResult.tokenResponse.id_token
+        )
+
+        // Verify Element Web storage worked
+        const storedIssuer = getStoredOidcTokenIssuer()
+        const storedClientId = getStoredOidcClientId()
+        const storedClaims = getStoredOidcIdTokenClaims()
+
+        console.log('✅ Verified Element Web OIDC persistence:', {
+          storedIssuer,
+          storedClientId,
+          hasStoredClaims: !!storedClaims,
+          persistenceWorking: !!(storedIssuer && storedClientId)
+        })
+      } else {
+        console.warn('⚠️ No ID token available - OIDC persistence may not work for token refresh')
+      }
 
       // Use MatrixClientManager for optimized client creation and startup
       console.log('🔐 Creating Matrix client via MatrixClientManager...')
+
+      // Get OIDC configuration from Element Web storage for TokenRefresher
+      const oidcIssuer = getStoredOidcTokenIssuer()
+      const oidcClientId = getStoredOidcClientId()
+      const idTokenClaims = getStoredOidcIdTokenClaims()
+
+      console.log('🔍 Fresh auth credentials with Element Web OIDC config:', {
+        hasRefreshToken: !!matrixCredentials.refreshToken,
+        hasOidcIssuer: !!oidcIssuer,
+        hasOidcClientId: !!oidcClientId,
+        oidcIssuer,
+        oidcClientId,
+        usingElementWebStorage: true
+      })
+
       this.client = await matrixClientManager.initializeClient({
         homeserverUrl: matrixCredentials.homeserverUrl,
         accessToken: matrixCredentials.accessToken,
         userId: matrixCredentials.userId,
-        deviceId: matrixCredentials.deviceId
+        deviceId: matrixCredentials.deviceId,
+        refreshToken: matrixCredentials.refreshToken,
+        // Include Element Web OIDC configuration for TokenRefresher creation
+        oidcIssuer,
+        oidcClientId,
+        oidcRedirectUri: `${window.location.origin}/auth/matrix`,
+        idTokenClaims
       })
 
       // OPTIMIZATION: Set up event listeners in parallel with client startup
@@ -393,7 +488,7 @@ class MatrixClientService {
    * Uses dynamic client registration like Element-web for better security
    */
   private async _redirectToMASLogin (): Promise<void> {
-    console.log('🔄 Starting MAS OAuth2 authentication flow with dynamic client registration')
+    console.log('🔄 Starting native Matrix SDK OIDC authentication flow with MAS')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
@@ -404,101 +499,71 @@ class MatrixClientService {
     // Save current location so we can return to it after authentication
     sessionStorage.setItem('matrixReturnUrl', window.location.href)
 
-    // Get MAS configuration from environment
+    // Get configuration from environment
     const masUrl = getEnv('APP_MAS_URL') as string
+    const homeserverUrl = getEnv('APP_MATRIX_HOMESERVER_URL') as string || 'http://localhost:8448'
     const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
     if (!masUrl) {
       throw new Error('APP_MAS_URL is not configured. Please check your environment configuration.')
     }
 
-    // Use current origin for redirect URL - if user is on ngrok, use ngrok; if localhost, use localhost
-    const currentOrigin = window.location.origin
-    const redirectUrl = `${currentOrigin}${masRedirectPath || '/auth/matrix/callback'}`
-
-    console.log('🔗 Using redirect URL from current origin:', redirectUrl)
+    const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
 
     try {
-      // Check if we should use static client (for tests) or dynamic registration
+      // Step 1: Discover and validate OIDC issuer configuration
+      console.log('🔍 Discovering OIDC configuration from MAS issuer:', masUrl)
+      const oidcConfig = await discoverAndValidateOIDCIssuerWellKnown(masUrl)
+
+      console.log('✅ OIDC discovery successful:', {
+        issuer: oidcConfig.issuer,
+        authorizationEndpoint: oidcConfig.authorization_endpoint,
+        tokenEndpoint: oidcConfig.token_endpoint
+      })
+
+      // Step 2: Register OAuth2 client dynamically (or use static client for tests)
       const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
       const staticClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
 
       let clientId: string
-      let deviceId: string
 
       if (useStaticClient && staticClientId) {
-        // Use static client configuration (for tests)
         console.log('📝 Using static OAuth2 client for testing:', staticClientId)
         clientId = staticClientId
-        deviceId = this._generateDeviceId()
-
-        // Store client info for token exchange (no dynamic registration needed)
-        sessionStorage.setItem('mas_client_id', clientId)
-        sessionStorage.setItem('mas_device_id', deviceId)
       } else {
-        // Step 1: Register OAuth2 client dynamically (like Element-web)
         console.log('📝 Registering dynamic OAuth2 client with MAS')
         const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
         clientId = clientRegistration.client_id
-        deviceId = this._generateDeviceId()
-
-        // Store client info and device ID for token exchange
-        sessionStorage.setItem('mas_client_id', clientId)
-        sessionStorage.setItem('mas_device_id', deviceId)
       }
 
-      // Step 2: Generate scopes with device-specific permission
-      const scopes = this._buildMatrixScopes(deviceId)
+      // Step 3: Generate authorization URL using native matrix-js-sdk
+      const nonce = this._generateRandomState()
+      const identityServerUrl = getEnv('APP_MATRIX_IDENTITY_SERVER_URL') as string || undefined
 
-      // Generate state for CSRF protection
-      const state = this._generateRandomState()
-      sessionStorage.setItem('mas_oauth_state', state)
-
-      // Build MAS OAuth2 authorization URL
-      const masLoginParams = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUrl,
-        response_type: 'code',
-        scope: scopes,
-        state
+      console.log('🔗 Generating OIDC authorization URL with native SDK')
+      const authorizationUrl = await generateOidcAuthorizationUrl({
+        metadata: oidcConfig,
+        clientId,
+        homeserverUrl,
+        identityServerUrl,
+        redirectUri: redirectUrl,
+        nonce,
+        prompt: undefined // Let MAS decide the flow
       })
 
-      // Add user email as login hint
-      if (authStore.user?.email) {
-        masLoginParams.set('login_hint', authStore.user.email)
-        console.log('🔐 Adding login hint for seamless authentication:', authStore.user.email)
-      }
-
-      // Add tenant ID as a parameter to skip email prompt for tenant discovery
-      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-      if (tenantId) {
-        masLoginParams.set('tenant_id', tenantId)
-        console.log('🏢 Adding tenant ID to skip email prompt:', tenantId)
-      }
-
-      // Store OpenMeet context for callback
-      sessionStorage.setItem('mas_openmeet_context', JSON.stringify({
-        userId: authStore.getUserId,
-        token: authStore.token,
-        tenantId: (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-      }))
-
-      const masLoginUrl = `${masUrl}/authorize?${masLoginParams}`
-
-      console.log('🔗 Redirecting to MAS OAuth2 login')
+      console.log('🔗 Redirecting to native OIDC authorization URL')
       console.log('🆔 Client ID:', clientId)
-      console.log('🎯 Device ID:', deviceId)
-      console.log('🔧 Scopes:', scopes)
+      console.log('🏠 Homeserver URL:', homeserverUrl)
 
-      // Perform full-page redirect to MAS OAuth2 login
-      window.location.href = masLoginUrl
+      // Perform full-page redirect to OIDC authorization URL
+      window.location.href = authorizationUrl
 
       return new Promise(() => {
         // Promise never resolves since we're redirecting
       })
     } catch (error) {
-      console.error('❌ Failed to register OAuth2 client:', error)
-      throw new Error(`OAuth2 client registration failed: ${error.message}`)
+      console.error('❌ Error during native OIDC authentication setup:', error)
+      throw new Error(`Native OIDC authentication setup failed: ${error.message}`)
     }
   }
 
@@ -755,36 +820,6 @@ class MatrixClientService {
   }
 
   /**
-   * Public method to refresh stored tokens - used by MatrixClientManager
-   */
-  async refreshStoredTokens (): Promise<void> {
-    console.log('🔄 Public refreshStoredTokens called')
-
-    const storedSession = this._getStoredCredentials()
-    if (!storedSession || !storedSession.refreshToken) {
-      throw new Error('No stored refresh token available for token refresh')
-    }
-
-    try {
-      const refreshed = await this._refreshAccessToken(storedSession.refreshToken)
-
-      // Store the new tokens
-      await this._storeCredentials({
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        userId: storedSession.userId,
-        homeserverUrl: storedSession.homeserverUrl,
-        deviceId: storedSession.deviceId
-      })
-
-      console.log('✅ Successfully refreshed and stored new tokens')
-    } catch (error) {
-      console.error('❌ Failed to refresh stored tokens:', error)
-      throw error
-    }
-  }
-
-  /**
    * Public method to get stored credentials - used by MatrixClientManager
    */
   async getStoredCredentials (): Promise<{ accessToken?: string; refreshToken?: string }> {
@@ -802,118 +837,6 @@ class MatrixClientService {
   hasStoredSession (): boolean {
     const storedSession = this._getStoredCredentials()
     return !!(storedSession && storedSession.hasSession)
-  }
-
-  /**
-   * Refresh Matrix access token using refresh token (compatible with dynamic clients)
-   */
-  private async _refreshAccessToken (refreshToken: string): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  }> {
-    console.log('🔄 Refreshing Matrix access token using refresh token')
-
-    try {
-      // Get MAS configuration
-      const masUrl = getEnv('APP_MAS_URL') as string
-
-      // Use static test client if configured for testing, otherwise use dynamic client
-      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
-      const staticTestClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
-      const dynamicClientId = sessionStorage.getItem('mas_client_id')
-
-      const clientId = useStaticClient && staticTestClientId ? staticTestClientId : dynamicClientId
-
-      if (!masUrl || !clientId) {
-        const configError = new Error('MAS configuration not available for token refresh')
-        // Emit token refresh failure event
-        const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
-          detail: {
-            error: configError,
-            reason: 'configuration_missing',
-            timestamp: Date.now()
-          }
-        })
-        window.dispatchEvent(tokenRefreshFailureEvent)
-        throw configError
-      }
-
-      console.log('🔄 Using client ID for refresh:', dynamicClientId ? 'dynamic' : 'static', clientId)
-
-      // Call MAS token endpoint with refresh_token grant
-      const response = await fetch(`${masUrl}/oauth2/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: clientId
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Token refresh failed:', errorData)
-
-        // If the refresh token is invalid/expired/revoked, perform complete recovery
-        if (errorData.error === 'invalid_grant' || response.status === 400) {
-          // Use async method but don't await to prevent hanging the current flow
-          this._handleInvalidRefreshToken().catch(error => {
-            console.error('❌ Error during invalid token recovery:', error)
-          })
-        }
-
-        const refreshError = new Error(`Token refresh failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
-
-        // Emit token refresh failure event with detailed error information
-        const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
-          detail: {
-            error: refreshError,
-            errorData,
-            reason: errorData.error || 'unknown_error',
-            httpStatus: response.status,
-            timestamp: Date.now()
-          }
-        })
-        window.dispatchEvent(tokenRefreshFailureEvent)
-
-        throw refreshError
-      }
-
-      const tokenData = await response.json()
-      console.log('✅ Token refresh successful')
-
-      // Emit token refresh success event
-      const tokenRefreshSuccessEvent = new CustomEvent('matrix:tokenRefreshSuccess', {
-        detail: {
-          timestamp: Date.now()
-        }
-      })
-      window.dispatchEvent(tokenRefreshSuccessEvent)
-
-      return {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token || refreshToken // Use new refresh token or fallback to old one
-      }
-    } catch (error) {
-      console.error('❌ Error refreshing access token:', error)
-
-      // If we haven't already emitted an event, emit a generic failure event
-      if (!(error instanceof Error) || !error.message.includes('Token refresh failed:')) {
-        const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
-          detail: {
-            error,
-            reason: 'generic_error',
-            timestamp: Date.now()
-          }
-        })
-        window.dispatchEvent(tokenRefreshFailureEvent)
-      }
-
-      throw new Error(`Failed to refresh token: ${error.message}`)
-    }
   }
 
   // Note: Removed unused session checking and interactive OIDC methods
@@ -1000,33 +923,23 @@ class MatrixClientService {
         })
         window.dispatchEvent(syncErrorEvent)
 
-        // Handle token errors by attempting token refresh
+        // Handle token errors with native SDK OIDC support
         if (isTokenError) {
-          console.warn('🚫 Token-related sync error detected - attempting token refresh')
+          console.warn('🚫 Token-related sync error detected - with native SDK OIDC, tokens should refresh automatically')
+          console.log('💡 If we hit this, the refresh token is likely invalid - clearing session for re-authentication')
 
-          try {
-            // Attempt to refresh the token
-            await this.refreshStoredTokens()
-            console.log('✅ Token refreshed successfully, restarting client')
-
-            // Restart the client with new tokens
-            await matrixClientManager.restartClient()
-            return
-          } catch (refreshError) {
-            console.error('❌ Token refresh failed:', refreshError)
-
-            // Clear credentials and emit failure event
-            await this.clearSession()
-            const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
-              detail: {
-                error: data,
-                refreshError,
-                timestamp: Date.now()
-              }
-            })
-            window.dispatchEvent(tokenRefreshFailureEvent)
-            return
-          }
+          // With native SDK OIDC support, token refresh should be automatic
+          // If we're still getting token errors, the refresh token is likely invalid
+          await this.clearSession()
+          const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
+            detail: {
+              error: data,
+              reason: 'invalid_refresh_token',
+              timestamp: Date.now()
+            }
+          })
+          window.dispatchEvent(tokenRefreshFailureEvent)
+          return
         }
 
         // Attempt to restart sync after a delay for non-token errors
@@ -2197,6 +2110,7 @@ class MatrixClientService {
         timestamp: Date.now(),
         hasSession: true,
         openMeetUserSlug: storageUserId // Store for validation
+        // OIDC configuration is now handled by Element Web's persistOidcAuthenticatedSettings()
       }
       localStorage.setItem(sessionKey, JSON.stringify(basicSessionData))
 
@@ -2320,6 +2234,10 @@ class MatrixClientService {
         console.log('🗑️ No user ID available, clearing legacy session keys')
       }
 
+      // Clear OIDC settings using Element Web's pattern
+      clearStoredOidcSettings()
+      console.log('🗑️ Cleared OIDC authentication settings')
+
       // Also clear legacy keys for cleanup
       localStorage.removeItem('matrix_session')
       sessionStorage.removeItem('matrix_access_token')
@@ -2356,38 +2274,13 @@ class MatrixClientService {
         console.log('🏠 Restoring Matrix client with baseUrl:', baseUrl)
 
         // If no access token but we have refresh token, try to get new access token
-        let accessToken = sessionInfo.accessToken
-        let refreshToken = sessionInfo.refreshToken
+        const accessToken = sessionInfo.accessToken
+        const refreshToken = sessionInfo.refreshToken
 
+        // With native SDK OIDC support, we don't need to manually refresh tokens here
+        // The SDK will handle token refresh automatically when configured with refreshToken
         if (!accessToken && refreshToken) {
-          console.log('🔄 No access token available, attempting to refresh using stored refresh token')
-          try {
-            const refreshed = await this._refreshAccessToken(refreshToken)
-            accessToken = refreshed.accessToken
-            refreshToken = refreshed.refreshToken
-
-            // Update stored credentials with new tokens
-            this._storeCredentials({
-              homeserverUrl: sessionInfo.homeserverUrl,
-              userId: sessionInfo.userId,
-              deviceId: sessionInfo.deviceId,
-              accessToken,
-              refreshToken
-            })
-
-            console.log('✅ Successfully refreshed access token during restoration')
-          } catch (error) {
-            console.error('❌ Failed to refresh access token during restoration:', error)
-            
-            // If it's an invalid_grant error, the tokens were already cleared in _refreshAccessToken
-            // Don't throw error - instead allow the user to re-authenticate
-            if (error.message && error.message.includes('invalid_grant')) {
-              console.log('🔄 Invalid refresh token cleared, user will need to re-authenticate')
-              return null // Return null to indicate authentication is needed
-            }
-            
-            throw new Error('Failed to refresh access token for Matrix authentication')
-          }
+          console.log('🔄 No access token available, but refresh token present - SDK will handle refresh automatically')
         }
 
         if (!accessToken) {
@@ -2395,40 +2288,14 @@ class MatrixClientService {
           return null // Return null to indicate authentication is needed
         }
 
-        // Create token refresh function if refresh token is available (like Element Web)
-        const tokenRefreshFunction = refreshToken
-          ? async () => {
-            console.log('🔄 Token refresh triggered by Matrix client during restoration')
-            try {
-              const refreshed = await this._refreshAccessToken(refreshToken!)
-
-              // Update stored credentials with new tokens
-              this._storeCredentials({
-                homeserverUrl: sessionInfo.homeserverUrl,
-                userId: sessionInfo.userId,
-                deviceId: sessionInfo.deviceId,
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken
-              })
-
-              console.log('✅ Token refresh completed successfully during restoration')
-              return {
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken
-              }
-            } catch (error) {
-              console.error('❌ Token refresh failed during restoration:', error)
-              // Clear invalid tokens and require re-authentication
-              this._clearStoredCredentials()
-              throw error
-            }
-          }
-          : undefined
+        // With native SDK OIDC support, we no longer provide custom tokenRefreshFunction
+        // The SDK handles token refresh internally when refreshToken is provided in createClient options
+        console.log('🔄 Using native SDK OIDC token refresh - no custom tokenRefreshFunction needed')
 
         // MSC3861: Use access token obtained via MAS OIDC with refresh token support
         console.log('🔐 Restoring Matrix client with MSC3861 access token from MAS', {
           hasRefreshToken: !!refreshToken,
-          hasTokenRefreshFunction: !!tokenRefreshFunction
+          usesNativeSDKRefresh: true
         })
 
         // Create persistent IndexedDB store for main storage
@@ -2478,13 +2345,32 @@ class MatrixClientService {
 
         // Use MatrixClientManager instead of direct client creation
         console.log('🔄 Using MatrixClientManager for client initialization...')
+
+        // Use Element Web's OIDC persistence pattern (consistent approach)
+        const oidcIssuer = getStoredOidcTokenIssuer()
+        const oidcClientId = getStoredOidcClientId()
+        const idTokenClaims = getStoredOidcIdTokenClaims()
+
+        console.log('🔍 Session restoration credentials (Element Web approach):', {
+          hasRefreshToken: !!refreshToken,
+          hasOidcIssuer: !!oidcIssuer,
+          hasOidcClientId: !!oidcClientId,
+          oidcIssuer,
+          oidcClientId,
+          usingElementWebStorage: true
+        })
+
         this.client = await matrixClientManager.initializeClient({
           homeserverUrl: baseUrl,
           accessToken: accessToken!,
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
           refreshToken,
-          tokenRefreshFunction
+          // Use Element Web's OIDC persistence pattern for TokenRefresher creation
+          oidcIssuer,
+          oidcClientId,
+          oidcRedirectUri: `${window.location.origin}/auth/matrix`,
+          idTokenClaims
         })
 
         console.log('✅ Matrix client restored successfully via MatrixClientManager')
@@ -2494,7 +2380,7 @@ class MatrixClientService {
 
         // Start the client (MatrixClientManager handles this internally)
         await matrixClientManager.startClient()
-        
+
         return this.client // Return the successfully created client
       } else {
         // Fallback: try to restore from Matrix SDK's own persistence
@@ -2594,16 +2480,16 @@ class MatrixClientService {
   private async _handleInvalidRefreshToken (): Promise<void> {
     try {
       console.warn('🚨 Handling invalid refresh token - performing complete Matrix reset')
-      
+
       // Stop all Matrix clients immediately
       if (this.client) {
         this.client.stopClient()
         this.client = null
       }
-      
+
       // Use MatrixClientManager's specialized method for clearing client and credentials
       await matrixClientManager.clearClientAndCredentials()
-      
+
       // Emit an event that the UI can listen for to show re-authentication prompt
       const invalidTokenEvent = new CustomEvent('matrix:invalidTokenRecovery', {
         detail: {
@@ -2612,7 +2498,7 @@ class MatrixClientService {
         }
       })
       window.dispatchEvent(invalidTokenEvent)
-      
+
       console.log('✅ Invalid refresh token recovery completed - user needs to re-authenticate')
     } catch (error) {
       console.error('❌ Error during invalid token recovery:', error)
@@ -2733,6 +2619,30 @@ class MatrixClientService {
     } catch (error) {
       console.error('❌ Error during Matrix client force sync:', error)
       throw error
+    }
+  }
+
+  /**
+   * Parse JWT claims from ID token (for OIDC TokenRefresher)
+   */
+  private _parseJWTClaims (idToken: string): IdTokenClaims {
+    try {
+      // JWT tokens have 3 parts separated by dots: header.payload.signature
+      const parts = idToken.split('.')
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format')
+      }
+
+      // Decode the payload (second part)
+      const payload = parts[1]
+      // Add padding if needed for base64 decoding
+      const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4)
+      const decoded = atob(paddedPayload.replace(/-/g, '+').replace(/_/g, '/'))
+
+      return JSON.parse(decoded) as IdTokenClaims
+    } catch (error) {
+      console.warn('⚠️ Failed to parse ID token claims:', error)
+      return {} as IdTokenClaims
     }
   }
 }

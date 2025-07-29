@@ -3,10 +3,9 @@ import { api } from '../boot/axios'
 import { ChatEntity } from '../types'
 import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
-import { Socket as SocketIOClient } from 'socket.io-client'
 
-// Define a Socket type that's compatible with what matrixApi returns
-type Socket = SocketIOClient
+// Legacy Socket type for deprecated methods
+type Socket = never
 
 export const chatApi = {
   // Get list of chat rooms for the current user

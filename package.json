@@ -1,7 +1,8 @@
 {
   "name": "openmeet-platform",
   "version": "0.1.0",
-  "description": "OpenMeet frontend platform for community event management and real-time chat"  "productName": "OpenMeet",
+  "description": "OpenMeet frontend platform for community event management and real-time chat",
+  "productName": "OpenMeet",
   "author": "OpenMeet Team <openmeet@openmeet.net>",
   "type": "module",
   "license": "Apache-2.0",
@@ -37,7 +38,7 @@
     "dotenv": "^16.4.5",
     "leaflet": "^1.9.4",
     "marked": "^15.0.7",
-    "matrix-js-sdk": "^37.9.0",
+    "matrix-js-sdk": "^37.12.0",
     "pinia": "^2.2.6",
     "posthog-js": "^1.252.0",
     "qrcode": "^1.5.4",

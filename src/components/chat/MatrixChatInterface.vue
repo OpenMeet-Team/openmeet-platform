@@ -2239,14 +2239,59 @@ const handleMatrixReady = () => {
   setupMatrixEventListeners()
 }
 
+// Invalid token recovery event handler (resets UI state when tokens are cleared)
+const handleInvalidTokenRecovery = () => {
+  console.log('🚫 Invalid token recovery event received, resetting UI state')
+  try {
+    lastAuthError.value = 'Matrix authentication expired. Please click "Connect" to re-authenticate.'
+    isConnecting.value = false
+    messages.value = []
+  } catch (error) {
+    // Ignore Vue readonly property errors during cleanup
+    console.warn('⚠️ Error during token recovery cleanup (expected during component teardown):', error.message)
+  }
+}
+
+// Token error event handler (handles real-time token failures)
+const handleTokenError = (event) => {
+  console.log('🚫 Matrix token error received:', event.detail)
+  console.log('🔧 Current UI state before token error handling:', {
+    isConnected: isConnected.value,
+    lastAuthError: lastAuthError.value,
+    isConnecting: isConnecting.value
+  })
+  try {
+    lastAuthError.value = 'Your session has expired. Please click "Connect" to re-authenticate.'
+    isConnecting.value = false
+    console.log('✅ Token error handled - Connect button should now be visible')
+  } catch (error) {
+    console.warn('⚠️ Error during token error handling:', error.message)
+  }
+}
+
+// Token refresh failure event handler (handles SDK token refresh failures)
+const handleTokenRefreshFailure = (event) => {
+  console.log('🚫 Matrix token refresh failed:', event.detail)
+  try {
+    lastAuthError.value = 'Session expired and could not be renewed. Please click "Connect" to re-authenticate.'
+    isConnecting.value = false
+  } catch (error) {
+    console.warn('⚠️ Error during token refresh failure handling:', error.message)
+  }
+}
+
 onMounted(async () => {
   isConnecting.value = true
 
   // Listen for Matrix client ready events to ensure event listeners are set up
   window.addEventListener('matrix:ready', handleMatrixReady)
-  
+
   // Listen for invalid token recovery events to reset UI state
   window.addEventListener('matrix:invalidTokenRecovery', handleInvalidTokenRecovery)
+
+  // Listen for token error events to reactively show Connect button
+  window.addEventListener('matrix:tokenError', handleTokenError)
+  window.addEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
 
   try {
     console.log(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
@@ -2357,6 +2402,13 @@ onUnmounted(() => {
 
   // Cleanup Matrix ready event listener
   window.removeEventListener('matrix:ready', handleMatrixReady)
+
+  // Cleanup invalid token recovery event listener
+  window.removeEventListener('matrix:invalidTokenRecovery', handleInvalidTokenRecovery)
+
+  // Cleanup token error event listeners
+  window.removeEventListener('matrix:tokenError', handleTokenError)
+  window.removeEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
 
   // Cleanup custom event listeners
   customEventListeners.forEach(cleanup => cleanup())
