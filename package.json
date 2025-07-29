@@ -1,10 +1,10 @@
 {
-  "name": "openmeet",
-  "version": "0.0.4",
-  "description": "Building Communities",
-  "productName": "OpenMeet",
+  "name": "openmeet-platform",
+  "version": "0.1.0",
+  "description": "OpenMeet frontend platform for community event management and real-time chat"  "productName": "OpenMeet",
   "author": "OpenMeet Team <openmeet@openmeet.net>",
   "type": "module",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
