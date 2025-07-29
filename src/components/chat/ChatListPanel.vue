@@ -128,6 +128,8 @@
           @click="$emit('select-chat', chat)"
           :class="{ 'selected-chat': selectedChatId === chat.id }"
           class="chat-item-card q-mb-xs"
+          :data-chat-id="chat.id"
+          :data-matrix-room-id="chat.matrixRoomId"
           flat
           bordered
         >
@@ -180,6 +182,8 @@
           clickable
           @click="joinChat(chat)"
           class="chat-item-card available-chat-card q-mb-xs"
+          :data-chat-id="chat.id"
+          :data-matrix-room-id="chat.matrixRoomId"
           flat
           bordered
         >
@@ -509,14 +513,14 @@ const loadRealRooms = async () => {
 
           if (groupAlias) {
             roomType = 'group'
-            chatId = `matrix-group-${roomId}`
+            chatId = roomId
           } else if (eventAlias) {
             roomType = 'event'
-            chatId = `matrix-event-${roomId}`
+            chatId = roomId
           } else {
             // Assume direct message if 2 members, otherwise generic room
             roomType = participants.length <= 2 ? 'direct' : 'group'
-            chatId = `matrix-${roomType}-${roomId}`
+            chatId = roomId
           }
         }
       }
@@ -828,14 +832,14 @@ const getNewChatPlaceholder = (): string => {
 const joinChat = async (chat: Chat) => {
   try {
     if (chat.type === 'group') {
-      // Extract group slug from chat ID (format: 'group-slug' or 'matrix-group-roomId')
+      // Extract group slug from chat ID (format: 'group-slug' or Matrix room ID)
       let groupSlug = ''
       if (chat.id.startsWith('group-')) {
         groupSlug = chat.id.replace('group-', '')
-      } else if (chat.id.startsWith('matrix-group-')) {
-        // For Matrix-discovered groups without OpenMeet context, we need the slug
+      } else if (chat.id.startsWith('!') || chat.id.startsWith('#')) {
+        // For Matrix room IDs without OpenMeet context, we need the slug
         // Try to find it via the room alias or description
-        console.warn('⚠️ Matrix-discovered group without OpenMeet context - may need manual join')
+        console.warn('⚠️ Matrix room without OpenMeet context - may need manual join')
         // For now, emit selection anyway as Matrix client should handle it
         emit('select-chat', chat)
         return

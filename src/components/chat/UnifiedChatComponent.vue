@@ -111,7 +111,7 @@
         <ChatListPanel
           :context-type="contextType"
           :context-id="contextId"
-          @select-chat="selectChat"
+          @select-chat="(chat) => checkAutoSelectFromQuery(chat) || selectChat(chat)"
         />
       </q-card>
 
@@ -184,8 +184,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { matrixClientService } from '../../services/matrixClientService'
 import ChatListPanel from './ChatListPanel.vue'
@@ -232,6 +232,7 @@ const leftDrawerOpen = ref(false)
 const rightDrawerOpen = ref(false)
 const activeChat = ref<Chat | null>(null)
 const router = useRouter()
+const route = useRoute()
 const $q = useQuasar()
 
 // Initialize Matrix on component mount
@@ -272,7 +273,12 @@ const selectChat = (chat: Chat) => {
 }
 
 const selectChatMobile = (chat: Chat) => {
-  selectChat(chat)
+  // Check for auto-selection from query parameter
+  if (!checkAutoSelectFromQuery(chat)) {
+    // Normal user selection
+    selectChat(chat)
+  }
+
   // On mobile, close the left drawer after selecting a chat
   if ($q.screen.lt.sm) {
     leftDrawerOpen.value = false
@@ -331,12 +337,197 @@ const getContextId = (chat: Chat): string => {
   return chat.id
 }
 
+// Simple auto-selection when chat becomes available
+const checkAutoSelectFromQuery = (chat: Chat) => {
+  const queryChat = route.query.chat as string
+  if (!queryChat || activeChat.value || props.mode !== 'dashboard') return false
+
+  // Check if this chat matches the query parameter
+  if (chat.id === queryChat || chat.matrixRoomId === queryChat) {
+    console.log(`🎯 Auto-selecting chat from URL: ${chat.name} (${chat.id})`)
+    selectChat(chat)
+    return true
+  }
+
+  return false
+}
+
+// Store the target chat ID for auto-selection
+const targetChatId = ref<string | null>(null)
+
+// Function to attempt auto-selection by finding the chat in the DOM using data attributes
+const attemptAutoSelection = async () => {
+  if (!targetChatId.value || activeChat.value) return false
+
+  console.log('🎯 Attempting auto-selection for:', targetChatId.value)
+
+  // The target chat ID should now be the room identifier directly
+  const roomIdentifier = targetChatId.value
+
+  console.log('🔍 Looking for room identifier:', roomIdentifier)
+
+  // Strategy 1: Direct chat ID match
+  let targetElement = document.querySelector(`[data-chat-id="${targetChatId.value}"]`)
+  if (targetElement) {
+    console.log('✅ Found by exact chat ID match')
+  }
+
+  // Strategy 2: Matrix room ID match (works for both aliases and room IDs)
+  if (!targetElement) {
+    targetElement = document.querySelector(`[data-matrix-room-id="${roomIdentifier}"]`)
+    if (targetElement) {
+      console.log('✅ Found by matrix room ID match')
+    }
+  }
+
+  // Strategy 3: Room alias resolution using Matrix client
+  if (!targetElement && roomIdentifier.startsWith('#')) {
+    try {
+      const { matrixClientService } = await import('../../services/matrixClientService')
+      const client = await matrixClientService.getClient()
+      if (client) {
+        let resolvedRoomId = null
+
+        // Try local room lookup first
+        const room = client.getRoom(roomIdentifier)
+        if (room?.roomId) {
+          resolvedRoomId = room.roomId
+          console.log(`🔄 Local resolved room alias ${roomIdentifier} to room ID ${resolvedRoomId}`)
+        } else {
+          // Try Matrix API resolution
+          try {
+            const roomDirectory = await client.getRoomIdForAlias(roomIdentifier)
+            if (roomDirectory?.room_id) {
+              resolvedRoomId = roomDirectory.room_id
+              console.log(`🔄 API resolved room alias ${roomIdentifier} to room ID ${resolvedRoomId}`)
+            }
+          } catch (apiError) {
+            console.log('Matrix API resolution failed:', apiError)
+          }
+        }
+
+        // Try to find element using the resolved room ID
+        if (resolvedRoomId) {
+          targetElement = document.querySelector(`[data-matrix-room-id="${resolvedRoomId}"]`) ||
+                          document.querySelector(`[data-chat-id="${resolvedRoomId}"]`)
+          if (targetElement) {
+            console.log('✅ Found by resolved room ID')
+          }
+        }
+      }
+    } catch (error) {
+      console.log('❌ Could not resolve room alias via Matrix client:', error)
+    }
+  }
+
+  // Strategy 4: Reverse lookup - if we have a room ID, try to find by alias
+  if (!targetElement && roomIdentifier.startsWith('!')) {
+    try {
+      const { matrixClientService } = await import('../../services/matrixClientService')
+      const client = await matrixClientService.getClient()
+      if (client) {
+        const room = client.getRoom(roomIdentifier)
+        if (room) {
+          // Try to find using canonical alias
+          const canonicalAlias = room.getCanonicalAlias()
+          if (canonicalAlias) {
+            targetElement = document.querySelector(`[data-matrix-room-id="${canonicalAlias}"]`)
+            if (targetElement) {
+              console.log(`✅ Found by canonical alias ${canonicalAlias}`)
+            }
+          }
+
+          // Try alternative aliases
+          if (!targetElement) {
+            const altAliases = room.getAltAliases()
+            for (const alias of altAliases) {
+              targetElement = document.querySelector(`[data-matrix-room-id="${alias}"]`)
+              if (targetElement) {
+                console.log(`✅ Found by alternative alias ${alias}`)
+                break
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log('❌ Could not perform reverse alias lookup:', error)
+    }
+  }
+
+  // Strategy 5: Flexible matching (last resort)
+  if (!targetElement) {
+    console.log('🔍 Attempting flexible matching...')
+    const cleanSlug = targetChatId.value.replace(/^(event-|group-)/, '')
+    const allChatElements = document.querySelectorAll('[data-chat-id], [data-matrix-room-id]')
+
+    for (const element of allChatElements) {
+      const chatId = element.getAttribute('data-chat-id') || ''
+      const matrixRoomId = element.getAttribute('data-matrix-room-id') || ''
+      const elementText = element.textContent?.toLowerCase() || ''
+
+      // Check various matching criteria
+      if (
+        elementText.includes(cleanSlug.toLowerCase()) ||
+        chatId.includes(cleanSlug) ||
+        matrixRoomId.includes(cleanSlug) ||
+        (matrixRoomId.includes('#') && matrixRoomId.includes(cleanSlug))
+      ) {
+        console.log(`✅ Found by flexible matching: chatId=${chatId}, roomId=${matrixRoomId}`)
+        targetElement = element as HTMLElement
+        break
+      }
+    }
+  }
+
+  if (targetElement) {
+    console.log('🎉 Auto-selecting chat element')
+    ;(targetElement as HTMLElement).click()
+    targetChatId.value = null // Clear after successful selection
+    return true
+  }
+
+  console.log('❌ Chat element not found in DOM yet, will retry...')
+  return false
+}
+
+// Watch for route changes to set target chat
+watch(() => route.query.chat, (newChatId) => {
+  if (newChatId && props.mode === 'dashboard') {
+    targetChatId.value = newChatId as string
+    console.log('Setting target chat ID:', newChatId)
+
+    // Try immediate selection
+    nextTick(async () => {
+      await attemptAutoSelection()
+    })
+  } else {
+    targetChatId.value = null
+  }
+}, { immediate: true })
+
 // Load initial chat if specified in URL
-onMounted(() => {
-  const chatId = router.currentRoute.value.query.chat as string
+onMounted(async () => {
+  const chatId = route.query.chat as string
   if (chatId && props.mode === 'dashboard') {
-    // Load and select the specified chat
-    // This would call the chat service to get the chat details
+    console.log('Initial chat ID from URL:', chatId)
+    targetChatId.value = chatId
+
+    // Retry auto-selection periodically until successful or timeout
+    let attempts = 0
+    const maxAttempts = 20 // Try for up to 10 seconds (20 * 500ms)
+
+    const retryInterval = setInterval(async () => {
+      attempts++
+
+      const success = await attemptAutoSelection()
+      if (success || attempts >= maxAttempts) {
+        clearInterval(retryInterval)
+        if (attempts >= maxAttempts) {
+          console.log('Auto-selection timeout - chat may not be loaded yet')
+        }
+      }
+    }, 500)
   }
 })
 </script>
