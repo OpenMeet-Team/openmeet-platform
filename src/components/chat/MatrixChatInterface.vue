@@ -157,36 +157,39 @@
                 <!-- Text Message -->
                 <div v-if="message.type === 'text'" class="text-message">
                   <div class="message-text" v-html="formatMessageText(message.content.body)"></div>
-                  <!-- Status and actions - only show for own messages -->
-                  <div v-if="message.isOwn" class="message-actions text-caption q-mt-xs">
-                    <q-icon
-                      :name="getMessageStatusIcon(message.status)"
-                      :color="getMessageStatusColor(message.status)"
-                      size="12px"
-                    >
-                      <q-tooltip v-if="message.status === 'failed'" class="text-body2">
-                        {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
-                      </q-tooltip>
-                    </q-icon>
-                    <!-- Read Receipt Indicators -->
-                    <q-chip
-                      v-if="message.readReceipts && message.readReceipts.length > 0"
-                      dense
-                      size="10px"
-                      color="primary"
-                      text-color="white"
-                      class="read-receipts-chip q-ml-xs"
-                    >
-                      <q-tooltip class="text-body2">
-                        Read by: {{ message.readReceipts.map(r => r.userName).join(', ') }}
-                      </q-tooltip>
-                      <q-icon name="fas fa-eye" size="xs" class="q-mr-xs" />
-                      <span class="read-receipt-text">
-                        {{ message.readReceipts.length }} read
-                      </span>
-                    </q-chip>
+                  <!-- Status and actions - show for own messages and admins -->
+                  <div v-if="shouldShowMessageActions(message)" class="message-actions text-caption q-mt-xs">
+                    <!-- Status and read receipts - only for own messages -->
+                    <template v-if="message.isOwn">
+                      <q-icon
+                        :name="getMessageStatusIcon(message.status)"
+                        :color="getMessageStatusColor(message.status)"
+                        size="12px"
+                      >
+                        <q-tooltip v-if="message.status === 'failed'" class="text-body2">
+                          {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
+                        </q-tooltip>
+                      </q-icon>
+                      <!-- Read Receipt Indicators -->
+                      <q-chip
+                        v-if="message.readReceipts && message.readReceipts.length > 0"
+                        dense
+                        size="10px"
+                        color="primary"
+                        text-color="white"
+                        class="read-receipts-chip q-ml-xs"
+                      >
+                        <q-tooltip class="text-body2">
+                          Read by: {{ message.readReceipts.map(r => r.userName).join(', ') }}
+                        </q-tooltip>
+                        <q-icon name="fas fa-eye" size="xs" class="q-mr-xs" />
+                        <span class="read-receipt-text">
+                          {{ message.readReceipts.length }} read
+                        </span>
+                      </q-chip>
+                    </template>
 
-                    <!-- Delete button -->
+                    <!-- Delete button - available for message owners and admins -->
                     <q-icon
                       v-if="canDeleteMessage(message)"
                       name="fas fa-trash"
@@ -743,6 +746,12 @@ const hasOidcConfigError = (): boolean => {
 }
 
 const formatMessageText = (text: string): string => {
+  // Guard against undefined/null text
+  if (!text || typeof text !== 'string') {
+    console.warn('formatMessageText called with invalid text:', text)
+    return ''
+  }
+
   // Enhanced markdown and URL formatting
   return text
     // Convert URLs to clickable links (must be first to avoid conflicts)
@@ -767,6 +776,15 @@ const formatTime = (date: Date): string => {
   if (diff < 3600000) return format(date, 'HH:mm')
   if (diff < 86400000) return format(date, 'HH:mm')
   return format(date, 'MMM d, HH:mm')
+}
+
+// Check if message actions should be shown (for own messages or admins)
+const shouldShowMessageActions = (message: Message): boolean => {
+  // Always show for own messages
+  if (message.isOwn) return true
+
+  // Show for users who can delete messages (admins with proper power levels)
+  return canDeleteMessage(message)
 }
 
 // Check if current user can delete a message

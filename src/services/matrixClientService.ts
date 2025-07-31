@@ -1254,6 +1254,45 @@ class MatrixClientService {
   }
 
   /**
+   * Resolve room alias to room ID if needed
+   *
+   * This method should be used before making Matrix API calls that require a room ID
+   * (like redactEvent, sendEvent, etc.) when the roomId parameter might be a room alias.
+   *
+   * Room aliases (starting with #) need to be resolved to actual room IDs (starting with !)
+   * before being used in most Matrix API calls, otherwise you'll get M_NOT_FOUND errors
+   * like "Could not find room_version for #room-alias:server.com"
+   *
+   * TODO: Consider using this pattern in other methods like sendMessage, joinRoom, etc.
+   */
+  private async resolveRoomId (roomIdOrAlias: string): Promise<string> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    // If it's already a room ID (starts with !), return as-is
+    if (roomIdOrAlias.startsWith('!')) {
+      return roomIdOrAlias
+    }
+
+    // If it's a room alias (starts with #), resolve it
+    if (roomIdOrAlias.startsWith('#')) {
+      try {
+        console.log('🔍 Resolving room alias:', roomIdOrAlias)
+        const aliasResult = await this.client.getRoomIdForAlias(roomIdOrAlias)
+        console.log('✅ Room alias resolved to room ID:', aliasResult.room_id)
+        return aliasResult.room_id
+      } catch (error) {
+        console.error('❌ Failed to resolve room alias:', roomIdOrAlias, error)
+        throw new Error(`Could not resolve room alias: ${roomIdOrAlias}`)
+      }
+    }
+
+    // If neither, assume it's a room ID
+    return roomIdOrAlias
+  }
+
+  /**
    * Redact (delete) a message
    */
   async redactMessage (roomId: string, eventId: string, reason?: string): Promise<void> {
@@ -1263,7 +1302,12 @@ class MatrixClientService {
 
     try {
       console.log('🗑️ Redacting message:', eventId, 'in room:', roomId)
-      await this.client.redactEvent(roomId, eventId, reason)
+
+      // Resolve room alias to room ID if needed
+      const resolvedRoomId = await this.resolveRoomId(roomId)
+      console.log('🏠 Using resolved room ID:', resolvedRoomId)
+
+      await this.client.redactEvent(resolvedRoomId, eventId, reason)
       console.log('✅ Message redacted successfully')
     } catch (error) {
       console.error('❌ Failed to redact message:', error)
@@ -1905,12 +1949,16 @@ class MatrixClientService {
    * This method will paginate backwards multiple times to load ALL available historical messages
    */
   async loadRoomHistory (roomId: string, limit = 50): Promise<MatrixEvent[]> {
-    const room = this.getRoom(roomId)
+    // Resolve room alias to room ID if needed
+    const resolvedRoomId = await this.resolveRoomId(roomId)
+    console.log('🏠 Using resolved room ID for loading history:', resolvedRoomId)
+
+    const room = this.getRoom(resolvedRoomId)
     if (!room) {
-      throw new Error(`Room not found: ${roomId}`)
+      throw new Error(`Room not found: ${resolvedRoomId}`)
     }
 
-    console.log(`🔄 Loading room history for ${roomId} with limit ${limit}`)
+    console.log(`🔄 Loading room history for ${resolvedRoomId} with limit ${limit}`)
 
     try {
       // Get the unfiltered timeline set for full message history
@@ -1972,7 +2020,7 @@ class MatrixClientService {
     } catch (error) {
       console.error('❌ Error loading room history:', error)
       // Fallback to current timeline if pagination fails
-      return this.getRoomTimeline(roomId, limit)
+      return this.getRoomTimeline(resolvedRoomId, limit)
     }
   }
 
@@ -1982,12 +2030,16 @@ class MatrixClientService {
    * Use with caution as it could load thousands of messages for large rooms
    */
   async loadAllRoomHistory (roomId: string): Promise<MatrixEvent[]> {
-    const room = this.getRoom(roomId)
+    // Resolve room alias to room ID if needed
+    const resolvedRoomId = await this.resolveRoomId(roomId)
+    console.log('🏠 Using resolved room ID for loading all history:', resolvedRoomId)
+
+    const room = this.getRoom(resolvedRoomId)
     if (!room) {
-      throw new Error(`Room not found: ${roomId}`)
+      throw new Error(`Room not found: ${resolvedRoomId}`)
     }
 
-    console.log(`🔄 Loading ALL room history for ${roomId}`)
+    console.log(`🔄 Loading ALL room history for ${resolvedRoomId}`)
 
     try {
       // Get the unfiltered timeline set for full message history
@@ -2038,7 +2090,7 @@ class MatrixClientService {
     } catch (error) {
       console.error('❌ Error loading all room history:', error)
       // Fallback to limited history if loading all fails
-      return this.loadRoomHistory(roomId, 100)
+      return this.loadRoomHistory(resolvedRoomId, 100)
     }
   }
 
