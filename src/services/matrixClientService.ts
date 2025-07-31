@@ -551,12 +551,39 @@ class MatrixClientService {
         prompt: undefined // Let MAS decide the flow
       })
 
-      console.log('🔗 Redirecting to native OIDC authorization URL')
-      console.log('🆔 Client ID:', clientId)
-      console.log('🏠 Homeserver URL:', homeserverUrl)
+      // Enhance SDK-generated URL with tenant context parameters
+      const enhancedUrl = new URL(authorizationUrl)
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      const userEmail = authStore.user?.email
 
-      // Perform full-page redirect to OIDC authorization URL
-      window.location.href = authorizationUrl
+      if (tenantId && userEmail) {
+        // Add tenant ID to help backend identify the correct tenant context
+        enhancedUrl.searchParams.set('tenantId', tenantId)
+
+        // Add login hint with user email for seamless authentication
+        enhancedUrl.searchParams.set('login_hint', userEmail)
+
+        console.log('✅ Enhanced OIDC URL with tenant context:', {
+          baseUrl: authorizationUrl,
+          tenantId,
+          loginHint: userEmail
+        })
+
+        // Perform full-page redirect to enhanced OIDC authorization URL (mobile-friendly)
+        window.location.href = enhancedUrl.toString()
+      } else {
+        console.warn('⚠️ Missing tenant context - user may see email form:', {
+          tenantId: !!tenantId,
+          userEmail: !!userEmail
+        })
+
+        console.log('🔗 Redirecting to native OIDC authorization URL')
+        console.log('🆔 Client ID:', clientId)
+        console.log('🏠 Homeserver URL:', homeserverUrl)
+
+        // Perform full-page redirect to OIDC authorization URL
+        window.location.href = authorizationUrl
+      }
 
       return new Promise(() => {
         // Promise never resolves since we're redirecting

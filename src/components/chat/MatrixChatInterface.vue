@@ -44,7 +44,7 @@
                 </q-item-section>
                 <q-item-section>
                   <q-item-label>Chat Help</q-item-label>
-                  <q-item-label caption>Use other Element clients</q-item-label>
+                  <q-item-label caption>Use other Matrix clients</q-item-label>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -1072,10 +1072,10 @@ const showChatHelp = () => {
   const homeserverUrl = getEnv('MATRIX_HOMESERVER_URL')
 
   quasar.dialog({
-    title: 'Chat Help - Use Other Element Clients',
+    title: 'Chat Help - Use Other Matrix Clients',
     message: `
       <div style="text-align: left;">
-        <p><strong>Did you know?</strong> You can use other Matrix/Element clients to access this chat from your phone or computer:</p>
+        <p><strong>Did you know?</strong> You can use other Matrix clients to access this chat from your phone or computer:</p>
 
         <p><strong>Mobile Apps:</strong></p>
         <ul>

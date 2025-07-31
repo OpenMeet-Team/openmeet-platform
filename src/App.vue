@@ -48,6 +48,11 @@ onMounted(async () => {
     if (import.meta.env.DEV) {
       console.log('🔍 Matrix debug utilities available at window.matrixDebug')
       console.log('🔍 Available methods:', Object.keys(matrixDebug))
+
+      // Also expose matrixClientService for E2E testing
+      const { matrixClientService } = await import('./services/matrixClientService')
+      ;(window as unknown as { matrixClientService: unknown }).matrixClientService = matrixClientService
+      console.log('🔍 Matrix client service available at window.matrixClientService (dev only)')
     }
   } catch (error) {
     console.error('Failed to initialize app:', error)
