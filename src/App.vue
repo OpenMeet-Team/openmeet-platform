@@ -12,6 +12,7 @@ import { versionService } from './services/versionService'
 import { setupGlobalErrorHandling } from './composables/useVersionErrorHandling'
 import { useAuthStore } from './stores/auth-store'
 import matrixDebug from './utils/matrixDebug'
+import { logger } from './utils/logger'
 
 defineOptions({
   name: 'App'
@@ -44,15 +45,43 @@ onMounted(async () => {
     await versionService.initializeVersionChecking()
     setupGlobalErrorHandling()
 
-    // Initialize Matrix debug utilities in development
-    if (import.meta.env.DEV) {
-      console.log('🔍 Matrix debug utilities available at window.matrixDebug')
-      console.log('🔍 Available methods:', Object.keys(matrixDebug))
+    // Initialize Matrix debug utilities - ALWAYS expose in test environments
+    const isDev = import.meta.env.DEV
+    const currentMode = import.meta.env.MODE
+    const nodeEnv = process.env.NODE_ENV
+    const qEnv = process.env.QENV
+    const hostname = window.location.hostname
+    const isTest = currentMode === 'test' || nodeEnv === 'test' || qEnv === 'test'
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+    const shouldExposeMatrixClient = isDev || isTest || isLocalhost
+
+    logger.debug('🔍🔍🔍 MATRIX DEBUG ENVIRONMENT CHECK 🔍🔍🔍')
+    logger.debug('DEV:', isDev)
+    logger.debug('MODE:', currentMode)
+    logger.debug('NODE_ENV:', nodeEnv)
+    logger.debug('QENV:', qEnv)
+    logger.debug('hostname:', hostname)
+    logger.debug('isTest:', isTest)
+    logger.debug('isLocalhost:', isLocalhost)
+    logger.debug('shouldExposeDebug:', shouldExposeMatrixClient)
+    logger.debug('🔍🔍🔍 END ENVIRONMENT CHECK 🔍🔍🔍')
+
+    if (shouldExposeMatrixClient) {
+      // Expose matrixDebug to window
+      ;(window as unknown as { matrixDebug: unknown }).matrixDebug = matrixDebug
+      logger.debug('🔍 Matrix debug utilities available at window.matrixDebug')
+      logger.debug('🔍 Available methods:', Object.keys(matrixDebug))
 
       // Also expose matrixClientService for E2E testing
       const { matrixClientService } = await import('./services/matrixClientService')
       ;(window as unknown as { matrixClientService: unknown }).matrixClientService = matrixClientService
-      console.log('🔍 Matrix client service available at window.matrixClientService (dev only)')
+      logger.debug('🔍 Matrix client service available at window.matrixClientService')
+
+      // Set a flag so we know debugging is enabled
+      ;(window as unknown as { MATRIX_DEBUG_ENABLED: boolean }).MATRIX_DEBUG_ENABLED = true
+      logger.debug('🔍 Matrix debugging enabled flag set to true')
+    } else {
+      logger.debug('🔍 Not exposing Matrix debugging (not dev, test, or localhost)')
     }
   } catch (error) {
     console.error('Failed to initialize app:', error)

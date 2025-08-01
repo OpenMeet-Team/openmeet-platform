@@ -3,6 +3,7 @@ import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore, HttpAp
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
+import { logger } from '../utils/logger'
 
 // Interface for Matrix error objects
 interface MatrixError {
@@ -74,13 +75,13 @@ export class MatrixClientManager {
   }): Promise<MatrixClient> {
     // Return existing client if already initialized
     if (this.client && this.client.isLoggedIn() && this.isStarted) {
-      console.log('✅ Matrix client already initialized and ready')
+      logger.debug('✅ Matrix client already initialized and ready')
       return this.client
     }
 
     // Prevent concurrent initialization
     if (this.isInitializing && this.initPromise) {
-      console.log('🔄 Matrix initialization already in progress, waiting...')
+      logger.debug('🔄 Matrix initialization already in progress, waiting...')
       return this.initPromise
     }
 
@@ -107,11 +108,11 @@ export class MatrixClientManager {
     }
 
     if (this.isStarted) {
-      console.log('✅ Matrix client already started')
+      logger.debug('✅ Matrix client already started')
       return
     }
 
-    console.log('🔄 Starting Matrix client with batched initialization...')
+    logger.debug('🔄 Starting Matrix client with batched initialization...')
 
     const startTime = performance.now()
 
@@ -128,7 +129,7 @@ export class MatrixClientManager {
       // Parallel setup operations that don't require client to be started
       (async () => {
         // Pre-configure any client settings or cache warmup
-        console.log('🔧 Configuring client settings in parallel...')
+        logger.debug('🔧 Configuring client settings in parallel...')
 
         // These operations can happen while client is starting
         if (this.client) {
@@ -141,7 +142,7 @@ export class MatrixClientManager {
 
     this.isStarted = true
     const duration = performance.now() - startTime
-    console.log(`✅ Matrix client started with batched operations in ${duration.toFixed(2)}ms`)
+    logger.debug(`✅ Matrix client started with batched operations in ${duration.toFixed(2)}ms`)
   }
 
   /**
@@ -152,7 +153,7 @@ export class MatrixClientManager {
       throw new Error('Cannot restart client: no client initialized')
     }
 
-    console.log('🔄 Restarting Matrix client...')
+    logger.debug('🔄 Restarting Matrix client...')
     this.isShuttingDown = true
     this.isStarted = false
 
@@ -178,7 +179,7 @@ export class MatrixClientManager {
   private async gracefulStop (): Promise<void> {
     if (!this.client) return
 
-    console.log('🛑 Gracefully stopping Matrix client...')
+    logger.debug('🛑 Gracefully stopping Matrix client...')
 
     try {
       // Remove event listeners to prevent further events during shutdown
@@ -198,7 +199,7 @@ export class MatrixClientManager {
       })
 
       await Promise.race([stopPromise, timeoutPromise])
-      console.log('✅ Matrix client stopped gracefully')
+      logger.debug('✅ Matrix client stopped gracefully')
     } catch (error) {
       console.warn('⚠️ Error during graceful stop:', error)
     }
@@ -209,7 +210,7 @@ export class MatrixClientManager {
    */
   public async clearClient (): Promise<void> {
     if (this.client) {
-      console.log('🧹 Clearing Matrix client...')
+      logger.debug('🧹 Clearing Matrix client...')
       this.isShuttingDown = true
 
       await this.gracefulStop()
@@ -226,7 +227,7 @@ export class MatrixClientManager {
    * Clear client and stored credentials when tokens are invalid
    */
   public async clearClientAndCredentials (): Promise<void> {
-    console.log('🚫 Clearing Matrix client and stored credentials due to token error')
+    logger.debug('🚫 Clearing Matrix client and stored credentials due to token error')
 
     // Emit token error event for UI components to react
     const tokenErrorEvent = new CustomEvent('matrix:tokenError', {
@@ -258,7 +259,7 @@ export class MatrixClientManager {
 
       keysToRemove.forEach(key => {
         localStorage.removeItem(key)
-        console.log(`🧹 Removed stored credential: ${key}`)
+        logger.debug(`🧹 Removed stored credential: ${key}`)
       })
 
       // Also clear sessionStorage
@@ -266,7 +267,7 @@ export class MatrixClientManager {
         const key = sessionStorage.key(i)
         if (key && key.startsWith('matrix_')) {
           sessionStorage.removeItem(key)
-          console.log(`🧹 Removed session credential: ${key}`)
+          logger.debug(`🧹 Removed session credential: ${key}`)
         }
       }
     } catch (error) {
@@ -289,7 +290,7 @@ export class MatrixClientManager {
     idTokenClaims?: IdTokenClaims
   }): Promise<MatrixClient> {
     try {
-      console.log('🔄 Creating Matrix client with optimized stores...')
+      logger.debug('🔄 Creating Matrix client with optimized stores...')
 
       const startTime = performance.now()
 
@@ -328,7 +329,7 @@ export class MatrixClientManager {
 
       // Add refresh token support with Element Web-style TokenRefresher pattern
       if (credentials.refreshToken && credentials.oidcIssuer && credentials.oidcClientId) {
-        console.log('🔑 Creating TokenRefresher for OIDC token management', {
+        logger.debug('🔑 Creating TokenRefresher for OIDC token management', {
           hasRefreshToken: !!credentials.refreshToken,
           oidcIssuer: credentials.oidcIssuer,
           oidcClientId: credentials.oidcClientId,
@@ -350,32 +351,32 @@ export class MatrixClientManager {
 
         // Create a wrapped function for better debugging
         const tokenRefreshFunction = async (refreshToken: string) => {
-          console.log('🔄 tokenRefreshFunction called by Matrix SDK - delegating to TokenRefresher', {
+          logger.debug('🔄 tokenRefreshFunction called by Matrix SDK - delegating to TokenRefresher', {
             hasRefreshToken: !!refreshToken
           })
           try {
             const result = await tokenRefresher.doRefreshAccessToken(refreshToken)
-            console.log('✅ tokenRefreshFunction completed successfully')
+            logger.debug('✅ tokenRefreshFunction completed successfully')
             return result
           } catch (error) {
-            console.error('❌ tokenRefreshFunction failed:', error)
+            logger.error('❌ tokenRefreshFunction failed:', error)
             throw error
           }
         }
 
         clientOptions.tokenRefreshFunction = tokenRefreshFunction
-        console.log('🔑 Matrix client configured with Element Web-style TokenRefresher')
-        console.log('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
+        logger.debug('🔑 Matrix client configured with Element Web-style TokenRefresher')
+        logger.debug('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
       } else if (credentials.refreshToken) {
         // Fallback to basic refresh token support for non-OIDC scenarios
         clientOptions.refreshToken = credentials.refreshToken
-        console.log('🔑 Matrix client created with basic refresh token - SDK will handle automatic token refresh')
+        logger.debug('🔑 Matrix client created with basic refresh token - SDK will handle automatic token refresh')
       }
 
       this.client = createClient(clientOptions)
 
       // OPTIMIZATION: Batch store startup with initial client preparation
-      console.log('🔄 Batching store startup and client preparation...')
+      logger.debug('🔄 Batching store startup and client preparation...')
       const batchStartTime = performance.now()
 
       await Promise.all([
@@ -386,15 +387,15 @@ export class MatrixClientManager {
         // Initial client-side preparation (doesn't require server calls)
         (async () => {
           // Pre-warm any client-side caches or configuration
-          console.log('🔧 Pre-warming client configuration...')
+          logger.debug('🔧 Pre-warming client configuration...')
         })()
       ])
 
       const batchDuration = performance.now() - batchStartTime
-      console.log(`✅ Batched initialization completed in ${batchDuration.toFixed(2)}ms`)
+      logger.debug(`✅ Batched initialization completed in ${batchDuration.toFixed(2)}ms`)
 
       // Perform initial API calls with token validation (batched for efficiency)
-      console.log('🔄 Performing batched Matrix API calls...')
+      logger.debug('🔄 Performing batched Matrix API calls...')
       const apiStartTime = performance.now()
 
       try {
@@ -405,9 +406,9 @@ export class MatrixClientManager {
         ])
 
         const apiDuration = performance.now() - apiStartTime
-        console.log(`✅ Initial API calls completed in ${apiDuration.toFixed(2)}ms`)
+        logger.debug(`✅ Initial API calls completed in ${apiDuration.toFixed(2)}ms`)
       } catch (error: unknown) {
-        console.error('❌ Token validation failed during client initialization:', error)
+        logger.error('❌ Token validation failed during client initialization:', error)
 
         // Check if this is a token error
         if (this._isTokenError(error)) {
@@ -419,9 +420,9 @@ export class MatrixClientManager {
 
             // Retry the API call with the new token
             await this.client.whoami()
-            console.log('✅ Token refresh successful, client initialization completed')
+            logger.debug('✅ Token refresh successful, client initialization completed')
           } catch (refreshError) {
-            console.error('❌ Token refresh failed during initialization:', refreshError)
+            logger.error('❌ Token refresh failed during initialization:', refreshError)
 
             // Emit token refresh failure event
             const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
@@ -443,11 +444,11 @@ export class MatrixClientManager {
       }
 
       const totalDuration = performance.now() - startTime
-      console.log(`✅ Matrix client created in ${totalDuration.toFixed(2)}ms`)
+      logger.debug(`✅ Matrix client created in ${totalDuration.toFixed(2)}ms`)
 
       return this.client
     } catch (error: unknown) {
-      console.error('❌ Failed to initialize Matrix client:', error)
+      logger.error('❌ Failed to initialize Matrix client:', error)
 
       // If it's a token error, clear credentials; otherwise just clear client
       if (this._isTokenError(error)) {
@@ -467,16 +468,16 @@ export class MatrixClientManager {
    */
   public async refreshMatrixToken (): Promise<void> {
     if (!this.client) {
-      console.log('🔄 No Matrix client available for token refresh - authentication needed')
+      logger.debug('🔄 No Matrix client available for token refresh - authentication needed')
       return // Don't throw, just return - this indicates auth is needed
     }
 
-    console.log('🔄 Matrix access token refresh requested')
+    logger.debug('🔄 Matrix access token refresh requested')
 
     // With native SDK OIDC configuration (refreshToken),
     // the Matrix JS SDK handles token refresh automatically on M_UNKNOWN_TOKEN errors.
     // This method is kept for compatibility but should rarely be needed.
-    console.log('✅ Matrix SDK handles token refresh automatically with native OIDC support')
+    logger.debug('✅ Matrix SDK handles token refresh automatically with native OIDC support')
   }
 
   /**
@@ -524,20 +525,20 @@ export class MatrixClientManager {
       return
     }
 
-    console.log('🎧 Setting up Matrix client event listeners...')
+    logger.debug('🎧 Setting up Matrix client event listeners...')
 
     // Store sync state change handler for cleanup
     this.syncStateHandler = (state: string, prevState: string, data: unknown) => {
-      console.log(`🔄 Matrix sync state: ${prevState} → ${state}`)
+      logger.debug(`🔄 Matrix sync state: ${prevState} → ${state}`)
 
       if (onSyncStateChange) {
         onSyncStateChange(state)
       }
 
       if (state === 'PREPARED') {
-        console.log('✅ Matrix client fully synced and ready')
+        logger.debug('✅ Matrix client fully synced and ready')
       } else if (state === 'ERROR') {
-        console.error('❌ Matrix sync error:', data)
+        logger.error('❌ Matrix sync error:', data)
         // Note: Token errors are now handled by HttpApiEvent.SessionLoggedOut listener
         // This follows Element Web's pattern of letting the SDK handle token refresh attempts
       }
@@ -547,7 +548,7 @@ export class MatrixClientManager {
     this.readyHandler = (state: string) => {
       if (state === 'PREPARED') {
         const rooms = this.client?.getRooms() || []
-        console.log(`📊 Matrix client has ${rooms.length} rooms after sync`)
+        logger.debug(`📊 Matrix client has ${rooms.length} rooms after sync`)
       }
     }
 
@@ -567,7 +568,7 @@ export class MatrixClientManager {
 
       // Clear credentials to force re-authentication
       this.clearClientAndCredentials().catch(clearError => {
-        console.error('❌ Failed to clear credentials after session logged out:', clearError)
+        logger.error('❌ Failed to clear credentials after session logged out:', clearError)
       })
     }
 
@@ -580,7 +581,7 @@ export class MatrixClientManager {
     this.client.on(HttpApiEvent.SessionLoggedOut, this.sessionLoggedOutHandler)
 
     this.eventListenersSetup = true
-    console.log('✅ Matrix client event listeners configured')
+    logger.debug('✅ Matrix client event listeners configured')
   }
 
   /**
@@ -591,7 +592,7 @@ export class MatrixClientManager {
       return
     }
 
-    console.log('🧹 Removing Matrix client event listeners...')
+    logger.debug('🧹 Removing Matrix client event listeners...')
 
     try {
       if (this.syncStateHandler) {
@@ -605,7 +606,7 @@ export class MatrixClientManager {
       }
 
       this.eventListenersSetup = false
-      console.log('✅ Matrix client event listeners removed')
+      logger.debug('✅ Matrix client event listeners removed')
     } catch (error) {
       console.warn('⚠️ Error removing event listeners:', error)
     }
@@ -618,7 +619,7 @@ export class MatrixClientManager {
     if (!this.client) return
 
     try {
-      console.log('🔄 Preloading initial Matrix data...')
+      logger.debug('🔄 Preloading initial Matrix data...')
 
       // Batch non-critical API calls that can fail without affecting initialization
       await Promise.all([
@@ -636,7 +637,7 @@ export class MatrixClientManager {
         this.client.getRooms() ? Promise.resolve() : Promise.resolve()
       ])
 
-      console.log('✅ Initial data preload completed')
+      logger.debug('✅ Initial data preload completed')
     } catch (error) {
       // Don't throw - these are all non-critical operations
       console.warn('⚠️ Some initial data preload operations failed (non-critical):', error)
@@ -653,12 +654,12 @@ export class MatrixClientManager {
    */
   public async cleanupOnNavigation (newContext: string, oldContext?: string): Promise<void> {
     if (!this.client || !this.isStarted) {
-      console.log('🔄 No Matrix client active, skipping navigation cleanup')
+      logger.debug('🔄 No Matrix client active, skipping navigation cleanup')
       return
     }
 
-    console.log(`🧹 Matrix context change detected: ${oldContext || 'unknown'} → ${newContext}`)
-    console.log('ℹ️ Skipping automatic room cleanup to prevent invitation loss')
+    logger.debug(`🧹 Matrix context change detected: ${oldContext || 'unknown'} → ${newContext}`)
+    logger.debug('ℹ️ Skipping automatic room cleanup to prevent invitation loss')
 
     // We no longer automatically leave rooms during navigation.
     // This prevents the invitation loss issue where users couldn't rejoin
@@ -722,7 +723,7 @@ export class MatrixClientManager {
    * Complete shutdown and cleanup (for application termination)
    */
   public async shutdown (): Promise<void> {
-    console.log('🔌 Shutting down MatrixClientManager...')
+    logger.debug('🔌 Shutting down MatrixClientManager...')
     this.isShuttingDown = true
 
     try {
@@ -732,9 +733,9 @@ export class MatrixClientManager {
       // Reset singleton instance (useful for testing)
       MatrixClientManager.instance = null!
 
-      console.log('✅ MatrixClientManager shutdown complete')
+      logger.debug('✅ MatrixClientManager shutdown complete')
     } catch (error) {
-      console.error('❌ Error during MatrixClientManager shutdown:', error)
+      logger.error('❌ Error during MatrixClientManager shutdown:', error)
       throw error
     }
   }

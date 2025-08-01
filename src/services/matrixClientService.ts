@@ -24,6 +24,7 @@ import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
 import getEnv from '../utils/env'
+import { logger } from '../utils/logger'
 
 class MatrixClientService {
   private client: MatrixClient | null = null
@@ -77,13 +78,13 @@ class MatrixClientService {
   setUserChosenToConnect (consent: boolean = true): void {
     const authStore = useAuthStore()
     if (!authStore.user?.slug) {
-      console.warn('Cannot set Matrix user choice: no authenticated user')
+      logger.warn('Cannot set Matrix user choice: no authenticated user')
       return
     }
 
     const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
     if (!tenantId) {
-      console.warn('Cannot set Matrix user choice: no tenant ID available')
+      logger.warn('Cannot set Matrix user choice: no tenant ID available')
       return
     }
 
@@ -109,7 +110,7 @@ class MatrixClientService {
 
     // Prevent concurrent initialization attempts
     if (this.isInitializing && this.initPromise) {
-      console.log('🔄 Matrix initialization already in progress, waiting...')
+      logger.debug('🔄 Matrix initialization already in progress, waiting...')
       return this.initPromise
     }
 
@@ -124,18 +125,18 @@ class MatrixClientService {
     // Now try to restore from stored credentials (after consent check)
     const storedSession = this._getStoredCredentials()
     if (storedSession && storedSession.hasSession && !this.client) {
-      console.log('🔑 Found stored Matrix session, attempting restore')
+      logger.debug('🔑 Found stored Matrix session, attempting restore')
       try {
         const restoredClient = await this._createClientFromStoredCredentials(storedSession)
         if (restoredClient && restoredClient.isLoggedIn()) {
-          console.log('✅ Successfully restored Matrix session from stored credentials')
+          logger.debug('✅ Successfully restored Matrix session from stored credentials')
           return restoredClient
         } else if (restoredClient === null) {
-          console.log('🔑 Stored credentials were invalid, user needs to re-authenticate')
+          logger.debug('🔑 Stored credentials were invalid, user needs to re-authenticate')
           // Credentials were cleared in _createClientFromStoredCredentials, continue to fresh auth
         }
       } catch (error) {
-        console.warn('⚠️ Failed to restore stored session:', error)
+        logger.warn('⚠️ Failed to restore stored session:', error)
         // Don't clear credentials immediately - might just be a temporary network issue
         // Will clear them if other auth methods also fail
       }
@@ -148,7 +149,7 @@ class MatrixClientService {
 
     if (authCode) {
       // Immediately clear the code from URL to prevent reuse
-      console.log('🎫 Found OAuth2 authorization code in URL, clearing and completing Matrix login')
+      logger.debug('🎫 Found OAuth2 authorization code in URL, clearing and completing Matrix login')
       const url = new URL(window.location.href)
       url.searchParams.delete('code')
       url.searchParams.delete('state')
@@ -170,14 +171,14 @@ class MatrixClientService {
     }
 
     // Skip broken silent authentication and go directly to working redirect flow
-    console.log('🔄 Initiating Matrix authentication via redirect (silent auth disabled due to 0% success rate)')
+    logger.debug('🔄 Initiating Matrix authentication via redirect (silent auth disabled due to 0% success rate)')
 
     // Clear any potentially stale stored credentials since restore failed
     this._clearStoredCredentials()
 
     // Prevent concurrent initialization attempts
     if (this.isInitializing && this.initPromise) {
-      console.log('🔄 Matrix initialization already in progress, waiting...')
+      logger.debug('🔄 Matrix initialization already in progress, waiting...')
       return this.initPromise
     }
 
@@ -196,7 +197,7 @@ class MatrixClientService {
    * Perform full-page redirect using MAS (Matrix Authentication Service) OIDC flow
    */
   private async _performFullPageRedirectAuth (): Promise<void> {
-    console.log('🔐 Starting MAS OIDC authentication flow for Matrix client')
+    logger.debug('🔐 Starting MAS OIDC authentication flow for Matrix client')
 
     try {
       // Check if user is authenticated with OpenMeet
@@ -211,7 +212,7 @@ class MatrixClientService {
       // This function will not return normally - the page redirects to MAS/OIDC
       // The user will return via the redirect URL with loginToken
     } catch (error) {
-      console.error('❌ Failed to initialize Matrix client:', error)
+      logger.error('❌ Failed to initialize Matrix client:', error)
       throw new Error(`Matrix client initialization failed: ${error.message}`)
     }
   }
@@ -221,19 +222,19 @@ class MatrixClientService {
    * Uses Matrix JS SDK's OIDC methods for proper MSC3861 authentication
    */
   async completeOAuthLogin (authCode: string, state?: string | null): Promise<MatrixClient> {
-    console.log('🎫 Completing Matrix login from MAS OIDC with authorization code using MSC3861')
+    logger.debug('🎫 Completing Matrix login from MAS OIDC with authorization code using MSC3861')
 
     try {
       // State validation is now handled by the native matrix-js-sdk completeAuthorizationCodeGrant
-      console.log('🔧 State validation will be handled by native SDK')
+      logger.debug('🔧 State validation will be handled by native SDK')
 
       // Use Matrix JS SDK's native OIDC completion method for MSC3861
-      console.log('🔧 Using Matrix JS SDK native OIDC completion for MSC3861')
+      logger.debug('🔧 Using Matrix JS SDK native OIDC completion for MSC3861')
 
       // Use native matrix-js-sdk OIDC completion instead of custom implementation
       const oidcResult = await completeAuthorizationCodeGrant(authCode, state || '')
 
-      console.log('✅ Matrix JS SDK OIDC completion successful:', {
+      logger.debug('✅ Matrix JS SDK OIDC completion successful:', {
         homeserverUrl: oidcResult.homeserverUrl,
         clientId: oidcResult.oidcClientSettings.clientId,
         issuer: oidcResult.oidcClientSettings.issuer,
@@ -243,11 +244,11 @@ class MatrixClientService {
         scope: oidcResult.tokenResponse.scope
       })
 
-      console.log('🔍 Full OIDC result for debugging:', oidcResult)
+      logger.debug('🔍 Full OIDC result for debugging:', oidcResult)
 
       // Following Element-web pattern: Use the access token to get the real user ID from homeserver
       // This avoids user ID format mismatches between ID token claims and Matrix server expectations
-      console.log('🔍 Getting user ID from Matrix homeserver using access token...')
+      logger.debug('🔍 Getting user ID from Matrix homeserver using access token...')
       const { createClient } = await import('matrix-js-sdk')
 
       // Create a temporary client to call whoami
@@ -261,7 +262,7 @@ class MatrixClientService {
       const actualUserId = whoamiResponse.user_id
       const actualDeviceId = whoamiResponse.device_id
 
-      console.log('✅ Got actual user ID from homeserver:', {
+      logger.debug('✅ Got actual user ID from homeserver:', {
         userId: actualUserId,
         deviceId: actualDeviceId
       })
@@ -282,7 +283,7 @@ class MatrixClientService {
         idTokenClaims: oidcResult.tokenResponse.id_token ? this._parseJWTClaims(oidcResult.tokenResponse.id_token) : undefined
       }
 
-      console.log('🔍 Final Matrix credentials being used:', {
+      logger.debug('🔍 Final Matrix credentials being used:', {
         userId: matrixCredentials.userId,
         homeserverUrl: matrixCredentials.homeserverUrl,
         hasAccessToken: !!matrixCredentials.accessToken,
@@ -301,7 +302,7 @@ class MatrixClientService {
 
       // Persist OIDC settings using Element Web's pattern - AFTER storing credentials
       if (oidcResult.tokenResponse.id_token) {
-        console.log('🔧 Persisting OIDC settings with Element Web approach:', {
+        logger.debug('🔧 Persisting OIDC settings with Element Web approach:', {
           clientId: oidcResult.oidcClientSettings.clientId,
           issuer: oidcResult.oidcClientSettings.issuer,
           hasIdToken: !!oidcResult.tokenResponse.id_token
@@ -318,25 +319,25 @@ class MatrixClientService {
         const storedClientId = getStoredOidcClientId()
         const storedClaims = getStoredOidcIdTokenClaims()
 
-        console.log('✅ Verified Element Web OIDC persistence:', {
+        logger.debug('✅ Verified Element Web OIDC persistence:', {
           storedIssuer,
           storedClientId,
           hasStoredClaims: !!storedClaims,
           persistenceWorking: !!(storedIssuer && storedClientId)
         })
       } else {
-        console.warn('⚠️ No ID token available - OIDC persistence may not work for token refresh')
+        logger.warn('⚠️ No ID token available - OIDC persistence may not work for token refresh')
       }
 
       // Use MatrixClientManager for optimized client creation and startup
-      console.log('🔐 Creating Matrix client via MatrixClientManager...')
+      logger.debug('🔐 Creating Matrix client via MatrixClientManager...')
 
       // Get OIDC configuration from Element Web storage for TokenRefresher
       const oidcIssuer = getStoredOidcTokenIssuer()
       const oidcClientId = getStoredOidcClientId()
       const idTokenClaims = getStoredOidcIdTokenClaims()
 
-      console.log('🔍 Fresh auth credentials with Element Web OIDC config:', {
+      logger.debug('🔍 Fresh auth credentials with Element Web OIDC config:', {
         hasRefreshToken: !!matrixCredentials.refreshToken,
         hasOidcIssuer: !!oidcIssuer,
         hasOidcClientId: !!oidcClientId,
@@ -359,7 +360,7 @@ class MatrixClientService {
       })
 
       // OPTIMIZATION: Set up event listeners in parallel with client startup
-      console.log('🔐 Starting Matrix client with optimized configuration...')
+      logger.debug('🔐 Starting Matrix client with optimized configuration...')
       await Promise.all([
         // Start the client
         matrixClientManager.startClient(),
@@ -367,7 +368,7 @@ class MatrixClientService {
         (async () => {
           matrixClientManager.setupEventListeners()
           this._setupEventListeners()
-          console.log('🎧 Event listeners configured')
+          logger.debug('🎧 Event listeners configured')
         })()
       ])
 
@@ -377,14 +378,14 @@ class MatrixClientService {
         new Promise<void>((resolve) => {
           const checkReady = () => {
             if (this.client && this.client.isInitialSyncComplete()) {
-              console.log('✅ Matrix client ready and synced')
+              logger.debug('✅ Matrix client ready and synced')
 
               // Log crypto status
               const crypto = this.client.getCrypto()
               if (crypto) {
-                console.log('🔐 Matrix encryption is available and ready')
+                logger.debug('🔐 Matrix encryption is available and ready')
               } else {
-                console.log('⚠️ Matrix encryption not available - some private rooms may not work')
+                logger.debug('⚠️ Matrix encryption not available - some private rooms may not work')
               }
 
               resolve()
@@ -398,7 +399,7 @@ class MatrixClientService {
         // Sync Matrix user identity with backend in parallel (non-critical)
         (async () => {
           await this._syncMatrixUserIdentityWithBackend(matrixCredentials.userId)
-          console.log('🔄 Backend user identity sync completed')
+          logger.debug('🔄 Backend user identity sync completed')
         })()
       ])
 
@@ -408,21 +409,21 @@ class MatrixClientService {
       url.searchParams.delete('state')
       window.history.replaceState({}, document.title, url.toString())
 
-      console.log('✅ Matrix client initialized successfully from MAS OIDC:', matrixCredentials.userId)
+      logger.debug('✅ Matrix client initialized successfully from MAS OIDC:', matrixCredentials.userId)
 
       return this.client
     } catch (error) {
-      console.error('❌ Failed to complete Matrix login from MAS OIDC:', error)
+      logger.error('❌ Failed to complete Matrix login from MAS OIDC:', error)
 
       // Check if this is an invalid token error
-      console.log('🔍 Error details for token detection:', {
+      logger.debug('🔍 Error details for token detection:', {
         message: (error as Error).message,
         errcode: (error as { errcode?: string }).errcode,
         error: (error as { error?: string }).error,
         fullError: error
       })
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid authorization code detected - clearing from URL and falling back to manual auth')
+        logger.warn('🚫 Invalid authorization code detected - clearing from URL and falling back to manual auth')
 
         // Clear the invalid code from URL
         const url = new URL(window.location.href)
@@ -488,7 +489,7 @@ class MatrixClientService {
    * Uses dynamic client registration like Element-web for better security
    */
   private async _redirectToMASLogin (): Promise<void> {
-    console.log('🔄 Starting native Matrix SDK OIDC authentication flow with MAS')
+    logger.debug('🔄 Starting native Matrix SDK OIDC authentication flow with MAS')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
@@ -512,10 +513,10 @@ class MatrixClientService {
 
     try {
       // Step 1: Discover and validate OIDC issuer configuration
-      console.log('🔍 Discovering OIDC configuration from MAS issuer:', masUrl)
+      logger.debug('🔍 Discovering OIDC configuration from MAS issuer:', masUrl)
       const oidcConfig = await discoverAndValidateOIDCIssuerWellKnown(masUrl)
 
-      console.log('✅ OIDC discovery successful:', {
+      logger.debug('✅ OIDC discovery successful:', {
         issuer: oidcConfig.issuer,
         authorizationEndpoint: oidcConfig.authorization_endpoint,
         tokenEndpoint: oidcConfig.token_endpoint
@@ -528,10 +529,10 @@ class MatrixClientService {
       let clientId: string
 
       if (useStaticClient && staticClientId) {
-        console.log('📝 Using static OAuth2 client for testing:', staticClientId)
+        logger.debug('📝 Using static OAuth2 client for testing:', staticClientId)
         clientId = staticClientId
       } else {
-        console.log('📝 Registering dynamic OAuth2 client with MAS')
+        logger.debug('📝 Registering dynamic OAuth2 client with MAS')
         const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
         clientId = clientRegistration.client_id
       }
@@ -540,7 +541,7 @@ class MatrixClientService {
       const nonce = this._generateRandomState()
       const identityServerUrl = getEnv('APP_MATRIX_IDENTITY_SERVER_URL') as string || undefined
 
-      console.log('🔗 Generating OIDC authorization URL with native SDK')
+      logger.debug('🔗 Generating OIDC authorization URL with native SDK')
       const authorizationUrl = await generateOidcAuthorizationUrl({
         metadata: oidcConfig,
         clientId,
@@ -563,7 +564,7 @@ class MatrixClientService {
         // Add login hint with user email for seamless authentication
         enhancedUrl.searchParams.set('login_hint', userEmail)
 
-        console.log('✅ Enhanced OIDC URL with tenant context:', {
+        logger.debug('✅ Enhanced OIDC URL with tenant context:', {
           baseUrl: authorizationUrl,
           tenantId,
           loginHint: userEmail
@@ -572,14 +573,14 @@ class MatrixClientService {
         // Perform full-page redirect to enhanced OIDC authorization URL (mobile-friendly)
         window.location.href = enhancedUrl.toString()
       } else {
-        console.warn('⚠️ Missing tenant context - user may see email form:', {
+        logger.warn('⚠️ Missing tenant context - user may see email form:', {
           tenantId: !!tenantId,
           userEmail: !!userEmail
         })
 
-        console.log('🔗 Redirecting to native OIDC authorization URL')
-        console.log('🆔 Client ID:', clientId)
-        console.log('🏠 Homeserver URL:', homeserverUrl)
+        logger.debug('🔗 Redirecting to native OIDC authorization URL')
+        logger.debug('🆔 Client ID:', clientId)
+        logger.debug('🏠 Homeserver URL:', homeserverUrl)
 
         // Perform full-page redirect to OIDC authorization URL
         window.location.href = authorizationUrl
@@ -589,7 +590,7 @@ class MatrixClientService {
         // Promise never resolves since we're redirecting
       })
     } catch (error) {
-      console.error('❌ Error during native OIDC authentication setup:', error)
+      logger.error('❌ Error during native OIDC authentication setup:', error)
       throw new Error(`Native OIDC authentication setup failed: ${error.message}`)
     }
   }
@@ -615,7 +616,7 @@ class MatrixClientService {
       logo_uri: `${clientUri}/openmeet/openmeet-logo.png` // Logo must be on same domain as client_uri
     }
 
-    console.log('📝 Registering OAuth2 client:', registrationPayload)
+    logger.debug('📝 Registering OAuth2 client:', registrationPayload)
 
     const response = await fetch(`${masUrl}/oauth2/registration`, {
       method: 'POST',
@@ -627,12 +628,12 @@ class MatrixClientService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error('❌ OAuth2 client registration failed:', errorData)
+      logger.error('❌ OAuth2 client registration failed:', errorData)
       throw new Error(`Client registration failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
     }
 
     const clientData = await response.json()
-    console.log('✅ OAuth2 client registered successfully:', clientData.client_id)
+    logger.debug('✅ OAuth2 client registered successfully:', clientData.client_id)
     return clientData
   }
 
@@ -682,7 +683,7 @@ class MatrixClientService {
     deviceId: string;
     homeserverUrl: string;
   }> {
-    console.log('🎫 Exchanging OAuth2 authorization code for Matrix credentials via MAS')
+    logger.debug('🎫 Exchanging OAuth2 authorization code for Matrix credentials via MAS')
 
     try {
       // Get MAS configuration and dynamic client info
@@ -703,7 +704,7 @@ class MatrixClientService {
 
       const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
 
-      console.log('🔧 Using client for token exchange:', {
+      logger.debug('🔧 Using client for token exchange:', {
         clientType: dynamicClientId ? 'dynamic' : 'static',
         clientId,
         deviceId: storedDeviceId,
@@ -727,7 +728,7 @@ class MatrixClientService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('❌ MAS token exchange failed:', errorData)
+        logger.error('❌ MAS token exchange failed:', errorData)
 
         // Throw the full error object for rate limiting detection
         const error = new Error(`MAS token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
@@ -736,10 +737,10 @@ class MatrixClientService {
       }
 
       const tokenData = await response.json()
-      console.log('✅ MAS token exchange successful, received token data:', tokenData)
+      logger.debug('✅ MAS token exchange successful, received token data:', tokenData)
 
       // Debug: Log what we received to understand the token structure
-      console.log('🔍 Token data details:', {
+      logger.debug('🔍 Token data details:', {
         sub: tokenData.sub,
         access_token: tokenData.access_token,
         device_id: tokenData.device_id,
@@ -750,7 +751,7 @@ class MatrixClientService {
       })
 
       const homeserverUrl = (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'http://localhost:8448'
-      console.log('🏠 Using homeserver URL:', homeserverUrl)
+      logger.debug('🏠 Using homeserver URL:', homeserverUrl)
 
       // Extract Matrix credentials from MAS response using stored device ID
       let userId = tokenData.sub
@@ -768,16 +769,16 @@ class MatrixClientService {
 
           if (userinfoResponse.ok) {
             const userInfo = await userinfoResponse.json()
-            console.log('👤 MAS userinfo response:', userInfo)
+            logger.debug('👤 MAS userinfo response:', userInfo)
             // Extract Matrix username from userinfo response
             // MAS returns the Matrix username in different possible fields
             return userInfo.matrix_handle || userInfo.preferred_username || userInfo.username
           } else {
-            console.warn('⚠️ Failed to get userinfo from MAS:', userinfoResponse.status)
+            logger.warn('⚠️ Failed to get userinfo from MAS:', userinfoResponse.status)
             return null
           }
         } catch (userinfoError) {
-          console.error('❌ Error getting userinfo from MAS:', userinfoError)
+          logger.error('❌ Error getting userinfo from MAS:', userinfoError)
           return null
         }
       })()
@@ -786,7 +787,7 @@ class MatrixClientService {
       const userinfoUserId = await userinfoPromise
       if (userinfoUserId) {
         userId = userinfoUserId
-        console.log('🔍 Updated userId from userinfo:', userId)
+        logger.debug('🔍 Updated userId from userinfo:', userId)
       }
 
       // Fallback: If userinfo failed, extract userId from the id_token JWT
@@ -796,9 +797,9 @@ class MatrixClientService {
           const jwtPayload = tokenData.id_token.split('.')[1]
           const decodedPayload = JSON.parse(atob(jwtPayload))
           userId = decodedPayload.sub
-          console.log('🔍 Extracted userId from JWT id_token:', userId)
+          logger.debug('🔍 Extracted userId from JWT id_token:', userId)
         } catch (jwtError) {
-          console.error('❌ Failed to decode JWT id_token:', jwtError)
+          logger.error('❌ Failed to decode JWT id_token:', jwtError)
         }
       }
 
@@ -821,7 +822,7 @@ class MatrixClientService {
         refreshToken: tokenData.refresh_token // Store refresh token if provided
       }
 
-      console.log('🎫 Final Matrix credentials:', {
+      logger.debug('🎫 Final Matrix credentials:', {
         userId: credentials.userId,
         hasAccessToken: !!credentials.accessToken,
         hasRefreshToken: !!credentials.refreshToken,
@@ -841,7 +842,7 @@ class MatrixClientService {
 
       return credentials
     } catch (error) {
-      console.error('❌ Error exchanging OAuth2 code for Matrix credentials:', error)
+      logger.error('❌ Error exchanging OAuth2 code for Matrix credentials:', error)
       throw new Error(`Failed to exchange OAuth2 code: ${error.message}`)
     }
   }
@@ -880,7 +881,7 @@ class MatrixClientService {
       const eventType = event.getType()
 
       if (eventType === 'm.room.message') {
-        console.log('📨 Matrix timeline event received:', {
+        logger.debug('📨 Matrix timeline event received:', {
           eventId: event.getId(),
           roomId: room.roomId,
           isHistorical: toStartOfTimeline,
@@ -888,12 +889,12 @@ class MatrixClientService {
           content: event.getContent(),
           timestamp: new Date(event.getTs()).toLocaleTimeString()
         })
-        console.log('🔍 Current Matrix client user ID:', this.client.getUserId())
-        console.log('🔍 Event sender ID:', event.getSender())
-        console.log('🔍 Is this our own message?', event.getSender() === this.client.getUserId())
+        logger.debug('🔍 Current Matrix client user ID:', this.client.getUserId())
+        logger.debug('🔍 Event sender ID:', event.getSender())
+        logger.debug('🔍 Is this our own message?', event.getSender() === this.client.getUserId())
         this._handleTimelineEvent(event, room, toStartOfTimeline)
       } else if (eventType === 'm.room.redaction') {
-        console.log('🗑️ Matrix redaction event received:', {
+        logger.debug('🗑️ Matrix redaction event received:', {
           eventId: event.getId(),
           roomId: room.roomId,
           redactsEventId: event.event.redacts,
@@ -905,7 +906,7 @@ class MatrixClientService {
 
     // Listen for sync state changes to detect connection issues
     this.client.on(ClientEvent.Sync, async (state: string, prevState: string | null, data: unknown) => {
-      console.log(`🔄 Matrix sync state: ${prevState} → ${state}`, data)
+      logger.debug(`🔄 Matrix sync state: ${prevState} → ${state}`, data)
 
       // Emit connection state events for UI components
       const connectionStateEvent = new CustomEvent('matrix:connectionState', {
@@ -919,10 +920,10 @@ class MatrixClientService {
       window.dispatchEvent(connectionStateEvent)
 
       if (state === 'PREPARED') {
-        console.log('✅ Matrix client fully synced and ready')
+        logger.debug('✅ Matrix client fully synced and ready')
         // Additional debugging: Check if we have rooms and they're getting events
         const rooms = this.client.getRooms()
-        console.log(`📊 Matrix client has ${rooms.length} rooms after sync`)
+        logger.debug(`📊 Matrix client has ${rooms.length} rooms after sync`)
 
         // Emit ready event
         const readyEvent = new CustomEvent('matrix:ready', {
@@ -933,9 +934,9 @@ class MatrixClientService {
         })
         window.dispatchEvent(readyEvent)
       } else if (state === 'SYNCING') {
-        console.log('🔄 Matrix client syncing...')
+        logger.debug('🔄 Matrix client syncing...')
       } else if (state === 'ERROR') {
-        console.error('❌ Matrix sync error:', data)
+        logger.error('❌ Matrix sync error:', data)
 
         // Check if this is a token-related error
         const isTokenError = this._isInvalidTokenError(data)
@@ -952,8 +953,8 @@ class MatrixClientService {
 
         // Handle token errors with native SDK OIDC support
         if (isTokenError) {
-          console.warn('🚫 Token-related sync error detected - with native SDK OIDC, tokens should refresh automatically')
-          console.log('💡 If we hit this, the refresh token is likely invalid - clearing session for re-authentication')
+          logger.warn('🚫 Token-related sync error detected - with native SDK OIDC, tokens should refresh automatically')
+          logger.debug('💡 If we hit this, the refresh token is likely invalid - clearing session for re-authentication')
 
           // With native SDK OIDC support, token refresh should be automatic
           // If we're still getting token errors, the refresh token is likely invalid
@@ -974,28 +975,28 @@ class MatrixClientService {
         if (!this._lastRestartAttempt || (Date.now() - this._lastRestartAttempt) > 30000) {
           setTimeout(async () => {
             if (this.client && this.client.getSyncState() === 'ERROR') {
-              console.log('🔄 Restarting Matrix sync after error...')
+              logger.debug('🔄 Restarting Matrix sync after error...')
               this._lastRestartAttempt = Date.now()
               try {
                 await matrixClientManager.restartClient()
               } catch (error) {
-                console.error('❌ Failed to restart Matrix sync:', error)
+                logger.error('❌ Failed to restart Matrix sync:', error)
               }
             }
           }, 5000)
         } else {
-          console.log('⏳ Skipping Matrix restart - throttled (last attempt was too recent)')
+          logger.debug('⏳ Skipping Matrix restart - throttled (last attempt was too recent)')
         }
       } else if (state === 'RECONNECTING') {
-        console.log('🔄 Matrix client reconnecting...')
+        logger.debug('🔄 Matrix client reconnecting...')
       } else if (state === 'STOPPED') {
-        console.warn('⚠️ Matrix sync stopped')
+        logger.warn('⚠️ Matrix sync stopped')
       }
     })
 
     // Listen for room timeline resets (can happen during sync issues)
     this.client.on(RoomEvent.TimelineReset, (room: Room, timelineSet: unknown, resetAllTimelines: boolean) => {
-      console.log('🔄 Matrix room timeline reset:', room.roomId, { resetAllTimelines })
+      logger.debug('🔄 Matrix room timeline reset:', room.roomId, { resetAllTimelines })
       // Emit event for UI to refresh messages
       const customEvent = new CustomEvent('matrix:timeline-reset', {
         detail: { roomId: room.roomId, resetAllTimelines }
@@ -1006,35 +1007,35 @@ class MatrixClientService {
     // Listen for typing notifications using proper Matrix SDK event types
     this.client.on(RoomMemberEvent.Typing, (event: MatrixEvent, member: RoomMember) => {
       const isTyping = (member as unknown as { typing: boolean }).typing
-      console.log('⌨️ Typing notification:', member.userId, 'typing:', isTyping)
+      logger.debug('⌨️ Typing notification:', member.userId, 'typing:', isTyping)
       this._handleTypingNotification(member, isTyping)
     })
 
     // Listen for read receipts using proper Matrix SDK event types
     this.client.on(RoomEvent.Receipt, (event: MatrixEvent, room: Room) => {
-      console.log('✅ Read receipt received in room:', room.roomId)
+      logger.debug('✅ Read receipt received in room:', room.roomId)
       // Read receipt handling not yet implemented
     })
 
     // Listen for room membership changes using proper Matrix SDK event types
     this.client.on(RoomMemberEvent.Membership, async (event: MatrixEvent, member: RoomMember) => {
       const membership = (member as unknown as { membership: string }).membership
-      console.log('👥 Room membership change:', member.userId, membership)
+      logger.debug('👥 Room membership change:', member.userId, membership)
 
       // Auto-join rooms when invited
       if (membership === 'invite' && member.userId === this.client?.getUserId()) {
         const roomId = event.getRoomId()
-        console.log(`🎯 Auto-joining room ${roomId} after receiving invitation`)
+        logger.debug(`🎯 Auto-joining room ${roomId} after receiving invitation`)
         try {
           await this.joinRoom(roomId)
-          console.log(`✅ Successfully auto-joined room ${roomId}`)
+          logger.debug(`✅ Successfully auto-joined room ${roomId}`)
         } catch (error) {
-          console.error(`❌ Failed to auto-join room ${roomId}:`, error)
+          logger.error(`❌ Failed to auto-join room ${roomId}:`, error)
         }
       }
     })
 
-    console.log('🎧 Matrix client event listeners configured')
+    logger.debug('🎧 Matrix client event listeners configured')
   }
 
   /**
@@ -1055,7 +1056,7 @@ class MatrixClientService {
       isHistorical: toStartOfTimeline
     }
 
-    console.log(`📨 Processing ${toStartOfTimeline ? 'historical' : 'live'} message:`, messageData)
+    logger.debug(`📨 Processing ${toStartOfTimeline ? 'historical' : 'live'} message:`, messageData)
 
     // Note: Components should listen directly to Matrix SDK events
     // No custom event emission needed - following Element-web pattern
@@ -1072,7 +1073,7 @@ class MatrixClientService {
   private _handleNewMessage (event: MatrixEvent, room: Room): void {
     // Delegate to the new timeline handler
     this._handleTimelineEvent(event, room, false)
-    console.log('📨 New message in room', room.roomId, 'from', event.getSender())
+    logger.debug('📨 New message in room', room.roomId, 'from', event.getSender())
 
     // Note: UI components now listen directly to Matrix SDK events
     // Custom matrix:message events removed to prevent duplicate processing
@@ -1082,7 +1083,7 @@ class MatrixClientService {
    * Handle typing notification
    */
   private _handleTypingNotification (member: RoomMember, isTyping: boolean): void {
-    console.log('⌨️ Typing notification:', member.userId, 'in', member.roomId, 'typing:', isTyping)
+    logger.debug('⌨️ Typing notification:', member.userId, 'in', member.roomId, 'typing:', isTyping)
 
     // Get user display name
     const displayName = member.name || member.rawDisplayName || member.userId.split(':')[0].substring(1) || 'Unknown'
@@ -1129,27 +1130,27 @@ class MatrixClientService {
       const crypto = this.client.getCrypto()
 
       if (room && room.hasEncryptionStateEvent()) {
-        console.log('🔐 Sending encrypted message to room:', roomId)
+        logger.debug('🔐 Sending encrypted message to room:', roomId)
 
         if (!crypto) {
           throw new Error('This room requires encryption, but encryption is not available in this client. This is typically needed for private/direct message rooms.')
         }
       } else {
-        console.log('📝 Sending unencrypted message to room:', roomId)
+        logger.debug('📝 Sending unencrypted message to room:', roomId)
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await this.client.sendEvent(roomId, EventType.RoomMessage, content as any)
-      console.log('📤 Message sent successfully to room:', roomId, 'eventId:', result.event_id)
+      logger.debug('📤 Message sent successfully to room:', roomId, 'eventId:', result.event_id)
 
       return { eventId: result.event_id }
     } catch (error) {
-      console.error('❌ Failed to send message:', error)
+      logger.error('❌ Failed to send message:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
       // Note: With proper SDK token refresh configuration, this should rarely happen
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during message send - SDK token refresh may have failed')
+        logger.warn('🚫 Invalid access token detected during message send - SDK token refresh may have failed')
         this._clearStoredCredentials()
 
         // Emit token error event
@@ -1192,18 +1193,18 @@ class MatrixClientService {
 
       const event = room.findEventById(eventId)
       if (!event) {
-        console.warn('Event not found for read receipt:', eventId)
+        logger.warn('Event not found for read receipt:', eventId)
         return
       }
 
       await this.client.sendReadReceipt(event)
-      console.log('📖 Read receipt sent for event:', eventId)
+      logger.debug('📖 Read receipt sent for event:', eventId)
     } catch (error) {
-      console.error('❌ Failed to send read receipt:', error)
+      logger.error('❌ Failed to send read receipt:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during read receipt - clearing stored credentials')
+        logger.warn('🚫 Invalid access token detected during read receipt - clearing stored credentials')
         this._clearStoredCredentials()
 
         // Emit token error event
@@ -1248,7 +1249,7 @@ class MatrixClientService {
         timestamp: receipt.data?.ts || 0
       }))
     } catch (error) {
-      console.warn('⚠️ Failed to get read receipts:', error)
+      logger.warn('⚠️ Failed to get read receipts:', error)
       return []
     }
   }
@@ -1278,12 +1279,12 @@ class MatrixClientService {
     // If it's a room alias (starts with #), resolve it
     if (roomIdOrAlias.startsWith('#')) {
       try {
-        console.log('🔍 Resolving room alias:', roomIdOrAlias)
+        logger.debug('🔍 Resolving room alias:', roomIdOrAlias)
         const aliasResult = await this.client.getRoomIdForAlias(roomIdOrAlias)
-        console.log('✅ Room alias resolved to room ID:', aliasResult.room_id)
+        logger.debug('✅ Room alias resolved to room ID:', aliasResult.room_id)
         return aliasResult.room_id
       } catch (error) {
-        console.error('❌ Failed to resolve room alias:', roomIdOrAlias, error)
+        logger.error('❌ Failed to resolve room alias:', roomIdOrAlias, error)
         throw new Error(`Could not resolve room alias: ${roomIdOrAlias}`)
       }
     }
@@ -1301,16 +1302,16 @@ class MatrixClientService {
     }
 
     try {
-      console.log('🗑️ Redacting message:', eventId, 'in room:', roomId)
+      logger.debug('🗑️ Redacting message:', eventId, 'in room:', roomId)
 
       // Resolve room alias to room ID if needed
       const resolvedRoomId = await this.resolveRoomId(roomId)
-      console.log('🏠 Using resolved room ID:', resolvedRoomId)
+      logger.debug('🏠 Using resolved room ID:', resolvedRoomId)
 
       await this.client.redactEvent(resolvedRoomId, eventId, reason)
-      console.log('✅ Message redacted successfully')
+      logger.debug('✅ Message redacted successfully')
     } catch (error) {
-      console.error('❌ Failed to redact message:', error)
+      logger.error('❌ Failed to redact message:', error)
       throw error
     }
   }
@@ -1326,14 +1327,14 @@ class MatrixClientService {
     try {
       await this.client.sendTyping(roomId, isTyping, timeout || 10000)
     } catch (error) {
-      console.error('❌ Failed to send typing notification:', error)
+      logger.error('❌ Failed to send typing notification:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during typing notification - clearing stored credentials')
+        logger.warn('🚫 Invalid access token detected during typing notification - clearing stored credentials')
         this._clearStoredCredentials()
         // Don't throw error for typing notifications - they're not critical
-        console.warn('⚠️ Session expired during typing notification. Please click "Connect" to authenticate again.')
+        logger.warn('⚠️ Session expired during typing notification. Please click "Connect" to authenticate again.')
         return
       }
 
@@ -1345,34 +1346,34 @@ class MatrixClientService {
    * Upload file and send to room
    */
   async uploadAndSendFile (roomId: string, file: File): Promise<void> {
-    console.log('🚀 ENTRY: uploadAndSendFile called with:', { fileName: file.name, roomId })
+    logger.debug('🚀 ENTRY: uploadAndSendFile called with:', { fileName: file.name, roomId })
 
-    console.log('🔍 ENTRY: Checking Matrix client...')
+    logger.debug('🔍 ENTRY: Checking Matrix client...')
     if (!this.client) {
-      console.error('🚨 ENTRY: Matrix client not initialized!')
+      logger.error('🚨 ENTRY: Matrix client not initialized!')
       throw new Error('Matrix client not initialized')
     }
 
-    console.log('🚀 ENTRY: Matrix client is available, proceeding...')
+    logger.debug('🚀 ENTRY: Matrix client is available, proceeding...')
 
     // Use a completely separate try-catch to isolate the issue
     let contentUri = ''
 
-    console.log('📎 Starting uploadAndSendFile for:', file.name)
-    console.log('🔄 Step 1: Uploading file to Matrix media repository...')
+    logger.debug('📎 Starting uploadAndSendFile for:', file.name)
+    logger.debug('🔄 Step 1: Uploading file to Matrix media repository...')
 
     try {
-      console.log('🔄 Step 1a: About to call uploadFile...')
+      logger.debug('🔄 Step 1a: About to call uploadFile...')
       contentUri = await this.uploadFile(file)
-      console.log('✅ Step 1b: uploadFile returned:', contentUri)
+      logger.debug('✅ Step 1b: uploadFile returned:', contentUri)
     } catch (uploadError) {
-      console.error('❌ Step 1 FAILED: Upload error:', uploadError)
+      logger.error('❌ Step 1 FAILED: Upload error:', uploadError)
       throw uploadError
     }
 
-    console.log('✅ Step 1 complete: File uploaded, got content URI:', contentUri)
+    logger.debug('✅ Step 1 complete: File uploaded, got content URI:', contentUri)
 
-    console.log('🔄 Step 2: Preparing message content...')
+    logger.debug('🔄 Step 2: Preparing message content...')
 
     // Determine message type based on file type
     let msgtype = 'm.file'
@@ -1398,22 +1399,22 @@ class MatrixClientService {
       content.msgtype = msgtype
     }
 
-    console.log('📝 Message content prepared:', {
+    logger.debug('📝 Message content prepared:', {
       msgtype,
       filename: file.name,
       size: file.size,
       contentUri
     })
 
-    console.log('🔄 Step 3: Sending message to room...')
+    logger.debug('🔄 Step 3: Sending message to room...')
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.client.sendEvent(roomId, EventType.RoomMessage, content as any)
-      console.log('✅ Step 3 complete: Message sent to room:', roomId)
-      console.log('🎉 File upload and send process completed successfully!')
+      logger.debug('✅ Step 3 complete: Message sent to room:', roomId)
+      logger.debug('🎉 File upload and send process completed successfully!')
     } catch (sendError) {
-      console.error('❌ Step 3 FAILED: Send error:', sendError)
+      logger.error('❌ Step 3 FAILED: Send error:', sendError)
       throw sendError
     }
   }
@@ -1457,7 +1458,7 @@ class MatrixClientService {
     isEncrypted?: boolean
   }> {
     if (!this.client) {
-      console.warn('Matrix client not available')
+      logger.warn('Matrix client not available')
       return []
     }
 
@@ -1547,15 +1548,15 @@ class MatrixClientService {
       // Transform v3 media URLs to v1 authenticated endpoints for MSC3861/MAS
       if (httpUrl.includes('/_matrix/media/v3/download/')) {
         httpUrl = httpUrl.replace('/_matrix/media/v3/download/', '/_matrix/client/v1/media/download/')
-        console.log('🔄 Transformed to v1 download endpoint:', httpUrl)
+        logger.debug('🔄 Transformed to v1 download endpoint:', httpUrl)
       } else if (httpUrl.includes('/_matrix/media/v3/thumbnail/')) {
         httpUrl = httpUrl.replace('/_matrix/media/v3/thumbnail/', '/_matrix/client/v1/media/thumbnail/')
-        console.log('🔄 Transformed to v1 thumbnail endpoint:', httpUrl)
+        logger.debug('🔄 Transformed to v1 thumbnail endpoint:', httpUrl)
       }
 
       return httpUrl
     } catch (error) {
-      console.warn('⚠️ Failed to convert Matrix content URL:', mxcUrl, error)
+      logger.warn('⚠️ Failed to convert Matrix content URL:', mxcUrl, error)
       return mxcUrl
     }
   }
@@ -1570,14 +1571,14 @@ class MatrixClientService {
 
     try {
       const room = await this.client.joinRoom(roomId)
-      console.log('🚪 Joined room:', roomId)
+      logger.debug('🚪 Joined room:', roomId)
       return room
     } catch (error) {
-      console.error('❌ Failed to join room:', error)
+      logger.error('❌ Failed to join room:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
       if (this._isInvalidTokenError(error)) {
-        console.warn('🚫 Invalid access token detected during room join - clearing stored credentials')
+        logger.warn('🚫 Invalid access token detected during room join - clearing stored credentials')
         this._clearStoredCredentials()
         throw new Error('Matrix session expired. Please reconnect to access the chatroom.')
       }
@@ -1595,23 +1596,23 @@ class MatrixClientService {
     }
 
     try {
-      console.log('🔄 uploadFile: Starting upload to Matrix media repository...')
-      console.log('🔄 uploadFile: File details:', {
+      logger.debug('🔄 uploadFile: Starting upload to Matrix media repository...')
+      logger.debug('🔄 uploadFile: File details:', {
         name: file.name,
         size: file.size,
         type: file.type
       })
-      console.log('🔄 uploadFile: Matrix client ready, calling uploadContent...')
+      logger.debug('🔄 uploadFile: Matrix client ready, calling uploadContent...')
 
       const upload = await this.client.uploadContent(file)
 
-      console.log('✅ uploadFile: Upload successful!')
-      console.log('📎 uploadFile: File uploaded with content URI:', upload.content_uri)
-      console.log('📎 uploadFile: Full upload response:', upload)
+      logger.debug('✅ uploadFile: Upload successful!')
+      logger.debug('📎 uploadFile: File uploaded with content URI:', upload.content_uri)
+      logger.debug('📎 uploadFile: Full upload response:', upload)
 
       return upload.content_uri
     } catch (error) {
-      console.error('❌ uploadFile: Failed to upload file:', error)
+      logger.error('❌ uploadFile: Failed to upload file:', error)
 
       // Provide more user-friendly error messages for common issues
       if (error instanceof Error) {
@@ -1646,7 +1647,7 @@ class MatrixClientService {
         userId = `@${userId}:${this.client.getDomain()}`
       }
 
-      console.log('💬 Creating/joining direct message room with:', userId)
+      logger.debug('💬 Creating/joining direct message room with:', userId)
 
       // Use Matrix SDK's createRoom method for direct messages (encrypted private room)
       const roomData = await this.client.createRoom({
@@ -1670,10 +1671,10 @@ class MatrixClientService {
         throw new Error('Failed to get created room')
       }
 
-      console.log('✅ Direct message room created/joined:', room.roomId)
+      logger.debug('✅ Direct message room created/joined:', room.roomId)
       return room
     } catch (error) {
-      console.error('❌ Failed to join/create direct message room:', error)
+      logger.error('❌ Failed to join/create direct message room:', error)
       throw error
     }
   }
@@ -1687,7 +1688,7 @@ class MatrixClientService {
     }
 
     try {
-      console.log('🎪 Joining event chat room for event:', eventSlug)
+      logger.debug('🎪 Joining event chat room for event:', eventSlug)
 
       // Matrix-native approach: Use room aliases instead of backend API calls
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
@@ -1699,18 +1700,18 @@ class MatrixClientService {
       const { generateEventRoomAlias } = await import('../utils/matrixUtils')
       const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
 
-      console.log('🏠 Generated room alias:', roomAlias)
+      logger.debug('🏠 Generated room alias:', roomAlias)
 
       // First, ensure the room exists by querying the alias
       // This will trigger Application Service room creation if the room doesn't exist
       let roomId: string
       try {
-        console.log('🔍 Resolving room alias to trigger Application Service if needed...')
+        logger.debug('🔍 Resolving room alias to trigger Application Service if needed...')
         const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
         roomId = aliasResult.room_id
-        console.log('✅ Room alias resolved to room ID:', roomId)
+        logger.debug('✅ Room alias resolved to room ID:', roomId)
       } catch (aliasError) {
-        console.log('⚠️ Room alias not found, attempting direct join which may trigger creation')
+        logger.debug('⚠️ Room alias not found, attempting direct join which may trigger creation')
         // If alias resolution fails, the room might not exist yet
         // Try direct join which might work if Application Service creates it immediately
         roomId = roomAlias // Fallback to using alias as room identifier
@@ -1719,7 +1720,7 @@ class MatrixClientService {
       // Now join the room using the resolved room ID or alias
       const room = await this.joinRoom(roomId)
 
-      console.log('✅ Joined event chat room via room alias:', roomAlias)
+      logger.debug('✅ Joined event chat room via room alias:', roomAlias)
       return {
         room,
         roomInfo: {
@@ -1729,7 +1730,7 @@ class MatrixClientService {
         }
       }
     } catch (error) {
-      console.error('❌ Failed to join event chat room:', error)
+      logger.error('❌ Failed to join event chat room:', error)
       throw error
     }
   }
@@ -1739,18 +1740,18 @@ class MatrixClientService {
    * This ensures Matrix sessions are tied to OpenMeet sessions and tenant boundaries are respected
    */
   async clearSession (): Promise<void> {
-    console.log('🔄 Clearing Matrix session due to OpenMeet logout')
+    logger.debug('🔄 Clearing Matrix session due to OpenMeet logout')
 
     try {
       const storedSession = this._getStoredCredentials()
 
       // Stop Matrix client if running
       if (this.client) {
-        console.log('🛑 Stopping Matrix client (local session cleanup)')
+        logger.debug('🛑 Stopping Matrix client (local session cleanup)')
 
         // Skip leaving rooms - this is a local session cleanup only
         // Leaving rooms would affect other Matrix clients using the same account
-        console.log('ℹ️ Performing local session cleanup without leaving Matrix rooms')
+        logger.debug('ℹ️ Performing local session cleanup without leaving Matrix rooms')
 
         this.client.stopClient()
         this.client = null
@@ -1771,15 +1772,15 @@ class MatrixClientService {
             const cryptoStoreName = `matrix-crypto-${userSlug}-${storedSession.userId}`
             const mainStoreName = `matrix-store-${userSlug}-${storedSession.userId}`
 
-            console.log(`🗑️ Clearing user-specific Matrix stores: ${cryptoStoreName}, ${mainStoreName}`)
+            logger.debug(`🗑️ Clearing user-specific Matrix stores: ${cryptoStoreName}, ${mainStoreName}`)
 
             const deleteCrypto = indexedDB.deleteDatabase(cryptoStoreName)
-            deleteCrypto.onsuccess = () => console.log('✅ Cleared Matrix IndexedDB crypto store')
-            deleteCrypto.onerror = (e) => console.warn('⚠️ Failed to clear crypto IndexedDB:', e)
+            deleteCrypto.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB crypto store')
+            deleteCrypto.onerror = (e) => logger.warn('⚠️ Failed to clear crypto IndexedDB:', e)
 
             const deleteMain = indexedDB.deleteDatabase(mainStoreName)
-            deleteMain.onsuccess = () => console.log('✅ Cleared Matrix IndexedDB main store')
-            deleteMain.onerror = (e) => console.warn('⚠️ Failed to clear main IndexedDB:', e)
+            deleteMain.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB main store')
+            deleteMain.onerror = (e) => logger.warn('⚠️ Failed to clear main IndexedDB:', e)
           }
 
           // Also clean up legacy storage that might exist
@@ -1787,14 +1788,14 @@ class MatrixClientService {
           const legacyMainName = `matrix-store-${storedSession.userId}`
 
           const deleteLegacyCrypto = indexedDB.deleteDatabase(legacyCryptoName)
-          deleteLegacyCrypto.onsuccess = () => console.log('✅ Cleared legacy Matrix crypto store')
+          deleteLegacyCrypto.onsuccess = () => logger.debug('✅ Cleared legacy Matrix crypto store')
           deleteLegacyCrypto.onerror = () => {} // Ignore errors for legacy cleanup
 
           const deleteLegacyMain = indexedDB.deleteDatabase(legacyMainName)
-          deleteLegacyMain.onsuccess = () => console.log('✅ Cleared legacy Matrix main store')
+          deleteLegacyMain.onsuccess = () => logger.debug('✅ Cleared legacy Matrix main store')
           deleteLegacyMain.onerror = () => {} // Ignore errors for legacy cleanup
         } catch (error) {
-          console.warn('⚠️ Failed to clear IndexedDB stores:', error)
+          logger.warn('⚠️ Failed to clear IndexedDB stores:', error)
         }
       }
 
@@ -1811,7 +1812,7 @@ class MatrixClientService {
 
         keysToRemove.forEach(key => {
           localStorage.removeItem(key)
-          console.log(`🗑️ Cleared Matrix SDK storage key: ${key}`)
+          logger.debug(`🗑️ Cleared Matrix SDK storage key: ${key}`)
         })
 
         // Also clear sessionStorage keys
@@ -1819,20 +1820,20 @@ class MatrixClientService {
           const key = sessionStorage.key(i)
           if (key && (key.startsWith('mx_') || key.startsWith('matrix_'))) {
             sessionStorage.removeItem(key)
-            console.log(`🗑️ Cleared Matrix SDK sessionStorage key: ${key}`)
+            logger.debug(`🗑️ Cleared Matrix SDK sessionStorage key: ${key}`)
           }
         }
       } catch (error) {
-        console.warn('⚠️ Failed to clear Matrix SDK storage:', error)
+        logger.warn('⚠️ Failed to clear Matrix SDK storage:', error)
       }
 
       // Reset initialization state
       this.isInitializing = false
       this.initPromise = null
 
-      console.log('✅ Matrix session and tenant-specific data cleared successfully')
+      logger.debug('✅ Matrix session and tenant-specific data cleared successfully')
     } catch (error) {
-      console.error('❌ Failed to clear Matrix session:', error)
+      logger.error('❌ Failed to clear Matrix session:', error)
     }
   }
 
@@ -1845,7 +1846,7 @@ class MatrixClientService {
     }
 
     try {
-      console.log('👥 Joining group chat room for group:', groupSlug)
+      logger.debug('👥 Joining group chat room for group:', groupSlug)
 
       // Matrix-native approach: Use room aliases instead of backend API calls
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
@@ -1857,13 +1858,13 @@ class MatrixClientService {
       const { generateGroupRoomAlias } = await import('../utils/matrixUtils')
       const roomAlias = generateGroupRoomAlias(groupSlug, tenantId)
 
-      console.log('🏠 Generated room alias:', roomAlias)
+      logger.debug('🏠 Generated room alias:', roomAlias)
 
       // Join the Matrix room directly using the room alias
       // The Matrix Application Service will create the room on-demand if it doesn't exist
       const room = await this.joinRoom(roomAlias)
 
-      console.log('✅ Joined group chat room via room alias:', roomAlias)
+      logger.debug('✅ Joined group chat room via room alias:', roomAlias)
       return {
         room,
         roomInfo: {
@@ -1873,7 +1874,7 @@ class MatrixClientService {
         }
       }
     } catch (error) {
-      console.error('❌ Failed to join group chat room:', error)
+      logger.error('❌ Failed to join group chat room:', error)
       throw error
     }
   }
@@ -1900,7 +1901,7 @@ class MatrixClientService {
     }
 
     if (!this.client) {
-      console.warn('Matrix client not initialized for getRoom call')
+      logger.warn('Matrix client not initialized for getRoom call')
       return null
     }
 
@@ -1933,14 +1934,14 @@ class MatrixClientService {
     const liveTimeline = timelineSet.getLiveTimeline()
     const events = liveTimeline.getEvents()
 
-    console.log(`📜 Room ${roomId} timeline contains ${events.length} total events`)
+    logger.debug(`📜 Room ${roomId} timeline contains ${events.length} total events`)
 
     // Return most recent messages, filtering for message events
     const messageEvents = events
       .filter(event => event.getType() === 'm.room.message')
       .slice(-limit)
 
-    console.log(`📋 Returning ${messageEvents.length} message events from timeline`)
+    logger.debug(`📋 Returning ${messageEvents.length} message events from timeline`)
     return messageEvents
   }
 
@@ -1951,14 +1952,14 @@ class MatrixClientService {
   async loadRoomHistory (roomId: string, limit = 50): Promise<MatrixEvent[]> {
     // Resolve room alias to room ID if needed
     const resolvedRoomId = await this.resolveRoomId(roomId)
-    console.log('🏠 Using resolved room ID for loading history:', resolvedRoomId)
+    logger.debug('🏠 Using resolved room ID for loading history:', resolvedRoomId)
 
     const room = this.getRoom(resolvedRoomId)
     if (!room) {
       throw new Error(`Room not found: ${resolvedRoomId}`)
     }
 
-    console.log(`🔄 Loading room history for ${resolvedRoomId} with limit ${limit}`)
+    logger.debug(`🔄 Loading room history for ${resolvedRoomId} with limit ${limit}`)
 
     try {
       // Get the unfiltered timeline set for full message history
@@ -1973,12 +1974,12 @@ class MatrixClientService {
         const paginationToken = liveTimeline.getPaginationToken(Direction.Backward)
 
         if (!paginationToken) {
-          console.log('ℹ️ No more historical messages to load (no pagination token)')
+          logger.debug('ℹ️ No more historical messages to load (no pagination token)')
           break
         }
 
         const eventsBefore = liveTimeline.getEvents().length
-        console.log(`📖 Paginating backwards (attempt ${totalPaginationCalls + 1}) - current events: ${eventsBefore}`)
+        logger.debug(`📖 Paginating backwards (attempt ${totalPaginationCalls + 1}) - current events: ${eventsBefore}`)
 
         // Paginate backwards to load historical messages
         await this.client!.paginateEventTimeline(liveTimeline, {
@@ -1989,13 +1990,13 @@ class MatrixClientService {
         const eventsAfter = liveTimeline.getEvents().length
         const newEvents = eventsAfter - eventsBefore
 
-        console.log(`📖 Pagination ${totalPaginationCalls + 1} completed: added ${newEvents} events (total: ${eventsAfter})`)
+        logger.debug(`📖 Pagination ${totalPaginationCalls + 1} completed: added ${newEvents} events (total: ${eventsAfter})`)
 
         totalPaginationCalls++
 
         // If no new events were loaded, we've reached the beginning
         if (newEvents === 0) {
-          console.log('ℹ️ No new events loaded - reached beginning of room history')
+          logger.debug('ℹ️ No new events loaded - reached beginning of room history')
           break
         }
 
@@ -2005,7 +2006,7 @@ class MatrixClientService {
 
         // If we have enough message events, we can stop
         if (messageEvents.length >= limit) {
-          console.log(`✅ Loaded sufficient messages (${messageEvents.length} >= ${limit})`)
+          logger.debug(`✅ Loaded sufficient messages (${messageEvents.length} >= ${limit})`)
           break
         }
       }
@@ -2015,10 +2016,10 @@ class MatrixClientService {
         .filter(event => event.getType() === 'm.room.message')
         .slice(-limit) // Get the most recent messages up to the limit
 
-      console.log(`📨 Loaded ${events.length} historical messages after ${totalPaginationCalls} pagination calls`)
+      logger.debug(`📨 Loaded ${events.length} historical messages after ${totalPaginationCalls} pagination calls`)
       return events
     } catch (error) {
-      console.error('❌ Error loading room history:', error)
+      logger.error('❌ Error loading room history:', error)
       // Fallback to current timeline if pagination fails
       return this.getRoomTimeline(resolvedRoomId, limit)
     }
@@ -2032,14 +2033,14 @@ class MatrixClientService {
   async loadAllRoomHistory (roomId: string): Promise<MatrixEvent[]> {
     // Resolve room alias to room ID if needed
     const resolvedRoomId = await this.resolveRoomId(roomId)
-    console.log('🏠 Using resolved room ID for loading all history:', resolvedRoomId)
+    logger.debug('🏠 Using resolved room ID for loading all history:', resolvedRoomId)
 
     const room = this.getRoom(resolvedRoomId)
     if (!room) {
       throw new Error(`Room not found: ${resolvedRoomId}`)
     }
 
-    console.log(`🔄 Loading ALL room history for ${resolvedRoomId}`)
+    logger.debug(`🔄 Loading ALL room history for ${resolvedRoomId}`)
 
     try {
       // Get the unfiltered timeline set for full message history
@@ -2054,12 +2055,12 @@ class MatrixClientService {
         const paginationToken = liveTimeline.getPaginationToken(Direction.Backward)
 
         if (!paginationToken) {
-          console.log('ℹ️ No more historical messages to load (no pagination token)')
+          logger.debug('ℹ️ No more historical messages to load (no pagination token)')
           break
         }
 
         const eventsBefore = liveTimeline.getEvents().length
-        console.log(`📖 Loading all history - paginating backwards (attempt ${totalPaginationCalls + 1}) - current events: ${eventsBefore}`)
+        logger.debug(`📖 Loading all history - paginating backwards (attempt ${totalPaginationCalls + 1}) - current events: ${eventsBefore}`)
 
         // Paginate backwards to load historical messages
         await this.client!.paginateEventTimeline(liveTimeline, {
@@ -2070,13 +2071,13 @@ class MatrixClientService {
         const eventsAfter = liveTimeline.getEvents().length
         const newEvents = eventsAfter - eventsBefore
 
-        console.log(`📖 Pagination ${totalPaginationCalls + 1} completed: added ${newEvents} events (total: ${eventsAfter})`)
+        logger.debug(`📖 Pagination ${totalPaginationCalls + 1} completed: added ${newEvents} events (total: ${eventsAfter})`)
 
         totalPaginationCalls++
 
         // If no new events were loaded, we've reached the beginning
         if (newEvents === 0) {
-          console.log('ℹ️ No new events loaded - reached beginning of room history')
+          logger.debug('ℹ️ No new events loaded - reached beginning of room history')
           break
         }
       }
@@ -2085,10 +2086,10 @@ class MatrixClientService {
       const events = liveTimeline.getEvents()
         .filter(event => event.getType() === 'm.room.message')
 
-      console.log(`📨 Loaded ALL ${events.length} historical messages after ${totalPaginationCalls} pagination calls`)
+      logger.debug(`📨 Loaded ALL ${events.length} historical messages after ${totalPaginationCalls} pagination calls`)
       return events
     } catch (error) {
-      console.error('❌ Error loading all room history:', error)
+      logger.error('❌ Error loading all room history:', error)
       // Fallback to limited history if loading all fails
       return this.loadRoomHistory(resolvedRoomId, 100)
     }
@@ -2110,7 +2111,7 @@ class MatrixClientService {
 
       return result.results || []
     } catch (error) {
-      console.error('❌ Failed to search users:', error)
+      logger.error('❌ Failed to search users:', error)
       throw error
     }
   }
@@ -2119,7 +2120,7 @@ class MatrixClientService {
    * Manually connect to Matrix (for user-initiated connection)
    */
   async connect (): Promise<MatrixClient> {
-    console.log('🔌 Manual Matrix connection initiated')
+    logger.debug('🔌 Manual Matrix connection initiated')
     return this.initializeClient(true)
   }
 
@@ -2138,7 +2139,7 @@ class MatrixClientService {
    */
   async cleanup (): Promise<void> {
     if (this.client) {
-      console.log('🧹 Cleaning up Matrix client')
+      logger.debug('🧹 Cleaning up Matrix client')
       this.client.stopClient()
       this.client = null
     }
@@ -2165,7 +2166,7 @@ class MatrixClientService {
       const openMeetUserSlug = authStore.getUserSlug
 
       if (!openMeetUserSlug) {
-        console.warn('⚠️ No OpenMeet user slug available, using Matrix user ID for storage key')
+        logger.warn('⚠️ No OpenMeet user slug available, using Matrix user ID for storage key')
       }
 
       // Create user-specific storage keys to prevent session sharing between users
@@ -2193,9 +2194,9 @@ class MatrixClientService {
       }
       localStorage.setItem(sessionKey, JSON.stringify(basicSessionData))
 
-      console.log(`💾 Stored Matrix session info for user ${storageUserId} with user-specific keys`)
+      logger.debug(`💾 Stored Matrix session info for user ${storageUserId} with user-specific keys`)
     } catch (error) {
-      console.warn('⚠️ Failed to store Matrix session info:', error)
+      logger.warn('⚠️ Failed to store Matrix session info:', error)
     }
   }
 
@@ -2217,11 +2218,11 @@ class MatrixClientService {
       const openMeetUserSlug = authStore.getUserSlug
 
       if (!openMeetUserSlug) {
-        console.log('🔍 No OpenMeet user slug available, checking for legacy session')
+        logger.debug('🔍 No OpenMeet user slug available, checking for legacy session')
         // Fallback to legacy key for backward compatibility
         const legacyStored = localStorage.getItem('matrix_session')
         if (legacyStored) {
-          console.log('📦 Found legacy Matrix session, will migrate to user-specific storage')
+          logger.debug('📦 Found legacy Matrix session, will migrate to user-specific storage')
           const legacyData = JSON.parse(legacyStored)
           // Clear legacy session to prevent future conflicts
           localStorage.removeItem('matrix_session')
@@ -2238,7 +2239,7 @@ class MatrixClientService {
 
       const stored = localStorage.getItem(sessionKey)
       if (!stored) {
-        console.log(`🔍 No Matrix session found for user ${openMeetUserSlug}`)
+        logger.debug(`🔍 No Matrix session found for user ${openMeetUserSlug}`)
         return null
       }
 
@@ -2246,7 +2247,7 @@ class MatrixClientService {
 
       // Validate that this session belongs to the current user
       if (sessionData.openMeetUserSlug && sessionData.openMeetUserSlug !== openMeetUserSlug) {
-        console.warn(`🚨 Session user mismatch: stored=${sessionData.openMeetUserSlug}, current=${openMeetUserSlug}`)
+        logger.warn(`🚨 Session user mismatch: stored=${sessionData.openMeetUserSlug}, current=${openMeetUserSlug}`)
         this._clearStoredCredentials()
         return null
       }
@@ -2256,7 +2257,7 @@ class MatrixClientService {
       const accessTokenMaxAge = 24 * 60 * 60 * 1000 // 1 day for access token
 
       if (Date.now() - sessionData.timestamp > maxAge) {
-        console.log('🗑️ Matrix session expired, removing')
+        logger.debug('🗑️ Matrix session expired, removing')
         this._clearStoredCredentials()
         return null
       }
@@ -2270,22 +2271,22 @@ class MatrixClientService {
       // If access token is available and not too old, include it
       if (accessToken && (Date.now() - sessionData.timestamp) < accessTokenMaxAge) {
         sessionData.accessToken = accessToken
-        console.log('🔑 Found stored access token for immediate restoration')
+        logger.debug('🔑 Found stored access token for immediate restoration')
       } else if (refreshToken) {
-        console.log('🔄 No valid access token found, but refresh token available')
+        logger.debug('🔄 No valid access token found, but refresh token available')
       } else {
-        console.log('🔑 No valid access token or refresh token found, will attempt silent auth')
+        logger.debug('🔑 No valid access token or refresh token found, will attempt silent auth')
       }
 
       // Always include refresh token if available (needed for token refresh)
       if (refreshToken) {
         sessionData.refreshToken = refreshToken
-        console.log('🔄 Found stored refresh token for token refresh capability')
+        logger.debug('🔄 Found stored refresh token for token refresh capability')
       }
 
       return sessionData
     } catch (error) {
-      console.warn('⚠️ Failed to parse stored Matrix session:', error)
+      logger.warn('⚠️ Failed to parse stored Matrix session:', error)
       this._clearStoredCredentials()
       return null
     }
@@ -2308,20 +2309,20 @@ class MatrixClientService {
         localStorage.removeItem(sessionKey)
         localStorage.removeItem(refreshTokenKey)
         sessionStorage.removeItem(accessTokenKey)
-        console.log(`🗑️ Cleared Matrix session info for user ${openMeetUserSlug}`)
+        logger.debug(`🗑️ Cleared Matrix session info for user ${openMeetUserSlug}`)
       } else {
-        console.log('🗑️ No user ID available, clearing legacy session keys')
+        logger.debug('🗑️ No user ID available, clearing legacy session keys')
       }
 
       // Clear OIDC settings using Element Web's pattern
       clearStoredOidcSettings()
-      console.log('🗑️ Cleared OIDC authentication settings')
+      logger.debug('🗑️ Cleared OIDC authentication settings')
 
       // Also clear legacy keys for cleanup
       localStorage.removeItem('matrix_session')
       sessionStorage.removeItem('matrix_access_token')
     } catch (error) {
-      console.warn('⚠️ Failed to clear stored session:', error)
+      logger.warn('⚠️ Failed to clear stored session:', error)
     }
   }
 
@@ -2336,11 +2337,11 @@ class MatrixClientService {
     refreshToken?: string
   }): Promise<MatrixClient | null> {
     try {
-      console.log('🔄 Attempting to restore Matrix client from stored credentials')
+      logger.debug('🔄 Attempting to restore Matrix client from stored credentials')
 
       // Check if we have credentials for restoration
       if (sessionInfo.accessToken || sessionInfo.refreshToken) {
-        console.log('🔑 Using stored credentials for client restoration', {
+        logger.debug('🔑 Using stored credentials for client restoration', {
           hasAccessToken: !!sessionInfo.accessToken,
           hasRefreshToken: !!sessionInfo.refreshToken
         })
@@ -2350,7 +2351,7 @@ class MatrixClientService {
           ? sessionInfo.homeserverUrl.slice(0, -1)
           : sessionInfo.homeserverUrl
 
-        console.log('🏠 Restoring Matrix client with baseUrl:', baseUrl)
+        logger.debug('🏠 Restoring Matrix client with baseUrl:', baseUrl)
 
         // If no access token but we have refresh token, try to get new access token
         const accessToken = sessionInfo.accessToken
@@ -2359,20 +2360,20 @@ class MatrixClientService {
         // With native SDK OIDC support, we don't need to manually refresh tokens here
         // The SDK will handle token refresh automatically when configured with refreshToken
         if (!accessToken && refreshToken) {
-          console.log('🔄 No access token available, but refresh token present - SDK will handle refresh automatically')
+          logger.debug('🔄 No access token available, but refresh token present - SDK will handle refresh automatically')
         }
 
         if (!accessToken) {
-          console.log('🔑 No valid access token available - user needs to authenticate')
+          logger.debug('🔑 No valid access token available - user needs to authenticate')
           return null // Return null to indicate authentication is needed
         }
 
         // With native SDK OIDC support, we no longer provide custom tokenRefreshFunction
         // The SDK handles token refresh internally when refreshToken is provided in createClient options
-        console.log('🔄 Using native SDK OIDC token refresh - no custom tokenRefreshFunction needed')
+        logger.debug('🔄 Using native SDK OIDC token refresh - no custom tokenRefreshFunction needed')
 
         // MSC3861: Use access token obtained via MAS OIDC with refresh token support
-        console.log('🔐 Restoring Matrix client with MSC3861 access token from MAS', {
+        logger.debug('🔐 Restoring Matrix client with MSC3861 access token from MAS', {
           hasRefreshToken: !!refreshToken,
           usesNativeSDKRefresh: true
         })
@@ -2390,14 +2391,14 @@ class MatrixClientService {
         })
 
         // CRITICAL: Await store startup before creating client (required for IndexedDB initialization)
-        console.log('🔄 Starting IndexedDB store during restoration...')
+        logger.debug('🔄 Starting IndexedDB store during restoration...')
         try {
           await store.startup()
-          console.log('✅ IndexedDB store startup completed during restoration')
+          logger.debug('✅ IndexedDB store startup completed during restoration')
         } catch (error) {
-          console.warn('⚠️ IndexedDB store startup failed during restoration, clearing incompatible data:', error)
+          logger.warn('⚠️ IndexedDB store startup failed during restoration, clearing incompatible data:', error)
           if (error.message && error.message.includes('setPresenceEvent')) {
-            console.log('🧹 Clearing incompatible presence data and retrying restoration...')
+            logger.debug('🧹 Clearing incompatible presence data and retrying restoration...')
             // Clear the problematic database and recreate
             try {
               const dbName = `matrix-store-${sessionInfo.userId}`
@@ -2412,9 +2413,9 @@ class MatrixClientService {
                 return new User(userId)
               })
               await store.startup()
-              console.log('✅ IndexedDB store recreated successfully during restoration after clearing incompatible data')
+              logger.debug('✅ IndexedDB store recreated successfully during restoration after clearing incompatible data')
             } catch (retryError) {
-              console.error('❌ Failed to recreate store during restoration, falling back to memory store:', retryError)
+              logger.error('❌ Failed to recreate store during restoration, falling back to memory store:', retryError)
               throw error // Re-throw original error
             }
           } else {
@@ -2423,14 +2424,14 @@ class MatrixClientService {
         }
 
         // Use MatrixClientManager instead of direct client creation
-        console.log('🔄 Using MatrixClientManager for client initialization...')
+        logger.debug('🔄 Using MatrixClientManager for client initialization...')
 
         // Use Element Web's OIDC persistence pattern (consistent approach)
         const oidcIssuer = getStoredOidcTokenIssuer()
         const oidcClientId = getStoredOidcClientId()
         const idTokenClaims = getStoredOidcIdTokenClaims()
 
-        console.log('🔍 Session restoration credentials (Element Web approach):', {
+        logger.debug('🔍 Session restoration credentials (Element Web approach):', {
           hasRefreshToken: !!refreshToken,
           hasOidcIssuer: !!oidcIssuer,
           hasOidcClientId: !!oidcClientId,
@@ -2452,7 +2453,7 @@ class MatrixClientService {
           idTokenClaims
         })
 
-        console.log('✅ Matrix client restored successfully via MatrixClientManager')
+        logger.debug('✅ Matrix client restored successfully via MatrixClientManager')
 
         // Set up event listeners
         this._setupEventListeners()
@@ -2463,18 +2464,18 @@ class MatrixClientService {
         return this.client // Return the successfully created client
       } else {
         // Fallback: try to restore from Matrix SDK's own persistence
-        console.log('🔄 No access token available, trying Matrix SDK restoration')
+        logger.debug('🔄 No access token available, trying Matrix SDK restoration')
 
         // No access token available, can't create working client
-        console.log('❌ No access token available, cannot create Matrix client without authentication')
+        logger.debug('❌ No access token available, cannot create Matrix client without authentication')
         return null // Return null to indicate authentication is needed
       }
     } catch (error) {
-      console.warn('⚠️ Failed to restore Matrix client from storage:', error)
+      logger.warn('⚠️ Failed to restore Matrix client from storage:', error)
 
       // Check if this is an authentication error and clear corrupted tokens
       if (this._isInvalidTokenError(error) || (error.message && error.message.includes('invalid_grant'))) {
-        console.warn('🚫 Invalid access token detected during restoration - clearing stored credentials')
+        logger.warn('🚫 Invalid access token detected during restoration - clearing stored credentials')
         this._clearStoredCredentials()
         return null // Return null to allow re-authentication instead of throwing
       }
@@ -2494,10 +2495,10 @@ class MatrixClientService {
 
     // Wait for client to reach PREPARED sync state
     if (this.client.getSyncState() !== 'PREPARED') {
-      console.log('⏳ Waiting for Matrix client sync to reach PREPARED state...')
+      logger.debug('⏳ Waiting for Matrix client sync to reach PREPARED state...')
       await new Promise<void>((resolve, reject) => {
         const onSyncStateChange = (state: string) => {
-          console.log('🔄 Matrix sync state changed to:', state)
+          logger.debug('🔄 Matrix sync state changed to:', state)
           if (state === 'PREPARED') {
             this.client?.off(ClientEvent.Sync, onSyncStateChange)
             resolve()
@@ -2513,11 +2514,11 @@ class MatrixClientService {
     // Get room using Matrix JS SDK directly
     const room = this.client.getRoom(roomId)
     if (!room) {
-      console.warn(`⚠️ Room ${roomId} not found in Matrix client after sync`)
+      logger.warn(`⚠️ Room ${roomId} not found in Matrix client after sync`)
       return null
     }
 
-    console.log(`✅ Room ${roomId} ready for operations`)
+    logger.debug(`✅ Room ${roomId} ready for operations`)
     return room
   }
 
@@ -2535,7 +2536,7 @@ class MatrixClientService {
    */
   private async _syncMatrixUserIdentityWithBackend (matrixUserId: string): Promise<void> {
     try {
-      console.log('🔄 Syncing Matrix user identity with backend:', matrixUserId)
+      logger.debug('🔄 Syncing Matrix user identity with backend:', matrixUserId)
 
       const { matrixApi } = await import('../api/matrix')
       const response = await matrixApi.syncUserIdentity(matrixUserId)
@@ -2544,9 +2545,9 @@ class MatrixClientService {
         throw new Error('Failed to sync Matrix user identity')
       }
 
-      console.log('✅ Matrix user identity synced with backend:', response.data)
+      logger.debug('✅ Matrix user identity synced with backend:', response.data)
     } catch (error) {
-      console.error('❌ Failed to sync Matrix user identity with backend:', error)
+      logger.error('❌ Failed to sync Matrix user identity with backend:', error)
       // Don't throw - this is non-critical for Matrix functionality
       // The user can still use Matrix, they just won't get auto-invitations until this is fixed
     }
@@ -2558,7 +2559,7 @@ class MatrixClientService {
    */
   private async _handleInvalidRefreshToken (): Promise<void> {
     try {
-      console.warn('🚨 Handling invalid refresh token - performing complete Matrix reset')
+      logger.warn('🚨 Handling invalid refresh token - performing complete Matrix reset')
 
       // Stop all Matrix clients immediately
       if (this.client) {
@@ -2578,9 +2579,9 @@ class MatrixClientService {
       })
       window.dispatchEvent(invalidTokenEvent)
 
-      console.log('✅ Invalid refresh token recovery completed - user needs to re-authenticate')
+      logger.debug('✅ Invalid refresh token recovery completed - user needs to re-authenticate')
     } catch (error) {
-      console.error('❌ Error during invalid token recovery:', error)
+      logger.error('❌ Error during invalid token recovery:', error)
     }
   }
 
@@ -2590,13 +2591,13 @@ class MatrixClientService {
    */
   async clearAllMatrixSessions (): Promise<void> {
     try {
-      console.log('🧹 Clearing all Matrix sessions and storage...')
+      logger.debug('🧹 Clearing all Matrix sessions and storage...')
 
       // Stop and clear current client
       if (this.client) {
         this.client.stopClient()
         this.client = null
-        console.log('✅ Matrix client stopped and cleared')
+        logger.debug('✅ Matrix client stopped and cleared')
       }
 
       // Clear all Matrix-related localStorage items
@@ -2610,7 +2611,7 @@ class MatrixClientService {
 
       keysToRemove.forEach(key => {
         localStorage.removeItem(key)
-        console.log(`🗑️ Removed localStorage key: ${key}`)
+        logger.debug(`🗑️ Removed localStorage key: ${key}`)
       })
 
       // Clear all Matrix IndexedDB stores
@@ -2618,15 +2619,15 @@ class MatrixClientService {
       for (const db of databases) {
         if (db.name && (db.name.includes('matrix-crypto-') || db.name.includes('matrix-store-'))) {
           const deleteRequest = indexedDB.deleteDatabase(db.name)
-          deleteRequest.onsuccess = () => console.log(`🗑️ Deleted IndexedDB: ${db.name}`)
-          deleteRequest.onerror = () => console.warn(`❌ Failed to delete IndexedDB: ${db.name}`)
+          deleteRequest.onsuccess = () => logger.debug(`🗑️ Deleted IndexedDB: ${db.name}`)
+          deleteRequest.onerror = () => logger.warn(`❌ Failed to delete IndexedDB: ${db.name}`)
         }
       }
 
-      console.log('✅ All Matrix sessions and storage cleared')
-      console.log('ℹ️ User will need to re-authenticate with Matrix on next access')
+      logger.debug('✅ All Matrix sessions and storage cleared')
+      logger.debug('ℹ️ User will need to re-authenticate with Matrix on next access')
     } catch (error) {
-      console.error('❌ Error clearing Matrix sessions:', error)
+      logger.error('❌ Error clearing Matrix sessions:', error)
       throw error
     }
   }
@@ -2639,28 +2640,28 @@ class MatrixClientService {
    */
   private async _clearIncompatibleStoreData (dbName: string): Promise<void> {
     try {
-      console.log(`🧹 Clearing incompatible IndexedDB store: ${dbName}`)
+      logger.debug(`🧹 Clearing incompatible IndexedDB store: ${dbName}`)
 
       // Delete the entire database to clear incompatible data
       const deleteRequest = indexedDB.deleteDatabase(dbName)
 
       await new Promise<void>((resolve, reject) => {
         deleteRequest.onsuccess = () => {
-          console.log(`✅ Successfully cleared incompatible store: ${dbName}`)
+          logger.debug(`✅ Successfully cleared incompatible store: ${dbName}`)
           resolve()
         }
         deleteRequest.onerror = (event) => {
-          console.error(`❌ Failed to clear incompatible store: ${dbName}`, event)
+          logger.error(`❌ Failed to clear incompatible store: ${dbName}`, event)
           reject(new Error(`Failed to delete database: ${dbName}`))
         }
         deleteRequest.onblocked = () => {
-          console.warn(`⚠️ Database deletion blocked for: ${dbName}`)
+          logger.warn(`⚠️ Database deletion blocked for: ${dbName}`)
           // Still resolve as the database will be cleared when other connections close
           resolve()
         }
       })
     } catch (error) {
-      console.error(`❌ Error clearing incompatible store data for ${dbName}:`, error)
+      logger.error(`❌ Error clearing incompatible store data for ${dbName}:`, error)
       throw error
     }
   }
@@ -2673,30 +2674,30 @@ class MatrixClientService {
    * @param contextId - ID of the context for logging
    */
   async forceSyncAfterInvitation (contextType: string, contextId: string): Promise<void> {
-    console.log(`🔄 Forcing Matrix client sync after ${contextType} invitation: ${contextId}`)
+    logger.debug(`🔄 Forcing Matrix client sync after ${contextType} invitation: ${contextId}`)
 
     const client = this.getClient()
     if (!client) {
-      console.warn('⚠️ No Matrix client available for force sync')
+      logger.warn('⚠️ No Matrix client available for force sync')
       return
     }
 
     try {
       // Stop and restart the client to force a fresh sync
-      console.log('🛑 Stopping Matrix client to force sync...')
+      logger.debug('🛑 Stopping Matrix client to force sync...')
       client.stopClient()
 
       // Wait a moment then restart to pick up new room
       await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('🔄 Restarting Matrix client...')
+      logger.debug('🔄 Restarting Matrix client...')
       await matrixClientManager.restartClient()
-      console.log('✅ Matrix client restarted and syncing')
+      logger.debug('✅ Matrix client restarted and syncing')
 
       // Wait for sync to complete
       await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('✅ Matrix client force sync completed')
+      logger.debug('✅ Matrix client force sync completed')
     } catch (error) {
-      console.error('❌ Error during Matrix client force sync:', error)
+      logger.error('❌ Error during Matrix client force sync:', error)
       throw error
     }
   }
@@ -2720,7 +2721,7 @@ class MatrixClientService {
 
       return JSON.parse(decoded) as IdTokenClaims
     } catch (error) {
-      console.warn('⚠️ Failed to parse ID token claims:', error)
+      logger.warn('⚠️ Failed to parse ID token claims:', error)
       return {} as IdTokenClaims
     }
   }
