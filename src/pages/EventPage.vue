@@ -849,6 +849,7 @@ import { EventSeriesService } from '../services/eventSeriesService'
 import dateFormatting from '../composables/useDateFormatting'
 import { eventLoadingState } from '../utils/eventLoadingState'
 import { useContactEventOrganizersDialog } from '../composables/useContactEventOrganizersDialog'
+import { logger } from '../utils/logger'
 
 // Define the type for occurrence
 interface SeriesOccurrence {
@@ -989,12 +990,12 @@ const handleAttendeeStatusChanged = async (e: Event) => {
   // Use the properly typed event
   const customEvent = e as AttendeeStatusChangeEvent
   const { eventSlug, status, timestamp } = customEvent.detail
-  console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
+// console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
 
   // The EventMatrixChatComponent will handle Matrix room joining automatically
   // We just need to log the change here for debugging purposes
   if (eventSlug === route.params.slug) {
-    console.log(`Attendance status changed for current event to: ${status}`)
+// console.log(`Attendance status changed for current event to: ${status}`)
   }
 }
 
@@ -1029,7 +1030,7 @@ const isDevelopmentMode = computed(() => {
 onMounted(async () => {
   const eventSlug = route.params.slug as string
   LoadingBar.start()
-  console.log('EventPage mounted, loading data for:', eventSlug)
+// console.log('EventPage mounted, loading data for:', eventSlug)
 
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
@@ -1049,10 +1050,10 @@ onMounted(async () => {
     // This ensures child components have access to event and attendance data
     if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
       await useEventStore().actionGetEventBySlug(eventSlug)
-      console.log('Event data loaded, now child components can use this data')
+// console.log('Event data loaded, now child components can use this data')
       // DEBUG: Log timezone information (only in development mode)
       if (isDevelopmentMode.value) {
-        console.log('DEBUG - Event timezone info:', {
+// console.log('DEBUG - Event timezone info:', {
           eventTimeZone: useEventStore().event?.timeZone,
           seriesTimeZone: useEventStore().event?.series?.timeZone,
           hasEventTimeZone: !!useEventStore().event?.timeZone,
@@ -1064,7 +1065,7 @@ onMounted(async () => {
         })
       }
     } else {
-      console.log('Using existing event data from store, skipping reload')
+// console.log('Using existing event data from store, skipping reload')
     }
 
     // Then load non-critical data in parallel
@@ -1078,14 +1079,14 @@ onMounted(async () => {
 
     // Log warning for navigation issues
     if (!useEventStore().event?.seriesSlug && useEventStore().event?.seriesId) {
-      console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
+      logger.warn('Event has seriesId but no seriesSlug, navigation issues possible')
     }
 
     // Matrix chat room joining is now handled by EventMatrixChatComponent
     // This ensures proper separation of concerns and avoids duplicate API calls
-    console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
+// console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
   } catch (error) {
-    console.error('Error loading event data:', error)
+    logger.error('Error loading event data:', error)
   } finally {
     // Clear the loading flag when done
     eventLoadingState.setEventBeingLoaded(null)
@@ -1120,9 +1121,9 @@ onBeforeRouteUpdate(async (to) => {
       ])
 
       // Matrix chat room joining is handled by EventMatrixChatComponent
-      console.log('Route updated to event:', String(to.params.slug))
+// console.log('Route updated to event:', String(to.params.slug))
     } catch (error) {
-      console.error('Failed to load event:', error)
+      logger.error('Failed to load event:', error)
     } finally {
       loaded.value = true
       LoadingBar.stop()
@@ -1139,9 +1140,9 @@ const spotsLeft = computed(() =>
 // Revert navigateToEventSeries to original
 const navigateToEventSeries = async () => {
   // Add more detailed logging
-  console.log('-----SERIES NAVIGATION DEBUG-----')
-  console.log('Event data:', event.value)
-  console.log('Series info:', {
+// console.log('-----SERIES NAVIGATION DEBUG-----')
+// console.log('Event data:', event.value)
+// console.log('Series info:', {
     seriesSlug: event.value?.seriesSlug,
     seriesId: event.value?.seriesId,
     isRecurring: event.value?.isRecurring
@@ -1150,7 +1151,7 @@ const navigateToEventSeries = async () => {
   // Primary navigation approach - using seriesSlug
   if (event.value?.seriesSlug) {
     const url = `/event-series/${event.value.seriesSlug}`
-    console.log('Navigating to:', url)
+// console.log('Navigating to:', url)
     router.push(url)
     return
   }
@@ -1158,7 +1159,7 @@ const navigateToEventSeries = async () => {
   // Fallback - if somehow we have seriesId but no seriesSlug, use the event name
   // This should rarely happen if the API is working correctly
   if (event.value?.seriesId && event.value?.name) {
-    console.warn('No seriesSlug found but seriesId exists - using fallback navigation')
+    logger.warn('No seriesSlug found, using fallback navigation')
 
     // Create a simple slug from the event name
     const fallbackSlug = event.value.name
@@ -1166,16 +1167,16 @@ const navigateToEventSeries = async () => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
 
-    console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
+// console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
 
     const url = `/event-series/${fallbackSlug}`
-    console.log('Navigating to fallback URL:', url)
+// console.log('Navigating to fallback URL:', url)
     router.push(url)
     return
   }
 
   // As a last resort, go to the events list
-  console.warn('Unable to navigate to series - missing seriesSlug')
+  logger.warn('Unable to navigate to series - missing seriesSlug')
   router.push('/events')
 }
 
@@ -1201,14 +1202,14 @@ const loadUpcomingOccurrences = async () => {
   if (event.value?.seriesSlug) {
     try {
       const seriesSlug = event.value.seriesSlug
-      console.log('Loading upcoming occurrences for series:', seriesSlug)
+// console.log('Loading upcoming occurrences for series:', seriesSlug)
 
       // First, load all materialized events from the series directly
       // to ensure we don't miss any events with custom dates
       try {
-        console.log('Loading all materialized events for series first')
+// console.log('Loading all materialized events for series first')
         const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug)
-        console.log(`Found ${allSeriesEvents.length} materialized events for series`)
+// console.log(`Found ${allSeriesEvents.length} materialized events for series`)
 
         // Create a map of already materialized events by date (roughly)
         const materializedEvents = new Map()
@@ -1223,17 +1224,17 @@ const loadUpcomingOccurrences = async () => {
             materializedEvents.set(dateKey, evt)
           })
 
-        console.log(`Found ${materializedEvents.size} future materialized events to include`)
+// console.log(`Found ${materializedEvents.size} future materialized events to include`)
 
         // Now load the series to get the recurrence rule for unmaterialized future occurrences
-        console.log('Fetching complete series data for recurrence pattern')
+// console.log('Fetching complete series data for recurrence pattern')
         const series = await EventSeriesService.getBySlug(seriesSlug)
 
         // Log the recurrence rule for debugging (only in development mode)
         if (isDevelopmentMode.value) {
-          console.log('Series recurrence rule:', series.recurrenceRule)
-          console.log('Series timezone:', series.timeZone)
-          console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
+// console.log('Series recurrence rule:', series.recurrenceRule)
+// console.log('Series timezone:', series.timeZone)
+// console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
         }
         usingClientSideGeneration.value = false
 
@@ -1242,12 +1243,12 @@ const loadUpcomingOccurrences = async () => {
 
         // Log detailed information about API response for debugging (only in development mode)
         if (isDevelopmentMode.value && response.length > 0) {
-          console.log('API returned occurrences:', response.length)
+// console.log('API returned occurrences:', response.length)
 
           // Log each occurrence with detailed information
           response.slice(0, 5).forEach((occ, i) => {
             const occDate = new Date(occ.date)
-            console.log(`Occurrence ${i + 1}:`, {
+// console.log(`Occurrence ${i + 1}:`, {
               dateString: occ.date,
               dateObject: occDate,
               jsDay: occDate.getDay(), // 0=Sunday, 1=Monday, etc.
@@ -1278,7 +1279,7 @@ const loadUpcomingOccurrences = async () => {
           )
 
           if (!alreadyIncluded) {
-            console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
+// console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
             apiOccurrences.push({
               date: new Date(evt.startDate),
               eventSlug: evt.slug
@@ -1292,10 +1293,10 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5)
 
         if (isDevelopmentMode.value) {
-          console.log('Final API-based occurrences:', upcomingOccurrences.value)
+// console.log('Final API-based occurrences:', upcomingOccurrences.value)
         }
       } catch (err) {
-        console.error('Error in combined approach, falling back to API only:', err)
+        logger.error('Error in combined approach, falling back to API only:', err)
 
         // Fall back to API-only approach if the combined approach fails
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10)
@@ -1311,7 +1312,7 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5) // Limit to next 5 occurrences
 
         if (isDevelopmentMode.value) {
-          console.log('Fallback API occurrences:', upcomingOccurrences.value)
+// console.log('Fallback API occurrences:', upcomingOccurrences.value)
         }
       }
 
@@ -1320,11 +1321,11 @@ const loadUpcomingOccurrences = async () => {
         const date1 = upcomingOccurrences.value[0].date
         const date2 = upcomingOccurrences.value[1].date
         const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
-        console.log(`Days between first two displayed occurrences: ${diffDays}`)
-        console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+// console.log(`Days between first two displayed occurrences: ${diffDays}`)
+// console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
       }
     } catch (error) {
-      console.error('Failed to load upcoming occurrences:', error)
+      logger.error('Failed to load upcoming occurrences:', error)
     }
   }
 }

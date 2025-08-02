@@ -186,6 +186,7 @@ import { EventAttendeePermission } from '../../types/event'
 import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
 import { eventLoadingState } from '../../utils/eventLoadingState'
+import { logger } from '../../utils/logger'
 
 const $q = useQuasar()
 const eventStore = useEventStore()
@@ -253,7 +254,7 @@ const needsToJoinGroup = computed(() => {
 
 // Watch for changes in authentication state
 watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
-  console.log('Auth state changed:', isAuth)
+  logger.debug('Auth state changed:', isAuth)
 
   // When user becomes authenticated, always refresh attendance data
   if (isAuth) {
@@ -261,20 +262,20 @@ watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
       // Start loading state
       loading.value = true
       hasCheckedAttendance.value = true
-      console.log('Auth state changed to true, refreshing event and attendance data')
+      logger.debug('Auth state changed to authenticated, refreshing attendance data')
 
       // Always fetch fresh data from server to ensure we have latest attendance status
       await eventStore.actionGetEventBySlug(props.event.slug)
-      console.log('Updated attendee status after auth change:', eventStore.event?.attendee?.status)
+      logger.debug('Updated attendee status after auth change:', eventStore.event?.attendee?.status)
     } catch (error) {
-      console.error('Failed to refresh event data after authentication:', error)
+      logger.error('Failed to refresh event data after authentication:', error)
     } finally {
       loading.value = false
       initialLoading.value = false
     }
   } else if (!isAuth) {
     // If user logs out, we should reset the attendance status
-    console.log('User logged out, resetting attendance state')
+    logger.debug('User logged out, resetting attendance state')
     // Don't need to fetch anything, just update UI state
     initialLoading.value = false
     loading.value = false
@@ -288,7 +289,7 @@ const hasCheckedAttendance = ref(false)
 
 // Initialize the component properly
 onMounted(async () => {
-  console.log('EventAttendanceButton mounted, checking auth status')
+  logger.debug('EventAttendanceButton mounted')
 
   // Module-scoped cache is already initialized at the top of this file
 
@@ -300,14 +301,14 @@ onMounted(async () => {
     // This helps avoid redundant API calls when components mount
     const eventSlug = props.event.slug
     if (eventLoadingState.isEventBeingLoaded(eventSlug)) {
-      console.log('Parent EventPage is already loading this event data, skipping redundant API call')
+      logger.debug('Parent EventPage loading event data, skipping redundant call')
       hasCheckedAttendance.value = true
       return
     }
 
     // Check if user is authenticated (always do this check)
     const isAuthenticated = await authSession.checkAuthStatus()
-    console.log('Auth status result:', isAuthenticated)
+    logger.debug('Auth status result:', isAuthenticated)
 
     if (isAuthenticated) {
       // If authenticated, we should check if we need a fresh check for attendance status
@@ -320,23 +321,23 @@ onMounted(async () => {
       if (timeSinceLastCheck > 3000) {
         loading.value = true
         hasCheckedAttendance.value = true
-        console.log('Authenticated, fetching fresh event data for:', eventSlug)
+        logger.debug('Fetching fresh event data for:', eventSlug)
 
         // Update our tracking timestamp
         eventLoadingState.setLastEventAttendanceCheck(eventSlug, now)
 
         // Get fresh data from the server to ensure we have latest attendance status
         await eventStore.actionGetEventBySlug(eventSlug)
-        console.log('Updated attendee status:', eventStore.event?.attendee?.status)
+        logger.debug('Updated attendee status:', eventStore.event?.attendee?.status)
       } else {
-        console.log(`Skipping redundant attendance check (last check was ${timeSinceLastCheck}ms ago)`)
+        logger.debug(`Skipping redundant check (${timeSinceLastCheck}ms ago)`)
         hasCheckedAttendance.value = true
       }
     } else {
-      console.log('User not authenticated, skipping attendance check')
+      logger.debug('User not authenticated, skipping attendance check')
     }
   } catch (error) {
-    console.error('Error during initialization:', error)
+    logger.error('Error during initialization:', error)
   } finally {
     loading.value = false
     initialLoading.value = false
@@ -347,7 +348,7 @@ onMounted(async () => {
 const handleTemplateAttend = async () => {
   if (!authStore.isFullyAuthenticated) {
     // Save the intent to attend after login
-    console.log('User not authenticated, opening login dialog')
+    logger.debug('User not authenticated, opening login')
     goToLogin()
     return
   }
@@ -363,10 +364,7 @@ const handleTemplateAttend = async () => {
       throw new Error('Missing series slug or template date for materialization')
     }
 
-    console.log('Materializing occurrence before attending:', {
-      seriesSlug: props.event.seriesSlug,
-      templateDate: props.templateDate
-    })
+    logger.debug('Materializing occurrence:', props.event.seriesSlug)
 
     // Materialize the occurrence first using the centralized function
     // Pass false to prevent auto-navigation
@@ -381,7 +379,7 @@ const handleTemplateAttend = async () => {
       ? EventAttendeeStatus.Pending
       : EventAttendeeStatus.Confirmed
 
-    console.log('Attending newly materialized event:', materializedEvent.slug)
+    logger.debug('Attending materialized event:', materializedEvent.slug)
     await eventStore.actionAttendEvent(materializedEvent.slug, { status })
 
     // Show success notification
@@ -408,7 +406,7 @@ const handleTemplateAttend = async () => {
 const handleAttend = async () => {
   if (!authStore.isFullyAuthenticated) {
     // Save the intent to attend after login
-    console.log('User not authenticated, opening login dialog')
+    logger.debug('User not authenticated, opening login')
     // We'll use the auth state watcher to handle post-login attendance
     goToLogin()
     return
@@ -465,7 +463,7 @@ const handleAttend = async () => {
 
 const handleChangeToGoing = async () => {
   if (!authStore.isFullyAuthenticated) {
-    console.log('User not authenticated, opening login dialog')
+    logger.debug('User not authenticated, opening login')
     goToLogin()
     return
   }
@@ -518,7 +516,7 @@ const handleChangeToGoing = async () => {
 
 const handleDecline = async () => {
   if (!authStore.isFullyAuthenticated) {
-    console.log('User not authenticated, opening login dialog')
+    logger.debug('User not authenticated, opening login')
     goToLogin()
     return
   }
