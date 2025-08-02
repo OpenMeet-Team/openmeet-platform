@@ -129,9 +129,8 @@ const matrixDebug = {
   }
 }
 
-// Make available globally
-if (typeof window !== 'undefined') {
-  window.matrixDebug = matrixDebug
-}
+// SECURITY: Do not automatically expose to window
+// This should only be exposed by App.vue in secure development environments
+// Removed automatic global exposure to prevent production information disclosure
 
 export default matrixDebug

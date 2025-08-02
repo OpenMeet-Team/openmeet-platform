@@ -847,6 +847,7 @@ import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayCom
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
 import dateFormatting from '../composables/useDateFormatting'
+import { eventLoadingState } from '../utils/eventLoadingState'
 import { useContactEventOrganizersDialog } from '../composables/useContactEventOrganizersDialog'
 
 // Define the type for occurrence
@@ -1030,24 +1031,19 @@ onMounted(async () => {
   LoadingBar.start()
   console.log('EventPage mounted, loading data for:', eventSlug)
 
-  // Initialize global tracker if needed
-  if (!window.lastEventPageLoad) {
-    window.lastEventPageLoad = {}
-  }
-
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
-  const lastLoad = window.lastEventPageLoad[eventSlug] || 0
+  const lastLoad = eventLoadingState.getLastEventPageLoad(eventSlug)
   const timeSinceLastLoad = now - lastLoad
 
   // Load event data
   try {
     // Always track when we load this event
-    window.lastEventPageLoad[eventSlug] = now
+    eventLoadingState.setLastEventPageLoad(eventSlug, now)
 
-    // IMPORTANT: Set a globally accessible flag to indicate this event is being loaded
+    // IMPORTANT: Set a flag to indicate this event is being loaded
     // This allows child components to avoid making redundant API calls
-    window.eventBeingLoaded = eventSlug
+    eventLoadingState.setEventBeingLoaded(eventSlug)
 
     // First, load the event data and wait for it to complete
     // This ensures child components have access to event and attendance data
@@ -1091,8 +1087,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('Error loading event data:', error)
   } finally {
-    // Clear the global loading flag when done
-    window.eventBeingLoaded = null
+    // Clear the loading flag when done
+    eventLoadingState.setEventBeingLoaded(null)
     LoadingBar.stop()
   }
 })

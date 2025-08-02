@@ -185,6 +185,7 @@ import { GroupPermission } from '../../types/group'
 import { EventAttendeePermission } from '../../types/event'
 import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
+import { eventLoadingState } from '../../utils/eventLoadingState'
 
 const $q = useQuasar()
 const eventStore = useEventStore()
@@ -283,21 +284,13 @@ watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
 // Track if we've already fetched data
 const hasCheckedAttendance = ref(false)
 
-// Add type declaration for global window property
-declare global {
-  interface Window {
-    lastEventAttendanceCheck?: Record<string, number>;
-  }
-}
+// SECURITY: Using shared utility to manage event loading state instead of window globals
 
 // Initialize the component properly
 onMounted(async () => {
   console.log('EventAttendanceButton mounted, checking auth status')
 
-  // Initialize global tracker if needed
-  if (!window.lastEventAttendanceCheck) {
-    window.lastEventAttendanceCheck = {}
-  }
+  // Module-scoped cache is already initialized at the top of this file
 
   try {
     // Always start in loading state to prevent UI flicker
@@ -306,7 +299,7 @@ onMounted(async () => {
     // Check if the parent EventPage is already loading this event data
     // This helps avoid redundant API calls when components mount
     const eventSlug = props.event.slug
-    if (window.eventBeingLoaded === eventSlug) {
+    if (eventLoadingState.isEventBeingLoaded(eventSlug)) {
       console.log('Parent EventPage is already loading this event data, skipping redundant API call')
       hasCheckedAttendance.value = true
       return
@@ -319,7 +312,7 @@ onMounted(async () => {
     if (isAuthenticated) {
       // If authenticated, we should check if we need a fresh check for attendance status
       const now = Date.now()
-      const lastCheck = window.lastEventAttendanceCheck[eventSlug] || 0
+      const lastCheck = eventLoadingState.getLastEventAttendanceCheck(eventSlug)
       const timeSinceLastCheck = now - lastCheck
 
       // Only refresh if it's been more than 3 seconds since the last check
@@ -330,7 +323,7 @@ onMounted(async () => {
         console.log('Authenticated, fetching fresh event data for:', eventSlug)
 
         // Update our tracking timestamp
-        window.lastEventAttendanceCheck[eventSlug] = now
+        eventLoadingState.setLastEventAttendanceCheck(eventSlug, now)
 
         // Get fresh data from the server to ensure we have latest attendance status
         await eventStore.actionGetEventBySlug(eventSlug)
@@ -437,7 +430,7 @@ const handleAttend = async () => {
     // Force a refresh of event data to ensure UI reflects the latest state
     // This is a user-initiated action, so we always want to refresh
     const eventSlug = props.event.slug
-    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
     await eventStore.actionGetEventBySlug(eventSlug)
     console.log('Updated event data after attending:', eventStore.event?.attendee?.status)
 
@@ -494,7 +487,7 @@ const handleChangeToGoing = async () => {
 
     // Force a refresh of event data to ensure UI reflects the latest state
     const eventSlug = props.event.slug
-    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
     await eventStore.actionGetEventBySlug(eventSlug)
 
     // Emit a custom event to notify other components about the status change
@@ -542,7 +535,7 @@ const handleDecline = async () => {
 
     // Force a refresh of event data to ensure UI reflects the latest state
     const eventSlug = props.event.slug
-    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
     await eventStore.actionGetEventBySlug(eventSlug)
 
     // Emit a custom event to notify other components about the status change
@@ -600,7 +593,7 @@ const handleLeave = async () => {
 
     // Force a refresh of the event data to ensure we have the latest state
     console.log('Refreshing event data after cancellation')
-    window.lastEventAttendanceCheck[eventSlug] = Date.now()
+    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
     await eventStore.actionGetEventBySlug(eventSlug)
 
     // Log the final state after refresh to help diagnose any issues
