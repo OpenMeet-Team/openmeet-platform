@@ -193,7 +193,7 @@ export class MatrixClientManager {
 
       const timeoutPromise = new Promise<void>((resolve) => {
         setTimeout(() => {
-          console.warn('⚠️ Matrix client stop timeout, forcing shutdown')
+          logger.warn('Matrix client stop timeout, forcing shutdown')
           resolve()
         }, 5000) // 5 second timeout
       })
@@ -201,7 +201,7 @@ export class MatrixClientManager {
       await Promise.race([stopPromise, timeoutPromise])
       logger.debug('✅ Matrix client stopped gracefully')
     } catch (error) {
-      console.warn('⚠️ Error during graceful stop:', error)
+      logger.warn('Error during graceful stop:', error)
     }
   }
 
@@ -271,7 +271,7 @@ export class MatrixClientManager {
         }
       }
     } catch (error) {
-      console.warn('⚠️ Failed to clear some stored credentials:', error)
+      logger.warn('Failed to clear some stored credentials:', error)
     }
   }
 
@@ -412,7 +412,7 @@ export class MatrixClientManager {
 
         // Check if this is a token error
         if (this._isTokenError(error)) {
-          console.warn('🚫 Invalid or expired Matrix token detected - attempting token refresh')
+          logger.warn('Invalid or expired Matrix token detected - attempting token refresh')
 
           try {
             // Try to refresh the token instead of clearing the client
@@ -554,7 +554,7 @@ export class MatrixClientManager {
 
     // Store session logged out handler for cleanup (Element Web pattern)
     this.sessionLoggedOutHandler = (error: SdkMatrixError) => {
-      console.warn('🚫 Matrix session logged out - SDK determined token refresh failed', error)
+      logger.warn('Matrix session logged out - SDK determined token refresh failed', error)
 
       // Emit token error event for UI components to react (following our existing pattern)
       const tokenErrorEvent = new CustomEvent('matrix:tokenError', {
@@ -608,7 +608,7 @@ export class MatrixClientManager {
       this.eventListenersSetup = false
       logger.debug('✅ Matrix client event listeners removed')
     } catch (error) {
-      console.warn('⚠️ Error removing event listeners:', error)
+      logger.warn('Error removing event listeners:', error)
     }
   }
 
@@ -625,12 +625,12 @@ export class MatrixClientManager {
       await Promise.all([
         // Get capabilities (non-critical, helps with feature detection)
         this.client.getCapabilities().catch(error => {
-          console.warn('⚠️ Failed to fetch capabilities (non-critical):', error)
+          logger.warn('Failed to fetch capabilities (non-critical):', error)
         }),
 
         // Get push rules (non-critical, can be loaded later)
         this.client.getPushRules().catch(error => {
-          console.warn('⚠️ Failed to fetch push rules (non-critical):', error)
+          logger.warn('Failed to fetch push rules (non-critical):', error)
         }),
 
         // Pre-warm room list (non-critical, will be loaded during sync anyway)
@@ -640,7 +640,7 @@ export class MatrixClientManager {
       logger.debug('✅ Initial data preload completed')
     } catch (error) {
       // Don't throw - these are all non-critical operations
-      console.warn('⚠️ Some initial data preload operations failed (non-critical):', error)
+      logger.warn('Some initial data preload operations failed (non-critical):', error)
     }
   }
 

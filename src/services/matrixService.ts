@@ -1,5 +1,6 @@
 import { MatrixMessage } from '../types'
 import { matrixApi } from '../api/matrix'
+import { logger } from '../utils/logger'
 
 /**
  * Service for handling Matrix API operations
@@ -24,7 +25,7 @@ class MatrixServiceImpl {
    */
   public markRoomAsJoined (roomId: string): void {
     if (roomId) {
-      console.log(`Marking room as joined: ${roomId}`)
+      // Marking room as joined
       this.joinedRooms.add(roomId)
     }
   }
@@ -34,15 +35,15 @@ class MatrixServiceImpl {
    */
   public async sendTyping (roomId: string, isTyping: boolean): Promise<void> {
     if (!roomId) {
-      console.error('Cannot send typing indicator - no room ID provided')
+      logger.error('Cannot send typing indicator - no room ID provided')
       return
     }
 
     try {
-      console.log(`Sending typing indicator for room ${roomId}: ${isTyping ? 'typing' : 'stopped typing'}`)
+      // Sending typing indicator
       await matrixApi.sendTyping(roomId, isTyping)
     } catch (error) {
-      console.error('Error sending typing indicator:', error)
+      logger.error('Error sending typing indicator:', error)
     }
   }
 
@@ -51,7 +52,7 @@ class MatrixServiceImpl {
    */
   public async getMessages (roomId: string, limit = 50): Promise<{ messages: MatrixMessage[], end: string }> {
     if (!roomId) {
-      console.error('Cannot get messages - no room ID provided')
+      logger.error('Cannot get messages - no room ID provided')
       return { messages: [], end: '' }
     }
 
@@ -59,7 +60,7 @@ class MatrixServiceImpl {
       const response = await matrixApi.getMessages(roomId, limit)
       return response
     } catch (error) {
-      console.error('Error getting messages:', error)
+      logger.error('Error getting messages:', error)
       return { messages: [], end: '' }
     }
   }
@@ -69,12 +70,12 @@ class MatrixServiceImpl {
    */
   public async sendMessage (roomId: string, message: string): Promise<string | undefined> {
     if (!roomId) {
-      console.error('Cannot send message - no room ID provided')
+      logger.error('Cannot send message - no room ID provided')
       return undefined
     }
 
     if (!message || message.trim() === '') {
-      console.error('Cannot send empty message')
+      logger.error('Cannot send empty message')
       return undefined
     }
 
@@ -82,14 +83,14 @@ class MatrixServiceImpl {
       const response = await matrixApi.sendMessage(roomId, message)
 
       if (response && response.id) {
-        console.log('Message sent successfully, ID:', response.id)
+        // Message sent successfully
         return response.id
       } else {
-        console.error('No message ID returned from server')
+        logger.error('No message ID returned from server')
         return undefined
       }
     } catch (error) {
-      console.error('Error sending message:', error)
+      logger.error('Error sending message:', error)
       return undefined
     }
   }
@@ -100,7 +101,7 @@ class MatrixServiceImpl {
    * @deprecated WebSocket functionality removed for performance optimization
    */
   public async connect (): Promise<boolean> {
-    console.log('WebSocket connection removed - using Matrix client for real-time events')
+    // WebSocket connection removed - using Matrix client for real-time events
     return true
   }
 
@@ -108,7 +109,7 @@ class MatrixServiceImpl {
    * @deprecated WebSocket functionality removed for performance optimization
    */
   public disconnect (): void {
-    console.log('WebSocket disconnection no longer needed')
+    // WebSocket disconnection no longer needed
     // Clear joined rooms cache for testing compatibility
     this.joinedRooms.clear()
   }
@@ -117,21 +118,21 @@ class MatrixServiceImpl {
    * @deprecated WebSocket functionality removed for performance optimization
    */
   public addEventHandler (): void {
-    console.warn('Event handlers removed with WebSocket functionality')
+    // Event handlers removed with WebSocket functionality
   }
 
   /**
    * @deprecated WebSocket functionality removed for performance optimization
    */
   public removeEventHandler (): void {
-    console.warn('Event handlers removed with WebSocket functionality')
+    // Event handlers removed with WebSocket functionality
   }
 
   /**
    * @deprecated WebSocket functionality removed for performance optimization
    */
   public joinRoom (roomId: string): Promise<boolean> {
-    console.log('WebSocket room joining removed - using Matrix client join')
+    // WebSocket room joining removed - using Matrix client join
     this.markRoomAsJoined(roomId)
     return Promise.resolve(true)
   }
