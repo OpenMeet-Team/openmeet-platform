@@ -8,6 +8,7 @@ import { ChatEntity } from '../types/model'
 import { chatApi } from '../api/chat'
 import { RouteQueryAndHash } from 'vue-router'
 import { matrixClientService } from '../services/matrixClientService'
+import { logger } from '../utils/logger'
 
 const { error } = useNotification()
 
@@ -97,15 +98,11 @@ export const useMessageStore = defineStore('messages', {
     // Get messages for active room
     currentRoomMessages: (state) => {
       if (!state.activeRoomId) {
-        console.log('!!!DEBUG!!! currentRoomMessages getter: No active room ID set')
+        // No active room ID set
         return []
       }
 
-      console.log(`!!!DEBUG!!! currentRoomMessages getter: Getting messages for room ${state.activeRoomId}`)
-      console.log(`!!!DEBUG!!! Available room IDs: ${Object.keys(state.messages).join(', ')}`)
-
       const messages = state.messages[state.activeRoomId] || []
-      console.log(`!!!DEBUG!!! Found ${messages.length} messages for room ${state.activeRoomId}`)
 
       return messages
     },
@@ -175,7 +172,7 @@ export const useMessageStore = defineStore('messages', {
       this.isLoadingChats = true
 
       try {
-        console.log('Loading direct message chat list')
+        // Loading direct message chat list
         // Since DM endpoints might not be implemented yet, we need to handle 404 errors gracefully
         try {
           const response = await chatApi.getChatList(query)
@@ -199,14 +196,14 @@ export const useMessageStore = defineStore('messages', {
         } catch (apiError) {
           if (apiError.response && apiError.response.status === 404) {
             // Endpoint not implemented yet - provide empty data
-            console.log('Direct messages API not yet implemented - using empty data')
+            // Direct messages API not yet implemented
             this.directChats = []
             return { chats: [], chat: null }
           }
           throw apiError // Re-throw other errors
         }
       } catch (err) {
-        console.error('Error loading chat list:', err)
+        logger.error('Error loading chat list:', err)
         error('Failed to load chats')
         throw err
       } finally {
@@ -239,7 +236,7 @@ export const useMessageStore = defineStore('messages', {
       try {
         await chatApi.setMessagesRead(messageIds)
       } catch (err) {
-        console.error('Error marking messages as read:', err)
+        logger.error('Error marking messages as read:', err)
       }
     },
 
@@ -253,16 +250,16 @@ export const useMessageStore = defineStore('messages', {
       this.matrixConnectionAttempted = true
 
       try {
-        console.log('💡 Matrix JS SDK client handles real-time updates directly - legacy WebSocket service disabled')
+        // Matrix JS SDK client handles real-time updates directly
 
         // Mark as connected since Matrix JS SDK handles everything
         this.matrixConnected = true
 
-        console.log('✅ Matrix connection status set - using Matrix JS SDK client')
+        // Matrix connection status set
 
         return true
       } catch (err) {
-        console.error('Error initializing Matrix connection:', err)
+        logger.error('Error initializing Matrix connection:', err)
         this.matrixConnected = false
         return false
       }
@@ -284,13 +281,13 @@ export const useMessageStore = defineStore('messages', {
             event.user_ids as string[]
           )
         } else if (event.type === 'm.room.message') {
-          console.warn('!!!WARNING!!! Unified message store directly received Matrix message event - this should now be routed through matrixService')
+          logger.warn('Unified message store directly received Matrix message event - should be routed through matrixService')
           // Keep disabled to prevent duplicates: this.addNewMessage(event as unknown as MatrixMessage)
         } else {
-          console.warn('!!!WARNING!!! Unified message store directly received Matrix event of type', event.type)
+          logger.warn('Unified message store received Matrix event of type:', event.type)
         }
       } catch (err) {
-        console.error('Error handling Matrix event:', err)
+        logger.error('Error handling Matrix event:', err)
       }
     },
 
@@ -307,22 +304,14 @@ export const useMessageStore = defineStore('messages', {
       const eventId = message.event_id || message.eventId
 
       if (!message || !roomId || !eventId) {
-        console.warn('Received invalid message:', message)
+        logger.warn('Received invalid message:', message)
         return
       }
 
       // Debug the message we're processing
       const isTemporaryId = eventId?.startsWith('~') || false
       const isPermanentId = eventId?.startsWith('$') || false
-      console.log('!!!DEBUG!!! Processing message in unified-message-store:', {
-        eventId,
-        roomId,
-        idType: isTemporaryId ? 'temporary (~)' : isPermanentId ? 'permanent ($)' : 'unknown',
-        broadcastId: message._broadcastId,
-        clientMsgId: message.content?._clientMsgId || message._clientMsgId,
-        sender: message.sender,
-        body: message.content?.body?.substring(0, 20) + (message.content?.body?.length > 20 ? '...' : '')
-      })
+      // Processing message in unified-message-store
 
       // Define tracking key early for use throughout the function
       const trackingKey = `${roomId}:${eventId}`
@@ -334,13 +323,13 @@ export const useMessageStore = defineStore('messages', {
       )
 
       if (exactDuplicate) {
-        console.log(`!!!DEBUG!!! Found exact duplicate with event ID ${eventId} in room ${roomId}, skipping`)
+        // Found exact duplicate, skipping
         return
       }
 
       // Regular duplicate check
       if (eventId && this.processedBroadcastIds.has(trackingKey)) {
-        console.log(`!!!DEBUG!!! Already processed event ID ${eventId} in room ${roomId}, skipping duplicate`)
+        // Already processed event ID, skipping duplicate
         return
       }
 
@@ -355,7 +344,7 @@ export const useMessageStore = defineStore('messages', {
           if (mEventId.startsWith('~') &&
               m.sender === message.sender &&
               m.content?.body === message.content?.body) {
-            console.log(`!!!DEBUG!!! Found matching temp/perm pair - updating ID ${mEventId} to ${eventId}`)
+            // Found matching temp/perm pair, updating ID
 
             // Update the existing message with the permanent ID
             this.messages[roomId][i].event_id = eventId
@@ -372,7 +361,7 @@ export const useMessageStore = defineStore('messages', {
       // Check if we've already processed this broadcast by the broadcast ID
       const broadcastId = message._broadcastId
       if (broadcastId && this.processedBroadcastIds.has(broadcastId)) {
-        console.log(`!!!DEBUG!!! Already processed broadcast ID ${broadcastId}, skipping duplicate`)
+        // Already processed broadcast ID, skipping duplicate
         return
       }
 
@@ -381,7 +370,7 @@ export const useMessageStore = defineStore('messages', {
       if (clientMsgId) {
         const clientKey = `${roomId}:${clientMsgId}`
         if (this.processedBroadcastIds.has(clientKey)) {
-          console.log(`!!!DEBUG!!! Already processed client message ID ${clientMsgId}, skipping duplicate`)
+          // Already processed client message ID, skipping duplicate
           return
         }
       }
@@ -389,14 +378,14 @@ export const useMessageStore = defineStore('messages', {
       // Initialize room messages if needed
       if (!this.messages[roomId]) {
         this.messages[roomId] = []
-        console.log(`!!!DEBUG!!! Initialized empty message array for room ${roomId}`)
+        // Initialized empty message array for room
       }
 
       // Use a very robust check for duplicate messages
       const isDuplicate = this.messages[roomId].some(m => {
         // Check by event ID
         if (m.event_id === eventId || m.eventId === eventId) {
-          console.log('!!!DEBUG!!! Exact event ID match found, ignoring duplicate')
+          // Exact event ID match found, ignoring duplicate
           return true
         }
 
@@ -406,11 +395,11 @@ export const useMessageStore = defineStore('messages', {
             (m.event_id?.startsWith('$') && eventId?.startsWith('~'))) {
           // If sender and content match, it's likely the same message with different IDs
           if (m.sender === message.sender && m.content?.body === message.content?.body) {
-            console.log('!!!DEBUG!!! Found message with temporary/permanent ID pair, updating ID and treating as duplicate')
+            // Found message with temporary/permanent ID pair
 
             // Update the existing message with the permanent ID (starts with $) if needed
             if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
-              console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
+              // Updating event ID to permanent ID
               m.event_id = eventId
             }
 
@@ -426,11 +415,11 @@ export const useMessageStore = defineStore('messages', {
 
           // If same content from same sender within 30 seconds, consider it a duplicate
           if (timeDiff < 30000) {
-            console.log('!!!DEBUG!!! Found similar message from same sender with same content within 30 seconds, treating as duplicate')
+            // Found similar message from same sender within 30 seconds
 
             // If this message has a permanent ID and the existing one has a temporary ID, update it
             if (eventId?.startsWith('$') && m.event_id?.startsWith('~')) {
-              console.log(`!!!DEBUG!!! Updating event ID from ${m.event_id} to permanent ID ${eventId}`)
+              // Updating event ID to permanent ID
               m.event_id = eventId
             }
 
@@ -447,7 +436,7 @@ export const useMessageStore = defineStore('messages', {
 
           // If exactly same content within 5 seconds even from different users, might be a duplicate broadcast
           if (timeDiff < 5000) {
-            console.log('!!!DEBUG!!! Messages with identical content from different senders arrived within 5 seconds, likely duplicate broadcast, ignoring')
+            // Messages with identical content from different senders within 5 seconds, likely duplicate broadcast
             return true
           }
         }
@@ -457,7 +446,7 @@ export const useMessageStore = defineStore('messages', {
 
       // If it's a duplicate, return early before adding to the processed sets
       if (isDuplicate) {
-        console.log(`!!!DEBUG!!! Message ${eventId} already exists in room ${roomId} or is a duplicate`)
+        // Message already exists or is a duplicate
         return
       }
 
@@ -480,19 +469,19 @@ export const useMessageStore = defineStore('messages', {
 
       // Simple logging for test messages
       if (eventId.toString().startsWith('test-')) {
-        console.log(`!!!DEBUG!!! Received test message ${eventId} for room ${roomId}`)
+        // Received test message
       }
 
-      console.log(`!!!DEBUG!!! Adding message ${eventId} to room ${roomId}`)
+      // Adding message to room
 
       // Add topic if not present (critical for message grouping)
       if (message.content && !message.content.topic) {
         message.content.topic = 'General'
-        console.log('!!!DEBUG!!! Added default General topic to message')
+        // Added default General topic to message
       }
 
       this.messages[roomId].push(message)
-      console.log(`!!!DEBUG!!! Room ${roomId} now has ${this.messages[roomId].length} messages`)
+      // Room message count updated
 
       // Sort messages by timestamp (supporting both naming conventions)
       this.messages[roomId].sort((a, b) => {
@@ -503,11 +492,11 @@ export const useMessageStore = defineStore('messages', {
 
       // Force reactivity update if this is the active room
       if (this.activeRoomId === roomId) {
-        console.log('!!!DEBUG!!! Triggering reactive update for active room')
+        // Triggering reactive update for active room
         // Trigger a reactive update by creating a new array
         this.messages = { ...this.messages }
       } else {
-        console.log(`!!!DEBUG!!! Not triggering update because active room (${this.activeRoomId}) != message room (${roomId})`)
+        // Not triggering update for inactive room
       }
     },
 
@@ -532,11 +521,11 @@ export const useMessageStore = defineStore('messages', {
         // If typing, set a timer to automatically clear typing status
         if (isTyping) {
           this.typingTimer = window.setTimeout(() => {
-            this.sendTyping(roomId, false).catch(console.error)
+            this.sendTyping(roomId, false).catch(err => logger.error('Failed to clear typing status:', err))
           }, TYPING_DEBOUNCE)
         }
       } catch (err) {
-        console.error('Failed to send typing indicator:', err)
+        logger.error('Failed to send typing indicator:', err)
       }
     },
 
@@ -553,7 +542,7 @@ export const useMessageStore = defineStore('messages', {
           // This is a fallback room ID that we constructed because the API didn't provide one
           // Extract the event_id and use that to help identify the room on the backend
           const eventId = this.activeRoomId.replace('constructed:', '')
-          console.log('Using constructed room ID with event ID:', eventId)
+          // Using constructed room ID with event ID
 
           // For now, we just log this scenario, but in the future, we could
           // make a special API call to the backend to resolve the actual room ID
@@ -602,7 +591,7 @@ export const useMessageStore = defineStore('messages', {
 
         return result
       } catch (err) {
-        console.error('Error loading messages:', err)
+        logger.error('Error loading messages:', err)
         return { messages: [], end: '' }
       } finally {
         this.isLoading = false
@@ -611,14 +600,10 @@ export const useMessageStore = defineStore('messages', {
 
     // Send a message
     async sendMessage (message: string) {
-      console.log('!!!DEBUG!!! unified-message-store.sendMessage called', {
-        message,
-        activeRoomId: this.activeRoomId,
-        contextType: this.contextType
-      })
+      // Sending message via unified-message-store
 
       if (!this.activeRoomId || !this.permissions.canWrite) {
-        console.error('!!!DEBUG!!! Cannot send message: no active room or insufficient permissions', {
+        logger.error('Cannot send message: no active room or insufficient permissions', {
           activeRoomId: this.activeRoomId,
           permissions: this.permissions
         })
@@ -633,11 +618,11 @@ export const useMessageStore = defineStore('messages', {
         // Check if user has Matrix ID
         const authStore = useAuthStore()
         if (!authStore.user?.matrixUserId) {
-          console.error('!!!DEBUG!!! Matrix user ID missing', { user: authStore.user })
+          logger.error('Matrix user ID missing', { user: authStore.user })
           throw new Error('Matrix user ID missing. Please refresh the page and try again.')
         }
 
-        console.log('!!!DEBUG!!! User authorized to send message', {
+        // User authorized to send message
           matrixUserId: authStore.user.matrixUserId,
           room: this.activeRoomId
         })
@@ -654,7 +639,7 @@ export const useMessageStore = defineStore('messages', {
         })
 
         if (existingMessage) {
-          console.log('!!!DEBUG!!! Message already exists in room, skipping optimistic update', message)
+          // Message already exists in room, skipping optimistic update
           // Return the existing event ID
           return existingMessage.event_id || existingMessage.eventId
         }
@@ -670,17 +655,12 @@ export const useMessageStore = defineStore('messages', {
           eventId = result ? String(result) : undefined
         } else if (this.contextType === 'direct' && this.activeDirectChat) {
           // For direct messages, use the chat API with the slug from activeDirectChat
-          console.log('!!!DEBUG!!! Sending direct message through chat API', {
-            chatId: this.activeDirectChat.ulid,
-            roomId: this.activeDirectChat.roomId
-          })
+          // Sending direct message through chat API
           const result = await chatApi.sendMessage(this.activeDirectChat.ulid, message)
           eventId = result.data.id ? String(result.data.id) : undefined
         } else {
           // General context type or fallback for unknown types
-          console.log('!!!DEBUG!!! Sending message through matrixService', {
-            roomId: this.activeRoomId
-          })
+          // Sending message through matrixService
           // Send message via Matrix JS SDK
           await matrixClientService.sendMessage(this.activeRoomId, {
             body: message,
@@ -704,7 +684,7 @@ export const useMessageStore = defineStore('messages', {
           })
 
           if (updatedExistingMessage) {
-            console.log('!!!DEBUG!!! Message has been received via WebSocket while waiting for API response, skipping optimistic message')
+            // Message received via WebSocket while waiting for API response, skipping optimistic message
             return eventId
           }
 
@@ -761,12 +741,12 @@ export const useMessageStore = defineStore('messages', {
             return aTime - bTime
           })
 
-          console.log(`!!!DEBUG!!! Added optimistic message with client ID ${clientMsgId} and event ID ${eventId}`)
+          // Added optimistic message
         }
 
         return eventId
       } catch (err) {
-        console.error('Error sending message:', err)
+        logger.error('Error sending message:', err)
         error('Failed to send message')
         throw err
       } finally {
