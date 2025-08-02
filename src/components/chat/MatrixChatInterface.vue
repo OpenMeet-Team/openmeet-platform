@@ -1137,7 +1137,7 @@ const handleTyping = async () => {
     if (!isTyping.value) {
       await matrixClientService.sendTyping(roomId, true, 10000) // 10 second timeout
       isTyping.value = true
-      console.log('⌨️ Started typing indicator')
+      // Started typing indicator
     }
 
     // Clear existing timer
@@ -1161,7 +1161,7 @@ const stopTyping = async () => {
   try {
     await matrixClientService.sendTyping(roomId, false)
     isTyping.value = false
-    console.log('⌨️ Stopped typing indicator')
+    // Stopped typing indicator
 
     // Clear timer
     if (typingTimer.value) {
@@ -1180,7 +1180,7 @@ const showImageModal = (src: string) => {
 
 const downloadFile = async (url: string, filename: string) => {
   try {
-    console.log('📥 Starting file download:', { url, filename })
+    // Starting file download
 
     // Get Matrix access token for direct authentication (Element Web approach)
     const client = matrixClientService.getClient()
@@ -1190,7 +1190,7 @@ const downloadFile = async (url: string, filename: string) => {
       throw new Error('No Matrix access token available')
     }
 
-    console.log('🔑 Using direct token auth, token available:', !!accessToken)
+    // Using direct token auth
 
     // Make authenticated request directly to Matrix server
     const response = await fetch(url, {
@@ -1216,7 +1216,7 @@ const downloadFile = async (url: string, filename: string) => {
     // Clean up blob URL
     URL.revokeObjectURL(blobUrl)
 
-    console.log('✅ File download completed:', filename)
+    // File download completed
   } catch (error) {
     console.error('❌ File download failed:', error)
     // Fallback to direct link
@@ -1234,12 +1234,7 @@ const previewFile = async (content: { url?: string; filename?: string; mimetype?
   }
 
   const fileUrl = getFileUrl(content.url)
-  console.log('📎 Previewing file:', {
-    originalUrl: content.url,
-    convertedUrl: fileUrl,
-    filename: content.filename,
-    mimetype: content.mimetype
-  })
+  // Previewing file
 
   if (!fileUrl) {
     console.error('❌ Failed to convert file URL for preview')
@@ -1255,7 +1250,7 @@ const previewFile = async (content: { url?: string; filename?: string; mimetype?
       throw new Error('No Matrix access token available')
     }
 
-    console.log('🔑 Using authenticated preview for file:', content.filename)
+    // Using authenticated preview for file
 
     // Fetch file with authentication
     const response = await fetch(fileUrl, {
@@ -1332,7 +1327,7 @@ const sendReadReceipts = async () => {
 }
 
 const updateReadReceipts = async () => {
-  console.log('🔍 updateReadReceipts called - roomId:', props.roomId, 'connected:', isConnected.value)
+  // Update read receipts called
   if (!props.roomId || !isConnected.value) return
 
   try {
@@ -1347,16 +1342,13 @@ const updateReadReceipts = async () => {
     const recentMessages = messages.value.slice(-30)
     const recentMessageIds = recentMessages.map(m => m.id).filter(Boolean)
 
-    console.log(`🔄 Processing read receipts for ${recentMessages.length} recent messages (of ${messages.value.length} total)`)
+    // Processing read receipts for recent messages
 
     // Get all other users in the room (exclude current user)
     const otherUsers = room.getMembers()
       .filter(member => member.userId !== currentUserId)
 
-    console.log('👥 Room members (excluding self):', otherUsers.map(m => ({
-      userId: m.userId.split(':')[0].substring(1),
-      name: m.name || m.rawDisplayName || 'Unknown'
-    })))
+    // Processing room members for read receipts
 
     // Build a cache of all receipt data in one pass
     const receiptCache = new Map<string, Array<{ userId: string, timestamp: number }>>()
@@ -1367,11 +1359,7 @@ const updateReadReceipts = async () => {
         receiptCache.set(messageId, receipts)
 
         if (receipts.length > 0) {
-          console.log(`📨 Message ${messageId.substring(0, 8)}... has ${receipts.length} read receipts:`,
-            receipts.map(r => ({
-              user: r.userId.split(':')[0].substring(1),
-              timestamp: new Date(r.timestamp).toLocaleTimeString()
-            })))
+          // Message has read receipts
         }
       }
     }
@@ -1405,19 +1393,12 @@ const updateReadReceipts = async () => {
       }
     }
 
-    console.log('👀 User read positions:', Array.from(userReadPositions.entries()).map(([userId, pos]) => ({
-      user: userId.split(':')[0].substring(1),
-      lastRead: pos.eventId.substring(0, 8) + '...',
-      index: pos.messageIndex
-    })))
+    // User read positions calculated
 
     // Debug: Show which users have NO read receipts
     const usersWithoutReceipts = otherUsers.filter(member => !userReadPositions.has(member.userId))
     if (usersWithoutReceipts.length > 0) {
-      console.log('⚠️ Users with NO read receipts:', usersWithoutReceipts.map(m => ({
-        userId: m.userId.split(':')[0].substring(1),
-        name: m.name || m.rawDisplayName || 'Unknown'
-      })))
+      // Some users have no read receipts
     }
 
     // Apply read receipts to recent messages only
@@ -1441,7 +1422,7 @@ const updateReadReceipts = async () => {
 
       message.readReceipts = messageReadBy
       if (messageReadBy.length > 0) {
-        console.log(`📋 Message ${message.id.substring(0, 8)}... read by:`, messageReadBy.map(r => r.userName))
+        // Message read by users
       }
     }
 
@@ -1459,19 +1440,19 @@ const reconnect = async () => {
   isConnecting.value = true
 
   try {
-    console.log('🔄 Attempting to reconnect Matrix client...')
+    // Attempting to reconnect Matrix client
 
     // First try to refresh the Matrix token
     try {
       await matrixClientManager.refreshMatrixToken()
-      console.log('✅ Matrix token refreshed successfully')
+      // Matrix token refreshed successfully
     } catch (tokenError) {
       console.warn('⚠️ Token refresh failed, continuing with existing token:', tokenError)
     }
 
     // Check if Matrix client is already available and just needs to reconnect
     if (matrixClientService.isReady()) {
-      console.log('🔌 Matrix client already ready, just updating connection status')
+      // Matrix client already ready
       roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
       // Reload messages if we have a room ID
@@ -1484,19 +1465,19 @@ const reconnect = async () => {
 
     // Try to connect to Matrix client (this will handle authentication)
     await matrixClientService.connectToMatrix()
-    console.log('✅ Matrix client connected successfully')
+    // Matrix client connected successfully
 
     // After successful Matrix connection, ensure we're invited to the chat room
     if (props.contextType === 'event' && props.contextId) {
       try {
-        console.log('🎪 Joining event chat room using Matrix-native approach')
+        // Joining event chat room
         const result = await matrixClientService.joinEventChatRoom(props.contextId)
-        console.log('✅ Event chat room joined successfully:', result.roomInfo)
+        // Event chat room joined successfully
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
-          console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+          // Using actual room ID from join result
           currentRoom.value = result.room
           // Load messages with the correct room ID
           await loadMessages()
@@ -1514,7 +1495,7 @@ const reconnect = async () => {
         const errorMessage = error.message || ''
         if (errorMessage.includes('has not authenticated with Matrix') ||
             errorMessage.includes('must complete Matrix authentication')) {
-          console.log('🔑 User needs Matrix authentication before accessing chat')
+          // User needs Matrix authentication
           // Don't throw - this is a normal flow that requires authentication
         } else {
           // Other errors - log but don't break the connection
@@ -1525,14 +1506,14 @@ const reconnect = async () => {
 
     if (props.contextType === 'group' && props.contextId) {
       try {
-        console.log(`🎯 Joining group chat room using Matrix-native approach: ${props.contextId}`)
+        // Joining group chat room
         const result = await matrixClientService.joinGroupChatRoom(props.contextId)
-        console.log('✅ Group chat room joined successfully:', result.roomInfo)
+        // Group chat room joined successfully
         // Force Matrix client to sync to pick up new invitation
         await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
-          console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+          // Using actual room ID from join result
           currentRoom.value = result.room
           // Load messages with the correct room ID
           await loadMessages()
@@ -1624,7 +1605,7 @@ const reconnect = async () => {
 
 const clearMatrixSessions = async () => {
   try {
-    console.log('🧹 User requested Matrix session clearing...')
+    // User requested Matrix session clearing
 
     // Show confirmation dialog
     const confirmed = confirm(
@@ -1643,7 +1624,7 @@ const clearMatrixSessions = async () => {
     isConnecting.value = false
     messages.value = []
 
-    console.log('✅ Matrix sessions cleared, user will need to re-authenticate')
+    // Matrix sessions cleared
     alert('Matrix sessions cleared successfully! Please refresh the page to sign in again.')
   } catch (error) {
     console.error('❌ Failed to clear Matrix sessions:', error)
@@ -1672,18 +1653,18 @@ const startCountdownTimer = () => {
 // Load older messages with pagination
 const loadOlderMessages = async () => {
   if (isLoadingOlderMessages.value || !hasMoreHistory.value) {
-    console.log('⚠️ Already loading older messages or no more history available')
+    // Already loading older messages or no more history
     return
   }
 
-  console.log('📜 Loading older messages with increased limit')
+  // Loading older messages with increased limit
   isLoadingOlderMessages.value = true
 
   try {
     const previousMessageCount = messages.value.length
     const newLimit = currentHistoryLimit.value + 25 // Load 25 more messages
 
-    console.log(`🔄 Loading room history with limit ${newLimit} (currently have ${previousMessageCount} messages)`)
+    // Loading room history with increased limit
 
     // Skip waitForRoomReady if sync is stuck - try to get room directly
     const client = matrixClientService.getClient()
@@ -1695,17 +1676,17 @@ const loadOlderMessages = async () => {
     const room = currentRoom.value
     if (!room) {
       console.warn('⚠️ Room not available for loading older messages:', props.roomId)
-      console.log('🔍 Available rooms:', client.getRooms().map(r => r.roomId))
+      // Available rooms checked
       return
     }
 
-    console.log(`✅ Got room directly (sync state: ${client.getSyncState()})`)
+    // Got room directly
 
     // Use the loadRoomHistory method with increased limit
     const events = await matrixClientService.loadRoomHistory(props.roomId, newLimit)
 
     if (events.length === 0) {
-      console.log('📭 No messages found in room history')
+      // No messages found in room history
       hasMoreHistory.value = false
       return
     }
@@ -1743,10 +1724,10 @@ const loadOlderMessages = async () => {
 
     // Check if we loaded new messages
     if (formattedMessages.length === previousMessageCount) {
-      console.log('📭 No new messages loaded - reached end of history')
+      // No new messages loaded - reached end of history
       hasMoreHistory.value = false
     } else {
-      console.log(`📨 Loaded ${formattedMessages.length - previousMessageCount} new older messages`)
+      // Loaded new older messages
     }
   } catch (error) {
     console.error('❌ Failed to load older messages:', error)
@@ -1760,19 +1741,19 @@ const isLoading = ref(false)
 
 const loadMessages = async () => {
   if (isLoading.value) {
-    console.log('⚠️ Already loading messages, skipping duplicate call')
+    // Already loading messages, skipping duplicate call
     return
   }
 
-  console.log('🏗️ DEBUG: Starting loadMessages(), setting isLoading=true')
-  console.log('🏗️ DEBUG: Current Matrix client sync state:', matrixClientService.getClient()?.getSyncState())
+  // Starting loadMessages
+  // Current Matrix client sync state checked
   isLoading.value = true
 
   // Clear messages immediately when switching rooms for better UX
   messages.value = []
 
   try {
-    console.log('🏗️ Phase 2: Loading messages with Element-web pattern for room:', props.roomId)
+    // Loading messages with Element-web pattern
 
     // Element-web pattern: Work with SYNCING state, don't wait for PREPARED
     const client = matrixClientService.getClient()
@@ -1782,7 +1763,7 @@ const loadMessages = async () => {
     }
 
     const syncState = client.getSyncState()
-    console.log(`🔄 Matrix client sync state: ${syncState}`)
+    // Matrix client sync state checked
 
     // Be more lenient with sync states - sometimes the client works even when not in perfect state
     const workingStates = ['SYNCING', 'PREPARED', 'CATCHUP', 'RECONNECTING', 'STOPPED']
@@ -1796,14 +1777,14 @@ const loadMessages = async () => {
     if (!room) {
       console.warn('⚠️ Room not available:', props.roomId)
       const availableRooms = client.getRooms()
-      console.log('🏗️ DEBUG: Available rooms:', availableRooms.map(r => r.roomId))
-      console.log('❌ Expected room not found, attempting to join room')
+      // Available rooms checked
+      // Expected room not found, attempting to join
 
       // Try to join the room if it's not available
       try {
-        console.log('🔄 Attempting to join room:', props.roomId)
+        // Attempting to join room
         await client.joinRoom(props.roomId)
-        console.log('✅ Successfully joined room, retrying message load...')
+        // Successfully joined room
         // Give it a moment to sync
         await new Promise(resolve => setTimeout(resolve, 1000))
       } catch (joinError) {
@@ -1819,29 +1800,29 @@ const loadMessages = async () => {
       return
     }
 
-    console.log('✅ Room available, proceeding with message loading')
-    console.log('🏗️ DEBUG: Room member count:', finalRoom.getJoinedMembers().length)
+    // Room available, proceeding with message loading
+    // Room member count checked
 
     // Load historical messages using the robust pagination method from matrixClientService
-    console.log('📨 Loading historical messages with pagination support')
+    // Loading historical messages with pagination
     let events: MatrixEvent[] = []
 
     // Always attempt to load historical messages to ensure history is visible
-    console.log('📨 Loading historical messages with pagination to ensure history is shown...')
+    // Loading historical messages to ensure history shown
     try {
       // Use the service's loadRoomHistory method which handles proper pagination
       // Load at least 20 messages initially to ensure we have history to show
       const initialLoad = 20
       const roomId = currentRoom.value?.roomId || props.roomId
       events = await matrixClientService.loadRoomHistory(roomId, initialLoad)
-      console.log(`📊 Loaded ${events.length} historical messages via pagination (requested ${initialLoad})`)
+      // Loaded historical messages via pagination
 
       // If we got messages, update hasMoreHistory flag
       if (events.length > 0) {
         hasMoreHistory.value = true
-        console.log('✅ Historical messages loaded, hasMoreHistory set to true')
+        // Historical messages loaded successfully
       } else {
-        console.log('⚠️ No historical messages loaded via pagination')
+        // No historical messages loaded via pagination
       }
     } catch (error) {
       console.warn('⚠️ Failed to load historical messages via pagination, falling back to timeline:', error)
@@ -1849,7 +1830,7 @@ const loadMessages = async () => {
       const timeline = finalRoom.getLiveTimeline()
       const timelineEvents = timeline.getEvents().filter(event => event.getType() === 'm.room.message')
       events = timelineEvents
-      console.log(`📊 Fallback: ${events.length} events from current timeline`)
+      // Fallback: events from current timeline
     }
 
     const currentUserId = matrixClientService.getClient()?.getUserId()
@@ -1895,16 +1876,10 @@ const loadMessages = async () => {
 
       // Load authenticated images for all image messages
       const imageMessages = messages.value.filter(m => m.type === 'image')
-      console.log(`🖼️ Loading ${imageMessages.length} authenticated images...`)
+      // Loading authenticated images
       imageMessages.forEach(message => loadAuthenticatedImage(message))
     } else {
-      console.log('⚠️ No messages found after processing. Debug info:', {
-        eventsCount: events.length,
-        eventsTypes: events.map(e => e.getType()),
-        roomId: props.roomId,
-        currentUserId: matrixClientService.getClient()?.getUserId(),
-        syncState: matrixClientService.getClient()?.getSyncState()
-      })
+      // No messages found after processing
 
       // For debugging, let's try to get more info about the room
       const roomTimeline = finalRoom.getLiveTimeline()
@@ -2352,7 +2327,7 @@ onMounted(async () => {
           await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
-            console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+            // Using actual room ID from join result
             currentRoom.value = result.room
             // Load messages with the correct room ID
             await loadMessages()
@@ -2372,7 +2347,7 @@ onMounted(async () => {
           await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
-            console.log('🏠 Using actual room ID from join result:', result.room.roomId)
+            // Using actual room ID from join result
             currentRoom.value = result.room
             // Load messages with the correct room ID
             await loadMessages()
