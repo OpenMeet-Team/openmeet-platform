@@ -114,7 +114,10 @@ describe('Auth Store', () => {
       })
 
       // Mock failed API call
-      vi.mocked(authApi.getMe).mockRejectedValue(new Error('Unauthorized'))
+      vi.mocked(authApi.getMe).mockRejectedValue({
+        response: { status: 401 },
+        message: 'Unauthorized'
+      })
 
       const store = useAuthStore()
 
