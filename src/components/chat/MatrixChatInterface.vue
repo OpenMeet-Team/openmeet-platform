@@ -450,6 +450,7 @@ import { MatrixEvent, Room, ClientEvent, RoomEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import getEnv from '../../utils/env'
+import { logger } from '../../utils/logger'
 
 // Add type declaration for global window property
 declare global {
@@ -576,7 +577,7 @@ const resolveRoom = async (roomIdOrAlias: string) => {
       }
 
       // If not found locally, resolve the alias via Matrix API
-      console.log('🔍 Resolving room alias:', roomIdOrAlias)
+      // Resolving room alias
       const aliasResponse = await client.getRoomIdForAlias(roomIdOrAlias)
       const roomId = aliasResponse.room_id
 
@@ -585,14 +586,14 @@ const resolveRoom = async (roomIdOrAlias: string) => {
 
       // If room still not found locally, join via alias
       if (!room) {
-        console.log('🚪 Room not in local state, joining via alias:', roomIdOrAlias)
+        // Room not in local state, joining via alias
         const joinResult = await client.joinRoom(roomIdOrAlias)
         room = client.getRoom(joinResult.roomId)
       }
 
       return room
     } catch (error) {
-      console.error('❌ Failed to resolve room alias:', roomIdOrAlias, error)
+      logger.error('Failed to resolve room alias:', roomIdOrAlias, error)
       return null
     }
   }
@@ -614,12 +615,12 @@ const updateCurrentRoom = async () => {
     const room = await resolveRoom(props.roomId)
     currentRoom.value = room
     if (room) {
-      console.log('✅ Resolved room:', room.roomId, 'from:', props.roomId)
+      // Resolved room successfully
     } else {
-      console.warn('❌ Could not resolve room:', props.roomId)
+      logger.warn('Could not resolve room:', props.roomId)
     }
   } catch (error) {
-    console.error('❌ Error resolving room:', error)
+    logger.error('Error resolving room:', error)
     currentRoom.value = null
   } finally {
     isResolvingRoom.value = false
@@ -748,7 +749,7 @@ const hasOidcConfigError = (): boolean => {
 const formatMessageText = (text: string): string => {
   // Guard against undefined/null text
   if (!text || typeof text !== 'string') {
-    console.warn('formatMessageText called with invalid text:', text)
+    logger.warn('formatMessageText called with invalid text:', text)
     return ''
   }
 
@@ -799,14 +800,14 @@ const canDeleteMessage = (message: Message): boolean => {
   const currentUserId = matrixClientService.getClient()?.getUserId()
 
   if (!room || !currentUserId) {
-    console.log('🔍 canDeleteMessage: No room or currentUserId', { room: !!room, currentUserId })
+    // Cannot delete message: no room or user ID
     return false
   }
 
   // Get current user's power level
   const powerLevels = room.currentState.getStateEvents('m.room.power_levels', '')
   if (!powerLevels) {
-    console.log('🔍 canDeleteMessage: No power levels found in room')
+    // No power levels found in room
     return false
   }
 
@@ -849,7 +850,7 @@ const deleteMessage = async (message: Message) => {
 
     if (!confirm) return
 
-    console.log('🗑️ Deleting message:', message.id, 'in room:', props.roomId)
+    // Deleting message
 
     // Optimistically remove the message from UI for better UX
     const originalMessages = [...messages.value]
@@ -857,7 +858,7 @@ const deleteMessage = async (message: Message) => {
 
     try {
       await matrixClientService.redactMessage(props.roomId, message.id)
-      console.log('✅ Message deleted successfully')
+      // Message deleted successfully
 
       // Show success feedback
       quasar.notify({
@@ -872,7 +873,7 @@ const deleteMessage = async (message: Message) => {
       throw error
     }
   } catch (error) {
-    console.error('❌ Failed to delete message:', error)
+    logger.error('Failed to delete message:', error)
 
     // Provide more specific error messages
     let errorMessage = 'Failed to delete message'
@@ -918,13 +919,13 @@ const getFileIcon = (mimetype?: string): string => {
 
 const getFileUrl = (url: string): string => {
   if (!url) {
-    console.warn('⚠️ getFileUrl: Empty URL provided')
+    logger.warn('getFileUrl: Empty URL provided')
     return ''
   }
 
   // If it's already an HTTP URL, return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    console.log('🔗 getFileUrl: Using HTTP URL as-is:', url)
+    // Using HTTP URL as-is
     return url
   }
 
@@ -932,21 +933,16 @@ const getFileUrl = (url: string): string => {
   if (url.startsWith('mxc://')) {
     const client = matrixClientService.getClient()
     if (!client) {
-      console.error('❌ getFileUrl: Matrix client not available')
+      logger.error('getFileUrl: Matrix client not available')
       return ''
     }
 
     // For files, use download endpoint without dimensions
     const convertedUrl = matrixClientService.getContentUrl(url)
-    console.log('📎 getFileUrl: Converting Matrix URL for file download:', {
-      original: url,
-      converted: convertedUrl,
-      baseUrl: client.baseUrl,
-      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http')
-    })
+    // Converting Matrix URL for file download
 
     if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
-      console.error('❌ getFileUrl: Matrix URL conversion failed or invalid')
+      logger.error('getFileUrl: Matrix URL conversion failed or invalid')
       return ''
     }
 
@@ -954,7 +950,7 @@ const getFileUrl = (url: string): string => {
   }
 
   // Fallback - return original URL
-  console.log('🔗 getFileUrl: Using original URL:', url)
+  // Using original URL
   return url
 }
 
@@ -967,7 +963,7 @@ const loadAuthenticatedImage = async (message: Message): Promise<void> => {
     const accessToken = client?.getAccessToken()
 
     if (!accessToken) {
-      console.error('❌ No access token for image loading')
+      logger.error('No access token for image loading')
       return
     }
 
@@ -1001,7 +997,7 @@ const loadAuthenticatedImage = async (message: Message): Promise<void> => {
       message.fullImageBlobUrl = message.imageBlobUrl
     }
   } catch (error) {
-    console.error('❌ Failed to load authenticated image:', error)
+    logger.error('Failed to load authenticated image:', error)
   }
 }
 
