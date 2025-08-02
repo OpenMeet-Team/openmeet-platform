@@ -8,7 +8,7 @@ import getEnv from './env'
 class ConditionalLogger {
   private isDevelopment: boolean
 
-  constructor() {
+  constructor () {
     // Check if we're in development mode
     const nodeEnv = getEnv('NODE_ENV')
     const debugMode = getEnv('DEBUG')
@@ -18,7 +18,7 @@ class ConditionalLogger {
   /**
    * Debug level logging - only shows in development
    */
-  debug(...args: unknown[]): void {
+  debug (...args: unknown[]): void {
     if (this.isDevelopment) {
       console.log(...args)
     }
@@ -27,7 +27,7 @@ class ConditionalLogger {
   /**
    * Info level logging - shows in development and staging
    */
-  info(...args: unknown[]): void {
+  info (...args: unknown[]): void {
     if (this.isDevelopment) {
       console.info(...args)
     }
@@ -36,21 +36,21 @@ class ConditionalLogger {
   /**
    * Warning level logging - always shows (important for debugging issues)
    */
-  warn(...args: unknown[]): void {
+  warn (...args: unknown[]): void {
     console.warn(...args)
   }
 
   /**
    * Error level logging - always shows (critical for debugging)
    */
-  error(...args: unknown[]): void {
+  error (...args: unknown[]): void {
     console.error(...args)
   }
 
   /**
    * Check if development logging is enabled
    */
-  isDev(): boolean {
+  isDev (): boolean {
     return this.isDevelopment
   }
 }
