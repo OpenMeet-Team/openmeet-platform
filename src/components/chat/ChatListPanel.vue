@@ -339,6 +339,7 @@ import { usersApi } from '../../api/users'
 import { formatDistanceToNow } from 'date-fns'
 import { Room, RoomMember, ClientEvent, RoomEvent, MatrixEvent } from 'matrix-js-sdk'
 import type { GroupEntity, EventEntity } from '../../types'
+import { logger } from '../../utils/logger'
 
 interface Chat {
   id: string
@@ -379,51 +380,9 @@ const isSearching = ref(false)
 const router = useRouter()
 // Use Matrix client service directly
 
-// Real Matrix rooms state with persistence (caching currently disabled)
-// const ROOMS_CACHE_KEY = 'openmeet_cached_rooms'
-// const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
-
 const realRooms = ref<Chat[]>([])
 const isLoadingRooms = ref(true) // Start with loading true
 const isMatrixInitializing = ref(true)
-
-// Load cached rooms from localStorage (currently unused)
-// const loadCachedRooms = (): Chat[] => {
-//   try {
-//     const cached = localStorage.getItem(ROOMS_CACHE_KEY)
-//     if (!cached) return []
-
-//     const { data, timestamp } = JSON.parse(cached)
-
-//     // Check if cache has expired
-//     if (Date.now() - timestamp > CACHE_EXPIRY_MS) {
-//       localStorage.removeItem(ROOMS_CACHE_KEY)
-//       return []
-//     }
-
-//     // Convert cached data back to proper format
-//     return data.map((room: any) => ({
-//       ...room,
-//       lastActivity: room.lastActivity ? new Date(room.lastActivity) : null
-//     }))
-//   } catch (error) {
-//     console.warn('⚠️ Failed to load cached rooms:', error)
-//     return []
-//   }
-// }
-
-// Save rooms to localStorage (currently unused)
-// const cacheRooms = (rooms: Chat[]) => {
-//   try {
-//     const cacheData = {
-//       data: rooms,
-//       timestamp: Date.now()
-//     }
-//     localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(cacheData))
-//   } catch (error) {
-//     console.warn('⚠️ Failed to cache rooms:', error)
-//   }
-// }
 
 // Load ALL Matrix rooms that user has joined, then identify which are OpenMeet rooms
 const loadRealRooms = async () => {
@@ -432,7 +391,7 @@ const loadRealRooms = async () => {
     // Initialize Matrix client to get actual room information
     const matrixClient = await matrixClientService.initializeClient()
     if (!matrixClient) {
-      console.warn('⚠️ No Matrix client available')
+      logger.warn('No Matrix client available')
       return
     }
 
@@ -440,7 +399,7 @@ const loadRealRooms = async () => {
     const matrixRooms = matrixClient.getRooms() || []
 
     if (matrixRooms.length === 0) {
-      console.log('ℹ️ No Matrix rooms found - user may not be in any rooms yet')
+      // No Matrix rooms found - user may not be in any rooms yet
       return
     }
 
@@ -456,7 +415,7 @@ const loadRealRooms = async () => {
       groups = groupsResponse.data
       events = eventsResponse.data
     } catch (apiError) {
-      console.warn('⚠️ Could not load OpenMeet groups/events, will show Matrix rooms without context:', apiError)
+      logger.warn('Could not load OpenMeet groups/events, will show Matrix rooms without context:', apiError)
     }
 
     // Create lookup maps for OpenMeet context
@@ -548,8 +507,7 @@ const loadRealRooms = async () => {
       return b.lastActivity.getTime() - a.lastActivity.getTime()
     })
   } catch (error) {
-    console.error('❌ Failed to load Matrix rooms:', error)
-    console.error('   Error details:', error.message)
+    logger.error('Failed to load Matrix rooms:', error)
     // No fallback - real data only
   } finally {
     isLoadingRooms.value = false
@@ -631,7 +589,7 @@ const updateChatFromRoom = (room: Room, event?: MatrixEvent) => {
 // Initialize Matrix and load chats on component mount
 onMounted(async () => {
   try {
-    console.log('🚀 ChatListPanel mounted, checking Matrix connection...')
+    // ChatListPanel mounted, checking Matrix connection
 
     // For the main chats page, we want to show available chats proactively
     // Accessing the chats dashboard implies user consent to connect to Matrix
@@ -665,7 +623,7 @@ onMounted(async () => {
 
     await loadRealRooms()
   } catch (error) {
-    console.error('❌ Failed to load chats:', error)
+    logger.error('Failed to load chats:', error)
     isMatrixInitializing.value = false
     isLoadingRooms.value = false
   }
@@ -839,7 +797,7 @@ const joinChat = async (chat: Chat) => {
       } else if (chat.id.startsWith('!') || chat.id.startsWith('#')) {
         // For Matrix room IDs without OpenMeet context, we need the slug
         // Try to find it via the room alias or description
-        console.warn('⚠️ Matrix room without OpenMeet context - may need manual join')
+        logger.warn('Matrix room without OpenMeet context - may need manual join')
         // For now, emit selection anyway as Matrix client should handle it
         emit('select-chat', chat)
         return
@@ -847,7 +805,7 @@ const joinChat = async (chat: Chat) => {
 
       if (groupSlug) {
         // Use Matrix client service to join the group chat room
-        console.log(`🎯 Joining group chat room using Matrix client: ${groupSlug}`)
+        // Joining group chat room using Matrix client
         const result = await matrixClientService.joinGroupChatRoom(groupSlug)
 
         // Force Matrix client to sync to pick up new invitation
@@ -867,7 +825,7 @@ const joinChat = async (chat: Chat) => {
 
       if (eventSlug) {
         // Use Matrix client service to join the event chat room
-        console.log(`🎪 Joining event chat room using Matrix client: ${eventSlug}`)
+        // Joining event chat room using Matrix client
         const result = await matrixClientService.joinEventChatRoom(eventSlug)
 
         // Force Matrix client to sync to pick up new invitation
@@ -880,7 +838,7 @@ const joinChat = async (chat: Chat) => {
       }
     } else if (chat.type === 'direct') {
       // For direct messages, use Matrix client service to create/join DM room
-      console.log('💭 Creating/joining direct message room')
+      // Creating/joining direct message room
 
       // Extract user identifier from chat ID (format: 'matrix-direct-roomId' or 'direct-userSlug')
       let userIdentifier = ''
@@ -921,7 +879,7 @@ const joinChat = async (chat: Chat) => {
     // Select the chat for viewing
     emit('select-chat', chat)
   } catch (error) {
-    console.error('❌ Failed to join chat:', error)
+    logger.error('Failed to join chat:', error)
     // Still try to select it in case Matrix client can handle it directly
     emit('select-chat', chat)
   }
@@ -945,7 +903,7 @@ const markAllRead = async () => {
     const matrixClient = await matrixClientService.initializeClient()
     if (!matrixClient) return
 
-    console.log('📖 Marking all rooms as read...')
+    // Marking all rooms as read
 
     // Mark all rooms as read
     for (const chat of realRooms.value) {
@@ -965,7 +923,7 @@ const markAllRead = async () => {
     // Refresh the room list to update unread counts
     await loadRealRooms()
   } catch (error) {
-    console.error('❌ Failed to mark all rooms as read:', error)
+    logger.error('Failed to mark all rooms as read:', error)
   }
 }
 
@@ -1028,12 +986,12 @@ const searchNewChat = async () => {
           participants: []
         }))
       } catch (error) {
-        console.error('❌ User search failed - endpoint may not be implemented yet:', error)
+        logger.error('User search failed - endpoint may not be implemented yet:', error)
         newChatResults.value = []
       }
     }
   } catch (error) {
-    console.error('❌ Failed to search chats:', error)
+    logger.error('Failed to search chats:', error)
     newChatResults.value = []
   } finally {
     isSearching.value = false
@@ -1048,21 +1006,21 @@ const startNewChat = async (result: Chat) => {
     newChatResults.value = []
 
     // Join the chat using the same logic as joinChat
-    console.log('🆕 Starting new chat:', result.name, `(${result.type})`)
+    // Starting new chat
 
     if (result.type === 'group' || result.type === 'event') {
       // Use the joinChat function we already implemented
       await joinChat(result)
     } else if (result.type === 'direct') {
       // For direct messages, we'll use the Matrix client service
-      console.log('💭 Creating direct message room')
+      // Creating direct message room
       await joinChat(result)
     } else {
       // Fallback: just select the chat
       emit('select-chat', result)
     }
   } catch (error) {
-    console.error('❌ Failed to start new chat:', error)
+    logger.error('Failed to start new chat:', error)
     // Still try to select it
     emit('select-chat', result)
   }
