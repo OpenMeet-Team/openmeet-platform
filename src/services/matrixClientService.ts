@@ -197,15 +197,23 @@ class MatrixClientService {
    * Perform full-page redirect using MAS (Matrix Authentication Service) OIDC flow
    */
   private async _performFullPageRedirectAuth (): Promise<void> {
+    logger.debug('🔐 *** MATRIX CLIENT DEBUG: _performFullPageRedirectAuth() called ***')
     logger.debug('🔐 Starting MAS OIDC authentication flow for Matrix client')
 
     try {
       // Check if user is authenticated with OpenMeet
       const authStore = useAuthStore()
+      logger.debug('🔐 Matrix Client Debug - Auth check in _performFullPageRedirectAuth:', {
+        isAuthenticated: authStore.isAuthenticated,
+        userEmail: authStore.user?.email || 'none',
+        hasToken: !!authStore.token
+      })
       if (!authStore.isAuthenticated) {
+        logger.error('🚨 Matrix Client Error in _performFullPageRedirectAuth: User not authenticated')
         throw new Error('User must be logged into OpenMeet first')
       }
 
+      logger.debug('🔐 Matrix Client Debug: About to call _redirectToMASLogin from _performFullPageRedirectAuth')
       // Use MAS OIDC flow for authentication
       await this._redirectToMASLogin()
 
@@ -489,11 +497,18 @@ class MatrixClientService {
    * Uses dynamic client registration like Element-web for better security
    */
   private async _redirectToMASLogin (): Promise<void> {
+    logger.debug('🔄 *** MATRIX CLIENT DEBUG: _redirectToMASLogin() called ***')
     logger.debug('🔄 Starting native Matrix SDK OIDC authentication flow with MAS')
 
     // Verify user is authenticated with OpenMeet
     const authStore = useAuthStore()
+    logger.debug('🔄 Matrix Client Debug - Auth Store State:', {
+      isAuthenticated: authStore.isAuthenticated,
+      hasUser: !!authStore.user,
+      hasToken: !!authStore.token
+    })
     if (!authStore.isAuthenticated) {
+      logger.error('🚨 Matrix Client Error: User not authenticated with OpenMeet')
       throw new Error('User must be logged into OpenMeet first')
     }
 
@@ -556,26 +571,39 @@ class MatrixClientService {
       const enhancedUrl = new URL(authorizationUrl)
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
       const userEmail = authStore.user?.email
+      const userToken = authStore.token // Get user's JWT token for secure authentication
 
-      if (tenantId && userEmail) {
+      logger.debug('🔍 Matrix OIDC Authentication Context Debug:', {
+        tenantId: tenantId ? `${tenantId.substring(0, 8)}...` : null,
+        userEmail: userEmail ? `${userEmail.substring(0, 3)}***` : null,
+        userToken: userToken ? `${userToken.substring(0, 20)}...` : null,
+        isAuthenticated: authStore.isAuthenticated
+      })
+
+      if (tenantId && userEmail && userToken) {
         // Add tenant ID to help backend identify the correct tenant context
         enhancedUrl.searchParams.set('tenantId', tenantId)
 
         // Add login hint with user email for seamless authentication
         enhancedUrl.searchParams.set('login_hint', userEmail)
 
-        logger.debug('✅ Enhanced OIDC URL with tenant context:', {
+        // Add user token for secure authentication (Method 2 in OIDC controller)
+        enhancedUrl.searchParams.set('user_token', userToken)
+
+        logger.debug('✅ Enhanced OIDC URL with full authentication context:', {
           baseUrl: authorizationUrl,
           tenantId,
-          loginHint: userEmail
+          loginHint: userEmail,
+          hasUserToken: !!userToken
         })
 
         // Perform full-page redirect to enhanced OIDC authorization URL (mobile-friendly)
         window.location.href = enhancedUrl.toString()
       } else {
-        logger.warn('⚠️ Missing tenant context - user may see email form:', {
+        logger.warn('⚠️ Missing authentication context - user will see email form:', {
           tenantId: !!tenantId,
-          userEmail: !!userEmail
+          userEmail: !!userEmail,
+          userToken: !!userToken
         })
 
         logger.debug('🔗 Redirecting to native OIDC authorization URL')

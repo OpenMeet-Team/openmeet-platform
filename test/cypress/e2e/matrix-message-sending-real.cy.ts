@@ -70,7 +70,7 @@ describe('Matrix Message Sending - Real Integration Test', () => {
     })
 
     // Handle redirect to OpenMeet API OIDC login page
-    cy.origin('https://localdev.openmeet.net', () => {
+    cy.origin(Cypress.env('APP_TESTING_API_URL'), () => {
       // Handle the email login form on the API server
       cy.log('📧 Filling in email login form on API server...')
       cy.get('input[type="email"], input[name="email"], #email', { timeout: 10000 })
@@ -453,7 +453,7 @@ describe('Matrix Message Sending - Real Integration Test', () => {
         })
 
         // Handle redirect to OpenMeet API OIDC login page
-        cy.origin('https://localdev.openmeet.net', () => {
+        cy.origin(Cypress.env('APP_TESTING_API_URL'), () => {
           // Handle the email login form on the API server
           cy.get('input[type="email"], input[name="email"], #email', { timeout: 10000 })
             .should('be.visible')

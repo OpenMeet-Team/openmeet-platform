@@ -36,8 +36,9 @@ export default defineConfig({
       APP_TESTING_BLUESKY_EMAIL: process.env.APP_TESTING_BLUESKY_EMAIL,
       APP_TESTING_BLUESKY_PASSWORD: process.env.APP_TESTING_BLUESKY_PASSWORD,
       APP_TESTING_BLUESKY_HANDLE: process.env.APP_TESTING_BLUESKY_HANDLE,
-      APP_TESTING_API_URL: process.env.APP_TESTING_API_URL,
-      APP_TESTING_TENANT_ID: process.env.APP_TESTING_TENANT_ID || 'testing'
+      APP_TESTING_API_URL: process.env.APP_TESTING_API_URL || 'http://localhost:3000',
+      APP_TESTING_TENANT_ID: process.env.APP_TESTING_TENANT_ID || 'testing',
+      MAS_SERVICE_URL: process.env.MAS_SERVICE_URL || 'http://localhost:8081'
     },
     baseUrl: 'http://localhost:8087/',
     supportFile: 'test/cypress/support/e2e.ts',
