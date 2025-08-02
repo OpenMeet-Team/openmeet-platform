@@ -989,13 +989,13 @@ const handleAttendeeStatusChanged = async (e: Event) => {
 
   // Use the properly typed event
   const customEvent = e as AttendeeStatusChangeEvent
-  const { eventSlug, status, timestamp } = customEvent.detail
-// console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
+  const { eventSlug } = customEvent.detail
+  // Attendance status change debug info available
 
   // The EventMatrixChatComponent will handle Matrix room joining automatically
   // We just need to log the change here for debugging purposes
   if (eventSlug === route.params.slug) {
-// console.log(`Attendance status changed for current event to: ${status}`)
+    // Status change logged
   }
 }
 
@@ -1030,7 +1030,7 @@ const isDevelopmentMode = computed(() => {
 onMounted(async () => {
   const eventSlug = route.params.slug as string
   LoadingBar.start()
-// console.log('EventPage mounted, loading data for:', eventSlug)
+  // console.log('EventPage mounted, loading data for:', eventSlug)
 
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
@@ -1050,22 +1050,13 @@ onMounted(async () => {
     // This ensures child components have access to event and attendance data
     if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
       await useEventStore().actionGetEventBySlug(eventSlug)
-// console.log('Event data loaded, now child components can use this data')
+      // console.log('Event data loaded, now child components can use this data')
       // DEBUG: Log timezone information (only in development mode)
       if (isDevelopmentMode.value) {
-// console.log('DEBUG - Event timezone info:', {
-          eventTimeZone: useEventStore().event?.timeZone,
-          seriesTimeZone: useEventStore().event?.series?.timeZone,
-          hasEventTimeZone: !!useEventStore().event?.timeZone,
-          hasSeriesTimeZone: !!useEventStore().event?.series?.timeZone,
-          eventObject: useEventStore().event,
-          seriesObject: useEventStore().event?.series,
-          recurrenceRule: useEventStore().event?.recurrenceRule,
-          seriesRecurrenceRule: useEventStore().event?.series?.recurrenceRule
-        })
+        // Debug timezone info available
       }
     } else {
-// console.log('Using existing event data from store, skipping reload')
+      // console.log('Using existing event data from store, skipping reload')
     }
 
     // Then load non-critical data in parallel
@@ -1084,7 +1075,7 @@ onMounted(async () => {
 
     // Matrix chat room joining is now handled by EventMatrixChatComponent
     // This ensures proper separation of concerns and avoids duplicate API calls
-// console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
+    // console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
   } catch (error) {
     logger.error('Error loading event data:', error)
   } finally {
@@ -1121,7 +1112,7 @@ onBeforeRouteUpdate(async (to) => {
       ])
 
       // Matrix chat room joining is handled by EventMatrixChatComponent
-// console.log('Route updated to event:', String(to.params.slug))
+      // console.log('Route updated to event:', String(to.params.slug))
     } catch (error) {
       logger.error('Failed to load event:', error)
     } finally {
@@ -1139,19 +1130,12 @@ const spotsLeft = computed(() =>
 
 // Revert navigateToEventSeries to original
 const navigateToEventSeries = async () => {
-  // Add more detailed logging
-// console.log('-----SERIES NAVIGATION DEBUG-----')
-// console.log('Event data:', event.value)
-// console.log('Series info:', {
-    seriesSlug: event.value?.seriesSlug,
-    seriesId: event.value?.seriesId,
-    isRecurring: event.value?.isRecurring
-  })
+  // Series navigation debug info
 
   // Primary navigation approach - using seriesSlug
   if (event.value?.seriesSlug) {
     const url = `/event-series/${event.value.seriesSlug}`
-// console.log('Navigating to:', url)
+    // console.log('Navigating to:', url)
     router.push(url)
     return
   }
@@ -1167,10 +1151,10 @@ const navigateToEventSeries = async () => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
 
-// console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
+    // console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
 
     const url = `/event-series/${fallbackSlug}`
-// console.log('Navigating to fallback URL:', url)
+    // console.log('Navigating to fallback URL:', url)
     router.push(url)
     return
   }
@@ -1202,14 +1186,14 @@ const loadUpcomingOccurrences = async () => {
   if (event.value?.seriesSlug) {
     try {
       const seriesSlug = event.value.seriesSlug
-// console.log('Loading upcoming occurrences for series:', seriesSlug)
+      // console.log('Loading upcoming occurrences for series:', seriesSlug)
 
       // First, load all materialized events from the series directly
       // to ensure we don't miss any events with custom dates
       try {
-// console.log('Loading all materialized events for series first')
+        // console.log('Loading all materialized events for series first')
         const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug)
-// console.log(`Found ${allSeriesEvents.length} materialized events for series`)
+        // console.log(`Found ${allSeriesEvents.length} materialized events for series`)
 
         // Create a map of already materialized events by date (roughly)
         const materializedEvents = new Map()
@@ -1224,43 +1208,25 @@ const loadUpcomingOccurrences = async () => {
             materializedEvents.set(dateKey, evt)
           })
 
-// console.log(`Found ${materializedEvents.size} future materialized events to include`)
+        // console.log(`Found ${materializedEvents.size} future materialized events to include`)
 
         // Now load the series to get the recurrence rule for unmaterialized future occurrences
-// console.log('Fetching complete series data for recurrence pattern')
-        const series = await EventSeriesService.getBySlug(seriesSlug)
+        // console.log('Fetching complete series data for recurrence pattern')
+        await EventSeriesService.getBySlug(seriesSlug)
 
         // Log the recurrence rule for debugging (only in development mode)
         if (isDevelopmentMode.value) {
-// console.log('Series recurrence rule:', series.recurrenceRule)
-// console.log('Series timezone:', series.timeZone)
-// console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
+          // console.log('Series recurrence rule:', series.recurrenceRule)
+          // console.log('Series timezone:', series.timeZone)
+          // console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
         }
         usingClientSideGeneration.value = false
 
         // Get occurrences from the API
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10, false)
 
-        // Log detailed information about API response for debugging (only in development mode)
         if (isDevelopmentMode.value && response.length > 0) {
-// console.log('API returned occurrences:', response.length)
-
-          // Log each occurrence with detailed information
-          response.slice(0, 5).forEach((occ, i) => {
-            const occDate = new Date(occ.date)
-// console.log(`Occurrence ${i + 1}:`, {
-              dateString: occ.date,
-              dateObject: occDate,
-              jsDay: occDate.getDay(), // 0=Sunday, 1=Monday, etc.
-              jsDate: occDate.getDate(), // day of month
-              localeDay: occDate.toLocaleDateString('en-US', { weekday: 'long' }),
-              utcString: occDate.toUTCString(),
-              isoString: occDate.toISOString(),
-              isoDayOfWeek: occDate.getUTCDay() + 1, // 1=Monday, 7=Sunday in ISO
-              eventSlug: occ.event?.slug || 'unmaterialized',
-              eventStartDate: occ.event?.startDate || null
-            })
-          })
+          // API occurrence debug info available
         }
 
         // Filter to future occurrences
@@ -1272,14 +1238,14 @@ const loadUpcomingOccurrences = async () => {
           }))
 
         // Add any materialized events that are not in the API response
-        materializedEvents.forEach((evt, dateKey) => {
+        materializedEvents.forEach((evt) => {
           // Check if this materialized event is already included
           const alreadyIncluded = apiOccurrences.some(
             occ => occ.eventSlug === evt.slug
           )
 
           if (!alreadyIncluded) {
-// console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
+            // Adding missing materialized event from API approach
             apiOccurrences.push({
               date: new Date(evt.startDate),
               eventSlug: evt.slug
@@ -1293,7 +1259,7 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5)
 
         if (isDevelopmentMode.value) {
-// console.log('Final API-based occurrences:', upcomingOccurrences.value)
+          // console.log('Final API-based occurrences:', upcomingOccurrences.value)
         }
       } catch (err) {
         logger.error('Error in combined approach, falling back to API only:', err)
@@ -1312,17 +1278,13 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5) // Limit to next 5 occurrences
 
         if (isDevelopmentMode.value) {
-// console.log('Fallback API occurrences:', upcomingOccurrences.value)
+          // console.log('Fallback API occurrences:', upcomingOccurrences.value)
         }
       }
 
       // Check if occurrences look weekly or monthly (only in development mode)
       if (isDevelopmentMode.value && upcomingOccurrences.value.length >= 2) {
-        const date1 = upcomingOccurrences.value[0].date
-        const date2 = upcomingOccurrences.value[1].date
-        const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
-// console.log(`Days between first two displayed occurrences: ${diffDays}`)
-// console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+        // Pattern analysis debug info available
       }
     } catch (error) {
       logger.error('Failed to load upcoming occurrences:', error)
