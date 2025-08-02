@@ -191,6 +191,7 @@ import { matrixClientService } from '../../services/matrixClientService'
 import ChatListPanel from './ChatListPanel.vue'
 import ChatInfoPanel from './ChatInfoPanel.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
+import { logger } from '../../utils/logger'
 
 interface Chat {
   id: string
@@ -242,26 +243,26 @@ onMounted(async () => {
     // This differs from inline/event contexts where we wait for user opt-in
     if (props.mode === 'dashboard') {
       // Accessing the chats dashboard implies user consent to connect to Matrix
-      console.log('💡 Setting user consent for Matrix connection (dashboard mode)')
+      // Setting user consent for Matrix connection (dashboard mode)
       matrixClientService.setUserChosenToConnect(true)
       await matrixClientService.initializeClient(true)
     } else {
       // Only initialize if user has already chosen to connect to Matrix (for inline/event contexts)
       if (!matrixClientService.hasUserChosenToConnect()) {
-        console.log('💭 User has not chosen to connect to Matrix - skipping initialization')
+        // User has not chosen to connect to Matrix - skipping initialization
         return
       }
       await matrixClientService.initializeClient()
     }
   } catch (error) {
-    console.error('Failed to initialize Matrix:', error)
+    logger.error('Failed to initialize Matrix:', error)
   }
 })
 
 // Methods
 const selectChat = (chat: Chat) => {
   activeChat.value = chat
-  console.log(`🔗 Selected chat: ${chat.name} (${chat.matrixRoomId})`)
+  // Selected chat
 
   // Update URL if in dashboard mode
   if (props.mode === 'dashboard') {
@@ -344,7 +345,7 @@ const checkAutoSelectFromQuery = (chat: Chat) => {
 
   // Check if this chat matches the query parameter
   if (chat.id === queryChat || chat.matrixRoomId === queryChat) {
-    console.log(`🎯 Auto-selecting chat from URL: ${chat.name} (${chat.id})`)
+    // Auto-selecting chat from URL
     selectChat(chat)
     return true
   }
@@ -359,24 +360,24 @@ const targetChatId = ref<string | null>(null)
 const attemptAutoSelection = async () => {
   if (!targetChatId.value || activeChat.value) return false
 
-  console.log('🎯 Attempting auto-selection for:', targetChatId.value)
+  // Attempting auto-selection
 
   // The target chat ID should now be the room identifier directly
   const roomIdentifier = targetChatId.value
 
-  console.log('🔍 Looking for room identifier:', roomIdentifier)
+  // Looking for room identifier
 
   // Strategy 1: Direct chat ID match
   let targetElement = document.querySelector(`[data-chat-id="${targetChatId.value}"]`)
   if (targetElement) {
-    console.log('✅ Found by exact chat ID match')
+    // Found by exact chat ID match
   }
 
   // Strategy 2: Matrix room ID match (works for both aliases and room IDs)
   if (!targetElement) {
     targetElement = document.querySelector(`[data-matrix-room-id="${roomIdentifier}"]`)
     if (targetElement) {
-      console.log('✅ Found by matrix room ID match')
+      // Found by matrix room ID match
     }
   }
 
@@ -392,17 +393,17 @@ const attemptAutoSelection = async () => {
         const room = client.getRoom(roomIdentifier)
         if (room?.roomId) {
           resolvedRoomId = room.roomId
-          console.log(`🔄 Local resolved room alias ${roomIdentifier} to room ID ${resolvedRoomId}`)
+          // Local resolved room alias to room ID
         } else {
           // Try Matrix API resolution
           try {
             const roomDirectory = await client.getRoomIdForAlias(roomIdentifier)
             if (roomDirectory?.room_id) {
               resolvedRoomId = roomDirectory.room_id
-              console.log(`🔄 API resolved room alias ${roomIdentifier} to room ID ${resolvedRoomId}`)
+              // API resolved room alias to room ID
             }
           } catch (apiError) {
-            console.log('Matrix API resolution failed:', apiError)
+            // Matrix API resolution failed
           }
         }
 
@@ -411,12 +412,12 @@ const attemptAutoSelection = async () => {
           targetElement = document.querySelector(`[data-matrix-room-id="${resolvedRoomId}"]`) ||
                           document.querySelector(`[data-chat-id="${resolvedRoomId}"]`)
           if (targetElement) {
-            console.log('✅ Found by resolved room ID')
+            // Found by resolved room ID
           }
         }
       }
     } catch (error) {
-      console.log('❌ Could not resolve room alias via Matrix client:', error)
+      logger.warn('Could not resolve room alias via Matrix client:', error)
     }
   }
 
@@ -433,7 +434,7 @@ const attemptAutoSelection = async () => {
           if (canonicalAlias) {
             targetElement = document.querySelector(`[data-matrix-room-id="${canonicalAlias}"]`)
             if (targetElement) {
-              console.log(`✅ Found by canonical alias ${canonicalAlias}`)
+              // Found by canonical alias
             }
           }
 
@@ -443,7 +444,7 @@ const attemptAutoSelection = async () => {
             for (const alias of altAliases) {
               targetElement = document.querySelector(`[data-matrix-room-id="${alias}"]`)
               if (targetElement) {
-                console.log(`✅ Found by alternative alias ${alias}`)
+                // Found by alternative alias
                 break
               }
             }
@@ -451,13 +452,13 @@ const attemptAutoSelection = async () => {
         }
       }
     } catch (error) {
-      console.log('❌ Could not perform reverse alias lookup:', error)
+      logger.warn('Could not perform reverse alias lookup:', error)
     }
   }
 
   // Strategy 5: Flexible matching (last resort)
   if (!targetElement) {
-    console.log('🔍 Attempting flexible matching...')
+    // Attempting flexible matching
     const cleanSlug = targetChatId.value.replace(/^(event-|group-)/, '')
     const allChatElements = document.querySelectorAll('[data-chat-id], [data-matrix-room-id]')
 
@@ -473,7 +474,7 @@ const attemptAutoSelection = async () => {
         matrixRoomId.includes(cleanSlug) ||
         (matrixRoomId.includes('#') && matrixRoomId.includes(cleanSlug))
       ) {
-        console.log(`✅ Found by flexible matching: chatId=${chatId}, roomId=${matrixRoomId}`)
+        // Found by flexible matching
         targetElement = element as HTMLElement
         break
       }
@@ -481,13 +482,13 @@ const attemptAutoSelection = async () => {
   }
 
   if (targetElement) {
-    console.log('🎉 Auto-selecting chat element')
+    // Auto-selecting chat element
     ;(targetElement as HTMLElement).click()
     targetChatId.value = null // Clear after successful selection
     return true
   }
 
-  console.log('❌ Chat element not found in DOM yet, will retry...')
+  // Chat element not found in DOM yet, will retry
   return false
 }
 
@@ -495,7 +496,7 @@ const attemptAutoSelection = async () => {
 watch(() => route.query.chat, (newChatId) => {
   if (newChatId && props.mode === 'dashboard') {
     targetChatId.value = newChatId as string
-    console.log('Setting target chat ID:', newChatId)
+    // Setting target chat ID
 
     // Try immediate selection
     nextTick(async () => {
@@ -510,7 +511,7 @@ watch(() => route.query.chat, (newChatId) => {
 onMounted(async () => {
   const chatId = route.query.chat as string
   if (chatId && props.mode === 'dashboard') {
-    console.log('Initial chat ID from URL:', chatId)
+    // Initial chat ID from URL
     targetChatId.value = chatId
 
     // Retry auto-selection periodically until successful or timeout
@@ -524,7 +525,7 @@ onMounted(async () => {
       if (success || attempts >= maxAttempts) {
         clearInterval(retryInterval)
         if (attempts >= maxAttempts) {
-          console.log('Auto-selection timeout - chat may not be loaded yet')
+          // Auto-selection timeout - chat may not be loaded yet
         }
       }
     }, 500)
