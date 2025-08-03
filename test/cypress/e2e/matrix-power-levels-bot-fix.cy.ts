@@ -5,7 +5,11 @@ describe('Matrix Power Levels Bot Fix', () => {
   let testEventSlug: string
 
   // Environment configuration
-  const MAS_URL = Cypress.env('MAS_SERVICE_URL') || 'http://localhost:8081'
+  const MAS_URL = Cypress.env('MAS_SERVICE_URL')
+
+  if (!MAS_URL) {
+    throw new Error('MAS_SERVICE_URL environment variable is required')
+  }
 
   before(() => {
     cy.clearCookies()

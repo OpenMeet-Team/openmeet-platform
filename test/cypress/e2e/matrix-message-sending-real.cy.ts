@@ -60,7 +60,11 @@ describe('Matrix Message Sending - Real Integration Test', () => {
     cy.log('🔐 Handling Matrix Authentication Service OAuth flow...')
 
     // Wait for MAS authentication page to load
-    cy.origin('http://localhost:8081', () => {
+    const masUrl = Cypress.env('MAS_SERVICE_URL')
+    if (!masUrl) {
+      throw new Error('MAS_SERVICE_URL environment variable is required')
+    }
+    cy.origin(masUrl, () => {
       // Look for the "Continue with OpenMeet Local" button
       cy.contains('Continue with OpenMeet Local', { timeout: 15000 })
         .should('be.visible')
@@ -446,7 +450,11 @@ describe('Matrix Message Sending - Real Integration Test', () => {
           .click()
 
         // Handle MAS OAuth flow
-        cy.origin('http://localhost:8081', () => {
+        const masUrl = Cypress.env('MAS_SERVICE_URL')
+        if (!masUrl) {
+          throw new Error('MAS_SERVICE_URL environment variable is required')
+        }
+        cy.origin(masUrl, () => {
           cy.contains('Continue with OpenMeet Local', { timeout: 15000 })
             .should('be.visible')
             .click()
@@ -516,7 +524,11 @@ describe('Matrix Message Sending - Real Integration Test', () => {
         })
 
         // Wait for return to main application
-        cy.url({ timeout: 30000 }).should('include', 'localhost:8087')
+        const platformUrl = Cypress.config('baseUrl')
+        if (!platformUrl) {
+          throw new Error('Cypress baseUrl is required')
+        }
+        cy.url({ timeout: 30000 }).should('include', new URL(platformUrl).host)
       } else {
         cy.log('✅ Matrix already connected, proceeding to typing test')
       }
@@ -560,8 +572,8 @@ describe('Matrix Message Sending - Real Integration Test', () => {
     // Check Matrix configuration
     cy.window().then(() => {
       const matrixConfig = {
-        homeserver: Cypress.env('MATRIX_HOMESERVER_URL') || 'http://localhost:8448',
-        masUrl: Cypress.env('MAS_SERVICE_URL') || 'http://localhost:8081',
+        homeserver: Cypress.env('MATRIX_HOMESERVER_URL'),
+        masUrl: Cypress.env('MAS_SERVICE_URL'),
         clientId: Cypress.env('MAS_CLIENT_ID') || 'unknown'
       }
 

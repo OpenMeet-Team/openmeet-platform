@@ -1775,8 +1775,8 @@ const loadMessages = async () => {
     // Get room directly without waiting for PREPARED state
     const room = currentRoom.value
     if (!room) {
-      console.warn('⚠️ Room not available:', props.roomId)
-      const availableRooms = client.getRooms()
+      // console.warn('⚠️ Room not available:', props.roomId)
+      // client.getRooms()
       // Available rooms checked
       // Expected room not found, attempting to join
 

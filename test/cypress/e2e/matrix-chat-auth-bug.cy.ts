@@ -111,7 +111,11 @@ describe('Matrix Chat Authentication Bug Reproduction', () => {
         cy.log('🔄 Clicked Retry button to start Matrix authentication')
 
         // Wait for redirect to MAS consent screen
-        cy.url({ timeout: 10000 }).should('include', 'localhost:8081')
+        const masUrl = Cypress.env('MAS_SERVICE_URL')
+        if (!masUrl) {
+          throw new Error('MAS_SERVICE_URL environment variable is required')
+        }
+        cy.url({ timeout: 10000 }).should('include', new URL(masUrl).host)
         cy.log('✅ Successfully redirected to MAS consent screen')
 
         // Handle MAS consent screen
@@ -145,7 +149,11 @@ describe('Matrix Chat Authentication Bug Reproduction', () => {
       } else {
         // Check if we might have been redirected immediately to MAS but text check failed
         cy.url().then((url) => {
-          if (url.includes('localhost:8081')) {
+          const masUrl = Cypress.env('MAS_SERVICE_URL')
+          if (!masUrl) {
+            throw new Error('MAS_SERVICE_URL environment variable is required')
+          }
+          if (url.includes(new URL(masUrl).host)) {
             cy.log('✅ On MAS domain - looking for consent screen elements')
             cy.contains('Allow access to your account?', { timeout: 15000 }).should('be.visible')
             cy.screenshot('02-mas-consent-detected-by-url')

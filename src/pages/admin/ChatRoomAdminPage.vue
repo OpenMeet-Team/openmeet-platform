@@ -188,6 +188,7 @@ import { UserRole } from '../../types'
 import { matrixClientService } from '../../services/matrixClientService'
 import { generateEventRoomAlias, generateGroupRoomAlias } from '../../utils/matrixUtils'
 import getEnv from '../../utils/env'
+import { logger } from '../../utils/logger'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -230,7 +231,7 @@ async function deleteEventRoom () {
 
     // Ensure Matrix client is connected
     if (!matrixClientService.isReady()) {
-      console.log('🔌 Matrix client not ready, attempting to initialize...')
+      // console.log('🔌 Matrix client not ready, attempting to initialize...')
       await matrixClientService.initializeClient()
     }
 
@@ -243,7 +244,7 @@ async function deleteEventRoom () {
 
     // Check if input is a Matrix room ID (starts with !)
     if (eventSlug.value.startsWith('!')) {
-      console.log('🗑️ Attempting to delete room by ID:', eventSlug.value)
+      // console.log('🗑️ Attempting to delete room by ID:', eventSlug.value)
       room = client.getRoom(eventSlug.value)
     } else {
       // Generate room alias for event slug
@@ -253,7 +254,7 @@ async function deleteEventRoom () {
       }
 
       const roomAlias = generateEventRoomAlias(eventSlug.value, tenantId)
-      console.log('🗑️ Attempting to delete room with alias:', roomAlias)
+      // console.log('🗑️ Attempting to delete room with alias:', roomAlias)
 
       // Find room by alias
       const rooms = client.getRooms()
@@ -263,7 +264,7 @@ async function deleteEventRoom () {
     if (room) {
       // Leave the room (admin action)
       await client.leave(room.roomId)
-      console.log('✅ Successfully left room:', room.roomId)
+      // console.log('✅ Successfully left room:', room.roomId)
 
       resultSuccess.value = true
       resultMessage.value = `Successfully left Matrix room: ${room.roomId}`
@@ -274,7 +275,7 @@ async function deleteEventRoom () {
 
     resultDialog.value = true
   } catch (error) {
-    console.error('Error deleting event chat room:', error)
+    logger.error('Error deleting event chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to delete chat room'}`
     resultDialog.value = true
@@ -296,13 +297,13 @@ async function createEventRoom () {
     // The Application Service will create the room on-demand if it doesn't exist
     const result = await matrixClientService.joinEventChatRoom(eventSlug.value)
 
-    console.log('✅ Event chat room created/joined successfully:', result.roomInfo)
+    // console.log('✅ Event chat room created/joined successfully:', result.roomInfo)
 
     resultSuccess.value = true
     resultMessage.value = `Successfully created/joined Matrix room for event: ${eventSlug.value} (Room ID: ${result.room.roomId})`
     resultDialog.value = true
   } catch (error) {
-    console.error('Error creating event chat room:', error)
+    logger.error('Error creating event chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to create chat room'}`
     resultDialog.value = true
@@ -321,7 +322,7 @@ async function resetEventRoom () {
     resultMessage.value = 'Chat room was successfully reset'
     resultDialog.value = true
   } catch (error) {
-    console.error('Error resetting event chat room:', error)
+    logger.error('Error resetting event chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to reset chat room'}`
     resultDialog.value = true
@@ -340,7 +341,7 @@ async function deleteGroupRoom () {
 
     // Ensure Matrix client is connected
     if (!matrixClientService.isReady()) {
-      console.log('🔌 Matrix client not ready, attempting to initialize...')
+      // console.log('🔌 Matrix client not ready, attempting to initialize...')
       await matrixClientService.initializeClient()
     }
 
@@ -353,7 +354,7 @@ async function deleteGroupRoom () {
 
     // Check if input is a Matrix room ID (starts with !)
     if (groupSlug.value.startsWith('!')) {
-      console.log('🗑️ Attempting to delete group room by ID:', groupSlug.value)
+      // console.log('🗑️ Attempting to delete group room by ID:', groupSlug.value)
       room = client.getRoom(groupSlug.value)
     } else {
       // Generate room alias for group slug
@@ -363,7 +364,7 @@ async function deleteGroupRoom () {
       }
 
       const roomAlias = generateGroupRoomAlias(groupSlug.value, tenantId)
-      console.log('🗑️ Attempting to delete group room with alias:', roomAlias)
+      // console.log('🗑️ Attempting to delete group room with alias:', roomAlias)
 
       // Find room by alias
       const rooms = client.getRooms()
@@ -373,7 +374,7 @@ async function deleteGroupRoom () {
     if (room) {
       // Leave the room (admin action)
       await client.leave(room.roomId)
-      console.log('✅ Successfully left group room:', room.roomId)
+      // console.log('✅ Successfully left group room:', room.roomId)
 
       resultSuccess.value = true
       resultMessage.value = `Successfully left Matrix room: ${room.roomId}`
@@ -384,7 +385,7 @@ async function deleteGroupRoom () {
 
     resultDialog.value = true
   } catch (error) {
-    console.error('Error deleting group chat room:', error)
+    logger.error('Error deleting group chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to delete chat room'}`
     resultDialog.value = true
@@ -406,13 +407,13 @@ async function createGroupRoom () {
     // The Application Service will create the room on-demand if it doesn't exist
     const result = await matrixClientService.joinGroupChatRoom(groupSlug.value)
 
-    console.log('✅ Group chat room created/joined successfully:', result.roomInfo)
+    // console.log('✅ Group chat room created/joined successfully:', result.roomInfo)
 
     resultSuccess.value = true
     resultMessage.value = `Successfully created/joined Matrix room for group: ${groupSlug.value} (Room ID: ${result.room.roomId})`
     resultDialog.value = true
   } catch (error) {
-    console.error('Error creating group chat room:', error)
+    logger.error('Error creating group chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to create chat room'}`
     resultDialog.value = true
@@ -431,7 +432,7 @@ async function resetGroupRoom () {
     resultMessage.value = 'Chat room was successfully reset'
     resultDialog.value = true
   } catch (error) {
-    console.error('Error resetting group chat room:', error)
+    logger.error('Error resetting group chat room:', error)
     resultSuccess.value = false
     resultMessage.value = `Error: ${error instanceof Error ? error.message : 'Failed to reset chat room'}`
     resultDialog.value = true

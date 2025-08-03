@@ -27,7 +27,20 @@ function getTenantId () {
   }
 }
 
+// Helper function to get frontend domain from config
+function getFrontendDomain () {
+  try {
+    const configPath = join(process.cwd(), 'public/config.json')
+    const config = JSON.parse(readFileSync(configPath, 'utf8'))
+    return config.frontendDomain
+  } catch (error) {
+    return null
+  }
+}
+
 export default configure((ctx) => {
+  const frontendDomain = getFrontendDomain()
+
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -80,8 +93,8 @@ export default configure((ctx) => {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
           "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
           "font-src 'self' https://fonts.gstatic.com",
-          "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com http://localhost:8448 https://localhost:8448 http://localhost:3000 https://localhost:3000 https://matrix-dev.openmeet.net https://matrix.openmeet.net https://api-dev.openmeet.net https://api.openmeet.net https://localdev.openmeet.net",
-          "connect-src 'self' blob: http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0:* https://0.0.0.0:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net wss://api-dev.openmeet.net wss://api.openmeet.net https://*.amazonaws.com https://*.openstreetmap.org https://*.posthog.com https://api.hsforms.com https://localdev.openmeet.net wss://localdev.openmeet.net https://matrix-dev.openmeet.net wss://matrix-dev.openmeet.net *",
+          "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com http://localhost:8448 https://localhost:8448 http://localhost:3000 https://localhost:3000 https://matrix-dev.openmeet.net https://matrix.openmeet.net https://api-dev.openmeet.net https://api.openmeet.net https://om-api.ngrok.app https://om-mas.ngrok.app https://om-matrix.ngrok.app",
+          "connect-src 'self' blob: http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0:* https://0.0.0.0:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net wss://api-dev.openmeet.net wss://api.openmeet.net https://*.amazonaws.com https://*.openstreetmap.org https://*.posthog.com https://api.hsforms.com https://om-api.ngrok.app wss://om-api.ngrok.app https://om-mas.ngrok.app wss://om-mas.ngrok.app https://om-matrix.ngrok.app wss://om-matrix.ngrok.app https://matrix-dev.openmeet.net wss://matrix-dev.openmeet.net *",
           "object-src 'none'",
           "base-uri 'self'"
         ].join('; '))
@@ -103,7 +116,12 @@ export default configure((ctx) => {
       // polyfillModulePreload: true,
       // distDir
 
-      // extendViteConf (viteConf) {},
+      extendViteConf (viteConf) {
+        // Configure Vite dev server to open custom URL
+        if (viteConf.server) {
+          viteConf.server.open = frontendDomain || true
+        }
+      },
       // viteVuePluginOptions: {},
 
       vitePlugins: [
@@ -141,9 +159,9 @@ export default configure((ctx) => {
     devServer: {
       // https: Boolean(process.env.DEV_SERVER_HTTPS),
       port: Number(process.env.APP_DEV_SERVER_PORT) || 8080,
-      open: Boolean(process.env.APP_DEV_SERVER_OPEN), // opens browser window automatically
+      open: true, // opens browser window automatically
       host: '0.0.0.0', // Allow external connections
-      allowedHosts: ['localhost', '127.0.0.1', '00d23135e123.ngrok.app'], // Allow ngrok
+      allowedHosts: ['localhost', '127.0.0.1', 'om-platform.ngrok.app'], // Allow ngrok
       proxy: {
         '/sitemap.xml': {
           target: process.env.APP_API_URL || 'http://localhost:3000',

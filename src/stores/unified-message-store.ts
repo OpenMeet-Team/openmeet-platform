@@ -309,8 +309,8 @@ export const useMessageStore = defineStore('messages', {
       }
 
       // Debug the message we're processing
-      const isTemporaryId = eventId?.startsWith('~') || false
-      const isPermanentId = eventId?.startsWith('$') || false
+      // const isTemporaryId = eventId?.startsWith('~') || false
+      // const isPermanentId = eventId?.startsWith('$') || false
       // Processing message in unified-message-store
 
       // Define tracking key early for use throughout the function
@@ -335,7 +335,7 @@ export const useMessageStore = defineStore('messages', {
 
       // Special handling for Matrix's temporary/permanent ID system
       // If this is a permanent ID (starts with $), look for matching temporary IDs
-      if (isPermanentId && this.messages[roomId]) {
+      if (eventId?.startsWith('$') && this.messages[roomId]) {
         // Find any existing messages with temporary IDs from same sender and same content
         for (let i = 0; i < this.messages[roomId].length; i++) {
           const m = this.messages[roomId][i]
@@ -541,7 +541,7 @@ export const useMessageStore = defineStore('messages', {
         if (this.activeRoomId.startsWith('constructed:')) {
           // This is a fallback room ID that we constructed because the API didn't provide one
           // Extract the event_id and use that to help identify the room on the backend
-          const eventId = this.activeRoomId.replace('constructed:', '')
+          // const eventId = this.activeRoomId.replace('constructed:', '')
           // Using constructed room ID with event ID
 
           // For now, we just log this scenario, but in the future, we could
@@ -623,6 +623,7 @@ export const useMessageStore = defineStore('messages', {
         }
 
         // User authorized to send message
+        logger.info('Sending message', {
           matrixUserId: authStore.user.matrixUserId,
           room: this.activeRoomId
         })
