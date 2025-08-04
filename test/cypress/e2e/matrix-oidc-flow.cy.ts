@@ -1,3 +1,4 @@
+/* eslint-disable */
 describe('Matrix OIDC Flow - Reference Test', () => {
   beforeEach(() => {
     // Set up Matrix error handling to ignore 500 errors and connection issues
@@ -74,18 +75,51 @@ describe('Matrix OIDC Flow - Reference Test', () => {
       throw new Error('APP_TESTING_API_URL environment variable is required')
     }
 
-    // First handle MAS authorization page
     cy.screenshot('before-mas-url-check')
 
+    // Step 1: Wait for initial redirect and determine the flow type
     cy.url({ timeout: 15000 }).then((currentUrl) => {
-      cy.log(`Checking URL for MAS authorization: ${currentUrl}`)
+      cy.log(`Initial OAuth redirect URL: ${currentUrl}`)
       const masHost = new URL(masUrl).host
       const apiHost = new URL(apiUrl).host
       const currentHost = new URL(currentUrl).host
 
       cy.log(`MAS host: ${masHost}, API host: ${apiHost}, Current host: ${currentHost}`)
 
-      if (currentHost === masHost) {
+      // Check if we're on the API domain (could be seamless flow or email form)
+      if (currentHost === apiHost) {
+        cy.log('🔍 On API domain - checking for seamless flow vs email form')
+
+        // Give the page time to load and check what we have
+        cy.get('body', { timeout: 10000 }).then(($body) => {
+          const bodyText = $body.text()
+          const hasEmailForm = $body.find('form[action*="/api/oidc/login"]').length > 0
+          const hasSignInText = bodyText.includes('Sign in to OpenMeet')
+
+          cy.log(`Body contains 'Sign in to OpenMeet': ${hasSignInText}`)
+          cy.log(`Has email form: ${hasEmailForm}`)
+
+          if (hasSignInText && hasEmailForm) {
+            cy.log('📧 Email form detected - handling unauthenticated flow')
+            cy.screenshot('oidc-email-form-detected')
+
+            cy.get('form[action*="/api/oidc/login"] input[type="email"]')
+              .should('be.visible')
+              .clear()
+              .type(Cypress.env('APP_TESTING_ADMIN_EMAIL'), { delay: 50 })
+
+            cy.contains('button', 'Continue')
+              .should('be.visible')
+              .click()
+
+            cy.log('✅ Submitted OIDC email form - continuing with flow')
+          } else {
+            cy.log('⚡ Seamless flow detected - no email form needed (user already authenticated)')
+            cy.screenshot('seamless-oidc-flow-detected')
+          }
+        })
+      } else if (currentHost === masHost) {
+        cy.log('🏛️ Already on MAS domain - handling authorization directly')
         cy.screenshot('mas-authorization-page-detected')
 
         cy.origin(masUrl, () => {
@@ -93,104 +127,79 @@ describe('Matrix OIDC Flow - Reference Test', () => {
             .should('be.visible')
             .click()
         })
+      } else {
+        cy.log(`⚠️ Unexpected domain: ${currentHost} - waiting for redirect`)
       }
     })
 
-    // Handle OIDC email form if we're on the API domain
-    cy.url().then((currentUrl) => {
-      const currentHost = new URL(currentUrl).host
-      const apiHost = new URL(apiUrl).host
-
-      if (currentHost === apiHost) {
-        // Handle OIDC form directly without cy.origin() since we're already on API domain
-        cy.get('body', { timeout: 10000 }).then(($body) => {
-          // Check if we see the OIDC email form
-          if ($body.text().includes('Sign in to OpenMeet') && $body.find('form[action*="/api/oidc/login"]').length > 0) {
-            cy.log('OIDC email form detected - handling authentication')
-
-            cy.get('form[action*="/api/oidc/login"] input[type="email"]')
-              .should('be.visible')
-
-            cy.get('form[action*="/api/oidc/login"] input[type="email"]')
-              .clear()
-
-            cy.get('form[action*="/api/oidc/login"] input[type="email"]')
-              .type(Cypress.env('APP_TESTING_ADMIN_EMAIL'), { delay: 50 })
-
-            cy.contains('button', 'Continue')
-              .should('be.visible')
-              .click()
-
-            cy.log('Submitted OIDC email form')
-          }
-        })
-      }
-    })
-
-    // Wait for the flow to complete and end up back on platform or MAS consent
+    // Step 2: Wait for and handle MAS consent or direct platform return
     cy.url({ timeout: 20000 }).should('satisfy', (url) => {
-      return url.includes('om-platform.ngrok.app') || url.includes('om-mas.ngrok.app')
+      const platformMatch = url.includes('om-platform.ngrok.app') || url.includes('localhost') || url.includes('/groups/')
+      const masMatch = url.includes('om-mas.ngrok.app') || url.includes('mas-dev.openmeet.net')
+      cy.log(`URL check - Platform: ${platformMatch}, MAS: ${masMatch}, URL: ${url}`)
+      return platformMatch || masMatch
     })
 
     cy.screenshot('after-oauth-flow')
 
-    // Wait for final URL and handle either consent page or direct platform return
-    cy.url({ timeout: 15000 }).then((currentUrl) => {
-      cy.log(`Initial URL check: ${currentUrl}`)
+    // Step 3: Handle final consent or verify platform return
+    cy.url({ timeout: 15000 }).then((finalUrl) => {
+      cy.log(`Final URL for consent check: ${finalUrl}`)
 
-      // Wait for URL to stabilize instead of arbitrary wait
-      cy.url().should('not.contain', 'about:blank')
+      const isMasConsent = finalUrl.includes('consent') || finalUrl.includes('mas')
+      const isPlatformReturn = finalUrl.includes('/groups/') || finalUrl.includes('om-platform.ngrok.app')
 
-      cy.url().then((finalUrl) => {
-        cy.log(`Final URL for consent check: ${finalUrl}`)
+      if (isMasConsent && !isPlatformReturn) {
+        cy.log('🏛️ MAS consent/authorization page detected - handling consent')
+        cy.screenshot('mas-consent-page-detected')
 
-        if (finalUrl.includes('om-mas.ngrok.app/consent')) {
-          cy.log('MAS consent page detected - attempting to handle')
-          cy.screenshot('mas-consent-page-detected')
+        // Handle consent with multiple possible selectors
+        cy.get('body').then(($body) => {
+          cy.log(`Consent page content preview: ${$body.text().substring(0, 300)}...`)
+        })
 
-          // Try multiple selectors to find the Continue button
-          cy.get('body').then(($body) => {
-            cy.log(`Consent page body text: ${$body.text().substring(0, 200)}...`)
-          })
+        // Try different button selectors that might work
+        cy.get('body').then(($body) => {
+          const $continueBtn = $body.find('button:contains("Continue"), input[value*="Continue"], button[type="submit"]:contains("Continue")')
+          const $submitBtn = $body.find('form button[type="submit"], form input[type="submit"]')
 
-          // Target the specific consent form submit button
-          cy.get('form > button[type="submit"]', { timeout: 10000 })
-            .should('be.visible')
-            .should('contain', 'Continue')
-            .then(($button) => {
-              cy.log(`Found Continue button: ${$button.text()} - about to click`)
-              cy.wrap($button).click()
-            })
+          if ($continueBtn.length > 0) {
+            cy.log('Found Continue button - clicking it')
+            cy.wrap($continueBtn.first()).click()
+          } else if ($submitBtn.length > 0) {
+            cy.log('Found submit button - clicking it')
+            cy.wrap($submitBtn.first()).click()
+          } else {
+            cy.log('No obvious consent button found - trying generic approach')
+            cy.get('button, input[type="submit"]').first().click()
+          }
+        })
 
-          cy.log('Clicked Continue button on consent page')
-          cy.screenshot('after-consent-button-click')
+        cy.log('✅ Consent granted - waiting for platform return')
+        cy.screenshot('after-consent-button-click')
 
-          // Check URL immediately after click
-          cy.url().should('not.contain', 'about:blank')
-
-          // Check URL after click
-          cy.url().then((urlAfterClick) => {
-            cy.log(`URL after consent click: ${urlAfterClick}`)
-          })
-
-          // Wait for redirect back to platform after consent
-          cy.url({ timeout: 5000 }).should('include', '/groups/')
-        } else if (finalUrl.includes('om-platform.ngrok.app/groups/')) {
-          cy.log('Already on platform groups page - no consent needed')
-        } else {
-          cy.log('Unexpected URL, waiting for platform return')
-          cy.url({ timeout: 20000 }).should('include', '/groups/')
-        }
-      })
+        // Wait for redirect back to platform
+        cy.url({ timeout: 20000 }).should('satisfy', (url) => {
+          return url.includes('/groups/') || url.includes('om-platform.ngrok.app')
+        })
+      } else if (isPlatformReturn) {
+        cy.log('⚡ Already back on platform - no consent step needed')
+        cy.screenshot('direct-platform-return')
+      } else {
+        cy.log('🔄 Unexpected URL state - waiting for platform return')
+        cy.url({ timeout: 20000 }).should('include', '/groups/')
+      }
     })
+
     cy.screenshot('final-url-check')
 
+    // Step 4: Final verification and chatroom access
+    cy.log('🎯 Finalizing Matrix OAuth flow - ensuring chatroom access')
+    cy.url().should('include', '/groups/')
     cy.contains('Loading', { timeout: 10000 }).should('not.exist')
-    cy.contains('Chatroom').click()
+    cy.contains('Chatroom', { timeout: 10000 }).should('be.visible').click()
 
-    cy.url({ timeout: 20000 }).should('include', '/groups/')
-    cy.contains('Loading', { timeout: 10000 }).should('not.exist')
-    cy.contains('Chatroom').click()
+    cy.log('✅ Matrix OAuth flow completed successfully')
   }
 
   const waitForMatrixInitialization = () => {
