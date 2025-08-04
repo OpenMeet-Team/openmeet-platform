@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { skipNetworkTests } from '../../../vitest/setup-test-environment'
 import { matrixService } from '../../../../src/services/matrixService'
-import { ensureMatrixUser } from '../../../../src/utils/matrixUtils'
 import { MatrixMessage } from '../../../../src/types/matrix'
 import type { Socket } from 'socket.io-client'
 
@@ -28,7 +27,7 @@ vi.mock('../../../../src/boot/axios', () => ({
 
 // Mock dependencies - each test will override this as needed
 vi.mock('../../../../src/utils/matrixUtils', () => ({
-  ensureMatrixUser: vi.fn().mockImplementation(() => Promise.resolve(true))
+  getMatrixDisplayName: vi.fn()
 }))
 
 vi.mock('../../../../src/stores/auth-store', () => ({
@@ -185,7 +184,6 @@ describe('MatrixService', () => {
 
       const result = await connectPromise
       expect(result).toBe(true)
-      expect(ensureMatrixUser).toHaveBeenCalled()
     })
 
     skipNetworkTests('should fail to connect if websocket info shows unauthenticated', async () => {

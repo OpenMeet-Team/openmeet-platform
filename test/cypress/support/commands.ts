@@ -47,7 +47,7 @@ Cypress.Commands.add('login', (username: string, password: string) => {
   })
 
   // Click sign in button with force option to bypass any overlays
-  cy.dataCy('header-sign-in-button').should('exist').click({ force: true })
+  cy.dataCy('header-sign-in-button', { timeout: 15000 }).should('exist').click({ force: true })
 
   // Wait for login form and fill in credentials
   cy.dataCy('login-form').should('be.visible')

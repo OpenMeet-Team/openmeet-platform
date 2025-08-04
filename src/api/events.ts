@@ -59,6 +59,7 @@ export interface EventApiType {
   getDiscussionMessages: (slug: string, limit?: number, from?: string) => Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>>
   addMemberToDiscussion: (eventSlug: string, userSlug: string) => Promise<AxiosResponse<void>>
   removeMemberFromDiscussion: (eventSlug: string, userSlug: string) => Promise<AxiosResponse<void>>
+  joinEventChat: (slug: string) => Promise<AxiosResponse<{ matrixRoomId: string }>>
   getICalendar: (slug: string) => Promise<AxiosResponse<string>>
   uploadImage?: (slug: string, file: File) => Promise<AxiosResponse<unknown>>
   cancel?: (slug: string) => Promise<AxiosResponse<unknown>>
@@ -124,6 +125,7 @@ export const eventsApi: EventApiType = {
   getDiscussionMessages: (slug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> => api.get(`/api/chat/event/${slug}/messages`, { params: { limit, from } }),
   addMemberToDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.post(`/api/chat/event/${eventSlug}/members/${userSlug}`, {}),
   removeMemberFromDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<void>> => api.delete(`/api/chat/event/${eventSlug}/members/${userSlug}`),
+  joinEventChat: (slug: string): Promise<AxiosResponse<{ matrixRoomId: string }>> => api.post(`/api/chat/event/${slug}/join`, {}),
   getICalendar: (slug: string): Promise<AxiosResponse<string>> => api.get(`/api/events/${slug}/calendar`, {
     responseType: 'text',
     headers: { Accept: 'text/calendar' }

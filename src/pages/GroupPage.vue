@@ -66,7 +66,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { GroupPermission, GroupRole } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
-import { chatApi } from '../api/chat'
+import { matrixClientService } from '../services/matrixClientService'
 
 const route = useRoute()
 
@@ -113,12 +113,12 @@ onMounted(async () => {
         const userSlug = useAuthStore().user?.slug
 
         if (userSlug) {
-          console.log(`Joining chat room for group ${groupSlug} with user ${userSlug}`)
-          const joinResult = await chatApi.joinGroupChatRoom(groupSlug)
-          console.log('Group chat room join result:', joinResult.data)
+          console.log(`Joining chat room for group ${groupSlug} with user ${userSlug} using Matrix-native approach`)
+          const joinResult = await matrixClientService.joinGroupChatRoom(groupSlug)
+          console.log('Group chat room join result:', joinResult.roomInfo)
 
-          if (joinResult.data?.roomId) {
-            console.log(`Successfully joined Matrix room for group: ${joinResult.data.roomId}`)
+          if (joinResult.room?.roomId) {
+            console.log(`Successfully joined Matrix room for group: ${joinResult.room.roomId}`)
           }
         }
       } catch (err) {

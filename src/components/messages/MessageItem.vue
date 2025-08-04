@@ -32,13 +32,15 @@
             outline
             color="primary"
             no-caps
-            class="full-width text-left"
+            class="full-width text-left file-download-btn"
             :href="fileUrl"
             target="_blank"
           >
-            <q-icon name="attach_file" left />
-            {{ fileName }}
-            <div class="text-caption">{{ fileSize }}</div>
+            <q-icon name="sym_r_attach_file" left />
+            <div class="file-info">
+              <div class="file-name">{{ fileName }}</div>
+              <div class="file-size text-caption">{{ fileSize }}</div>
+            </div>
           </q-btn>
         </div>
         <div v-else class="message-body" v-html="formattedMessageBody"></div>
@@ -85,9 +87,73 @@ import { useQuasar } from 'quasar'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useAuthStore } from '../../stores/auth-store'
+import { matrixClientService } from '../../services/matrixClientService'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+
+// Helper function to convert Matrix content URLs to HTTP URLs
+const convertMatrixUrl = (url: string, width?: number, height?: number, isImage = false): string => {
+  if (!url) return ''
+
+  console.log('🔗 convertMatrixUrl: Processing URL:', url)
+
+  // If it's already an HTTP URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    console.log('🔗 convertMatrixUrl: Already HTTP URL, returning as-is')
+    return url
+  }
+
+  // If it's a Matrix content URL (mxc://), convert it to HTTP
+  if (url.startsWith('mxc://')) {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.error('❌ convertMatrixUrl: Matrix client not available')
+      return ''
+    }
+
+    console.log('🔗 convertMatrixUrl: Matrix client baseUrl:', client.getHomeserverUrl())
+
+    let convertedUrl: string
+
+    if (isImage) {
+      // For images, use thumbnail dimensions and call thumbnail endpoint
+      const finalWidth = width || 300
+      const finalHeight = height || 300
+      convertedUrl = matrixClientService.getContentUrl(url, finalWidth, finalHeight)
+    } else {
+      // For files, use download endpoint without dimensions
+      convertedUrl = matrixClientService.getContentUrl(url)
+    }
+    console.log('🔗 convertMatrixUrl: Converted URL:', {
+      original: url,
+      converted: convertedUrl,
+      baseUrl: client.getHomeserverUrl(),
+      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http'),
+      type: isImage ? 'thumbnail' : 'download',
+      dimensions: isImage ? { width: width || 300, height: height || 300 } : 'none'
+    })
+
+    if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
+      console.error('❌ convertMatrixUrl: Matrix URL conversion failed or invalid')
+      // Try manual conversion using homeserver URL
+      const homeserverUrl = client.getHomeserverUrl()
+      if (homeserverUrl && url.startsWith('mxc://')) {
+        const mxcParts = url.substring(6).split('/')
+        if (mxcParts.length === 2) {
+          const manualUrl = `${homeserverUrl}/_matrix/media/v3/download/${mxcParts[0]}/${mxcParts[1]}`
+          console.log('🔧 convertMatrixUrl: Manual conversion:', manualUrl)
+          return manualUrl
+        }
+      }
+      return url // Return original URL as fallback
+    }
+
+    return convertedUrl
+  }
+
+  return url
+}
 
 const props = defineProps({
   message: {
@@ -208,7 +274,8 @@ const formattedMessageBody = computed(() => {
 
 const imageUrl = computed(() => {
   if (!isImageMessage.value || !props.message.content) return ''
-  return props.message.content.url as string || ''
+  const rawUrl = props.message.content.url as string || ''
+  return convertMatrixUrl(rawUrl, undefined, undefined, true)
 })
 
 const fileName = computed(() => {
@@ -218,7 +285,9 @@ const fileName = computed(() => {
 
 const fileUrl = computed(() => {
   if (!isFileMessage.value || !props.message.content) return ''
-  return props.message.content.url as string || '#'
+  const rawUrl = props.message.content.url as string || ''
+  // Files should use download endpoint, not thumbnail - pass false for isImage
+  return convertMatrixUrl(rawUrl, undefined, undefined, false) || '#'
 })
 
 const fileSize = computed(() => {
@@ -364,6 +433,58 @@ const addReaction = (emoji: string) => {
   flex-wrap: wrap;
   gap: 4px;
   width: 180px;
+}
+
+// File download button styling for better contrast
+.file-download-btn {
+  // Force proper text color in light mode
+  color: #1976d2 !important; // Primary blue color
+  border-color: #1976d2 !important;
+
+  .file-name {
+    color: #1976d2 !important;
+    font-weight: 500;
+  }
+
+  .file-size {
+    color: #1976d2 !important;
+    opacity: 0.8;
+  }
+
+  &:hover {
+    background-color: rgba(25, 118, 210, 0.1) !important;
+  }
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-grow: 1;
+}
+
+.file-name {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.file-size {
+  opacity: 0.7;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+// Dark mode specific overrides
+body.body--dark {
+  .file-download-btn.q-btn--outline {
+    .file-name {
+      color: var(--q-primary) !important;
+    }
+
+    .file-size {
+      color: rgba(var(--q-primary-rgb), 0.8) !important;
+    }
+  }
 }
 
 .system-message-content {

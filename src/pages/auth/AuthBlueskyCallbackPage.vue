@@ -69,7 +69,43 @@ onMounted(async () => {
       if (!hasValidEmail) {
         window.location.replace('/auth/collect-email')
       } else {
-        // Get the return URL from localStorage, or default to home
+        // Check for OIDC flow continuation first
+        const oidcDataStr = localStorage.getItem('oidc_flow_data')
+
+        if (oidcDataStr) {
+          try {
+            const oidcData = JSON.parse(oidcDataStr)
+            const maxAge = 5 * 60 * 1000 // 5 minutes
+
+            if (Date.now() - oidcData.timestamp < maxAge) {
+              console.log('🔄 OIDC Flow: Continuing OIDC flow after Bluesky login, redirecting to:', oidcData.returnUrl)
+
+              // Get the user's JWT token to include in the redirect
+              const token = authStore.token
+              if (token) {
+                const url = new URL(oidcData.returnUrl)
+                url.searchParams.set('user_token', token)
+                console.log('🔄 OIDC Flow: Added user token to OIDC redirect')
+
+                // Clear both stored data
+                localStorage.removeItem('oidc_flow_data')
+                localStorage.removeItem('bluesky_auth_return_url')
+
+                // Redirect to the OIDC auth endpoint with token
+                window.location.href = url.toString()
+                return
+              }
+            } else {
+              console.log('🔄 OIDC Flow: OIDC data expired, clearing')
+              localStorage.removeItem('oidc_flow_data')
+            }
+          } catch (error) {
+            console.error('🔄 OIDC Flow: Error parsing OIDC data:', error)
+            localStorage.removeItem('oidc_flow_data')
+          }
+        }
+
+        // Normal redirect: Get the return URL from localStorage, or default to home
         const returnUrl = localStorage.getItem('bluesky_auth_return_url') || '/'
         localStorage.removeItem('bluesky_auth_return_url') // Clean up
 

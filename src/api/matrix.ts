@@ -1,232 +1,113 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { MatrixMessage } from '../types/matrix'
-import { useAuthStore } from '../stores/auth-store'
-import { io, Socket } from 'socket.io-client'
-import matrixTokenService from '../services/matrixTokenService'
+import { matrixClientService } from '../services/matrixClientService'
 
 export const matrixApi = {
-  // Set Matrix password for direct client access
+  // Set Matrix password for direct client access (existing backend endpoint)
   setPassword: (password: string): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
     api.post('/api/matrix/set-password', { password }),
 
-  // Send typing indicator to a room
-  sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
-    api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
-
-  // Create WebSocket connection for Matrix events
-  createSocketConnection: async (): Promise<Socket> => {
-    // Check for Cypress test environment
-    const isCypress = typeof window !== 'undefined' && 'Cypress' in window
-
-    // Add type declaration for Cypress on window object
-    interface CypressGlobal {
-      env: (key: string) => string | undefined;
+  // Send typing indicator to a room using Matrix client directly
+  sendTyping: async (roomId: string, isTyping: boolean): Promise<void> => {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
     }
 
-    interface WindowWithCypress extends Window {
-      Cypress?: CypressGlobal;
-    }
-
-    // Special handling for Cypress tests
-    let cypressApiUrl = ''
-    if (isCypress) {
-      const cypressWindow = window as WindowWithCypress
-      cypressApiUrl = cypressWindow.Cypress?.env('APP_TESTING_API_URL') || ''
-      console.log('Cypress test detected, API URL from Cypress env:', cypressApiUrl)
-    }
-
-    // Use the API URL from the app config
-    // This ensures we connect to the backend API, not the frontend webapp
-    const apiBaseUrl = window.APP_CONFIG?.APP_API_URL || ''
-
-    // Check for overridden API URL (ngrok or other proxy)
-    const overrideUrl = window.__MATRIX_API_URL__ || ''
-
-    // Get Matrix API URL from config
-    const matrixApiUrl = window.APP_CONFIG?.APP_MATRIX_API_URL
-
-    // Use Cypress API URL if available, then override if available,
-    // otherwise use the Matrix API URL from config, then fall back to regular API URL
-    let baseUrl = cypressApiUrl || overrideUrl || matrixApiUrl || apiBaseUrl
-
-    // Log the API URL we're using
-    console.log('Using Matrix API URL for connection:', baseUrl)
-
-    // If we're in development and no baseUrl is configured, try localhost
-    if (!baseUrl && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-      baseUrl = window.location.origin
-      console.log('No API URL configured, defaulting to current origin for WebSocket:', baseUrl)
-    }
-
-    if (!baseUrl) {
-      console.error('No API URL found. Make sure APP_API_URL is configured in config.json')
-      throw new Error('Cannot connect to Matrix: API URL not configured')
-    }
-
-    // WebSocket namespace for Matrix events
-    const endpoint = `${baseUrl}/matrix`
-    console.log('Creating WebSocket connection to Matrix at:', endpoint)
-
-    // Log that we're attempting to establish a WebSocket connection
-    console.log('Attempting to establish WebSocket connection for real-time Matrix events')
-
-    // Get token from the auth store - ALWAYS USE THE USER'S AUTH TOKEN for WebSocket
-    let token = ''
-    try {
-      const authStore = useAuthStore()
-
-      if (!authStore.isAuthenticated) {
-        console.warn('Auth store reports user is not authenticated')
-      }
-
-      // Use the user's regular auth token for WebSocket connection
-      token = authStore.token
-      console.log('Using auth token for WebSocket:', token ? `Length: ${token.length}` : 'No token in store')
-
-      // Validate that we have a non-empty token
-      if (!token || token.length < 10) {
-        // Try localStorage as backup
-        let localToken = localStorage.getItem('token')
-
-        // Handle Quasar's __q_strn| prefix if present
-        if (localToken && localToken.startsWith('__q_strn|')) {
-          localToken = localToken.substring('__q_strn|'.length)
-          console.log('Removed Quasar prefix from localStorage token')
-        }
-
-        if (localToken && localToken.length > 10) {
-          console.log('Using token from localStorage instead of empty store token')
-          token = localToken
-        } else {
-          console.warn('No valid token found in authStore or localStorage')
-        }
-      }
-    } catch (e) {
-      console.warn('Error accessing auth store, falling back to localStorage', e)
-      let localToken = localStorage.getItem('token') || ''
-
-      // Handle Quasar's __q_strn| prefix if present
-      if (localToken && localToken.startsWith('__q_strn|')) {
-        localToken = localToken.substring('__q_strn|'.length)
-        console.log('Removed Quasar prefix from fallback localStorage token')
-      }
-
-      token = localToken
-      console.log('Token from localStorage:', token ? `Length: ${token.length}` : 'No token in localStorage')
-    }
-
-    // Get tenant ID from config - this is CRITICAL for the server to work properly
-    let effectiveTenantId = window.APP_CONFIG?.APP_TENANT_ID || localStorage.getItem('tenantId') || ''
-
-    // Debug the tenant ID value - this is critical for debugging connection issues
-    console.log('Using tenant ID for WebSocket connection:', effectiveTenantId || 'No tenant ID found')
-
-    if (!effectiveTenantId) {
-      console.error('NO TENANT ID FOUND - WebSocket connection will likely fail')
-      console.error('Attempting to load tenant ID from other sources...')
-
-      // Try to extract tenant ID from token if it's a JWT
-      if (token && token.includes('.')) {
-        try {
-          const tokenParts = token.split('.')
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]))
-            if (payload && payload.tenantId) {
-              console.log('Extracted tenant ID from JWT payload:', payload.tenantId)
-              localStorage.setItem('tenantId', payload.tenantId)
-              window.APP_CONFIG = window.APP_CONFIG || {}
-              window.APP_CONFIG.APP_TENANT_ID = payload.tenantId
-              // Update our variable to use the extracted tenant ID
-              effectiveTenantId = payload.tenantId
-            }
-          }
-        } catch (e) {
-          console.error('Failed to extract tenant ID from token:', e)
-        }
-      }
-    }
-
-    // If tenant ID is not explicitly set, look for default tenant ID in the app config
-    // Most OpenMeet installations use a default tenant ID when not specified
-    if (!effectiveTenantId) {
-      // If using OpenMeet's default multi-tenant setup, use the default tenant ID
-      effectiveTenantId = 'default'
-      console.warn('No tenant ID found, using fallback default tenant ID:', effectiveTenantId)
-      localStorage.setItem('tenantId', effectiveTenantId)
-      window.APP_CONFIG = window.APP_CONFIG || {}
-      window.APP_CONFIG.APP_TENANT_ID = effectiveTenantId
-    }
-
-    // Only use x-tenant-id header, not query parameter
-    // This avoids CORS issues with custom headers
-    const socketOptions = {
-      auth: {
-        token: `Bearer ${token}`,
-        tenantId: effectiveTenantId
-      },
-      extraHeaders: {
-        'x-tenant-id': effectiveTenantId
-      },
-      reconnectionAttempts: 5,
-      reconnectionDelay: 3000,
-      timeout: 10000,
-      transports: ['websocket', 'polling'] // Try WebSocket first
-    }
-
-    console.log('Creating Socket.IO connection with options:', JSON.stringify({
-      endpoint,
-      auth: {
-        token: token ? 'Bearer <token>' : 'none',
-        tenantId: effectiveTenantId || 'none'
-      },
-      headers: {
-        'x-tenant-id': effectiveTenantId || 'none'
-      }
-    }))
-
-    // Create socket.io connection with auth headers (JWT only)
-    // Matrix credentials are now managed server-side
-    const socket = io(endpoint, socketOptions)
-
-    console.log('WebSocket connection created with JWT authentication')
-    return socket
-  },
-
-  // Legacy method for backward compatibility - throw error to identify usage
-  createEventSource: (): EventSource => {
-    console.error('EventSource is no longer supported - please update your code to use WebSocket')
-    throw new Error('EventSource is deprecated in favor of WebSockets for Matrix events')
-  },
-
-  // Get messages for a room with token checking
-  getMessages: async (roomId: string, limit = 50, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string }>> => {
-    try {
-      // Ensure we have a valid Matrix token before making the request
-      await matrixTokenService.getToken()
-      return api.get(`/api/matrix/messages/${roomId}`, { params: { limit, from } })
-    } catch (error) {
-      console.error('Failed to get Matrix token for messages:', error)
-      // Don't retry the same operation - just throw the error for caller to handle
-      throw error
+    if (isTyping) {
+      await client.sendTyping(roomId, true, 30000) // 30 second timeout
+    } else {
+      await client.sendTyping(roomId, false, 0) // Stop typing
     }
   },
 
-  // Send a message to a room with token checking
-  sendMessage: async (roomId: string, message: string): Promise<AxiosResponse<{ id: string }>> => {
-    try {
-      // Ensure we have a valid Matrix token before making the request
-      await matrixTokenService.getToken()
-      return api.post(`/api/matrix/messages/${roomId}`, { message })
-    } catch (error) {
-      console.error('Failed to get Matrix token for sending message:', error)
-      // Don't retry the same operation - just throw the error for caller to handle
-      throw error
+  // Get messages for a room using Matrix client directly
+  getMessages: async (roomId: string, limit = 50): Promise<{ messages: MatrixMessage[], end: string }> => {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
+    }
+
+    const room = client.getRoom(roomId)
+    if (!room) {
+      throw new Error(`Room ${roomId} not found or not accessible`)
+    }
+
+    // Use Matrix client's scrollback API
+    await client.scrollback(room, limit)
+
+    // Convert Matrix events to our MatrixMessage format
+    const messages: MatrixMessage[] = room.getLiveTimeline().getEvents()
+      .filter(event => event.getType() === 'm.room.message')
+      .slice(-limit)
+      .map(event => ({
+        id: event.getId()!,
+        content: event.getContent().body || '',
+        sender: event.getSender()!,
+        timestamp: event.getTs(),
+        type: event.getContent().msgtype || 'm.text'
+      }))
+
+    return {
+      messages,
+      end: ''
     }
   },
 
-  // Get a fresh Matrix token (for direct Matrix operations)
+  // Send a message to a room using Matrix client directly
+  sendMessage: async (roomId: string, message: string): Promise<{ id: string }> => {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
+    }
+
+    const result = await client.sendTextMessage(roomId, message)
+    return { id: result.event_id }
+  },
+
+  // Get Matrix access token (for direct Matrix operations)
   getToken: async (): Promise<string> => {
-    return matrixTokenService.getToken()
-  }
+    const client = matrixClientService.getClient()
+    if (!client || !client.getAccessToken()) {
+      throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
+    }
+    return client.getAccessToken()
+  },
+
+  // Sync Matrix user identity with backend after MAS authentication (existing backend endpoint)
+  syncUserIdentity: (matrixUserId: string): Promise<AxiosResponse<{ success: boolean; matrixUserId: string; handle: string }>> =>
+    api.post('/api/matrix/sync-user-identity', { matrixUserId }),
+
+  // Admin endpoint to sync all event attendees to Matrix rooms
+  adminSyncAllAttendees: (maxEventsPerTenant?: number): Promise<AxiosResponse<{
+    success: boolean;
+    message: string;
+    results: {
+      totalTenants: number;
+      totalEvents: number;
+      totalUsersAdded: number;
+      totalErrors: number;
+      startTime: Date;
+      endTime: Date;
+      duration: number;
+      tenants: Array<{
+        tenantId: string;
+        tenantName: string;
+        eventsProcessed: number;
+        totalUsersAdded: number;
+        totalErrors: number;
+        events: Array<{
+          eventSlug: string;
+          eventName: string;
+          attendeesFound: number;
+          usersAdded: number;
+          errors: string[];
+          success: boolean;
+        }>;
+        errors: string[];
+        success: boolean;
+      }>;
+    };
+  }>> => api.post('/api/matrix/admin/sync-all-attendees', { maxEventsPerTenant })
 }

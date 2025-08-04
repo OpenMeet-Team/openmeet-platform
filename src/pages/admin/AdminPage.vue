@@ -36,6 +36,16 @@
                     <q-item-label caption>Delete and create event/group chat rooms</q-item-label>
                   </q-item-section>
                 </q-item>
+
+                <q-item to="/admin/matrix-room-fix" clickable v-ripple>
+                  <q-item-section avatar>
+                    <q-icon name="sym_r_build" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Matrix Room Permission Fix</q-item-label>
+                    <q-item-label caption>Check and fix Matrix bot permissions in chat rooms</q-item-label>
+                  </q-item-section>
+                </q-item>
               </q-list>
             </q-card-section>
           </q-card>
@@ -59,21 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/auth-store'
-import { UserRole } from '../../types'
-
-const router = useRouter()
-const authStore = useAuthStore()
-
-// Check if user is an admin
-onMounted(() => {
-  if (!authStore.hasRole(UserRole.Admin)) {
-    // Redirect non-admin users to home page
-    router.push('/')
-  }
-})
+// No need for admin check here - router guard handles it
 
 defineOptions({
   name: 'AdminPage'

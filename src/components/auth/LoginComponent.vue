@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRoute, useRouter } from 'vue-router'
 import { validateEmail } from '../../utils/validation'
@@ -87,9 +87,76 @@ const { warning } = useNotification()
 
 const isDev = computed(() => process.env.NODE_ENV === 'development')
 
+// OIDC Flow Helper Functions
+const storeOidcFlowData = (): void => {
+  // Store OIDC flow data from URL parameters in localStorage
+  if (route.query.oidc_flow === 'true') {
+    const oidcData = {
+      returnUrl: route.query.oidc_return_url as string,
+      tenantId: route.query.oidc_tenant_id as string,
+      timestamp: Date.now()
+    }
+
+    if (oidcData.returnUrl && oidcData.tenantId) {
+      localStorage.setItem('oidc_flow_data', JSON.stringify(oidcData))
+      console.log('🔄 OIDC Flow: Stored flow data in localStorage:', oidcData)
+    }
+  }
+}
+
+const handlePostLoginRedirect = (): void => {
+  // Check if there's an OIDC flow to continue
+  const oidcDataStr = localStorage.getItem('oidc_flow_data')
+
+  if (oidcDataStr) {
+    try {
+      const oidcData = JSON.parse(oidcDataStr)
+
+      // Check if the data is not too old (5 minutes max)
+      const maxAge = 5 * 60 * 1000 // 5 minutes
+      if (Date.now() - oidcData.timestamp < maxAge) {
+        console.log('🔄 OIDC Flow: Continuing OIDC flow after login, redirecting to:', oidcData.returnUrl)
+
+        // Get the user's JWT token to include in the redirect
+        const token = authStore.token
+        if (token) {
+          const url = new URL(oidcData.returnUrl)
+          url.searchParams.set('user_token', token)
+          console.log('🔄 OIDC Flow: Added user token to OIDC redirect')
+
+          // Clear the stored data
+          localStorage.removeItem('oidc_flow_data')
+
+          // Redirect to the OIDC auth endpoint with token
+          window.location.href = url.toString()
+          return
+        }
+
+        // Fallback: redirect without token
+        localStorage.removeItem('oidc_flow_data')
+        window.location.href = oidcData.returnUrl
+        return
+      } else {
+        console.log('🔄 OIDC Flow: OIDC data expired, clearing')
+        localStorage.removeItem('oidc_flow_data')
+      }
+    } catch (error) {
+      console.error('🔄 OIDC Flow: Error parsing OIDC data:', error)
+      localStorage.removeItem('oidc_flow_data')
+    }
+  }
+
+  // Normal redirect logic
+  router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
+}
+
 const onSubmit = (): void => {
   if (email.value && password.value && validateEmail(email.value)) {
     isLoading.value = true
+
+    // Store OIDC flow data in localStorage before login
+    storeOidcFlowData()
+
     authStore.actionLogin({
       email: email.value,
       password: password.value
@@ -97,7 +164,9 @@ const onSubmit = (): void => {
       email.value = ''
       password.value = ''
       emits('login')
-      return router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
+
+      // Check for OIDC flow after successful login
+      handlePostLoginRedirect()
     }).catch(error => {
       console.error('Error logging in:', error)
       warning('Please provide a valid email and password')
@@ -109,8 +178,26 @@ const onSubmit = (): void => {
 
 const handleOAuthSuccess = () => {
   emits('login')
-  return router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
+
+  // Check for OIDC flow after successful OAuth login
+  handlePostLoginRedirect()
 }
+
+// Store OIDC flow data when component mounts
+onMounted(() => {
+  storeOidcFlowData()
+
+  // If this is an OIDC flow, wait for auth store initialization before checking authentication
+  if (route.query.oidc_flow === 'true') {
+    // Wait for auth store to initialize before checking authentication
+    authStore.waitForInitialization().then(() => {
+      if (authStore.isAuthenticated) {
+        console.log('🔄 OIDC Flow: User already authenticated, continuing OIDC flow immediately')
+        handlePostLoginRedirect()
+      }
+    })
+  }
+})
 
 </script>
 

@@ -3,6 +3,40 @@ import { createMemoryHistory, createRouter, createWebHashHistory, createWebHisto
 import routes from './routes'
 import { useAuthStore } from '../stores/auth-store'
 import { versionService } from '../services/versionService'
+import { matrixClientManager } from '../services/MatrixClientManager'
+import type { RouteLocationNormalized } from 'vue-router'
+
+/**
+ * Extract Matrix context from route for cleanup purposes
+ * Context includes entity type, slug, and tenant ID for Matrix room management
+ */
+function extractMatrixContext (route: RouteLocationNormalized): string {
+  const tenantId = localStorage.getItem('tenantId') || 'default'
+
+  console.log('🔍 extractMatrixContext: route =', {
+    name: route.name,
+    params: route.params,
+    path: route.path,
+    fullPath: route.fullPath
+  })
+
+  // Extract entity type and slug from route
+  if (route.name?.toString().includes('Group')) {
+    const groupSlug = route.params?.slug
+    console.log(`🔍 extractMatrixContext: Group route, slug = ${groupSlug}`)
+    return groupSlug ? `group-${groupSlug}-${tenantId}` : `group-unknown-${tenantId}`
+  }
+
+  if (route.name?.toString().includes('Event')) {
+    const eventSlug = route.params?.slug
+    console.log(`🔍 extractMatrixContext: Event route, slug = ${eventSlug}`)
+    return eventSlug ? `event-${eventSlug}-${tenantId}` : `event-unknown-${tenantId}`
+  }
+
+  // For other routes, use a generic context with tenant
+  console.log(`🔍 extractMatrixContext: Other route, name = ${String(route.name)}`)
+  return `general-${String(route.name) || 'unknown'}-${tenantId}`
+}
 
 /*
  * If not building with SSR mode, you can
@@ -41,6 +75,21 @@ export default route(function (/* { store, ssrContext } */) {
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 
+    // Check for admin routes and prevent access for non-admin users
+    if (to.path.startsWith('/admin')) {
+      if (!authStore.isAuthenticated) {
+        next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
+        return
+      }
+
+      // Import UserRole to check admin access
+      const { UserRole } = await import('../types')
+      if (!authStore.hasRole(UserRole.Admin)) {
+        next({ name: 'HomePage' })
+        return
+      }
+    }
+
     if (to.matched.some(record => record.meta.requiresAuth)) {
       if (!authStore.isAuthenticated) {
         next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
@@ -49,7 +98,12 @@ export default route(function (/* { store, ssrContext } */) {
       }
     } else {
       if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
-        next({ name: 'HomePage' })
+        // Allow OIDC flows even when authenticated
+        if (to.query.oidc_flow === 'true') {
+          next()
+        } else {
+          next({ name: 'HomePage' })
+        }
       } else {
         next()
       }
@@ -60,6 +114,27 @@ export default route(function (/* { store, ssrContext } */) {
         await versionService.checkForUpdates()
       } catch (error) {
         console.warn('Version check failed during navigation:', error)
+      }
+
+      // Clean up Matrix client state when switching contexts
+      try {
+        const oldContext = extractMatrixContext(from)
+        const newContext = extractMatrixContext(to)
+
+        console.log('🔍 Router DEBUG: Checking context change')
+        console.log('🔍 Router DEBUG: From route:', { name: from.name, params: from.params })
+        console.log('🔍 Router DEBUG: To route:', { name: to.name, params: to.params })
+        console.log(`🔍 Router DEBUG: Old context: ${oldContext}`)
+        console.log(`🔍 Router DEBUG: New context: ${newContext}`)
+
+        if (oldContext !== newContext) {
+          console.log(`🧹 Matrix context change detected: ${oldContext} → ${newContext}`)
+          await matrixClientManager.cleanupOnNavigation(newContext, oldContext)
+        } else {
+          console.log(`ℹ️ No Matrix context change needed: ${oldContext}`)
+        }
+      } catch (error) {
+        console.warn('Matrix cleanup failed during navigation:', error)
       }
     }
   })

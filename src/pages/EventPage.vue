@@ -226,7 +226,7 @@
 
         <!-- 5. Comments (Mobile: 5th, Desktop: in main column) -->
         <div class="order-5">
-          <EventTopicsComponent />
+          <EventMatrixChatComponent />
         </div>
 
         <!-- 6. Attendees (Mobile: 6th, Desktop: in main column) -->
@@ -823,7 +823,6 @@ import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router'
 import { Dark, LoadingBar, useMeta, useQuasar } from 'quasar'
 import { getImageSrc } from '../utils/imageUtils'
 import { eventsApi } from '../api/events'
-import { chatApi } from '../api/chat'
 import LeafletMapComponent from '../components/common/LeafletMapComponent.vue'
 import MenuItemComponent from '../components/common/MenuItemComponent.vue'
 import { useEventDialog } from '../composables/useEventDialog'
@@ -836,7 +835,7 @@ import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
 import { EventAttendeePermission, EventStatus } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
-import EventTopicsComponent from '../components/event/EventTopicsComponent.vue'
+import EventMatrixChatComponent from '../components/event/EventMatrixChatComponent.vue'
 import {
   EventEntity,
   EventAttendeeStatus
@@ -848,7 +847,9 @@ import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayCom
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
 import dateFormatting from '../composables/useDateFormatting'
+import { eventLoadingState } from '../utils/eventLoadingState'
 import { useContactEventOrganizersDialog } from '../composables/useContactEventOrganizersDialog'
+import { logger } from '../utils/logger'
 
 // Define the type for occurrence
 interface SeriesOccurrence {
@@ -981,40 +982,20 @@ const copyToClipboard = async () => {
   }
 }
 
-// Handle attendee status changes to automatically join chat room when a user becomes confirmed
+// Handle attendee status changes - EventMatrixChatComponent now handles Matrix integration
 const handleAttendeeStatusChanged = async (e: Event) => {
   // Custom events have a detail property
   if (!e || !('detail' in e)) return
 
   // Use the properly typed event
   const customEvent = e as AttendeeStatusChangeEvent
-  const { eventSlug, status, timestamp } = customEvent.detail
-  console.log(`EventPage received attendance status change: ${eventSlug}, status=${status} at ${new Date(timestamp).toISOString()}`)
+  const { eventSlug } = customEvent.detail
+  // Attendance status change debug info available
 
-  // Only handle changes for the current event
+  // The EventMatrixChatComponent will handle Matrix room joining automatically
+  // We just need to log the change here for debugging purposes
   if (eventSlug === route.params.slug) {
-    // If the user just became a confirmed attendee, join the chat room
-    if (status === 'confirmed') {
-      console.log('User attendance status changed to confirmed, joining chat room')
-
-      // Add a small delay to ensure backend state is updated
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      try {
-        const userSlug = useAuthStore().user?.slug
-        if (userSlug) {
-          console.log(`Joining chat room for event ${eventSlug} after status change to confirmed`)
-          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-          console.log('Chat room join result after status change:', joinResult.data)
-
-          if (joinResult.data?.roomId) {
-            console.log(`Successfully joined Matrix room after status change: ${joinResult.data.roomId}`)
-          }
-        }
-      } catch (err) {
-        console.error('Failed to join chat room after attendance status change:', err)
-      }
-    }
+    // Status change logged
   }
 }
 
@@ -1049,47 +1030,33 @@ const isDevelopmentMode = computed(() => {
 onMounted(async () => {
   const eventSlug = route.params.slug as string
   LoadingBar.start()
-  console.log('EventPage mounted, loading data for:', eventSlug)
-
-  // Initialize global tracker if needed
-  if (!window.lastEventPageLoad) {
-    window.lastEventPageLoad = {}
-  }
+  // console.log('EventPage mounted, loading data for:', eventSlug)
 
   // Check if we've recently loaded this event to avoid duplicate/competing loads
   const now = Date.now()
-  const lastLoad = window.lastEventPageLoad[eventSlug] || 0
+  const lastLoad = eventLoadingState.getLastEventPageLoad(eventSlug)
   const timeSinceLastLoad = now - lastLoad
 
   // Load event data
   try {
     // Always track when we load this event
-    window.lastEventPageLoad[eventSlug] = now
+    eventLoadingState.setLastEventPageLoad(eventSlug, now)
 
-    // IMPORTANT: Set a globally accessible flag to indicate this event is being loaded
+    // IMPORTANT: Set a flag to indicate this event is being loaded
     // This allows child components to avoid making redundant API calls
-    window.eventBeingLoaded = eventSlug
+    eventLoadingState.setEventBeingLoaded(eventSlug)
 
     // First, load the event data and wait for it to complete
     // This ensures child components have access to event and attendance data
     if (!useEventStore().event || useEventStore().event.slug !== eventSlug || timeSinceLastLoad > 2000) {
       await useEventStore().actionGetEventBySlug(eventSlug)
-      console.log('Event data loaded, now child components can use this data')
+      // console.log('Event data loaded, now child components can use this data')
       // DEBUG: Log timezone information (only in development mode)
       if (isDevelopmentMode.value) {
-        console.log('DEBUG - Event timezone info:', {
-          eventTimeZone: useEventStore().event?.timeZone,
-          seriesTimeZone: useEventStore().event?.series?.timeZone,
-          hasEventTimeZone: !!useEventStore().event?.timeZone,
-          hasSeriesTimeZone: !!useEventStore().event?.series?.timeZone,
-          eventObject: useEventStore().event,
-          seriesObject: useEventStore().event?.series,
-          recurrenceRule: useEventStore().event?.recurrenceRule,
-          seriesRecurrenceRule: useEventStore().event?.series?.recurrenceRule
-        })
+        // Debug timezone info available
       }
     } else {
-      console.log('Using existing event data from store, skipping reload')
+      // console.log('Using existing event data from store, skipping reload')
     }
 
     // Then load non-critical data in parallel
@@ -1103,37 +1070,17 @@ onMounted(async () => {
 
     // Log warning for navigation issues
     if (!useEventStore().event?.seriesSlug && useEventStore().event?.seriesId) {
-      console.warn('Event has seriesId but no seriesSlug, this might cause navigation issues')
+      logger.warn('Event has seriesId but no seriesSlug, navigation issues possible')
     }
 
-    // Automatically join chat room if user is a confirmed attendee
-    // This ensures the user is added to the Matrix room for this event
-    if (useEventStore().event?.attendee?.status === 'confirmed') {
-      try {
-        console.log('User is a confirmed attendee, ensuring chat room membership')
-        const userSlug = useAuthStore().user?.slug
-
-        if (userSlug) {
-          console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
-          const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-          console.log('Chat room join result:', joinResult.data)
-
-          if (joinResult.data?.roomId) {
-            console.log(`Successfully joined Matrix room: ${joinResult.data.roomId}`)
-          }
-        }
-      } catch (err) {
-        // Non-critical error, just log it but don't interrupt page load
-        console.error('Failed to auto-join event chat room:', err)
-      }
-    } else {
-      console.log('User is not a confirmed attendee, skipping chat room join')
-    }
+    // Matrix chat room joining is now handled by EventMatrixChatComponent
+    // This ensures proper separation of concerns and avoids duplicate API calls
+    // console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
   } catch (error) {
-    console.error('Error loading event data:', error)
+    logger.error('Error loading event data:', error)
   } finally {
-    // Clear the global loading flag when done
-    window.eventBeingLoaded = null
+    // Clear the loading flag when done
+    eventLoadingState.setEventBeingLoaded(null)
     LoadingBar.stop()
   }
 })
@@ -1164,29 +1111,10 @@ onBeforeRouteUpdate(async (to) => {
         loadSimilarEvents(String(to.params.slug))
       ])
 
-      // After loading the event, check if user is a confirmed attendee and join chat room
-      const eventSlug = String(to.params.slug)
-      if (useEventStore().event?.attendee?.status === 'confirmed') {
-        try {
-          console.log('User is a confirmed attendee after route update, ensuring chat room membership')
-          const userSlug = useAuthStore().user?.slug
-
-          if (userSlug) {
-            console.log(`Joining chat room for event ${eventSlug} with user ${userSlug}`)
-            const joinResult = await chatApi.addMemberToEventDiscussion(eventSlug, userSlug)
-            console.log('Chat room join result after route update:', joinResult.data)
-
-            if (joinResult.data?.roomId) {
-              console.log(`Successfully joined Matrix room after route update: ${joinResult.data.roomId}`)
-            }
-          }
-        } catch (err) {
-          // Non-critical error, just log it but don't interrupt page load
-          console.error('Failed to auto-join event chat room after route update:', err)
-        }
-      }
+      // Matrix chat room joining is handled by EventMatrixChatComponent
+      // console.log('Route updated to event:', String(to.params.slug))
     } catch (error) {
-      console.error('Failed to load event:', error)
+      logger.error('Failed to load event:', error)
     } finally {
       loaded.value = true
       LoadingBar.stop()
@@ -1202,19 +1130,12 @@ const spotsLeft = computed(() =>
 
 // Revert navigateToEventSeries to original
 const navigateToEventSeries = async () => {
-  // Add more detailed logging
-  console.log('-----SERIES NAVIGATION DEBUG-----')
-  console.log('Event data:', event.value)
-  console.log('Series info:', {
-    seriesSlug: event.value?.seriesSlug,
-    seriesId: event.value?.seriesId,
-    isRecurring: event.value?.isRecurring
-  })
+  // Series navigation debug info
 
   // Primary navigation approach - using seriesSlug
   if (event.value?.seriesSlug) {
     const url = `/event-series/${event.value.seriesSlug}`
-    console.log('Navigating to:', url)
+    // console.log('Navigating to:', url)
     router.push(url)
     return
   }
@@ -1222,7 +1143,7 @@ const navigateToEventSeries = async () => {
   // Fallback - if somehow we have seriesId but no seriesSlug, use the event name
   // This should rarely happen if the API is working correctly
   if (event.value?.seriesId && event.value?.name) {
-    console.warn('No seriesSlug found but seriesId exists - using fallback navigation')
+    logger.warn('No seriesSlug found, using fallback navigation')
 
     // Create a simple slug from the event name
     const fallbackSlug = event.value.name
@@ -1230,16 +1151,16 @@ const navigateToEventSeries = async () => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
 
-    console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
+    // console.log('No seriesSlug found, trying fallback with event name:', fallbackSlug)
 
     const url = `/event-series/${fallbackSlug}`
-    console.log('Navigating to fallback URL:', url)
+    // console.log('Navigating to fallback URL:', url)
     router.push(url)
     return
   }
 
   // As a last resort, go to the events list
-  console.warn('Unable to navigate to series - missing seriesSlug')
+  logger.warn('Unable to navigate to series - missing seriesSlug')
   router.push('/events')
 }
 
@@ -1265,14 +1186,14 @@ const loadUpcomingOccurrences = async () => {
   if (event.value?.seriesSlug) {
     try {
       const seriesSlug = event.value.seriesSlug
-      console.log('Loading upcoming occurrences for series:', seriesSlug)
+      // console.log('Loading upcoming occurrences for series:', seriesSlug)
 
       // First, load all materialized events from the series directly
       // to ensure we don't miss any events with custom dates
       try {
-        console.log('Loading all materialized events for series first')
+        // console.log('Loading all materialized events for series first')
         const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug)
-        console.log(`Found ${allSeriesEvents.length} materialized events for series`)
+        // console.log(`Found ${allSeriesEvents.length} materialized events for series`)
 
         // Create a map of already materialized events by date (roughly)
         const materializedEvents = new Map()
@@ -1287,43 +1208,25 @@ const loadUpcomingOccurrences = async () => {
             materializedEvents.set(dateKey, evt)
           })
 
-        console.log(`Found ${materializedEvents.size} future materialized events to include`)
+        // console.log(`Found ${materializedEvents.size} future materialized events to include`)
 
         // Now load the series to get the recurrence rule for unmaterialized future occurrences
-        console.log('Fetching complete series data for recurrence pattern')
-        const series = await EventSeriesService.getBySlug(seriesSlug)
+        // console.log('Fetching complete series data for recurrence pattern')
+        await EventSeriesService.getBySlug(seriesSlug)
 
         // Log the recurrence rule for debugging (only in development mode)
         if (isDevelopmentMode.value) {
-          console.log('Series recurrence rule:', series.recurrenceRule)
-          console.log('Series timezone:', series.timeZone)
-          console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
+          // console.log('Series recurrence rule:', series.recurrenceRule)
+          // console.log('Series timezone:', series.timeZone)
+          // console.log('USING API-BASED OCCURRENCE GENERATION for all patterns')
         }
         usingClientSideGeneration.value = false
 
         // Get occurrences from the API
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10, false)
 
-        // Log detailed information about API response for debugging (only in development mode)
         if (isDevelopmentMode.value && response.length > 0) {
-          console.log('API returned occurrences:', response.length)
-
-          // Log each occurrence with detailed information
-          response.slice(0, 5).forEach((occ, i) => {
-            const occDate = new Date(occ.date)
-            console.log(`Occurrence ${i + 1}:`, {
-              dateString: occ.date,
-              dateObject: occDate,
-              jsDay: occDate.getDay(), // 0=Sunday, 1=Monday, etc.
-              jsDate: occDate.getDate(), // day of month
-              localeDay: occDate.toLocaleDateString('en-US', { weekday: 'long' }),
-              utcString: occDate.toUTCString(),
-              isoString: occDate.toISOString(),
-              isoDayOfWeek: occDate.getUTCDay() + 1, // 1=Monday, 7=Sunday in ISO
-              eventSlug: occ.event?.slug || 'unmaterialized',
-              eventStartDate: occ.event?.startDate || null
-            })
-          })
+          // API occurrence debug info available
         }
 
         // Filter to future occurrences
@@ -1335,14 +1238,14 @@ const loadUpcomingOccurrences = async () => {
           }))
 
         // Add any materialized events that are not in the API response
-        materializedEvents.forEach((evt, dateKey) => {
+        materializedEvents.forEach((evt) => {
           // Check if this materialized event is already included
           const alreadyIncluded = apiOccurrences.some(
             occ => occ.eventSlug === evt.slug
           )
 
           if (!alreadyIncluded) {
-            console.log(`Adding missing materialized event from API approach: ${evt.slug} (${dateKey})`)
+            // Adding missing materialized event from API approach
             apiOccurrences.push({
               date: new Date(evt.startDate),
               eventSlug: evt.slug
@@ -1356,10 +1259,10 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5)
 
         if (isDevelopmentMode.value) {
-          console.log('Final API-based occurrences:', upcomingOccurrences.value)
+          // console.log('Final API-based occurrences:', upcomingOccurrences.value)
         }
       } catch (err) {
-        console.error('Error in combined approach, falling back to API only:', err)
+        logger.error('Error in combined approach, falling back to API only:', err)
 
         // Fall back to API-only approach if the combined approach fails
         const response = await EventSeriesService.getOccurrences(seriesSlug, 10)
@@ -1375,20 +1278,16 @@ const loadUpcomingOccurrences = async () => {
           .slice(0, 5) // Limit to next 5 occurrences
 
         if (isDevelopmentMode.value) {
-          console.log('Fallback API occurrences:', upcomingOccurrences.value)
+          // console.log('Fallback API occurrences:', upcomingOccurrences.value)
         }
       }
 
       // Check if occurrences look weekly or monthly (only in development mode)
       if (isDevelopmentMode.value && upcomingOccurrences.value.length >= 2) {
-        const date1 = upcomingOccurrences.value[0].date
-        const date2 = upcomingOccurrences.value[1].date
-        const diffDays = (date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24)
-        console.log(`Days between first two displayed occurrences: ${diffDays}`)
-        console.log(`Pattern displayed appears to be: ${diffDays < 10 ? 'WEEKLY' : 'MONTHLY'}`)
+        // Pattern analysis debug info available
       }
     } catch (error) {
-      console.error('Failed to load upcoming occurrences:', error)
+      logger.error('Failed to load upcoming occurrences:', error)
     }
   }
 }

@@ -245,7 +245,7 @@ const deleteAttendee = (attendee: EventAttendeeEntity) => {
 }
 
 const sendMessage = (attendee: EventAttendeeEntity) => {
-  router.push({ name: 'MessagesPage', query: { user: attendee.user.slug } })
+  router.push({ name: 'DashboardChatsPage', query: { user: attendee.user.slug } })
 }
 
 const viewProfile = (attendee: EventAttendeeEntity) => {

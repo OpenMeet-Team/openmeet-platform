@@ -186,7 +186,7 @@ describe('GroupFormComponent.vue', () => {
       expect(uploadComponent.exists()).toBe(true)
       expect(uploadComponent.props('cropOptions')).toEqual({
         autoZoom: true,
-        aspectRatio: 3 / 2
+        aspectRatio: 16 / 9
       })
     })
 

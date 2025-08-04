@@ -22,9 +22,10 @@ const messageStore = useMessageStore()
 const { error } = useNotification()
 
 // UI state
-const isLoading = ref(false)
-const isLoadingGroups = ref(false)
-const isLoadingEvents = ref(false)
+const isLoading = ref(true) // Start with loading true
+const isLoadingGroups = ref(true) // Start with loading true
+const isLoadingEvents = ref(true) // Start with loading true
+const hasInitialized = ref(false) // Track if we've completed initial load
 const activeTab = ref('direct')
 
 // Search state
@@ -51,7 +52,6 @@ const activeChat = computed(() => messageStore.activeDirectChat)
 
 // Fetch Lists
 const fetchDirectChats = async () => {
-  isLoading.value = true
   try {
     // Fetch the direct chat list
     try {
@@ -78,7 +78,6 @@ const fetchDirectChats = async () => {
 const recentGroups = ref([])
 
 const fetchRecentGroups = async () => {
-  isLoadingGroups.value = true
   try {
     // Use the groupsApi.getAllMe() endpoint through the API
     const response = await groupsApi.getAllMe()
@@ -99,7 +98,6 @@ const fetchRecentGroups = async () => {
 const recentEvents = ref([])
 
 const fetchRecentEvents = async () => {
-  isLoadingEvents.value = true
   try {
     // Use eventsApi.getDashboardEvents() through the API
     const response = await eventsApi.getDashboardEvents()
@@ -117,7 +115,7 @@ const fetchRecentEvents = async () => {
 
 // Navigation to specific chats
 const navigateToGroupChat = (groupSlug) => {
-  router.push({ name: 'GroupDiscussionsPage', params: { slug: groupSlug } })
+  router.push({ name: 'GroupChatroomPage', params: { slug: groupSlug } })
 }
 
 const navigateToEventChat = (eventSlug) => {
@@ -146,6 +144,7 @@ onMounted(async () => {
     console.error('Error initializing messages:', err)
     error('Failed to load messages')
   } finally {
+    hasInitialized.value = true
     LoadingBar.stop()
   }
 })
@@ -169,12 +168,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <q-page padding style="max-width: 1024px;" class="q-mx-auto c-messages-page q-pb-xl">
-    <DashboardTitle defaultBack label="Messages" />
+  <q-page padding style="max-width: 1024px;" class="q-mx-auto c-chats-page q-pb-xl">
+    <DashboardTitle defaultBack label="Chats" />
 
-    <SpinnerComponent v-if="isLoading && !messageStore.directChats.length" />
+    <SpinnerComponent v-if="!hasInitialized" />
 
-    <div v-else class="messages-page row q-col-gutter-md">
+    <div v-else class="chats-page row q-col-gutter-md">
       <!-- Left sidebar with tabs for different message types -->
       <div class="col-4">
         <q-card flat bordered class="full-height">
@@ -255,6 +254,7 @@ onBeforeUnmount(() => {
             <q-tab-panel name="groups" class="q-pa-none">
               <div v-if="isLoadingGroups" class="q-pa-md text-center">
                 <q-spinner-dots color="primary" size="40px" />
+                <div class="text-caption q-mt-sm">Loading groups...</div>
               </div>
               <q-list separator v-else-if="recentGroups.length" style="max-height: 100%;">
                 <q-item
@@ -282,6 +282,7 @@ onBeforeUnmount(() => {
             <q-tab-panel name="events" class="q-pa-none">
               <div v-if="isLoadingEvents" class="q-pa-md text-center">
                 <q-spinner-dots color="primary" size="40px" />
+                <div class="text-caption q-mt-sm">Loading events...</div>
               </div>
               <q-list separator v-else-if="recentEvents.length" style="max-height: 100%;">
                 <q-item
@@ -346,7 +347,7 @@ onBeforeUnmount(() => {
                       </div>
                     </div>
 
-                    <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'MessagesPage' })">
+                    <q-btn round dense flat icon="sym_r_close" @click="router.push({ name: 'DashboardChatsPage' })">
                       <q-tooltip>Close chat</q-tooltip>
                     </q-btn>
                   </div>
@@ -414,7 +415,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.messages-page {
+.chats-page {
   min-height: calc(100vh - 260px);
 }
 

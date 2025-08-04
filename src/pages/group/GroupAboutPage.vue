@@ -2,12 +2,12 @@
 import { useGroupStore } from '../../stores/group-store'
 import { computed, onMounted, ref } from 'vue'
 import GroupAboutMembersComponent from '../../components/group/GroupAboutMembersComponent.vue'
-import GroupAboutDiscussionsComponent from '../../components/group/GroupAboutDiscussionsComponent.vue'
 import GroupAboutEventsComponent from '../../components/group/GroupAboutEventsComponent.vue'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
 import { GroupPermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import { useRoute } from 'vue-router'
+import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 
 const group = computed(() => useGroupStore().group)
 const route = useRoute()
@@ -45,8 +45,6 @@ onMounted(() => {
       <!-- Events List Section -->
       <GroupAboutEventsComponent :events="group.events" />
 
-      <!-- Discussions section -->
-      <GroupAboutDiscussionsComponent :group="group" />
     </div>
 
     <!-- Members List -->

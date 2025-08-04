@@ -52,13 +52,12 @@ const routes: RouteRecordRaw[] = [
               { path: '', name: 'GroupAboutPage', component: () => import('pages/group/GroupAboutPage.vue') },
               { path: 'events', name: 'GroupEventsPage', component: () => import('pages/group/GroupEventsPage.vue') },
               { path: 'members', name: 'GroupMembersPage', component: () => import('pages/group/GroupMembersPage.vue') },
-              { path: 'discussions', name: 'GroupDiscussionsPage', component: () => import('pages/group/GroupDiscussionsPage.vue') }
+              { path: 'chatroom', name: 'GroupChatroomPage', component: () => import('pages/group/GroupChatroomPage.vue') }
             ]
           }
         ]
       },
       { path: 'members/:slug', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
-      { path: 'messages', name: 'MessagesPage', component: () => import('pages/MessagesPage.vue'), meta: { requiresAuth: true } },
       { path: 'privacy', name: 'PrivacyPolicyPage', component: () => import('pages/PrivacyPolicyPage.vue') },
       { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') }
     ],
@@ -86,6 +85,7 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') },
+      { path: 'chats', name: 'DashboardChatsPage', component: () => import('pages/dashboard/ChatsPage.vue') },
       { path: 'calendar-demo', name: 'CalendarDemoPage', component: () => import('pages/dashboard/CalendarDemoPage.vue') }
     ],
     meta: { requiresAuth: true }
@@ -96,7 +96,9 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'AdminPage', component: () => import('pages/admin/AdminPage.vue') },
       { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') },
-      { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') }
+      { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') },
+      { path: 'matrix-test', name: 'MatrixTestPage', component: () => import('pages/admin/MatrixTestPage.vue') },
+      { path: 'matrix-room-fix', name: 'MatrixRoomFixPage', component: () => import('pages/admin/MatrixRoomFixPage.vue') }
     ],
     meta: { requiresAuth: true }
   },
@@ -115,6 +117,11 @@ const routes: RouteRecordRaw[] = [
         path: 'calendar/callback',
         name: 'CalendarCallbackPage',
         component: () => import('pages/auth/CalendarCallbackPage.vue')
+      },
+      {
+        path: 'matrix/callback',
+        name: 'AuthMatrixCallbackPage',
+        component: () => import('pages/auth/MatrixCallbackPage.vue')
       },
       { path: 'login', name: 'AuthLoginPage', component: () => import('pages/auth/LoginPage.vue') },
       { path: 'register', name: 'AuthRegisterPage', component: () => import('pages/auth/RegisterPage.vue') },

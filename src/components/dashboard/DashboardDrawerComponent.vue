@@ -17,7 +17,7 @@ import { Screen } from 'quasar'
       <q-list padding>
         <MenuItemComponent label="My events" icon="sym_r_event_note" :to="{name: 'DashboardEventsPage'}"/>
         <MenuItemComponent label="My groups" icon="sym_r_group" :to="{name: 'DashboardGroupsPage'}"/>
-        <MenuItemComponent label="My chats" icon="sym_r_chat" :to="{name: 'MessagesPage'}"/>
+        <MenuItemComponent label="My chats" icon="sym_r_chat" :to="{name: 'DashboardChatsPage'}"/>
         <MenuItemComponent label="Account settings" icon="sym_r_settings" :to="{name: 'DashboardProfilePage'}"/>
         <q-separator/>
       </q-list>

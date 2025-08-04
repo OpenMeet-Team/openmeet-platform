@@ -38,7 +38,7 @@ export function useNavigation () {
   }
 
   const navigateToChat = (query: { user?: string, chat?: string }) => {
-    router.push({ name: 'MessagesPage', query })
+    router.push({ name: 'DashboardChatsPage', query })
   }
 
   return {

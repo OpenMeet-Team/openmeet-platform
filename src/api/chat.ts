@@ -3,11 +3,9 @@ import { api } from '../boot/axios'
 import { ChatEntity } from '../types'
 import { MatrixMessage } from '../types/matrix'
 import { RouteQueryAndHash } from 'vue-router'
-import { matrixApi } from './matrix'
-import { Socket as SocketIOClient } from 'socket.io-client'
 
-// Define a Socket type that's compatible with what matrixApi returns
-type Socket = SocketIOClient
+// Legacy Socket type for deprecated methods
+type Socket = never
 
 export const chatApi = {
   // Get list of chat rooms for the current user
@@ -25,12 +23,8 @@ export const chatApi = {
   getEventMessages: (eventSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/event/${eventSlug}/messages`, { params: { limit, from } }),
 
-  joinEventChatRoom: (eventSlug: string): Promise<AxiosResponse<{
-    success: boolean;
-    roomId?: string;
-    message?: string;
-  }>> =>
-    api.post(`/api/chat/event/${eventSlug}/join`, {}),
+  // Matrix-native approach: joinEventChatRoom removed
+  // Room joining is now handled directly via Matrix JS SDK using room aliases
 
   addMemberToEventDiscussion: (eventSlug: string, userSlug: string): Promise<AxiosResponse<{
     success?: boolean;
@@ -49,9 +43,8 @@ export const chatApi = {
   getGroupMessages: (groupSlug: string, limit?: number, from?: string): Promise<AxiosResponse<{ messages: MatrixMessage[], end: string, roomId?: string }>> =>
     api.get(`/api/chat/group/${groupSlug}/messages`, { params: { limit, from } }),
 
-  // Group chat room membership
-  joinGroupChatRoom: (groupSlug: string): Promise<AxiosResponse<{ success: boolean; roomId?: string; message?: string }>> =>
-    api.post(`/api/chat/group/${groupSlug}/join`),
+  // Matrix-native approach: joinGroupChatRoom removed
+  // Room joining is now handled directly via Matrix JS SDK using room aliases
 
   addMemberToGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<{
     success?: boolean;
@@ -63,6 +56,10 @@ export const chatApi = {
   removeMemberFromGroupDiscussion: (groupSlug: string, userSlug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/chat/group/${groupSlug}/members/${userSlug}`),
 
+  // Matrix-native approach: Room ensure endpoints removed
+  // Rooms are now created on-demand via Matrix Application Service using room aliases
+  // No need for explicit room creation/ensure endpoints
+
   // Mark messages as read
   setMessagesRead: (messageIds: number[]) =>
     api.post('/api/chat/messages/read', { messages: messageIds }),
@@ -71,16 +68,52 @@ export const chatApi = {
   sendTyping: (roomId: string, isTyping: boolean): Promise<AxiosResponse<void>> =>
     api.post(`/api/matrix/${roomId}/typing`, { isTyping }),
 
-  // Create WebSocket connection for chat events (reuse Matrix WebSocket)
+  // @deprecated WebSocket functionality removed for performance optimization
   createSocketConnection: async (): Promise<Socket> => {
-    // Reuse the matrix API's createSocketConnection method to ensure consistency
-    const socket = await matrixApi.createSocketConnection()
-    return socket as Socket
+    throw new Error('WebSocket functionality removed - use Matrix client for real-time events')
   },
 
   // Legacy method for backward compatibility - throws error to identify usage
   createEventSource: (): EventSource => {
     console.error('EventSource is no longer supported - please update your code to use WebSocket')
     throw new Error('EventSource is deprecated in favor of WebSockets for chat events')
-  }
+  },
+
+  // Matrix room permission management (admin endpoints)
+  listRoomsWithPermissionIssues: (): Promise<AxiosResponse<{
+    success: boolean;
+    roomsWithIssues: Array<{
+      roomType: 'event' | 'group';
+      slug: string;
+      roomId: string;
+      botCurrentPowerLevel: number;
+      botExpectedPowerLevel: number;
+      canBeFixed: boolean;
+      issues: string[];
+    }>;
+    summary: {
+      totalRooms: number;
+      roomsWithIssues: number;
+      fixableRooms: number;
+    };
+    message?: string;
+  }>> =>
+    api.get('/api/chat/admin/rooms/permission-issues'),
+
+  fixRoomPermissions: (roomIds: string[]): Promise<AxiosResponse<{
+    success: boolean;
+    results: Array<{
+      roomId: string;
+      fixed: boolean;
+      newPowerLevel: number;
+      error?: string;
+    }>;
+    summary: {
+      totalAttempted: number;
+      successfulFixes: number;
+      failedFixes: number;
+    };
+    message?: string;
+  }>> =>
+    api.post('/api/chat/admin/rooms/fix-permissions', { roomIds })
 }

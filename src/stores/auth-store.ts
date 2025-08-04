@@ -12,6 +12,7 @@ import {
   UserPermission
 } from '../types'
 import analyticsService from '../services/analyticsService'
+import { logger } from '../utils/logger'
 
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
@@ -35,6 +36,7 @@ export const useAuthStore = defineStore('authStore', {
     hasRole: (state) => (role: UserRole) => state.user.role?.name === role,
     hasPermission: (state) => (permission: UserPermission) => state.user.role?.permissions.some(p => p.name === permission),
     getUserId: state => state.user.id,
+    getUserSlug: state => state.user.slug,
     getBlueskyDid: state => state.blueskyDid,
     getBlueskyHandle: state => state.blueskyHandle,
     getBlueskEndpoint: state => {
@@ -55,7 +57,7 @@ export const useAuthStore = defineStore('authStore', {
         this.actionSetUser(response.data.user)
         return response
       } catch (error) {
-        console.error('Login failed', error)
+        logger.error('Login failed', error)
         throw error
       }
     },
@@ -75,7 +77,7 @@ export const useAuthStore = defineStore('authStore', {
 
         return response.data.token
       } catch (error) {
-        console.error('Google login error:', error)
+        logger.error('Google login error:', error)
         throw error
       }
     },
@@ -95,20 +97,20 @@ export const useAuthStore = defineStore('authStore', {
 
         return response.data.token
       } catch (error) {
-        console.error('Github login error:', error.response?.data || error)
+        logger.error('Github login error:', error.response?.data || error)
         throw error
       }
     },
     async actionRefreshToken () {
-      console.log('🔄 Auth Store: actionRefreshToken called with token:', this.refreshToken ? this.refreshToken.substring(0, 20) + '...' : 'null')
+      // Auth Store: actionRefreshToken called
       return await authApi.refreshToken(this.refreshToken).then(response => {
-        console.log('✅ Auth Store: Token refresh successful')
+        // Auth Store: Token refresh successful
         this.actionSetToken(response.data.token)
         this.actionSetRefreshToken(response.data.refreshToken)
         this.actionSetTokenExpires(response.data.tokenExpires)
         return response.data.token
       }).catch(error => {
-        console.log('🔴 Auth Store: Token refresh failed:', error)
+        logger.error('Auth Store: Token refresh failed:', error)
         throw error
       })
     },
@@ -121,7 +123,7 @@ export const useAuthStore = defineStore('authStore', {
         if (response.data.user) this.actionSetUser(response.data.user)
         return response
       } catch (error) {
-        console.error('Registration failed', error)
+        logger.error('Registration failed', error)
         throw error
       }
     },
@@ -129,7 +131,7 @@ export const useAuthStore = defineStore('authStore', {
       try {
         return await authApi.restorePassword(credentials)
       } catch (error) {
-        console.error('actionRestorePassword failed', error)
+        logger.error('actionRestorePassword failed', error)
         throw error
       }
     },
@@ -137,17 +139,25 @@ export const useAuthStore = defineStore('authStore', {
       try {
         return await authApi.forgotPassword(credentials)
       } catch (error) {
-        console.error('actionForgotPassword failed', error)
+        logger.error('actionForgotPassword failed', error)
         throw error
       }
     },
     async actionLogout () {
-      return authApi.logout().finally(() => {
+      return authApi.logout().finally(async () => {
+        // Clear Matrix session before clearing OpenMeet auth
+        try {
+          const { matrixClientService } = await import('../services/matrixClientService')
+          await matrixClientService.clearSession()
+        } catch (error) {
+          logger.warn('Failed to clear Matrix session during logout:', error)
+        }
+
         this.actionClearAuth()
         analyticsService.trackEvent('user_logged_out')
         analyticsService.reset()
       }).catch((error) => {
-        console.error('Logout failed', error)
+        logger.error('Logout failed', error)
       })
     },
     actionSetToken (token: string) {
@@ -209,7 +219,7 @@ export const useAuthStore = defineStore('authStore', {
         const profileParam = params.get('profile')
 
         if (!token || !refreshToken || !tokenExpires || !userParam || !profileParam) {
-          console.error('Missing required parameters')
+          logger.error('Missing required parameters')
           return false
         }
 
@@ -232,7 +242,7 @@ export const useAuthStore = defineStore('authStore', {
         if (did && profile.handle) {
           this.actionSetBlueskyIdentifiers(did, profile.handle)
         } else {
-          console.error('Missing Bluesky identifiers:', { did, handle: profile.handle })
+          logger.error('Missing Bluesky identifiers:', { did, handle: profile.handle })
         }
 
         // Update user with Bluesky preferences
@@ -257,7 +267,7 @@ export const useAuthStore = defineStore('authStore', {
 
         return true
       } catch (error) {
-        console.error('Bluesky callback error:', error)
+        logger.error('Bluesky callback error:', error)
         throw error
       }
     },
@@ -272,11 +282,7 @@ export const useAuthStore = defineStore('authStore', {
 
         // Use socialId directly from user object
         const did = user.socialId
-        console.log('Dev login: Setting Bluesky identifiers:', {
-          did,
-          handle: credentials.identifier,
-          user
-        })
+        // Dev login: Setting Bluesky identifiers
 
         if (did) {
           this.actionSetBlueskyIdentifiers(did, credentials.identifier)
@@ -296,7 +302,7 @@ export const useAuthStore = defineStore('authStore', {
 
         return this.handleBlueskyCallback(params)
       } catch (error) {
-        console.error('Dev login failed', error)
+        logger.error('Dev login failed', error)
         throw error
       }
     },
@@ -315,15 +321,33 @@ export const useAuthStore = defineStore('authStore', {
       this.isInitializing = true
 
       try {
-        // Check if we have a token
+        // Check if we have a token and it hasn't expired
         if (this.token) {
+          // Check token expiry before making API call
+          const now = Date.now()
+          const tokenExpires = Number(this.tokenExpires)
+          if (tokenExpires && now > tokenExpires) {
+            logger.warn('Token has expired, clearing auth')
+            this.actionClearAuth()
+            return
+          }
           try {
             // Validate the token by fetching user data
             const response = await authApi.getMe()
             this.actionSetUser(response.data)
           } catch (error) {
-            console.error('Token validation failed, clearing auth:', error)
-            this.actionClearAuth()
+            // Don't clear auth on network errors or aborted requests (e.g., during OIDC redirects)
+            if (error.code === 'ECONNABORTED' || (error.name === 'AxiosError' && error.message.includes('aborted'))) {
+              logger.warn('Token validation aborted (likely due to navigation), preserving auth:', error.message)
+              // Keep existing auth state during navigation
+            } else if (error.response?.status === 401 || error.response?.status === 403) {
+              // Clear auth on actual authentication errors (expired/invalid tokens)
+              logger.error('Token validation failed with auth error, clearing auth:', error.response.status)
+              this.actionClearAuth()
+            } else {
+              // For other network errors, preserve auth but log the issue
+              logger.warn('Token validation failed with network error, preserving auth:', error.message)
+            }
           }
         }
       } finally {
