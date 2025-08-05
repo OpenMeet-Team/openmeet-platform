@@ -151,6 +151,12 @@ docker run -p 80:80 openmeet-platform
 docker-compose up
 ```
 
+### Disable update checking 
+
+    echo "local-dev" > public/commit-sha.txt
+    echo "0.0.3" > public/app-version.txt
+
+
 ## Adding Variables to the Build
 When adding new environment variables:
 1. Add to `.env`
