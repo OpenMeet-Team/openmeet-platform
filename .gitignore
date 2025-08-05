@@ -3,6 +3,8 @@
 node_modules
 
 public/config.json
+public/app-version.txt
+public/commit-sha.txt
 
 # Quasar core related directories
 .quasar
