@@ -5,6 +5,7 @@ node_modules
 public/config.json
 public/app-version.txt
 public/commit-sha.txt
+working.md
 
 # Quasar core related directories
 .quasar
