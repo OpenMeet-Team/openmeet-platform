@@ -537,20 +537,10 @@ class MatrixClientService {
         tokenEndpoint: oidcConfig.token_endpoint
       })
 
-      // Step 2: Register OAuth2 client dynamically (or use static client for tests)
-      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
-      const staticClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
-
-      let clientId: string
-
-      if (useStaticClient && staticClientId) {
-        logger.debug('📝 Using static OAuth2 client for testing:', staticClientId)
-        clientId = staticClientId
-      } else {
-        logger.debug('📝 Registering dynamic OAuth2 client with MAS')
-        const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
-        clientId = clientRegistration.client_id
-      }
+      // Step 2: Register OAuth2 client dynamically
+      logger.debug('📝 Registering dynamic OAuth2 client with MAS')
+      const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
+      const clientId = clientRegistration.client_id
 
       // Step 3: Generate authorization URL using native matrix-js-sdk
       const nonce = this._generateRandomState()
@@ -718,12 +708,8 @@ class MatrixClientService {
       const masUrl = getEnv('APP_MAS_URL') as string
       const masRedirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
-      // Use static test client if configured for testing, otherwise use dynamic client
-      const useStaticClient = getEnv('APP_MAS_USE_STATIC_CLIENT') === 'true'
-      const staticTestClientId = getEnv('APP_MAS_STATIC_TEST_CLIENT_ID') as string
-      const dynamicClientId = sessionStorage.getItem('mas_client_id')
-
-      const clientId = useStaticClient && staticTestClientId ? staticTestClientId : dynamicClientId
+      // Use dynamic client from session storage
+      const clientId = sessionStorage.getItem('mas_client_id')
       const storedDeviceId = sessionStorage.getItem('mas_device_id')
 
       if (!masUrl || !clientId) {
@@ -732,8 +718,7 @@ class MatrixClientService {
 
       const redirectUrl = `${window.location.origin}${masRedirectPath || '/auth/matrix/callback'}`
 
-      logger.debug('🔧 Using client for token exchange:', {
-        clientType: dynamicClientId ? 'dynamic' : 'static',
+      logger.debug('🔧 Using dynamic client for token exchange:', {
         clientId,
         deviceId: storedDeviceId,
         redirectUrl
