@@ -37,9 +37,6 @@ function stringArrayToByWeekday (days: string[]): ByWeekday[] {
 export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): RecurrenceRuleDto {
   if (!rule) return { frequency: 'WEEKLY' }
 
-  // Log the rule for debugging
-  console.log('Converting frontend rule to backend format:', JSON.stringify(rule))
-
   // Create basic dto with all standard properties
   const dto: RecurrenceRuleDto = {
     frequency: rule.frequency || 'WEEKLY',
@@ -56,8 +53,6 @@ export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): Recurre
   // Add a custom property to indicate user explicit selection if needed
   // This is important for the backend to respect the user's day choices
   if (rule._userExplicitSelection && rule.byweekday && rule.byweekday.length > 0) {
-    console.log('Preserving user explicit day selection flag for backend:', rule.byweekday)
-
     // We use a custom property that will be passed along but not part of the standard RecurrenceRuleDto
     dto._userExplicitSelection = true
   }
@@ -75,9 +70,6 @@ export function toBackendRecurrenceRule (rule: Partial<RecurrenceRule>): Recurre
  */
 export function toFrontendRecurrenceRule (dto: RecurrenceRuleDto): RecurrenceRule {
   if (!dto) return { frequency: 'WEEKLY' }
-
-  // Log the DTO for debugging
-  console.log('Converting backend DTO to frontend format:', JSON.stringify(dto))
 
   return {
     frequency: dto.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'HOURLY' | 'MINUTELY' | 'SECONDLY' || 'WEEKLY',

@@ -129,7 +129,6 @@ export const useChatStore = defineStore('chat', {
 
         // Check if we already have this message
         if (!messages.some(m => m.id === message.event_id)) {
-          console.log('!!!DEBUG!!! Adding message to chat store, event_id:', message.event_id)
 
           // Handle content with appropriate type checking
           const content = message.content && typeof message.content === 'object' && 'body' in message.content &&

@@ -33,21 +33,15 @@ const radiusOptions = [
 ]
 
 const onFilterByRadius = (value: string | null) => {
-  console.log('Radius selected:', value)
-
   const query = { ...route.query }
 
   if (!value) {
     delete query.radius
-    console.log('Clearing radius')
   } else {
     query.radius = value
-    console.log('Setting radius to:', value)
   }
 
   delete query.page
-
-  console.log('Final query:', query)
   router.push({ query })
 }
 

@@ -13,28 +13,18 @@ import type { RouteLocationNormalized } from 'vue-router'
 function extractMatrixContext (route: RouteLocationNormalized): string {
   const tenantId = localStorage.getItem('tenantId') || 'default'
 
-  console.log('🔍 extractMatrixContext: route =', {
-    name: route.name,
-    params: route.params,
-    path: route.path,
-    fullPath: route.fullPath
-  })
-
   // Extract entity type and slug from route
   if (route.name?.toString().includes('Group')) {
     const groupSlug = route.params?.slug
-    console.log(`🔍 extractMatrixContext: Group route, slug = ${groupSlug}`)
     return groupSlug ? `group-${groupSlug}-${tenantId}` : `group-unknown-${tenantId}`
   }
 
   if (route.name?.toString().includes('Event')) {
     const eventSlug = route.params?.slug
-    console.log(`🔍 extractMatrixContext: Event route, slug = ${eventSlug}`)
     return eventSlug ? `event-${eventSlug}-${tenantId}` : `event-unknown-${tenantId}`
   }
 
   // For other routes, use a generic context with tenant
-  console.log(`🔍 extractMatrixContext: Other route, name = ${String(route.name)}`)
   return `general-${String(route.name) || 'unknown'}-${tenantId}`
 }
 
@@ -121,17 +111,8 @@ export default route(function (/* { store, ssrContext } */) {
         const oldContext = extractMatrixContext(from)
         const newContext = extractMatrixContext(to)
 
-        console.log('🔍 Router DEBUG: Checking context change')
-        console.log('🔍 Router DEBUG: From route:', { name: from.name, params: from.params })
-        console.log('🔍 Router DEBUG: To route:', { name: to.name, params: to.params })
-        console.log(`🔍 Router DEBUG: Old context: ${oldContext}`)
-        console.log(`🔍 Router DEBUG: New context: ${newContext}`)
-
         if (oldContext !== newContext) {
-          console.log(`🧹 Matrix context change detected: ${oldContext} → ${newContext}`)
           await matrixClientManager.cleanupOnNavigation(newContext, oldContext)
-        } else {
-          console.log(`ℹ️ No Matrix context change needed: ${oldContext}`)
         }
       } catch (error) {
         console.warn('Matrix cleanup failed during navigation:', error)
