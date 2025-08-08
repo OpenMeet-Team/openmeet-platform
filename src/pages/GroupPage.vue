@@ -67,6 +67,7 @@ import { GroupPermission, GroupRole } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
 import { matrixClientService } from '../services/matrixClientService'
+import { logger } from '../utils/logger'
 
 const route = useRoute()
 
@@ -100,7 +101,7 @@ onMounted(async () => {
     const isAuthenticated = useAuthStore().isFullyAuthenticated
     const groupSlug = route.params.slug as string
 
-    console.log('Group loaded, checking membership status:', {
+    logger.debug('Group loaded, checking membership status:', {
       isMember,
       isAuthenticated,
       groupSlug
@@ -109,16 +110,16 @@ onMounted(async () => {
     // If user is a member and authenticated, join the group chat room
     if (isMember && isAuthenticated) {
       try {
-        console.log('User is a member of group, joining group chat room')
+        logger.debug('User is a member of group, joining group chat room')
         const userSlug = useAuthStore().user?.slug
 
         if (userSlug) {
-          console.log(`Joining chat room for group ${groupSlug} with user ${userSlug} using Matrix-native approach`)
+          logger.debug(`Joining chat room for group ${groupSlug} with user ${userSlug} using Matrix-native approach`)
           const joinResult = await matrixClientService.joinGroupChatRoom(groupSlug)
-          console.log('Group chat room join result:', joinResult.roomInfo)
+          logger.debug('Group chat room join result:', joinResult.roomInfo)
 
           if (joinResult.room?.roomId) {
-            console.log(`Successfully joined Matrix room for group: ${joinResult.room.roomId}`)
+            logger.debug(`Successfully joined Matrix room for group: ${joinResult.room.roomId}`)
           }
         }
       } catch (err) {
@@ -126,7 +127,7 @@ onMounted(async () => {
         console.error('Failed to auto-join group chat room:', err)
       }
     } else {
-      console.log('User is not a member or not authenticated, skipping chat room join')
+      logger.debug('User is not a member or not authenticated, skipping chat room join')
     }
   } catch (error) {
     console.error('Error loading group data:', error)

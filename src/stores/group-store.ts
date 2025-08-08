@@ -4,6 +4,7 @@ import { chatApi } from '../api/chat'
 import { GroupEntity, GroupMemberEntity, GroupPermission, GroupRole, GroupVisibility } from '../types'
 import { useNotification } from '../composables/useNotification'
 import analyticsService from '../services/analyticsService'
+import { logger } from '../utils/logger'
 
 const { error } = useNotification()
 
@@ -52,7 +53,7 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.getBySlug(slug)
         this.group = res.data
       } catch (err: unknown) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
         this.errorCode = axiosError.response?.status || null
         if (axiosError.response?.status === 403) {
@@ -73,7 +74,7 @@ export const useGroupStore = defineStore('group', {
           this.group.groupMembers = res.data.groupMembers
         }
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         this.errorMessage = 'Failed to fetch group data'
       }
     },
@@ -84,7 +85,7 @@ export const useGroupStore = defineStore('group', {
           this.group.groupMembers = res.data
         }
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to fetch group data')
       }
     },
@@ -95,7 +96,7 @@ export const useGroupStore = defineStore('group', {
           this.group.events = res.data
         }
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to fetch group data')
       }
     },
@@ -116,7 +117,7 @@ export const useGroupStore = defineStore('group', {
         }
         analyticsService.trackEvent('group_joined', { group_id: this.group?.id, name: this.group?.name })
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to join group')
       }
     },
@@ -129,7 +130,7 @@ export const useGroupStore = defineStore('group', {
           analyticsService.trackEvent('group_left', { group_id: this.group?.id, name: this.group?.name })
         }
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to leave group')
       }
     },
@@ -137,7 +138,7 @@ export const useGroupStore = defineStore('group', {
       try {
         await groupsApi.delete(slug)
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to delete group')
       }
     },
@@ -154,7 +155,7 @@ export const useGroupStore = defineStore('group', {
           }
         })
       } catch (err) {
-        console.log(err)
+        logger.debug('Group store error:', err)
         error('Failed to remove group member')
       }
     },
@@ -166,23 +167,23 @@ export const useGroupStore = defineStore('group', {
     async actionSendGroupDiscussionMessage (message: string): Promise<string | number | undefined> {
       try {
         if (this.group?.slug) {
-          console.log('Sending discussion message to group:', this.group.slug, message)
+          logger.debug('Sending discussion message to group:', this.group.slug, message)
 
           try {
             // Use the new chatApi endpoint instead of groupsApi
             const res = await chatApi.sendGroupMessage(this.group.slug, message)
-            console.log('Group discussion message sent successfully, ID:', res.data.id)
+            logger.debug('Group discussion message sent successfully, ID:', res.data.id)
 
             // After sending a message, check if we can get the roomId (if not already set)
             if (!this.group.roomId) {
               // Slight delay to ensure backend has processed the message
-              console.log('Waiting briefly before loading messages to get room ID')
+              logger.debug('Waiting briefly before loading messages to get room ID')
               await new Promise(resolve => setTimeout(resolve, 500))
 
-              console.log('Attempting to load messages to get room ID after sending message')
+              logger.debug('Attempting to load messages to get room ID after sending message')
               await this.actionGetGroupDiscussionMessages()
                 .then(result => {
-                  console.log('Got messages after sending:', result.messages?.length || 0)
+                  logger.debug('Got messages after sending:', result.messages?.length || 0)
                 })
                 .catch(e => console.error('Error getting messages after send:', e))
             }
@@ -213,12 +214,12 @@ export const useGroupStore = defineStore('group', {
     async actionGetGroupDiscussionMessages (limit = 50, from?: string) {
       try {
         if (this.group?.slug) {
-          console.log('Getting group discussion messages for:', this.group.slug)
+          logger.debug('Getting group discussion messages for:', this.group.slug)
 
           // Make the API call using the new chatApi endpoint
           const res = await chatApi.getGroupMessages(this.group.slug, limit, from)
 
-          console.log('Response from getGroupMessages:', {
+          logger.debug('Response from getGroupMessages:', {
             messageCount: res.data.messages?.length || 0,
             roomId: res.data.roomId,
             hasFirstMessage: res.data.messages?.length > 0,
@@ -227,7 +228,7 @@ export const useGroupStore = defineStore('group', {
 
           // Store the roomId in the group object if it's provided
           if (res.data.roomId && this.group) {
-            console.log('Found roomId in API response:', res.data.roomId)
+            logger.debug('Found roomId in API response:', res.data.roomId)
             this.group.roomId = res.data.roomId
           }
 
@@ -238,7 +239,7 @@ export const useGroupStore = defineStore('group', {
               // Try both property naming conventions
               const extractedRoomId = message.roomId || message.room_id
               if (extractedRoomId) {
-                console.log('Extracted roomId from message:', extractedRoomId)
+                logger.debug('Extracted roomId from message:', extractedRoomId)
                 this.group.roomId = extractedRoomId
                 break
               }
@@ -254,7 +255,7 @@ export const useGroupStore = defineStore('group', {
         // Check for the specific "not implemented" error from the backend
         if (err.response?.data?.message?.includes('not implemented') ||
             (typeof err.message === 'string' && err.message.includes('not implemented'))) {
-          console.log('Group discussion functionality not implemented yet on the backend')
+          logger.debug('Group discussion functionality not implemented yet on the backend')
           throw new Error('Group discussion functionality not implemented yet')
         } else {
           error('Failed to get group discussion messages')

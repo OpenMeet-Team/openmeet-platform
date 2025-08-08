@@ -350,6 +350,7 @@ import dateFormatting from '../../composables/useDateFormatting'
 import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 import { addHours } from 'date-fns'
+import { logger } from '../../utils/logger'
 import { fromZonedTime, toZonedTime } from 'date-fns-tz' // formatInTimeZone moved to RecurrenceComponent
 import type RecurrenceComponentType from './recurrence-component-shim'
 
@@ -419,7 +420,7 @@ watch(() => eventData.value.seriesSlug, async (newSeriesSlug, oldSeriesSlug) => 
   // Only proceed if seriesSlug actually changed
   if (newSeriesSlug && newSeriesSlug !== oldSeriesSlug) {
     isRecurring.value = true
-    console.log('Event is part of series, enabling recurring mode:', newSeriesSlug)
+    logger.debug('Event is part of series, enabling recurring mode:', newSeriesSlug)
 
     // Load the series information to get the recurrence rule
     try {
@@ -531,7 +532,7 @@ onMounted(() => {
     // Check if the loaded event has a seriesSlug and handle initial setup
     if (eventData.value.seriesSlug) {
       isRecurring.value = true
-      console.log('Event is part of series, enabling recurring mode:', eventData.value.seriesSlug)
+      logger.debug('Event is part of series, enabling recurring mode:', eventData.value.seriesSlug)
 
       try {
         await loadSeriesInformation(eventData.value.seriesSlug)
@@ -551,7 +552,7 @@ onMounted(() => {
 
 // Function to load series data including recurrence rule
 const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
-  console.log(`Loading series information for: ${seriesSlug}`)
+  logger.debug(`Loading series information for: ${seriesSlug}`)
   isLoading.value = true
 
   try {
@@ -560,7 +561,7 @@ const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
     const seriesData = seriesResponse.data
 
     // Log the series data for debugging
-    console.log('Series data loaded:', seriesData)
+    logger.debug('Series data loaded:', seriesData)
 
     // Update series form data
     seriesFormData.value.name = seriesData.name || ''
@@ -573,7 +574,7 @@ const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
 
     // Set the recurrence rule from the series
     if (seriesData.recurrenceRule) {
-      console.log('Setting recurrence rule from series:', seriesData.recurrenceRule)
+      logger.debug('Setting recurrence rule from series:', seriesData.recurrenceRule)
 
       // Convert from backend RecurrenceRuleDto to frontend RecurrenceRule format if needed
       // The frontend RecurrenceComponent expects 'frequency', 'byweekday', etc.
@@ -614,14 +615,14 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
-  console.log('FINAL EVENT DATA:', {
+  logger.debug('FINAL EVENT DATA:', {
     startDate: eventData.value.startDate,
     timeZone: eventData.value.timeZone,
     currentTime: new Date().toISOString(),
     userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   })
 
-  console.log('Auth store Bluesky state:', {
+  logger.debug('Auth store Bluesky state:', {
     did: authStore.getBlueskyDid,
     handle: authStore.getBlueskyHandle,
     hasStore: !!authStore,
@@ -635,7 +636,7 @@ const onSubmit = async () => {
 
   // Log event state before submission
   if (event.startDate) {
-    console.log('Submitting event with date:', event.startDate)
+    logger.debug('Submitting event with date:', event.startDate)
 
     // Only apply defaults for completely new events without a specified time
     if (!props.editEventSlug && !displayedStartTime.value) {
@@ -646,7 +647,7 @@ const onSubmit = async () => {
 
       // If time is midnight (00:00), set a reasonable default time (5:00 PM)
       if (hours === 0 && minutes === 0) {
-        console.log('Time is midnight for new event, using default time (5:00 PM)')
+        logger.debug('Time is midnight for new event, using default time (5:00 PM)')
         // Use DatetimeComponent to handle this properly
         const datePart = event.startDate.split('T')[0]
         const defaultTime = `${datePart}T17:00:00.000Z`
@@ -688,7 +689,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
       // Ensure the status is preserved for correct navigation
       if (event.status && (!createdEvent.status || createdEvent.status !== event.status)) {
-        console.log('Status missing in API response, adding from request:', event.status)
+        logger.debug('Status missing in API response, adding from request:', event.status)
         createdEvent.status = event.status
       }
 
@@ -709,11 +710,11 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
       // Ensure the status is preserved for correct navigation
       if (event.status && (!createdEvent.status || createdEvent.status !== event.status)) {
-        console.log('Status missing in API response, adding from request:', event.status)
+        logger.debug('Status missing in API response, adding from request:', event.status)
         createdEvent.status = event.status
       }
 
-      console.log('Created event response:', createdEvent)
+      logger.debug('Created event response:', createdEvent)
       emit('created', createdEvent)
       success('Event created successfully')
       analyticsService.trackEvent('event_created', {
@@ -733,7 +734,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 const createEventSeries = async (event: EventEntity) => {
   try {
     // Debug log to see what's in the event object
-    console.log('Event data being used for series template:', JSON.stringify(event, null, 2))
+    logger.debug('Event data being used for series template:', JSON.stringify(event, null, 2))
 
     // Make sure recurrenceRule has the required frequency property
     if (!recurrenceRule.value.frequency) {
@@ -741,13 +742,13 @@ const createEventSeries = async (event: EventEntity) => {
     }
 
     // Debug log the recurrenceRule before conversion
-    console.log('Event series recurrence rule before conversion:', JSON.stringify(recurrenceRule.value))
+    logger.debug('Event series recurrence rule before conversion:', JSON.stringify(recurrenceRule.value))
 
     // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
     const mappedRule = toBackendRecurrenceRule(recurrenceRule.value)
 
     // Debug log the mapped rule
-    console.log('Mapped recurrence rule for series API:', JSON.stringify(mappedRule))
+    logger.debug('Mapped recurrence rule for series API:', JSON.stringify(mappedRule))
 
     // Add Bluesky info to event data
     addBlueskySourceInfo(event)
@@ -756,7 +757,7 @@ const createEventSeries = async (event: EventEntity) => {
 
     // Check if this event is already part of a series to prevent duplicate creation
     if (event.seriesSlug) {
-      console.log(`Event is already part of series ${event.seriesSlug}. Skipping series creation.`)
+      logger.debug(`Event is already part of series ${event.seriesSlug}. Skipping series creation.`)
       // Just update the existing event and return
       const updateResponse = await eventsApi.update(event.slug, event)
       emit('updated', updateResponse.data)
@@ -772,12 +773,12 @@ const createEventSeries = async (event: EventEntity) => {
       // Update the existing event first
       const updateResponse = await eventsApi.update(event.slug, event)
       templateEvent = updateResponse.data
-      console.log('Updated existing event to use as template:', templateEvent)
+      logger.debug('Updated existing event to use as template:', templateEvent)
     } else {
       // Create a new template event
       const eventResponse = await eventsApi.create(event)
       templateEvent = eventResponse.data
-      console.log('Created template event:', templateEvent)
+      logger.debug('Created template event:', templateEvent)
     }
 
     // Create the series from the template
@@ -788,21 +789,21 @@ const createEventSeries = async (event: EventEntity) => {
       description: seriesFormData.value.description || event.description
     }
 
-    console.log('Creating series with data:', seriesCreationData)
+    logger.debug('Creating series with data:', seriesCreationData)
     const response = await eventSeriesApi.createSeriesFromEvent(templateEvent.slug, seriesCreationData)
     const createdSeries = response.data
 
-    console.log('Created series response:', createdSeries)
+    logger.debug('Created series response:', createdSeries)
 
     // IMPORTANT: After creating the series, fetch the template event again to get
     // the updated version with the seriesSlug set
     try {
       const refreshedEventResponse = await eventsApi.getBySlug(templateEvent.slug)
       const refreshedEvent = refreshedEventResponse.data
-      console.log('Refreshed template event after series creation:', refreshedEvent)
+      logger.debug('Refreshed template event after series creation:', refreshedEvent)
 
       if (refreshedEvent && refreshedEvent.seriesSlug === createdSeries.slug) {
-        console.log('Confirmed event is linked to series:', refreshedEvent.seriesSlug)
+        logger.debug('Confirmed event is linked to series:', refreshedEvent.seriesSlug)
         // Use the correct emit event based on whether we're in edit mode
         if (event.slug) {
           emit('updated', refreshedEvent)
@@ -829,7 +830,7 @@ const createEventSeries = async (event: EventEntity) => {
 
     // Fallback to original logic if we couldn't get the refreshed event
     if (createdSeries.templateEvent && createdSeries.templateEvent.slug) {
-      console.log('Using template event from series response:', createdSeries.templateEvent)
+      logger.debug('Using template event from series response:', createdSeries.templateEvent)
       // Use the correct emit event based on whether we're in edit mode
       if (event.slug) {
         emit('updated', createdSeries.templateEvent)
@@ -838,7 +839,7 @@ const createEventSeries = async (event: EventEntity) => {
       }
     } else if (createdSeries.events && createdSeries.events.length > 0) {
       // Fallback to the first event in the events array if available
-      console.log('Using first event from series response:', createdSeries.events[0])
+      logger.debug('Using first event from series response:', createdSeries.events[0])
       // Use the correct emit event based on whether we're in edit mode
       if (event.slug) {
         emit('updated', createdSeries.events[0])
@@ -847,7 +848,7 @@ const createEventSeries = async (event: EventEntity) => {
       }
     } else {
       // Last resort, emit the series for the parent to handle
-      console.log('No events found in series, emitting series-created')
+      logger.debug('No events found in series, emitting series-created')
       emit('series-created', createdSeries)
     }
 
@@ -874,7 +875,7 @@ const addBlueskySourceInfo = (event: EventEntity) => {
 
   // Check that DID is not "undefined" string and handle exists
   if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
-    console.log('Bluesky user detected, adding source info')
+    logger.debug('Bluesky user detected, adding source info')
     event.sourceType = 'bluesky'
     event.sourceId = blueskyDid
     event.sourceData = {
@@ -886,7 +887,7 @@ const addBlueskySourceInfo = (event: EventEntity) => {
 
 // Handle time info updates from the DatetimeComponent
 const handleStartTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
-  console.log('Received time info from DatetimeComponent:', timeInfo)
+  logger.debug('Received time info from DatetimeComponent:', timeInfo)
 
   // Store the formatted time for display - only used for UI purposes
   displayedStartTime.value = timeInfo.formattedTime
@@ -912,7 +913,7 @@ const setEndDate = (checked: boolean) => {
         const endDateUtc = fromZonedTime(endDateInEventTz, eventTz)
         eventData.value.endDate = endDateUtc.toISOString()
         // eslint-disable-next-line no-console
-        console.log(`[setEndDate] Defaulted/Recalculated end date: ${eventData.value.endDate}`)
+        logger.debug(`[setEndDate] Defaulted/Recalculated end date: ${eventData.value.endDate}`)
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('[setEndDate] Error calculating default end date with timezone:', e)
@@ -942,23 +943,23 @@ const setEndDate = (checked: boolean) => {
     eventData.value.endDate = null
   }
   // eslint-disable-next-line no-console
-  console.log(`[setEndDate] Checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
+  logger.debug(`[setEndDate] Checkbox to ${checked}, end date is now: ${eventData.value.endDate}`)
   // eslint-disable-next-line no-console
-  console.log(`[setEndDate] Start date remains: ${eventData.value.startDate}`)
+  logger.debug(`[setEndDate] Start date remains: ${eventData.value.startDate}`)
   // eslint-disable-next-line no-console
-  console.log(`[setEndDate] hasEndDate ref is now: ${hasEndDate.value}`)
+  logger.debug(`[setEndDate] hasEndDate ref is now: ${hasEndDate.value}`)
 }
 
 watch(() => eventData.value.endDate, (val) => {
   if (!!val !== hasEndDate.value) { // Only update if different to prevent loops
     hasEndDate.value = !!val
     // eslint-disable-next-line no-console
-    console.log(`[watch eventData.endDate] hasEndDate updated to: ${hasEndDate.value}`)
+    logger.debug(`[watch eventData.endDate] hasEndDate updated to: ${hasEndDate.value}`)
   }
 })
 
 const handleEndTimeInfo = (timeInfo: { originalHours: number, originalMinutes: number, formattedTime: string }) => {
-  console.log('Received end time info from DatetimeComponent:', timeInfo)
+  logger.debug('Received end time info from DatetimeComponent:', timeInfo)
 
   // Store the formatted time for display - only used for UI purposes
   displayedEndTime.value = timeInfo.formattedTime
@@ -974,7 +975,7 @@ const updateStartDate = (newStartDate: string) => {
   // Simply use the date as provided - trust DatetimeComponent's handling
   eventData.value.startDate = newStartDate
 
-  console.log('Start date updated:', eventData.value.startDate)
+  logger.debug('Start date updated:', eventData.value.startDate)
 }
 
 // Formatting is now handled by RecurrenceComponent
@@ -991,16 +992,16 @@ const refreshOccurrencesPreview = () => {
 
 // Handle updates to the recurrence rule from the RecurrenceComponent
 const handleRecurrenceRuleUpdate = async (newRule: RecurrenceRule) => {
-  console.log('Recurrence rule updated from component event:', newRule)
+  logger.debug('Recurrence rule updated from component event:', newRule)
 
   // If this is a series event, update the event series immediately
   if (eventData.value.seriesSlug && newRule?.frequency) {
-    console.log('Series event recurrence rule updated, updating series:', eventData.value.seriesSlug)
+    logger.debug('Series event recurrence rule updated, updating series:', eventData.value.seriesSlug)
 
     try {
       // Convert frontend RecurrenceRule to backend RecurrenceRuleDto format
       const mappedRule = toBackendRecurrenceRule(newRule)
-      console.log('Mapped recurrence rule for series update:', mappedRule)
+      logger.debug('Mapped recurrence rule for series update:', mappedRule)
 
       // Update the event series with the new recurrence rule
       const updateData = {
@@ -1009,7 +1010,7 @@ const handleRecurrenceRuleUpdate = async (newRule: RecurrenceRule) => {
       }
 
       const response = await eventSeriesApi.update(eventData.value.seriesSlug, updateData)
-      console.log('Successfully updated event series recurrence rule:', response.data)
+      logger.debug('Successfully updated event series recurrence rule:', response.data)
 
       // Update the series data in our form
       if (response.data.recurrenceRule) {

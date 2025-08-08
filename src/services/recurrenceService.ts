@@ -3,6 +3,7 @@ import { format, formatInTimeZone, toZonedTime } from 'date-fns-tz'
 import { parseISO } from 'date-fns'
 import { EventEntity, RecurrenceRule } from '../types/event'
 import { eventsApi, OccurrencesQueryParams, EventOccurrence, ExpandedEventOccurrence, SplitSeriesParams } from '../api/events'
+import { logger } from '../utils/logger'
 
 interface FrequencyOption {
   label: string;
@@ -56,7 +57,7 @@ export class RecurrenceService {
       if (isoWithOffsetRegex.test(startDate)) {
         // If startDate is a full ISO string with UTC ('Z') or an offset, parse it directly.
         startDateObj = parseISO(startDate)
-        console.log('RecurrenceService.toRRule: Parsed startDate with explicit offset/Z:', startDate, '->', startDateObj.toISOString())
+        logger.debug('RecurrenceService.toRRule: Parsed startDate with explicit offset/Z:', startDate, '->', startDateObj.toISOString())
       } else if (tz && hasTimeComponentRegex.test(startDate)) {
         // If startDate has a time component but no Z/offset, AND event timezone `tz` is known,
         // interpret startDate as wall-clock time in `tz`.
@@ -65,16 +66,16 @@ export class RecurrenceService {
           startDateObj = parseISO(startDate)
           // Then convert to the target timezone
           startDateObj = toZonedTime(startDateObj, tz)
-          console.log('RecurrenceService.toRRule: Parsed startDate as wall-clock in tz:', startDate, ' (tz:', tz, ') ->', startDateObj.toISOString())
+          logger.debug('RecurrenceService.toRRule: Parsed startDate as wall-clock in tz:', startDate, ' (tz:', tz, ') ->', startDateObj.toISOString())
         } catch (e) {
           console.error(`RecurrenceService.toRRule: Failed to parse "${startDate}" with tz "${tz}". Falling back to parseISO.`, e)
           startDateObj = parseISO(startDate) // Fallback to original behavior if conversion fails
-          console.log('RecurrenceService.toRRule: Fallback parseISO for startDate (after conversion error):', startDate, '->', startDateObj.toISOString())
+          logger.debug('RecurrenceService.toRRule: Fallback parseISO for startDate (after conversion error):', startDate, '->', startDateObj.toISOString())
         }
       } else {
         // Fallback for other formats (e.g., YYYY-MM-DD only, or missing tz when time component is present but no offset)
         startDateObj = parseISO(startDate)
-        console.log('RecurrenceService.toRRule: Fallback parseISO for startDate (other cases):', startDate, '->', startDateObj.toISOString())
+        logger.debug('RecurrenceService.toRRule: Fallback parseISO for startDate (other cases):', startDate, '->', startDateObj.toISOString())
         if (!tz && hasTimeComponentRegex.test(startDate) && !isoWithOffsetRegex.test(startDate)) {
           console.warn('RecurrenceService.toRRule: startDate string looks like local time but no event timezone (tz) was provided. Time interpretation may be ambiguous as it will be based on system local time.')
         }
@@ -105,12 +106,12 @@ export class RecurrenceService {
         // will interpret these components as being in that tzid.
         options.dtstart = new Date(year, month, day, hour, minute, second)
         options.tzid = tz
-        console.log('RRule dtstart (local components for tzid):', options.dtstart, 'tzid:', tz)
+        logger.debug('RRule dtstart (local components for tzid):', options.dtstart, 'tzid:', tz)
       } else {
         // No timezone provided, treat startDate as UTC for RRule
         // options.dtstart = parseISO(startDate) // MOVED UP AND MODIFIED
         options.dtstart = startDateObj // Use the processed startDateObj
-        console.log('RRule dtstart (UTC):', options.dtstart)
+        logger.debug('RRule dtstart (UTC):', options.dtstart)
       }
 
       // Add count or until if present
@@ -157,7 +158,7 @@ export class RecurrenceService {
             }
           }
           options.byweekday = byweekdayArray
-          console.log('Using .nth() method for byweekday with position:', position, options.byweekday)
+          logger.debug('Using .nth() method for byweekday with position:', position, options.byweekday)
         } else {
           // Standard handling for other frequencies (like WEEKLY) or if bysetpos isn't used for MONTHLY/YEARLY
           options.byweekday = rule.byweekday.map(day => {
@@ -183,17 +184,17 @@ export class RecurrenceService {
             const dayCode = dayMatch ? dayMatch[1] : day
 
             // For debugging
-            console.log(`Extracting weekday code from "${day}" -> "${dayCode}"`)
+            logger.debug(`Extracting weekday code from "${day}" -> "${dayCode}"`)
 
             return RRule[dayCode as keyof typeof RRule] as unknown as number
           })
 
           options.byweekday = weekdayCodes
-          console.log('Using explicitly specified byweekday for WEEKLY:', rule.byweekday, ' -> ', options.byweekday)
+          logger.debug('Using explicitly specified byweekday for WEEKLY:', rule.byweekday, ' -> ', options.byweekday)
         } else {
           // If no byweekday specified for a weekly rule, default to the start date's day in the event's timezone
           const { dayCode: dayCodeInTimezone } = this.getDayOfWeekInTimezone(options.dtstart, tz)
-          console.log('No byweekday for WEEKLY, defaulting to day in originating timezone:', dayCodeInTimezone)
+          logger.debug('No byweekday for WEEKLY, defaulting to day in originating timezone:', dayCodeInTimezone)
           options.byweekday = [RRule[dayCodeInTimezone as keyof typeof RRule] as unknown as number]
         }
       }
@@ -210,7 +211,7 @@ export class RecurrenceService {
           (Array.isArray(rule.bysetpos) ? rule.bysetpos.length > 0 : rule.bysetpos !== undefined) &&
           !((rule.frequency === 'MONTHLY' || rule.frequency === 'YEARLY') && byweekdayHasPosition)) {
         options.bysetpos = rule.bysetpos
-        console.log('Setting bysetpos in RRule:', rule.bysetpos)
+        logger.debug('Setting bysetpos in RRule:', rule.bysetpos)
       }
 
       // Add other byX rules as needed
@@ -324,7 +325,7 @@ export class RecurrenceService {
     try {
       const eventTimeZone = event.timeZone || event.recurrenceRule.timeZone
 
-      console.log('RecurrenceService.getOccurrences for event:', {
+      logger.debug('RecurrenceService.getOccurrences for event:', {
         name: event.name,
         startDate: event.startDate,
         timezone: eventTimeZone,
@@ -352,7 +353,7 @@ export class RecurrenceService {
         const isNearDayBoundary = isLateNight || isEarlyMorning
 
         if (isNearDayBoundary) {
-          console.log(`Event near day boundary at ${time} in ${eventTimeZone}. Ensuring correct day of week:`, {
+          logger.debug(`Event near day boundary at ${time} in ${eventTimeZone}. Ensuring correct day of week:`, {
             actualDayInTimezone: actualDayCode,
             selectedDays: ruleWithTimeZone.byweekday,
             isActualDaySelected: ruleWithTimeZone.byweekday.includes(actualDayCode),
@@ -368,10 +369,10 @@ export class RecurrenceService {
             // Force the correct day for the timezone to avoid issues with day boundaries
             // We use the actual day in the event's timezone to ensure consistency
             if (ruleWithTimeZone._userExplicitSelection) {
-              console.log('User explicitly selected days, maintaining their selection but adding warning')
+              logger.debug('User explicitly selected days, maintaining their selection but adding warning')
             } else {
               // If not explicitly set by user, we'll correct it automatically
-              console.log(`Automatically fixing byweekday to use the correct day: ${actualDayCode}`)
+              logger.debug(`Automatically fixing byweekday to use the correct day: ${actualDayCode}`)
               ruleWithTimeZone.byweekday = [actualDayCode]
             }
           }
@@ -385,14 +386,14 @@ export class RecurrenceService {
         eventTimeZone // Pass tz to toRRule for tzid option and dtstart construction
       )
 
-      console.log('RRule string used for occurrence generation:', rrule.toString())
-      console.log('RRule options used:', rrule.options)
+      logger.debug('RRule string used for occurrence generation:', rrule.toString())
+      logger.debug('RRule options used:', rrule.options)
 
       // rrule.all() will return UTC Date objects that are correct considering tzid
       let occurrencesUtc = rrule.all((_, i) => i < count)
 
       if (occurrencesUtc.length > 0) {
-        console.log('Raw UTC occurrences from rrule.all() with tzid handling:', occurrencesUtc.slice(0, 3).map(d => d.toISOString()))
+        logger.debug('Raw UTC occurrences from rrule.all() with tzid handling:', occurrencesUtc.slice(0, 3).map(d => d.toISOString()))
 
         // CRITICAL FIX: Verify that generated occurrences actually fall on the expected day of week
         // This is especially important for late night events that cross day boundaries
@@ -411,7 +412,7 @@ export class RecurrenceService {
           let allOccurrencesOnCorrectDay = true
 
           // Log the expected day information for debugging
-          console.log('Verifying occurrences match expected days:', {
+          logger.debug('Verifying occurrences match expected days:', {
             expectedDays,
             eventStartDate: new Date(event.startDate).toISOString(),
             timezone: eventTimeZone
@@ -438,7 +439,7 @@ export class RecurrenceService {
             const isOnExpectedDay = expectedDayNames.includes(occDay)
 
             // Log occurrence details
-            console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')} - ${isOnExpectedDay ? 'CORRECT' : 'WRONG'} DAY`)
+            logger.debug(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')} - ${isOnExpectedDay ? 'CORRECT' : 'WRONG'} DAY`)
 
             if (!isOnExpectedDay) {
               allOccurrencesOnCorrectDay = false
@@ -482,7 +483,7 @@ export class RecurrenceService {
               // If shifting forward by more than 3 days, it's shorter to go backward
               if (daysToShift > 3) daysToShift -= 7
 
-              console.log('Day shifting calculation:', {
+              logger.debug('Day shifting calculation:', {
                 currentDay: formatInTimeZone(occ, eventTimeZone, 'EEEE'),
                 targetDay: expectedDays.length > 0 ? expectedDays[0] : 'Monday',
                 currentDayNum,
@@ -497,9 +498,9 @@ export class RecurrenceService {
                 fixedDate.setDate(fixedDate.getDate() + daysToShift)
 
                 // Log what we're doing
-                console.log(`Fixing occurrence: Shifting ${occ.toISOString()} by ${daysToShift} days to ${fixedDate.toISOString()}`)
-                console.log(`- Original day in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'EEEE')}`)
-                console.log(`- Fixed day in ${eventTimeZone}: ${formatInTimeZone(fixedDate, eventTimeZone, 'EEEE')}`)
+                logger.debug(`Fixing occurrence: Shifting ${occ.toISOString()} by ${daysToShift} days to ${fixedDate.toISOString()}`)
+                logger.debug(`- Original day in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'EEEE')}`)
+                logger.debug(`- Fixed day in ${eventTimeZone}: ${formatInTimeZone(fixedDate, eventTimeZone, 'EEEE')}`)
 
                 fixedOccurrences.push(fixedDate)
               } else {
@@ -510,7 +511,7 @@ export class RecurrenceService {
 
             // Replace the original occurrences with the fixed ones
             if (fixedOccurrences.length > 0) {
-              console.log('Using corrected occurrences that fall on the expected day of week')
+              logger.debug('Using corrected occurrences that fall on the expected day of week')
               occurrencesUtc = fixedOccurrences
             }
           }
@@ -518,9 +519,9 @@ export class RecurrenceService {
           // Standard logging for non-weekly patterns
           occurrencesUtc.slice(0, 3).forEach(occ => {
             if (eventTimeZone) {
-              console.log(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+              logger.debug(`Occurrence ${occ.toISOString()} in ${eventTimeZone}: ${formatInTimeZone(occ, eventTimeZone, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
             } else {
-              console.log(`Occurrence ${occ.toISOString()} (UTC): ${format(occ, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
+              logger.debug(`Occurrence ${occ.toISOString()} (UTC): ${format(occ, 'yyyy-MM-dd HH:mm:ss EEEE XXX')}`)
             }
           })
         }
@@ -546,7 +547,7 @@ export class RecurrenceService {
             : format(occurrence, 'yyyy-MM-dd')
           return !exceptionsDateStrings.includes(occurrenceDateString)
         })
-        console.log('Occurrences after filtering exceptions:', occurrencesUtc.length)
+        logger.debug('Occurrences after filtering exceptions:', occurrencesUtc.length)
       }
       return occurrencesUtc
     } catch (error) {
@@ -560,7 +561,7 @@ export class RecurrenceService {
     eventSlug: string,
     query: OccurrencesQueryParams = {}
   ): Promise<EventOccurrence[]> {
-    console.log('RecurrenceService.fetchOccurrences called with slug:', eventSlug, 'query:', query)
+    logger.debug('RecurrenceService.fetchOccurrences called with slug:', eventSlug, 'query:', query)
 
     try {
       // First try to get the series slug for this event
@@ -572,7 +573,7 @@ export class RecurrenceService {
 
         // Log the recurrence rule that's being used to debug issues with bysetpos
         if (eventResponse.data.series && eventResponse.data.series.recurrenceRule) {
-          console.log('Event series recurrence rule:', JSON.stringify(eventResponse.data.series.recurrenceRule))
+          logger.debug('Event series recurrence rule:', JSON.stringify(eventResponse.data.series.recurrenceRule))
 
           // Check specifically for monthly pattern with bysetpos
           const rule = eventResponse.data.series.recurrenceRule
@@ -634,7 +635,7 @@ export class RecurrenceService {
       } else {
         console.warn(`Event ${eventSlug} does not have a series slug, falling back to deprecated API`)
         // Fallback to old API for backward compatibility, though this will likely 404
-        console.log('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
+        logger.debug('Making API request to /api/recurrence/' + eventSlug + '/occurrences')
         const response = await eventsApi.getEventOccurrences(eventSlug, query)
         return response.data
       }
