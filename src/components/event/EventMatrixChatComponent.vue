@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/auth-store'
 import MatrixChatInterface from '../chat/MatrixChatInterface.vue'
 import getEnv from '../../utils/env'
 import { generateEventRoomAlias } from '../../utils/matrixUtils'
+import { logger } from '../../utils/logger'
 
 // Router for navigation
 const router = useRouter()
@@ -19,13 +20,13 @@ const event = computed(() => useEventStore().event)
 // Get the Matrix room ID from the event - try different properties
 const matrixRoomId = computed(() => {
   if (!event.value?.slug) {
-    console.log('🔍 No event slug available')
+    logger.debug('🔍 No event slug available')
     return null
   }
 
   // First check if we have a cached room ID (efficient)
   if (event.value.roomId) {
-    console.log('✅ Using cached room ID:', event.value.roomId)
+    logger.debug('✅ Using cached room ID:', event.value.roomId)
     return event.value.roomId
   }
 
@@ -39,7 +40,7 @@ const matrixRoomId = computed(() => {
   try {
     const roomAlias = generateEventRoomAlias(event.value.slug, tenantId)
 
-    console.log('🏠 Generated fresh room alias (no cached room ID):', roomAlias)
+    logger.debug('🏠 Generated fresh room alias (no cached room ID):', roomAlias)
     return roomAlias
   } catch (error) {
     console.error('❌ Failed to generate room alias:', error)
@@ -57,7 +58,7 @@ const discussionPermissions = computed(() => {
   const attendeeStatus = eventStore.event?.attendee?.status
 
   // Log permissions state for debugging
-  console.log('Computing discussion permissions:', {
+  logger.debug('Computing discussion permissions:', {
     attendeeStatus,
     isAuthenticated: authStore.isAuthenticated,
     isPublicEvent: eventStore.getterIsPublicEvent,
@@ -91,7 +92,7 @@ const discussionPermissions = computed(() => {
 
 // Component mounting - simplified since MatrixChatInterface handles initialization
 onMounted(() => {
-  console.log('🏗️ EventMatrixChatComponent mounted for event:', event.value?.slug)
+  logger.debug('🏗️ EventMatrixChatComponent mounted for event:', event.value?.slug)
 })
 
 // Retry functionality now handled internally by MatrixChatInterface
@@ -112,26 +113,26 @@ const handleExpandChat = async () => {
           const room = client.getRoom(matrixRoomId.value)
           if (room?.roomId) {
             actualRoomId = room.roomId
-            console.log(`🔗 Resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
+            logger.debug(`🔗 Resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
           } else {
             // Try Matrix API resolution if local lookup fails
             const roomDirectory = await client.getRoomIdForAlias(matrixRoomId.value)
             if (roomDirectory?.room_id) {
               actualRoomId = roomDirectory.room_id
-              console.log(`🔗 API resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
+              logger.debug(`🔗 API resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
             }
           }
         } catch (error) {
-          console.log('Could not resolve room alias to room ID:', error)
+          logger.debug('Could not resolve room alias to room ID:', error)
         }
       } else if (matrixRoomId.value.startsWith('!')) {
         // Already have the room ID
         actualRoomId = matrixRoomId.value
-        console.log(`🔗 Using existing room ID: ${actualRoomId}`)
+        logger.debug(`🔗 Using existing room ID: ${actualRoomId}`)
       }
     }
   } catch (error) {
-    console.log('Could not access Matrix client for room ID resolution:', error)
+    logger.debug('Could not access Matrix client for room ID resolution:', error)
   }
 
   // Build the chat ID using the actual room ID if we have it
@@ -146,7 +147,7 @@ const handleExpandChat = async () => {
     chatId = `event-${event.value.slug}`
   }
 
-  console.log(`🔗 Navigating to chats with chat ID: ${chatId} (actual room ID: ${actualRoomId || 'none'})`)
+  logger.debug(`🔗 Navigating to chats with chat ID: ${chatId} (actual room ID: ${actualRoomId || 'none'})`)
 
   router.push({
     name: 'DashboardChatsPage',

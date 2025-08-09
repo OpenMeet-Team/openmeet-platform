@@ -405,6 +405,7 @@ import { useNotification } from '../composables/useNotification'
 import { useEventSeriesStore } from '../stores/event-series-store'
 import { useAuthStore } from '../stores/auth-store'
 import { useEventStore } from '../stores/event-store'
+import { logger } from '../utils/logger'
 
 // Define types for the component's data
 interface EditFormData {
@@ -568,7 +569,7 @@ const isCustomizedDate = (occurrence: EventOccurrence): boolean => {
 
   // Debug log the date difference for specific events we're tracking
   if (occurrence.event.slug === 'feast-friday-qstmzq') {
-    console.log(`Date comparison for ${occurrence.event.slug}:`, {
+    logger.debug(`Date comparison for ${occurrence.event.slug}:`, {
       actualDate: new Date(occurrence.event.startDate).toISOString(),
       patternDate: new Date(occurrence.date).toISOString(),
       timeDiff,
@@ -611,7 +612,7 @@ const loadEventSeries = async () => {
     }
 
     // Log recurrence rule for debugging
-    console.log('Loaded recurrence rule:', JSON.stringify(series.recurrenceRule))
+    logger.debug('Loaded recurrence rule:', JSON.stringify(series.recurrenceRule))
 
     // Set end type based on current values
     if (series.recurrenceRule.count) {
@@ -624,19 +625,19 @@ const loadEventSeries = async () => {
 
     // Load template event if available
     if (series.templateEventSlug) {
-      console.log('Template event slug:', series.templateEventSlug)
+      logger.debug('Template event slug:', series.templateEventSlug)
 
       // If template event is already included in the response, use it
       if (series.templateEvent) {
-        console.log('Template event from series response:', series.templateEvent)
+        logger.debug('Template event from series response:', series.templateEvent)
         templateEvent.value = series.templateEvent
       } else {
         // Otherwise load it directly using events API instead of trying to use
         // getOccurrence which expects a date, not a slug
         try {
-          console.log('Loading template event from API')
+          logger.debug('Loading template event from API')
           const templateResponse = await eventsApi.getBySlug(series.templateEventSlug)
-          console.log('Template event API response:', templateResponse.data)
+          logger.debug('Template event API response:', templateResponse.data)
           templateEvent.value = templateResponse.data
         } catch (templateErr) {
           console.error('Error loading template event:', templateErr)
@@ -645,8 +646,8 @@ const loadEventSeries = async () => {
       }
 
       // Extra logging for templateEvent debugging
-      console.log('Final template event value:', templateEvent.value)
-      console.log('Template event has image?', !!templateEvent.value?.image)
+      logger.debug('Final template event value:', templateEvent.value)
+      logger.debug('Template event has image?', !!templateEvent.value?.image)
     }
 
     // Load occurrences
@@ -661,7 +662,7 @@ const loadEventSeries = async () => {
 
 const loadOccurrences = async () => {
   try {
-    console.log(`Loading occurrences for series ${seriesSlug.value}, count: ${occurrenceCount.value}, includePast: true`)
+    logger.debug(`Loading occurrences for series ${seriesSlug.value}, count: ${occurrenceCount.value}, includePast: true`)
 
     // First check if we have a monthly pattern with bysetpos, which requires special handling
     const isMonthlyWithBysetpos = eventSeries.value?.recurrenceRule?.frequency === 'MONTHLY' &&
@@ -671,8 +672,8 @@ const loadOccurrences = async () => {
     let results = []
 
     if (isMonthlyWithBysetpos) {
-      console.log('MONTHLY PATTERN WITH BYSETPOS DETECTED - using client-side generation for accuracy')
-      console.log('Series recurrence rule:', {
+      logger.debug('MONTHLY PATTERN WITH BYSETPOS DETECTED - using client-side generation for accuracy')
+      logger.debug('Series recurrence rule:', {
         frequency: eventSeries.value.recurrenceRule.frequency,
         byweekday: eventSeries.value.recurrenceRule.byweekday,
         bysetpos: eventSeries.value.recurrenceRule.bysetpos,
@@ -681,37 +682,37 @@ const loadOccurrences = async () => {
 
       // We used to create a mock event and generate occurrences client-side,
       // but now we use the API directly for all occurrence generation
-      console.log('Using API for all occurrence generation, even for MONTHLY patterns with BYSETPOS')
+      logger.debug('Using API for all occurrence generation, even for MONTHLY patterns with BYSETPOS')
 
       // Use API directly for all occurrence generation
       const apiResults = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
       // Since we no longer generate client-side occurrences, we'll just use the API results directly
       results = apiResults
 
-      console.log(`Created hybrid result set with ${results.length} occurrences`)
+      logger.debug(`Created hybrid result set with ${results.length} occurrences`)
     } else {
       // For non-monthly or patterns without bysetpos, use regular API
-      console.log('Using regular API call for occurrences')
+      logger.debug('Using regular API call for occurrences')
       results = await EventSeriesService.getOccurrences(seriesSlug.value, occurrenceCount.value, true)
 
       // If we're likely missing occurrences (less than expected based on materialized ones in database)
       // fetch with even higher count
       const materializedEvents = results.filter(o => o.materialized)
-      console.log(`Found ${materializedEvents.length} materialized out of ${results.length} total occurrences`)
+      logger.debug(`Found ${materializedEvents.length} materialized out of ${results.length} total occurrences`)
 
       // If we're getting close to our limit, we might be missing some
       if (materializedEvents.length > 0 && materializedEvents.length >= results.length * 0.8) {
         const higherCount = occurrenceCount.value * 2
-        console.log(`Fetching with higher count (${higherCount}) to ensure we get all occurrences`)
+        logger.debug(`Fetching with higher count (${higherCount}) to ensure we get all occurrences`)
         occurrenceCount.value = higherCount
         const moreResults = await EventSeriesService.getOccurrences(seriesSlug.value, higherCount, true)
-        console.log(`Fetched ${moreResults.length} occurrences with higher count`)
+        logger.debug(`Fetched ${moreResults.length} occurrences with higher count`)
         results.length = 0 // Clear the array
         results.push(...moreResults) // Add the new results
       }
     }
 
-    console.log(`Working with ${results.length} occurrences:`, {
+    logger.debug(`Working with ${results.length} occurrences:`, {
       pastCount: results.filter(o => isPastDate(o.date)).length,
       futureCount: results.filter(o => !isPastDate(o.date)).length,
       materializedCount: results.filter(o => o.materialized).length,
@@ -724,7 +725,7 @@ const loadOccurrences = async () => {
     try {
       // Use the new method to get all events in the series
       const allSeriesEvents = await EventSeriesService.getEventsBySeriesSlug(seriesSlug.value)
-      console.log(`Fetched ${allSeriesEvents.length} real events directly from series`)
+      logger.debug(`Fetched ${allSeriesEvents.length} real events directly from series`)
 
       // Create a map of existing materialzed events to avoid duplicates
       const existingEventIds = new Set<number>()
@@ -737,18 +738,18 @@ const loadOccurrences = async () => {
       // Add any events from the series that aren't already accounted for in our results
       allSeriesEvents.forEach(event => {
         // Log each event being processed to help track our specific event
-        console.log(`Processing event: ${event.slug}, date: ${formatDate(event.startDate)}, series: ${event.seriesSlug || 'none'}`)
+        logger.debug(`Processing event: ${event.slug}, date: ${formatDate(event.startDate)}, series: ${event.seriesSlug || 'none'}`)
 
         // Skip if we already have this event in our results
         if (event.id && existingEventIds.has(event.id)) {
-          console.log(`- Skipping event ${event.slug} because it's already in the results`)
+          logger.debug(`- Skipping event ${event.slug} because it's already in the results`)
           return
         }
 
         // If the event has a date but doesn't match any pattern occurrence date,
         // add it as an additional occurrence
         if (event.startDate) {
-          console.log(`Adding missing event ${event.slug} with custom date to occurrences list`)
+          logger.debug(`Adding missing event ${event.slug} with custom date to occurrences list`)
 
           // For custom date events, try to find the closest pattern date
           // based on recurrence rule if available
@@ -777,7 +778,7 @@ const loadOccurrences = async () => {
 
               estimatedPatternDate = patternDate.toISOString()
 
-              console.log(`Estimated pattern date for ${event.slug}:`, {
+              logger.debug(`Estimated pattern date for ${event.slug}:`, {
                 actualDate: eventDate.toISOString(),
                 expectedDay: expectedDayStr,
                 estimatedPatternDate,
@@ -802,19 +803,19 @@ const loadOccurrences = async () => {
       // Special logging for specific event we're looking for
       const targetEvent = allSeriesEvents.find(e => e.slug === 'feast-friday-qstmzq')
       if (targetEvent) {
-        console.log('FOUND TARGET EVENT feast-friday-qstmzq:', {
+        logger.debug('FOUND TARGET EVENT feast-friday-qstmzq:', {
           date: formatDate(targetEvent.startDate),
           seriesSlug: targetEvent.seriesSlug,
           isInResults: results.some(o => o.event?.slug === 'feast-friday-qstmzq')
         })
       } else {
-        console.log('TARGET EVENT feast-friday-qstmzq NOT FOUND in allSeriesEvents')
+        logger.debug('TARGET EVENT feast-friday-qstmzq NOT FOUND in allSeriesEvents')
       }
 
       // Target our specific event to ensure it's correctly marked with the Custom Date badge
       const finalTargetOccurrence = results.find(o => o.event?.slug === 'feast-friday-qstmzq')
       if (finalTargetOccurrence) {
-        console.log('TARGET EVENT is in the results list')
+        logger.debug('TARGET EVENT is in the results list')
 
         // This is a Saturday but should be a Friday - ensure pattern date is set appropriately
         const eventDate = new Date(finalTargetOccurrence.event.startDate)
@@ -829,17 +830,17 @@ const loadOccurrences = async () => {
           // This ensures isCustomizedDate will return true
           finalTargetOccurrence.date = patternDate.toISOString()
 
-          console.log('Updated TARGET EVENT pattern date', {
+          logger.debug('Updated TARGET EVENT pattern date', {
             eventDate: formatDate(finalTargetOccurrence.event.startDate),
             patternDate: formatDate(finalTargetOccurrence.date)
           })
         }
       } else {
-        console.log('TARGET EVENT is NOT in the results list')
+        logger.debug('TARGET EVENT is NOT in the results list')
 
         // If our target event is not in the results, but was found in allSeriesEvents, add it manually
         if (targetEvent) {
-          console.log('MANUALLY ADDING TARGET EVENT to results list')
+          logger.debug('MANUALLY ADDING TARGET EVENT to results list')
           results.push({
             date: targetEvent.startDate, // Use the event's actual date
             materialized: true,
@@ -853,9 +854,9 @@ const loadOccurrences = async () => {
     }
 
     // Add detailed logging for each occurrence to identify duplicates and missing events
-    console.log('Occurrences details:')
+    logger.debug('Occurrences details:')
     results.forEach((occurrence, index) => {
-      console.log(`Occurrence ${index + 1}:`, {
+      logger.debug(`Occurrence ${index + 1}:`, {
         date: formatDate(occurrence.date),
         materialized: occurrence.materialized,
         slug: occurrence.event?.slug || 'not materialized',
@@ -876,7 +877,7 @@ const loadOccurrences = async () => {
 
       // Check if we need to increase the count to get more occurrences
       if (results.length === occurrenceCount.value) {
-        console.log('Increasing occurrence count to find more events')
+        logger.debug('Increasing occurrence count to find more events')
         occurrenceCount.value += 50
         // Don't reload here - we'll use the current results and possibly load more later
       }
@@ -954,13 +955,13 @@ const materializeOccurrence = async (date: string) => {
 
 const openEventFormDialog = () => {
   // Open the standard event creation form dialog
-  console.log('[SERIES-DEBUG] Opening event form dialog to create a new event in series:', seriesSlug.value)
+  logger.debug('[SERIES-DEBUG] Opening event form dialog to create a new event in series:', seriesSlug.value)
 
   // Navigate to event creation page
   eventDialog.goToCreateEvent()
 
   // Log when navigation happens
-  console.log('[SERIES-DEBUG] Navigating to event creation page')
+  logger.debug('[SERIES-DEBUG] Navigating to event creation page')
 
   // Note: Event linking to series will need to be handled differently
   // since we no longer have a dialog callback. The CreateEventPage
@@ -983,7 +984,7 @@ const updateSeries = async () => {
     if (!eventSeries.value) return
 
     // Log the current recurrence rule before update
-    console.log('Current recurrence rule from edit form:', JSON.stringify(editForm.value.recurrenceRule))
+    logger.debug('Current recurrence rule from edit form:', JSON.stringify(editForm.value.recurrenceRule))
 
     const updateData = {
       name: editForm.value.name,
@@ -1006,7 +1007,7 @@ const updateSeries = async () => {
     }
 
     // Log the update data being sent to the API
-    console.log('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule))
+    logger.debug('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule))
 
     await EventSeriesService.update(seriesSlug.value, updateData)
     success('Event series updated successfully')
@@ -1029,7 +1030,7 @@ const selectNewTemplate = async (occurrence: EventOccurrence) => {
     const recurrenceRule = eventSeries.value.recurrenceRule
 
     // Log recurrence rule details before update
-    console.log('Current recurrence rule before template update:', JSON.stringify(recurrenceRule, null, 2))
+    logger.debug('Current recurrence rule before template update:', JSON.stringify(recurrenceRule, null, 2))
 
     // Use recurrence rule and time zone from existing event series
     const updateData = {
@@ -1052,7 +1053,7 @@ const selectNewTemplate = async (occurrence: EventOccurrence) => {
     }
 
     // Log the update data being sent to the API
-    console.log('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule, null, 2))
+    logger.debug('Sending series update with recurrence rule:', JSON.stringify(updateData.recurrenceRule, null, 2))
 
     await EventSeriesService.update(seriesSlug.value, updateData)
     success('Template event updated successfully')
@@ -1060,7 +1061,7 @@ const selectNewTemplate = async (occurrence: EventOccurrence) => {
 
     // We don't need to change the occurrence count - the watcher will reset it
     // Just make sure we're loading with includePast=true
-    console.log('Reloading occurrences after template change with includePast=true')
+    logger.debug('Reloading occurrences after template change with includePast=true')
 
     // Reload the series to show updated data
     await loadEventSeries()
@@ -1120,7 +1121,7 @@ const openTemplateSelector = async () => {
   // Temporarily set a high value to get many occurrences for template selection
   occurrenceCount.value = 200
 
-  console.log('Loading all occurrences for template selection, count:', occurrenceCount.value)
+  logger.debug('Loading all occurrences for template selection, count:', occurrenceCount.value)
 
   // Force reload of occurrences with the higher count
   isLoading.value = true
@@ -1137,7 +1138,7 @@ const openTemplateSelector = async () => {
       // Directly load the template event by slug
       try {
         const templateResponse = await eventsApi.getBySlug(eventSeries.value.templateEventSlug)
-        console.log('Template event loaded:', templateResponse.data)
+        logger.debug('Template event loaded:', templateResponse.data)
 
         // Add it to the occurrences if not already present
         if (templateResponse.data) {
@@ -1157,7 +1158,7 @@ const openTemplateSelector = async () => {
           if (!exists) {
             // Add to beginning of occurrences array
             occurrences.value.unshift(templateOccurrence)
-            console.log('Added missing template event to occurrences list')
+            logger.debug('Added missing template event to occurrences list')
           }
         }
       } catch (templateErr) {
@@ -1167,7 +1168,7 @@ const openTemplateSelector = async () => {
 
     // Check for any additional materialized events via series object
     if (eventSeries.value?.events) {
-      console.log('Using events from series object to ensure all events are included')
+      logger.debug('Using events from series object to ensure all events are included')
 
       // Add any events from the series that aren't in our occurrences list
       eventSeries.value.events.forEach(event => {
@@ -1182,7 +1183,7 @@ const openTemplateSelector = async () => {
             materialized: true,
             event: event as EventEntity
           })
-          console.log(`Added missing event ${event.slug} to occurrences list`)
+          logger.debug(`Added missing event ${event.slug} to occurrences list`)
         }
       })
     }
@@ -1190,7 +1191,7 @@ const openTemplateSelector = async () => {
     // Setup watch for dialog close to restore the count
     const unwatch = watch(showSelectTemplate, (newVal) => {
       if (!newVal) { // When dialog closes
-        console.log('Resetting occurrence count back to original:', originalCount)
+        logger.debug('Resetting occurrence count back to original:', originalCount)
         occurrenceCount.value = originalCount
         // Reload with original count when needed
         loadOccurrences()
@@ -1281,44 +1282,44 @@ const getHumanReadablePattern = (recurrenceRule: Partial<RecurrenceRule>) => {
 
 const getImageUrl = (image: string | FileEntity) => {
   if (!image) {
-    console.log('Image is null or undefined')
+    logger.debug('Image is null or undefined')
     return ''
   }
 
-  console.log('Template event image:', image)
+  logger.debug('Template event image:', image)
 
   if (typeof image === 'string') {
-    console.log('Image is a string URL:', image)
+    logger.debug('Image is a string URL:', image)
     return image
   }
 
   // Use path if available
   if (image.path) {
-    console.log('Using image path:', image.path)
+    logger.debug('Using image path:', image.path)
     return image.path
   }
 
   // If there are resized versions, use the first one available
   if (image.resizes && Object.keys(image.resizes).length > 0) {
     const firstKey = Object.keys(image.resizes)[0]
-    console.log('Using resized image:', image.resizes[firstKey])
+    logger.debug('Using resized image:', image.resizes[firstKey])
     return image.resizes[firstKey]
   }
 
   // Default fallback
-  console.log('No valid image URL found')
+  logger.debug('No valid image URL found')
   return ''
 }
 
 const navigateToEventEdit = () => {
   // Instead of navigating away, show the edit dialog for the series
-  console.log('Opening series edit dialog')
+  logger.debug('Opening series edit dialog')
 
   // Make sure we've loaded the latest data from the API before editing
   loadEventSeries().then(() => {
     // Show the edit dialog
     showEditDialog.value = true
-    console.log('Edit dialog opened with recurrence rule:', JSON.stringify(editForm.value.recurrenceRule))
+    logger.debug('Edit dialog opened with recurrence rule:', JSON.stringify(editForm.value.recurrenceRule))
   }).catch(err => {
     console.error('Error loading series data for edit:', err)
     $q.notify({

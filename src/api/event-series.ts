@@ -118,10 +118,8 @@ export const eventSeriesApi: EventSeriesApiType = {
   getBySlug: (slug: string): Promise<AxiosResponse<EventSeriesEntity>> =>
     api.get(`/api/event-series/${slug}`),
 
-  create: (seriesData: CreateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> => {
-    console.log('eventSeriesApi.create called with:', JSON.stringify(seriesData, null, 2))
-    return api.post('/api/event-series', seriesData)
-  },
+  create: (seriesData: CreateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> =>
+    api.post('/api/event-series', seriesData),
 
   update: (slug: string, seriesData: UpdateEventSeriesDto): Promise<AxiosResponse<EventSeriesEntity>> =>
     api.patch(`/api/event-series/${slug}`, seriesData),
@@ -129,15 +127,13 @@ export const eventSeriesApi: EventSeriesApiType = {
   delete: (slug: string): Promise<AxiosResponse<void>> =>
     api.delete(`/api/event-series/${slug}`),
 
-  getOccurrences: (slug: string, count: number = 10, includePast: boolean = false): Promise<AxiosResponse<EventOccurrence[]>> => {
-    console.log(`Getting occurrences for series ${slug} with count=${count}, includePast=${includePast}`)
-    return api.get(`/api/event-series/${slug}/occurrences`, {
+  getOccurrences: (slug: string, count: number = 10, includePast: boolean = false): Promise<AxiosResponse<EventOccurrence[]>> =>
+    api.get(`/api/event-series/${slug}/occurrences`, {
       params: {
         count,
         includePast
       }
-    })
-  },
+    }),
 
   getOccurrence: (seriesSlug: string, date: string): Promise<AxiosResponse<EventEntity>> =>
     api.get(`/api/event-series/${seriesSlug}/${date}`),
@@ -173,8 +169,6 @@ export const eventSeriesApi: EventSeriesApiType = {
         ...(data.recurrenceRule?.bysetpos ? { bysetpos: [...data.recurrenceRule.bysetpos] } : {})
       }
     }
-
-    console.log('Previewing occurrences with serialized data:', JSON.stringify(serializedData, null, 2))
 
     // Set explicit content-type to ensure proper serialization
     const config = {

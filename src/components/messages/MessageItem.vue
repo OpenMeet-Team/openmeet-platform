@@ -96,11 +96,8 @@ const authStore = useAuthStore()
 const convertMatrixUrl = (url: string, width?: number, height?: number, isImage = false): string => {
   if (!url) return ''
 
-  console.log('🔗 convertMatrixUrl: Processing URL:', url)
-
   // If it's already an HTTP URL, return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    console.log('🔗 convertMatrixUrl: Already HTTP URL, returning as-is')
     return url
   }
 
@@ -111,8 +108,6 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
       console.error('❌ convertMatrixUrl: Matrix client not available')
       return ''
     }
-
-    console.log('🔗 convertMatrixUrl: Matrix client baseUrl:', client.getHomeserverUrl())
 
     let convertedUrl: string
 
@@ -125,14 +120,6 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
       // For files, use download endpoint without dimensions
       convertedUrl = matrixClientService.getContentUrl(url)
     }
-    console.log('🔗 convertMatrixUrl: Converted URL:', {
-      original: url,
-      converted: convertedUrl,
-      baseUrl: client.getHomeserverUrl(),
-      isValid: convertedUrl && convertedUrl !== url && convertedUrl.startsWith('http'),
-      type: isImage ? 'thumbnail' : 'download',
-      dimensions: isImage ? { width: width || 300, height: height || 300 } : 'none'
-    })
 
     if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
       console.error('❌ convertMatrixUrl: Matrix URL conversion failed or invalid')
@@ -142,7 +129,6 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
         const mxcParts = url.substring(6).split('/')
         if (mxcParts.length === 2) {
           const manualUrl = `${homeserverUrl}/_matrix/media/v3/download/${mxcParts[0]}/${mxcParts[1]}`
-          console.log('🔧 convertMatrixUrl: Manual conversion:', manualUrl)
           return manualUrl
         }
       }

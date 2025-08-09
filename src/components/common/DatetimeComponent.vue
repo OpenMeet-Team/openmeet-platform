@@ -118,6 +118,7 @@ import { ref, computed, watch, defineProps, defineEmits, defineExpose } from 'vu
 import { toZonedTime, formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { parse, isValid, format } from 'date-fns'
 import dateFormatting from '../../composables/useDateFormatting'
+import { logger } from '../../utils/logger'
 
 /**
  * DatetimeComponent
@@ -182,26 +183,26 @@ const formatTimeZone = computed(() => {
  * and sets the local input values, taking timezone into account.
  */
 function initializeFromISO () {
-  console.log(`[DatetimeComponent] initializeFromISO CALLED for label: "${props.label}"]`)
-  console.log(`[DatetimeComponent]   props.modelValue (isoDate.value initially): "${isoDate.value}"]`)
-  console.log(`[DatetimeComponent]   props.timeZone: "${props.timeZone}"]`)
+  logger.debug(`[DatetimeComponent] initializeFromISO CALLED for label: "${props.label}"]`)
+  logger.debug(`[DatetimeComponent]   props.modelValue (isoDate.value initially): "${isoDate.value}"]`)
+  logger.debug(`[DatetimeComponent]   props.timeZone: "${props.timeZone}"]`)
 
   if (!isoDate.value) {
     localDate.value = format(new Date(), 'yyyy-MM-dd')
     localTime.value = '5:00 PM'
     editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
-    console.log(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
+    logger.debug(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     return
   }
 
   try {
     const dateObjForConversion = new Date(isoDate.value)
-    console.log(`[DatetimeComponent]   dateObjForConversion (from isoDate): ${dateObjForConversion.toISOString()} (isValid: ${!isNaN(dateObjForConversion.getTime())})`)
+    logger.debug(`[DatetimeComponent]   dateObjForConversion (from isoDate): ${dateObjForConversion.toISOString()} (isValid: ${!isNaN(dateObjForConversion.getTime())})`)
 
     if (props.timeZone) {
       const dateInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'yyyy-MM-dd')
       const timeInTz = formatInTimeZone(dateObjForConversion, props.timeZone, 'h:mm a')
-      console.log(`[DatetimeComponent]   Calculated for TZ "${props.timeZone}": dateInTz: "${dateInTz}", timeInTz: "${timeInTz}"]`)
+      logger.debug(`[DatetimeComponent]   Calculated for TZ "${props.timeZone}": dateInTz: "${dateInTz}", timeInTz: "${timeInTz}"]`)
 
       localDate.value = dateInTz
       localTime.value = timeInTz
@@ -220,7 +221,7 @@ function initializeFromISO () {
       } else {
         editableDate.value = ''
       }
-      console.log(`[DatetimeComponent]   No props.timeZone, used browser local. localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
+      logger.debug(`[DatetimeComponent]   No props.timeZone, used browser local. localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
     }
   } catch (e) {
     console.error('[DatetimeComponent] Error initializing from ISO:', e)
@@ -228,7 +229,7 @@ function initializeFromISO () {
     localTime.value = '5:00 PM'
     editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
   }
-  console.log(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
+  logger.debug(`[DatetimeComponent]   END initializeFromISO. Final localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
 }
 
 /**
@@ -283,14 +284,14 @@ function createISOString () {
       const wallTimeString = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
 
       // Debug logs for tracing
-      console.log('[createISOString] localDate:', localDate.value)
-      console.log('[createISOString] localTime:', localTime.value)
-      console.log('[createISOString] wallTimeString:', wallTimeString)
-      console.log('[createISOString] props.timeZone:', props.timeZone)
+      logger.debug('[createISOString] localDate:', localDate.value)
+      logger.debug('[createISOString] localTime:', localTime.value)
+      logger.debug('[createISOString] wallTimeString:', wallTimeString)
+      logger.debug('[createISOString] props.timeZone:', props.timeZone)
 
       // Interpret this wall time string as being in props.timeZone and get the UTC Date object.
       const utcDate = fromZonedTime(wallTimeString, props.timeZone)
-      console.log('[createISOString] utcDate:', utcDate.toISOString())
+      logger.debug('[createISOString] utcDate:', utcDate.toISOString())
       return utcDate.toISOString()
     } else {
       const localDateTime = new Date(year, month - 1, day, hours, minutes)
@@ -317,7 +318,7 @@ function updateTime () {
   // Canonicalize the time input for display
   try {
     let input = localTime.value.trim()
-    console.log('[DatetimeComponent] Raw input:', input)
+    logger.debug('[DatetimeComponent] Raw input:', input)
     // Preprocess shorthand and 24-hour forms (case-insensitive)
     input = input.replace(/^([1-9]|1[0-2])([ap])m?$/i, (_, h, ap) => `${h}:00 ${ap.toUpperCase()}M`)
     input = input.replace(/^([1-9]|1[0-2]):([0-5][0-9])([ap])m?$/i, (_, h, m, ap) => `${h}:${m} ${ap.toUpperCase()}M`)
@@ -325,7 +326,7 @@ function updateTime () {
     if (/^([01]?\d|2[0-3])$/.test(input)) {
       input = input + ':00'
     }
-    console.log('[DatetimeComponent] Preprocessed input:', input)
+    logger.debug('[DatetimeComponent] Preprocessed input:', input)
     const [year, month, day] = localDate.value.split('-').map(Number)
     let parsed = null
     const timeFormats = [
@@ -348,7 +349,7 @@ function updateTime () {
         formatted = formatted.replace('AM', 'PM')
       }
       localTime.value = formatted
-      console.log('[DatetimeComponent] Canonicalized (parsed):', localTime.value)
+      logger.debug('[DatetimeComponent] Canonicalized (parsed):', localTime.value)
     } else {
       // Fallback: try to parse as 24-hour time (e.g. 14:12)
       const match = input.match(/^([01]?\d|2[0-3]):([0-5]\d)$/)
@@ -364,7 +365,7 @@ function updateTime () {
           formatted = formatted.replace('AM', 'PM')
         }
         localTime.value = formatted
-        console.log('[DatetimeComponent] Canonicalized (24h fallback):', localTime.value)
+        logger.debug('[DatetimeComponent] Canonicalized (24h fallback):', localTime.value)
       } else if (/^\d{1,2}$/.test(input)) {
         let h = parseInt(input, 10)
         if (h === 0) h = 12
@@ -376,17 +377,17 @@ function updateTime () {
           formatted = formatted.replace('AM', 'PM')
         }
         localTime.value = formatted
-        console.log('[DatetimeComponent] Canonicalized (hour fallback):', localTime.value)
+        logger.debug('[DatetimeComponent] Canonicalized (hour fallback):', localTime.value)
       } else if (/^\d{3,4}$/.test(input)) {
         const h = parseInt(input.slice(0, input.length - 2), 10)
         const m = parseInt(input.slice(-2), 10)
         const fallbackDate = new Date(year, month - 1, day, h, m)
         localTime.value = format(fallbackDate, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
-        console.log('[DatetimeComponent] Canonicalized (compact fallback):', localTime.value)
+        logger.debug('[DatetimeComponent] Canonicalized (compact fallback):', localTime.value)
       } else {
         // If all else fails, set to default
         localTime.value = '5:00 PM'
-        console.log('[DatetimeComponent] Canonicalized (default):', localTime.value)
+        logger.debug('[DatetimeComponent] Canonicalized (default):', localTime.value)
       }
     }
   } catch (e) {
@@ -508,13 +509,13 @@ watch(() => props.timeZone, (newTimezone) => {
 // These methods and variables are used directly in tests via component.vm.method()
 // but the linter can't detect that usage pattern
 function onDateUpdate (newDate) {
-  console.log(`onDateUpdate called with: ${newDate}`)
+  logger.debug(`onDateUpdate called with: ${newDate}`)
   localDate.value = newDate
   updateDate()
 }
 
 function onTimeUpdate (newTime) {
-  console.log(`onTimeUpdate called with: ${newTime}`)
+  logger.debug(`onTimeUpdate called with: ${newTime}`)
   localTime.value = newTime
   updateTime()
 }
@@ -538,7 +539,7 @@ function finishDateEditing () {
   if (!editableDate.value) return
   try {
     const input = editableDate.value.trim()
-    console.log('[DatetimeComponent] finishDateEditing - Raw input:', input)
+    logger.debug('[DatetimeComponent] finishDateEditing - Raw input:', input)
     let parsedDate = null
     const dateFormats = [
       'yyyy-MM-dd', 'MM/dd/yyyy', 'MMM d, yyyy', 'MMMM d, yyyy', 'MMM d', 'MMMM d', 'M/d/yyyy', 'M/d', 'd MMM yyyy', 'd MMM', 'MM/dd', 'M/d', 'MMM d', 'MMMM d'
@@ -549,7 +550,7 @@ function finishDateEditing () {
         if (isValid(result)) {
           // Force the parsed date to be local (ignore timezone offset)
           parsedDate = new Date(result.getFullYear(), result.getMonth(), result.getDate())
-          console.log('[DatetimeComponent] finishDateEditing - Parsed as:', parsedDate)
+          logger.debug('[DatetimeComponent] finishDateEditing - Parsed as:', parsedDate)
           break
         }
       } catch {}
@@ -559,7 +560,7 @@ function finishDateEditing () {
       const nativeDate = new Date(input)
       if (!isNaN(nativeDate.getTime())) {
         parsedDate = new Date(nativeDate.getFullYear(), nativeDate.getMonth(), nativeDate.getDate())
-        console.log('[DatetimeComponent] finishDateEditing - Native parsed as:', parsedDate)
+        logger.debug('[DatetimeComponent] finishDateEditing - Native parsed as:', parsedDate)
       }
     }
     if (parsedDate) {

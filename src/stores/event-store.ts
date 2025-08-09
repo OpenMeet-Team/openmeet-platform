@@ -211,7 +211,7 @@ export const useEventStore = defineStore('event', {
               // Try both property naming conventions
               const extractedRoomId = message.roomId || message.room_id
               if (extractedRoomId) {
-                console.log('Extracted roomId from message:', extractedRoomId)
+                logger.debug('Extracted roomId from message:', extractedRoomId)
                 this.event.roomId = extractedRoomId
                 break
               }
@@ -231,13 +231,13 @@ export const useEventStore = defineStore('event', {
                 // Create a room ID with the event slug and server domain
                 // This follows the Matrix room ID format '!random:server.domain'
                 const inferredRoomId = `!event_${this.event.slug}:${serverDomain}`
-                console.log('Inferring room ID from server domain:', inferredRoomId)
+                logger.debug('Inferring room ID from server domain:', inferredRoomId)
                 this.event.roomId = inferredRoomId
               }
             }
           }
 
-          console.log('Current event roomId after processing:', this.event.roomId)
+          logger.debug('Current event roomId after processing:', this.event.roomId)
           return res.data
         }
         return { messages: [], end: '' }
@@ -307,7 +307,7 @@ export const useEventStore = defineStore('event', {
         }
         return false
       } catch (err) {
-        console.log(err)
+        logger.debug('Error in event store:', err)
         error('Failed to remove member from event discussion')
         return false
       }

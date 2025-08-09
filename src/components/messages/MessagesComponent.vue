@@ -376,7 +376,6 @@ onMounted(async () => {
   // LEGACY: WebSocket-based Matrix integration disabled
   // We now use Matrix JS SDK client directly (matrixClientService.ts)
   // The MatrixChatInterface component handles all Matrix communication
-  console.log('💡 Using Matrix JS SDK client instead of legacy WebSocket service')
 
   await loadMessages()
 
@@ -436,7 +435,6 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     unreadMessageId.value = ''
 
     // LEGACY: Room joining now handled automatically by Matrix JS SDK client
-    console.log('💡 Room joining handled by Matrix JS SDK client:', newRoomId)
 
     // Load messages for new room
     await loadMessages()

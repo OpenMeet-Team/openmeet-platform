@@ -24,7 +24,6 @@ watch(
 
 // Handle filtering by categories (multiple) and update the URL
 const onFilterByCategories = (categoryIds: number[]) => {
-  console.log(categoryIds)
   selectedCategories.value = categoryIds?.length ? categoryIds : []
 
   router.push({
