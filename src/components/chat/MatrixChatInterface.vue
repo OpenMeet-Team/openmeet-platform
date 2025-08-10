@@ -738,7 +738,12 @@ const getConnectButtonLabel = (): string => {
       return `Try again in ${remainingSeconds}s`
     }
   }
-  return 'Connect'
+
+  // Check if this is a first-time setup
+  const needsSetup = !matrixClientService.hasUserChosenToConnect() ||
+                     matrixClientService.needsEncryptionSetup?.() || false
+
+  return needsSetup ? 'Set Up Secure Chat' : 'Connect'
 }
 
 const hasOidcConfigError = (): boolean => {
@@ -1460,6 +1465,21 @@ const reconnect = async () => {
         await loadMessages()
         await scrollToBottom()
       }
+      return
+    }
+
+    // Check if this is a first-time setup and redirect to setup flow if needed
+    const needsSetup = !matrixClientService.hasUserChosenToConnect() ||
+                       matrixClientService.needsEncryptionSetup?.() || false
+
+    if (needsSetup) {
+      // For first-time users, redirect to the setup flow via window navigation
+      // This ensures they go through the proper education and encryption setup
+      const currentPath = window.location.pathname + window.location.search
+      const setupUrl = `/dashboard/chats?chat=${encodeURIComponent(props.roomId || props.contextId || 'setup')}&return=${encodeURIComponent(currentPath)}`
+
+      console.log('🔄 Redirecting to setup flow:', setupUrl)
+      window.location.href = setupUrl
       return
     }
 

@@ -23,6 +23,7 @@ import { persistOidcAuthenticatedSettings, getStoredOidcTokenIssuer, getStoredOi
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
+import { MatrixEncryptionBootstrapService } from './matrixEncryptionBootstrapService'
 import getEnv from '../utils/env'
 import { logger } from '../utils/logger'
 
@@ -384,14 +385,17 @@ class MatrixClientService {
       await Promise.all([
         // Wait for client to be ready and check crypto status
         new Promise<void>((resolve) => {
-          const checkReady = () => {
+          const checkReady = async () => {
             if (this.client && this.client.isInitialSyncComplete()) {
               logger.debug('✅ Matrix client ready and synced')
 
-              // Log crypto status
+              // Log crypto status and check encryption setup
               const crypto = this.client.getCrypto()
               if (crypto) {
                 logger.debug('🔐 Matrix encryption is available and ready')
+
+                // Check if encryption needs to be set up
+                await this.checkAndSetupEncryption()
               } else {
                 logger.debug('⚠️ Matrix encryption not available - some private rooms may not work')
               }
@@ -2737,6 +2741,70 @@ class MatrixClientService {
       logger.warn('⚠️ Failed to parse ID token claims:', error)
       return {} as IdTokenClaims
     }
+  }
+
+  /**
+   * Check if encryption setup is needed and store the result
+   * This allows the UI to show setup prompts when needed
+   */
+  private async checkAndSetupEncryption (): Promise<void> {
+    try {
+      if (!this.client) return
+
+      const encryptionService = new MatrixEncryptionBootstrapService(this.client)
+      const needsSetup = await encryptionService.checkEncryptionSetup()
+
+      if (needsSetup) {
+        logger.debug('🔐 Encryption setup needed - user will be prompted during chat access')
+
+        // Store flag for UI to check
+        const authStore = useAuthStore()
+        const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+
+        if (authStore.user?.slug && tenantId) {
+          const setupNeededKey = `encryption_setup_needed_${authStore.user.slug}_${tenantId}`
+          localStorage.setItem(setupNeededKey, 'true')
+        }
+      } else {
+        logger.debug('✅ Encryption already set up and ready')
+
+        // Clear any existing setup needed flag
+        const authStore = useAuthStore()
+        const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+
+        if (authStore.user?.slug && tenantId) {
+          const setupNeededKey = `encryption_setup_needed_${authStore.user.slug}_${tenantId}`
+          localStorage.removeItem(setupNeededKey)
+        }
+      }
+    } catch (error) {
+      logger.warn('⚠️ Could not check encryption setup status:', error)
+      // Don't throw - this shouldn't block Matrix initialization
+    }
+  }
+
+  /**
+   * Check if user needs to complete encryption setup
+   * Used by chat UI to determine whether to show setup flow
+   */
+  needsEncryptionSetup (): boolean {
+    const authStore = useAuthStore()
+    const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+
+    if (!authStore.user?.slug || !tenantId) {
+      return false
+    }
+
+    const setupNeededKey = `encryption_setup_needed_${authStore.user.slug}_${tenantId}`
+    return localStorage.getItem(setupNeededKey) === 'true'
+  }
+
+  /**
+   * Get encryption bootstrap service for UI components
+   */
+  getEncryptionService (): MatrixEncryptionBootstrapService | null {
+    if (!this.client) return null
+    return new MatrixEncryptionBootstrapService(this.client)
   }
 }
 
