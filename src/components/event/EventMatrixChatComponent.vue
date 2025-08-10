@@ -5,7 +5,7 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
-import MatrixChatInterface from '../chat/MatrixChatInterface.vue'
+import ChatSetupOrchestrator from '../chat/ChatSetupOrchestrator.vue'
 import getEnv from '../../utils/env'
 import { generateEventRoomAlias } from '../../utils/matrixUtils'
 import { logger } from '../../utils/logger'
@@ -93,6 +93,14 @@ const discussionPermissions = computed(() => {
 // Component mounting - simplified since MatrixChatInterface handles initialization
 onMounted(() => {
   logger.debug('🏗️ EventMatrixChatComponent mounted for event:', event.value?.slug)
+  logger.debug('🔍 Event attendance status:', event.value?.attendee?.status)
+  logger.debug('🔍 Discussion permissions:', discussionPermissions.value)
+  logger.debug('🔍 Matrix room ID:', matrixRoomId.value)
+  logger.debug('🔍 Should show ChatSetupOrchestrator?', {
+    hasEvent: !!event.value,
+    canWrite: discussionPermissions.value.canWrite,
+    isConfirmedOrCancelled: event.value?.attendee?.status === 'confirmed' || event.value?.attendee?.status === 'cancelled'
+  })
 })
 
 // Retry functionality now handled internally by MatrixChatInterface
@@ -164,14 +172,13 @@ const handleExpandChat = async () => {
   <div class="c-event-matrix-chat-component" v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')">
     <SubtitleComponent label="Chatroom" class="q-mt-lg q-px-md c-event-matrix-chat-component" hide-link />
 
-    <!-- Single unified chat interface - handles all connection logic internally -->
-    <MatrixChatInterface
+    <!-- Setup orchestrator with single-room mode for focused event chat -->
+    <ChatSetupOrchestrator
       v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')"
-      :room-id="matrixRoomId"
       context-type="event"
       :context-id="event?.slug ?? ''"
-      mode="inline"
-      height="500px"
+      mode="single-room"
+      :inline-room-id="matrixRoomId"
       @expand="handleExpandChat"
     />
 

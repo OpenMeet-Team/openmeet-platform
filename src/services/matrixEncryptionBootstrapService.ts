@@ -32,12 +32,33 @@ export class MatrixEncryptionBootstrapService {
   }
 
   /**
+   * Wait for crypto API to become available with retry logic
+   */
+  private async waitForCrypto (maxRetries = 5, delayMs = 1000): Promise<CryptoApi | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const crypto = this.matrixClient.getCrypto()
+      if (crypto) {
+        logger.debug(`✅ Crypto became available on attempt ${attempt}`)
+        return crypto
+      }
+
+      if (attempt < maxRetries) {
+        logger.debug(`🔄 Crypto not ready yet, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
+
+    logger.warn(`❌ Crypto not available after ${maxRetries} attempts`)
+    return null
+  }
+
+  /**
    * Check if encryption setup is needed
    */
   async checkEncryptionSetup (): Promise<boolean> {
     try {
-      const crypto = this.matrixClient.getCrypto()
-      if (!crypto) return true
+      const crypto = await this.waitForCrypto(3, 500) // Shorter retry for status check
+      if (!crypto) return true // If crypto isn't available, assume setup is needed
 
       const [secretStorageReady, crossSigningReady] = await Promise.all([
         crypto.isSecretStorageReady(),
@@ -57,11 +78,12 @@ export class MatrixEncryptionBootstrapService {
    */
   async bootstrapEncryption (passphrase: string): Promise<EncryptionBootstrapResult> {
     try {
-      const crypto = this.matrixClient.getCrypto()
+      logger.debug('🔄 Starting encryption bootstrap with retry logic...')
+      const crypto = await this.waitForCrypto()
       if (!crypto) {
         return {
           success: false,
-          error: 'Crypto not available',
+          error: 'Crypto not available after retries',
           step: 'initialization'
         }
       }
@@ -146,11 +168,12 @@ export class MatrixEncryptionBootstrapService {
    */
   async resetEncryption (): Promise<EncryptionBootstrapResult> {
     try {
-      const crypto = this.matrixClient.getCrypto()
+      logger.debug('🔄 Starting encryption reset with retry logic...')
+      const crypto = await this.waitForCrypto()
       if (!crypto) {
         return {
           success: false,
-          error: 'Crypto not available',
+          error: 'Crypto not available after retries',
           step: 'initialization'
         }
       }

@@ -239,21 +239,13 @@ const $q = useQuasar()
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
-    // For the main chats dashboard, we want to show available chats proactively
-    // This differs from inline/event contexts where we wait for user opt-in
-    if (props.mode === 'dashboard') {
-      // Accessing the chats dashboard implies user consent to connect to Matrix
-      // Setting user consent for Matrix connection (dashboard mode)
-      matrixClientService.setUserChosenToConnect(true)
-      await matrixClientService.initializeClient(true)
-    } else {
-      // Only initialize if user has already chosen to connect to Matrix (for inline/event contexts)
-      if (!matrixClientService.hasUserChosenToConnect()) {
-        // User has not chosen to connect to Matrix - skipping initialization
-        return
-      }
-      await matrixClientService.initializeClient()
+    // Only initialize if user has already chosen to connect to Matrix
+    // (The ChatSetupOrchestrator handles the initial setup flow for dashboard mode)
+    if (!matrixClientService.hasUserChosenToConnect()) {
+      // User has not chosen to connect to Matrix - skipping initialization
+      return
     }
+    await matrixClientService.initializeClient()
   } catch (error) {
     logger.error('Failed to initialize Matrix:', error)
   }

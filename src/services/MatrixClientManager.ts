@@ -292,6 +292,13 @@ export class MatrixClientManager {
     try {
       logger.debug('🔄 Creating Matrix client with optimized stores...')
 
+      // Check WebCrypto availability first
+      if (!window.crypto || !window.crypto.subtle) {
+        logger.error('❌ WebCrypto API is not available - encryption will not work')
+      } else {
+        logger.debug('✅ WebCrypto API is available')
+      }
+
       const startTime = performance.now()
 
       // Determine base URL
@@ -445,6 +452,19 @@ export class MatrixClientManager {
 
       const totalDuration = performance.now() - startTime
       logger.debug(`✅ Matrix client created in ${totalDuration.toFixed(2)}ms`)
+
+      // Debug crypto availability
+      const crypto = this.client.getCrypto()
+      if (crypto) {
+        logger.debug('🔐 Matrix crypto is available and ready')
+      } else {
+        logger.warn('❌ Matrix crypto is NOT available - this may cause encryption setup to fail')
+        logger.debug('🔍 Crypto debugging info:', {
+          hasCryptoStore: !!cryptoStore,
+          cryptoStoreType: cryptoStore?.constructor?.name,
+          clientHasCrypto: typeof this.client.getCrypto === 'function'
+        })
+      }
 
       return this.client
     } catch (error: unknown) {
