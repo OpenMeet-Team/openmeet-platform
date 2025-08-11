@@ -155,7 +155,7 @@
             @click="handleContinue"
             :loading="loading"
           >
-            <q-icon name="fas fa-check" class="q-mr-sm" />
+            <q-icon name="fas fa-check" class="q-mr-sm" />the
             Connection Complete
           </q-btn>
 

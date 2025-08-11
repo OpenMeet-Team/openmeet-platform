@@ -20,6 +20,10 @@ import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } 
 import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User, completeAuthorizationCodeGrant, generateOidcAuthorizationUrl, discoverAndValidateOIDCIssuerWellKnown } from 'matrix-js-sdk'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { persistOidcAuthenticatedSettings, getStoredOidcTokenIssuer, getStoredOidcClientId, getStoredOidcIdTokenClaims, clearStoredOidcSettings } from '../utils/oidc/persistOidcSettings'
+
+// Use any for crypto API to avoid Matrix SDK internal import issues
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CryptoApi = any
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
@@ -1144,13 +1148,20 @@ class MatrixClientService {
 
     try {
       const room = this.client.getRoom(roomId)
-      const crypto = this.client.getCrypto()
+      let crypto = this.client.getCrypto()
 
       if (room && room.hasEncryptionStateEvent()) {
         logger.debug('🔐 Sending encrypted message to room:', roomId)
 
         if (!crypto) {
-          throw new Error('This room requires encryption, but encryption is not available in this client. This is typically needed for private/direct message rooms.')
+          // Wait for crypto to become available with retry logic
+          logger.debug('⏳ Crypto not immediately available, waiting...')
+          crypto = await this.waitForCrypto(5, 1000)
+
+          if (!crypto) {
+            throw new Error('This room requires encryption, but encryption is not available in this client. The client encryption may need to be properly initialized.')
+          }
+          logger.debug('✅ Crypto became available after waiting')
         }
       } else {
         logger.debug('📝 Sending unencrypted message to room:', roomId)
@@ -2781,6 +2792,28 @@ class MatrixClientService {
       logger.warn('⚠️ Could not check encryption setup status:', error)
       // Don't throw - this shouldn't block Matrix initialization
     }
+  }
+
+  /**
+   * Wait for crypto API to become available with retry logic
+   * Based on MatrixEncryptionBootstrapService.waitForCrypto
+   */
+  private async waitForCrypto (maxRetries = 5, delayMs = 1000): Promise<CryptoApi | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const crypto = this.client?.getCrypto()
+      if (crypto) {
+        logger.debug(`✅ Crypto became available on attempt ${attempt}`)
+        return crypto
+      }
+
+      if (attempt < maxRetries) {
+        logger.debug(`🔄 Crypto not ready yet, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
+
+    logger.warn(`❌ Crypto not available after ${maxRetries} attempts`)
+    return null
   }
 
   /**
