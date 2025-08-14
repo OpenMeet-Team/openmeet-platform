@@ -79,6 +79,7 @@
     "typescript": "~5.5.3",
     "vite-plugin-checker": "^0.7.2",
     "vite-plugin-istanbul": "^6.0.2",
+    "vite-plugin-wasm": "^3.5.0",
     "vitest": "^3.2.3",
     "vue-router-mock": "^1.1.0",
     "vue-tsc": "2.0.29"
