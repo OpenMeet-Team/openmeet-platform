@@ -9,6 +9,7 @@ import 'dotenv/config'
 import istanbul from 'vite-plugin-istanbul'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import wasm from 'vite-plugin-wasm'
 
 // Helper function to get tenant ID from config
 function getTenantId () {
@@ -121,6 +122,19 @@ export default configure((ctx) => {
         if (viteConf.server) {
           viteConf.server.open = frontendDomain || true
         }
+
+        // Configure WASM handling using vite-plugin-wasm
+        viteConf.plugins = viteConf.plugins || []
+        viteConf.plugins.push(wasm())
+
+        // Configure dependency optimization for Matrix SDK and related modules
+        viteConf.optimizeDeps = viteConf.optimizeDeps || {}
+        viteConf.optimizeDeps.exclude = viteConf.optimizeDeps.exclude || []
+        // Only exclude the WASM crypto module to avoid bundling issues
+        viteConf.optimizeDeps.exclude.push('@matrix-org/matrix-sdk-crypto-wasm')
+
+        // Let Vite handle matrix-js-sdk and its dependencies normally
+        // This should resolve CommonJS/ESM compatibility issues automatically
       },
       // viteVuePluginOptions: {},
 
