@@ -738,6 +738,8 @@ class MatrixClientService {
       const authStore = useAuthStore()
       const openMeetUserSlug = authStore.getUserSlug
 
+      logger.debug(`🔍 Device ID retrieval - user slug: "${openMeetUserSlug}", type: ${typeof openMeetUserSlug}`)
+
       if (!openMeetUserSlug) {
         logger.debug('📝 No user slug available, cannot retrieve user-specific device ID')
         return null
@@ -767,6 +769,8 @@ class MatrixClientService {
       // Get current OpenMeet user slug for user-specific storage
       const authStore = useAuthStore()
       const openMeetUserSlug = authStore.getUserSlug
+
+      logger.debug(`🔍 Device ID storage - user slug: "${openMeetUserSlug}", type: ${typeof openMeetUserSlug}, deviceId: "${deviceId}"`)
 
       if (!openMeetUserSlug) {
         logger.warn('⚠️ No user slug available, cannot store user-specific device ID')
