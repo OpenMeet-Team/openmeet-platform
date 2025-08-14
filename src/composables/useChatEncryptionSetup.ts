@@ -17,6 +17,7 @@ type SetupStep =
   | 'matrix-education'
   | 'setup-explainer'
   | 'passphrase-setup'
+  | 'passphrase-unlock'
   | 'matrix-connection'
   | 'encryption-progress'
 

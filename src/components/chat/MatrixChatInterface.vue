@@ -446,9 +446,10 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
-import { MatrixEvent, Room, ClientEvent, RoomEvent } from 'matrix-js-sdk'
+import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
+import { matrixEncryptionService } from '../../services/MatrixEncryptionService'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
 
@@ -473,6 +474,7 @@ interface Message {
     filename?: string
     mimetype?: string
     size?: number
+    msgtype?: string
   }
   timestamp: Date
   isOwn: boolean
@@ -1848,7 +1850,10 @@ const loadMessages = async () => {
       console.warn('⚠️ Failed to load historical messages via pagination, falling back to timeline:', error)
       // Fallback - try direct timeline access
       const timeline = finalRoom.getLiveTimeline()
-      const timelineEvents = timeline.getEvents().filter(event => event.getType() === 'm.room.message')
+      const timelineEvents = timeline.getEvents().filter(event => {
+        const eventType = event.getType()
+        return eventType === 'm.room.message' || eventType === 'm.room.encrypted'
+      })
       events = timelineEvents
       // Fallback: events from current timeline
     }
@@ -1858,7 +1863,11 @@ const loadMessages = async () => {
       .map(event => {
         const senderId = event.getSender()
         const member = finalRoom?.getMember(senderId)
-        const content = event.getContent()
+        // For encrypted events, get the decrypted content if available
+        const eventType = event.getType()
+        const content = eventType === 'm.room.encrypted'
+          ? (event.getClearContent() || event.getContent())
+          : event.getContent()
         const msgtype = content.msgtype
 
         return {
@@ -1870,7 +1879,7 @@ const loadMessages = async () => {
             avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
           },
           content: {
-            body: content.body,
+            body: content.body || (eventType === 'm.room.encrypted' ? '🔒 [Unable to decrypt message]' : ''),
             url: content.url,
             filename: content.filename,
             mimetype: content.info?.mimetype,
@@ -2010,6 +2019,16 @@ const setupMatrixEventListeners = () => {
   logger.debug('🔌 Setting up Matrix client event listeners')
   listenersSetUp = true
 
+  // Initialize encryption in background for group chats (matches UnifiedChatComponent pattern)
+  logger.debug('🔐 Starting background encryption initialization for single-room interface')
+  matrixEncryptionService.initializeEncryptionBackground()
+    .then(ready => {
+      logger.debug(ready ? '✅ Background encryption ready for group chat' : '⚠️ Background encryption not ready')
+    })
+    .catch(error => {
+      logger.warn('⚠️ Background encryption initialization error:', error)
+    })
+
   // Listen for sync state changes to retry room resolution
   client.on(ClientEvent.Sync, handleSyncStateChange)
 
@@ -2073,20 +2092,49 @@ const setupMatrixEventListeners = () => {
     }
 
     const eventType = event.getType()
-    if (eventType === 'm.room.message') {
+    if (eventType === 'm.room.message' || eventType === 'm.room.encrypted') {
+      // Debug encrypted message content extraction
+      const rawContent = event.getContent()
+      const clearContent = eventType === 'm.room.encrypted' ? event.getClearContent() : null
+
       logger.debug('📨 Live timeline event (Element Web pattern):', {
         eventId: event.getId(),
         roomId: room.roomId,
         currentRoomId: props.roomId,
         sender: event.getSender(),
-        content: event.getContent(),
+        eventType,
+        rawContent,
+        clearContent,
         timestamp: new Date(event.getTs()).toLocaleTimeString()
       })
 
       // Instead of reloading all messages, just add this new message
-      const content = event.getContent()
+      // For encrypted events, get the decrypted content if available
+      const content = eventType === 'm.room.encrypted'
+        ? (event.getClearContent() || event.getContent())
+        : event.getContent()
       const senderId = event.getSender()
       const member = room.getMember(senderId || '')
+
+      // Debug the final content being used
+      logger.debug('🔍 Message content extraction:', {
+        eventType,
+        finalContent: content,
+        hasBody: !!content?.body,
+        bodyContent: content?.body,
+        msgtype: content?.msgtype
+      })
+
+      // For encrypted events, trigger immediate decryption attempt
+      if (eventType === 'm.room.encrypted') {
+        const client = matrixClientService.getClient()
+        if (client) {
+          // Attempt to decrypt the event immediately - Element-Web pattern
+          client.decryptEventIfNeeded(event).catch(error => {
+            logger.warn('⚠️ Failed to decrypt event immediately:', error)
+          })
+        }
+      }
 
       // Create the new message object with proper type detection
       const msgtype = content.msgtype || 'm.text'
@@ -2101,9 +2149,9 @@ const setupMatrixEventListeners = () => {
           avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
         },
         content: messageType === 'text' ? {
-          body: content.body || ''
+          body: content.body || (eventType === 'm.room.encrypted' ? '🔒 [Unable to decrypt message]' : '')
         } : {
-          body: content.body || content.filename || '',
+          body: content.body || content.filename || (eventType === 'm.room.encrypted' ? '🔒 [Encrypted file]' : ''),
           filename: content.filename,
           url: content.url,
           info: content.info,
@@ -2138,11 +2186,92 @@ const setupMatrixEventListeners = () => {
 
   client.on(RoomEvent.Timeline, handleTimelineEvent)
 
+  // Handle async decryption events - following Element-Web pattern
+  const handleEventDecrypted = async (event: MatrixEvent) => {
+    logger.debug('🔓 Event decrypted:', {
+      eventId: event.getId(),
+      eventType: event.getType(),
+      roomId: event.getRoomId(),
+      currentRoomId: props.roomId,
+      hasDecryptedContent: !!event.getClearContent()?.body
+    })
+
+    // Only handle events from our current room
+    if (event.getRoomId() !== props.roomId) {
+      return
+    }
+
+    // Only handle message events
+    if (event.getType() !== 'm.room.encrypted') {
+      return
+    }
+
+    // Find the message in our current messages and update it
+    const eventId = event.getId()
+    if (!eventId) return
+
+    const messageIndex = messages.value.findIndex(msg => msg.id === eventId)
+    if (messageIndex === -1) {
+      logger.debug('🔍 Decrypted event not found in current messages, will be handled by next message load')
+      return
+    }
+
+    logger.debug('🔄 Updating decrypted message content:', {
+      messageIndex,
+      oldContent: messages.value[messageIndex].content.body,
+      eventId
+    })
+
+    // Get the decrypted content
+    const clearContent = event.getClearContent()
+    if (!clearContent?.body) {
+      logger.warn('⚠️ Decrypted event has no clear content body')
+      return
+    }
+
+    // Update the message content with decrypted data
+    const updatedMessage = { ...messages.value[messageIndex] }
+    updatedMessage.content = {
+      ...updatedMessage.content,
+      body: clearContent.body,
+      msgtype: clearContent.msgtype || 'm.text'
+    }
+
+    // Handle different message types after decryption
+    if (clearContent.msgtype === 'm.image' && clearContent.url) {
+      updatedMessage.type = 'image'
+      updatedMessage.content.url = clearContent.url
+      updatedMessage.content.mimetype = clearContent.info?.mimetype
+      updatedMessage.content.size = clearContent.info?.size
+    } else if (clearContent.msgtype === 'm.file' && clearContent.url) {
+      updatedMessage.type = 'file'
+      updatedMessage.content.url = clearContent.url
+      updatedMessage.content.filename = clearContent.filename || clearContent.body
+      updatedMessage.content.mimetype = clearContent.info?.mimetype
+      updatedMessage.content.size = clearContent.info?.size
+    } else {
+      updatedMessage.type = 'text'
+    }
+
+    // Replace the message in the array
+    messages.value[messageIndex] = updatedMessage
+
+    logger.debug('✅ Message updated with decrypted content:', {
+      eventId,
+      newContent: updatedMessage.content.body,
+      newType: updatedMessage.type
+    })
+  }
+
+  // Listen for decryption events globally
+  client.on(MatrixEventEvent.Decrypted, handleEventDecrypted)
+
   // Store cleanup function for onUnmounted
   onUnmounted(() => {
     if (client) {
       client.off(ClientEvent.Sync, handleSyncStateChange)
       client.off(RoomEvent.Timeline, handleTimelineEvent)
+      client.off(MatrixEventEvent.Decrypted, handleEventDecrypted)
     }
   })
 }

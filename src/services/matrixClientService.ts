@@ -46,7 +46,53 @@ class MatrixClientService {
     if (managerClient) {
       this.client = managerClient
     }
+
+    // Trigger auto-initialization if needed (non-blocking)
+    this._tryAutoInitialize()
+
     return this.client
+  }
+
+  /**
+   * Get the Matrix client with auto-initialization (async version)
+   */
+  async getClientAsync (): Promise<MatrixClient | null> {
+    // Always return the client from MatrixClientManager if available
+    const managerClient = matrixClientManager.getClient()
+    if (managerClient) {
+      this.client = managerClient
+      return this.client
+    }
+
+    // If no client and we have stored credentials, try auto-initialization
+    if (!this.client && !this.isInitializing && this.hasStoredSession()) {
+      logger.debug('🔄 Auto-initializing Matrix client from stored credentials...')
+      try {
+        await this.initializeClient(true)
+        return this.client
+      } catch (error) {
+        logger.warn('⚠️ Auto-initialization failed, manual setup may be required:', error)
+        return null
+      }
+    }
+
+    return this.client
+  }
+
+  /**
+   * Private method to trigger auto-initialization in background
+   */
+  private _tryAutoInitialize (): void {
+    // Don't auto-initialize if already in progress or client exists
+    if (this.client || this.isInitializing || !this.hasStoredSession()) {
+      return
+    }
+
+    // Start auto-initialization in background
+    logger.debug('🔄 Triggering background auto-initialization...')
+    this.initializeClient(true).catch(error => {
+      logger.warn('⚠️ Background auto-initialization failed:', error)
+    })
   }
 
   /**
@@ -283,10 +329,16 @@ class MatrixClientService {
       // Stop the temporary client
       tempClient.stopClient()
 
+      // Determine final device ID and store it consistently
+      const finalDeviceId = actualDeviceId || this._getStoredDeviceId() || this._generateDeviceId()
+      if (finalDeviceId !== this._getStoredDeviceId()) {
+        this._storeDeviceId(finalDeviceId)
+      }
+
       const matrixCredentials = {
         userId: actualUserId, // Use the homeserver-provided user ID
         accessToken: oidcResult.tokenResponse.access_token,
-        deviceId: actualDeviceId || this._generateDeviceId(), // Use homeserver device ID if available
+        deviceId: finalDeviceId, // Use consistent device ID
         homeserverUrl: oidcResult.homeserverUrl,
         refreshToken: oidcResult.tokenResponse.refresh_token,
         // Include OIDC configuration for TokenRefresher
@@ -677,6 +729,69 @@ class MatrixClientService {
   }
 
   /**
+   * Get stored device ID using persistent localStorage (Element Web pattern)
+   * Device IDs must be consistent across browser sessions for crypto store compatibility
+   */
+  private _getStoredDeviceId (): string | null {
+    try {
+      // Get current OpenMeet user slug for user-specific storage
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        logger.debug('📝 No user slug available, cannot retrieve user-specific device ID')
+        return null
+      }
+
+      // Get user-specific device ID
+      const userSpecificKey = `matrix_device_id_${openMeetUserSlug}`
+      const userSpecificDeviceId = localStorage.getItem(userSpecificKey)
+      if (userSpecificDeviceId) {
+        logger.debug(`✅ Retrieved user-specific persistent device ID from localStorage for ${openMeetUserSlug}`)
+        return userSpecificDeviceId
+      }
+
+      logger.debug(`📝 No stored device ID found for user ${openMeetUserSlug} - will generate new one`)
+      return null
+    } catch (error) {
+      logger.warn('⚠️ Failed to retrieve stored device ID:', error)
+      return null
+    }
+  }
+
+  /**
+   * Store device ID persistently for consistency across sessions (Element Web pattern)
+   */
+  private _storeDeviceId (deviceId: string): void {
+    try {
+      // Get current OpenMeet user slug for user-specific storage
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        logger.warn('⚠️ No user slug available, cannot store user-specific device ID')
+        return
+      }
+
+      const userSpecificKey = `matrix_device_id_${openMeetUserSlug}`
+      localStorage.setItem(userSpecificKey, deviceId)
+      logger.debug(`💾 Stored device ID persistently in localStorage for user ${openMeetUserSlug}`)
+
+      // Clean up any legacy global device ID to prevent conflicts
+      if (localStorage.getItem('matrix_device_id')) {
+        localStorage.removeItem('matrix_device_id')
+        logger.debug('🧹 Removed legacy global device ID to prevent conflicts')
+      }
+      if (sessionStorage.getItem('mas_device_id')) {
+        sessionStorage.removeItem('mas_device_id')
+        logger.debug('🧹 Removed legacy session device ID to prevent conflicts')
+      }
+    } catch (error) {
+      logger.warn('⚠️ Failed to store device ID persistently:', error)
+    }
+  }
+
+  /**
    * Build Matrix scopes including device-specific scope (like Element-web)
    */
   private _buildMatrixScopes (deviceId: string): string {
@@ -718,7 +833,7 @@ class MatrixClientService {
 
       // Use dynamic client from session storage
       const clientId = sessionStorage.getItem('mas_client_id')
-      const storedDeviceId = sessionStorage.getItem('mas_device_id')
+      const storedDeviceId = this._getStoredDeviceId()
 
       if (!masUrl || !clientId) {
         throw new Error('MAS configuration not available - no client ID found')
@@ -777,6 +892,11 @@ class MatrixClientService {
       // Extract Matrix credentials from MAS response using stored device ID
       let userId = tokenData.sub
       const deviceId = storedDeviceId || tokenData.device_id || this._generateDeviceId()
+
+      // Store device ID persistently for future sessions (Element Web pattern)
+      if (!storedDeviceId && deviceId) {
+        this._storeDeviceId(deviceId)
+      }
 
       // OPTIMIZATION: Get user info from MAS userinfo endpoint in parallel with token processing
       const userinfoPromise = (async () => {
@@ -2246,17 +2366,52 @@ class MatrixClientService {
       const openMeetUserSlug = authStore.getUserSlug
 
       if (!openMeetUserSlug) {
-        logger.debug('🔍 No OpenMeet user slug available, checking for legacy session')
-        // Fallback to legacy key for backward compatibility
-        const legacyStored = localStorage.getItem('matrix_session')
-        if (legacyStored) {
-          logger.debug('📦 Found legacy Matrix session, will migrate to user-specific storage')
-          const legacyData = JSON.parse(legacyStored)
-          // Clear legacy session to prevent future conflicts
-          localStorage.removeItem('matrix_session')
-          sessionStorage.removeItem('matrix_access_token')
-          return legacyData
+        logger.debug('🔍 No OpenMeet user slug available yet, checking for any user-specific sessions')
+
+        // Search for any existing user-specific sessions instead of giving up
+        // This handles cases where auth store isn't loaded yet after page refresh
+        const allKeys = Object.keys(localStorage)
+        const sessionKeys = allKeys.filter(key => key.startsWith('matrix_session_'))
+
+        if (sessionKeys.length > 0) {
+          logger.debug(`📦 Found ${sessionKeys.length} user-specific Matrix session(s), using most recent`)
+
+          // Find the most recent session by timestamp
+          let mostRecentSession = null
+          let mostRecentTimestamp = 0
+
+          for (const sessionKey of sessionKeys) {
+            try {
+              const sessionData = JSON.parse(localStorage.getItem(sessionKey) || '{}')
+              if (sessionData.timestamp && sessionData.timestamp > mostRecentTimestamp) {
+                mostRecentTimestamp = sessionData.timestamp
+                mostRecentSession = sessionData
+
+                // Also try to get the corresponding access/refresh tokens
+                const userSlug = sessionKey.replace('matrix_session_', '')
+                const accessTokenKey = `matrix_access_token_${userSlug}`
+                const refreshTokenKey = `matrix_refresh_token_${userSlug}`
+
+                const accessToken = sessionStorage.getItem(accessTokenKey)
+                const refreshToken = localStorage.getItem(refreshTokenKey)
+
+                if (accessToken || refreshToken) {
+                  mostRecentSession.accessToken = accessToken || undefined
+                  mostRecentSession.refreshToken = refreshToken || undefined
+                }
+              }
+            } catch (error) {
+              logger.warn(`⚠️ Invalid session data in ${sessionKey}:`, error)
+            }
+          }
+
+          if (mostRecentSession) {
+            logger.debug('✅ Found valid user-specific session without requiring auth store')
+            return mostRecentSession
+          }
         }
+
+        logger.debug('📝 No user-specific sessions found')
         return null
       }
 
@@ -2833,14 +2988,142 @@ class MatrixClientService {
   }
 
   /**
+   * Check the current Matrix encryption state and determine what action is needed
+   * Returns the type of setup required
+   *
+   * NEW APPROACH: Works with decoupled crypto - doesn't require crypto to be initialized
+   */
+  async getEncryptionSetupType (): Promise<'complete' | 'new-setup' | 'existing-passphrase' | 'unavailable'> {
+    try {
+      const matrixClient = this.getClient()
+      if (!matrixClient) {
+        return 'unavailable'
+      }
+
+      // Check if crypto is already initialized and working
+      if (matrixClientManager.isCryptoReady()) {
+        logger.debug('🔐 Crypto already ready, checking encryption state')
+
+        // Import the encryption bootstrap service
+        const { MatrixEncryptionBootstrapService } = await import('./matrixEncryptionBootstrapService')
+        const encryptionService = new MatrixEncryptionBootstrapService(matrixClient)
+
+        // Check if encryption setup is needed
+        const needsSetup = await encryptionService.checkEncryptionSetup()
+        if (!needsSetup) {
+          return 'complete' // Already set up and ready
+        }
+
+        // If setup is needed, check if there are existing secrets
+        const crypto = matrixClient.getCrypto()
+        if (crypto) {
+          // Check for existing secret storage (both ready and just existing)
+          const hasSecretStorage = await crypto.isSecretStorageReady()
+          const hasCrossSigning = await crypto.isCrossSigningReady()
+
+          logger.debug('🔍 Encryption state details:', {
+            hasSecretStorage,
+            hasCrossSigning,
+            needsSetup
+          })
+
+          if (hasSecretStorage || hasCrossSigning) {
+            logger.debug('🔓 Found existing encryption secrets - requesting passphrase')
+            return 'existing-passphrase' // Has existing secrets, needs passphrase to unlock
+          }
+        }
+      } else {
+        logger.debug('🔐 Crypto not initialized yet, attempting to initialize for detection')
+
+        // Try to initialize crypto to check encryption state
+        const cryptoInitSuccess = await matrixClientManager.initializeCrypto()
+
+        if (cryptoInitSuccess) {
+          // Recursively call this method now that crypto is ready
+          return this.getEncryptionSetupType()
+        } else {
+          logger.warn('❌ Crypto initialization failed, defaulting to new setup')
+          return 'new-setup'
+        }
+      }
+
+      // Additional check - look for any secret storage keys at all
+      try {
+        // Check if there's any trace of previous encryption setup
+        // by looking for stored recovery keys in localStorage
+        const userId = matrixClient.getUserId()
+        const deviceId = matrixClient.getDeviceId()
+        if (userId && deviceId) {
+          const recoveryKeyStorageKey = `matrix_recovery_key_${userId}_${deviceId}`
+          const storedKey = localStorage.getItem(recoveryKeyStorageKey)
+          if (storedKey) {
+            logger.debug('🔍 Found stored recovery key - requesting passphrase')
+            return 'existing-passphrase'
+          }
+        }
+      } catch (error) {
+        logger.debug('🔍 No stored recovery key found:', error)
+      }
+
+      return 'new-setup' // No existing secrets, needs fresh setup
+    } catch (error) {
+      logger.warn('Failed to check encryption setup type:', error)
+      return 'new-setup' // Default to new setup on error
+    }
+  }
+
+  /**
    * Get encryption bootstrap service for UI components
    */
   getEncryptionService (): MatrixEncryptionBootstrapService | null {
     if (!this.client) return null
     return new MatrixEncryptionBootstrapService(this.client)
   }
+
+  /**
+   * Disconnect and cleanup Matrix client
+   */
+  async disconnect (): Promise<void> {
+    logger.debug('🔌 Disconnecting Matrix client...')
+
+    try {
+      if (this.client) {
+        // Stop sync if running
+        if (this.client.getSyncState() !== 'STOPPED') {
+          this.client.stopClient()
+        }
+
+        // Clean up the client reference
+        this.client = null
+      }
+
+      // Clean up MatrixClientManager
+      await matrixClientManager.shutdown()
+
+      // Reset initialization state
+      this.isInitializing = false
+      this.initPromise = null
+
+      logger.debug('✅ Matrix client disconnected successfully')
+    } catch (error) {
+      logger.error('❌ Error during Matrix client disconnect:', error)
+      throw error
+    }
+  }
 }
 
 // Export singleton instance
 export const matrixClientService = new MatrixClientService()
+
+// Initialize on app startup if credentials exist
+if (typeof window !== 'undefined') {
+  // Delay initialization to allow app to fully load
+  setTimeout(() => {
+    if (matrixClientService.hasStoredSession() && !matrixClientService.isReady()) {
+      logger.debug('🚀 Starting Matrix client auto-initialization on app startup')
+      matrixClientService.getClient() // This will trigger auto-initialization
+    }
+  }, 1000)
+}
+
 export default matrixClientService

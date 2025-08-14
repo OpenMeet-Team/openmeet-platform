@@ -1,5 +1,5 @@
 import type { MatrixClient, ICreateClientOpts, MatrixError as SdkMatrixError } from 'matrix-js-sdk'
-import { ClientEvent, createClient, IndexedDBStore, IndexedDBCryptoStore, HttpApiEvent } from 'matrix-js-sdk'
+import { ClientEvent, createClient, IndexedDBStore, HttpApiEvent, IndexedDBCryptoStore, LocalStorageCryptoStore, MemoryCryptoStore } from 'matrix-js-sdk'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
@@ -38,6 +38,11 @@ export class MatrixClientManager {
   private readyHandler: ((state: string) => void) | null = null
   private sessionLoggedOutHandler: ((error: SdkMatrixError) => void) | null = null
 
+  // Crypto state tracking - separate from basic client
+  private cryptoInitPromise: Promise<void> | null = null
+  private cryptoInitialized = false
+  private cryptoInitializing = false
+
   public static getInstance (): MatrixClientManager {
     if (!MatrixClientManager.instance) {
       MatrixClientManager.instance = new MatrixClientManager()
@@ -57,6 +62,20 @@ export class MatrixClientManager {
    */
   public isReady (): boolean {
     return this.client?.isLoggedIn() && this.isStarted && !this.isShuttingDown
+  }
+
+  /**
+   * Check if crypto is available and initialized
+   */
+  public isCryptoReady (): boolean {
+    return this.cryptoInitialized && this.client?.getCrypto() != null
+  }
+
+  /**
+   * Check if crypto is currently initializing
+   */
+  public isCryptoInitializing (): boolean {
+    return this.cryptoInitializing
   }
 
   /**
@@ -314,13 +333,8 @@ export class MatrixClientManager {
       // Use separate databases for main store and crypto store
       const store = new IndexedDBStore({
         indexedDB: window.indexedDB,
-        dbName: `matrix-js-sdk:${userId}`
+        dbName: `matrix-js-sdk:${userId}:${deviceId}`
       })
-
-      const cryptoStore = new IndexedDBCryptoStore(
-        window.indexedDB,
-        `matrix-js-sdk-crypto:${userId}:${deviceId}`
-      )
 
       // Create the client with refresh token support
       const clientOptions: ICreateClientOpts = {
@@ -329,9 +343,69 @@ export class MatrixClientManager {
         userId,
         deviceId,
         store,
-        cryptoStore,
+        // Add cryptoStore following Element-Web pattern to fix encryption
+        cryptoStore: window.indexedDB
+          ? new IndexedDBCryptoStore(window.indexedDB, `matrix-js-sdk:crypto:${userId}:${deviceId}`)
+          : window.localStorage
+            ? new LocalStorageCryptoStore(window.localStorage)
+            : new MemoryCryptoStore(),
         useAuthorizationHeader: true, // More efficient auth
-        timelineSupport: true
+        timelineSupport: true,
+        // Add crypto callbacks required by Matrix SDK
+        cryptoCallbacks: {
+          getSecretStorageKey: async (opts, name) => {
+            // For device-specific approach: try to retrieve stored recovery key
+            // This callback is required by Matrix SDK during secret storage access
+            logger.debug('🔑 getSecretStorageKey callback invoked for device-specific encryption', { name, keyCount: Object.keys(opts.keys).length })
+
+            try {
+              // Try to get the stored recovery key for this user/device
+              const storageKey = `matrix_recovery_key_${userId}_${deviceId}`
+              logger.debug('🔍 Looking for stored recovery key:', { storageKey, userId: userId.substring(0, 20) + '...', deviceId })
+
+              // Debug all matrix-related keys in localStorage
+              const allKeys = Object.keys(localStorage).filter(key => key.includes('matrix'))
+              logger.debug('📋 All matrix keys in localStorage:', allKeys)
+              const storedKey = localStorage.getItem(storageKey)
+              if (storedKey) {
+                logger.debug('✅ Found stored recovery key for device-specific encryption')
+                // Convert base64 stored key back to Uint8Array format expected by Matrix SDK
+                const binaryString = atob(storedKey)
+                const keyData = new Uint8Array(binaryString.length)
+                for (let i = 0; i < binaryString.length; i++) {
+                  keyData[i] = binaryString.charCodeAt(i)
+                }
+
+                // Matrix SDK expects [keyId, keyData] tuple
+                // Use the first available key ID from the options
+                const keyId = Object.keys(opts.keys)[0]
+                if (keyId) {
+                  logger.debug('🔑 Returning recovery key with keyId:', keyId, {
+                    keyDataLength: keyData.length,
+                    availableKeys: Object.keys(opts.keys),
+                    keyDescriptor: opts.keys[keyId]
+                  })
+                  return [keyId, keyData]
+                } else {
+                  logger.error('❌ No key ID available in secret storage options', opts)
+                  throw new Error('No key ID available for secret storage')
+                }
+              } else {
+                logger.debug('📝 No stored recovery key found - this is expected during initial encryption setup', {
+                  checkedKey: storageKey,
+                  allMatrixKeys: allKeys
+                })
+                // Return null instead of throwing - Matrix SDK will handle gracefully
+                // This allows the bootstrap process to proceed with creating new keys
+                return null
+              }
+            } catch (error) {
+              logger.warn('❌ Failed to retrieve stored recovery key:', error)
+              // Return null instead of throwing during setup to allow bootstrap to continue
+              return null
+            }
+          }
+        }
       }
 
       // Add refresh token support with Element Web-style TokenRefresher pattern
@@ -382,6 +456,18 @@ export class MatrixClientManager {
 
       this.client = createClient(clientOptions)
 
+      // Initialize Rust crypto to enable room encryption processing
+      // This is required for room encryptors to be created during sync
+      logger.debug('🔐 Initializing Rust crypto for room encryption support...')
+      await this.client.initRustCrypto({
+        useIndexedDB: true,
+        cryptoDatabasePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}`
+      })
+      logger.debug('✅ Rust crypto initialized - room encryptors will be created during sync')
+
+      // Client is ready for basic operations with crypto support
+      logger.debug('✅ Matrix client created with full crypto support ready')
+
       // OPTIMIZATION: Batch store startup with initial client preparation
       logger.debug('🔄 Batching store startup and client preparation...')
       const batchStartTime = performance.now()
@@ -389,7 +475,6 @@ export class MatrixClientManager {
       await Promise.all([
         // Store initialization
         store.startup(),
-        cryptoStore.startup(),
 
         // Initial client-side preparation (doesn't require server calls)
         (async () => {
@@ -460,9 +545,8 @@ export class MatrixClientManager {
       } else {
         logger.warn('❌ Matrix crypto is NOT available - this may cause encryption setup to fail')
         logger.debug('🔍 Crypto debugging info:', {
-          hasCryptoStore: !!cryptoStore,
-          cryptoStoreType: cryptoStore?.constructor?.name,
-          clientHasCrypto: typeof this.client.getCrypto === 'function'
+          clientHasCrypto: typeof this.client.getCrypto === 'function',
+          usingRustCrypto: true
         })
       }
 
@@ -737,6 +821,137 @@ export class MatrixClientManager {
     }
 
     return false
+  }
+
+  /**
+   * Clear the crypto store for a specific user and device to resolve device ID mismatches
+   */
+  private async clearCryptoStore (userId: string, deviceId?: string): Promise<void> {
+    try {
+      logger.debug('🧹 Clearing crypto store for user:', userId, 'deviceId:', deviceId)
+
+      // Clear device-specific crypto store databases
+      const baseNames = [
+        'matrix-js-sdk::matrix-sdk-crypto',
+        `matrix-js-sdk:crypto:${userId}`,
+        deviceId ? `matrix-js-sdk:crypto:${userId}:${deviceId}` : null,
+        // Also try the old format for cleanup
+        'matrix-js-sdk:crypto'
+      ].filter(Boolean) as string[]
+
+      for (const dbName of baseNames) {
+        try {
+          const deleteRequest = indexedDB.deleteDatabase(dbName)
+          await new Promise<void>((resolve) => {
+            deleteRequest.onsuccess = () => {
+              logger.debug(`✅ Cleared crypto database: ${dbName}`)
+              resolve()
+            }
+            deleteRequest.onerror = () => {
+              logger.warn(`⚠️ Could not clear crypto database ${dbName}:`, deleteRequest.error)
+              resolve() // Don't fail the whole process for individual DB cleanup failures
+            }
+            deleteRequest.onblocked = () => {
+              logger.warn(`⚠️ Crypto database ${dbName} deletion blocked - continuing anyway`)
+              resolve()
+            }
+          })
+        } catch (error) {
+          logger.warn(`⚠️ Error clearing crypto database ${dbName}:`, error)
+          // Continue with other cleanup attempts
+        }
+      }
+
+      logger.debug('✅ Crypto store cleanup completed')
+    } catch (error) {
+      logger.error('❌ Failed to clear crypto store:', error)
+      // Don't throw - we want to attempt crypto initialization anyway
+    }
+  }
+
+  /**
+   * Initialize crypto separately from basic client - this can fail without breaking chat
+   */
+  public async initializeCrypto (userId?: string, deviceId?: string): Promise<boolean> {
+    if (!this.client) {
+      logger.error('❌ Cannot initialize crypto: Matrix client not ready')
+      return false
+    }
+
+    if (this.cryptoInitialized) {
+      logger.debug('✅ Crypto already initialized')
+      return true
+    }
+
+    if (this.cryptoInitializing) {
+      logger.debug('🔄 Crypto initialization already in progress, waiting...')
+      await this.cryptoInitPromise
+      return this.cryptoInitialized
+    }
+
+    this.cryptoInitializing = true
+    this.cryptoInitPromise = this._performCryptoInitialization(userId, deviceId)
+
+    try {
+      await this.cryptoInitPromise
+      this.cryptoInitialized = true
+      logger.debug('✅ Crypto initialization completed successfully')
+      return true
+    } catch (error) {
+      logger.error('❌ Crypto initialization failed:', error)
+      this.cryptoInitialized = false
+      return false
+    } finally {
+      this.cryptoInitializing = false
+    }
+  }
+
+  /**
+   * Internal method to perform crypto initialization with error handling
+   */
+  private async _performCryptoInitialization (userId?: string, deviceId?: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('Matrix client not available')
+    }
+
+    logger.debug('🔐 Starting Rust crypto initialization...')
+
+    try {
+      await this.client.initRustCrypto()
+      logger.debug('✅ Rust crypto module initialized successfully')
+    } catch (error) {
+      const errorMessage = (error as Error).message || ''
+
+      // Handle device ID mismatch gracefully
+      if (errorMessage.includes('account in the store doesn\'t match') ||
+          (errorMessage.includes('expected') && errorMessage.includes('got'))) {
+        logger.warn('🔄 Device ID mismatch detected, clearing crypto store and retrying...', {
+          error: errorMessage,
+          currentDeviceId: deviceId,
+          userId
+        })
+
+        if (userId) {
+          await this.clearCryptoStore(userId, deviceId)
+        }
+
+        // Retry crypto initialization with fresh store
+        await this.client.initRustCrypto()
+        logger.debug('✅ Rust crypto module initialized successfully after store reset')
+      } else {
+        // Re-throw other crypto initialization errors
+        logger.error('❌ Failed to initialize Rust crypto module:', error)
+        throw error
+      }
+    }
+
+    // Verify crypto is available
+    const crypto = this.client.getCrypto()
+    if (crypto) {
+      logger.debug('🔐 Matrix crypto is available and ready')
+    } else {
+      throw new Error('Crypto initialization appeared to succeed but crypto instance not available')
+    }
   }
 
   /**

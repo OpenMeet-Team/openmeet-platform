@@ -173,6 +173,20 @@
             Try Setup Again
           </q-btn>
 
+          <!-- Clear Matrix Data Button (on MAC errors) -->
+          <q-btn
+            v-if="hasError && (errorMessage.includes('MAC') || errorMessage.includes('decrypt'))"
+            outline
+            color="orange"
+            size="md"
+            class="full-width q-mb-md"
+            @click="handleClearMatrixData"
+            :loading="clearingData"
+          >
+            <q-icon name="fas fa-broom" class="q-mr-sm" />
+            Clear Matrix Data & Retry
+          </q-btn>
+
           <!-- Skip Button (on error) -->
           <q-btn
             v-if="hasError"
@@ -226,6 +240,7 @@ import { matrixClientService } from '../../../services/matrixClientService'
 
 interface Props {
   passphrase: string
+  mode?: 'new-setup' | 'unlock-existing'
 }
 
 const props = defineProps<Props>()
@@ -244,6 +259,7 @@ const errorMessage = ref('')
 const errorDetails = ref('')
 const failedStep = ref('')
 const isTimeout = ref(false)
+const clearingData = ref(false)
 
 // Computed UI State
 const currentIcon = computed(() => {
@@ -265,13 +281,15 @@ const iconColor = computed(() => {
 const currentTitle = computed(() => {
   if (hasError.value) return 'Setup Failed'
   if (isComplete.value) return 'Encryption Ready!'
-  return 'Setting Up Encryption...'
+  return props.mode === 'unlock-existing' ? 'Unlocking Encryption...' : 'Setting Up Encryption...'
 })
 
 const currentSubtitle = computed(() => {
   if (hasError.value) return 'Something went wrong during setup'
   if (isComplete.value) return 'Your secure chat is ready to use'
-  return 'Please wait while we configure your encryption'
+  return props.mode === 'unlock-existing'
+    ? 'Please wait while we unlock your existing encryption'
+    : 'Please wait while we configure your encryption'
 })
 
 const overallProgress = computed(() => {
@@ -297,27 +315,44 @@ const performEncryptionSetup = async () => {
       throw new Error('Encryption service not available')
     }
 
-    // Step 1: Creating encryption keys
-    currentStep.value = 1
-    await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate time
+    const isUnlockMode = props.mode === 'unlock-existing'
 
-    // Step 2: Setting up secure backup
-    currentStep.value = 2
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    if (isUnlockMode) {
+      // Existing passphrase unlock flow - faster since we're just validating
+      currentStep.value = 1
+      const result = await encryptionService.unlockWithExistingPassphrase(props.passphrase)
 
-    // Step 3: Bootstrap encryption with passphrase
-    currentStep.value = 3
-    const result = await encryptionService.bootstrapEncryption(props.passphrase)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to unlock with existing passphrase')
+      }
 
-    if (!result.success) {
-      throw new Error(result.error || 'Encryption bootstrap failed')
+      // Complete quickly for unlock
+      currentStep.value = 4
+      await new Promise(resolve => setTimeout(resolve, 500))
+      isComplete.value = true
+    } else {
+      // New setup flow - full bootstrap process
+      // Step 1: Creating encryption keys
+      currentStep.value = 1
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate time
+
+      // Step 2: Setting up secure backup
+      currentStep.value = 2
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      // Step 3: Bootstrap encryption with passphrase
+      currentStep.value = 3
+      const result = await encryptionService.bootstrapEncryption(props.passphrase)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Encryption bootstrap failed')
+      }
+
+      // Complete
+      currentStep.value = 4
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      isComplete.value = true
     }
-
-    // Complete
-    currentStep.value = 4
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    isComplete.value = true
   } catch (error) {
     console.error('Encryption setup failed:', error)
     hasError.value = true
@@ -370,6 +405,51 @@ const handleRetry = () => {
 const handleSkip = () => {
   // Emit error to let parent handle basic chat mode
   emit('error', 'User chose to skip encryption setup')
+}
+
+const handleClearMatrixData = async () => {
+  if (!confirm('This will clear all Matrix encryption data and start fresh. You may lose access to previously encrypted messages. Continue?')) {
+    return
+  }
+
+  try {
+    clearingData.value = true
+    console.log('🧹 User requested Matrix data clearing...')
+
+    // Get the encryption bootstrap service
+    const matrixClient = matrixClientService.getClient()
+    if (!matrixClient) {
+      throw new Error('Matrix client not available')
+    }
+
+    // Import and use the bootstrap service
+    const { MatrixEncryptionBootstrapService } = await import('../../../services/matrixEncryptionBootstrapService')
+    const bootstrapService = new MatrixEncryptionBootstrapService(matrixClient)
+
+    // Clear all Matrix data
+    const clearResult = await bootstrapService.clearAllMatrixData()
+    if (!clearResult.success) {
+      throw new Error(clearResult.error || 'Failed to clear Matrix data')
+    }
+
+    console.log('✅ Matrix data cleared successfully, retrying setup...')
+
+    // Reset error state and retry setup
+    hasError.value = false
+    errorMessage.value = ''
+    errorDetails.value = ''
+    isComplete.value = false
+    currentStep.value = 0
+
+    // Start fresh setup
+    await performEncryptionSetup()
+  } catch (error) {
+    console.error('❌ Failed to clear Matrix data:', error)
+    errorMessage.value = `Failed to clear Matrix data: ${error.message}`
+    errorDetails.value = error.stack || error.toString()
+  } finally {
+    clearingData.value = false
+  }
 }
 
 const handleCancel = () => {

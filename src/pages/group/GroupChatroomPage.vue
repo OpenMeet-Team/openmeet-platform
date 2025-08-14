@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useGroupStore } from '../../stores/group-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { GroupPermission } from '../../types'
@@ -8,10 +8,13 @@ import ChatSetupOrchestrator from '../../components/chat/ChatSetupOrchestrator.v
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import getEnv from '../../utils/env'
 import { generateGroupRoomAlias } from '../../utils/matrixUtils'
+import { useNotification } from '../../composables/useNotification'
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+const { info } = useNotification()
 
 const group = computed(() => groupStore.group)
 
@@ -124,9 +127,43 @@ const handleExpandChat = async () => {
   })
 }
 
+// Check if user might need to re-authenticate after Matrix setup
+const checkAuthenticationStatus = () => {
+  // If user is not authenticated and accessing a chatroom, they might be returning from Matrix setup
+  if (!authStore.isAuthenticated && group.value) {
+    // Check for signs they might have been through Matrix auth flow
+    const hasMatrixParams = route.query.loginToken || route.query.state || route.query.return
+    const isReturningFromAuth = hasMatrixParams || sessionStorage.getItem('was_setting_up_matrix')
+
+    if (isReturningFromAuth) {
+      console.log('🔑 User appears to be returning from Matrix setup but is not logged into OpenMeet')
+
+      // Clear the flag to prevent loops
+      sessionStorage.removeItem('was_setting_up_matrix')
+
+      // Show helpful message
+      info('Please log in to OpenMeet to access the chatroom', 'Authentication Required')
+
+      // Redirect to login with return URL
+      setTimeout(() => {
+        router.push({
+          name: 'AuthLoginPage',
+          query: { redirect: route.fullPath }
+        })
+      }, 1500) // Give user time to read the message
+
+      return true // Indicate we handled the redirect
+    }
+  }
+  return false // No redirect needed
+}
+
 // Simplified - MatrixChatInterface handles all initialization internally
 onMounted(() => {
   console.log('🏗️ GroupChatroomPage mounted for group:', group.value?.slug)
+
+  // Check if we need to redirect for authentication
+  checkAuthenticationStatus()
 })
 </script>
 

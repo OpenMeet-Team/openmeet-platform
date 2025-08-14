@@ -155,8 +155,8 @@
             @click="handleContinue"
             :loading="loading"
           >
-            <q-icon name="fas fa-check" class="q-mr-sm" />the
-            Connection Complete
+            <q-icon name="fas fa-check" class="q-mr-sm" />
+            Continue
           </q-btn>
 
           <!-- Back Button -->
@@ -280,23 +280,18 @@ const handleConnect = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000))
     step.value = 2
 
-    // Step 2: Start Matrix connection (this will open OIDC flow)
+    // Step 2: Start Matrix connection (this will redirect to OIDC)
+    // Note: This call will redirect the page, so execution stops here
     await matrixClientService.connectToMatrix()
 
-    // Step 3: Connection established
-    step.value = 3
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Step 4: Complete
-    step.value = 4
-    isConnected.value = true
-    isConnecting.value = false
+    // The following code will not execute because of redirect
+    // When user returns from OIDC, the component will be re-mounted
+    // and onMounted will handle the completion detection
   } catch (error) {
     console.error('Matrix connection failed:', error)
     hasError.value = true
     errorMessage.value = error.message || 'Failed to connect to Matrix. Please try again.'
     isConnecting.value = false
-  } finally {
     loading.value = false
   }
 }
@@ -353,8 +348,47 @@ const stopConnectionPolling = () => {
   }
 }
 
-onMounted(() => {
-  startConnectionPolling()
+onMounted(async () => {
+  // Check if we just returned from OIDC flow or client is initializing
+  const urlParams = new URLSearchParams(window.location.search)
+  const hasAuthCode = urlParams.has('code')
+
+  if (hasAuthCode || matrixClientService.isReady() || matrixClientService.hasUserChosenToConnect()) {
+    // We're back from OIDC, already connected, or initialization is in progress
+    step.value = 2
+    isConnecting.value = true
+
+    // Start monitoring for completion
+    const checkInterval = setInterval(() => {
+      if (matrixClientService.isReady()) {
+        step.value = 3
+        setTimeout(() => {
+          step.value = 4
+          isConnected.value = true
+          isConnecting.value = false
+          clearInterval(checkInterval)
+
+          // Auto-continue after connection complete
+          setTimeout(() => {
+            emit('continue')
+          }, 1500)
+        }, 1000)
+      }
+    }, 500)
+
+    // Safety timeout to avoid infinite waiting
+    setTimeout(() => {
+      if (!isConnected.value) {
+        step.value = 4
+        isConnected.value = true
+        isConnecting.value = false
+        clearInterval(checkInterval)
+      }
+    }, 10000)
+  } else {
+    // Normal flow - start polling for connection status
+    startConnectionPolling()
+  }
 })
 
 onUnmounted(() => {
