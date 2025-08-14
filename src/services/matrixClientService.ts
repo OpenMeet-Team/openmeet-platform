@@ -224,8 +224,8 @@ class MatrixClientService {
     // Skip broken silent authentication and go directly to working redirect flow
     logger.debug('🔄 Initiating Matrix authentication via redirect (silent auth disabled due to 0% success rate)')
 
-    // Clear any potentially stale stored credentials since restore failed
-    this._clearStoredCredentials()
+    // Don't clear stored credentials here - they may still be valid
+    // Only clear credentials during explicit logout or when authentication definitively fails
 
     // Prevent concurrent initialization attempts
     if (this.isInitializing && this.initPromise) {
@@ -1095,16 +1095,17 @@ class MatrixClientService {
         // Handle token errors with native SDK OIDC support
         if (isTokenError) {
           logger.warn('🚫 Token-related sync error detected - with native SDK OIDC, tokens should refresh automatically')
-          logger.debug('💡 If we hit this, the refresh token is likely invalid - clearing session for re-authentication')
+          logger.debug('💡 If we hit this, the refresh token is likely invalid - triggering soft logout for re-authentication')
 
           // With native SDK OIDC support, token refresh should be automatic
           // If we're still getting token errors, the refresh token is likely invalid
-          await this.clearSession()
+          // Use soft logout instead of clearing session to preserve user data like Element Web
           const tokenRefreshFailureEvent = new CustomEvent('matrix:tokenRefreshFailure', {
             detail: {
               error: data,
               reason: 'invalid_refresh_token',
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              softLogout: true // Indicate this should be a soft logout
             }
           })
           window.dispatchEvent(tokenRefreshFailureEvent)
@@ -3047,23 +3048,8 @@ class MatrixClientService {
         }
       }
 
-      // Additional check - look for any secret storage keys at all
-      try {
-        // Check if there's any trace of previous encryption setup
-        // by looking for stored recovery keys in localStorage
-        const userId = matrixClient.getUserId()
-        const deviceId = matrixClient.getDeviceId()
-        if (userId && deviceId) {
-          const recoveryKeyStorageKey = `matrix_recovery_key_${userId}_${deviceId}`
-          const storedKey = localStorage.getItem(recoveryKeyStorageKey)
-          if (storedKey) {
-            logger.debug('🔍 Found stored recovery key - requesting passphrase')
-            return 'existing-passphrase'
-          }
-        }
-      } catch (error) {
-        logger.debug('🔍 No stored recovery key found:', error)
-      }
+      // Note: Removed localStorage recovery key check - using Matrix SDK's secret storage detection
+      // This eliminates device-dependent key storage that caused setup loops
 
       return 'new-setup' // No existing secrets, needs fresh setup
     } catch (error) {

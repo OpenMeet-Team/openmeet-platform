@@ -328,7 +328,8 @@ onMounted(async () => {
   logger.debug('🔍 Current setup state:', state)
 
   if (state === 'complete') {
-    logger.debug('✅ Setup already complete, showing chat interface directly')
+    logger.debug('✅ Setup already complete, clearing any stale state and showing chat interface directly')
+    clearSetupState()
     return
   }
 
