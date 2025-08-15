@@ -2109,7 +2109,22 @@ const setupMatrixEventListeners = () => {
       })
 
       // Instead of reloading all messages, just add this new message
-      // For encrypted events, get the decrypted content if available
+
+      // For encrypted events, trigger immediate decryption attempt FIRST
+      if (eventType === 'm.room.encrypted') {
+        const client = matrixClientService.getClient()
+        if (client) {
+          try {
+            // Attempt to decrypt the event immediately - Element-Web pattern
+            await client.decryptEventIfNeeded(event)
+            logger.debug('✅ Event decrypted successfully for live display')
+          } catch (error) {
+            logger.warn('⚠️ Failed to decrypt event immediately:', error)
+          }
+        }
+      }
+
+      // AFTER decryption attempt, get the content (decrypted if successful)
       const content = eventType === 'm.room.encrypted'
         ? (event.getClearContent() || event.getContent())
         : event.getContent()
@@ -2124,17 +2139,6 @@ const setupMatrixEventListeners = () => {
         bodyContent: content?.body,
         msgtype: content?.msgtype
       })
-
-      // For encrypted events, trigger immediate decryption attempt
-      if (eventType === 'm.room.encrypted') {
-        const client = matrixClientService.getClient()
-        if (client) {
-          // Attempt to decrypt the event immediately - Element-Web pattern
-          client.decryptEventIfNeeded(event).catch(error => {
-            logger.warn('⚠️ Failed to decrypt event immediately:', error)
-          })
-        }
-      }
 
       // Create the new message object with proper type detection
       const msgtype = content.msgtype || 'm.text'

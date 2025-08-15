@@ -3,6 +3,7 @@ import { ClientEvent, createClient, IndexedDBStore, HttpApiEvent, IndexedDBCrypt
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
+// Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 
 // Interface for Matrix error objects
@@ -61,7 +62,20 @@ export class MatrixClientManager {
    * Check if client is ready (created and started)
    */
   public isReady (): boolean {
-    return this.client?.isLoggedIn() && this.isStarted && !this.isShuttingDown
+    const loggedIn = this.client?.isLoggedIn() ?? false
+    const result = loggedIn && this.isStarted && !this.isShuttingDown
+
+    // Debug logging for timing issues
+    if (loggedIn && !result) {
+      logger.debug('🔍 MatrixClientManager.isReady() timing issue:', {
+        loggedIn,
+        isStarted: this.isStarted,
+        isShuttingDown: this.isShuttingDown,
+        result
+      })
+    }
+
+    return result
   }
 
   /**
@@ -76,6 +90,62 @@ export class MatrixClientManager {
    */
   public isCryptoInitializing (): boolean {
     return this.cryptoInitializing
+  }
+
+  /**
+   * Attempt to restore key backup if available and user has stored passphrase
+   * This ensures historical messages can be decrypted on new sessions
+   */
+  private async attemptKeyBackupRestoration (): Promise<void> {
+    if (!this.client) {
+      return
+    }
+
+    try {
+      // Ensure client is properly authenticated before attempting key backup operations
+      const accessToken = this.client.getAccessToken()
+      if (!accessToken) {
+        logger.debug('⚠️ No access token available for key backup operations')
+        return
+      }
+
+      const crypto = this.client.getCrypto()
+      if (!crypto) {
+        logger.debug('⚠️ Crypto not available for key backup restoration')
+        return
+      }
+
+      // Check if there's a key backup on the server
+      const keyBackupInfo = await crypto.getKeyBackupInfo()
+      if (!keyBackupInfo) {
+        logger.debug('ℹ️ No key backup found on server')
+        return
+      }
+
+      // Check if we already have room keys locally (avoid unnecessary restoration)
+      logger.debug('🔍 Key backup found on server, checking if restoration is needed...')
+
+      // Use Matrix SDK's built-in secret storage mechanism for secure backup restoration
+      try {
+        logger.debug('🔐 Attempting automatic key backup restoration from secret storage...')
+        await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
+        logger.debug('✅ Key backup private key loaded from secret storage')
+        // Check if backup is now accessible and restore if needed
+        const backupVersion = await crypto.getActiveSessionBackupVersion()
+        if (backupVersion) {
+          logger.debug(`✅ Key backup restored successfully (version: ${backupVersion})`)
+        } else {
+          logger.debug('ℹ️ No active session backup found after key loading')
+        }
+      } catch (secretStorageError) {
+        logger.debug('ℹ️ Could not load backup key from secret storage:', secretStorageError.message)
+        // This is expected if the user hasn't set up secret storage or backup properly
+        // The Matrix SDK will handle requesting keys from other devices automatically
+      }
+    } catch (error) {
+      logger.warn('⚠️ Key backup restoration failed (non-fatal):', error)
+      // Don't throw - this is not critical for basic functionality
+    }
   }
 
   /**
@@ -150,11 +220,25 @@ export class MatrixClientManager {
         // Pre-configure any client settings or cache warmup
         logger.debug('🔧 Configuring client settings in parallel...')
 
-        // These operations can happen while client is starting
-        if (this.client) {
-          // Set any client-side preferences
-          // Note: Most client methods require the client to be started,
-          // so this is mainly for future optimization opportunities
+        // Initialize crypto after client starts to prevent "shutting down" errors
+        // This ensures encryption is ready after logout/login cycles
+        try {
+          logger.debug('🔐 Initializing crypto during client startup...')
+          await this.initializeCrypto()
+          logger.debug('✅ Crypto initialized during client startup')
+
+          // Wait a moment for sync to stabilize before attempting key backup operations
+          // This helps prevent token/auth issues during startup
+          setTimeout(async () => {
+            try {
+              // Also attempt key backup restoration if available (delayed to avoid token issues)
+              await this.attemptKeyBackupRestoration()
+            } catch (error) {
+              logger.warn('⚠️ Key backup restoration failed during delayed startup:', error)
+            }
+          }, 2000) // 2 second delay
+        } catch (error) {
+          logger.warn('⚠️ Crypto initialization failed during startup, will retry on demand:', error)
         }
       })()
     ])
@@ -351,59 +435,17 @@ export class MatrixClientManager {
             : new MemoryCryptoStore(),
         useAuthorizationHeader: true, // More efficient auth
         timelineSupport: true,
-        // Add crypto callbacks required by Matrix SDK
+        // Use Element-Web style secret storage callbacks (temporary client for callback setup)
         cryptoCallbacks: {
-          getSecretStorageKey: async (opts, name) => {
-            // For device-specific approach: try to retrieve stored recovery key
-            // This callback is required by Matrix SDK during secret storage access
-            logger.debug('🔑 getSecretStorageKey callback invoked for device-specific encryption', { name, keyCount: Object.keys(opts.keys).length })
-
-            try {
-              // Try to get the stored recovery key for this user/device
-              const storageKey = `matrix_recovery_key_${userId}_${deviceId}`
-              logger.debug('🔍 Looking for stored recovery key:', { storageKey, userId: userId.substring(0, 20) + '...', deviceId })
-
-              // Debug all matrix-related keys in localStorage
-              const allKeys = Object.keys(localStorage).filter(key => key.includes('matrix'))
-              logger.debug('📋 All matrix keys in localStorage:', allKeys)
-              const storedKey = localStorage.getItem(storageKey)
-              if (storedKey) {
-                logger.debug('✅ Found stored recovery key for device-specific encryption')
-                // Convert base64 stored key back to Uint8Array format expected by Matrix SDK
-                const binaryString = atob(storedKey)
-                const keyData = new Uint8Array(binaryString.length)
-                for (let i = 0; i < binaryString.length; i++) {
-                  keyData[i] = binaryString.charCodeAt(i)
-                }
-
-                // Matrix SDK expects [keyId, keyData] tuple
-                // Use the first available key ID from the options
-                const keyId = Object.keys(opts.keys)[0]
-                if (keyId) {
-                  logger.debug('🔑 Returning recovery key with keyId:', keyId, {
-                    keyDataLength: keyData.length,
-                    availableKeys: Object.keys(opts.keys),
-                    keyDescriptor: opts.keys[keyId]
-                  })
-                  return [keyId, keyData]
-                } else {
-                  logger.error('❌ No key ID available in secret storage options', opts)
-                  throw new Error('No key ID available for secret storage')
-                }
-              } else {
-                logger.debug('📝 No stored recovery key found - this is expected during initial encryption setup', {
-                  checkedKey: storageKey,
-                  allMatrixKeys: allKeys
-                })
-                // Return null instead of throwing - Matrix SDK will handle gracefully
-                // This allows the bootstrap process to proceed with creating new keys
-                return null
-              }
-            } catch (error) {
-              logger.warn('❌ Failed to retrieve stored recovery key:', error)
-              // Return null instead of throwing during setup to allow bootstrap to continue
-              return null
-            }
+          getSecretStorageKey: async () => {
+            // This will be called when secret storage access is needed
+            // For now, return null to allow the bootstrap process to handle key creation
+            logger.debug('🔑 getSecretStorageKey callback invoked - allowing bootstrap to handle key creation')
+            return null
+          },
+          cacheSecretStorageKey: (keyId) => {
+            // Cache key for session (this follows Element-Web pattern)
+            logger.debug('🔑 cacheSecretStorageKey callback invoked for keyId:', keyId)
           }
         }
       }

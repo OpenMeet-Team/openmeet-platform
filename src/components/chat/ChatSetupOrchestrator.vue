@@ -69,7 +69,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { ClientEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { useChatEncryptionSetup } from '../../composables/useChatEncryptionSetup'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
@@ -125,24 +127,126 @@ const homeserverUrl = computed(() => {
 // Setup state types
 type SetupState = 'needs-connection' | 'needs-encryption' | 'complete'
 
+// Element Web style account data key for encryption setup completion
+const ENCRYPTION_SETUP_COMPLETE_KEY = 'm.org.matrix.custom.openmeet.encryption_setup_complete'
+
+// Extend Matrix SDK types for our custom account data (Element Web pattern)
+declare module 'matrix-js-sdk/lib/types' {
+  interface AccountDataEvents {
+    'm.org.matrix.custom.openmeet.encryption_setup_complete': {
+      completed: boolean;
+      timestamp: number;
+    };
+  }
+}
+
+// Cached encryption setup status
+const encryptionSetupComplete = ref<boolean | null>(null)
+
 // Pure function to determine current setup state
 const getSetupState = (): SetupState => {
   // Access forceUpdate to trigger reactivity
   void forceUpdate.value
 
-  // NEW APPROACH: Check basic connection first, then encryption separately
+  // First check: if encryption setup is complete from account data, we're done
+  if (encryptionSetupComplete.value === true) {
+    return 'complete'
+  }
 
-  // Check if basic Matrix connection is ready (without crypto requirement)
-  if (!matrixClientService.isReady()) {
+  // Second check: if we have a stored session and client exists, check if just timing issue
+  const hasStoredSession = matrixClientService.hasStoredSession()
+  const managerClient = matrixClientManager.getClient()
+
+  if (hasStoredSession && managerClient && encryptionSetupComplete.value === null) {
+    // We have stored session and client but haven't checked encryption status yet
+    // This is likely a timing issue - trigger encryption status check
+    logger.debug('🔍 Setup state: Have session and client, checking encryption status')
+    checkEncryptionSetupStatus()
+    return 'needs-encryption' // Temporary state while checking
+  }
+
+  // Third check: basic Matrix connection readiness
+  const isReady = matrixClientService.isReady()
+  if (!isReady) {
+    // Debug logging to understand why connection isn't ready
+    logger.debug('🔍 Setup state check: Matrix not ready', {
+      hasStoredSession,
+      encryptionComplete: encryptionSetupComplete.value,
+      hasManagerClient: !!managerClient
+    })
     return 'needs-connection'
   }
 
-  // Basic connection is ready - encryption is handled in background
-  // We no longer require encryption setup to be complete before showing chat
-  // This aligns with the new approach of skipping encryption detection
+  // Basic connection is ready - check cached encryption setup status
+  if (encryptionSetupComplete.value === false) {
+    return 'needs-encryption'
+  }
 
-  // Both connection and encryption considerations are complete
-  return 'complete'
+  // If we don't have cached status yet, assume needs encryption
+  // The checkEncryptionSetupStatus function will update this
+  return 'needs-encryption'
+}
+
+// Async function to check encryption setup status from account data
+const checkEncryptionSetupStatus = async () => {
+  const client = matrixClientService.getClient()
+  if (!client) {
+    encryptionSetupComplete.value = false
+    return
+  }
+
+  try {
+    // Check if user has completed encryption setup (stored in account data)
+    const setupData = await client.getAccountDataFromServer(ENCRYPTION_SETUP_COMPLETE_KEY)
+    const isComplete = setupData?.completed === true
+
+    if (isComplete) {
+      logger.debug('🔍 Account data indicates encryption setup complete')
+      encryptionSetupComplete.value = true
+      // Trigger reactivity update and return early
+      forceUpdate.value++
+      return
+    }
+  } catch (accountDataError) {
+    // Account data might fail with 401 during token refresh - that's OK, continue to Matrix SDK detection
+    logger.debug('🔍 Account data check failed (probably token refresh), falling back to Matrix SDK detection:', accountDataError.message)
+  }
+
+  // Check if there are existing encryption artifacts (key backup, cross-signing)
+  // This indicates user has set up encryption before but may need to unlock it
+  logger.debug('🔍 No completion marker found, checking for existing encryption artifacts...')
+
+  const crypto = client.getCrypto()
+  if (crypto) {
+    try {
+      const [keyBackupInfo, crossSigningInfo] = await Promise.all([
+        crypto.getKeyBackupInfo().catch(() => null),
+        crypto.isCrossSigningReady().catch(() => false)
+      ])
+
+      const hasKeyBackup = keyBackupInfo && keyBackupInfo.version
+      const hasCrossSigning = crossSigningInfo === true
+
+      logger.debug('🔍 Encryption artifacts check:', { hasKeyBackup, hasCrossSigning })
+
+      if (hasKeyBackup || hasCrossSigning) {
+        logger.debug('🔓 Found existing encryption artifacts - user needs to unlock with passphrase')
+        encryptionSetupComplete.value = false // false = needs unlock, null = needs setup
+      } else {
+        logger.debug('🆕 No encryption artifacts found - user needs initial setup')
+        encryptionSetupComplete.value = null // null = needs full setup from scratch
+      }
+    } catch (cryptoError) {
+      logger.debug('🔍 Could not check encryption artifacts:', cryptoError)
+      encryptionSetupComplete.value = null // Default to full setup needed
+    }
+  } else {
+    logger.debug('🔍 No crypto available yet')
+    encryptionSetupComplete.value = null
+  }
+
+  // Trigger reactivity update
+  forceUpdate.value++
 }
 
 // Computed state - pure, no side effects
@@ -236,9 +340,8 @@ const handleMatrixConnectionComplete = async () => {
     logger.debug('🚀 Skipping encryption detection - proceeding directly to chat interface')
     logger.debug('💡 Matrix client is ready, encryption will load in background')
 
-    // Clear setup state and proceed to chat
-    clearSetupState()
-    sessionStorage.removeItem('was_setting_up_matrix')
+    // Mark setup as complete and proceed to chat
+    await handleEncryptionComplete()
 
     // Force reactive update to recognize setup completion
     forceUpdate.value++
@@ -268,7 +371,24 @@ const handleMatrixConnectionComplete = async () => {
   }
 }
 
-const handleEncryptionComplete = () => {
+const handleEncryptionComplete = async () => {
+  // Mark encryption setup as complete in account data (Element Web approach)
+  try {
+    const client = matrixClientService.getClient()
+    if (client) {
+      await client.setAccountData(ENCRYPTION_SETUP_COMPLETE_KEY, {
+        completed: true,
+        timestamp: Date.now()
+      })
+      logger.debug('✅ Marked encryption setup as complete in account data')
+
+      // Update cached status
+      encryptionSetupComplete.value = true
+    }
+  } catch (error) {
+    logger.warn('⚠️ Failed to mark encryption setup complete in account data:', error)
+  }
+
   // Clear setup state - we're done!
   clearSetupState()
   sessionStorage.removeItem('was_setting_up_matrix')
@@ -324,6 +444,11 @@ onMounted(async () => {
   // Give auto-initialization a moment to complete if it's starting
   await new Promise(resolve => setTimeout(resolve, 100))
 
+  // Check encryption setup status from account data if Matrix client is ready
+  if (matrixClientService.isReady()) {
+    await checkEncryptionSetupStatus()
+  }
+
   const state = currentSetupState.value
   logger.debug('🔍 Current setup state:', state)
 
@@ -370,12 +495,75 @@ onMounted(async () => {
 })
 
 // Separate function to initialize the setup flow
-const initializeSetupFlow = () => {
+const initializeSetupFlow = async () => {
   const state = currentSetupState.value
 
   // Determine starting step based on setup state and existing progress
   if (!setupState.value.currentStep) {
-    logger.debug('🆕 No existing progress, starting from education')
+    // Check if encryption setup exists in account data before defaulting to education
+    if (matrixClientService.hasStoredSession()) {
+      logger.debug('🔍 No setup progress but session exists, checking for existing encryption setup...')
+
+      // Check if client is already synced
+      const client = matrixClientService.getClient()
+      if (client && client.isLoggedIn() && client.isInitialSyncComplete()) {
+        logger.debug('✅ Matrix client already synced, checking encryption setup immediately')
+        await checkEncryptionSetupStatus()
+      } else {
+        logger.debug('⏳ Matrix client not synced yet, setting up event listener...')
+
+        // Set up one-time listener for when sync completes
+        const handleSyncComplete = async () => {
+          logger.debug('🎧 Matrix sync completed, now checking encryption setup')
+          await checkEncryptionSetupStatus()
+
+          // Re-evaluate setup flow based on results
+          if (encryptionSetupComplete.value === true) {
+            logger.debug('✅ Found existing encryption setup after sync')
+            forceUpdate.value++ // Trigger reactivity
+          } else if (encryptionSetupComplete.value === false) {
+            logger.debug('🔓 Found existing encryption artifacts after sync, switching to passphrase unlock')
+            currentStep.value = 'passphrase-unlock'
+            saveSetupState()
+            forceUpdate.value++ // Trigger reactivity
+          }
+          // If still null, user will continue with education flow
+        }
+
+        // Listen for sync state changes
+        if (client) {
+          const syncListener = (state: string) => {
+            if (state === 'PREPARED') {
+              client.removeListener(ClientEvent.Sync, syncListener)
+              handleSyncComplete()
+            }
+          }
+          client.on(ClientEvent.Sync, syncListener)
+
+          // Also set a timeout fallback
+          setTimeout(() => {
+            client.removeListener(ClientEvent.Sync, syncListener)
+            logger.warn('⚠️ Sync timeout, proceeding with education flow')
+          }, 15000) // 15 second timeout
+        }
+
+        // For now, continue with education flow - will be updated by event handler
+        encryptionSetupComplete.value = null
+      }
+
+      if (encryptionSetupComplete.value === true) {
+        logger.debug('✅ Found existing encryption setup after session restore')
+        return // Setup is complete, exit early
+      } else if (encryptionSetupComplete.value === false) {
+        logger.debug('🔓 Found existing encryption artifacts, starting with passphrase unlock')
+        currentStep.value = 'passphrase-unlock'
+        saveSetupState()
+        return
+      }
+      // encryptionSetupComplete.value === null means no encryption setup found
+    }
+
+    logger.debug('🆕 No existing encryption setup found, starting from education')
     currentStep.value = 'matrix-education'
     saveSetupState()
   } else {

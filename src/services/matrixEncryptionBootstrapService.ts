@@ -109,22 +109,50 @@ export class MatrixEncryptionBootstrapService {
         throw new Error('Invalid key data from existing passphrase')
       }
 
-      // Store the recovery key
-      const userId = this.matrixClient.getUserId()
-      const deviceId = this.matrixClient.getDeviceId()
-      if (userId && deviceId) {
-        try {
-          const base64Key = btoa(String.fromCharCode.apply(null, Array.from(keyData)))
-          localStorage.setItem(`matrix_recovery_key_${userId}_${deviceId}`, base64Key)
-          logger.debug('💾 Stored existing recovery key for device-specific access')
-        } catch (error) {
-          logger.warn('⚠️ Failed to store existing recovery key:', error)
+      // Note: Recovery key storage is now handled by Matrix SDK's secret storage system
+      // No longer storing keys in device-dependent localStorage to prevent setup loops
+
+      // Check if key backup exists and restore it with the passphrase
+      try {
+        const keyBackupInfo = await crypto.getKeyBackupInfo()
+        if (keyBackupInfo) {
+          logger.debug('🔍 Key backup found, attempting to verify and restore with passphrase...')
+
+          try {
+            // First, verify that we can trust this backup with our recovery key
+            // This step ensures the backup is authentic and we have the right key
+            const backupDecryptor = await crypto.getBackupDecryptor(keyBackupInfo, keyData)
+            if (backupDecryptor) {
+              logger.debug('✅ Key backup verified - backup is trusted')
+
+              // Now restore the key backup using the verified recovery key
+              // This will enable decryption of historical messages
+              await crypto.restoreKeyBackup(keyBackupInfo, keyData)
+              logger.debug('✅ Key backup restored successfully - historical messages should be decryptable')
+            } else {
+              logger.warn('⚠️ Could not verify key backup with provided passphrase')
+            }
+          } catch (verifyError) {
+            logger.warn('⚠️ Key backup verification failed, trying direct restore:', verifyError)
+            // Fallback: try direct restore anyway (might work if backup is already trusted)
+            await crypto.restoreKeyBackup(keyBackupInfo, keyData)
+            logger.debug('✅ Key backup restored via fallback method')
+          }
+        } else {
+          logger.debug('ℹ️ No key backup found on server - only new messages will be decryptable')
         }
+      } catch (backupError) {
+        logger.warn('⚠️ Failed to restore key backup (non-fatal):', backupError)
+        // Don't fail the unlock process if backup restore fails
+        // The user can still send/receive new messages
       }
 
-      // Skip validation for now - if key extraction succeeded, passphrase is likely correct
       // The Matrix SDK validated the passphrase when creating the recovery key
-      logger.debug('✅ Existing passphrase accepted - key extraction successful')
+      logger.debug('✅ Existing passphrase accepted - encryption unlocked')
+      // Note: For security, we don't store passphrases persistently in localStorage
+      // Instead, Matrix SDK handles secret storage internally using secure key derivation
+      logger.debug('✅ Encryption bootstrap completed - Matrix SDK will handle key restoration automatically')
+
       return { success: true }
     } catch (error) {
       logger.error('Failed to unlock with existing passphrase:', error)
@@ -160,6 +188,10 @@ export class MatrixEncryptionBootstrapService {
       const bootstrapPromise = this.performBootstrap(crypto, passphrase)
 
       await Promise.race([bootstrapPromise, timeoutPromise])
+
+      // Note: For security, we don't store passphrases persistently in localStorage
+      // Instead, Matrix SDK handles secret storage internally using secure key derivation
+      logger.debug('✅ Encryption bootstrap completed - Matrix SDK will handle key restoration automatically')
 
       return { success: true }
     } catch (error) {
@@ -247,22 +279,9 @@ export class MatrixEncryptionBootstrapService {
         isUint8Array: keyData instanceof Uint8Array
       })
 
-      // Store recovery key for device-specific encryption approach
-      const userId = this.matrixClient.getUserId()
-      const deviceId = this.matrixClient.getDeviceId()
-      if (userId && deviceId) {
-        try {
-          const base64Key = btoa(String.fromCharCode.apply(null, Array.from(keyData)))
-          localStorage.setItem(`matrix_recovery_key_${userId}_${deviceId}`, base64Key)
-          logger.debug('💾 Stored recovery key for device-specific encryption', {
-            keyLength: keyData.length,
-            userId: userId.substring(0, 20) + '...',
-            deviceId
-          })
-        } catch (error) {
-          logger.warn('⚠️ Failed to store recovery key - getSecretStorageKey callback may not work:', error)
-        }
-      }
+      // Note: Recovery key storage is now handled by Matrix SDK's secret storage system
+      // No longer storing keys in device-dependent localStorage to prevent setup loops
+      logger.debug('🔑 Recovery key will be managed by Matrix SDK secret storage')
 
       // Check if there are existing secrets that might conflict
       try {
@@ -369,13 +388,8 @@ export class MatrixEncryptionBootstrapService {
       }
 
       // Clear localStorage recovery keys and other Matrix data
-      const userId = this.matrixClient.getUserId()
-      const deviceId = this.matrixClient.getDeviceId()
-      if (userId && deviceId) {
-        const recoveryKeyStorageKey = `matrix_recovery_key_${userId}_${deviceId}`
-        localStorage.removeItem(recoveryKeyStorageKey)
-        logger.debug('✅ Recovery key cleared from localStorage')
-      }
+      // Note: Recovery key storage is now handled by Matrix SDK's secret storage system
+      // No localStorage recovery keys to clear
 
       // Clear IndexedDB databases
       try {

@@ -84,7 +84,12 @@ class MatrixClientService {
    */
   private _tryAutoInitialize (): void {
     // Don't auto-initialize if already in progress or client exists
-    if (this.client || this.isInitializing || !this.hasStoredSession()) {
+    const managerClient = matrixClientManager.getClient()
+    if (this.client || managerClient || this.isInitializing || !this.hasStoredSession()) {
+      if (managerClient && !this.client) {
+        logger.debug('🔄 Manager has client, syncing to service')
+        this.client = managerClient
+      }
       return
     }
 
@@ -99,7 +104,21 @@ class MatrixClientService {
    * Check if Matrix client is ready for operations
    */
   isReady (): boolean {
-    return matrixClientManager.isReady() || (this.client?.isLoggedIn() ?? false)
+    const managerReady = matrixClientManager.isReady()
+    const clientLoggedIn = this.client?.isLoggedIn() ?? false
+    const result = managerReady || clientLoggedIn
+
+    // Debug logging for setup state issues
+    if (!result) {
+      logger.debug('🔍 isReady() check failed:', {
+        managerReady,
+        clientLoggedIn,
+        hasClient: !!this.client,
+        hasManagerClient: !!matrixClientManager.getClient()
+      })
+    }
+
+    return result
   }
 
   /**
@@ -748,6 +767,12 @@ class MatrixClientService {
       // Get user-specific device ID
       const userSpecificKey = `matrix_device_id_${openMeetUserSlug}`
       const userSpecificDeviceId = localStorage.getItem(userSpecificKey)
+
+      // Debug localStorage state
+      const allMatrixKeys = Object.keys(localStorage).filter(key => key.includes('matrix_device_id'))
+      logger.debug(`🔍 All matrix_device_id keys in localStorage: [${allMatrixKeys.join(', ')}]`)
+      logger.debug(`🔍 Looking for key: "${userSpecificKey}", found value: "${userSpecificDeviceId}"`)
+
       if (userSpecificDeviceId) {
         logger.debug(`✅ Retrieved user-specific persistent device ID from localStorage for ${openMeetUserSlug}`)
         return userSpecificDeviceId
@@ -779,6 +804,15 @@ class MatrixClientService {
 
       const userSpecificKey = `matrix_device_id_${openMeetUserSlug}`
       localStorage.setItem(userSpecificKey, deviceId)
+
+      // Immediate verification of storage
+      const verification = localStorage.getItem(userSpecificKey)
+      if (verification === deviceId) {
+        logger.debug(`✅ Verified device ID storage successful for user ${openMeetUserSlug}: "${deviceId}"`)
+      } else {
+        logger.error(`❌ Device ID storage verification FAILED for user ${openMeetUserSlug}: stored="${verification}", expected="${deviceId}"`)
+      }
+
       logger.debug(`💾 Stored device ID persistently in localStorage for user ${openMeetUserSlug}`)
 
       // Clean up any legacy global device ID to prevent conflicts
@@ -1959,6 +1993,11 @@ class MatrixClientService {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
           if (key && (key.startsWith('mx_') || key.startsWith('matrix_'))) {
+            // Preserve device IDs across sessions - they should persist like Element Web
+            if (key.includes('matrix_device_id_')) {
+              logger.debug(`🔒 Preserving device ID key across sessions: ${key}`)
+              continue
+            }
             keysToRemove.push(key)
           }
         }
@@ -2966,6 +3005,16 @@ class MatrixClientService {
         return crypto
       }
 
+      // On first attempt, try to trigger crypto initialization
+      if (attempt === 1) {
+        try {
+          logger.debug('🔐 Crypto not available, attempting to initialize...')
+          await matrixClientManager.initializeCrypto()
+        } catch (error) {
+          logger.warn('⚠️ Crypto initialization failed during waitForCrypto:', error)
+        }
+      }
+
       if (attempt < maxRetries) {
         logger.debug(`🔄 Crypto not ready yet, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`)
         await new Promise(resolve => setTimeout(resolve, delayMs))
@@ -3109,9 +3158,18 @@ export const matrixClientService = new MatrixClientService()
 if (typeof window !== 'undefined') {
   // Delay initialization to allow app to fully load
   setTimeout(() => {
-    if (matrixClientService.hasStoredSession() && !matrixClientService.isReady()) {
+    // More robust check: avoid duplicate initialization if client already exists
+    const currentClient = matrixClientManager.getClient()
+    const hasSession = matrixClientService.hasStoredSession()
+    const isReady = matrixClientService.isReady()
+
+    logger.debug('🔍 Auto-init check:', { hasSession, isReady, hasClient: !!currentClient })
+
+    if (hasSession && !isReady && !currentClient) {
       logger.debug('🚀 Starting Matrix client auto-initialization on app startup')
       matrixClientService.getClient() // This will trigger auto-initialization
+    } else if (currentClient && hasSession) {
+      logger.debug('✅ Matrix client already exists, skipping auto-initialization')
     }
   }, 1000)
 }
