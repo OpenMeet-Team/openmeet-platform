@@ -1043,7 +1043,9 @@ class MatrixClientService {
    */
   hasStoredSession (): boolean {
     const storedSession = this._getStoredCredentials()
-    return !!(storedSession && storedSession.hasSession)
+    // FIXED: Validate that we have usable credentials (either access token or refresh token)
+    return !!(storedSession && storedSession.hasSession &&
+             (storedSession.accessToken || storedSession.refreshToken))
   }
 
   // Note: Removed unused session checking and interactive OIDC methods
@@ -1757,11 +1759,34 @@ class MatrixClientService {
     }
 
     try {
+      logger.debug('🚪 Attempting to join room:', roomId)
+
+      // Check if room already exists locally first
+      const existingRoom = this.client.getRoom(roomId)
+      if (existingRoom) {
+        logger.debug('✅ Room already exists locally:', roomId)
+        return existingRoom
+      }
+
+      logger.debug('🔍 Room not found locally, calling Matrix server to join:', roomId)
       const room = await this.client.joinRoom(roomId)
-      logger.debug('🚪 Joined room:', roomId)
+      logger.debug('🚪 Successfully joined room:', roomId, 'Room ID:', room.roomId)
       return room
     } catch (error) {
-      logger.error('❌ Failed to join room:', error)
+      const errorMessage = error?.message || 'Unknown error'
+      const errorCode = error?.errcode || 'No error code'
+
+      logger.error('❌ Failed to join room:', roomId)
+      logger.error('❌ Error code:', errorCode)
+      logger.error('❌ Error message:', errorMessage)
+      logger.error('❌ Full error:', error)
+
+      // Log specific error types for debugging
+      if (errorCode === 'M_FORBIDDEN') {
+        logger.warn('🚫 M_FORBIDDEN: User not invited to room - this should trigger appservice auto-invitation')
+      } else if (errorCode === 'M_NOT_FOUND') {
+        logger.warn('🚫 M_NOT_FOUND: Room or alias not found - appservice should create it')
+      }
 
       // Check if this is an authentication error and clear corrupted tokens
       if (this._isInvalidTokenError(error)) {
@@ -1927,7 +1952,7 @@ class MatrixClientService {
    * This ensures Matrix sessions are tied to OpenMeet sessions and tenant boundaries are respected
    */
   async clearSession (): Promise<void> {
-    logger.debug('🔄 Clearing Matrix session due to OpenMeet logout')
+    logger.debug('🔄 Clearing Matrix session due to OpenMeet logout (preserving encryption data)')
 
     try {
       const storedSession = this._getStoredCredentials()
@@ -1947,39 +1972,31 @@ class MatrixClientService {
       // Clear localStorage and sessionStorage session info (contains tenant-specific session data)
       this._clearStoredCredentials()
 
-      // Clear IndexedDB crypto store data (user-specific encryption data)
+      // PRESERVE encryption data on OpenMeet logout - only clear session credentials
+      // IndexedDB crypto stores contain user's encryption keys and should persist
+      logger.debug('🔒 Preserving Matrix encryption data (IndexedDB stores) during OpenMeet logout')
+      // Only clear non-essential cached data, keep encryption keys
       if (storedSession) {
         try {
-          // Get current user slug for database cleanup
+          // Get current user slug for selective cleanup
           const authStore = useAuthStore()
           const userSlug = authStore.getUserSlug
 
           if (userSlug) {
-            // Clear new slug-based storage
-            const cryptoStoreName = `matrix-crypto-${userSlug}-${storedSession.userId}`
+            // Only clear the main store (room data, etc.) but preserve crypto store
             const mainStoreName = `matrix-store-${userSlug}-${storedSession.userId}`
-
-            logger.debug(`🗑️ Clearing user-specific Matrix stores: ${cryptoStoreName}, ${mainStoreName}`)
-
-            const deleteCrypto = indexedDB.deleteDatabase(cryptoStoreName)
-            deleteCrypto.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB crypto store')
-            deleteCrypto.onerror = (e) => logger.warn('⚠️ Failed to clear crypto IndexedDB:', e)
+            logger.debug(`🗑️ Clearing Matrix main store only: ${mainStoreName}`)
 
             const deleteMain = indexedDB.deleteDatabase(mainStoreName)
-            deleteMain.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB main store')
+            deleteMain.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB main store (preserved crypto)')
             deleteMain.onerror = (e) => logger.warn('⚠️ Failed to clear main IndexedDB:', e)
           }
 
-          // Also clean up legacy storage that might exist
-          const legacyCryptoName = `matrix-crypto-${storedSession.userId}`
+          // Clean up legacy main storage but preserve legacy crypto storage
           const legacyMainName = `matrix-store-${storedSession.userId}`
 
-          const deleteLegacyCrypto = indexedDB.deleteDatabase(legacyCryptoName)
-          deleteLegacyCrypto.onsuccess = () => logger.debug('✅ Cleared legacy Matrix crypto store')
-          deleteLegacyCrypto.onerror = () => {} // Ignore errors for legacy cleanup
-
           const deleteLegacyMain = indexedDB.deleteDatabase(legacyMainName)
-          deleteLegacyMain.onsuccess = () => logger.debug('✅ Cleared legacy Matrix main store')
+          deleteLegacyMain.onsuccess = () => logger.debug('✅ Cleared legacy Matrix main store (preserved crypto)')
           deleteLegacyMain.onerror = () => {} // Ignore errors for legacy cleanup
         } catch (error) {
           logger.warn('⚠️ Failed to clear IndexedDB stores:', error)
@@ -2030,6 +2047,93 @@ class MatrixClientService {
   }
 
   /**
+   * Clear ALL Matrix data including encryption keys (for explicit user request)
+   * This is different from clearSession() which preserves encryption data
+   */
+  async clearAllMatrixData (): Promise<void> {
+    logger.debug('🗑️ Clearing ALL Matrix data including encryption keys (user requested)')
+
+    try {
+      const storedSession = this._getStoredCredentials()
+
+      // Stop Matrix client if running
+      if (this.client) {
+        logger.debug('🛑 Stopping Matrix client (full data clear)')
+        this.client.stopClient()
+        this.client = null
+      }
+
+      // Clear localStorage and sessionStorage session info
+      this._clearStoredCredentials()
+
+      // Clear ALL IndexedDB data including encryption keys
+      if (storedSession) {
+        try {
+          const authStore = useAuthStore()
+          const userSlug = authStore.getUserSlug
+
+          if (userSlug) {
+            // Clear both crypto and main stores
+            const cryptoStoreName = `matrix-crypto-${userSlug}-${storedSession.userId}`
+            const mainStoreName = `matrix-store-${userSlug}-${storedSession.userId}`
+
+            logger.debug(`🗑️ Clearing ALL Matrix stores: ${cryptoStoreName}, ${mainStoreName}`)
+
+            const deleteCrypto = indexedDB.deleteDatabase(cryptoStoreName)
+            deleteCrypto.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB crypto store')
+            deleteCrypto.onerror = (e) => logger.warn('⚠️ Failed to clear crypto IndexedDB:', e)
+
+            const deleteMain = indexedDB.deleteDatabase(mainStoreName)
+            deleteMain.onsuccess = () => logger.debug('✅ Cleared Matrix IndexedDB main store')
+            deleteMain.onerror = (e) => logger.warn('⚠️ Failed to clear main IndexedDB:', e)
+          }
+
+          // Also clear legacy storage completely
+          const legacyCryptoName = `matrix-crypto-${storedSession.userId}`
+          const legacyMainName = `matrix-store-${storedSession.userId}`
+
+          const deleteLegacyCrypto = indexedDB.deleteDatabase(legacyCryptoName)
+          deleteLegacyCrypto.onsuccess = () => logger.debug('✅ Cleared legacy Matrix crypto store')
+          deleteLegacyCrypto.onerror = () => {}
+
+          const deleteLegacyMain = indexedDB.deleteDatabase(legacyMainName)
+          deleteLegacyMain.onsuccess = () => logger.debug('✅ Cleared legacy Matrix main store')
+          deleteLegacyMain.onerror = () => {}
+        } catch (error) {
+          logger.warn('⚠️ Failed to clear IndexedDB stores:', error)
+        }
+      }
+
+      // Clear Matrix SDK internal storage
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key && (key.startsWith('mx_') || key.startsWith('matrix_'))) {
+          sessionStorage.removeItem(key)
+          logger.debug(`🗑️ Cleared Matrix SDK sessionStorage key: ${key}`)
+        }
+      }
+
+      // Clear encryption setup completion markers (full data clear)
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('encryption_setup_complete_')) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key)
+        logger.debug(`🗑️ Cleared encryption setup marker: ${key}`)
+      })
+
+      logger.debug('✅ Successfully cleared all Matrix data')
+    } catch (error) {
+      logger.error('❌ Failed to clear all Matrix data:', error)
+      throw error
+    }
+  }
+
+  /**
    * Join a group chat room by group slug using Matrix-native room aliases
    */
   async joinGroupChatRoom (groupSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
@@ -2038,7 +2142,7 @@ class MatrixClientService {
     }
 
     try {
-      logger.debug('👥 Joining group chat room for group:', groupSlug)
+      logger.debug('👥 Starting group chat room join process for group:', groupSlug)
 
       // Matrix-native approach: Use room aliases instead of backend API calls
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
@@ -2050,13 +2154,34 @@ class MatrixClientService {
       const { generateGroupRoomAlias } = await import('../utils/matrixUtils')
       const roomAlias = generateGroupRoomAlias(groupSlug, tenantId)
 
-      logger.debug('🏠 Generated room alias:', roomAlias)
+      logger.debug('🏠 Generated group room alias:', roomAlias, 'for group:', groupSlug, 'tenant:', tenantId)
 
-      // Join the Matrix room directly using the room alias
-      // The Matrix Application Service will create the room on-demand if it doesn't exist
-      const room = await this.joinRoom(roomAlias)
+      // First, ensure the room exists by querying the alias
+      // This will trigger Application Service room creation if the room doesn't exist
+      let roomId: string
+      try {
+        logger.debug('🔍 Resolving room alias to trigger Application Service if needed...')
+        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+        roomId = aliasResult.room_id
+        logger.debug('✅ Room alias resolved to room ID:', roomId)
+      } catch (aliasError) {
+        logger.debug('⚠️ Room alias not found, attempting direct join which may trigger creation')
+        // If alias resolution fails, the room might not exist yet
+        // Try to join directly - the appservice should still be triggered
+        const room = await this.joinRoom(roomAlias)
+        roomId = room.roomId
+        logger.debug('✅ Direct join successful, room ID:', roomId)
+      }
 
-      logger.debug('✅ Joined group chat room via room alias:', roomAlias)
+      // Now join the room using the resolved room ID
+      logger.debug('🔗 Joining room with ID:', roomId)
+      const room = await this.joinRoom(roomId)
+
+      logger.debug('✅ Successfully joined group chat room!')
+      logger.debug('✅ Room alias:', roomAlias)
+      logger.debug('✅ Actual room ID:', room.roomId)
+      logger.debug('✅ Room name:', room.name)
+
       return {
         room,
         roomInfo: {
@@ -2066,7 +2191,8 @@ class MatrixClientService {
         }
       }
     } catch (error) {
-      logger.error('❌ Failed to join group chat room:', error)
+      logger.error('❌ Failed to join group chat room for group:', groupSlug)
+      logger.error('❌ Error details:', error)
       throw error
     }
   }
@@ -2545,6 +2671,9 @@ class MatrixClientService {
       clearStoredOidcSettings()
       logger.debug('🗑️ Cleared OIDC authentication settings')
 
+      // PRESERVE encryption setup completion marker (survives token expiration)
+      logger.debug('🔒 Preserving encryption setup completion marker during credential clear')
+
       // Also clear legacy keys for cleanup
       localStorage.removeItem('matrix_session')
       sessionStorage.removeItem('matrix_access_token')
@@ -2590,8 +2719,9 @@ class MatrixClientService {
           logger.debug('🔄 No access token available, but refresh token present - SDK will handle refresh automatically')
         }
 
-        if (!accessToken) {
-          logger.debug('🔑 No valid access token available - user needs to authenticate')
+        // FIXED: Allow session restoration with refresh token only (for page refresh scenarios)
+        if (!accessToken && !refreshToken) {
+          logger.debug('🔑 No valid access token or refresh token available - user needs to authenticate')
           return null // Return null to indicate authentication is needed
         }
 
@@ -2599,8 +2729,9 @@ class MatrixClientService {
         // The SDK handles token refresh internally when refreshToken is provided in createClient options
         logger.debug('🔄 Using native SDK OIDC token refresh - no custom tokenRefreshFunction needed')
 
-        // MSC3861: Use access token obtained via MAS OIDC with refresh token support
-        logger.debug('🔐 Restoring Matrix client with MSC3861 access token from MAS', {
+        // MSC3861: Use credentials obtained via MAS OIDC with refresh token support
+        logger.debug('🔐 Restoring Matrix client with MSC3861 credentials from MAS', {
+          hasAccessToken: !!accessToken,
           hasRefreshToken: !!refreshToken,
           usesNativeSDKRefresh: true
         })
@@ -2667,9 +2798,9 @@ class MatrixClientService {
           usingElementWebStorage: true
         })
 
-        this.client = await matrixClientManager.initializeClient({
+        // FIXED: Handle both access token and refresh-token-only scenarios
+        const initOptions = {
           homeserverUrl: baseUrl,
-          accessToken: accessToken!,
           userId: sessionInfo.userId,
           deviceId: sessionInfo.deviceId,
           refreshToken,
@@ -2677,10 +2808,18 @@ class MatrixClientService {
           oidcIssuer,
           oidcClientId,
           oidcRedirectUri: `${window.location.origin}/auth/matrix`,
-          idTokenClaims
-        })
+          idTokenClaims,
+          // Only include access token if we have it (for immediate use)
+          ...(accessToken && { accessToken })
+        }
 
-        logger.debug('✅ Matrix client restored successfully via MatrixClientManager')
+        this.client = await matrixClientManager.initializeClient(initOptions)
+
+        logger.debug('✅ Matrix client restored successfully via MatrixClientManager', {
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+          willRefreshToken: !accessToken && !!refreshToken
+        })
 
         // Set up event listeners
         this._setupEventListeners()
@@ -2690,11 +2829,8 @@ class MatrixClientService {
 
         return this.client // Return the successfully created client
       } else {
-        // Fallback: try to restore from Matrix SDK's own persistence
-        logger.debug('🔄 No access token available, trying Matrix SDK restoration')
-
-        // No access token available, can't create working client
-        logger.debug('❌ No access token available, cannot create Matrix client without authentication')
+        // This case should not happen anymore since we fixed the logic above
+        logger.debug('❌ No access token or refresh token available, cannot create Matrix client without authentication')
         return null // Return null to indicate authentication is needed
       }
     } catch (error) {
@@ -2817,46 +2953,8 @@ class MatrixClientService {
    * This will force users to re-authenticate with Matrix
    */
   async clearAllMatrixSessions (): Promise<void> {
-    try {
-      logger.debug('🧹 Clearing all Matrix sessions and storage...')
-
-      // Stop and clear current client
-      if (this.client) {
-        this.client.stopClient()
-        this.client = null
-        logger.debug('✅ Matrix client stopped and cleared')
-      }
-
-      // Clear all Matrix-related localStorage items
-      const keysToRemove = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('matrix_') || key.startsWith('mas_'))) {
-          keysToRemove.push(key)
-        }
-      }
-
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key)
-        logger.debug(`🗑️ Removed localStorage key: ${key}`)
-      })
-
-      // Clear all Matrix IndexedDB stores
-      const databases = await indexedDB.databases()
-      for (const db of databases) {
-        if (db.name && (db.name.includes('matrix-crypto-') || db.name.includes('matrix-store-'))) {
-          const deleteRequest = indexedDB.deleteDatabase(db.name)
-          deleteRequest.onsuccess = () => logger.debug(`🗑️ Deleted IndexedDB: ${db.name}`)
-          deleteRequest.onerror = () => logger.warn(`❌ Failed to delete IndexedDB: ${db.name}`)
-        }
-      }
-
-      logger.debug('✅ All Matrix sessions and storage cleared')
-      logger.debug('ℹ️ User will need to re-authenticate with Matrix on next access')
-    } catch (error) {
-      logger.error('❌ Error clearing Matrix sessions:', error)
-      throw error
-    }
+    // Legacy method - redirects to new clearAllMatrixData()
+    return this.clearAllMatrixData()
   }
 
   /**
