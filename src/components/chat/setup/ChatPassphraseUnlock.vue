@@ -141,8 +141,27 @@ const handleForgotPassphrase = () => {
 
 .unlock-content {
   background: white;
+  color: #333;
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode support */
+body.body--dark .unlock-content {
+  background: #1e1e1e;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure text is readable in both themes */
+.unlock-content .text-h4,
+.unlock-content .text-subtitle1 {
+  color: inherit;
+}
+
+body.body--dark .unlock-content .text-grey-7 {
+  color: var(--q-dark-page) !important;
+  opacity: 0.7;
 }
 </style>

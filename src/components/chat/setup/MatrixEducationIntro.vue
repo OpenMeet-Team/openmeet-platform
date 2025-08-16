@@ -6,8 +6,8 @@
         <!-- Header -->
         <div class="text-center q-mb-xl">
           <q-icon name="fas fa-comments" size="64px" color="primary" class="q-mb-md" />
-          <div class="text-h4 text-weight-medium q-mb-sm">Welcome to Secure Chat</div>
-          <div class="text-subtitle1 text-grey-7">
+          <div class="text-h4 text-weight-medium q-mb-sm welcome-title">Welcome to Secure Chat</div>
+          <div class="text-subtitle1 welcome-subtitle">
             Connect securely with your community
           </div>
         </div>
@@ -17,24 +17,24 @@
           <div class="benefit-item row items-center q-mb-md">
             <q-icon name="fas fa-lock" color="green" size="24px" class="q-mr-md" />
             <div class="col">
-              <div class="text-subtitle2">Encrypted Direct Messages</div>
-              <div class="text-caption text-grey-6">Private conversations stay private</div>
+              <div class="text-subtitle2 benefit-title">Encrypted Direct Messages</div>
+              <div class="text-caption benefit-subtitle">Private conversations stay private</div>
             </div>
           </div>
 
           <div class="benefit-item row items-center q-mb-md">
             <q-icon name="fas fa-mobile-alt" color="blue" size="24px" class="q-mr-md" />
             <div class="col">
-              <div class="text-subtitle2">Works Across All Devices</div>
-              <div class="text-caption text-grey-6">Continue conversations anywhere</div>
+              <div class="text-subtitle2 benefit-title">Works Across All Devices</div>
+              <div class="text-caption benefit-subtitle">Continue conversations anywhere</div>
             </div>
           </div>
 
           <div class="benefit-item row items-center q-mb-md">
             <q-icon name="fas fa-history" color="purple" size="24px" class="q-mr-md" />
             <div class="col">
-              <div class="text-subtitle2">Message History Backup</div>
-              <div class="text-caption text-grey-6">Never lose your conversations</div>
+              <div class="text-subtitle2 benefit-title">Message History Backup</div>
+              <div class="text-caption benefit-subtitle">Never lose your conversations</div>
             </div>
           </div>
         </div>
@@ -57,7 +57,7 @@
             flat
             color="grey-7"
             size="md"
-            class="full-width"
+            class="full-width basic-chat-btn"
             @click="handleUseBasicChat"
             :disable="loading"
           >
@@ -65,7 +65,7 @@
           </q-btn>
 
           <div class="text-center q-mt-md">
-            <div class="text-caption text-grey-6">
+            <div class="text-caption options-note">
               Basic chat: Public rooms only<br>
               Secure chat: Includes private messages
             </div>
@@ -77,10 +77,11 @@
           <q-expansion-item
             icon="fas fa-info-circle"
             label="How does this work?"
-            class="text-grey-7"
-            header-style="padding: 8px 0;"
+            class="info-expansion"
+            header-style="padding: 8px 0; color: inherit;"
+            :header-class="$q.dark.isActive ? 'text-white' : 'text-grey-8'"
           >
-            <div class="text-body2 text-grey-7 q-pa-sm">
+            <div class="text-body2 info-content q-pa-sm">
               We use Matrix, an open-source messaging protocol, to provide secure
               communication. Your messages are encrypted end-to-end, meaning only
               you and your conversation partners can read them.
@@ -94,6 +95,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useQuasar } from 'quasar'
+
+const $q = useQuasar()
 
 const emit = defineEmits<{
   continue: []
@@ -130,7 +134,7 @@ const handleUseBasicChat = () => {
 }
 
 .q-dark .matrix-education-intro {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
 }
 
 .intro-content {
@@ -141,8 +145,17 @@ const handleUseBasicChat = () => {
 }
 
 .q-dark .intro-content {
-  background: #1e1e1e;
+  background: #1e1e1e !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+}
+
+/* Additional dark mode selectors for broader compatibility */
+body.body--dark .intro-content,
+[data-theme="dark"] .intro-content {
+  background: #1e1e1e !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: #ffffff;
 }
 
 .benefit-item {
@@ -171,6 +184,82 @@ const handleUseBasicChat = () => {
 
 .q-dark .info-footer {
   border-top-color: #3a3a3a;
+}
+
+/* Dark mode text colors */
+.welcome-title {
+  color: #333;
+}
+
+.q-dark .welcome-title {
+  color: #ffffff;
+}
+
+.welcome-subtitle {
+  color: #666;
+}
+
+.q-dark .welcome-subtitle {
+  color: #b0b0b0;
+}
+
+.benefit-title {
+  color: #333;
+}
+
+.q-dark .benefit-title {
+  color: #ffffff;
+}
+
+.benefit-subtitle {
+  color: #666;
+}
+
+.q-dark .benefit-subtitle {
+  color: #aaaaaa;
+}
+
+.options-note {
+  color: #666;
+}
+
+.q-dark .options-note {
+  color: #aaaaaa;
+}
+
+.info-expansion {
+  color: #666;
+}
+
+.q-dark .info-expansion {
+  color: #b0b0b0;
+}
+
+/* Target the expansion item header specifically */
+.info-expansion :deep(.q-expansion-item__toggle-icon),
+.info-expansion :deep(.q-expansion-item__label) {
+  color: #424242 !important;
+}
+
+.q-dark .info-expansion :deep(.q-expansion-item__toggle-icon),
+.q-dark .info-expansion :deep(.q-expansion-item__label) {
+  color: #ffffff !important;
+}
+
+.info-content {
+  color: #666;
+}
+
+.q-dark .info-content {
+  color: #ffffff;
+}
+
+.basic-chat-btn {
+  color: #666;
+}
+
+.q-dark .basic-chat-btn {
+  color: #b0b0b0;
 }
 
 @media (max-width: 599px) {
