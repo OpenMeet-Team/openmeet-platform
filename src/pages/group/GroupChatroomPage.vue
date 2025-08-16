@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useGroupStore } from '../../stores/group-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { GroupPermission } from '../../types'
-import ChatSetupOrchestrator from '../../components/chat/ChatSetupOrchestrator.vue'
+import MatrixNativeChatOrchestrator from '../../components/chat/MatrixNativeChatOrchestrator.vue'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import getEnv from '../../utils/env'
 import { generateGroupRoomAlias } from '../../utils/matrixUtils'
@@ -170,7 +170,7 @@ onMounted(() => {
 <template>
   <div data-cy="group-chatroom-page" class="group-chatroom-page q-pb-xl">
     <!-- Setup orchestrator with single-room mode for focused group chat -->
-    <ChatSetupOrchestrator
+    <MatrixNativeChatOrchestrator
       v-if="group && hasPermission && isGroupMember"
       context-type="group"
       :context-id="group.slug"

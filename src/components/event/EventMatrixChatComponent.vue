@@ -5,7 +5,7 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
-import ChatSetupOrchestrator from '../chat/ChatSetupOrchestrator.vue'
+import MatrixNativeChatOrchestrator from '../chat/MatrixNativeChatOrchestrator.vue'
 import getEnv from '../../utils/env'
 import { generateEventRoomAlias } from '../../utils/matrixUtils'
 import { logger } from '../../utils/logger'
@@ -96,7 +96,7 @@ onMounted(() => {
   logger.debug('🔍 Event attendance status:', event.value?.attendee?.status)
   logger.debug('🔍 Discussion permissions:', discussionPermissions.value)
   logger.debug('🔍 Matrix room ID:', matrixRoomId.value)
-  logger.debug('🔍 Should show ChatSetupOrchestrator?', {
+  logger.debug('🔍 Should show MatrixNativeChatOrchestrator?', {
     hasEvent: !!event.value,
     canWrite: discussionPermissions.value.canWrite,
     isConfirmedOrCancelled: event.value?.attendee?.status === 'confirmed' || event.value?.attendee?.status === 'cancelled'
@@ -173,7 +173,7 @@ const handleExpandChat = async () => {
     <SubtitleComponent label="Chatroom" class="q-mt-lg q-px-md c-event-matrix-chat-component" hide-link />
 
     <!-- Setup orchestrator with single-room mode for focused event chat -->
-    <ChatSetupOrchestrator
+    <MatrixNativeChatOrchestrator
       v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')"
       context-type="event"
       :context-id="event?.slug ?? ''"

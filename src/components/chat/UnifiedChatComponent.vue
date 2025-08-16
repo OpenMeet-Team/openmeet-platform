@@ -293,7 +293,7 @@ const handleEncryptionFailed = (event: CustomEvent) => {
 onMounted(async () => {
   try {
     // Only initialize if user has already chosen to connect to Matrix
-    // (The ChatSetupOrchestrator handles the initial setup flow for dashboard mode)
+    // (The MatrixNativeChatOrchestrator handles the initial setup flow for dashboard mode)
     if (!matrixClientService.hasUserChosenToConnect()) {
       // User has not chosen to connect to Matrix - skipping initialization
       return

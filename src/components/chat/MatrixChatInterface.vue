@@ -1639,8 +1639,8 @@ const clearMatrixSessions = async () => {
       return
     }
 
-    // Clear all Matrix sessions via service
-    await matrixClientService.clearAllMatrixSessions()
+    // Clear all Matrix data including encryption keys via service
+    await matrixClientService.clearAllMatrixData()
 
     // Reset component state
     isConnecting.value = false

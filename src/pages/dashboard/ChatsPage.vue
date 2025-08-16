@@ -7,7 +7,7 @@
     />
 
     <div class="chats-container">
-      <ChatSetupOrchestrator
+      <MatrixNativeChatOrchestrator
         context-type="all"
         mode="dashboard"
         :show-info-sidebar="$q.screen.gt.md"
@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 import DashboardTitle from '../../components/dashboard/DashboardTitle.vue'
-import ChatSetupOrchestrator from '../../components/chat/ChatSetupOrchestrator.vue'
+import MatrixNativeChatOrchestrator from '../../components/chat/MatrixNativeChatOrchestrator.vue'
 </script>
 
 <style scoped>
