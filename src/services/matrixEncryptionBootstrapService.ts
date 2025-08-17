@@ -80,80 +80,24 @@ export class MatrixEncryptionBootstrapService {
   async unlockWithExistingPassphrase (passphrase: string): Promise<EncryptionBootstrapResult> {
     try {
       logger.debug('🔓 Attempting to unlock with existing passphrase...')
-      const crypto = await this.waitForCrypto()
-      if (!crypto) {
+
+      // Use the new secret storage service for proper handling
+      const { MatrixSecretStorageService } = await import('./MatrixSecretStorageService')
+      const secretStorageService = new MatrixSecretStorageService(this.matrixClient)
+
+      const result = await secretStorageService.unlockSecretStorage(passphrase)
+
+      if (result.success) {
+        logger.debug('✅ Successfully unlocked using secret storage service')
+        return { success: true }
+      } else {
+        logger.error('❌ Failed to unlock with passphrase:', result.error)
         return {
           success: false,
-          error: 'Crypto not available after retries',
-          step: 'initialization'
+          error: result.error || 'Failed to unlock encryption',
+          step: 'passphrase-validation'
         }
       }
-
-      // Create recovery key from existing passphrase
-      const recoveryKey = await crypto.createRecoveryKeyFromPassphrase(passphrase)
-      logger.debug('🔑 Created recovery key from existing passphrase')
-
-      // Extract key data using the same logic as bootstrap
-      let keyData: Uint8Array
-      if (recoveryKey instanceof Uint8Array) {
-        keyData = recoveryKey
-      } else if (recoveryKey && typeof recoveryKey === 'object' && recoveryKey.key) {
-        keyData = recoveryKey.key
-      } else if (recoveryKey && typeof recoveryKey === 'object' && recoveryKey.privateKey) {
-        keyData = recoveryKey.privateKey
-      } else {
-        throw new Error('Unable to extract recovery key from existing passphrase')
-      }
-
-      if (!(keyData instanceof Uint8Array) || keyData.length === 0) {
-        throw new Error('Invalid key data from existing passphrase')
-      }
-
-      // Note: Recovery key storage is now handled by Matrix SDK's secret storage system
-      // No longer storing keys in device-dependent localStorage to prevent setup loops
-
-      // Check if key backup exists and restore it with the passphrase
-      try {
-        const keyBackupInfo = await crypto.getKeyBackupInfo()
-        if (keyBackupInfo) {
-          logger.debug('🔍 Key backup found, attempting to verify and restore with passphrase...')
-
-          try {
-            // First, verify that we can trust this backup with our recovery key
-            // This step ensures the backup is authentic and we have the right key
-            const backupDecryptor = await crypto.getBackupDecryptor(keyBackupInfo, keyData)
-            if (backupDecryptor) {
-              logger.debug('✅ Key backup verified - backup is trusted')
-
-              // Now restore the key backup using the verified recovery key
-              // This will enable decryption of historical messages
-              await crypto.restoreKeyBackup(keyBackupInfo, keyData)
-              logger.debug('✅ Key backup restored successfully - historical messages should be decryptable')
-            } else {
-              logger.warn('⚠️ Could not verify key backup with provided passphrase')
-            }
-          } catch (verifyError) {
-            logger.warn('⚠️ Key backup verification failed, trying direct restore:', verifyError)
-            // Fallback: try direct restore anyway (might work if backup is already trusted)
-            await crypto.restoreKeyBackup(keyBackupInfo, keyData)
-            logger.debug('✅ Key backup restored via fallback method')
-          }
-        } else {
-          logger.debug('ℹ️ No key backup found on server - only new messages will be decryptable')
-        }
-      } catch (backupError) {
-        logger.warn('⚠️ Failed to restore key backup (non-fatal):', backupError)
-        // Don't fail the unlock process if backup restore fails
-        // The user can still send/receive new messages
-      }
-
-      // The Matrix SDK validated the passphrase when creating the recovery key
-      logger.debug('✅ Existing passphrase accepted - encryption unlocked')
-      // Note: For security, we don't store passphrases persistently in localStorage
-      // Instead, Matrix SDK handles secret storage internally using secure key derivation
-      logger.debug('✅ Encryption bootstrap completed - Matrix SDK will handle key restoration automatically')
-
-      return { success: true }
     } catch (error) {
       logger.error('Failed to unlock with existing passphrase:', error)
       return {
@@ -338,9 +282,123 @@ export class MatrixEncryptionBootstrapService {
         }
       })
       logger.debug('✅ Cross-signing bootstrapped')
+
+      // Step 4: Auto-verify this OpenMeet device (security-first approach for first device)
+      await this.autoVerifyFirstOpenMeetDevice(crypto)
     } catch (error) {
       logger.error('Bootstrap step failed:', error)
       throw error
+    }
+  }
+
+  /**
+   * Auto-verify the first OpenMeet device for security and usability
+   * This implements the "trust first device" pattern for high-security business apps
+   */
+  private async autoVerifyFirstOpenMeetDevice (crypto: CryptoApi): Promise<void> {
+    try {
+      logger.debug('🔐 Starting auto-verification of first OpenMeet device...')
+
+      const userId = this.matrixClient.getUserId()
+      const deviceId = this.matrixClient.getDeviceId()
+
+      if (!userId || !deviceId) {
+        throw new Error('Missing user ID or device ID for verification')
+      }
+
+      // Check if this is an OpenMeet client (vs 3rd party)
+      const isOpenMeetClient = await this.isOpenMeetClient()
+      if (!isOpenMeetClient) {
+        logger.warn('⚠️ Not an OpenMeet client - skipping auto-verification')
+        return
+      }
+
+      // Check if this is the first device for this user
+      const isFirstDevice = await this.isFirstDeviceForUser(crypto, userId)
+      if (!isFirstDevice) {
+        logger.debug('🔐 Not the first device - proper verification required')
+        return
+      }
+
+      // Verify the device using cross-signing
+      await crypto.setDeviceVerified(userId, deviceId, true)
+      logger.debug('✅ First OpenMeet device auto-verified successfully')
+
+      // Mark the device as trusted in our own tracking
+      await this.markDeviceAsTrusted(deviceId, 'auto-verified-first-device')
+    } catch (error) {
+      logger.error('❌ Failed to auto-verify first device:', error)
+      // Don't throw - this is a convenience feature, not critical for encryption
+    }
+  }
+
+  /**
+   * Check if this is an OpenMeet client vs 3rd party client
+   */
+  private async isOpenMeetClient (): Promise<boolean> {
+    try {
+      // Check for OpenMeet-specific indicators
+      const isWebApp = window.location.hostname.includes('openmeet')
+      const hasOpenMeetBranding = document.title.includes('OpenMeet')
+
+      // Additional checks could include:
+      // - Custom device display name patterns
+      // - App-specific local storage keys
+      // - Environment variables
+
+      return isWebApp || hasOpenMeetBranding
+    } catch (error) {
+      logger.debug('Could not determine client type:', error)
+      return false
+    }
+  }
+
+  /**
+   * Check if this is the first device for the user
+   */
+  private async isFirstDeviceForUser (crypto: CryptoApi, userId: string): Promise<boolean> {
+    try {
+      // Get all devices for this user
+      const devices = await crypto.getUserDeviceInfo([userId])
+      const userDevices = devices.get(userId)
+
+      if (!userDevices) {
+        return true // No devices found, this must be first
+      }
+
+      // Count verified devices (excluding this one)
+      const currentDeviceId = this.matrixClient.getDeviceId()
+      let verifiedDeviceCount = 0
+
+      for (const [deviceId, deviceInfo] of userDevices) {
+        if (deviceId !== currentDeviceId && deviceInfo.verified) {
+          verifiedDeviceCount++
+        }
+      }
+
+      // If no other verified devices exist, this is effectively the first
+      return verifiedDeviceCount === 0
+    } catch (error) {
+      logger.debug('Could not determine if first device:', error)
+      return false // Conservative: require manual verification on error
+    }
+  }
+
+  /**
+   * Mark device as trusted in local storage for OpenMeet tracking
+   */
+  private async markDeviceAsTrusted (deviceId: string, reason: string): Promise<void> {
+    try {
+      const trustedDevices = JSON.parse(localStorage.getItem('openmeet_trusted_devices') || '{}')
+      trustedDevices[deviceId] = {
+        trustedAt: Date.now(),
+        reason,
+        version: '1.0'
+      }
+      localStorage.setItem('openmeet_trusted_devices', JSON.stringify(trustedDevices))
+      logger.debug('📝 Device trust recorded locally', { deviceId, reason })
+    } catch (error) {
+      logger.debug('Could not record device trust locally:', error)
     }
   }
 

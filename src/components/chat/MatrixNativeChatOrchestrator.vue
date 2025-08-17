@@ -14,8 +14,40 @@
       </div>
     </div>
 
-    <!-- Encryption Setup Required (only for encrypted rooms) -->
-    <template v-else-if="needsEncryptionSetup">
+    <!-- Device Verification Required -->
+    <template v-else-if="encryptionStatus?.state === 'needs_device_verification' && !deviceVerificationDismissed">
+      <div class="device-verification-required">
+        <div class="setup-container">
+          <h2>Device Verification Required</h2>
+          <p>This device needs to be verified to access encrypted messages.</p>
+          <div class="verification-options q-pa-md">
+            <p class="text-body2 q-mb-md">
+              Your encryption keys are ready, but this device hasn't been verified yet.
+              You can still chat, but some encrypted message history may not be available.
+            </p>
+            <div class="q-gutter-sm">
+              <q-btn
+                @click="continueWithoutVerification"
+                color="primary"
+                label="Continue Chatting"
+                icon="fas fa-comments"
+                class="q-mr-sm"
+              />
+              <q-btn
+                @click="startDeviceVerification"
+                color="secondary"
+                label="Verify Device"
+                icon="fas fa-shield-alt"
+                outline
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Encryption Setup Required (only for recovery key needs) -->
+    <template v-else-if="shouldShowEncryptionSetup">
       <div class="encryption-setup-required">
         <div class="setup-container">
           <h2>Encryption Setup Required</h2>
@@ -53,7 +85,7 @@
 
     <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
     <template v-else-if="canChat">
-      <!-- Encryption Status Info -->
+      <!-- Unencrypted Chat Info (dismissible) -->
       <div v-if="isReadyUnencrypted && showEncryptionInfo" class="encryption-info q-pa-md q-mb-md" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
         <div class="text-h6 q-mb-sm" style="color: #495057;">
           <q-icon name="fas fa-info-circle" class="q-mr-sm" />
@@ -74,7 +106,17 @@
         </div>
       </div>
 
-      <div v-else-if="isReadyEncrypted" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
+      <!-- Element Web Style Encryption Warning Banner -->
+      <EncryptionWarningBanner
+        v-if="needsBanner && warningMessage"
+        :warning-message="warningMessage"
+        :encryption-state="encryptionStatus?.state || ''"
+        @primary-action="handleEncryptionAction"
+        @dismiss="dismissEncryptionBanner"
+      />
+
+      <!-- Encrypted Chat Success Info (non-dismissible for full encryption) -->
+      <div v-else-if="isReadyEncrypted && !needsBanner" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
         <div class="text-h6 q-mb-sm" style="color: #155724;">
           <q-icon name="fas fa-shield-alt" class="q-mr-sm" />
           Encrypted Chat Mode
@@ -115,10 +157,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useMatrixEncryption } from '../../composables/useMatrixEncryption'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixEncryptionState } from '../../services/matrixEncryptionState'
+import { MatrixSecretStorageService } from '../../services/MatrixSecretStorageService'
 import { logger } from '../../utils/logger'
 import getEnv from '../../utils/env'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
@@ -127,6 +170,7 @@ import MatrixEducationIntro from './setup/MatrixEducationIntro.vue'
 import MatrixSetupExplainer from './setup/MatrixSetupExplainer.vue'
 import ChatPassphraseSetup from './setup/ChatPassphraseSetup.vue'
 import MatrixConnectionFlow from './setup/MatrixConnectionFlow.vue'
+import EncryptionWarningBanner from './encryption/EncryptionWarningBanner.vue'
 
 interface Props {
   // Context for filtering chats
@@ -151,15 +195,18 @@ const props = withDefaults(defineProps<Props>(), {
   showInfoSidebar: false
 })
 
-// Simplified encryption state (unencrypted-first approach)
+// Element Web style encryption state
 const {
   isLoading,
   canChat,
   needsLogin,
   needsEncryptionSetup,
+  needsBanner,
+  warningMessage,
   isReadyUnencrypted,
   isReadyEncrypted,
   requiresUserAction,
+  encryptionStatus,
   checkEncryptionState,
   initializeEncryption,
   refreshState
@@ -169,6 +216,14 @@ const {
 const setupStep = ref<'education' | 'explainer' | 'passphrase' | 'connection'>('education')
 const setupPassphrase = ref('')
 const encryptionInfoDismissed = ref(false)
+const deviceVerificationDismissed = ref(false)
+
+// Flag to force encryption setup after reset
+const forceSetupAfterReset = ref(false)
+
+// Event listener references for cleanup
+let encryptionResetListener: ((event: CustomEvent) => Promise<void>) | null = null
+let encryptionSetupListener: ((event: CustomEvent) => Promise<void>) | null = null
 
 // Configuration
 const homeserverUrl = computed(() => {
@@ -178,6 +233,14 @@ const homeserverUrl = computed(() => {
 // Show encryption info for unencrypted mode (optional, dismissible)
 const showEncryptionInfo = computed(() => {
   return !encryptionInfoDismissed.value
+})
+
+// Override needsEncryptionSetup to force setup after reset
+// Note: Only show encryption setup for recovery key needs, not device verification
+const shouldShowEncryptionSetup = computed(() => {
+  const state = encryptionStatus.value?.state
+  const needsRecoveryKeySetup = state === 'needs_recovery_key'
+  return needsRecoveryKeySetup || forceSetupAfterReset.value
 })
 
 // Debug current state
@@ -235,6 +298,8 @@ const handlePassphraseComplete = (passphrase: string) => {
 }
 
 const handleConnectionComplete = async () => {
+  // Clear the force setup flag when user completes the setup flow
+  forceSetupAfterReset.value = false
   logger.debug('🔗 Matrix connection complete, initializing encryption')
 
   try {
@@ -263,15 +328,28 @@ const handleConnectionComplete = async () => {
         if (crypto) {
           logger.debug('🔐 Bootstrapping secret storage and cross-signing with passphrase...')
 
-          // For now, just mark that we attempted encryption setup
-          // TODO: Implement proper key backup setup when we determine the correct API
-          logger.debug('🔐 Passphrase received and stored - skipping complex encryption setup for now')
-          logger.debug('📝 TODO: Implement proper Matrix key backup with passphrase')
+          // Use our MatrixSecretStorageService to properly set up encryption
+          const secretStorageService = new MatrixSecretStorageService(client)
+          const result = await secretStorageService.setupSecretStorage(setupPassphrase.value, forceSetupAfterReset.value)
 
-          logger.debug('✅ Encryption setup completed successfully')
+          if (result.success) {
+            logger.debug('✅ Secret storage and key backup setup completed successfully')
 
-          // Encryption setup completed successfully
-          logger.debug('✅ Encryption setup completed successfully')
+            // Clear the force setup flag since encryption is now properly configured
+            forceSetupAfterReset.value = false
+            logger.debug('🔓 Cleared force setup flag - encryption setup completed')
+
+            if (result.recoveryKey) {
+              logger.debug('🔑 Recovery key generated:', result.recoveryKey)
+              // TODO: Show recovery key to user for saving in password manager
+              // For now, just log it so user can copy from console
+              console.log('🔑 IMPORTANT: Save this recovery key in your password manager:')
+              console.log(result.recoveryKey)
+              console.log('You can use this recovery key to restore access if you forget your passphrase.')
+            }
+          } else {
+            throw new Error(`Failed to set up secret storage: ${result.error}`)
+          }
         }
       } catch (error) {
         logger.error('❌ Failed to set up encryption:', error)
@@ -282,13 +360,21 @@ const handleConnectionComplete = async () => {
       logger.error('❌ No client or passphrase available for encryption setup')
     }
 
-    // Re-check encryption state
-    logger.debug('🔍 Re-checking encryption state after encryption setup')
+    // Wait a moment for secret storage to fully commit, then re-check encryption state
+    logger.debug('🔍 Waiting for secret storage to commit, then re-checking encryption state')
+    await new Promise(resolve => setTimeout(resolve, 1000))
     await checkEncryptionState(props.inlineRoomId)
 
     // Debug the current state after completion
     const currentState = await matrixEncryptionState.getEncryptionState(matrixClientService.getClient())
-    logger.debug('🔍 Post-setup encryption state:', currentState)
+    logger.debug('🔍 Post-setup encryption state:', {
+      state: currentState.state,
+      canChat: currentState.details.canChat,
+      requiresUserAction: currentState.requiresUserAction,
+      warningMessage: currentState.warningMessage,
+      forceSetupAfterReset: forceSetupAfterReset.value,
+      shouldShowEncryptionSetup: shouldShowEncryptionSetup.value
+    })
 
     // Reset setup step for next time
     setupStep.value = 'education'
@@ -306,16 +392,135 @@ const goBackToUnencryptedRooms = () => {
   setupStep.value = 'education'
 }
 
+// Device verification handlers
+const continueWithoutVerification = () => {
+  logger.debug('✅ User chose to continue chatting without device verification')
+  // Mark device verification as dismissed to show chat interface
+  deviceVerificationDismissed.value = true
+}
+
+const startDeviceVerification = async () => {
+  logger.debug('🔐 User chose to start device verification')
+
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      logger.error('No Matrix client available for device verification')
+      return
+    }
+
+    // Check if this is the first device that can be auto-verified
+    const crypto = client.getCrypto()
+    if (crypto) {
+      const userId = client.getUserId()
+      const deviceId = client.getDeviceId()
+
+      if (userId && deviceId) {
+        // For first OpenMeet device, try auto-verification
+        await crypto.setDeviceVerified(userId, deviceId, true)
+        logger.debug('✅ Device verified successfully')
+
+        // Refresh encryption state to update UI
+        await checkEncryptionState()
+        return
+      }
+    }
+
+    // For subsequent devices, show proper verification flow
+    logger.debug('🔐 Starting interactive device verification flow...')
+    // TODO: Implement interactive verification (QR codes, emoji verification, etc.)
+    logger.debug('Interactive verification flow not yet implemented')
+  } catch (error) {
+    logger.error('Failed to verify device:', error)
+  }
+}
+
 // Encryption info handlers
 const dismissEncryptionInfo = () => {
   logger.debug('👍 User dismissed encryption info')
   encryptionInfoDismissed.value = true
 }
 
+// Element Web style banner handlers
+const dismissEncryptionBanner = () => {
+  logger.debug('👍 User dismissed encryption banner')
+  // For now, just log. In Element Web, this would set a flag to not show again
+  // We could implement persistent dismissal later
+}
+
+const handleEncryptionAction = (state: string) => {
+  logger.debug('🔐 User clicked encryption action for state:', state)
+
+  switch (state) {
+    case 'ready_encrypted_with_warning':
+      // Start recovery setup flow
+      setupStep.value = 'education'
+      forceSetupAfterReset.value = true
+      break
+    case 'needs_key_backup':
+      // TODO: Implement key backup flow
+      logger.debug('Key backup flow not yet implemented')
+      break
+    case 'needs_device_verification':
+      // TODO: Implement device verification flow
+      logger.debug('Device verification flow not yet implemented')
+      break
+    case 'needs_recovery_key':
+      // TODO: Implement recovery key entry flow
+      logger.debug('Recovery key entry flow not yet implemented')
+      break
+    default:
+      logger.warn('Unknown encryption action state:', state)
+  }
+}
+
 // Initialize
 onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
   logger.debug('🔍 Debug state:', debugState.value)
+
+  // Listen for encryption reset events
+  encryptionResetListener = async (event: CustomEvent) => {
+    logger.debug('🔥 Received encryption reset event:', event.detail)
+
+    // Reset to the education step to restart the setup flow
+    setupStep.value = 'education'
+    setupPassphrase.value = ''
+
+    // Force the encryption setup UI to show after reset
+    forceSetupAfterReset.value = true
+
+    // Refresh encryption state
+    await refreshState()
+
+    logger.debug('🔄 Restarted setup flow from education step after reset')
+    logger.debug('🔍 Post-reset state:', {
+      needsEncryptionSetup: needsEncryptionSetup.value,
+      shouldShowEncryptionSetup: shouldShowEncryptionSetup.value,
+      forceSetupAfterReset: forceSetupAfterReset.value,
+      setupStep: setupStep.value,
+      debugState: debugState.value
+    })
+  }
+
+  window.addEventListener('matrix-encryption-reset', encryptionResetListener as (event: Event) => void)
+
+  // Listen for encryption setup requests
+  encryptionSetupListener = async (event: CustomEvent) => {
+    logger.debug('🔧 Received encryption setup request:', event.detail)
+
+    // Force the setup flow to show
+    forceSetupAfterReset.value = true
+    setupStep.value = 'education'
+    setupPassphrase.value = ''
+
+    // Refresh encryption state to show setup UI
+    await refreshState()
+
+    logger.debug('🔄 Started setup flow from setup request')
+  }
+
+  window.addEventListener('matrix-encryption-setup-requested', encryptionSetupListener as (event: Event) => void)
 
   // Initial state check with room context - should default to ready_unencrypted
   await checkEncryptionState(props.inlineRoomId)
@@ -332,6 +537,16 @@ onMounted(async () => {
         await checkEncryptionState(props.inlineRoomId)
       }, 3000) // 3 second delay to allow room to be joined and state to sync
     }
+  }
+})
+
+onUnmounted(() => {
+  // Clean up event listeners
+  if (encryptionResetListener) {
+    window.removeEventListener('matrix-encryption-reset', encryptionResetListener as (event: Event) => void)
+  }
+  if (encryptionSetupListener) {
+    window.removeEventListener('matrix-encryption-setup-requested', encryptionSetupListener as (event: Event) => void)
   }
 })
 </script>

@@ -11,12 +11,15 @@
 import type { MatrixClient } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
 
-// Simplified encryption states following element-web pattern
+// Encryption states following Element Web DeviceListener pattern
 export type MatrixEncryptionState =
   | 'needs_login' // No Matrix client available
   | 'ready_unencrypted' // Can chat, no encryption needed (default state)
-  | 'needs_encryption_for_room' // In encrypted room, needs setup
+  | 'ready_encrypted_with_warning' // Can encrypt but needs backup setup
   | 'ready_encrypted' // Full encryption working
+  | 'needs_device_verification' // Device needs verification
+  | 'needs_recovery_key' // Missing cached secrets, need recovery key
+  | 'needs_key_backup' // Key backup is off
 
 export interface MatrixEncryptionStatus {
   state: MatrixEncryptionState
@@ -25,12 +28,19 @@ export interface MatrixEncryptionStatus {
     hasCrypto: boolean
     isInEncryptedRoom?: boolean
     canChat: boolean // Key addition: can we chat right now?
-    // Encryption details (only relevant for encrypted rooms)
+    // Encryption details following Element Web DeviceListener pattern
     crossSigningReady?: boolean
     hasKeyBackup?: boolean
     hasDeviceKeys?: boolean
+    isCurrentDeviceTrusted?: boolean
+    allCrossSigningSecretsCached?: boolean
+    secretStorageReady?: boolean
+    hasDefaultKeyId?: boolean
+    keyBackupUploadActive?: boolean
+    recoveryDisabled?: boolean
   }
   requiresUserAction: boolean
+  warningMessage?: string // Banner message to show user
 }
 
 /**
@@ -117,39 +127,160 @@ export class MatrixEncryptionStateService {
 
     // We're in an encrypted room - check if encryption is ready
     if (!crypto) {
-      logger.debug('🔐 In encrypted room but no crypto - need encryption setup')
+      logger.debug('🔐 In encrypted room but no crypto - need device verification')
       return {
-        state: 'needs_encryption_for_room',
+        state: 'needs_device_verification',
         details: {
           hasClient: true,
           hasCrypto: false,
           isInEncryptedRoom: true,
           canChat: false
         },
-        requiresUserAction: true
+        requiresUserAction: true,
+        warningMessage: 'Encryption not available - please verify your device'
       }
     }
 
-    // Check encryption capabilities for this room
+    // Check encryption capabilities following Element Web DeviceListener pattern
     try {
-      const [crossSigningReady, keyBackupInfo, deviceKeys] = await Promise.all([
-        crypto.isCrossSigningReady().catch(() => false),
-        crypto.getKeyBackupInfo().catch(() => null),
-        crypto.getOwnDeviceKeys().catch(() => null)
+      const [
+        crossSigningReady,
+        keyBackupInfo,
+        deviceKeys,
+        crossSigningStatus,
+        secretStorageReady,
+        defaultKeyId,
+        deviceVerificationStatus
+      ] = await Promise.all([
+        crypto.isCrossSigningReady().catch((err) => {
+          logger.debug('Cross-signing ready check failed (non-fatal):', err?.message || 'Unknown error')
+          return false
+        }),
+        crypto.getKeyBackupInfo().catch((err) => {
+          logger.debug('Key backup info check failed (non-fatal):', err?.message || 'Unknown error')
+          return null
+        }),
+        crypto.getOwnDeviceKeys().catch((err) => {
+          logger.debug('Device keys check failed (non-fatal):', err?.message || 'Unknown error')
+          return null
+        }),
+        crypto.getCrossSigningStatus().catch(() => ({
+          privateKeysCachedLocally: { masterKey: false, selfSigningKey: false, userSigningKey: false }
+        })),
+        crypto.isSecretStorageReady().catch(() => false),
+        client.secretStorage.getDefaultKeyId().catch(() => null),
+        crypto.getDeviceVerificationStatus(client.getUserId()!, client.getDeviceId()!).catch(() => null)
       ])
 
       const hasKeyBackup = !!(keyBackupInfo && keyBackupInfo.version)
       const hasDeviceKeys = !!deviceKeys
+      const isCurrentDeviceTrusted = !!(deviceVerificationStatus?.signedByOwner && deviceVerificationStatus?.crossSigningVerified)
+      const allCrossSigningSecretsCached = !!(
+        crossSigningStatus.privateKeysCachedLocally.masterKey &&
+        crossSigningStatus.privateKeysCachedLocally.selfSigningKey &&
+        crossSigningStatus.privateKeysCachedLocally.userSigningKey
+      )
+      const hasDefaultKeyId = !!defaultKeyId
+      const keyBackupUploadActive = hasKeyBackup && await crypto.getActiveSessionBackupVersion().catch(() => null) !== null
 
-      logger.debug('🔍 Encryption capabilities:', {
+      logger.debug('🔍 Encryption capabilities (Element Web style):', {
         crossSigningReady,
         hasKeyBackup,
-        hasDeviceKeys
+        hasDeviceKeys,
+        isCurrentDeviceTrusted,
+        allCrossSigningSecretsCached,
+        secretStorageReady,
+        hasDefaultKeyId,
+        keyBackupUploadActive
       })
 
-      // For encrypted rooms, we need at least device keys to participate
-      if (hasDeviceKeys) {
-        logger.debug('✅ Ready for encrypted chat')
+      // Follow Element Web DeviceListener logic exactly
+      if (!isCurrentDeviceTrusted) {
+        logger.debug('🔐 Current device not verified: needs device verification')
+        return {
+          state: 'needs_device_verification',
+          details: {
+            hasClient: true,
+            hasCrypto: true,
+            isInEncryptedRoom: true,
+            canChat: true, // Element Web allows chat while showing verification toast
+            crossSigningReady,
+            hasKeyBackup,
+            hasDeviceKeys,
+            isCurrentDeviceTrusted,
+            allCrossSigningSecretsCached,
+            secretStorageReady,
+            hasDefaultKeyId,
+            keyBackupUploadActive
+          },
+          requiresUserAction: true,
+          warningMessage: 'Verify this session to access encrypted messages'
+        }
+      } else if (!allCrossSigningSecretsCached) {
+        logger.debug('🔐 Some secrets not cached: needs recovery key')
+        return {
+          state: 'needs_recovery_key',
+          details: {
+            hasClient: true,
+            hasCrypto: true,
+            isInEncryptedRoom: true,
+            canChat: true, // Element Web allows chat while showing recovery key toast
+            crossSigningReady,
+            hasKeyBackup,
+            hasDeviceKeys,
+            isCurrentDeviceTrusted,
+            allCrossSigningSecretsCached,
+            secretStorageReady,
+            hasDefaultKeyId,
+            keyBackupUploadActive
+          },
+          requiresUserAction: true,
+          warningMessage: 'Enter your recovery key to access encrypted message history'
+        }
+      } else if (!keyBackupUploadActive) {
+        logger.debug('🔐 Key backup upload is off: needs key backup')
+        return {
+          state: 'needs_key_backup',
+          details: {
+            hasClient: true,
+            hasCrypto: true,
+            isInEncryptedRoom: true,
+            canChat: true,
+            crossSigningReady,
+            hasKeyBackup,
+            hasDeviceKeys,
+            isCurrentDeviceTrusted,
+            allCrossSigningSecretsCached,
+            secretStorageReady,
+            hasDefaultKeyId,
+            keyBackupUploadActive
+          },
+          requiresUserAction: true,
+          warningMessage: 'Turn on key backup to secure your encrypted messages'
+        }
+      } else if (!hasDefaultKeyId && keyBackupUploadActive) {
+        logger.debug('🔐 No recovery setup: can encrypt but should set up recovery')
+        return {
+          state: 'ready_encrypted_with_warning',
+          details: {
+            hasClient: true,
+            hasCrypto: true,
+            isInEncryptedRoom: true,
+            canChat: true,
+            crossSigningReady,
+            hasKeyBackup,
+            hasDeviceKeys,
+            isCurrentDeviceTrusted,
+            allCrossSigningSecretsCached,
+            secretStorageReady,
+            hasDefaultKeyId,
+            keyBackupUploadActive
+          },
+          requiresUserAction: false, // Can chat, just a warning
+          warningMessage: 'Generate a recovery key to restore encrypted messages if you lose access to your devices'
+        }
+      } else {
+        logger.debug('✅ Ready for encrypted chat with full backup')
         return {
           state: 'ready_encrypted',
           details: {
@@ -159,37 +290,28 @@ export class MatrixEncryptionStateService {
             canChat: true,
             crossSigningReady,
             hasKeyBackup,
-            hasDeviceKeys
+            hasDeviceKeys,
+            isCurrentDeviceTrusted,
+            allCrossSigningSecretsCached,
+            secretStorageReady,
+            hasDefaultKeyId,
+            keyBackupUploadActive
           },
           requiresUserAction: false
-        }
-      } else {
-        logger.debug('🔐 In encrypted room but no device keys - need encryption setup')
-        return {
-          state: 'needs_encryption_for_room',
-          details: {
-            hasClient: true,
-            hasCrypto: true,
-            isInEncryptedRoom: true,
-            canChat: false,
-            crossSigningReady,
-            hasKeyBackup,
-            hasDeviceKeys
-          },
-          requiresUserAction: true
         }
       }
     } catch (error) {
       logger.warn('Error checking encryption capabilities:', error)
       return {
-        state: 'needs_encryption_for_room',
+        state: 'ready_encrypted_with_warning',
         details: {
           hasClient: true,
           hasCrypto: true,
           isInEncryptedRoom: true,
-          canChat: false
+          canChat: true // Allow chat on error, show warning
         },
-        requiresUserAction: true
+        requiresUserAction: false,
+        warningMessage: 'Unable to verify encryption status - messages may not be fully secure'
       }
     }
   }
@@ -242,9 +364,17 @@ export class MatrixEncryptionStateService {
       }
 
       // Now check encryption status with the actual room ID
-      const isEncrypted = await crypto.isEncryptionEnabledInRoom(actualRoomId)
-      logger.debug('🔍 Room encryption check result:', { roomId: actualRoomId, isEncrypted })
-      return isEncrypted
+      try {
+        const isEncrypted = await crypto.isEncryptionEnabledInRoom(actualRoomId)
+        logger.debug('🔍 Room encryption check result:', { roomId: actualRoomId, isEncrypted })
+        return isEncrypted
+      } catch (encryptionCheckError) {
+        logger.debug('⚠️ Encryption check failed for room (treating as unencrypted):', {
+          roomId: actualRoomId,
+          error: encryptionCheckError?.message || 'Unknown error'
+        })
+        return false
+      }
     } catch (error) {
       logger.debug('Could not check room encryption capability:', error)
       // Default to unencrypted rather than blocking the UI
@@ -293,8 +423,8 @@ export class MatrixEncryptionStateService {
         return true
       }
 
-      if (status.state === 'needs_encryption_for_room') {
-        // This state requires user action, no point waiting
+      if (status.state === 'needs_device_verification' || status.state === 'needs_recovery_key') {
+        // These states require user action, no point waiting
         return false
       }
 
@@ -307,17 +437,21 @@ export class MatrixEncryptionStateService {
   }
 
   /**
-   * Simple helper to determine what UI to show (simplified)
+   * Simple helper to determine what UI to show (Element Web style)
    */
-  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'encryption_setup' {
+  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'banner' | 'encryption_setup' {
     switch (state) {
       case 'ready_unencrypted':
       case 'ready_encrypted':
         return 'none'
       case 'needs_login':
         return 'login'
-      case 'needs_encryption_for_room':
-        return 'encryption_setup'
+      case 'ready_encrypted_with_warning':
+      case 'needs_key_backup':
+        return 'banner' // Show warning banner but allow chat
+      case 'needs_device_verification':
+      case 'needs_recovery_key':
+        return 'encryption_setup' // Show setup dialog
       default:
         return 'login'
     }

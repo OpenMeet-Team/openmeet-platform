@@ -15,12 +15,23 @@ export function useMatrixEncryption () {
   const isLoading = ref(false)
   const lastChecked = ref<number>(0)
 
-  // Simplified computed helpers based on new states
+  // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
   const needsLogin = computed(() => encryptionStatus.value?.state === 'needs_login')
-  const needsEncryptionSetup = computed(() => encryptionStatus.value?.state === 'needs_encryption_for_room')
+  const needsEncryptionSetup = computed(() => {
+    const state = encryptionStatus.value?.state
+    return state === 'needs_device_verification' || state === 'needs_recovery_key'
+  })
+  const needsBanner = computed(() => {
+    const state = encryptionStatus.value?.state
+    return state === 'ready_encrypted_with_warning' || state === 'needs_key_backup'
+  })
+  const warningMessage = computed(() => encryptionStatus.value?.warningMessage)
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')
-  const isReadyEncrypted = computed(() => encryptionStatus.value?.state === 'ready_encrypted')
+  const isReadyEncrypted = computed(() => {
+    const state = encryptionStatus.value?.state
+    return state === 'ready_encrypted' || state === 'ready_encrypted_with_warning'
+  })
   const requiresUserAction = computed(() => encryptionStatus.value?.requiresUserAction ?? false)
 
   // Legacy computed for backwards compatibility
@@ -154,10 +165,12 @@ export function useMatrixEncryption () {
     encryptionStatus: readonly(encryptionStatus),
     isLoading: readonly(isLoading),
 
-    // New simplified computed helpers
+    // Element Web style computed helpers
     canChat,
     needsLogin,
     needsEncryptionSetup,
+    needsBanner,
+    warningMessage,
     isReadyUnencrypted,
     isReadyEncrypted,
     requiresUserAction,

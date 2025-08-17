@@ -437,11 +437,30 @@ export class MatrixClientManager {
         timelineSupport: true,
         // Use Element-Web style secret storage callbacks (temporary client for callback setup)
         cryptoCallbacks: {
-          getSecretStorageKey: async () => {
+          getSecretStorageKey: async (opts, name) => {
             // This will be called when secret storage access is needed
-            // For now, return null to allow the bootstrap process to handle key creation
-            logger.debug('🔑 getSecretStorageKey callback invoked - allowing bootstrap to handle key creation')
-            return null
+            // Check if we have a setup key available from MatrixSecretStorageService
+            const { MatrixSecretStorageService } = await import('./MatrixSecretStorageService')
+            const setupKey = MatrixSecretStorageService.getCurrentSetupKey()
+
+            if (setupKey) {
+              logger.debug('🔑 getSecretStorageKey callback invoked - returning setup key', {
+                keyLength: setupKey.length,
+                keyId: Object.keys(opts.keys)[0] || name || 'default'
+              })
+              // Return tuple of [keyId, keyData] as expected by the API
+              const keyId = Object.keys(opts.keys)[0] || name || 'default'
+              return [keyId, setupKey]
+            } else {
+              logger.debug('🔑 getSecretStorageKey callback invoked - no setup key available', {
+                availableKeys: Object.keys(opts.keys),
+                requestedName: name
+              })
+              // For unlock scenarios, we need to prompt the user via the UI
+              // Throw error to indicate the key is not immediately available
+              // The UI should handle this by prompting for passphrase
+              throw new Error('Secret storage key not available - user interaction required')
+            }
           },
           cacheSecretStorageKey: (keyId) => {
             // Cache key for session (this follows Element-Web pattern)

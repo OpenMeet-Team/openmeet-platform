@@ -2134,11 +2134,82 @@ class MatrixClientService {
   }
 
   /**
+   * Check if Matrix client is ready for room operations
+   */
+  isClientReady (): boolean {
+    return !!(this.client && this.client.isInitialSyncComplete())
+  }
+
+  /**
+   * Wait for Matrix client to be ready for room operations
+   */
+  async waitForClientReady (timeoutMs: number = 10000): Promise<void> {
+    if (this.isClientReady()) {
+      return
+    }
+
+    if (!this.client) {
+      throw new Error('Matrix client not initialized - call initializeClient() first')
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for Matrix client to be ready'))
+      }, timeoutMs)
+
+      const checkReady = () => {
+        if (this.isClientReady()) {
+          clearTimeout(timeout)
+          resolve()
+        }
+      }
+
+      // Check immediately
+      checkReady()
+
+      // Listen for sync events
+      const onSync = (state: string) => {
+        if (state === 'PREPARED') {
+          checkReady()
+        }
+      }
+
+      this.client!.on(ClientEvent.Sync, onSync)
+
+      // Clean up listener when done
+      const cleanup = () => {
+        if (this.client) {
+          this.client.off(ClientEvent.Sync, onSync)
+        }
+      }
+
+      // Override resolve/reject to include cleanup
+      const originalResolve = resolve
+      const originalReject = reject
+      resolve = (...args) => {
+        cleanup()
+        originalResolve(...args)
+      }
+      reject = (...args) => {
+        cleanup()
+        originalReject(...args)
+      }
+    })
+  }
+
+  /**
    * Join a group chat room by group slug using Matrix-native room aliases
    */
   async joinGroupChatRoom (groupSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
     if (!this.client) {
       throw new Error('Matrix client not initialized')
+    }
+
+    // Wait for client to be ready for room operations
+    await this.waitForClientReady()
+
+    if (!this.isClientReady()) {
+      throw new Error('Matrix client not ready for room operations')
     }
 
     try {

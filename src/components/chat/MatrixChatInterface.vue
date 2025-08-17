@@ -88,6 +88,13 @@
         />
       </div>
 
+      <!-- Historical Message Encryption Handler -->
+      <HistoricalMessageHandler
+        v-if="isConnected"
+        :auto-prompt="true"
+        :show-status="true"
+      />
+
       <!-- Messages -->
       <div v-if="isConnected && messages.length > 0" class="messages-list" data-cy="messages-list">
         <!-- Load More History Button -->
@@ -452,6 +459,7 @@ import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionService'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
+import HistoricalMessageHandler from './encryption/HistoricalMessageHandler.vue'
 
 // Add type declaration for global window property
 declare global {
@@ -1789,7 +1797,12 @@ const loadMessages = async () => {
 
     // Be more lenient with sync states - sometimes the client works even when not in perfect state
     const workingStates = ['SYNCING', 'PREPARED', 'CATCHUP', 'RECONNECTING', 'STOPPED']
-    if (!workingStates.includes(syncState || '')) {
+
+    // Handle null syncState more gracefully
+    if (syncState === null) {
+      logger.debug('⚠️ Matrix client sync state is null - client may still be initializing')
+      // Don't return early - try to load messages anyway as client may still work
+    } else if (!workingStates.includes(syncState)) {
       console.warn(`⚠️ Matrix client not in working state: ${syncState}, but attempting to proceed anyway`)
       // Don't return early - try to load messages anyway
     }
