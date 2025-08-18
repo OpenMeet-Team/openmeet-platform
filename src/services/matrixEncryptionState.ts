@@ -472,6 +472,7 @@ export class MatrixEncryptionStateService {
       case 'needs_key_backup':
         return 'banner' // Show warning banner but allow chat
       case 'needs_device_verification':
+        return 'none' // Allow chat without verification for now
       case 'needs_recovery_key':
         return 'encryption_setup' // Show setup dialog
       default:

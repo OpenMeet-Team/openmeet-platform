@@ -202,6 +202,20 @@ export class MatrixSecretStorageService {
       // Set up key backup
       await this.setupKeyBackup()
 
+      // Auto-verify this device since user just completed encryption setup with generated recovery key
+      try {
+        const userId = this.matrixClient.getUserId()
+        const deviceId = this.matrixClient.getDeviceId()
+
+        if (userId && deviceId) {
+          logger.debug('🔐 Auto-verifying device after initial encryption setup')
+          await crypto.setDeviceVerified(userId, deviceId, true)
+          logger.debug('✅ Device automatically verified after encryption setup')
+        }
+      } catch (verificationError) {
+        logger.warn('Device auto-verification failed (setup still successful):', verificationError)
+      }
+
       logger.debug('Secret storage setup completed successfully')
       return {
         success: true,
@@ -349,6 +363,21 @@ export class MatrixSecretStorageService {
           })
         } catch (crossSigningError) {
           logger.warn('Cross-signing setup failed (unlock still successful):', crossSigningError)
+        }
+
+        // Recovery-key-based device verification: If user successfully unlocked with recovery key,
+        // automatically verify this device since they've proven they have the recovery credentials
+        try {
+          const userId = this.matrixClient.getUserId()
+          const deviceId = this.matrixClient.getDeviceId()
+
+          if (userId && deviceId) {
+            logger.debug('🔐 Auto-verifying device after successful recovery key unlock')
+            await crypto.setDeviceVerified(userId, deviceId, true)
+            logger.debug('✅ Device automatically verified via recovery key authentication')
+          }
+        } catch (verificationError) {
+          logger.warn('Device auto-verification failed (unlock still successful):', verificationError)
         }
 
         // Wait for the event-driven restore to complete (or timeout)

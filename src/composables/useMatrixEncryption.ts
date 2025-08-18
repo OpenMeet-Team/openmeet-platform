@@ -20,7 +20,7 @@ export function useMatrixEncryption () {
   const needsLogin = computed(() => encryptionStatus.value?.state === 'needs_login')
   const needsEncryptionSetup = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'needs_device_verification' || state === 'needs_recovery_key'
+    return state === 'needs_recovery_key'
   })
   const needsBanner = computed(() => {
     const state = encryptionStatus.value?.state
@@ -30,7 +30,7 @@ export function useMatrixEncryption () {
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')
   const isReadyEncrypted = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'ready_encrypted' || state === 'ready_encrypted_with_warning'
+    return state === 'ready_encrypted' || state === 'ready_encrypted_with_warning' || state === 'needs_device_verification'
   })
   const requiresUserAction = computed(() => encryptionStatus.value?.requiresUserAction ?? false)
 

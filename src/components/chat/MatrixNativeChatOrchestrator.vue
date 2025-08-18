@@ -14,38 +14,6 @@
       </div>
     </div>
 
-    <!-- Device Verification Required -->
-    <template v-else-if="encryptionStatus?.state === 'needs_device_verification' && !deviceVerificationDismissed">
-      <div class="device-verification-required">
-        <div class="setup-container">
-          <h2>Device Verification Required</h2>
-          <p>This device needs to be verified to access encrypted messages.</p>
-          <div class="verification-options q-pa-md">
-            <p class="text-body2 q-mb-md">
-              Your encryption keys are ready, but this device hasn't been verified yet.
-              You can still chat, but some encrypted message history may not be available.
-            </p>
-            <div class="q-gutter-sm">
-              <q-btn
-                @click="continueWithoutVerification"
-                color="primary"
-                label="Continue Chatting"
-                icon="fas fa-comments"
-                class="q-mr-sm"
-              />
-              <q-btn
-                @click="startDeviceVerification"
-                color="secondary"
-                label="Verify Device"
-                icon="fas fa-shield-alt"
-                outline
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
     <!-- Encryption Setup Required (only for recovery key needs) -->
     <template v-else-if="shouldShowEncryptionSetup">
       <div class="encryption-setup-required">
@@ -258,7 +226,6 @@ const {
 
 // Setup flow state
 const setupStep = ref<'education' | 'connection'>('education')
-const deviceVerificationDismissed = ref(false)
 
 // Recovery key display state
 const recoveryKey = ref('')
@@ -413,49 +380,6 @@ const goBackToUnencryptedRooms = () => {
   setupStep.value = 'education'
 }
 
-// Device verification handlers
-const continueWithoutVerification = () => {
-  logger.debug('User chose to continue chatting without device verification')
-  // Mark device verification as dismissed to show chat interface
-  deviceVerificationDismissed.value = true
-}
-
-const startDeviceVerification = async () => {
-  logger.debug('User chose to start device verification')
-
-  try {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      logger.error('No Matrix client available for device verification')
-      return
-    }
-
-    // Check if this is the first device that can be auto-verified
-    const crypto = client.getCrypto()
-    if (crypto) {
-      const userId = client.getUserId()
-      const deviceId = client.getDeviceId()
-
-      if (userId && deviceId) {
-        // For first OpenMeet device, try auto-verification
-        await crypto.setDeviceVerified(userId, deviceId, true)
-        logger.debug('✅ Device verified successfully')
-
-        // Refresh encryption state to update UI
-        await checkEncryptionState()
-        return
-      }
-    }
-
-    // For subsequent devices, show proper verification flow
-    logger.debug('🔐 Starting interactive device verification flow...')
-    // TODO: Implement interactive verification (QR codes, emoji verification, etc.)
-    logger.debug('Interactive verification flow not yet implemented')
-  } catch (error) {
-    logger.error('Failed to verify device:', error)
-  }
-}
-
 // Element Web style banner handlers
 const dismissEncryptionBanner = () => {
   logger.debug('👍 User dismissed encryption banner')
@@ -476,13 +400,11 @@ const handleEncryptionAction = (state: string) => {
       // TODO: Implement key backup flow
       logger.debug('Key backup flow not yet implemented')
       break
-    case 'needs_device_verification':
-      // TODO: Implement device verification flow
-      logger.debug('Device verification flow not yet implemented')
-      break
     case 'needs_recovery_key':
-      // TODO: Implement recovery key entry flow
-      logger.debug('Recovery key entry flow not yet implemented')
+      // Trigger recovery key entry setup flow
+      logger.debug('Starting recovery key entry flow')
+      setupStep.value = 'education'
+      forceSetupAfterReset.value = true
       break
     default:
       logger.warn('Unknown encryption action state:', state)
