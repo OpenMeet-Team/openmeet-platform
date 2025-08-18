@@ -66,12 +66,12 @@ class MatrixClientService {
 
     // If no client and we have stored credentials, try auto-initialization
     if (!this.client && !this.isInitializing && this.hasStoredSession()) {
-      logger.debug('🔄 Auto-initializing Matrix client from stored credentials...')
+      logger.debug('Auto-initializing Matrix client from stored credentials')
       try {
         await this.initializeClient(true)
         return this.client
       } catch (error) {
-        logger.warn('⚠️ Auto-initialization failed, manual setup may be required:', error)
+        logger.warn('Auto-initialization failed:', error)
         return null
       }
     }
@@ -87,16 +87,14 @@ class MatrixClientService {
     const managerClient = matrixClientManager.getClient()
     if (this.client || managerClient || this.isInitializing || !this.hasStoredSession()) {
       if (managerClient && !this.client) {
-        logger.debug('🔄 Manager has client, syncing to service')
         this.client = managerClient
       }
       return
     }
 
     // Start auto-initialization in background
-    logger.debug('🔄 Triggering background auto-initialization...')
     this.initializeClient(true).catch(error => {
-      logger.warn('⚠️ Background auto-initialization failed:', error)
+      logger.warn('Background auto-initialization failed:', error)
     })
   }
 
@@ -110,11 +108,9 @@ class MatrixClientService {
 
     // Debug logging for setup state issues
     if (!result) {
-      logger.debug('🔍 isReady() check failed:', {
+      logger.debug('Matrix client not ready:', {
         managerReady,
-        clientLoggedIn,
-        hasClient: !!this.client,
-        hasManagerClient: !!matrixClientManager.getClient()
+        clientLoggedIn
       })
     }
 

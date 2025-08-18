@@ -6,13 +6,12 @@
  */
 
 import type { MatrixClient } from 'matrix-js-sdk'
-import { deriveRecoveryKeyFromPassphrase, decodeRecoveryKey, CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
+import { decodeRecoveryKey, CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 import { logger } from '../utils/logger'
 
 export interface SecretStorageKeyParams {
-  passphrase?: string
-  recoveryKey?: string
+  recoveryKey: string
 }
 
 export interface SecretStorageResult {
@@ -84,113 +83,64 @@ export class MatrixSecretStorageService {
       // Check if secret storage exists
       const hasSecretStorage = await this.matrixClient.secretStorage.hasKey()
       if (!hasSecretStorage) {
-        logger.debug('No secret storage found for validation')
         return false
       }
 
       // Get the stored secret storage key info
       const defaultKeyId = await this.matrixClient.secretStorage.getDefaultKeyId()
       if (!defaultKeyId) {
-        logger.debug('No default secret storage key found for validation')
         return false
       }
 
       const keyInfoEvent = await this.matrixClient.getAccountData(`m.secret_storage.key.${defaultKeyId}`)
       if (!keyInfoEvent) {
-        logger.debug('Secret storage key info not found for validation')
         return false
       }
 
       const keyInfo = keyInfoEvent.getContent() as SecretStorageKeyDescription
       if (!keyInfo) {
-        logger.debug('Secret storage key info content not found for validation')
+        return false
+      }
+
+      // Basic recovery key format check
+      const cleaned = keyParams.recoveryKey.replace(/\s/g, '')
+      if (cleaned.length < 48) {
         return false
       }
 
       let keyData: Uint8Array
-
-      if (keyParams.passphrase) {
-        // Check if this key supports passphrase derivation
-        if (!keyInfo.passphrase?.salt || !keyInfo.passphrase?.iterations) {
-          logger.debug('Key does not support passphrase derivation')
-          return false
-        }
-
-        // Basic length check first
-        if (keyParams.passphrase.length < 12) {
-          return false
-        }
-
-        try {
-          // Derive key using stored parameters
-          keyData = await deriveRecoveryKeyFromPassphrase(
-            keyParams.passphrase,
-            keyInfo.passphrase.salt,
-            keyInfo.passphrase.iterations
-          )
-        } catch (error) {
-          logger.debug('Failed to derive key from passphrase:', error)
-          return false
-        }
-      } else if (keyParams.recoveryKey) {
-        // Basic recovery key format check
-        const cleaned = keyParams.recoveryKey.replace(/\s/g, '')
-        if (cleaned.length < 48) {
-          return false
-        }
-
-        try {
-          // Decode the recovery key
-          keyData = await decodeRecoveryKey(keyParams.recoveryKey)
-        } catch (error) {
-          logger.debug('Failed to decode recovery key:', error)
-          return false
-        }
-      } else {
+      try {
+        // Decode the recovery key
+        keyData = await decodeRecoveryKey(keyParams.recoveryKey)
+      } catch (error) {
         return false
       }
 
       // Validate the derived/decoded key against the stored key
       const isValidKey = await this.matrixClient.secretStorage.checkKey(keyData, keyInfo)
-      logger.debug('Key validation result:', { isValid: isValidKey })
-
       return isValidKey
     } catch (error) {
-      logger.debug('Key validation failed:', error)
       return false
     }
   }
 
   /**
-   * Detect the type of input (passphrase vs recovery key)
+   * Validate recovery key format
    */
-  public detectInputType (input: string): 'passphrase' | 'recoveryKey' | 'unknown' {
+  public isValidRecoveryKeyFormat (input: string): boolean {
     // Recovery keys are base58 encoded and follow a specific format
     const recoveryKeyPattern = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz\s]+$/
-
-    if (input.length >= 48 && recoveryKeyPattern.test(input.replace(/\s/g, ''))) {
-      return 'recoveryKey'
-    }
-
-    if (input.length >= 12) {
-      return 'passphrase'
-    }
-
-    return 'unknown'
+    const cleaned = input.replace(/\s/g, '')
+    return cleaned.length >= 48 && recoveryKeyPattern.test(cleaned)
   }
 
   /**
-   * Set up new secret storage with a passphrase (for initial setup)
-   * @param passphrase - The passphrase to derive the secret storage key
-   * @param isReset - Whether this is a reset scenario (forgotten passphrase), which clears existing cross-signing
+   * Set up new secret storage with a generated recovery key (for initial setup)
+   * @param isReset - Whether this is a reset scenario (forgotten recovery key), which clears existing cross-signing
    */
-  public async setupSecretStorage (passphrase: string, isReset: boolean = false): Promise<SecretStorageResult> {
+  public async setupSecretStorage (isReset: boolean = false): Promise<SecretStorageResult> {
     try {
-      if (isReset) {
-        logger.debug('🔄 Setting up secret storage after encryption reset (forgotten passphrase)...')
-      } else {
-        logger.debug('🔐 Setting up new secret storage with passphrase...')
-      }
+      logger.debug(`Setting up secret storage${isReset ? ' after reset' : ''}`)
 
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) {
@@ -200,28 +150,16 @@ export class MatrixSecretStorageService {
         }
       }
 
-      // Create recovery key from passphrase
-      const recoveryKey = await crypto.createRecoveryKeyFromPassphrase(passphrase)
+      // Generate a new random recovery key (32 bytes)
+      const keyData = new Uint8Array(32)
+      globalThis.crypto.getRandomValues(keyData)
 
-      // Extract key data and encoded recovery key
-      let keyData: Uint8Array
-      let encodedRecoveryKey: string | undefined
+      // Generate the base58-encoded recovery key for user to save
+      const { encodeRecoveryKey } = await import('matrix-js-sdk/lib/crypto-api')
+      const encodedRecoveryKey = encodeRecoveryKey(keyData)
 
-      if (recoveryKey instanceof Uint8Array) {
-        keyData = recoveryKey
-      } else if (recoveryKey && typeof recoveryKey === 'object' && 'key' in recoveryKey) {
-        keyData = (recoveryKey as { key: Uint8Array }).key
-        // Extract the base58-encoded recovery key for user to save
-        encodedRecoveryKey = (recoveryKey as { encodedPrivateKey?: string }).encodedPrivateKey
-      } else if (recoveryKey && typeof recoveryKey === 'object' && 'privateKey' in recoveryKey) {
-        keyData = (recoveryKey as { privateKey: Uint8Array }).privateKey
-        encodedRecoveryKey = (recoveryKey as { encodedPrivateKey?: string }).encodedPrivateKey
-      } else {
-        throw new Error('Unable to extract recovery key from passphrase')
-      }
-
-      if (!(keyData instanceof Uint8Array) || keyData.length === 0) {
-        throw new Error('Invalid key data from passphrase')
+      if (!encodedRecoveryKey) {
+        throw new Error('Failed to encode recovery key')
       }
 
       // Store the key for global callback access during setup
@@ -229,30 +167,23 @@ export class MatrixSecretStorageService {
 
       // If this is a reset scenario, check for and clear existing crypto state
       if (isReset) {
-        logger.debug('🔄 Checking for existing crypto state due to forgotten passphrase...')
         try {
           const existingSecrets = await crypto.isSecretStorageReady()
-          logger.debug('🔍 Secret storage readiness check:', { isReady: existingSecrets })
-
           const crossSigningStatus = await crypto.isCrossSigningReady()
-          logger.debug('🔍 Cross-signing readiness check:', { isReady: crossSigningStatus })
 
           // If secrets exist but we have a different key, we need to reset
           if (existingSecrets || crossSigningStatus) {
-            logger.warn('⚠️ Existing crypto secrets detected - will cause MAC errors with new passphrase')
-            logger.debug('🔄 Resetting crypto for fresh bootstrap...')
+            logger.warn('Resetting existing crypto state for new passphrase')
             await crypto.resetKeyBackup()
-            logger.debug('✅ Key backup reset completed')
           }
         } catch (error) {
-          logger.debug('🔍 Could not check existing secrets (this is normal for fresh setups):', error)
+          // Expected for fresh setups
         }
       }
 
-      // Bootstrap secret storage with the new key (following Element Web pattern)
-      logger.debug('🔐 Bootstrapping secret storage...')
+      // Bootstrap secret storage with the new key
       await crypto.bootstrapSecretStorage({
-        setupNewSecretStorage: true, // Critical: This creates the default key ID
+        setupNewSecretStorage: true,
         createSecretStorageKey: async () => {
           return {
             privateKey: keyData,
@@ -262,7 +193,6 @@ export class MatrixSecretStorageService {
       })
 
       // Bootstrap cross-signing
-      logger.debug('🔐 Bootstrapping cross-signing...')
       await crypto.bootstrapCrossSigning({
         authUploadDeviceSigningKeys: async (makeRequest: (auth: unknown) => Promise<void>) => {
           await makeRequest(null)
@@ -270,17 +200,16 @@ export class MatrixSecretStorageService {
       })
 
       // Set up key backup
-      logger.debug('🔐 Setting up key backup...')
       await this.setupKeyBackup()
 
-      logger.debug('✅ Secret storage setup completed successfully')
+      logger.debug('Secret storage setup completed successfully')
       return {
         success: true,
         keyId: 'passphrase-derived',
         recoveryKey: encodedRecoveryKey
       }
     } catch (error) {
-      logger.error('❌ Failed to set up secret storage:', error)
+      logger.error('Failed to set up secret storage:', error)
       return {
         success: false,
         error: error.message || 'Failed to set up secret storage'
@@ -296,7 +225,7 @@ export class MatrixSecretStorageService {
    */
   public async unlockSecretStorage (input: string): Promise<SecretStorageResult> {
     try {
-      logger.debug('🔓 Attempting to unlock secret storage...')
+      logger.debug('Unlocking secret storage...')
 
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) {
@@ -340,68 +269,43 @@ export class MatrixSecretStorageService {
         }
       }
 
-      logger.debug('🔍 Found stored secret storage key:', { keyId: defaultKeyId, algorithm: keyInfo.algorithm })
+      logger.debug('Found stored secret storage key')
 
-      const inputType = this.detectInputType(input.trim())
-      let keyData: Uint8Array
-
-      if (inputType === 'passphrase') {
-        // Check if this key supports passphrase derivation
-        if (!keyInfo.passphrase?.salt || !keyInfo.passphrase?.iterations) {
-          return {
-            success: false,
-            error: 'This secret storage key was not set up with a passphrase. Please use your recovery key instead.'
-          }
-        }
-
-        logger.debug('🔑 Deriving key from passphrase using stored parameters:', {
-          salt: keyInfo.passphrase.salt?.substring(0, 10) + '...',
-          iterations: keyInfo.passphrase.iterations
-        })
-
-        // Use the stored salt and iterations to derive the same key
-        keyData = await deriveRecoveryKeyFromPassphrase(
-          input.trim(),
-          keyInfo.passphrase.salt,
-          keyInfo.passphrase.iterations
-        )
-      } else if (inputType === 'recoveryKey') {
-        logger.debug('🔑 Decoding recovery key...')
-        try {
-          // Decode the recovery key directly
-          keyData = await decodeRecoveryKey(input.trim())
-        } catch (error) {
-          return {
-            success: false,
-            error: 'Invalid recovery key format'
-          }
-        }
-      } else {
+      // Validate recovery key format
+      if (!this.isValidRecoveryKeyFormat(input.trim())) {
         return {
           success: false,
-          error: 'Input must be a passphrase (12+ characters) or recovery key'
+          error: 'Invalid recovery key format. Please check your recovery key and try again.'
+        }
+      }
+
+      logger.debug('Decoding recovery key...')
+      let keyData: Uint8Array
+      try {
+        // Decode the recovery key directly
+        keyData = await decodeRecoveryKey(input.trim())
+      } catch (error) {
+        return {
+          success: false,
+          error: 'Invalid recovery key format'
         }
       }
 
       // Validate the derived/decoded key against the stored key
-      logger.debug('🔍 Validating key against stored MAC...')
       const isValidKey = await this.matrixClient.secretStorage.checkKey(keyData, keyInfo)
 
       if (!isValidKey) {
-        logger.error('❌ Key validation failed - MAC mismatch')
+        logger.error('Key validation failed')
         return {
           success: false,
-          error: inputType === 'passphrase'
-            ? 'Incorrect passphrase. Please check your passphrase and try again.'
-            : 'Incorrect recovery key. Please check your recovery key and try again.'
+          error: 'Incorrect recovery key. Please check your recovery key and try again.'
         }
       }
 
-      logger.debug('✅ Key validated successfully!')
+      logger.debug('Key validated successfully')
 
       // Store the key for global callback access during unlock
       MatrixSecretStorageService.currentSetupKey = keyData
-      logger.debug('🔑 Stored validated key for global callback access')
 
       try {
         // Set up event-driven restoration
@@ -409,72 +313,55 @@ export class MatrixSecretStorageService {
 
         // Element Web pattern: Load backup private key and restore session keys
         // This is the critical step for historical message decryption
-        // Note: This only restores keys that were previously backed up.
-        // Missing keys may need to be requested from other devices or will be backed up over time.
         try {
-          logger.debug('🔑 Loading backup private key from secret storage (Element Web pattern)...')
           await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
 
-          logger.debug('📥 Restoring session keys from backup (Element Web pattern)...')
           const restoreResult = await crypto.restoreKeyBackup({
             progressCallback: (progress) => {
               // Handle different progress types based on the Matrix SDK structure
               if ('total' in progress && 'imported' in progress) {
                 const progressWithCounts = progress as { total: number; imported: number }
                 const percent = Math.round((progressWithCounts.imported / progressWithCounts.total) * 100)
-                logger.debug(`📥 Key backup restore progress: ${progressWithCounts.imported}/${progressWithCounts.total} (${percent}%)`)
-              } else if ('stage' in progress) {
-                logger.debug(`📥 Key backup restore stage: ${progress.stage}`)
-              } else {
-                logger.debug('📥 Key backup restore progress:', progress)
+                if (percent % 20 === 0) { // Log every 20% to reduce noise
+                  logger.debug(`Key restore progress: ${percent}%`)
+                }
               }
             }
           })
 
-          logger.debug('✅ Key backup restored from secret storage:', {
-            total: restoreResult.total,
-            imported: restoreResult.imported
-          })
+          logger.debug(`Key backup restored: ${restoreResult.imported}/${restoreResult.total} keys`)
 
-          // Enable automatic key backup for new keys (Element Web pattern)
-          logger.debug('🔐 Enabling automatic key backup for new keys...')
+          // Enable automatic key backup for new keys
           const backupCheck = await crypto.checkKeyBackupAndEnable()
-          if (backupCheck) {
-            logger.debug('✅ Automatic key backup enabled:', backupCheck)
-          } else {
-            logger.warn('⚠️ No key backup found to enable')
+          if (!backupCheck) {
+            logger.warn('No key backup found to enable')
           }
         } catch (backupError) {
-          logger.warn('⚠️ Key backup restore failed (unlock still successful):', backupError)
-          // Don't fail the whole unlock if backup restore fails
+          logger.warn('Key backup restore failed (unlock still successful):', backupError)
         }
 
         // Try cross-signing setup (non-blocking if it fails)
         try {
-          logger.debug('🔐 Bootstrapping cross-signing...')
           await crypto.bootstrapCrossSigning({
             authUploadDeviceSigningKeys: async (makeRequest: (auth: unknown) => Promise<void>) => {
               await makeRequest(null)
             }
           })
-          logger.debug('✅ Cross-signing setup completed')
         } catch (crossSigningError) {
-          logger.warn('⚠️ Cross-signing setup failed (unlock still successful):', crossSigningError)
-          // Don't fail unlock if cross-signing has issues
+          logger.warn('Cross-signing setup failed (unlock still successful):', crossSigningError)
         }
 
         // Wait for the event-driven restore to complete (or timeout)
-        logger.debug('🔍 Waiting for encryption events to settle...')
         await restorePromise
 
-        logger.debug('✅ Secret storage unlocked successfully')
+        logger.debug('Secret storage unlocked successfully')
 
         return {
           success: true,
           keyId: defaultKeyId
         }
       } catch (setupError) {
-        logger.error('❌ Failed during post-unlock setup:', setupError)
+        logger.error('Failed during post-unlock setup:', setupError)
         // Even if setup fails, the unlock was successful if we got here
         return {
           success: true,
@@ -483,7 +370,7 @@ export class MatrixSecretStorageService {
         }
       }
     } catch (error) {
-      logger.error('❌ Failed to unlock secret storage:', error)
+      logger.error('Failed to unlock secret storage:', error)
       return {
         success: false,
         error: error.message || 'Failed to unlock secret storage'
@@ -541,7 +428,7 @@ export class MatrixSecretStorageService {
         return
       }
 
-      logger.debug('🔑 Creating new key backup...')
+      logger.debug('Creating new key backup...')
 
       // Check if secret storage is ready (required for backup)
       const isSecretStorageReady = await crypto.isSecretStorageReady()
@@ -554,9 +441,7 @@ export class MatrixSecretStorageService {
       await crypto.resetKeyBackup()
       const backupInfo = await crypto.checkKeyBackupAndEnable()
 
-      if (backupInfo) {
-        logger.debug('✅ Key backup created successfully:', backupInfo)
-      } else {
+      if (!backupInfo) {
         logger.warn('Key backup creation completed but no backup info returned')
       }
     } catch (error) {
@@ -578,17 +463,17 @@ export class MatrixSecretStorageService {
         return
       }
 
-      logger.debug('🔍 Key backup found, attempting to restore...')
+      logger.debug('Key backup found, attempting to restore...')
 
       // Try to restore the backup
       try {
         await crypto.restoreKeyBackup()
-        logger.debug('✅ Key backup restored - historical messages should be decryptable')
+        logger.debug('Key backup restored')
       } catch (restoreError) {
-        logger.warn('⚠️ Failed to restore key backup:', restoreError)
+        logger.warn('Failed to restore key backup:', restoreError)
       }
     } catch (error) {
-      logger.warn('⚠️ Failed to restore key backup (non-fatal):', error)
+      logger.warn('Failed to restore key backup (non-fatal):', error)
     }
   }
 
@@ -668,7 +553,6 @@ export class MatrixSecretStorageService {
    * This enables automatic key provision during crypto operations
    */
   public initializeSecretStorageCallback (): void {
-    logger.debug('🔐 Secret storage service initialized - using cached key approach')
     // The static currentSetupKey is used by the crypto operations
     // when they need access to the secret storage key
     // Note: The Matrix client manages secret storage callbacks internally
@@ -681,7 +565,6 @@ export class MatrixSecretStorageService {
   private setupEventDrivenRestore (): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        logger.debug('⚠️ Event-driven restore timed out after 10 seconds')
         cleanup()
         resolve() // Resolve rather than reject - timeout is not necessarily an error
       }, 10000)
@@ -691,30 +574,25 @@ export class MatrixSecretStorageService {
 
       const checkComplete = () => {
         if (keyBackupReady && crossSigningReady) {
-          logger.debug('✅ Event-driven restore completed - both key backup and cross-signing ready')
           cleanup()
           resolve()
         }
       }
 
       const onKeyBackupStatus = (enabled: boolean) => {
-        logger.debug(`🔑 Key backup status changed: ${enabled}`)
         keyBackupReady = enabled
         checkComplete()
       }
 
       const onKeysChanged = () => {
-        logger.debug('🔑 Cross-signing keys changed - checking readiness...')
         // Check if cross-signing is now ready
         this.matrixClient.getCrypto()?.isCrossSigningReady().then(ready => {
-          logger.debug(`🔍 Cross-signing ready status: ${ready}`)
           crossSigningReady = ready
           checkComplete()
         })
       }
 
-      const onKeyBackupDecryptionKeyCached = (version: string) => {
-        logger.debug(`🔑 Key backup decryption key cached for version: ${version}`)
+      const onKeyBackupDecryptionKeyCached = () => {
         keyBackupReady = true
         checkComplete()
       }
@@ -736,14 +614,25 @@ export class MatrixSecretStorageService {
         this.matrixClient.getCrypto()?.isCrossSigningReady() || Promise.resolve(false),
         this.matrixClient.getCrypto()?.getKeyBackupInfo().then(info => !!info) || Promise.resolve(false)
       ]).then(([crossSigning, keyBackup]) => {
-        logger.debug(`🔍 Initial status check: crossSigning=${crossSigning}, keyBackup=${keyBackup}`)
         crossSigningReady = crossSigning
         keyBackupReady = keyBackup
         checkComplete()
-      }).catch(error => {
-        logger.debug('Error checking initial status:', error)
+      }).catch(() => {
         // Continue anyway - events will handle state changes
       })
     })
+  }
+
+  /**
+   * Get the default secret storage key ID if available
+   * This is a simple check to see if secret storage is accessible
+   */
+  public async getDefaultKeyId (): Promise<string | null> {
+    try {
+      return await this.matrixClient.secretStorage.getDefaultKeyId()
+    } catch (error) {
+      logger.debug('Could not get default secret storage key ID:', error)
+      return null
+    }
   }
 }

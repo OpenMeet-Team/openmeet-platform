@@ -118,6 +118,8 @@ export function useHistoricalMessageDecryption () {
       const canDecrypt = await keyBackupService.canDecryptFromBackup()
       logger.debug(`Can decrypt from backup: ${canDecrypt}`)
 
+      // Only trust the canDecryptFromBackup result - don't override it
+      // Getting defaultKeyId just means secret storage exists, not that it's unlocked
       status.value.hasBackup = hasBackup
       status.value.isUnlocked = canDecrypt
       status.value.error = null
@@ -127,7 +129,7 @@ export function useHistoricalMessageDecryption () {
       logger.debug(`🔐 needsUnlock computed as: ${needsUnlockValue} (isUnlocked: ${canDecrypt}, hasBackup: ${hasBackup})`)
 
       if (hasBackup && !canDecrypt) {
-        logger.debug('📝 Key backup available but not unlocked - user needs to provide passphrase')
+        logger.debug('📝 Key backup available but not unlocked - user needs to provide recovery key')
       } else if (!hasBackup) {
         logger.debug('📝 No key backup available - historical messages cannot be decrypted')
       } else if (canDecrypt) {

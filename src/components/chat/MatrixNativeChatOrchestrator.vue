@@ -57,20 +57,10 @@
             @continue="handleEducationComplete"
             @skip="goBackToUnencryptedRooms"
           />
-          <MatrixSetupExplainer
-            v-else-if="setupStep === 'explainer'"
-            @continue="handleSetupExplainerComplete"
-            @back="setupStep = 'education'"
-          />
-          <ChatPassphraseSetup
-            v-else-if="setupStep === 'passphrase'"
-            @continue="handlePassphraseComplete"
-            @back="setupStep = 'explainer'"
-          />
           <MatrixConnectionFlow
             v-else-if="setupStep === 'connection'"
             @continue="handleConnectionComplete"
-            @back="setupStep = 'passphrase'"
+            @back="setupStep = 'education'"
             :homeserver-url="homeserverUrl"
           />
         </div>
@@ -85,26 +75,6 @@
 
     <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
     <template v-else-if="canChat">
-      <!-- Unencrypted Chat Info (dismissible) -->
-      <div v-if="isReadyUnencrypted && showEncryptionInfo" class="encryption-info q-pa-md q-mb-md" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
-        <div class="text-h6 q-mb-sm" style="color: #495057;">
-          <q-icon name="fas fa-info-circle" class="q-mr-sm" />
-          Unencrypted Chat Mode
-        </div>
-        <p style="color: #495057; margin: 0 0 1rem 0;">
-          You're chatting without encryption. Messages are secure in transit but not end-to-end encrypted.
-          <strong>Join an encrypted room to enable end-to-end encryption automatically.</strong>
-        </p>
-        <div class="q-gutter-sm">
-          <q-btn
-            @click="dismissEncryptionInfo"
-            flat
-            color="grey-6"
-            label="Got it"
-            size="sm"
-          />
-        </div>
-      </div>
 
       <!-- Element Web Style Encryption Warning Banner -->
       <EncryptionWarningBanner
@@ -115,8 +85,8 @@
         @dismiss="dismissEncryptionBanner"
       />
 
-      <!-- Encrypted Chat Success Info (non-dismissible for full encryption) -->
-      <div v-else-if="isReadyEncrypted && !needsBanner" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
+      <!-- Encrypted Chat Success Info (show for any encrypted state) -->
+      <div v-else-if="isReadyEncrypted" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
         <div class="text-h6 q-mb-sm" style="color: #155724;">
           <q-icon name="fas fa-shield-alt" class="q-mr-sm" />
           Encrypted Chat Mode
@@ -233,7 +203,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMatrixEncryption } from '../../composables/useMatrixEncryption'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixEncryptionState } from '../../services/matrixEncryptionState'
@@ -243,8 +213,6 @@ import getEnv from '../../utils/env'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
 import MatrixEducationIntro from './setup/MatrixEducationIntro.vue'
-import MatrixSetupExplainer from './setup/MatrixSetupExplainer.vue'
-import ChatPassphraseSetup from './setup/ChatPassphraseSetup.vue'
 import MatrixConnectionFlow from './setup/MatrixConnectionFlow.vue'
 import EncryptionWarningBanner from './encryption/EncryptionWarningBanner.vue'
 
@@ -289,9 +257,7 @@ const {
 } = useMatrixEncryption()
 
 // Setup flow state
-const setupStep = ref<'education' | 'explainer' | 'passphrase' | 'connection'>('education')
-const setupPassphrase = ref('')
-const encryptionInfoDismissed = ref(false)
+const setupStep = ref<'education' | 'connection'>('education')
 const deviceVerificationDismissed = ref(false)
 
 // Recovery key display state
@@ -311,11 +277,6 @@ const homeserverUrl = computed(() => {
   return (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'https://matrix.openmeet.net'
 })
 
-// Show encryption info for unencrypted mode (optional, dismissible)
-const showEncryptionInfo = computed(() => {
-  return !encryptionInfoDismissed.value
-})
-
 // Override needsEncryptionSetup to force setup after reset
 // Note: Only show encryption setup for recovery key needs, not device verification
 const shouldShowEncryptionSetup = computed(() => {
@@ -333,9 +294,17 @@ const debugState = computed(() => {
     needsEncryptionSetup: needsEncryptionSetup.value,
     isReadyUnencrypted: isReadyUnencrypted.value,
     isReadyEncrypted: isReadyEncrypted.value,
+    needsBanner: needsBanner.value,
+    warningMessage: warningMessage.value,
+    encryptionState: encryptionStatus.value?.state,
     requiresUserAction: requiresUserAction.value
   }
 })
+
+// Log debug state when it changes
+watch(debugState, (newState) => {
+  console.log('🔍 Encryption state debug:', newState)
+}, { deep: true })
 
 // Actions
 const connectToMatrix = async () => {
@@ -361,21 +330,7 @@ const connectToMatrix = async () => {
 
 // Setup flow handlers
 const handleEducationComplete = () => {
-  setupStep.value = 'explainer'
-}
-
-const handleSetupExplainerComplete = () => {
-  setupStep.value = 'passphrase'
-}
-
-const handlePassphraseComplete = (passphrase: string) => {
-  logger.debug('🔑 User completed passphrase setup - continuing to connection step')
-  setupPassphrase.value = passphrase
   setupStep.value = 'connection'
-
-  // DON'T clear the user reset flag yet - wait until full encryption setup is complete
-  // This ensures we don't fall back to unlock flow before completing setup
-  logger.debug('🔒 Keeping user reset flag until full encryption setup completes')
 }
 
 const handleConnectionComplete = async () => {
@@ -400,64 +355,51 @@ const handleConnectionComplete = async () => {
       }
     }
 
-    // Now perform the actual encryption setup with the passphrase
-    logger.debug('🔐 Setting up encryption with user passphrase...')
+    // Now perform the actual encryption setup with generated recovery key
+    logger.debug('Setting up encryption with generated recovery key...')
     const client = matrixClientService.getClient()
-    if (client && setupPassphrase.value) {
+    if (client) {
       try {
         const crypto = client.getCrypto()
         if (crypto) {
-          logger.debug('🔐 Bootstrapping secret storage and cross-signing with passphrase...')
+          logger.debug('Bootstrapping secret storage and cross-signing...')
 
           // Use our MatrixSecretStorageService to properly set up encryption
           const secretStorageService = new MatrixSecretStorageService(client)
-          const result = await secretStorageService.setupSecretStorage(setupPassphrase.value, forceSetupAfterReset.value)
+          const result = await secretStorageService.setupSecretStorage(forceSetupAfterReset.value)
 
           if (result.success) {
-            logger.debug('✅ Secret storage and key backup setup completed successfully')
+            logger.debug('Secret storage and key backup setup completed successfully')
 
             // Clear the force setup flag since encryption is now properly configured
             forceSetupAfterReset.value = false
-            logger.debug('🔓 Cleared force setup flag - encryption setup completed')
+            logger.debug('Cleared force setup flag - encryption setup completed')
 
             if (result.recoveryKey) {
-              logger.debug('🔑 Recovery key generated:', result.recoveryKey)
+              logger.debug('Recovery key generated')
               recoveryKey.value = result.recoveryKey
               showRecoveryKeyDialog.value = true
-              logger.debug('🔑 Recovery key dialog will be displayed to user')
+              logger.debug('Recovery key dialog will be displayed to user')
             }
           } else {
             throw new Error(`Failed to set up secret storage: ${result.error}`)
           }
         }
       } catch (error) {
-        logger.error('❌ Failed to set up encryption:', error)
+        logger.error('Failed to set up encryption:', error)
         // Keep the reset flag so user can try again
-        logger.debug('🔒 Keeping user reset flag due to encryption setup failure')
+        logger.debug('Keeping user reset flag due to encryption setup failure')
       }
     } else {
-      logger.error('❌ No client or passphrase available for encryption setup')
+      logger.error('No client available for encryption setup')
     }
 
     // Wait a moment for secret storage to fully commit, then re-check encryption state
-    logger.debug('🔍 Waiting for secret storage to commit, then re-checking encryption state')
     await new Promise(resolve => setTimeout(resolve, 1000))
     await checkEncryptionState(props.inlineRoomId)
 
-    // Debug the current state after completion
-    const currentState = await matrixEncryptionState.getEncryptionState(matrixClientService.getClient())
-    logger.debug('🔍 Post-setup encryption state:', {
-      state: currentState.state,
-      canChat: currentState.details.canChat,
-      requiresUserAction: currentState.requiresUserAction,
-      warningMessage: currentState.warningMessage,
-      forceSetupAfterReset: forceSetupAfterReset.value,
-      shouldShowEncryptionSetup: shouldShowEncryptionSetup.value
-    })
-
     // Reset setup step for next time
     setupStep.value = 'education'
-    setupPassphrase.value = ''
   } catch (error) {
     logger.error('Failed to complete Matrix connection:', error)
   }
@@ -473,13 +415,13 @@ const goBackToUnencryptedRooms = () => {
 
 // Device verification handlers
 const continueWithoutVerification = () => {
-  logger.debug('✅ User chose to continue chatting without device verification')
+  logger.debug('User chose to continue chatting without device verification')
   // Mark device verification as dismissed to show chat interface
   deviceVerificationDismissed.value = true
 }
 
 const startDeviceVerification = async () => {
-  logger.debug('🔐 User chose to start device verification')
+  logger.debug('User chose to start device verification')
 
   try {
     const client = matrixClientService.getClient()
@@ -512,12 +454,6 @@ const startDeviceVerification = async () => {
   } catch (error) {
     logger.error('Failed to verify device:', error)
   }
-}
-
-// Encryption info handlers
-const dismissEncryptionInfo = () => {
-  logger.debug('👍 User dismissed encryption info')
-  encryptionInfoDismissed.value = true
 }
 
 // Element Web style banner handlers
@@ -607,7 +543,6 @@ onMounted(async () => {
 
     // Reset to the education step to restart the setup flow
     setupStep.value = 'education'
-    setupPassphrase.value = ''
 
     // Force the encryption setup UI to show after reset
     forceSetupAfterReset.value = true
@@ -634,7 +569,6 @@ onMounted(async () => {
     // Force the setup flow to show
     forceSetupAfterReset.value = true
     setupStep.value = 'education'
-    setupPassphrase.value = ''
 
     // Refresh encryption state to show setup UI
     await refreshState()

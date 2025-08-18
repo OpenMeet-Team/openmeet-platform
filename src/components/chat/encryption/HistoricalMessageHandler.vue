@@ -1,11 +1,5 @@
 <template>
   <div class="historical-message-handler">
-    <!-- Debug Banner (temporary) -->
-    <div v-if="true" style="background: yellow; padding: 8px; margin: 8px; border: 2px solid red;">
-      🔐 DEBUG: needsUnlock={{needsUnlock}}, hasBackup={{status.hasBackup}}, isUnlocked={{status.isUnlocked}}, showUnlockDialog={{showUnlockDialog}}, bannerDismissed={{bannerDismissed}}, showStatus={{props.showStatus}}
-      <br>
-      💡 Status: {{ status.hasBackup ? 'Key backup exists - can unlock' : 'No key backup - need initial setup' }}
-    </div>
 
     <!-- Setup Encryption Banner (when no backup exists) -->
     <div
@@ -14,7 +8,7 @@
     >
       <div class="banner-content">
         <div class="banner-icon">
-          <LockClosedIcon class="icon" />
+          <q-icon name="fas fa-shield-alt" class="icon" />
         </div>
         <div class="banner-text">
           <h4 class="banner-title">Encryption Setup Required</h4>
@@ -27,10 +21,22 @@
             class="setup-button"
             @click="() => triggerEncryptionSetup()"
           >
-            <KeyIcon class="button-icon" />
+            <q-icon name="fas fa-key" class="button-icon" />
             Set Up Encryption
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Debug: Force show banner button (temporary) -->
+    <div v-if="!shouldShowBanner && needsUnlock" style="background: yellow; padding: 8px; margin: 8px; border-radius: 4px;">
+      <strong>🐛 DEBUG: Banner hidden but needsUnlock=true</strong>
+      <button @click="() => promptForPassphrase()" style="margin-left: 8px;">Force Show Unlock Dialog</button>
+      <div style="font-size: 12px; margin-top: 4px;">
+        needsUnlock: {{ needsUnlock }},
+        isCurrentRoomEncrypted: {{ isCurrentRoomEncrypted }},
+        showStatus: {{ props.showStatus }},
+        roomId: {{ props.roomId }}
       </div>
     </div>
 
@@ -41,7 +47,7 @@
     >
       <div class="banner-content">
         <div class="banner-icon">
-          <LockClosedIcon class="icon" />
+          <q-icon name="fas fa-unlock" class="icon" />
         </div>
         <div class="banner-text">
           <h4 class="banner-title">Historical Messages Available</h4>
@@ -55,7 +61,7 @@
             @click="() => promptForPassphrase()"
             :disabled="!canAttemptUnlock"
           >
-            <KeyIcon class="button-icon" />
+            <q-icon name="fas fa-key" class="button-icon" />
             Unlock Messages
           </button>
           <button
@@ -63,7 +69,7 @@
             @click="dismissBanner"
             title="Dismiss"
           >
-            <XMarkIcon class="button-icon" />
+            <q-icon name="fas fa-times" class="button-icon" />
           </button>
         </div>
       </div>
@@ -74,7 +80,7 @@
       v-if="status.isUnlocked"
       class="status-indicator unlocked"
     >
-      <CheckCircleIcon class="status-icon" />
+      <q-icon name="fas fa-check-circle" class="status-icon" />
       <span class="status-text">Historical messages unlocked</span>
     </div>
 
@@ -85,7 +91,7 @@
     >
       <div class="banner-content">
         <div class="banner-icon error">
-          <ExclamationTriangleIcon class="icon" />
+          <q-icon name="fas fa-exclamation-triangle" class="icon" />
         </div>
         <div class="banner-text">
           <h4 class="banner-title">Encryption Error</h4>
@@ -96,14 +102,14 @@
             class="retry-button"
             @click="handleRetry"
           >
-            <ArrowPathIcon class="button-icon" />
+            <q-icon name="fas fa-redo" class="button-icon" />
             Retry
           </button>
           <button
             class="dismiss-button"
             @click="dismissError"
           >
-            <XMarkIcon class="button-icon" />
+            <q-icon name="fas fa-times" class="button-icon" />
           </button>
         </div>
       </div>
@@ -126,18 +132,13 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useHistoricalMessageDecryption } from '../../../composables/useHistoricalMessageDecryption'
 import PassphraseUnlockDialog from './PassphraseUnlockDialog.vue'
 import { matrixClientService } from '../../../services/matrixClientService'
+import { matrixEncryptionState } from '../../../services/matrixEncryptionState'
 import { logger } from '../../../utils/logger'
-// Icon placeholders - replace with actual icons from your project
-const LockClosedIcon = 'div'
-const KeyIcon = 'div'
-const XMarkIcon = 'div'
-const CheckCircleIcon = 'div'
-const ExclamationTriangleIcon = 'div'
-const ArrowPathIcon = 'div'
 
 interface Props {
   autoPrompt?: boolean
   showStatus?: boolean
+  roomId?: string // Add room ID to check if room is encrypted
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -163,17 +164,71 @@ const {
 // Local state
 const bannerDismissed = ref(false)
 const errorDismissed = ref(false)
+const isCurrentRoomEncrypted = ref(false)
+
+// Check if current room is encrypted
+const checkRoomEncryption = async () => {
+  if (!props.roomId) {
+    isCurrentRoomEncrypted.value = false
+    return
+  }
+
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      isCurrentRoomEncrypted.value = false
+      return
+    }
+
+    const encryptionStatus = await matrixEncryptionState.getEncryptionState(client, props.roomId)
+    isCurrentRoomEncrypted.value = encryptionStatus.details.isInEncryptedRoom ?? false
+
+    logger.debug('🔍 Room encryption check for historical messages:', {
+      roomId: props.roomId,
+      isEncrypted: isCurrentRoomEncrypted.value
+    })
+  } catch (error) {
+    logger.debug('Failed to check room encryption for historical messages:', error)
+    isCurrentRoomEncrypted.value = false
+  }
+}
 
 // Debug computed for banner visibility
 const shouldShowBanner = computed(() => {
-  const result = needsUnlock.value && !showUnlockDialog.value && !bannerDismissed.value && props.showStatus
+  // Don't show banner if:
+  // 1. User doesn't need unlock (needsUnlock includes isUnlocked check), OR
+  // 2. Unlock dialog is already showing, OR
+  // 3. User dismissed the banner, OR
+  // 4. showStatus is disabled, OR
+  // 5. Room is not encrypted (banner not useful)
+  const result = needsUnlock.value &&
+                 !showUnlockDialog.value &&
+                 !bannerDismissed.value &&
+                 props.showStatus &&
+                 isCurrentRoomEncrypted.value // Only show in encrypted rooms
+
   logger.debug('🔐 Banner visibility computed:', {
     needsUnlock: needsUnlock.value,
     showUnlockDialog: showUnlockDialog.value,
     bannerDismissed: bannerDismissed.value,
     showStatus: props.showStatus,
+    isCurrentRoomEncrypted: isCurrentRoomEncrypted.value,
+    isUnlocked: status.value.isUnlocked,
+    hasBackup: status.value.hasBackup,
+    roomId: props.roomId,
     result
   })
+
+  // Log when banner should show but doesn't
+  if (!result && needsUnlock.value) {
+    logger.warn('🚨 Banner should show but is hidden due to:', {
+      showUnlockDialog: showUnlockDialog.value ? 'BLOCKING: unlock dialog showing' : 'OK',
+      bannerDismissed: bannerDismissed.value ? 'BLOCKING: banner dismissed' : 'OK',
+      showStatus: props.showStatus ? 'OK' : 'BLOCKING: showStatus disabled',
+      isCurrentRoomEncrypted: isCurrentRoomEncrypted.value ? 'OK' : 'BLOCKING: room not encrypted',
+      roomId: props.roomId || 'MISSING'
+    })
+  }
   return result
 })
 
@@ -186,6 +241,9 @@ onMounted(async () => {
 
   // Initialize the decryption system
   await initialize()
+
+  // Check if current room is encrypted
+  await checkRoomEncryption()
 
   // Set up event listeners for encryption events
   setupEventListeners()
@@ -226,21 +284,27 @@ onUnmounted(() => {
 const setupEventListeners = () => {
   encryptionReadyListener = () => {
     // Refresh status when encryption becomes ready
+    logger.debug('🔐 Encryption ready event received, refreshing decryption status')
     refresh()
   }
 
   encryptionFailedListener = (event: CustomEvent) => {
     // Handle encryption failures
-    console.warn('Encryption failed event:', event.detail)
+    logger.warn('Encryption failed event:', event.detail)
   }
 
+  // Listen for Matrix encryption events
   window.addEventListener('matrix-encryption-ready', encryptionReadyListener)
   window.addEventListener('matrix-encryption-failed', encryptionFailedListener as (event: Event) => void)
+
+  // Also listen for secret storage unlock events
+  window.addEventListener('matrix-secret-storage-ready', encryptionReadyListener)
 }
 
 const cleanupEventListeners = () => {
   if (encryptionReadyListener) {
     window.removeEventListener('matrix-encryption-ready', encryptionReadyListener)
+    window.removeEventListener('matrix-secret-storage-ready', encryptionReadyListener)
   }
   if (encryptionFailedListener) {
     window.removeEventListener('matrix-encryption-failed', encryptionFailedListener as (event: Event) => void)

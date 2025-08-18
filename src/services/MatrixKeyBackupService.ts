@@ -292,29 +292,53 @@ export class MatrixKeyBackupService {
     try {
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) {
+        logger.debug('No crypto available, cannot decrypt from backup')
         return false
       }
 
-      // Add defensive checks to prevent null pointer errors in Rust WASM
-      let isSecretStorageReady = false
-      let isCrossSigningReady = false
+      // First check if we have a key backup at all
+      const keyBackupInfo = await crypto.getKeyBackupInfo()
+      if (!keyBackupInfo) {
+        logger.debug('No key backup available, cannot decrypt')
+        return false
+      }
 
+      logger.debug('Key backup info found:', {
+        version: keyBackupInfo.version,
+        algorithm: keyBackupInfo.algorithm
+      })
+
+      // Check if secret storage is ready (needed to access backup decryption key)
+      let isSecretStorageReady = false
       try {
         isSecretStorageReady = await crypto.isSecretStorageReady()
       } catch (secretStorageError) {
-        logger.debug('Secret storage ready check failed (non-fatal):', secretStorageError)
+        logger.debug('Secret storage ready check failed:', secretStorageError)
         isSecretStorageReady = false
       }
 
+      // Check if we have the backup decryption key cached
+      let hasBackupDecryptionKey = false
       try {
-        isCrossSigningReady = await crypto.isCrossSigningReady()
-      } catch (crossSigningError) {
-        logger.debug('Cross-signing ready check failed (non-fatal):', crossSigningError)
-        isCrossSigningReady = false
+        // Try to check if we can decrypt from backup by checking if we have the key
+        const backupVersion = await crypto.getActiveSessionBackupVersion()
+        hasBackupDecryptionKey = backupVersion === keyBackupInfo.version
+      } catch (backupKeyError) {
+        logger.debug('Backup decryption key check failed:', backupKeyError)
+        hasBackupDecryptionKey = false
       }
 
-      // If both secret storage and cross-signing are ready, we can decrypt
-      return isSecretStorageReady && isCrossSigningReady
+      logger.debug('Backup decryption capability check:', {
+        isSecretStorageReady,
+        hasBackupDecryptionKey,
+        canDecrypt: isSecretStorageReady && hasBackupDecryptionKey
+      })
+
+      // We can decrypt if BOTH:
+      // 1. Secret storage is ready (we have access to backup keys), AND
+      // 2. We have the backup decryption key cached locally
+      // Just having secret storage ready doesn't mean backup decryption is working
+      return isSecretStorageReady && hasBackupDecryptionKey
     } catch (error) {
       logger.error('Failed to check backup decryption capability:', error)
       return false

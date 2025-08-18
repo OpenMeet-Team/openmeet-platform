@@ -93,6 +93,7 @@
         v-if="isConnected"
         :auto-prompt="true"
         :show-status="true"
+        :room-id="props.roomId"
       />
 
       <!-- Messages -->

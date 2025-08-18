@@ -188,22 +188,13 @@ const validateInput = async (input: string) => {
     validationState.value = 'validating'
     isValidating.value = true
 
-    const inputType = secretStorageService.detectInputType(input)
-    logger.debug(`Input detected as: ${inputType}`)
-
-    let keyParams
-    if (inputType === 'recoveryKey') {
-      keyParams = { recoveryKey: input }
-    } else if (inputType === 'passphrase') {
-      keyParams = { passphrase: input }
-    } else {
-      // Try both formats
-      keyParams = { recoveryKey: input }
-      const isValidRecovery = await secretStorageService.validateSecretStorageKey(keyParams)
-      if (!isValidRecovery) {
-        keyParams = { passphrase: input }
-      }
+    const isValidFormat = secretStorageService.isValidRecoveryKeyFormat(input)
+    if (!isValidFormat) {
+      validationState.value = 'invalid'
+      return
     }
+
+    const keyParams = { recoveryKey: input }
 
     const isValid = await secretStorageService.validateSecretStorageKey(keyParams)
     validationState.value = isValid ? 'valid' : 'invalid'

@@ -50,6 +50,7 @@ export interface MatrixEncryptionStatus {
 export class MatrixEncryptionStateService {
   // Simplified flags
   private encryptionSkipped = false
+  private knownEncryptedRooms = new Set<string>() // Cache of confirmed encrypted rooms
 
   constructor () {
     logger.debug('🔍 Simplified MatrixEncryptionStateService initialized - unencrypted-first approach')
@@ -69,6 +70,14 @@ export class MatrixEncryptionStateService {
   clearEncryptionSkipped (): void {
     this.encryptionSkipped = false
     logger.debug('🔄 Encryption skipped flag cleared')
+  }
+
+  /**
+   * Clear the encrypted rooms cache (for encryption resets)
+   */
+  clearEncryptedRoomsCache (): void {
+    this.knownEncryptedRooms.clear()
+    logger.debug('🔄 Encrypted rooms cache cleared')
   }
 
   /**
@@ -363,10 +372,23 @@ export class MatrixEncryptionStateService {
         return false
       }
 
+      // Check cache first - if we know this room is encrypted, stick with that
+      if (this.knownEncryptedRooms.has(actualRoomId)) {
+        logger.debug('✅ Room encryption from cache:', { roomId: actualRoomId, isEncrypted: true })
+        return true
+      }
+
       // Now check encryption status with the actual room ID
       try {
         const isEncrypted = await crypto.isEncryptionEnabledInRoom(actualRoomId)
         logger.debug('🔍 Room encryption check result:', { roomId: actualRoomId, isEncrypted })
+
+        // Cache positive results to prevent flapping
+        if (isEncrypted) {
+          this.knownEncryptedRooms.add(actualRoomId)
+          logger.debug('📝 Cached encrypted room:', actualRoomId)
+        }
+
         return isEncrypted
       } catch (encryptionCheckError) {
         logger.debug('⚠️ Encryption check failed for room (treating as unencrypted):', {
