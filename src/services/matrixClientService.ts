@@ -2227,26 +2227,10 @@ class MatrixClientService {
 
       logger.debug('🏠 Generated group room alias:', roomAlias, 'for group:', groupSlug, 'tenant:', tenantId)
 
-      // First, ensure the room exists by querying the alias
-      // This will trigger Application Service room creation if the room doesn't exist
-      let roomId: string
-      try {
-        logger.debug('🔍 Resolving room alias to trigger Application Service if needed...')
-        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
-        roomId = aliasResult.room_id
-        logger.debug('✅ Room alias resolved to room ID:', roomId)
-      } catch (aliasError) {
-        logger.debug('⚠️ Room alias not found, attempting direct join which may trigger creation')
-        // If alias resolution fails, the room might not exist yet
-        // Try to join directly - the appservice should still be triggered
-        const room = await this.joinRoom(roomAlias)
-        roomId = room.roomId
-        logger.debug('✅ Direct join successful, room ID:', roomId)
-      }
-
-      // Now join the room using the resolved room ID
-      logger.debug('🔗 Joining room with ID:', roomId)
-      const room = await this.joinRoom(roomId)
+      // Always join via room alias to ensure appservice receives the join attempt
+      // for membership validation and auto-invitation. Room ID joins bypass appservice.
+      logger.debug('🔗 Joining room via alias to trigger appservice:', roomAlias)
+      const room = await this.joinRoom(roomAlias)
 
       logger.debug('✅ Successfully joined group chat room!')
       logger.debug('✅ Room alias:', roomAlias)
