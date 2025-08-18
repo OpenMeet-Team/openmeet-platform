@@ -454,6 +454,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
 import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
+import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionService'
@@ -1769,6 +1770,35 @@ const loadOlderMessages = async () => {
 // Prevent duplicate loading
 const isLoading = ref(false)
 
+/**
+ * Handle crypto events for timeline refresh (Element Web pattern)
+ */
+const onKeyBackupStatus = (enabled: boolean) => {
+  logger.debug(`🔑 Key backup status changed: ${enabled} - refreshing timeline`)
+  // Element Web calls forceUpdate(), we reload messages
+  if (enabled && messages.value.length > 0) {
+    loadMessages().catch(error => logger.error('Failed to refresh after backup status change:', error))
+  }
+}
+
+const onEventDecrypted = (event: MatrixEvent) => {
+  logger.debug(`🔓 Event decrypted: ${event.getId()} - checking if timeline refresh needed`)
+  // If the decrypted event is in current room, we might want to refresh
+  if (event.getRoomId() === props.roomId && !event.isDecryptionFailure()) {
+    // Element Web doesn't reload timeline here, but our messages might need updating
+    // Only refresh if we have encrypted messages that might now be decryptable
+    logger.debug('✅ Event successfully decrypted for current room')
+  }
+}
+
+const onKeysChanged = () => {
+  logger.debug('🔑 Cross-signing keys changed - checking if timeline refresh needed')
+  // This could indicate successful key restore, refresh if we have messages
+  if (messages.value.length > 0) {
+    loadMessages().catch(error => logger.error('Failed to refresh after keys changed:', error))
+  }
+}
+
 const loadMessages = async () => {
   if (isLoading.value) {
     // Already loading messages, skipping duplicate call
@@ -2044,6 +2074,11 @@ const setupMatrixEventListeners = () => {
 
   // Listen for sync state changes to retry room resolution
   client.on(ClientEvent.Sync, handleSyncStateChange)
+
+  // Listen for crypto events to refresh timeline when decryption becomes available (Element Web pattern)
+  client.on(CryptoEvent.KeyBackupStatus, onKeyBackupStatus)
+  client.on(CryptoEvent.KeysChanged, onKeysChanged)
+  client.on(MatrixEventEvent.Decrypted, onEventDecrypted)
 
   // Listen for live timeline events (new messages) - following Element Web's pattern
   const handleTimelineEvent = async (

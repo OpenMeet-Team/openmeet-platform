@@ -153,6 +153,82 @@
       <p>Unexpected encryption state. Please refresh the page.</p>
       <q-btn @click="refreshState" label="Refresh" />
     </div>
+
+    <!-- Recovery Key Dialog -->
+    <q-dialog
+      v-model="showRecoveryKeyDialog"
+      persistent
+      maximized
+      transition-show="slide-up"
+      transition-hide="slide-down"
+    >
+      <q-card class="recovery-key-dialog">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">
+            <q-icon name="fas fa-key" color="orange" class="q-mr-sm" />
+            Save Your Recovery Key
+          </div>
+        </q-card-section>
+
+        <q-card-section>
+          <div class="recovery-key-content">
+            <div class="text-body1 q-mb-md">
+              <strong>Your encryption is now set up!</strong>
+              Here's your recovery key - you'll need this to unlock your encrypted messages if you forget your passphrase.
+            </div>
+
+            <q-banner class="bg-orange-1 text-orange-8 q-mb-md">
+              <template v-slot:avatar>
+                <q-icon name="fas fa-exclamation-triangle" color="orange" />
+              </template>
+              <strong>Important:</strong> Store this key safely in your password manager.
+              You won't see it again and you'll need it to recover your messages!
+            </q-banner>
+
+            <q-card flat class="recovery-key-card q-mb-md">
+              <q-card-section>
+                <div class="recovery-key-text">{{ recoveryKey }}</div>
+                <div class="recovery-key-actions q-mt-md">
+                  <q-btn
+                    flat
+                    color="primary"
+                    icon="fas fa-copy"
+                    label="Copy Key"
+                    @click="copyRecoveryKey"
+                    class="q-mr-sm"
+                  />
+                  <q-btn
+                    flat
+                    color="grey-7"
+                    icon="fas fa-download"
+                    label="Download"
+                    @click="downloadRecoveryKey"
+                  />
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <q-checkbox
+              v-model="recoveryKeySaved"
+              color="green"
+              label="I have saved my recovery key safely"
+              class="q-mb-md"
+            />
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            unelevated
+            color="green"
+            label="Continue to Chat"
+            @click="closeRecoveryKeyDialog"
+            :disable="!recoveryKeySaved"
+            icon="fas fa-comments"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -217,6 +293,11 @@ const setupStep = ref<'education' | 'explainer' | 'passphrase' | 'connection'>('
 const setupPassphrase = ref('')
 const encryptionInfoDismissed = ref(false)
 const deviceVerificationDismissed = ref(false)
+
+// Recovery key display state
+const recoveryKey = ref('')
+const showRecoveryKeyDialog = ref(false)
+const recoveryKeySaved = ref(false)
 
 // Flag to force encryption setup after reset
 const forceSetupAfterReset = ref(false)
@@ -341,11 +422,9 @@ const handleConnectionComplete = async () => {
 
             if (result.recoveryKey) {
               logger.debug('🔑 Recovery key generated:', result.recoveryKey)
-              // TODO: Show recovery key to user for saving in password manager
-              // For now, just log it so user can copy from console
-              console.log('🔑 IMPORTANT: Save this recovery key in your password manager:')
-              console.log(result.recoveryKey)
-              console.log('You can use this recovery key to restore access if you forget your passphrase.')
+              recoveryKey.value = result.recoveryKey
+              showRecoveryKeyDialog.value = true
+              logger.debug('🔑 Recovery key dialog will be displayed to user')
             }
           } else {
             throw new Error(`Failed to set up secret storage: ${result.error}`)
@@ -472,6 +551,49 @@ const handleEncryptionAction = (state: string) => {
     default:
       logger.warn('Unknown encryption action state:', state)
   }
+}
+
+// Recovery key dialog methods
+const closeRecoveryKeyDialog = () => {
+  if (recoveryKeySaved.value) {
+    showRecoveryKeyDialog.value = false
+    recoveryKey.value = ''
+    recoveryKeySaved.value = false
+  }
+}
+
+const copyRecoveryKey = async () => {
+  try {
+    await navigator.clipboard.writeText(recoveryKey.value)
+    logger.debug('✅ Recovery key copied to clipboard')
+  } catch (error) {
+    logger.error('❌ Failed to copy recovery key:', error)
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea')
+    textArea.value = recoveryKey.value
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+  }
+}
+
+const downloadRecoveryKey = () => {
+  const element = document.createElement('a')
+  const file = new Blob([
+    'OpenMeet Recovery Key\n',
+    `Generated: ${new Date().toISOString()}\n`,
+    '\n',
+    `Recovery Key:\n${recoveryKey.value}\n`,
+    '\n',
+    'IMPORTANT: Store this key safely. You need it to unlock your encrypted messages if you forget your passphrase.\n'
+  ], { type: 'text/plain' })
+  element.href = URL.createObjectURL(file)
+  element.download = `openmeet-recovery-key-${new Date().toISOString().split('T')[0]}.txt`
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
+  URL.revokeObjectURL(element.href)
 }
 
 // Initialize
@@ -604,5 +726,54 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 1rem;
   text-align: center;
+}
+
+/* Recovery Key Dialog Styles */
+.recovery-key-dialog {
+  max-width: 600px;
+  margin: auto;
+  max-height: 90vh;
+}
+
+.recovery-key-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.recovery-key-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+}
+
+.recovery-key-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 12px;
+  word-break: break-all;
+  line-height: 1.4;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.recovery-key-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Dark mode support */
+.body--dark .recovery-key-card {
+  background: #2d2d2d;
+  border-color: #3a3a3a;
+}
+
+.body--dark .recovery-key-text {
+  background: #1a1a1a;
+  border-color: #4a4a4a;
+  color: #e5e7eb;
 }
 </style>

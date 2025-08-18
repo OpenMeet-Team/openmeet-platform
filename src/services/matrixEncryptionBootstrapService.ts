@@ -6,6 +6,7 @@
  */
 
 import type { MatrixClient } from 'matrix-js-sdk'
+import { encodeRecoveryKey } from 'matrix-js-sdk/lib/crypto-api'
 import { logger } from '../utils/logger'
 
 // Use any for crypto API to avoid Matrix SDK internal import issues
@@ -16,6 +17,7 @@ export interface EncryptionBootstrapResult {
   success: boolean
   error?: string
   step?: string
+  recoveryKey?: string // The base58-encoded recovery key that user must save
 }
 
 export interface PassphraseValidationResult {
@@ -131,13 +133,16 @@ export class MatrixEncryptionBootstrapService {
       // Perform bootstrap operations with timeout
       const bootstrapPromise = this.performBootstrap(crypto, passphrase)
 
-      await Promise.race([bootstrapPromise, timeoutPromise])
+      const encodedRecoveryKey = await Promise.race([bootstrapPromise, timeoutPromise])
 
       // Note: For security, we don't store passphrases persistently in localStorage
       // Instead, Matrix SDK handles secret storage internally using secure key derivation
       logger.debug('✅ Encryption bootstrap completed - Matrix SDK will handle key restoration automatically')
 
-      return { success: true }
+      return {
+        success: true,
+        recoveryKey: encodedRecoveryKey
+      }
     } catch (error) {
       logger.error('Encryption bootstrap failed:', error)
 
@@ -160,7 +165,7 @@ export class MatrixEncryptionBootstrapService {
     }
   }
 
-  private async performBootstrap (crypto: CryptoApi, passphrase: string): Promise<void> {
+  private async performBootstrap (crypto: CryptoApi, passphrase: string): Promise<string> {
     try {
       // Step 1: Create recovery key from passphrase
       const recoveryKey = await crypto.createRecoveryKeyFromPassphrase(passphrase)
@@ -285,6 +290,19 @@ export class MatrixEncryptionBootstrapService {
 
       // Step 4: Auto-verify this OpenMeet device (security-first approach for first device)
       await this.autoVerifyFirstOpenMeetDevice(crypto)
+
+      // Step 5: Encode recovery key for user display
+      const encodedRecoveryKey = encodeRecoveryKey(keyData)
+      if (!encodedRecoveryKey) {
+        throw new Error('Failed to encode recovery key for user display')
+      }
+
+      logger.debug('✅ Recovery key encoded for user display', {
+        encodedKeyLength: encodedRecoveryKey.length,
+        keyPreview: encodedRecoveryKey.substring(0, 20) + '...'
+      })
+
+      return encodedRecoveryKey
     } catch (error) {
       logger.error('Bootstrap step failed:', error)
       throw error
