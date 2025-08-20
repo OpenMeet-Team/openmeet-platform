@@ -288,7 +288,27 @@ export class MatrixEncryptionBootstrapService {
       })
       logger.debug('✅ Cross-signing bootstrapped')
 
-      // Step 4: Auto-verify this OpenMeet device (security-first approach for first device)
+      // Step 4: Wait for cross-signing to be fully ready
+      let crossSigningReady = false
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+          crossSigningReady = await crypto.isCrossSigningReady()
+          if (crossSigningReady) {
+            logger.debug(`✅ Cross-signing ready on attempt ${attempt}`)
+            break
+          }
+          logger.debug(`⏳ Cross-signing not ready yet, attempt ${attempt}/5`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (error) {
+          logger.debug(`❌ Cross-signing check failed on attempt ${attempt}:`, error)
+        }
+      }
+
+      if (!crossSigningReady) {
+        logger.warn('⚠️ Cross-signing not ready after 5 attempts, continuing anyway')
+      }
+
+      // Step 5: Auto-verify this OpenMeet device (security-first approach for first device)
       await this.autoVerifyFirstOpenMeetDevice(crypto)
 
       // Step 5: Encode recovery key for user display

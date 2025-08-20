@@ -111,7 +111,29 @@
                 </q-item-section>
 
                 <q-item-section>
-                  <q-item-label>{{ device.displayName }}</q-item-label>
+                  <q-item-label>
+                    {{ device.displayName }}
+                    <q-chip
+                      v-if="device.verified"
+                      size="sm"
+                      color="green"
+                      text-color="white"
+                      icon="fas fa-shield-check"
+                      class="q-ml-sm"
+                    >
+                      Verified
+                    </q-chip>
+                    <q-chip
+                      v-else
+                      size="sm"
+                      color="orange"
+                      text-color="white"
+                      icon="fas fa-shield-exclamation"
+                      class="q-ml-sm"
+                    >
+                      Unverified
+                    </q-chip>
+                  </q-item-label>
                   <q-item-label caption>
                     Device ID: {{ device.deviceId }}
                     <span v-if="device.isCurrentDevice">(Current Device)</span>

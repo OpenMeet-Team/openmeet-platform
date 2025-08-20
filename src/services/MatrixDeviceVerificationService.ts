@@ -375,7 +375,7 @@ export class MatrixDeviceVerificationService {
   /**
    * Get all devices for the current user
    */
-  public async getAllUserDevices (): Promise<Array<{deviceId: string, displayName?: string, isCurrentDevice: boolean}>> {
+  public async getAllUserDevices (): Promise<Array<{deviceId: string, displayName?: string, isCurrentDevice: boolean, verified: boolean}>> {
     try {
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) return []
@@ -391,11 +391,25 @@ export class MatrixDeviceVerificationService {
 
       if (!userDevices) return []
 
-      const deviceList = Array.from(userDevices.entries()).map(([deviceId, device]) => ({
-        deviceId,
-        displayName: device.displayName || `Device ${deviceId}`,
-        isCurrentDevice: deviceId === currentDeviceId
-      }))
+      const deviceList = await Promise.all(
+        Array.from(userDevices.entries()).map(async ([deviceId, device]) => {
+          // Check verification status for each device
+          let verified = false
+          try {
+            const verificationStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+            verified = verificationStatus?.isVerified() || false
+          } catch (error) {
+            logger.debug(`Could not check verification for device ${deviceId}:`, error)
+          }
+
+          return {
+            deviceId,
+            displayName: device.displayName || `Device ${deviceId}`,
+            isCurrentDevice: deviceId === currentDeviceId,
+            verified
+          }
+        })
+      )
 
       logger.warn('🔍 Found devices:', deviceList)
       return deviceList
