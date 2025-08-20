@@ -6,8 +6,8 @@
  */
 
 import type { MatrixClient, MatrixEvent } from 'matrix-js-sdk'
+import { ClientEvent } from 'matrix-js-sdk'
 import { CryptoEvent, VerificationPhase } from 'matrix-js-sdk/lib/crypto-api'
-import type { CryptoApi } from 'matrix-js-sdk/lib/crypto-api'
 import { logger } from '../utils/logger'
 
 // Type-safe interfaces for verification
@@ -31,16 +31,6 @@ interface VerificationRequest {
   on(event: string, callback: () => void): void
   done?: boolean
   cancelled?: boolean
-}
-
-interface SyncData {
-  to_device?: {
-    events: Array<{
-      type: string
-      sender: string
-      content: Record<string, unknown>
-    }>
-  }
 }
 
 export interface VerificationRequestInfo {
@@ -89,9 +79,9 @@ export class MatrixDeviceVerificationService {
       const onClientReady = () => {
         logger.warn('🔐 Matrix client is now ready, setting up verification listeners')
         this.setupVerificationListeners()
-        matrixClient.off('sync', onClientReady)
+        matrixClient.off(ClientEvent.Sync, onClientReady)
       }
-      matrixClient.on('sync', onClientReady)
+      matrixClient.on(ClientEvent.Sync, onClientReady)
     }
   }
 
@@ -137,7 +127,7 @@ export class MatrixDeviceVerificationService {
     })
 
     // Debug: Listen for to-device messages (verification requests come as to-device messages)
-    this.matrixClient.on('toDeviceEvent' as string, (event: MatrixEvent) => {
+    this.matrixClient.on(ClientEvent.ToDeviceEvent, (event: MatrixEvent) => {
       if (event.getType().includes('verification')) {
         logger.warn('📨 Received verification-related to-device message:', {
           type: event.getType(),
@@ -148,7 +138,7 @@ export class MatrixDeviceVerificationService {
     })
 
     // Debug: Listen for all to-device messages during debugging
-    this.matrixClient.on('toDeviceEvent' as string, (event: MatrixEvent) => {
+    this.matrixClient.on(ClientEvent.ToDeviceEvent, (event: MatrixEvent) => {
       logger.warn('📨 ALL To-device message received:', {
         type: event.getType(),
         sender: event.getSender(),
@@ -169,15 +159,17 @@ export class MatrixDeviceVerificationService {
     })
 
     // Also listen for sync events to make sure client is syncing
-    this.matrixClient.on('sync', (state: string) => {
+    this.matrixClient.on(ClientEvent.Sync, (state: string) => {
       if (state === 'PREPARED') {
         logger.warn('🔄 Matrix client sync PREPARED - ready to receive to-device messages')
       }
     })
 
     // Listen for device verification status changes
-    this.matrixClient.on(CryptoEvent.DeviceVerificationChanged, (userId: string, deviceId: string) => {
-      logger.warn('🔔 DEVICE VERIFICATION CHANGED:', { userId, deviceId })
+    // Note: DeviceVerificationChanged doesn't exist in current CryptoEvent enum
+    // Using UserTrustStatusChanged instead
+    this.matrixClient.on(CryptoEvent.UserTrustStatusChanged, (userId: string, trustLevel: unknown) => {
+      logger.warn('🔐 USER TRUST STATUS CHANGED:', { userId, trustLevel })
     })
 
     // Listen for user trust status changes (might indicate verification)
@@ -191,7 +183,7 @@ export class MatrixDeviceVerificationService {
       userId: this.matrixClient.getUserId(),
       deviceId: this.matrixClient.getDeviceId(),
       syncState: this.matrixClient.getSyncState(),
-      hasOlmMachine: !!(crypto as CryptoApi)?.olmMachine
+      hasOlmMachine: !!crypto
     })
 
     // DEBUG: Log device info for verification target matching
@@ -224,18 +216,18 @@ export class MatrixDeviceVerificationService {
     // Listen for to-device events - Matrix JS SDK might use different event names
     // Try multiple approaches to catch to-device messages
 
-    // Method 1: Standard to-device event
+    // Method 1: Standard room timeline events
     try {
-      this.matrixClient.on('Room.timeline' as string, (event: MatrixEvent) => {
+      this.matrixClient.on(ClientEvent.Event, (event: MatrixEvent) => {
         if (event.getType()?.includes('m.key.verification')) {
           logger.warn('🔔 ROOM TIMELINE VERIFICATION EVENT:', event.getType(), event.getContent())
         }
       })
     } catch (e) { /* ignore */ }
 
-    // Method 2: Try crypto events on the client directly
+    // Method 2: Try general events on the client directly
     try {
-      this.matrixClient.on('event' as string, (event: MatrixEvent) => {
+      this.matrixClient.on(ClientEvent.Event, (event: MatrixEvent) => {
         const eventType = event.getType()
         if (eventType?.includes('m.key.verification')) {
           logger.warn('🔔 GENERAL EVENT VERIFICATION:', eventType, event.getContent())
@@ -244,11 +236,12 @@ export class MatrixDeviceVerificationService {
     } catch (e) { /* ignore */ }
 
     // Method 3: Listen for sync events that might contain to-device messages
-    this.matrixClient.on('sync' as string, (state: string, prevState: string, data: SyncData) => {
+    this.matrixClient.on(ClientEvent.Sync, (state: string, prevState: string, data: unknown) => {
       // Log ALL to-device events to see what's coming through
-      if (data?.to_device?.events && data.to_device.events.length > 0) {
-        logger.warn('🔔 SYNC HAS TO-DEVICE EVENTS:', data.to_device.events.length)
-        data.to_device.events.forEach((event: { type: string; sender: string; content: Record<string, unknown> }) => {
+      const syncData = data as { to_device?: { events: Array<{ type: string; sender: string; content: Record<string, unknown> }> } }
+      if (syncData?.to_device?.events && syncData.to_device.events.length > 0) {
+        logger.warn('🔔 SYNC HAS TO-DEVICE EVENTS:', syncData.to_device.events.length)
+        syncData.to_device.events.forEach((event: { type: string; sender: string; content: Record<string, unknown> }) => {
           logger.warn('🔔 TO-DEVICE EVENT TYPE:', event.type)
           if (event.type?.includes('verification') || event.type?.includes('key.verification')) {
             logger.warn('🔔 VERIFICATION TO-DEVICE EVENT!', event)
@@ -449,8 +442,8 @@ export class MatrixDeviceVerificationService {
       if (request) {
         logger.warn('✅ Verification request created:', request)
 
-        // Store the request
-        this.activeRequests.set(request.transactionId!, request as VerificationRequest)
+        // Store the request (with proper typing)
+        this.activeRequests.set(request.transactionId!, request as unknown as VerificationRequest)
 
         // Notify listeners
         const requestInfo: VerificationRequestInfo = {
@@ -506,7 +499,7 @@ export class MatrixDeviceVerificationService {
                     otherUserId: member.userId,
                     request
                   })
-                  this.handleVerificationRequest(request as VerificationRequest)
+                  this.handleVerificationRequest(request as unknown as VerificationRequest)
                 }
               } catch (findError) {
                 logger.debug('No verification request for user:', member.userId, findError)

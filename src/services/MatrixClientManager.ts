@@ -954,7 +954,7 @@ export class MatrixClientManager {
       logger.debug('💾 Stored device ID for user:', userId, 'deviceId:', deviceId)
 
       // Also sync with OpenMeet device ID storage if needed
-      const openMeetDeviceId = this.getOpenMeetDeviceId(userId)
+      const openMeetDeviceId = this.getOpenMeetDeviceId()
       if (!openMeetDeviceId || openMeetDeviceId !== deviceId) {
         // Extract user slug from userId for OpenMeet storage
         const match = userId.match(/@([^_]+)_/)
@@ -985,7 +985,7 @@ export class MatrixClientManager {
       }
 
       // Try to get from OpenMeet device ID storage for consistency
-      const openMeetDeviceId = this.getOpenMeetDeviceId(userId)
+      const openMeetDeviceId = this.getOpenMeetDeviceId()
       if (openMeetDeviceId) {
         logger.warn('📱 Using OpenMeet stored device ID:', openMeetDeviceId)
         // Store it in Matrix format for future use
