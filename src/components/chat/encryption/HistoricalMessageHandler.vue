@@ -34,7 +34,7 @@
       <button @click="() => promptForPassphrase()" style="margin-left: 8px;">Force Show Unlock Dialog</button>
       <div style="font-size: 12px; margin-top: 4px;">
         needsUnlock: {{ needsUnlock }},
-        isCurrentRoomEncrypted: {{ isCurrentRoomEncrypted }},
+        isReadyEncrypted: {{ isReadyEncrypted }},
         showStatus: {{ props.showStatus }},
         roomId: {{ props.roomId }}
       </div>
@@ -130,9 +130,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useHistoricalMessageDecryption } from '../../../composables/useHistoricalMessageDecryption'
+import { useMatrixEncryption } from '../../../composables/useMatrixEncryption'
 import PassphraseUnlockDialog from './PassphraseUnlockDialog.vue'
 import { matrixClientService } from '../../../services/matrixClientService'
-import { matrixEncryptionState } from '../../../services/matrixEncryptionState'
 import { logger } from '../../../utils/logger'
 
 interface Props {
@@ -161,58 +161,27 @@ const {
   handleUnlockError
 } = useHistoricalMessageDecryption()
 
+// Matrix encryption state composable (single source of truth)
+const { isReadyEncrypted, checkEncryptionState } = useMatrixEncryption()
+
 // Local state
 const bannerDismissed = ref(false)
 const errorDismissed = ref(false)
-const isCurrentRoomEncrypted = ref(false)
 
-// Check if current room is encrypted
-const checkRoomEncryption = async () => {
-  if (!props.roomId) {
-    isCurrentRoomEncrypted.value = false
-    return
-  }
-
-  try {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      isCurrentRoomEncrypted.value = false
-      return
-    }
-
-    const encryptionStatus = await matrixEncryptionState.getEncryptionState(client, props.roomId)
-    isCurrentRoomEncrypted.value = encryptionStatus.details.isInEncryptedRoom ?? false
-
-    logger.debug('🔍 Room encryption check for historical messages:', {
-      roomId: props.roomId,
-      isEncrypted: isCurrentRoomEncrypted.value
-    })
-  } catch (error) {
-    logger.debug('Failed to check room encryption for historical messages:', error)
-    isCurrentRoomEncrypted.value = false
-  }
-}
-
-// Debug computed for banner visibility
+// Banner visibility logic - only show in encrypted rooms
 const shouldShowBanner = computed(() => {
-  // Don't show banner if:
-  // 1. User doesn't need unlock (needsUnlock includes isUnlocked check), OR
-  // 2. Unlock dialog is already showing, OR
-  // 3. User dismissed the banner, OR
-  // 4. showStatus is disabled, OR
-  // 5. Room is not encrypted (banner not useful)
   const result = needsUnlock.value &&
                  !showUnlockDialog.value &&
                  !bannerDismissed.value &&
                  props.showStatus &&
-                 isCurrentRoomEncrypted.value // Only show in encrypted rooms
+                 isReadyEncrypted.value // Single source of truth for encryption state
 
   logger.debug('🔐 Banner visibility computed:', {
     needsUnlock: needsUnlock.value,
     showUnlockDialog: showUnlockDialog.value,
     bannerDismissed: bannerDismissed.value,
     showStatus: props.showStatus,
-    isCurrentRoomEncrypted: isCurrentRoomEncrypted.value,
+    isReadyEncrypted: isReadyEncrypted.value,
     isUnlocked: status.value.isUnlocked,
     hasBackup: status.value.hasBackup,
     roomId: props.roomId,
@@ -225,7 +194,7 @@ const shouldShowBanner = computed(() => {
       showUnlockDialog: showUnlockDialog.value ? 'BLOCKING: unlock dialog showing' : 'OK',
       bannerDismissed: bannerDismissed.value ? 'BLOCKING: banner dismissed' : 'OK',
       showStatus: props.showStatus ? 'OK' : 'BLOCKING: showStatus disabled',
-      isCurrentRoomEncrypted: isCurrentRoomEncrypted.value ? 'OK' : 'BLOCKING: room not encrypted',
+      isReadyEncrypted: isReadyEncrypted.value ? 'OK' : 'BLOCKING: room not encrypted',
       roomId: props.roomId || 'MISSING'
     })
   }
@@ -242,8 +211,11 @@ onMounted(async () => {
   // Initialize the decryption system
   await initialize()
 
-  // Check if current room is encrypted
-  await checkRoomEncryption()
+  // Check encryption state for this specific room
+  if (props.roomId) {
+    logger.debug('🔍 Checking encryption state for room:', props.roomId)
+    await checkEncryptionState(props.roomId)
+  }
 
   // Set up event listeners for encryption events
   setupEventListeners()

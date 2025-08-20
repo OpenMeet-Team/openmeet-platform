@@ -17,7 +17,7 @@
  */
 
 import type { MatrixClient, MatrixEvent, Room, RoomMember, Preset, Visibility } from 'matrix-js-sdk'
-import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User, completeAuthorizationCodeGrant, generateOidcAuthorizationUrl, discoverAndValidateOIDCIssuerWellKnown } from 'matrix-js-sdk'
+import { RoomEvent, RoomMemberEvent, EventType, ClientEvent, IndexedDBStore, Direction, User, completeAuthorizationCodeGrant, generateOidcAuthorizationUrl, discoverAndValidateOIDCIssuerWellKnown, generateScope } from 'matrix-js-sdk'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { persistOidcAuthenticatedSettings, getStoredOidcTokenIssuer, getStoredOidcClientId, getStoredOidcIdTokenClaims, clearStoredOidcSettings } from '../utils/oidc/persistOidcSettings'
 
@@ -344,9 +344,9 @@ class MatrixClientService {
       // Stop the temporary client
       tempClient.stopClient()
 
-      // Determine final device ID and store it consistently
-      const finalDeviceId = actualDeviceId || this._getStoredDeviceId() || this._generateDeviceId()
-      if (finalDeviceId !== this._getStoredDeviceId()) {
+      // Use device ID from Matrix server or stored device ID (never generate client-side)
+      const finalDeviceId = actualDeviceId || this._getStoredDeviceId()
+      if (finalDeviceId && finalDeviceId !== this._getStoredDeviceId()) {
         this._storeDeviceId(finalDeviceId)
       }
 
@@ -617,7 +617,19 @@ class MatrixClientService {
       const clientRegistration = await this._registerOAuth2Client(masUrl, redirectUrl)
       const clientId = clientRegistration.client_id
 
-      // Step 3: Generate authorization URL using native matrix-js-sdk
+      // Step 3: Check for stored device ID to reuse existing device
+      // Priority: crypto store > localStorage > none (let Matrix generate)
+      const cryptoStoreDeviceId = await this._getCryptoStoreDeviceId()
+      const storedDeviceId = this._getStoredDeviceId()
+      const finalDeviceId = cryptoStoreDeviceId || storedDeviceId
+
+      logger.debug('🔍 Device ID sources for OAuth:', {
+        cryptoStore: cryptoStoreDeviceId,
+        localStorage: storedDeviceId,
+        final: finalDeviceId
+      })
+
+      // Step 4: Generate authorization URL using native matrix-js-sdk
       const nonce = this._generateRandomState()
       const identityServerUrl = getEnv('APP_MATRIX_IDENTITY_SERVER_URL') as string || undefined
 
@@ -632,8 +644,19 @@ class MatrixClientService {
         prompt: undefined // Let MAS decide the flow
       })
 
-      // Enhance SDK-generated URL with tenant context parameters
+      // Step 5: Enhance SDK-generated URL and replace scope if we have stored device ID
       const enhancedUrl = new URL(authorizationUrl)
+
+      if (finalDeviceId) {
+        logger.debug('🔄 Replacing OAuth scope with device ID:', finalDeviceId)
+        const customScope = generateScope(finalDeviceId)
+        enhancedUrl.searchParams.set('scope', customScope)
+        logger.debug('✅ Updated OAuth scope:', customScope)
+      } else {
+        logger.debug('📝 No stored device ID - OAuth will generate new device')
+      }
+
+      // Step 6: Add tenant context parameters
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
       const userEmail = authStore.user?.email
       const userToken = authStore.token // Get user's JWT token for secure authentication
@@ -656,10 +679,11 @@ class MatrixClientService {
         enhancedUrl.searchParams.set('user_token', userToken)
 
         logger.debug('✅ Enhanced OIDC URL with full authentication context:', {
-          baseUrl: authorizationUrl,
+          baseUrl: enhancedUrl.toString(),
           tenantId,
           loginHint: userEmail,
-          hasUserToken: !!userToken
+          hasUserToken: !!userToken,
+          reusingDeviceId: !!finalDeviceId
         })
 
         // Perform full-page redirect to enhanced OIDC authorization URL (mobile-friendly)
@@ -671,12 +695,13 @@ class MatrixClientService {
           userToken: !!userToken
         })
 
-        logger.debug('🔗 Redirecting to native OIDC authorization URL')
+        logger.debug('🔗 Redirecting to OIDC authorization URL (potentially with reused device ID)')
         logger.debug('🆔 Client ID:', clientId)
         logger.debug('🏠 Homeserver URL:', homeserverUrl)
+        logger.debug('🔄 Reusing device ID:', !!finalDeviceId)
 
-        // Perform full-page redirect to OIDC authorization URL
-        window.location.href = authorizationUrl
+        // Perform full-page redirect to enhanced OIDC authorization URL (may have custom scope)
+        window.location.href = enhancedUrl.toString()
       }
 
       return new Promise(() => {
@@ -731,16 +756,43 @@ class MatrixClientService {
   }
 
   /**
-   * Generate device ID for Matrix client (like Element-web)
+   * Get device ID from Matrix SDK crypto store (IndexedDB)
+   * This checks what device ID the crypto store expects to avoid mismatches
    */
-  private _generateDeviceId (): string {
-    // Generate device ID similar to Element-web format
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let result = ''
-    for (let i = 0; i < 10; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length))
+  private async _getCryptoStoreDeviceId (): Promise<string | null> {
+    try {
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        logger.debug('📱 No user slug available for crypto store check')
+        return null
+      }
+
+      // Construct expected userId pattern
+      const userId = `@${openMeetUserSlug}_lsdfaopkljdfs:matrix.openmeet.net`
+
+      // Check if there are any crypto store databases for this user
+      const databases = await indexedDB.databases()
+      const cryptoDbPattern = new RegExp(`matrix-js-sdk:crypto:${userId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:([^:]+)`)
+
+      for (const db of databases) {
+        if (db.name && cryptoDbPattern.test(db.name)) {
+          const match = db.name.match(cryptoDbPattern)
+          if (match && match[1]) {
+            const deviceId = match[1]
+            logger.debug('🔍 Found crypto store device ID:', deviceId, 'in database:', db.name)
+            return deviceId
+          }
+        }
+      }
+
+      logger.debug('📱 No crypto store found for user:', userId)
+      return null
+    } catch (error) {
+      logger.warn('⚠️ Failed to check crypto store device ID:', error)
+      return null
     }
-    return result
   }
 
   /**
@@ -774,7 +826,7 @@ class MatrixClientService {
         return userSpecificDeviceId
       }
 
-      logger.debug(`📝 No stored device ID found for user ${openMeetUserSlug} - will generate new one`)
+      logger.debug(`📝 No stored device ID found for user ${openMeetUserSlug} - will use server-provided ID`)
       return null
     } catch (error) {
       logger.warn('⚠️ Failed to retrieve stored device ID:', error)
@@ -925,7 +977,12 @@ class MatrixClientService {
 
       // Extract Matrix credentials from MAS response using stored device ID
       let userId = tokenData.sub
-      const deviceId = storedDeviceId || tokenData.device_id || this._generateDeviceId()
+      const deviceId = storedDeviceId || tokenData.device_id
+
+      // Ensure we have a device ID from the server or storage
+      if (!deviceId) {
+        throw new Error('No device ID available from Matrix server or storage. Matrix server should provide device_id during authentication.')
+      }
 
       // Store device ID persistently for future sessions (Element Web pattern)
       if (!storedDeviceId && deviceId) {

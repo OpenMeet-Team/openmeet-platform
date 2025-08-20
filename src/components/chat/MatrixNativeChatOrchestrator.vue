@@ -44,6 +44,28 @@
     <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
     <template v-else-if="canChat">
 
+      <!-- Device Verification Notification Banner -->
+      <VerificationNotificationBanner
+        ref="verificationBannerRef"
+        @open-verification-dialog="showVerificationDialog = true"
+      />
+
+      <!-- Temporary Manual Verification Access (for testing) -->
+      <q-banner class="bg-orange-1 text-orange-8 q-mb-sm">
+        <template v-slot:avatar>
+          <q-avatar color="orange" text-color="white" icon="fas fa-wrench" />
+        </template>
+        <strong>Debug:</strong> Manual verification access
+        <template v-slot:action>
+          <q-btn
+            @click="showVerificationDialog = true"
+            color="orange"
+            label="Open Verification Dialog"
+            size="sm"
+          />
+        </template>
+      </q-banner>
+
       <!-- Element Web Style Encryption Warning Banner -->
       <EncryptionWarningBanner
         v-if="needsBanner && warningMessage"
@@ -167,6 +189,9 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Device Verification Dialog -->
+    <DeviceVerificationDialog v-model="showVerificationDialog" />
   </div>
 </template>
 
@@ -183,6 +208,8 @@ import MatrixChatInterface from './MatrixChatInterface.vue'
 import MatrixEducationIntro from './setup/MatrixEducationIntro.vue'
 import MatrixConnectionFlow from './setup/MatrixConnectionFlow.vue'
 import EncryptionWarningBanner from './encryption/EncryptionWarningBanner.vue'
+import VerificationNotificationBanner from './verification/VerificationNotificationBanner.vue'
+import DeviceVerificationDialog from './verification/DeviceVerificationDialog.vue'
 
 interface Props {
   // Context for filtering chats
@@ -231,6 +258,10 @@ const setupStep = ref<'education' | 'connection'>('education')
 const recoveryKey = ref('')
 const showRecoveryKeyDialog = ref(false)
 const recoveryKeySaved = ref(false)
+
+// Device verification state
+const showVerificationDialog = ref(false)
+const verificationBannerRef = ref()
 
 // Flag to force encryption setup after reset
 const forceSetupAfterReset = ref(false)

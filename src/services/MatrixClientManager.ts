@@ -412,7 +412,37 @@ export class MatrixClientManager {
 
       // Create optimized IndexedDB stores
       const userId = credentials.userId
-      const deviceId = credentials.deviceId || 'DEVICE_ID_NOT_SET'
+      // Always use persistent device ID to prevent device ID changes on reload
+      // First consolidate any existing device IDs
+      this.consolidateDeviceIds(userId)
+
+      // Check crypto store first to avoid device ID mismatches
+      const cryptoStoreDeviceId = await this.getCryptoStoreDeviceId(userId)
+      const storedDeviceId = this.getStoredDeviceId(userId)
+      const serverDeviceId = credentials.deviceId
+
+      let deviceId: string
+
+      if (cryptoStoreDeviceId) {
+        logger.warn('🔐 Using device ID from crypto store:', cryptoStoreDeviceId)
+        deviceId = cryptoStoreDeviceId
+
+        // Sync localStorage with crypto store to prevent future mismatches
+        if (storedDeviceId !== cryptoStoreDeviceId) {
+          logger.warn('🔄 Syncing localStorage with crypto store device ID')
+          this.setStoredDeviceId(userId, cryptoStoreDeviceId)
+        }
+      } else if (storedDeviceId) {
+        logger.warn('📱 Using stored device ID from localStorage:', storedDeviceId)
+        deviceId = storedDeviceId
+      } else if (serverDeviceId) {
+        logger.warn('🔗 Using server-provided device ID:', serverDeviceId)
+        deviceId = serverDeviceId
+        // Store server device ID for future use
+        this.setStoredDeviceId(userId, serverDeviceId)
+      } else {
+        throw new Error('No device ID available from crypto store, storage, or server.')
+      }
 
       // Use separate databases for main store and crypto store
       const store = new IndexedDBStore({
@@ -882,6 +912,185 @@ export class MatrixClientManager {
     }
 
     return false
+  }
+
+  /**
+   * Get device ID from Matrix SDK crypto store (IndexedDB)
+   * This checks what device ID the crypto store expects to avoid mismatches
+   */
+  private async getCryptoStoreDeviceId (userId: string): Promise<string | null> {
+    try {
+      // Check if there are any crypto store databases for this user
+      const databases = await indexedDB.databases()
+      const cryptoDbPattern = new RegExp(`matrix-js-sdk:crypto:${userId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:([^:]+)`)
+
+      for (const db of databases) {
+        if (db.name && cryptoDbPattern.test(db.name)) {
+          const match = db.name.match(cryptoDbPattern)
+          if (match && match[1]) {
+            const deviceId = match[1]
+            logger.debug('🔍 Found crypto store device ID:', deviceId, 'in database:', db.name)
+            return deviceId
+          }
+        }
+      }
+
+      logger.debug('📱 No crypto store found for user:', userId)
+      return null
+    } catch (error) {
+      logger.warn('⚠️ Failed to check crypto store device ID:', error)
+      return null
+    }
+  }
+
+  /**
+   * Set device ID in localStorage
+   */
+  private setStoredDeviceId (userId: string, deviceId: string): void {
+    const storageKey = `matrix_device_id_${userId}`
+
+    try {
+      localStorage.setItem(storageKey, deviceId)
+      logger.debug('💾 Stored device ID for user:', userId, 'deviceId:', deviceId)
+
+      // Also sync with OpenMeet device ID storage if needed
+      const openMeetDeviceId = this.getOpenMeetDeviceId(userId)
+      if (!openMeetDeviceId || openMeetDeviceId !== deviceId) {
+        // Extract user slug from userId for OpenMeet storage
+        const match = userId.match(/@([^_]+)_/)
+        if (match) {
+          const userSlug = match[1]
+          localStorage.setItem(`device_id_${userSlug}`, deviceId)
+          logger.debug('🔄 Synced OpenMeet device ID storage for slug:', userSlug)
+        }
+      }
+    } catch (error) {
+      logger.warn('⚠️ Failed to store device ID:', error)
+    }
+  }
+
+  /**
+   * Get stored device ID for a user
+   * Device IDs should only come from Matrix server or previous storage, never generated client-side
+   */
+  private getStoredDeviceId (userId: string): string | null {
+    const storageKey = `matrix_device_id_${userId}`
+
+    try {
+      // First try to get from Matrix device ID storage
+      const existingDeviceId = localStorage.getItem(storageKey)
+      if (existingDeviceId) {
+        logger.warn('📱 Using existing stored device ID:', existingDeviceId)
+        return existingDeviceId
+      }
+
+      // Try to get from OpenMeet device ID storage for consistency
+      const openMeetDeviceId = this.getOpenMeetDeviceId(userId)
+      if (openMeetDeviceId) {
+        logger.warn('📱 Using OpenMeet stored device ID:', openMeetDeviceId)
+        // Store it in Matrix format for future use
+        localStorage.setItem(storageKey, openMeetDeviceId)
+        return openMeetDeviceId
+      }
+
+      logger.debug('📱 No stored device ID found for user:', userId)
+      return null
+    } catch (error) {
+      logger.error('❌ Failed to get stored device ID:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get a consistent device ID, using the Matrix device ID if available
+   */
+  private getOpenMeetDeviceId (): string | null {
+    try {
+      // Look for existing Matrix device ID for this user to reuse
+      const userId = '@b-b-pryyzu_lsdfaopkljdfs:matrix.openmeet.net'
+      const existingMatrixDeviceId = localStorage.getItem(`matrix_device_id_${userId}`)
+      if (existingMatrixDeviceId) {
+        logger.warn('🔗 Reusing existing Matrix device ID:', existingMatrixDeviceId)
+        return existingMatrixDeviceId
+      }
+
+      // Look for user slug based device ID
+      const userSlugDeviceId = localStorage.getItem('matrix_device_id_b-b-pryyzu')
+      if (userSlugDeviceId) {
+        logger.warn('🔗 Found user slug device ID:', userSlugDeviceId)
+        return userSlugDeviceId
+      }
+
+      logger.debug('📱 No existing device ID found in localStorage')
+      return null
+    } catch (error) {
+      logger.debug('📱 Could not access device ID:', error.message)
+      return null
+    }
+  }
+
+  /**
+   * Consolidate multiple device IDs into one consistent ID
+   */
+  private consolidateDeviceIds (userId: string): void {
+    try {
+      const fullUserIdKey = `matrix_device_id_${userId}`
+      const userSlugKey = 'matrix_device_id_b-b-pryyzu'
+
+      const fullUserId = localStorage.getItem(fullUserIdKey)
+      const userSlugId = localStorage.getItem(userSlugKey)
+
+      if (fullUserId && userSlugId && fullUserId !== userSlugId) {
+        // Use the more recent one (assume full user ID is newer pattern)
+        logger.warn('🔄 Consolidating device IDs:', { fullUserId, userSlugId, using: fullUserId })
+        localStorage.setItem(userSlugKey, fullUserId)
+      } else if (fullUserId && !userSlugId) {
+        logger.warn('🔄 Copying full user device ID to slug format:', fullUserId)
+        localStorage.setItem(userSlugKey, fullUserId)
+      } else if (!fullUserId && userSlugId) {
+        logger.warn('🔄 Copying slug device ID to full user format:', userSlugId)
+        localStorage.setItem(fullUserIdKey, userSlugId)
+      }
+    } catch (error) {
+      logger.warn('⚠️ Failed to consolidate device IDs:', error)
+    }
+  }
+
+  /**
+   * Clear all device-related storage for a fresh start
+   */
+  public clearAllDeviceStorage (userId: string): void {
+    try {
+      // Clear Matrix device ID
+      const matrixStorageKey = `matrix_device_id_${userId}`
+      localStorage.removeItem(matrixStorageKey)
+
+      // Clear OpenMeet device ID (find by pattern)
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('device_id_')) {
+          localStorage.removeItem(key)
+          logger.warn('🗑️ Cleared OpenMeet device ID:', key)
+        }
+      }
+
+      logger.warn('🗑️ Cleared all device storage for user:', userId)
+    } catch (error) {
+      logger.error('❌ Failed to clear device storage:', error)
+    }
+  }
+
+  /**
+   * Clear the persistent device ID for a user (for testing or troubleshooting)
+   */
+  public clearPersistentDeviceId (userId: string): void {
+    const storageKey = `matrix_device_id_${userId}`
+    try {
+      localStorage.removeItem(storageKey)
+      logger.warn('🗑️ Cleared persistent device ID for user:', userId)
+    } catch (error) {
+      logger.error('❌ Failed to clear persistent device ID:', error)
+    }
   }
 
   /**
