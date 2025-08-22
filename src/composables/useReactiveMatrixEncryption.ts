@@ -10,7 +10,7 @@ import { matrixClientService } from '../services/matrixClientService'
 import { matrixEncryptionStateManager, type MatrixEncryptionStatus } from '../services/MatrixEncryptionStateManager'
 import { logger } from '../utils/logger'
 
-export function useReactiveMatrixEncryption() {
+export function useReactiveMatrixEncryption () {
   // Reactive state that updates automatically via events
   const encryptionStatus = ref<MatrixEncryptionStatus | null>(null)
   const isInitialized = ref(false)
@@ -30,8 +30,8 @@ export function useReactiveMatrixEncryption() {
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')
   const isReadyEncrypted = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'ready_encrypted' || 
-           state === 'ready_encrypted_with_warning' || 
+    return state === 'ready_encrypted' ||
+           state === 'ready_encrypted_with_warning' ||
            state === 'needs_device_verification'
   })
   const requiresUserAction = computed(() => encryptionStatus.value?.requiresUserAction ?? false)
@@ -42,7 +42,7 @@ export function useReactiveMatrixEncryption() {
 
   const requiredUI = computed(() => {
     if (!encryptionStatus.value) return 'login'
-    
+
     switch (encryptionStatus.value.state) {
       case 'needs_login': return 'login'
       case 'needs_device_verification': return 'verification'
@@ -57,21 +57,20 @@ export function useReactiveMatrixEncryption() {
   const initializeEncryption = async (): Promise<boolean> => {
     try {
       const client = matrixClientService.getClient()
-      
+
       // Initialize the state manager with current client
       matrixEncryptionStateManager.initialize(client)
-      
+
       // Get initial state
       const initialState = matrixEncryptionStateManager.getCurrentState()
       if (initialState) {
         encryptionStatus.value = initialState
       }
-      
+
       isInitialized.value = true
-      
+
       logger.debug('🔐 Reactive encryption state initialized:', initialState)
       return initialState?.details.canChat ?? false
-      
     } catch (error) {
       logger.error('Failed to initialize reactive Matrix encryption:', error)
       return false
@@ -92,7 +91,7 @@ export function useReactiveMatrixEncryption() {
   const canEncryptInRoom = async (roomId: string): Promise<boolean> => {
     const client = matrixClientService.getClient()
     if (!client) return false
-    
+
     try {
       const room = client.getRoom(roomId)
       return room?.hasEncryptionStateEvent() ?? false
@@ -112,17 +111,17 @@ export function useReactiveMatrixEncryption() {
   onMounted(() => {
     // Listen for state changes from the manager
     matrixEncryptionStateManager.on('stateChanged', handleStateChange)
-    
+
     // Initialize with current client
     initializeEncryption()
-    
+
     logger.debug('🔐 Reactive encryption composable mounted')
   })
 
   onUnmounted(() => {
     // Clean up event listeners
     matrixEncryptionStateManager.off('stateChanged', handleStateChange)
-    
+
     logger.debug('🔐 Reactive encryption composable unmounted')
   })
 

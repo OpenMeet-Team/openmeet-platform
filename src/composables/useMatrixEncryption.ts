@@ -31,13 +31,13 @@ export function useMatrixEncryption () {
   const isReadyEncrypted = computed(() => {
     const state = encryptionStatus.value?.state
     const result = state === 'ready_encrypted' || state === 'ready_encrypted_with_warning' || state === 'needs_device_verification'
-    
+
     logger.debug('🔐 isReadyEncrypted computed:', {
       currentState: state,
       result,
       encryptionStatus: encryptionStatus.value
     })
-    
+
     return result
   })
   const requiresUserAction = computed(() => encryptionStatus.value?.requiresUserAction ?? false)
@@ -57,7 +57,7 @@ export function useMatrixEncryption () {
    */
   const checkEncryptionState = async (roomId?: string): Promise<void> => {
     if (isLoading.value) return // Prevent concurrent checks
-    
+
     // Prevent rapid successive checks (debounce 5 seconds)
     const now = Date.now()
     if (now - lastChecked.value < 5000) {

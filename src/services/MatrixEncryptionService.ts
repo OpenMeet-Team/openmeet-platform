@@ -70,6 +70,18 @@ export class MatrixEncryptionService {
    */
   async getStatus (): Promise<EncryptionStatus> {
     try {
+      // Guard against getCrypto not being available (client not fully initialized)
+      if (!this.matrixClient || typeof this.matrixClient.getCrypto !== 'function') {
+        return {
+          isReady: false,
+          needsSetup: true,
+          hasSecretStorage: false,
+          hasCrossSigningKeys: false,
+          hasKeyBackup: false,
+          errors: ['Matrix client crypto not available']
+        }
+      }
+
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) {
         return {

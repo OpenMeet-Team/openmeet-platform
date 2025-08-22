@@ -1,7 +1,6 @@
 <template>
   <div class="historical-message-handler">
 
-
     <!-- Setup Encryption Banner (when encryption is truly not set up) -->
     <div
       v-if="!status.hasBackup && !status.isUnlocked && props.showStatus && !isReadyEncrypted"
@@ -28,7 +27,6 @@
         </div>
       </div>
     </div>
-
 
     <!-- Unlock Prompt Banner -->
     <div

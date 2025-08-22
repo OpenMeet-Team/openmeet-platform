@@ -1,6 +1,6 @@
 /**
  * Event-Driven Matrix Encryption State Manager
- * 
+ *
  * Replaces polling-based encryption state with reactive event-driven state management.
  * Uses Matrix SDK events as the source of truth instead of repeated polling.
  */
@@ -31,14 +31,14 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Initialize with Matrix client and set up event listeners
    */
-  initialize(client: MatrixClient | null): void {
+  initialize (client: MatrixClient | null): void {
     if (this.client === client) return // Already initialized with this client
 
     // Clean up previous listeners
     this.cleanup()
 
     this.client = client
-    
+
     if (!client) {
       this.updateState({
         state: 'needs_login',
@@ -50,7 +50,7 @@ class MatrixEncryptionStateManager extends EventEmitter {
 
     // Set up Matrix SDK event listeners for reactive updates
     this.setupMatrixEventListeners()
-    
+
     // Calculate initial state
     this.calculateState()
   }
@@ -58,14 +58,14 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Get current encryption state (cached, no recalculation)
    */
-  getCurrentState(): MatrixEncryptionStatus | null {
+  getCurrentState (): MatrixEncryptionStatus | null {
     return this.currentState
   }
 
   /**
    * Set up Matrix SDK event listeners for reactive state updates
    */
-  private setupMatrixEventListeners(): void {
+  private setupMatrixEventListeners (): void {
     if (!this.client || this.eventListenersAttached) return
 
     const client = this.client
@@ -109,7 +109,7 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Calculate current encryption state based on Matrix SDK state
    */
-  private async calculateState(): Promise<void> {
+  private async calculateState (): Promise<void> {
     if (!this.client) return
 
     try {
@@ -126,7 +126,7 @@ class MatrixEncryptionStateManager extends EventEmitter {
       // Get encryption capabilities (similar to Element Web)
       const [
         hasKeyBackup,
-        isCurrentDeviceTrusted, 
+        isCurrentDeviceTrusted,
         allCrossSigningSecretsCached
       ] = await Promise.all([
         this.checkKeyBackup(),
@@ -163,13 +163,12 @@ class MatrixEncryptionStateManager extends EventEmitter {
         requiresUserAction: state === 'needs_device_verification',
         warningMessage
       })
-
     } catch (error) {
       logger.error('Failed to calculate encryption state:', error)
     }
   }
 
-  private async checkKeyBackup(): Promise<boolean> {
+  private async checkKeyBackup (): Promise<boolean> {
     try {
       const crypto = this.client!.getCrypto()!
       const keyBackupInfo = await crypto.getActiveSessionBackupVersion()
@@ -179,12 +178,12 @@ class MatrixEncryptionStateManager extends EventEmitter {
     }
   }
 
-  private async checkCurrentDeviceTrust(): Promise<boolean> {
+  private async checkCurrentDeviceTrust (): Promise<boolean> {
     try {
       const crypto = this.client!.getCrypto()!
       const deviceId = this.client!.getDeviceId()
       if (!deviceId) return false
-      
+
       const device = await crypto.getDeviceVerificationStatus(this.client!.getUserId()!, deviceId)
       return device?.isVerified() ?? false
     } catch {
@@ -192,16 +191,16 @@ class MatrixEncryptionStateManager extends EventEmitter {
     }
   }
 
-  private async checkCrossSigningSecrets(): Promise<boolean> {
+  private async checkCrossSigningSecrets (): Promise<boolean> {
     try {
       const crypto = this.client!.getCrypto()!
       const secretStorage = crypto.getSecretsManager()
-      
+
       // Check if we have the essential cross-signing secrets
       const masterKey = await secretStorage.isSecretStored('m.cross_signing.master')
       const selfSigningKey = await secretStorage.isSecretStored('m.cross_signing.self_signing')
       const userSigningKey = await secretStorage.isSecretStored('m.cross_signing.user_signing')
-      
+
       return masterKey && selfSigningKey && userSigningKey
     } catch {
       return false
@@ -211,21 +210,21 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Update state and emit change event
    */
-  private updateState(newState: MatrixEncryptionStatus): void {
-    const stateChanged = !this.currentState || 
+  private updateState (newState: MatrixEncryptionStatus): void {
+    const stateChanged = !this.currentState ||
       this.currentState.state !== newState.state ||
       JSON.stringify(this.currentState.details) !== JSON.stringify(newState.details)
 
     if (stateChanged) {
       const oldState = this.currentState
       this.currentState = newState
-      
+
       logger.debug('🔐 Encryption state updated:', {
         from: oldState?.state || 'null',
         to: newState.state,
         details: newState.details
       })
-      
+
       // Emit change event for reactive updates
       this.emit('stateChanged', newState, oldState)
     }
@@ -234,14 +233,14 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Clean up event listeners
    */
-  private cleanup(): void {
+  private cleanup (): void {
     if (this.client && this.eventListenersAttached) {
       this.client.removeAllListeners('crypto.keyBackupStatus')
       this.client.removeAllListeners('crypto.crossSigning.keysChanged')
       this.client.removeAllListeners('crypto.devicesUpdated')
       this.client.removeAllListeners('crypto.userTrustStatusChanged')
       this.client.removeAllListeners('sync')
-      
+
       this.eventListenersAttached = false
       logger.debug('🔐 Matrix encryption event listeners cleaned up')
     }
@@ -250,7 +249,7 @@ class MatrixEncryptionStateManager extends EventEmitter {
   /**
    * Force a state recalculation (use sparingly)
    */
-  async forceRefresh(): Promise<void> {
+  async forceRefresh (): Promise<void> {
     await this.calculateState()
   }
 }

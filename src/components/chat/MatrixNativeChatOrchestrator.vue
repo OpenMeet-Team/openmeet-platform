@@ -50,7 +50,6 @@
         @open-verification-dialog="showVerificationDialog = true"
       />
 
-
       <!-- Element Web Style Encryption Warning Banner -->
       <EncryptionWarningBanner
         v-if="needsBanner && warningMessage"

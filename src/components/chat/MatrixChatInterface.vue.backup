@@ -88,7 +88,6 @@
         />
       </div>
 
-
       <!-- Historical Message Encryption Handler -->
       <HistoricalMessageHandler
         v-if="isConnected"
@@ -135,8 +134,6 @@
           :mode="mode"
           :showSenderNames="showSenderNames"
           :currentUserId="matrixClientService.getClient()?.getUserId()"
-          :currentRoom="currentRoom"
-          @deleteMessage="handleDeleteMessage"
         />
       </div>
 
@@ -394,10 +391,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, reactive } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
-import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, type MatrixClient, type EventTimelineSet } from 'matrix-js-sdk'
+import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
@@ -415,7 +412,32 @@ declare global {
   }
 }
 
-// Message interface removed - now working directly with MatrixEvent objects
+interface Message {
+  id: string
+  type: 'text' | 'image' | 'file'
+  sender: {
+    id: string
+    name: string
+    avatar?: string
+  }
+  content: {
+    body?: string
+    url?: string
+    filename?: string
+    mimetype?: string
+    size?: number
+    msgtype?: string
+  }
+  timestamp: Date
+  isOwn: boolean
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
+  readReceipts?: Array<{ userId: string, userName: string, timestamp: number }>
+  isRedacted?: boolean
+  errorMessage?: string
+  // Authenticated image blob URLs
+  imageBlobUrl?: string
+  fullImageBlobUrl?: string
+}
 
 interface Props {
   roomId: string
@@ -461,20 +483,7 @@ const isConnected = computed(() => {
   const hasResolvedRoom = !!currentRoom.value
   const noAuthErrors = !lastAuthError.value
 
-  const result = (isReady && isLoggedIn) || (hasResolvedRoom && noAuthErrors)
-
-  // Debug logging
-  logger.debug('🔍 isConnected computed:', {
-    client: !!client,
-    isReady,
-    isLoggedIn,
-    hasResolvedRoom,
-    noAuthErrors,
-    result,
-    timelineEvents: timelineEvents.value.length
-  })
-
-  return result
+  return (isReady && isLoggedIn) || (hasResolvedRoom && noAuthErrors)
 })
 const isConnecting = ref(false)
 const isSending = ref(false)
@@ -494,63 +503,9 @@ const typingNotificationTimer = ref<number | null>(null)
 
 // Matrix Timeline - Following Element Web's TimelineWindow pattern
 const currentUserId = computed(() => matrixClientService.getClient()?.getUserId() || '')
-// Room resolution with proper alias handling
-const resolvedRoomId = ref<string | null>(null)
-const isResolvingRoom = ref(false)
-
 const currentRoom = computed(() => {
   const client = matrixClientService.getClient()
-  if (!client || !resolvedRoomId.value) return null
-  return matrixClientService.getRoom(resolvedRoomId.value)
-})
-
-// Function to resolve room alias to room ID and join if needed
-const updateCurrentRoom = async () => {
-  if (!props.roomId || isResolvingRoom.value) return
-
-  const client = matrixClientService.getClient()
-  if (!client) return
-
-  isResolvingRoom.value = true
-
-  try {
-    let roomId = props.roomId
-
-    // If it's a room alias (starts with #), resolve it first
-    if (props.roomId.startsWith('#')) {
-      logger.debug('🔍 Resolving room alias:', props.roomId)
-      const aliasResult = await client.getRoomIdForAlias(props.roomId)
-      roomId = aliasResult.room_id
-      logger.debug('✅ Room alias resolved:', { alias: props.roomId, roomId })
-    }
-
-    // Check if we're already in the room
-    let room = matrixClientService.getRoom(roomId)
-    if (!room) {
-      logger.debug('🚪 Room not found, attempting to join:', roomId)
-      room = await matrixClientService.joinRoom(roomId)
-      logger.debug('✅ Successfully joined room:', roomId)
-    }
-
-    resolvedRoomId.value = roomId
-    logger.debug('🏠 Room resolved and available:', { roomId, hasRoom: !!room })
-  } catch (error) {
-    logger.error('❌ Failed to resolve/join room:', error)
-    resolvedRoomId.value = null
-  } finally {
-    isResolvingRoom.value = false
-  }
-}
-
-// Timeline reactive refs for proper composable integration
-const timelineClient = computed(() => matrixClientService.getClient())
-const timelineSet = computed(() => currentRoom.value?.getUnfilteredTimelineSet())
-
-// Create reactive timeline options
-const timelineOptions = reactive({
-  client: timelineClient.value,
-  timelineSet: timelineSet.value,
-  windowLimit: 1000
+  return client ? matrixClientService.getRoom(props.roomId) : null
 })
 
 // Initialize timeline composable
@@ -565,47 +520,15 @@ const {
   initializeTimeline,
   loadOlderMessages: paginateBackward,
   refreshEvents
-} = useMatrixTimeline(timelineOptions)
-
-// Watch timeline dependencies and manually trigger initialization
-watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
-  logger.debug('🔄 Timeline dependencies changed:', {
-    hasClient: !!newClient,
-    hasTimelineSet: !!newTimelineSet,
-    currentRoom: !!currentRoom.value,
-    roomId: props.roomId
-  })
-  
-  // Update reactive timeline options
-  timelineOptions.client = newClient
-  timelineOptions.timelineSet = newTimelineSet
-  
-  if (newClient && newTimelineSet) {
-    logger.debug('🔄 Timeline dependencies available - manually triggering initialization')
-    logger.debug('🔍 TimelineSet info:', {
-      pendingEventOrdering: newTimelineSet.pendingEventOrdering,
-      roomId: newTimelineSet.room?.roomId
-    })
-    
-    // Force manual initialization since composable auto-init isn't working
-    try {
-      await nextTick() // Ensure reactive updates are processed
-      await initializeTimeline()
-      logger.debug('✅ Manual timeline initialization completed')
-    } catch (error) {
-      logger.error('❌ Manual timeline initialization failed:', error)
-    }
-  }
-}, { immediate: true })
-
-// Debug room resolution
-watch(currentRoom, (newRoom) => {
-  logger.debug('🏠 currentRoom changed:', {
-    hasRoom: !!newRoom,
-    roomId: newRoom?.roomId,
-    propsRoomId: props.roomId
-  })
-}, { immediate: true })
+} = useMatrixTimeline({
+  get timelineSet() {
+    return currentRoom.value?.getUnfilteredTimelineSet()
+  },
+  get client() {
+    return matrixClientService.getClient()
+  },
+  windowLimit: 1000
+})
 
 // Use Matrix client service directly for real Matrix integration
 
@@ -666,17 +589,31 @@ const resolveRoom = async (roomIdOrAlias: string) => {
   return client.getRoom(roomIdOrAlias)
 }
 
+const isResolvingRoom = ref(false)
+
+// Function to update the current room when roomId changes
+const updateCurrentRoom = async () => {
+  if (!props.roomId || isResolvingRoom.value) return
+
+  isResolvingRoom.value = true
+  try {
+    const room = await resolveRoom(props.roomId)
+    currentRoom.value = room
+    if (room) {
+      // Resolved room successfully
+    } else {
+      logger.warn('Could not resolve room:', props.roomId)
+    }
+  } catch (error) {
+    logger.error('Error resolving room:', error)
+    currentRoom.value = null
+  } finally {
+    isResolvingRoom.value = false
+  }
+}
 
 // Watch for roomId changes and resolve the room
 watch(() => props.roomId, updateCurrentRoom, { immediate: true })
-
-// Also watch for Matrix client availability
-watch(() => matrixClientService.getClient(), (newClient) => {
-  if (newClient) {
-    logger.debug('🔌 Matrix client became available, updating room')
-    updateCurrentRoom()
-  }
-}, { immediate: true })
 
 // Mock data
 const commonEmojis = ['😀', '😊', '😂', '❤️', '👍', '👏', '🎉', '🔥', '💯', '🤔', '😎', '👋']
@@ -708,6 +645,15 @@ const getMessagesContainerStyle = () => {
 const getImageStyle = () => {
   const maxWidth = props.mode === 'mobile' ? '100%' : '300px'
   return `max-width: ${maxWidth}; border-radius: 8px;`
+}
+
+const getMessageClass = (message: Message) => {
+  return {
+    'own-message-item': message.isOwn,
+    'other-message-item': !message.isOwn,
+    'q-mb-sm': props.mode === 'mobile',
+    'q-mb-md': props.mode !== 'mobile'
+  }
 }
 
 const getInputPlaceholder = () => {
@@ -754,7 +700,7 @@ const getRoomStatusText = (): string => {
     return 'Matrix chat unavailable'
   }
 
-  const count = timelineEvents.value.length
+  const count = messages.value.length
   switch (props.contextType) {
     case 'direct': return isConnected.value ? 'Online' : 'Offline'
     case 'group': return `${count} messages`
@@ -790,6 +736,29 @@ const hasOidcConfigError = (): boolean => {
          lastAuthError.value.includes('404')
 }
 
+const formatMessageText = (text: string): string => {
+  // Guard against undefined/null text
+  if (!text || typeof text !== 'string') {
+    logger.warn('formatMessageText called with invalid text:', text)
+    return ''
+  }
+
+  // Enhanced markdown and URL formatting
+  return text
+    // Convert URLs to clickable links (must be first to avoid conflicts)
+    .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer" class="message-link">$1</a>')
+    // Bold text: **text**
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Italic text: *text* (but not inside URLs or already processed bold)
+    .replace(/(?<!\*)\*([^*\s][^*]*[^*\s]|\S)\*(?!\*)/g, '<em>$1</em>')
+    // Inline code: `code`
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    // Strikethrough: ~~text~~
+    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    // Line breaks: convert \n to <br>
+    .replace(/\n/g, '<br>')
+}
+
 const formatTime = (date: Date): string => {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
@@ -798,6 +767,160 @@ const formatTime = (date: Date): string => {
   if (diff < 3600000) return format(date, 'HH:mm')
   if (diff < 86400000) return format(date, 'HH:mm')
   return format(date, 'MMM d, HH:mm')
+}
+
+// Check if a message was encrypted/decrypted
+const isMessageEncrypted = (message: Message): boolean => {
+  // Debug log to understand message structure
+  console.log('🔐 MatrixChatInterface checking encryption for message:', {
+    id: message.id,
+    type: message.type,
+    hasDecryptionError: !!message.decryptionError,
+    originalType: message.originalType,
+    allKeys: Object.keys(message)
+  })
+  
+  // Check if this message was encrypted (either successfully decrypted or failed to decrypt)
+  // Method 1: Check for decryption error (failed to decrypt encrypted message)
+  if (message.decryptionError) {
+    console.log('🔐 Message has decryption error - it was encrypted:', message.decryptionError)
+    return true
+  }
+  
+  // Method 2: Check for original type of m.room.encrypted (successfully decrypted)
+  if (message.originalType === 'm.room.encrypted') {
+    console.log('🔐 Message original type was m.room.encrypted - it was encrypted and decrypted')
+    return true
+  }
+  
+  // Method 3: Check if message type is still m.room.encrypted (not yet decrypted)
+  if (message.type === 'm.room.encrypted') {
+    console.log('🔐 Message type is m.room.encrypted - it is encrypted')
+    return true
+  }
+  
+  // Method 4: Check for encryption-related properties
+  if ('encrypted' in message || 'decrypted' in message || 'isEncrypted' in message) {
+    console.log('🔐 Message has encryption-related properties')
+    return true
+  }
+  
+  // TEMPORARY: Show shields on all messages to test the UI
+  console.log('🔐 Showing shield on all messages for testing')
+  return true
+}
+
+// Check if message actions should be shown (for own messages or admins)
+const shouldShowMessageActions = (message: Message): boolean => {
+  // Always show for own messages
+  if (message.isOwn) return true
+
+  // Show for users who can delete messages (admins with proper power levels)
+  return canDeleteMessage(message)
+}
+
+// Check if current user can delete a message
+const canDeleteMessage = (message: Message): boolean => {
+  if (!message.id || message.id.includes('welcome')) return false
+
+  // Can always delete your own messages
+  if (message.isOwn) return true
+
+  // Check Matrix room permissions for moderation capabilities
+  const room = currentRoom.value
+  const currentUserId = matrixClientService.getClient()?.getUserId()
+
+  if (!room || !currentUserId) {
+    // Cannot delete message: no room or user ID
+    return false
+  }
+
+  // Get current user's power level
+  const powerLevels = room.currentState.getStateEvents('m.room.power_levels', '')
+  if (!powerLevels) {
+    // No power levels found in room
+    return false
+  }
+
+  const content = powerLevels.getContent()
+  const userPowerLevel = content.users?.[currentUserId] ?? content.users_default ?? 0
+  const redactLevel = content.redact ?? 50 // Default redact level is 50
+
+  // Can delete if user has sufficient power level
+  return userPowerLevel >= redactLevel
+}
+
+// Delete/redact a message
+const deleteMessage = async (message: Message) => {
+  if (!message.id || !canDeleteMessage(message)) return
+
+  // Check if Matrix client is properly authenticated before attempting delete
+  const client = matrixClientService.getClient()
+  if (!client) {
+    quasar.notify({
+      type: 'warning',
+      message: 'Chat connection not available. Please refresh the page.',
+      position: 'top'
+    })
+    return
+  }
+
+  try {
+    // Show confirmation dialog
+    const confirm = await new Promise<boolean>((resolve) => {
+      quasar.dialog({
+        title: 'Delete Message',
+        message: message.isOwn
+          ? 'Are you sure you want to delete this message?'
+          : 'Are you sure you want to delete this message? This action cannot be undone.',
+        cancel: true,
+        persistent: true
+      }).onOk(() => resolve(true))
+        .onCancel(() => resolve(false))
+    })
+
+    if (!confirm) return
+
+    // Deleting message
+
+    // Optimistically remove the message from UI for better UX
+    const originalMessages = [...messages.value]
+    messages.value = messages.value.filter(msg => msg.id !== message.id)
+
+    try {
+      await matrixClientService.redactMessage(props.roomId, message.id)
+      // Message deleted successfully
+
+      // Show success feedback
+      quasar.notify({
+        type: 'positive',
+        message: 'Message deleted',
+        position: 'top',
+        timeout: 2000
+      })
+    } catch (error) {
+      // If deletion fails, restore the message
+      messages.value = originalMessages
+      throw error
+    }
+  } catch (error) {
+    logger.error('Failed to delete message:', error)
+
+    // Provide more specific error messages
+    let errorMessage = 'Failed to delete message'
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      errorMessage = 'Authentication failed. Please refresh the page and try again.'
+    } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+      errorMessage = 'You do not have permission to delete this message.'
+    }
+
+    quasar.notify({
+      type: 'negative',
+      message: errorMessage,
+      position: 'top',
+      timeout: 4000
+    })
+  }
 }
 
 const formatFileSize = (bytes?: number): string => {
@@ -863,7 +986,7 @@ const getFileUrl = (url: string): string => {
 }
 
 // Load authenticated images and create blob URLs
-const loadAuthenticatedImage = async (message: any): Promise<void> => {
+const loadAuthenticatedImage = async (message: Message): Promise<void> => {
   if (!message.content?.url || message.imageBlobUrl) return
 
   try {
@@ -906,6 +1029,28 @@ const loadAuthenticatedImage = async (message: any): Promise<void> => {
     }
   } catch (error) {
     logger.error('Failed to load authenticated image:', error)
+  }
+}
+
+const getMessageStatusIcon = (status?: string): string => {
+  switch (status) {
+    case 'sending': return 'schedule'
+    case 'sent': return 'sym_r_done'
+    case 'delivered': return 'sym_r_done_all'
+    case 'read': return 'sym_r_done_all'
+    case 'failed': return 'fas fa-exclamation-triangle'
+    default: return 'sym_r_done'
+  }
+}
+
+const getMessageStatusColor = (status?: string): string => {
+  switch (status) {
+    case 'sending': return 'grey-6'
+    case 'sent': return 'white'
+    case 'delivered': return 'green'
+    case 'read': return 'green'
+    case 'failed': return 'negative'
+    default: return 'white'
   }
 }
 
@@ -1262,9 +1407,10 @@ const sendReadReceipts = async () => {
 
   try {
     // Find the last message that's not from us
-    // Note: Read receipts based on timeline events not yet implemented
-    // Will be added in a future iteration
-    const lastOtherMessage = null
+    const lastOtherMessage = messages.value
+      .slice()
+      .reverse()
+      .find(msg => !msg.isOwn && msg.id && !msg.id.includes('welcome'))
 
     if (lastOtherMessage && lastOtherMessage.id && lastOtherMessage.id !== lastReadReceiptSent.value) {
       const roomId = currentRoom.value?.roomId
@@ -1290,9 +1436,9 @@ const updateReadReceipts = async () => {
     const room = currentRoom.value
     if (!room) return
 
-    // Optimization: Only process recent events (last 30) to avoid performance issues
-    const recentEvents = timelineEvents.value.slice(-30)
-    const recentEventIds = recentEvents.map(e => e.getId()).filter(Boolean)
+    // Optimization: Only process recent messages (last 30) to avoid performance issues
+    const recentMessages = messages.value.slice(-30)
+    const recentMessageIds = recentMessages.map(m => m.id).filter(Boolean)
 
     // Processing read receipts for recent messages
 
@@ -1305,7 +1451,7 @@ const updateReadReceipts = async () => {
     // Build a cache of all receipt data in one pass
     const receiptCache = new Map<string, Array<{ userId: string, timestamp: number }>>()
 
-    for (const messageId of recentEventIds) {
+    for (const messageId of recentMessageIds) {
       if (messageId && !messageId.includes('welcome')) {
         const receipts = matrixClientService.getReadReceipts(props.roomId, messageId)
         receiptCache.set(messageId, receipts)
@@ -1326,9 +1472,8 @@ const updateReadReceipts = async () => {
       let messageIndex = -1
 
       // Check cached receipts to find this user's latest read message
-      for (let i = 0; i < recentEvents.length; i++) {
-        const event = recentEvents[i]
-        const message = { id: event.getId() }
+      for (let i = 0; i < recentMessages.length; i++) {
+        const message = recentMessages[i]
         if (!message.id) continue
 
         const receipts = receiptCache.get(message.id) || []
@@ -1355,9 +1500,8 @@ const updateReadReceipts = async () => {
     }
 
     // Apply read receipts to recent messages only
-    for (let i = 0; i < recentEvents.length; i++) {
-      const event = recentEvents[i]
-      const message = { id: event.getId(), readReceipts: [] }
+    for (let i = 0; i < recentMessages.length; i++) {
+      const message = recentMessages[i]
       if (!message.id || message.id.includes('welcome')) continue
 
       const messageReadBy: Array<{ userId: string, userName: string, timestamp: number }> = []
@@ -1378,6 +1522,12 @@ const updateReadReceipts = async () => {
       if (messageReadBy.length > 0) {
         // Message read by users
       }
+    }
+
+    // Clear read receipts for older messages to save memory
+    const olderMessages = messages.value.slice(0, -30)
+    for (const message of olderMessages) {
+      message.readReceipts = []
     }
   } catch (error) {
     console.warn('⚠️ Failed to update read receipts:', error)
@@ -1405,7 +1555,7 @@ const reconnect = async () => {
 
       // Reload messages if we have a room ID
       if (props.roomId) {
-        await initializeTimeline()
+        await loadMessages()
         await scrollToBottom()
       }
       return
@@ -1438,11 +1588,11 @@ const reconnect = async () => {
           // Using actual room ID from join result
           currentRoom.value = result.room
           // Load messages with the correct room ID
-          await initializeTimeline()
+          await loadMessages()
         } else {
           // Fallback: update current room state and load messages
           await updateCurrentRoom()
-          await initializeTimeline()
+          await loadMessages()
         }
       } catch (error) {
         console.error('❌ EXCEPTION: Failed to join event chat room')
@@ -1474,11 +1624,11 @@ const reconnect = async () => {
           // Using actual room ID from join result
           currentRoom.value = result.room
           // Load messages with the correct room ID
-          await initializeTimeline()
+          await loadMessages()
         } else {
           // Fallback: update current room state and load messages
           await updateCurrentRoom()
-          await initializeTimeline()
+          await loadMessages()
         }
       } catch (error) {
         console.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
@@ -1491,7 +1641,7 @@ const reconnect = async () => {
 
     // Reload messages if we have a room ID
     if (props.roomId) {
-      await initializeTimeline()
+      await loadMessages()
       await scrollToBottom()
     }
   } catch (error: unknown) {
@@ -1580,6 +1730,7 @@ const clearMatrixSessions = async () => {
 
     // Reset component state
     isConnecting.value = false
+    messages.value = []
 
     // Matrix sessions cleared
     alert('Matrix sessions cleared successfully! Please refresh the page to sign in again.')
@@ -1639,13 +1790,14 @@ const onKeysChanged = () => {
   }
 }
 
+
 // Removed unused loadOlderMessages function in Phase 2
 
 // Watchers - only reload when roomId actually changes
 watch(() => props.roomId, async (newRoomId, oldRoomId) => {
   if (newRoomId && newRoomId !== oldRoomId) {
     logger.debug('🔄 Room ID changed from', oldRoomId, 'to', newRoomId)
-    await initializeTimeline()
+    await loadMessages()
     await scrollToBottom()
   }
 })
@@ -1664,23 +1816,23 @@ const handleSyncStateChange = async (state: string, prevState?: string) => {
       // If room was resolved, load messages
       if (currentRoom.value) {
         logger.debug('✅ Room resolved after sync, loading messages')
-        await initializeTimeline()
+        await loadMessages()
         await scrollToBottom()
       }
     }
 
     // If no messages loaded yet and room is available, retry loading them
-    if (currentRoom.value && timelineEvents.value.length === 0) {
+    if (currentRoom.value && messages.value.length === 0) {
       logger.debug('🔄 Sync active and room available, loading messages')
-      await initializeTimeline()
+      await loadMessages()
       await scrollToBottom()
     }
   }
 }
 
-// Update message count when timeline events change
-watch(timelineEvents, (newEvents) => {
-  messageCount.value = newEvents.length
+// Update message count when messages change
+watch(messages, (newMessages) => {
+  messageCount.value = newMessages.length
 }, { immediate: true })
 
 // Send read receipts when message count or connection state changes
@@ -1867,6 +2019,10 @@ const setupMatrixEventListeners = () => {
 
       logger.debug('📄 Message type detected:', { msgtype, messageType, content })
 
+      // Add to messages array and scroll to bottom smoothly
+      messages.value = [...messages.value, newMessage]
+      messageCount.value = messages.value.length
+
       logger.debug('✅ Added new live message to chat:', newMessage.content.body)
 
       // Load authenticated image for image messages
@@ -1883,8 +2039,7 @@ const setupMatrixEventListeners = () => {
     }
   }
 
-  // Timeline events are now handled by useMatrixTimeline composable
-  // client.on(RoomEvent.Timeline, handleTimelineEvent)
+  client.on(RoomEvent.Timeline, handleTimelineEvent)
 
   // Handle async decryption events - following Element-Web pattern
   const handleEventDecrypted = async (event: MatrixEvent) => {
@@ -1910,7 +2065,7 @@ const setupMatrixEventListeners = () => {
     const eventId = event.getId()
     if (!eventId) return
 
-    const messageIndex = timelineEvents.value.findIndex(msg => msg.id === eventId)
+    const messageIndex = messages.value.findIndex(msg => msg.id === eventId)
     if (messageIndex === -1) {
       logger.debug('🔍 Decrypted event not found in current messages, will be handled by next message load')
       return
@@ -1918,7 +2073,7 @@ const setupMatrixEventListeners = () => {
 
     logger.debug('🔄 Updating decrypted message content:', {
       messageIndex,
-      oldContent: timelineEvents.value[messageIndex].content.body,
+      oldContent: messages.value[messageIndex].content.body,
       eventId
     })
 
@@ -1930,7 +2085,7 @@ const setupMatrixEventListeners = () => {
     }
 
     // Update the message content with decrypted data
-    const updatedMessage = { ...timelineEvents.value[messageIndex] }
+    const updatedMessage = { ...messages.value[messageIndex] }
     updatedMessage.content = {
       ...updatedMessage.content,
       body: clearContent.body,
@@ -1954,7 +2109,7 @@ const setupMatrixEventListeners = () => {
     }
 
     // Replace the message in the array
-    timelineEvents.value[messageIndex] = updatedMessage
+    messages.value[messageIndex] = updatedMessage
 
     logger.debug('✅ Message updated with decrypted content:', {
       eventId,
@@ -2083,6 +2238,7 @@ const handleInvalidTokenRecovery = () => {
   try {
     lastAuthError.value = 'Matrix authentication expired. Please click "Connect" to re-authenticate.'
     isConnecting.value = false
+    messages.value = []
   } catch (error) {
     // Ignore Vue readonly property errors during cleanup
     console.warn('⚠️ Error during token recovery cleanup (expected during component teardown):', error.message)
@@ -2114,47 +2270,6 @@ const handleTokenRefreshFailure = (event) => {
     isConnecting.value = false
   } catch (error) {
     console.warn('⚠️ Error during token refresh failure handling:', error.message)
-  }
-}
-
-// Handle delete message
-const handleDeleteMessage = async (event: MatrixEvent) => {
-  try {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      logger.warn('Cannot delete message: no Matrix client available')
-      return
-    }
-
-    const roomId = event.getRoomId()
-    const eventId = event.getId()
-    
-    if (!roomId || !eventId) {
-      logger.warn('Cannot delete message: missing room ID or event ID')
-      return
-    }
-
-    logger.debug('🗑️ Deleting message:', { roomId, eventId })
-    await client.redactEvent(roomId, eventId)
-    logger.debug('✅ Message deleted successfully')
-    
-    // Force timeline refresh to show the redacted message
-    await nextTick()
-    refreshEvents()
-    logger.debug('🔄 Timeline refreshed after deletion')
-    
-    quasar.notify({
-      type: 'positive',
-      message: 'Message deleted',
-      timeout: 2000
-    })
-  } catch (error) {
-    logger.error('❌ Failed to delete message:', error)
-    quasar.notify({
-      type: 'negative',
-      message: 'Failed to delete message: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      timeout: 3000
-    })
   }
 }
 
@@ -2193,7 +2308,7 @@ onMounted(async () => {
 
       // Load messages only if we have a room ID
       if (props.roomId) {
-        await initializeTimeline()
+        await loadMessages()
         await scrollToBottom()
         messagesLoaded = true
       }
@@ -2230,11 +2345,11 @@ onMounted(async () => {
             // Using actual room ID from join result
             currentRoom.value = result.room
             // Load messages with the correct room ID
-            await initializeTimeline()
+            await loadMessages()
           } else {
             // Fallback: update current room state and load messages
             await updateCurrentRoom()
-            await initializeTimeline()
+            await loadMessages()
           }
         } catch (error) {
           console.warn('Failed to join event chat room:', error)
@@ -2250,11 +2365,11 @@ onMounted(async () => {
             // Using actual room ID from join result
             currentRoom.value = result.room
             // Load messages with the correct room ID
-            await initializeTimeline()
+            await loadMessages()
           } else {
             // Fallback: update current room state and load messages
             await updateCurrentRoom()
-            await initializeTimeline()
+            await loadMessages()
           }
         } catch (error) {
           console.warn('Failed to join group chat room:', error)
@@ -2270,7 +2385,7 @@ onMounted(async () => {
 
       // Load messages if we have a room ID and we haven't loaded them already
       if (props.roomId && !messagesLoaded) {
-        await initializeTimeline()
+        await loadMessages()
         await scrollToBottom()
       }
     }
