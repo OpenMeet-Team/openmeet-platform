@@ -165,6 +165,7 @@
                 <!-- Text Message -->
                 <div v-if="message.type === 'text'" class="text-message">
                   <div class="message-text" v-html="formatMessageText(message.content.body)"></div>
+
                   <!-- Status and actions - show for own messages and admins -->
                   <div v-if="shouldShowMessageActions(message)" class="message-actions text-caption q-mt-xs">
                     <!-- Status and read receipts - only for own messages -->
@@ -174,9 +175,36 @@
                         :color="getMessageStatusColor(message.status)"
                         size="12px"
                       >
-                        <q-tooltip v-if="message.status === 'failed'" class="text-body2">
-                          {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
+                        <q-tooltip class="text-body2">
+                          <template v-if="message.status === 'failed'">
+                            {{ message.errorMessage || 'Failed to send message. Click to retry.' }}
+                          </template>
+                          <template v-else-if="message.status === 'sending'">
+                            Sending...
+                          </template>
+                          <template v-else-if="message.status === 'sent'">
+                            Sent
+                          </template>
+                          <template v-else-if="message.status === 'delivered'">
+                            Delivered
+                          </template>
+                          <template v-else-if="message.status === 'read'">
+                            Read
+                          </template>
+                          <template v-else>
+                            Message status
+                          </template>
                         </q-tooltip>
+                      </q-icon>
+                      <!-- Encryption indicator for own messages -->
+                      <q-icon 
+                        v-if="isMessageEncrypted(message)" 
+                        name="fas fa-shield-alt" 
+                        color="blue" 
+                        size="12px" 
+                        class="encryption-indicator q-ml-xs"
+                      >
+                        <q-tooltip class="text-body2">Message encrypted</q-tooltip>
                       </q-icon>
                       <!-- Read Receipt Indicators -->
                       <q-chip
@@ -196,6 +224,17 @@
                         </span>
                       </q-chip>
                     </template>
+
+                    <!-- Encryption indicator for non-own messages -->
+                    <q-icon 
+                      v-if="isMessageEncrypted(message) && !message.isOwn" 
+                      name="fas fa-shield-alt" 
+                      color="blue" 
+                      size="10px" 
+                      class="encryption-indicator q-ml-xs"
+                    >
+                      <q-tooltip class="text-body2">Message encrypted</q-tooltip>
+                    </q-icon>
 
                     <!-- Delete button - available for message owners and admins -->
                     <q-icon
@@ -579,10 +618,12 @@ interface Props {
   contextId: string
   mode: 'desktop' | 'mobile' | 'inline'
   height?: string
+  isReadyEncrypted?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  height: '400px'
+  height: '400px',
+  isReadyEncrypted: false
 })
 
 defineEmits<{
@@ -876,6 +917,47 @@ const formatTime = (date: Date): string => {
   if (diff < 3600000) return format(date, 'HH:mm')
   if (diff < 86400000) return format(date, 'HH:mm')
   return format(date, 'MMM d, HH:mm')
+}
+
+// Check if a message was encrypted/decrypted
+const isMessageEncrypted = (message: Message): boolean => {
+  // Debug log to understand message structure
+  console.log('🔐 MatrixChatInterface checking encryption for message:', {
+    id: message.id,
+    type: message.type,
+    hasDecryptionError: !!message.decryptionError,
+    originalType: message.originalType,
+    allKeys: Object.keys(message)
+  })
+  
+  // Check if this message was encrypted (either successfully decrypted or failed to decrypt)
+  // Method 1: Check for decryption error (failed to decrypt encrypted message)
+  if (message.decryptionError) {
+    console.log('🔐 Message has decryption error - it was encrypted:', message.decryptionError)
+    return true
+  }
+  
+  // Method 2: Check for original type of m.room.encrypted (successfully decrypted)
+  if (message.originalType === 'm.room.encrypted') {
+    console.log('🔐 Message original type was m.room.encrypted - it was encrypted and decrypted')
+    return true
+  }
+  
+  // Method 3: Check if message type is still m.room.encrypted (not yet decrypted)
+  if (message.type === 'm.room.encrypted') {
+    console.log('🔐 Message type is m.room.encrypted - it is encrypted')
+    return true
+  }
+  
+  // Method 4: Check for encryption-related properties
+  if ('encrypted' in message || 'decrypted' in message || 'isEncrypted' in message) {
+    console.log('🔐 Message has encryption-related properties')
+    return true
+  }
+  
+  // TEMPORARY: Show shields on all messages to test the UI
+  console.log('🔐 Showing shield on all messages for testing')
+  return true
 }
 
 // Check if message actions should be shown (for own messages or admins)
@@ -1629,23 +1711,18 @@ const reconnect = async () => {
       return
     }
 
-    // Check if this is a first-time setup and redirect to setup flow if needed
-    const needsSetup = !matrixClientService.hasUserChosenToConnect() ||
-                       matrixClientService.needsEncryptionSetup?.() || false
-
-    if (needsSetup) {
-      // For first-time users, redirect to the setup flow via window navigation
-      // This ensures they go through the proper education and encryption setup
-      const currentPath = window.location.pathname + window.location.search
-      const setupUrl = `/dashboard/chats?chat=${encodeURIComponent(props.roomId || props.contextId || 'setup')}&return=${encodeURIComponent(currentPath)}`
-
-      console.log('🔄 Redirecting to setup flow:', setupUrl)
-      window.location.href = setupUrl
+    // Check if user has stored credentials for reconnection
+    if (matrixClientService.hasStoredSession()) {
+      // Try to reconnect using stored credentials (no MAS auth flow)
+      logger.debug('🔄 Attempting reconnection with stored credentials')
+      await matrixClientService.initializeClient()
+    } else {
+      // No stored credentials - user needs to manually connect
+      logger.debug('🔑 No stored credentials for reconnect, showing connect button')
+      lastAuthError.value = 'Matrix connection required. Please click Connect to continue.'
+      isConnecting.value = false
       return
     }
-
-    // Try to connect to Matrix client (this will handle authentication)
-    await matrixClientService.connectToMatrix()
     // Matrix client connected successfully
 
     // After successful Matrix connection, ensure we're invited to the chat room
@@ -2660,13 +2737,22 @@ onMounted(async () => {
         messagesLoaded = true
       }
     } else {
-      // Try to initialize Matrix connection (but don't force auth)
-      try {
-        await matrixClientService.initializeClient()
-      } catch (authError) {
-        logger.debug('🔑 Matrix client needs authentication:', authError.message)
-        // Don't throw - just log and show connect button to user
-        lastAuthError.value = '' // Clear error to show connect button
+      // Check if user has stored credentials before attempting auto-connection
+      if (matrixClientService.hasStoredSession()) {
+        // Try to initialize Matrix connection using stored credentials only
+        try {
+          logger.debug('🔑 Found stored credentials, attempting auto-connection')
+          await matrixClientService.initializeClient()
+        } catch (authError) {
+          logger.debug('🔑 Stored credentials failed:', authError.message)
+          lastAuthError.value = 'Matrix session expired. Please connect to continue.'
+          isConnecting.value = false
+          return // Exit early to show connect button
+        }
+      } else {
+        // No stored credentials - show connect button without attempting auth
+        logger.debug('🔑 No stored credentials, showing connect button')
+        lastAuthError.value = '' // Clear error to show clean connect button
         isConnecting.value = false
         return // Exit early to show connect button
       }
