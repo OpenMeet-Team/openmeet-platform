@@ -16,7 +16,13 @@ interface Verifier {
   verify(): Promise<void>
   cancel(): Promise<void>
   getEmojiSas?(): Array<[string, string]>
+  getEmoji?(): Array<[string, string]>
+  emojis?: Array<[string, string]>
+  sas?: { emoji?: Array<[string, string]> }
+  getSas?(): { emoji?: Array<[string, string]> }
   on(event: string, callback: () => void): void
+  constructor: { name: string }
+  [key: string]: unknown
 }
 
 interface VerificationRequest {
@@ -28,9 +34,13 @@ interface VerificationRequest {
   accept(): Promise<void>
   cancel(): Promise<void>
   beginKeyVerification(method: string): Verifier | null
+  startVerification?(method: string): Promise<Verifier>
   on(event: string, callback: () => void): void
   done?: boolean
   cancelled?: boolean
+  verifier?: Verifier
+  getVerifier?(): Verifier | null
+  _verifier?: Verifier
 }
 
 export interface VerificationRequestInfo {
@@ -280,6 +290,13 @@ export class MatrixDeviceVerificationService {
       currentUser: this.matrixClient.getUserId()
     })
 
+    // Check if we already have this request to prevent duplicates
+    const existingRequest = this.activeRequests.get(request.transactionId!)
+    if (existingRequest) {
+      logger.debug('⚠️ Duplicate verification request ignored:', request.transactionId)
+      return // Don't process duplicates
+    }
+
     // Store the active request
     this.activeRequests.set(request.transactionId!, request)
 
@@ -292,8 +309,25 @@ export class MatrixDeviceVerificationService {
       timestamp: Date.now()
     }
 
-    // Notify UI about the verification request
-    this.notifyVerificationRequest(requestInfo)
+    // Auto-accept verification requests to prevent timeout (Element Web pattern)
+    // Only auto-accept if in the correct phase
+    if (request.phase === VerificationPhase.Requested) {
+      logger.warn('🚀 Auto-accepting verification request to prevent timeout (phase: Requested)')
+
+      // Accept the request immediately
+      request.accept().then(() => {
+        logger.warn('✅ Verification request auto-accepted successfully')
+        this.notifyVerificationRequest(requestInfo)
+      }).catch((error) => {
+        logger.error('❌ Failed to auto-accept verification request:', error)
+        // Still notify UI even if auto-accept failed
+        this.notifyVerificationRequest(requestInfo)
+      })
+    } else {
+      // For other phases, notify immediately
+      logger.debug(`ℹ️ Verification request in phase ${request.phase}, not auto-accepting`)
+      this.notifyVerificationRequest(requestInfo)
+    }
 
     // Listen for this request being cancelled or completed
     request.on('change', () => {
@@ -323,52 +357,152 @@ export class MatrixDeviceVerificationService {
   }
 
   /**
-   * Clean up stale devices (keep only current device and a few recent ones)
+   * Check if the Matrix server supports device management API
    */
-  public async cleanupStaleDevices (keepCount: number = 5): Promise<{success: boolean, deletedCount: number, error?: string}> {
+  public async checkDeviceManagementSupport (): Promise<{supported: boolean, serverDevices?: Array<{device_id: string, display_name?: string, last_seen_ip?: string, last_seen_ts?: number}>}> {
+    try {
+      // Try to get devices using the standard Matrix API
+      const response = await this.matrixClient.getDevices()
+      logger.warn('✅ Server supports device management API, found', response.devices?.length || 0, 'devices')
+      return { supported: true, serverDevices: response.devices }
+    } catch (error) {
+      logger.warn('❌ Server does not support device management API:', error)
+      return { supported: false }
+    }
+  }
+
+  /**
+   * Clean up stale devices with improved error handling and server support detection
+   */
+  public async cleanupStaleDevices (keepCount: number = 5): Promise<{success: boolean, deletedCount: number, error?: string, serverSupported?: boolean}> {
     try {
       const crypto = this.matrixClient.getCrypto()
       if (!crypto) {
         return { success: false, deletedCount: 0, error: 'Crypto not available' }
       }
 
+      // First check if server supports device management
+      const serverSupport = await this.checkDeviceManagementSupport()
+      if (!serverSupport.supported) {
+        logger.warn('⚠️ Matrix server does not support device management API - skipping cleanup')
+        return {
+          success: true,
+          deletedCount: 0,
+          error: 'Server does not support device management API',
+          serverSupported: false
+        }
+      }
+
       const devices = await this.getAllUserDevices()
       const currentDeviceId = this.matrixClient.getDeviceId()
+
+      logger.warn(`🔍 Device analysis: ${devices.length} total devices, current: ${currentDeviceId}`)
 
       // Find stale devices (not current device)
       const staleDevices = devices.filter(d => !d.isCurrentDevice && d.deviceId !== currentDeviceId)
 
       if (staleDevices.length <= keepCount) {
         logger.warn(`📱 Only ${staleDevices.length} stale devices, no cleanup needed (keeping ${keepCount})`)
-        return { success: true, deletedCount: 0 }
+        return { success: true, deletedCount: 0, serverSupported: true }
       }
 
-      // Sort by device ID to have consistent cleanup order
+      // Sort by device ID to have consistent cleanup order (could be enhanced to sort by last seen)
       staleDevices.sort((a, b) => a.deviceId.localeCompare(b.deviceId))
 
-      // Delete oldest devices, keep some recent ones
-      const devicesToDelete = staleDevices.slice(0, staleDevices.length - keepCount)
+      // Only delete a few devices at a time to avoid overwhelming the server
+      const maxDeletePerRun = 10
+      const devicesToDelete = staleDevices.slice(0, Math.min(maxDeletePerRun, staleDevices.length - keepCount))
 
-      logger.warn(`🧹 Cleaning up ${devicesToDelete.length} stale devices (keeping ${keepCount} recent + current)`)
+      logger.warn(`🧹 Attempting to clean up ${devicesToDelete.length} stale devices (keeping ${keepCount} recent + current)`)
 
       let deletedCount = 0
+      const errors: string[] = []
+
       for (const device of devicesToDelete) {
         try {
-          // Use Matrix client API to delete device
-          await this.matrixClient.deleteDevice(device.deviceId, {})
+          // Try without auth first, then with empty auth if required
+          await this.matrixClient.deleteDevice(device.deviceId)
           deletedCount++
-          logger.debug(`✅ Deleted stale device: ${device.deviceId}`)
+          logger.warn(`✅ Deleted stale device: ${device.deviceId} - ${device.displayName || 'Unknown'}`)
+
+          // Add a small delay between deletions to be nice to the server
+          await new Promise(resolve => setTimeout(resolve, 100))
         } catch (error) {
-          logger.warn(`⚠️ Failed to delete device ${device.deviceId}:`, error)
-          // Continue with other devices even if one fails
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          logger.warn(`⚠️ Failed to delete device ${device.deviceId}:`, errorMsg)
+          errors.push(`${device.deviceId}: ${errorMsg}`)
+
+          // If we get 401 or 403, might need user interaction - stop trying
+          if (errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('Unauthorized')) {
+            logger.warn('⚠️ Authentication required for device deletion - stopping cleanup')
+            break
+          }
+
+          // If we get 404 or "Unrecognized request", the server might not support this endpoint
+          if (errorMsg.includes('404') || errorMsg.includes('Unrecognized request')) {
+            logger.warn('⚠️ Server does not support device deletion endpoint - stopping cleanup')
+            break
+          }
         }
       }
 
-      logger.warn(`✅ Cleaned up ${deletedCount}/${devicesToDelete.length} stale devices`)
-      return { success: true, deletedCount }
+      const resultMessage = errors.length > 0
+        ? `Partial cleanup: ${deletedCount}/${devicesToDelete.length} deleted. Errors: ${errors.join(', ')}`
+        : `Successfully cleaned up ${deletedCount}/${devicesToDelete.length} stale devices`
+
+      logger.warn(`✅ ${resultMessage}`)
+      return {
+        success: true,
+        deletedCount,
+        error: errors.length > 0 ? errors.join('; ') : undefined,
+        serverSupported: true
+      }
     } catch (error) {
       logger.error('❌ Failed to cleanup stale devices:', error)
       return { success: false, deletedCount: 0, error: String(error) }
+    }
+  }
+
+  /**
+   * Manually verify a device by marking it as verified in crypto store
+   * This is useful when server-side verification isn't working properly
+   */
+  public async manuallyVerifyDevice (deviceId: string): Promise<{success: boolean, error?: string}> {
+    try {
+      const crypto = this.matrixClient.getCrypto()
+      if (!crypto) {
+        return { success: false, error: 'Crypto not available' }
+      }
+
+      const userId = this.matrixClient.getUserId()!
+
+      logger.warn(`🔐 Manually verifying device: ${userId}/${deviceId}`)
+
+      // Use the crypto API to mark device as verified
+      await crypto.setDeviceVerified(userId, deviceId, true)
+
+      // Verify it worked - check both local and cross-signing verification properties
+      const verificationStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+      const isLocallyVerified = verificationStatus?.localVerified || false
+      const isCrossSigningVerified = verificationStatus?.crossSigningVerified || false
+      const isSDKVerified = verificationStatus?.isVerified() || false
+
+      if (isLocallyVerified) {
+        logger.warn(`✅ Device ${deviceId} locally verified. Cross-signing verified: ${isCrossSigningVerified}, SDK verified: ${isSDKVerified}`)
+        if (!isCrossSigningVerified) {
+          return {
+            success: true,
+            error: 'Device locally verified but not cross-signing verified. Element may still show as unverified.'
+          }
+        }
+        return { success: true }
+      } else {
+        logger.warn(`❌ Device ${deviceId} verification failed - status not updated`)
+        return { success: false, error: 'Device verification status not updated' }
+      }
+    } catch (error) {
+      logger.error(`❌ Failed to manually verify device ${deviceId}:`, error)
+      return { success: false, error: String(error) }
     }
   }
 
@@ -393,11 +527,15 @@ export class MatrixDeviceVerificationService {
 
       const deviceList = await Promise.all(
         Array.from(userDevices.entries()).map(async ([deviceId, device]) => {
-          // Check verification status for each device
+          // Check verification status for each device - require BOTH local AND cross-signing verification like Element
           let verified = false
           try {
             const verificationStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
-            verified = verificationStatus?.isVerified() || false
+            // Check both local verification and cross-signing verification properties
+            const isLocallyVerified = verificationStatus?.localVerified || false
+            const isCrossSigningVerified = verificationStatus?.crossSigningVerified || false
+            // For Element compatibility, require both local verification and cross-signing verification
+            verified = isLocallyVerified && isCrossSigningVerified
           } catch (error) {
             logger.debug(`Could not check verification for device ${deviceId}:`, error)
           }
@@ -563,6 +701,21 @@ export class MatrixDeviceVerificationService {
           logger.debug('✅ Found existing verifier for started verification')
           return { success: true, verifier: existingVerifier }
         }
+
+        // Try to find the verifier from the request object (Matrix JS SDK v37+ pattern)
+        try {
+          const requestVerifier = request.verifier || request.getVerifier?.() || request._verifier
+          if (requestVerifier) {
+            logger.debug('🔍 Found verifier from request object for started verification')
+            this.activeVerifiers.set(requestId, requestVerifier)
+            this.setupVerifierListeners(requestId, requestVerifier)
+            return { success: true, verifier: requestVerifier }
+          } else {
+            logger.debug('⚠️ No verifier found in request object, will try to create one')
+          }
+        } catch (error) {
+          logger.warn('⚠️ Could not access verifier from started request:', error)
+        }
       } else if (request.phase === VerificationPhase.Done) {
         logger.debug('✅ Verification already completed')
         return { success: true, verifier: null }
@@ -575,24 +728,32 @@ export class MatrixDeviceVerificationService {
       }
 
       // Start verification with the specified method
+      // Modern Matrix JS SDK v37+ uses different verification API
       let verifier
       try {
-        verifier = request.beginKeyVerification(method)
-      } catch (error) {
-        if (error.message === 'not implemented') {
-          logger.warn('⚠️ beginKeyVerification failed with "not implemented", trying alternative approach')
-          // Try to work around the SDK issue by creating verifier differently
-          try {
-            // Alternative: try to access the verification methods safely first
-            const safeMethods = this.getRequestMethods(request)
-            logger.debug('🔧 Safe methods retrieved:', safeMethods)
-            verifier = request.beginKeyVerification(method)
-          } catch (retryError) {
-            logger.error('❌ Alternative verification approach failed:', retryError)
-            return { success: false, error: `Verification failed: ${retryError.message}` }
-          }
+        // Try modern API first (Matrix JS SDK v37+)
+        if (typeof request.startVerification === 'function') {
+          logger.debug('🔧 Using modern startVerification API')
+          verifier = await request.startVerification(method)
+        } else if (typeof request.beginKeyVerification === 'function') {
+          logger.debug('🔧 Using legacy beginKeyVerification API')
+          verifier = request.beginKeyVerification(method)
         } else {
-          throw error // Re-throw if it's a different error
+          // Try direct crypto API access (Element Web pattern)
+          logger.debug('🔧 Trying direct crypto API access')
+          const crypto = this.matrixClient.getCrypto()
+          if (crypto && typeof crypto.requestVerificationDM === 'function') {
+            // This might be a different approach - for now, return error
+            return { success: false, error: 'Verification API not compatible - try updating Matrix JS SDK' }
+          }
+        }
+      } catch (error) {
+        if (error.message?.includes('not implemented')) {
+          logger.warn('⚠️ Verification API not implemented in this Matrix JS SDK version')
+          return { success: false, error: 'Device verification not supported in this Matrix JS SDK version. Please try refreshing or updating.' }
+        } else {
+          logger.error('❌ Verification start failed:', error)
+          return { success: false, error: `Verification failed: ${error.message}` }
         }
       }
 
@@ -645,13 +806,88 @@ export class MatrixDeviceVerificationService {
    */
   public getEmojiVerification (requestId: string): EmojiVerificationData | null {
     const verifier = this.activeVerifiers.get(requestId)
-    if (!verifier || !verifier.getEmojiSas) {
+    // Log all available methods for debugging Matrix JS SDK v37+ RustSASVerifier
+    if (verifier) {
+      const allMethods = [
+        ...Object.getOwnPropertyNames(verifier),
+        ...Object.getOwnPropertyNames(Object.getPrototypeOf(verifier))
+      ].filter(name => typeof (verifier as Record<string, unknown>)[name] === 'function')
+
+      // Log methods explicitly since console might truncate arrays
+      logger.debug('🔍 Getting emoji verification for:', requestId)
+      logger.debug('📋 Verifier type:', verifier.constructor.name)
+      logger.debug('📋 Available methods:', allMethods)
+      logger.debug('🔍 Emoji method tests:', {
+        hasGetEmojiSas: !!verifier.getEmojiSas,
+        hasGetEmoji: !!verifier.getEmoji,
+        hasEmojis: !!verifier.emojis,
+        hasSas: !!verifier.sas,
+        hasGetSas: !!verifier.getSas
+      })
+    } else {
+      logger.warn('⚠️ No verifier found for requestId:', requestId)
+      return null
+    }
+
+    if (!verifier.getEmojiSas) {
+      logger.warn('⚠️ Verifier has no getEmojiSas method:', requestId)
+      // Try all possible Matrix JS SDK v37+ RustSASVerifier emoji method patterns
+      const possibleMethods = [
+        'getSasEmojis',
+        'getEmoji',
+        'emojis',
+        'sas',
+        'getSas',
+        'sasEmojis',
+        'getEmojiSAS',
+        'getShortAuthenticationString',
+        'shortAuthenticationString'
+      ]
+
+      for (const methodName of possibleMethods) {
+        const method = (verifier as Record<string, unknown>)[methodName]
+        if (method) {
+          logger.debug(`🔧 Found alternative emoji method: ${methodName}`)
+          try {
+            const sasData = typeof method === 'function' ? method() : method
+            logger.debug('🔍 Raw SAS data from', methodName, ':', sasData)
+
+            if (sasData && Array.isArray(sasData)) {
+              return {
+                emojis: sasData.map((item: [string, string] | { emoji?: string; symbol?: string; name?: string; description?: string }) => ({
+                  emoji: Array.isArray(item) ? item[0] : (item.emoji || item.symbol || ''),
+                  name: Array.isArray(item) ? item[1] : (item.name || item.description || '')
+                })),
+                verified: false
+              }
+            } else if (sasData && typeof sasData === 'object') {
+              // Handle object format
+              if (sasData.emojis && Array.isArray(sasData.emojis)) {
+                return {
+                  emojis: sasData.emojis.map((item: [string, string] | { emoji?: string; symbol?: string; name?: string; description?: string }) => ({
+                    emoji: Array.isArray(item) ? item[0] : (item.emoji || item.symbol || ''),
+                    name: Array.isArray(item) ? item[1] : (item.name || item.description || '')
+                  })),
+                  verified: false
+                }
+              }
+            }
+          } catch (error) {
+            logger.warn(`⚠️ Method ${methodName} failed:`, error)
+          }
+        }
+      }
       return null
     }
 
     try {
       const sasData = verifier.getEmojiSas()
-      if (!sasData) return null
+      logger.debug('🔍 Raw SAS data:', sasData)
+
+      if (!sasData) {
+        logger.warn('⚠️ getEmojiSas returned null/undefined')
+        return null
+      }
 
       return {
         emojis: sasData.map(item => ({
@@ -717,7 +953,47 @@ export class MatrixDeviceVerificationService {
     try {
       verifier.on('show_sas', () => {
         logger.debug('🔐 SAS verification ready for:', requestId)
-        // UI should now show the emoji comparison
+
+        // Try to get emoji data now that SAS is ready using all possible methods
+        logger.debug('🔐 show_sas event fired, attempting to access emoji data')
+
+        // First, let's inspect what's available on the verifier now
+        const allMethods = [
+          ...Object.getOwnPropertyNames(verifier),
+          ...Object.getOwnPropertyNames(Object.getPrototypeOf(verifier))
+        ].filter(name => typeof (verifier as Record<string, unknown>)[name] === 'function')
+
+        logger.debug('🔍 Methods available in show_sas:', allMethods)
+
+        // Try all possible ways to access emoji data
+        const possibleMethods = [
+          'getEmojiSas', 'getSasEmojis', 'getEmoji', 'emojis', 'sas', 'getSas',
+          'sasEmojis', 'getEmojiSAS', 'getShortAuthenticationString', 'shortAuthenticationString'
+        ]
+
+        let foundEmojiData = false
+        for (const methodName of possibleMethods) {
+          const method = (verifier as Record<string, unknown>)[methodName]
+          if (method) {
+            try {
+              const sasData = typeof method === 'function' ? method() : method
+              if (sasData) {
+                logger.debug(`✅ Found emoji data via ${methodName}:`, sasData)
+                foundEmojiData = true
+                break
+              }
+            } catch (error) {
+              logger.debug(`⚠️ Method ${methodName} failed:`, error.message)
+            }
+          }
+        }
+
+        if (!foundEmojiData) {
+          logger.warn('⚠️ No emoji data accessible even after show_sas event')
+          // Try to inspect the verifier object structure
+          logger.debug('🔍 Verifier object keys:', Object.keys(verifier))
+          logger.debug('🔍 Verifier properties:', Object.getOwnPropertyNames(verifier))
+        }
       })
 
       verifier.on('verify', () => {

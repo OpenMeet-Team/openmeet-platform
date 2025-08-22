@@ -75,8 +75,23 @@ export function useMatrixAccess () {
    */
   const hasMatrixAccount = (): boolean => {
     const userData = authStore.user
-    // Check for direct Matrix user ID or Matrix preferences
-    return !!userData?.matrixUserId || !!userData?.preferences?.matrix
+    if (!userData?.id) {
+      return false
+    }
+
+    // Check if user has legacy matrix user ID
+    if (userData.matrixUserId) {
+      return true
+    }
+
+    // Check if user has matrix preferences indicating they have an account
+    if (userData.preferences?.matrix?.hasDirectAccess) {
+      return true
+    }
+
+    // For now, we assume users do have matrix accounts
+    // TODO: Add API endpoint to check matrix handle registry
+    return true
   }
 
   /**

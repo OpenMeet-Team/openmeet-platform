@@ -447,6 +447,82 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+
+    <!-- Recovery Key Dialog -->
+    <q-dialog
+      v-model="showRecoveryKeyDialog"
+      persistent
+      maximized
+      transition-show="slide-up"
+      transition-hide="slide-down"
+    >
+      <q-card class="recovery-key-dialog">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">
+            <q-icon name="sym_r_key" color="orange" class="q-mr-sm" />
+            Save Your New Recovery Key
+          </div>
+        </q-card-section>
+
+        <q-card-section>
+          <div class="recovery-key-content">
+            <div class="text-body1 q-mb-md">
+              <strong>Your encryption has been reset!</strong>
+              Here's your new recovery key - you'll need this to unlock your encrypted messages if you forget your passphrase.
+            </div>
+
+            <q-banner class="bg-orange-1 text-orange-8 q-mb-md">
+              <template v-slot:avatar>
+                <q-icon name="sym_r_warning" color="orange" />
+              </template>
+              <strong>Important:</strong> Store this key safely in your password manager.
+              You won't see it again and you'll need it to recover your messages!
+            </q-banner>
+
+            <q-card flat class="recovery-key-card q-mb-md">
+              <q-card-section>
+                <div class="recovery-key-text">{{ recoveryKey }}</div>
+                <div class="recovery-key-actions q-mt-md">
+                  <q-btn
+                    flat
+                    color="primary"
+                    icon="sym_r_content_copy"
+                    label="Copy Key"
+                    @click="copyRecoveryKey"
+                    class="q-mr-sm"
+                  />
+                  <q-btn
+                    flat
+                    color="grey-7"
+                    icon="sym_r_download"
+                    label="Download"
+                    @click="downloadRecoveryKey"
+                  />
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <q-checkbox
+              v-model="recoveryKeySaved"
+              color="green"
+              label="I have saved my recovery key safely"
+              class="q-mb-md"
+            />
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            unelevated
+            color="green"
+            label="Continue"
+            @click="closeRecoveryKeyDialog"
+            :disable="!recoveryKeySaved"
+            icon="sym_r_check"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -522,6 +598,12 @@ const messageText = ref('')
 const selectedFile = ref<File | null>(null)
 const messages = ref<Message[]>([])
 const typingUsers = ref<{ userId: string, userName: string }[]>([])
+
+// Recovery key dialog state
+const showRecoveryKeyDialog = ref(false)
+const recoveryKey = ref('')
+const recoveryKeySaved = ref(false)
+
 // Connection state tracking
 
 const isConnected = computed(() => {
@@ -1193,6 +1275,73 @@ const stopTyping = async () => {
 const showImageModal = (src: string) => {
   imageModalSrc.value = src
   imageModal.value = true
+}
+
+// Recovery key dialog functions
+const handleRecoveryKeyGenerated = (event: CustomEvent) => {
+  const { recoveryKey: key, context } = event.detail
+  recoveryKey.value = key
+  showRecoveryKeyDialog.value = true
+  recoveryKeySaved.value = false
+
+  logger.debug('🔑 Recovery key dialog shown', { context, keyLength: key?.length })
+}
+
+const closeRecoveryKeyDialog = () => {
+  if (recoveryKeySaved.value) {
+    showRecoveryKeyDialog.value = false
+    recoveryKey.value = ''
+    recoveryKeySaved.value = false
+  }
+}
+
+const copyRecoveryKey = async () => {
+  try {
+    await navigator.clipboard.writeText(recoveryKey.value)
+    quasar.notify({
+      type: 'positive',
+      message: 'Recovery key copied to clipboard',
+      position: 'top'
+    })
+  } catch (err) {
+    console.error('Failed to copy recovery key:', err)
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea')
+    textArea.value = recoveryKey.value
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    quasar.notify({
+      type: 'positive',
+      message: 'Recovery key copied to clipboard',
+      position: 'top'
+    })
+  }
+}
+
+const downloadRecoveryKey = () => {
+  const element = document.createElement('a')
+  const file = new Blob([
+    'OpenMeet Matrix Recovery Key\n',
+    `Generated: ${new Date().toISOString()}\n`,
+    `Room: ${roomName.value || 'Unknown'}\n`,
+    '\n',
+    `Recovery Key:\n${recoveryKey.value}\n`,
+    '\n',
+    'IMPORTANT: Store this key safely. You need it to unlock your encrypted messages if you lose access to your account.\n'
+  ], { type: 'text/plain' })
+  element.href = URL.createObjectURL(file)
+  element.download = `openmeet-matrix-recovery-key-${new Date().toISOString().split('T')[0]}.txt`
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
+  URL.revokeObjectURL(element.href)
+  quasar.notify({
+    type: 'positive',
+    message: 'Recovery key downloaded',
+    position: 'top'
+  })
 }
 
 const downloadFile = async (url: string, filename: string) => {
@@ -2483,6 +2632,8 @@ onMounted(async () => {
   // Listen for token error events to reactively show Connect button
   window.addEventListener('matrix:tokenError', handleTokenError)
   window.addEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
+  // Listen for recovery key generation events from encryption reset
+  window.addEventListener('matrix-recovery-key-generated', handleRecoveryKeyGenerated)
 
   try {
     logger.debug(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
@@ -2600,6 +2751,8 @@ onUnmounted(() => {
   // Cleanup token error event listeners
   window.removeEventListener('matrix:tokenError', handleTokenError)
   window.removeEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
+  // Cleanup recovery key event listener
+  window.removeEventListener('matrix-recovery-key-generated', handleRecoveryKeyGenerated)
 
   // Cleanup custom event listeners
   customEventListeners.forEach(cleanup => cleanup())
@@ -2975,6 +3128,46 @@ onUnmounted(() => {
 .q-dark .file-card:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Recovery Key Dialog Styles */
+.recovery-key-dialog {
+  max-width: 600px;
+  margin: auto;
+}
+
+.recovery-key-card {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.recovery-key-text {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  word-break: break-all;
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  user-select: all;
+}
+
+.recovery-key-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.q-dark .recovery-key-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.q-dark .recovery-key-text {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f5f5f5;
 }
 
 </style>

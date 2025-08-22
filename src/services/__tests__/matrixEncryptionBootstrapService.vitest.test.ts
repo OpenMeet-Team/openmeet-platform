@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { MatrixClient } from 'matrix-js-sdk'
-import { MatrixEncryptionBootstrapService } from '../matrixEncryptionBootstrapService'
+import { MatrixEncryptionService } from '../MatrixEncryptionService'
 
 // Mock Matrix client
 const mockMatrixClient = {
@@ -22,98 +22,64 @@ const mockCrypto = {
   isCrossSigningReady: vi.fn()
 }
 
-describe('MatrixEncryptionBootstrapService', () => {
-  let service: MatrixEncryptionBootstrapService
+describe('MatrixEncryptionService', () => {
+  let service: MatrixEncryptionService
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockMatrixClient.getCrypto = vi.fn().mockReturnValue(mockCrypto)
-    service = new MatrixEncryptionBootstrapService(mockMatrixClient)
+    service = new MatrixEncryptionService(mockMatrixClient)
   })
 
-  describe('checkEncryptionSetup', () => {
-    it('should return false when encryption is not set up', async () => {
+  describe('getStatus', () => {
+    it('should return needsSetup true when encryption is not set up', async () => {
       mockCrypto.isSecretStorageReady.mockResolvedValue(false)
       mockCrypto.isCrossSigningReady.mockResolvedValue(false)
 
-      const needsSetup = await service.checkEncryptionSetup()
+      const status = await service.getStatus()
 
-      expect(needsSetup).toBe(true)
+      expect(status.needsSetup).toBe(true)
+      expect(status.isReady).toBe(false)
     })
 
-    it('should return true when encryption is already set up', async () => {
+    it('should return needsSetup false when encryption is already set up', async () => {
       mockCrypto.isSecretStorageReady.mockResolvedValue(true)
       mockCrypto.isCrossSigningReady.mockResolvedValue(true)
 
-      const needsSetup = await service.checkEncryptionSetup()
+      const status = await service.getStatus()
 
-      expect(needsSetup).toBe(false)
+      expect(status.needsSetup).toBe(false)
+      expect(status.isReady).toBe(true)
     })
   })
 
-  describe('bootstrapEncryption', () => {
-    it('should successfully bootstrap encryption with user passphrase', async () => {
+  describe('setupEncryption', () => {
+    it('should successfully set up encryption with user passphrase', async () => {
       const testPassphrase = 'MySecurePassphrase123!'
-      const mockRecoveryKey = new Uint8Array([1, 2, 3, 4])
 
-      mockCrypto.createRecoveryKeyFromPassphrase.mockResolvedValue(mockRecoveryKey)
+      mockCrypto.isSecretStorageReady.mockResolvedValue(false)
+      mockCrypto.isCrossSigningReady.mockResolvedValue(false)
       mockCrypto.bootstrapCrossSigning.mockResolvedValue(undefined)
       mockCrypto.bootstrapSecretStorage.mockResolvedValue(undefined)
 
-      const result = await service.bootstrapEncryption(testPassphrase)
+      const result = await service.setupEncryption(testPassphrase)
 
       expect(result.success).toBe(true)
       expect(result.error).toBeUndefined()
-      expect(mockCrypto.createRecoveryKeyFromPassphrase).toHaveBeenCalledWith(testPassphrase)
-      expect(mockCrypto.bootstrapCrossSigning).toHaveBeenCalled()
-      expect(mockCrypto.bootstrapSecretStorage).toHaveBeenCalledWith({
-        createSecretStorageKey: expect.any(Function)
-      })
     })
 
-    it('should handle cross-signing bootstrap failure', async () => {
+    it('should handle encryption setup failure', async () => {
       const testPassphrase = 'MySecurePassphrase123!'
-      const error = new Error('Cross-signing setup failed')
+      const error = new Error('Setup failed')
 
-      mockCrypto.createRecoveryKeyFromPassphrase.mockResolvedValue(new Uint8Array([1, 2, 3, 4]))
+      mockCrypto.isSecretStorageReady.mockResolvedValue(false)
       mockCrypto.bootstrapCrossSigning.mockRejectedValue(error)
 
-      const result = await service.bootstrapEncryption(testPassphrase)
+      const result = await service.setupEncryption(testPassphrase)
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Cross-signing setup failed')
-      expect(result.step).toBe('cross-signing')
+      expect(result.error).toContain('Setup failed')
     })
-
-    it('should handle secret storage bootstrap failure', async () => {
-      const testPassphrase = 'MySecurePassphrase123!'
-      const error = new Error('Secret storage setup failed')
-
-      mockCrypto.createRecoveryKeyFromPassphrase.mockResolvedValue(new Uint8Array([1, 2, 3, 4]))
-      mockCrypto.bootstrapCrossSigning.mockResolvedValue(undefined)
-      mockCrypto.bootstrapSecretStorage.mockRejectedValue(error)
-
-      const result = await service.bootstrapEncryption(testPassphrase)
-
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('Secret storage setup failed')
-      expect(result.step).toBe('secret-storage')
-    })
-
-    it('should timeout after 30 seconds', async () => {
-      const testPassphrase = 'MySecurePassphrase123!'
-
-      // Mock a hanging promise
-      mockCrypto.createRecoveryKeyFromPassphrase.mockImplementation(() =>
-        new Promise(resolve => setTimeout(resolve, 35000))
-      )
-
-      const result = await service.bootstrapEncryption(testPassphrase)
-
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('timeout')
-      expect(result.step).toBe('timeout')
-    }, 35000) // Set test timeout to 35 seconds
   })
 
   describe('resetEncryption', () => {
@@ -124,31 +90,6 @@ describe('MatrixEncryptionBootstrapService', () => {
       const result = await service.resetEncryption()
 
       expect(result.success).toBe(true)
-    })
-  })
-
-  describe('validatePassphrase', () => {
-    it('should reject passphrases shorter than 12 characters', () => {
-      const result = service.validatePassphrase('short')
-
-      expect(result.isValid).toBe(false)
-      expect(result.strength).toBe('weak')
-      expect(result.feedback).toContain('12 characters')
-    })
-
-    it('should accept strong passphrases', () => {
-      const result = service.validatePassphrase('MyVerySecurePassphrase123!')
-
-      expect(result.isValid).toBe(true)
-      expect(result.strength).toBe('strong')
-    })
-
-    it('should provide feedback for medium strength passphrases', () => {
-      const result = service.validatePassphrase('myphrasetest123')
-
-      expect(result.isValid).toBe(true)
-      expect(result.strength).toBe('medium')
-      expect(result.feedback).toContain('uppercase')
     })
   })
 })

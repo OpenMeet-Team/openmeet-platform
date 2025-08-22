@@ -67,7 +67,7 @@
 
                   <!-- Encryption Status Indicator -->
                   <q-chip
-                    v-if="encryptionStatus.ready"
+                    v-if="encryptionStatus.isReady"
                     size="sm"
                     color="green"
                     text-color="white"
@@ -77,7 +77,7 @@
                     Encrypted
                   </q-chip>
                   <q-chip
-                    v-else-if="encryptionStatus.initializing"
+                    v-else-if="encryptionStatus.needsSetup"
                     size="sm"
                     color="orange"
                     text-color="white"
@@ -87,7 +87,7 @@
                     Loading...
                   </q-chip>
                   <q-chip
-                    v-else-if="!encryptionStatus.available"
+                    v-else-if="!encryptionStatus.hasSecretStorage"
                     size="sm"
                     color="grey-6"
                     text-color="white"
@@ -268,15 +268,22 @@ const rightDrawerOpen = ref(false)
 const activeChat = ref<Chat | null>(null)
 
 // Encryption status tracking
-const encryptionStatus = ref(matrixEncryptionService.getEncryptionStatus())
+const encryptionStatus = ref({
+  isReady: false,
+  needsSetup: true,
+  hasSecretStorage: false,
+  hasCrossSigningKeys: false,
+  deviceVerified: false,
+  canDecryptHistory: false
+})
 
 const router = useRouter()
 const route = useRoute()
 const $q = useQuasar()
 
 // Encryption event handlers
-const updateEncryptionStatus = () => {
-  encryptionStatus.value = matrixEncryptionService.getEncryptionStatus()
+const updateEncryptionStatus = async () => {
+  encryptionStatus.value = await matrixEncryptionService.getEncryptionStatus()
 }
 
 const handleEncryptionReady = () => {

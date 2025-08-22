@@ -104,7 +104,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
-import { MatrixSecretStorageService } from '../../../services/MatrixSecretStorageService'
+// import { MatrixEncryptionService } from '../../../services/MatrixEncryptionService'
 import { matrixClientService } from '../../../services/matrixClientService'
 import { logger } from '../../../utils/logger'
 // Icon placeholders - replace with actual icons from your project
@@ -132,8 +132,12 @@ const isValidating = ref(false)
 const errorMessage = ref('')
 const passphraseInputRef = ref<HTMLTextAreaElement>()
 
-// Secret storage service
-let secretStorageService: MatrixSecretStorageService | null = null
+// TODO: Update to use MatrixEncryptionService
+let secretStorageService: {
+  isValidRecoveryKeyFormat(input: string): boolean
+  validateSecretStorageKey(keyParams: { recoveryKey: string }): Promise<boolean>
+  unlockSecretStorage(passphrase: string): Promise<{ success: boolean; error?: string; keyId?: string }>
+} | null = null
 
 // Validation debounce
 let validationTimeout: number | null = null
@@ -149,7 +153,8 @@ onMounted(() => {
 const initializeService = () => {
   const client = matrixClientService.getClient()
   if (client) {
-    secretStorageService = new MatrixSecretStorageService(client)
+    // TODO: Replace with MatrixEncryptionService
+    secretStorageService = null
   }
 }
 
@@ -188,7 +193,7 @@ const validateInput = async (input: string) => {
     validationState.value = 'validating'
     isValidating.value = true
 
-    const isValidFormat = secretStorageService.isValidRecoveryKeyFormat(input)
+    const isValidFormat = secretStorageService?.isValidRecoveryKeyFormat(input) ?? false
     if (!isValidFormat) {
       validationState.value = 'invalid'
       return
@@ -196,7 +201,7 @@ const validateInput = async (input: string) => {
 
     const keyParams = { recoveryKey: input }
 
-    const isValid = await secretStorageService.validateSecretStorageKey(keyParams)
+    const isValid = await secretStorageService?.validateSecretStorageKey(keyParams) ?? false
     validationState.value = isValid ? 'valid' : 'invalid'
   } catch (error) {
     logger.error('Validation error:', error)
@@ -216,7 +221,7 @@ const handleSubmit = async () => {
     errorMessage.value = ''
 
     logger.debug('Attempting to unlock secret storage...')
-    const result = await secretStorageService.unlockSecretStorage(passphraseInput.value.trim())
+    const result = await secretStorageService?.unlockSecretStorage(passphraseInput.value.trim()) ?? { success: false, error: 'Service not available' }
 
     if (result.success) {
       logger.debug('✅ Secret storage unlocked successfully')

@@ -268,8 +268,13 @@ const progressValue = computed(() => {
 // Connection polling
 let connectionCheckInterval: ReturnType<typeof setInterval> | null = null
 
+// Event listeners for Matrix events
+let matrixReadyListener: ((event: CustomEvent) => void) | null = null
+let matrixConnectedListener: ((event: CustomEvent) => void) | null = null
+
 // Methods
 const handleConnect = async () => {
+  console.log('🔗 User clicked connect button')
   loading.value = true
   isConnecting.value = true
   hasError.value = false
@@ -277,20 +282,23 @@ const handleConnect = async () => {
 
   try {
     // Step 1: Prepare connection
+    console.log('🔄 Step 1: Preparing connection')
     await new Promise(resolve => setTimeout(resolve, 1000))
     step.value = 2
 
     // Step 2: Start Matrix connection (this will redirect to OIDC)
+    console.log('🔄 Step 2: Starting Matrix connection (this may redirect)')
     // Note: This call will redirect the page, so execution stops here
     await matrixClientService.connectToMatrix()
 
     // The following code will not execute because of redirect
     // When user returns from OIDC, the component will be re-mounted
     // and onMounted will handle the completion detection
+    console.log('🔄 Matrix connection call completed (no redirect occurred)')
   } catch (error) {
-    console.error('Matrix connection failed:', error)
+    console.error('❌ Matrix connection failed:', error)
     hasError.value = true
-    errorMessage.value = error.message || 'Failed to connect to Matrix. Please try again.'
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to connect to Matrix. Please try again.'
     isConnecting.value = false
     loading.value = false
   }
@@ -321,15 +329,23 @@ const handleBack = () => {
 
 // Check connection status periodically
 const startConnectionPolling = () => {
-  connectionCheckInterval = setInterval(() => {
+  connectionCheckInterval = setInterval(async () => {
     if (isConnecting.value && !isConnected.value && !hasError.value) {
       // Check if Matrix connection was completed
-      if (matrixClientService.hasUserChosenToConnect()) {
+      const hasChosen = matrixClientService.hasUserChosenToConnect()
+      const isReady = matrixClientService.isReady()
+      const hasSession = matrixClientService.hasStoredSession()
+
+      console.log('🔍 Connection polling check:', { hasChosen, isReady, hasSession })
+
+      if (hasChosen && (isReady || hasSession)) {
+        console.log('✅ Connection detected, finishing flow')
         step.value = 3
         setTimeout(() => {
           step.value = 4
           isConnected.value = true
           isConnecting.value = false
+          loading.value = false
         }, 1000)
 
         if (connectionCheckInterval) {
@@ -338,7 +354,7 @@ const startConnectionPolling = () => {
         }
       }
     }
-  }, 2000)
+  }, 1000) // Check more frequently
 }
 
 const stopConnectionPolling = () => {
@@ -348,28 +364,101 @@ const stopConnectionPolling = () => {
   }
 }
 
+// Set up Matrix event listeners
+const setupMatrixEventListeners = () => {
+  matrixReadyListener = (event: CustomEvent) => {
+    console.log('🎉 Received Matrix ready event:', event.detail)
+    if (isConnecting.value && !isConnected.value) {
+      console.log('✅ Matrix ready event - completing connection')
+      step.value = 3
+      setTimeout(() => {
+        step.value = 4
+        isConnected.value = true
+        isConnecting.value = false
+        loading.value = false
+
+        setTimeout(() => {
+          emit('continue')
+        }, 1500)
+      }, 1000)
+    }
+  }
+
+  matrixConnectedListener = (event: CustomEvent) => {
+    console.log('🎉 Received Matrix connected event:', event.detail)
+    if (isConnecting.value && !isConnected.value) {
+      console.log('✅ Matrix connected event - completing connection')
+      step.value = 3
+      setTimeout(() => {
+        step.value = 4
+        isConnected.value = true
+        isConnecting.value = false
+        loading.value = false
+
+        setTimeout(() => {
+          emit('continue')
+        }, 1500)
+      }, 1000)
+    }
+  }
+
+  window.addEventListener('matrix-client-ready', matrixReadyListener as (event: Event) => void)
+  window.addEventListener('matrix-client-connected', matrixConnectedListener as (event: Event) => void)
+}
+
+const cleanupMatrixEventListeners = () => {
+  if (matrixReadyListener) {
+    window.removeEventListener('matrix-client-ready', matrixReadyListener as (event: Event) => void)
+    matrixReadyListener = null
+  }
+  if (matrixConnectedListener) {
+    window.removeEventListener('matrix-client-connected', matrixConnectedListener as (event: Event) => void)
+    matrixConnectedListener = null
+  }
+}
+
 onMounted(async () => {
+  console.log('🔍 MatrixConnectionFlow mounted, checking status...')
+
+  // Set up event listeners first
+  setupMatrixEventListeners()
+
   // Check if we just returned from OIDC flow or client is initializing
   const urlParams = new URLSearchParams(window.location.search)
   const hasAuthCode = urlParams.has('code')
+  const hasChosen = matrixClientService.hasUserChosenToConnect()
+  const isReady = matrixClientService.isReady()
+  const hasSession = matrixClientService.hasStoredSession()
 
-  if (hasAuthCode || matrixClientService.isReady() || matrixClientService.hasUserChosenToConnect()) {
+  console.log('🔍 Initial connection state:', { hasAuthCode, hasChosen, isReady, hasSession })
+
+  if (hasAuthCode || isReady || (hasChosen && hasSession)) {
     // We're back from OIDC, already connected, or initialization is in progress
+    console.log('🔄 Connection flow in progress or completed')
     step.value = 2
     isConnecting.value = true
 
     // Start monitoring for completion
-    const checkInterval = setInterval(() => {
-      if (matrixClientService.isReady()) {
+    const checkInterval = setInterval(async () => {
+      const currentReady = matrixClientService.isReady()
+      const currentSession = matrixClientService.hasStoredSession()
+      const currentChosen = matrixClientService.hasUserChosenToConnect()
+
+      console.log('🔍 Completion check:', { currentReady, currentSession, currentChosen })
+
+      if (currentReady || (currentChosen && currentSession)) {
+        console.log('✅ Matrix connection completed!')
         step.value = 3
         setTimeout(() => {
           step.value = 4
           isConnected.value = true
           isConnecting.value = false
+          loading.value = false
           clearInterval(checkInterval)
 
           // Auto-continue after connection complete
           setTimeout(() => {
+            console.log('🚀 Auto-continuing after connection')
             emit('continue')
           }, 1500)
         }, 1000)
@@ -378,21 +467,49 @@ onMounted(async () => {
 
     // Safety timeout to avoid infinite waiting
     setTimeout(() => {
-      if (!isConnected.value) {
+      if (!isConnected.value && isConnecting.value) {
+        console.log('⏰ Safety timeout reached - checking final state')
+        const finalChosen = matrixClientService.hasUserChosenToConnect()
+        const finalReady = matrixClientService.isReady()
+        const finalSession = matrixClientService.hasStoredSession()
+
+        console.log('🔍 Final state check:', { finalChosen, finalReady, finalSession })
+
+        // If user chose to connect and we have some indication of success, complete it
+        if (finalChosen && (finalReady || finalSession)) {
+          console.log('✅ Safety timeout but connection appears successful')
+        } else {
+          console.log('❌ Safety timeout and no clear success - showing error')
+          hasError.value = true
+          errorMessage.value = 'Connection timed out. This might be due to a slow network or server issue. Please try again.'
+          isConnecting.value = false
+          loading.value = false
+          clearInterval(checkInterval)
+          return
+        }
+
         step.value = 4
         isConnected.value = true
         isConnecting.value = false
+        loading.value = false
         clearInterval(checkInterval)
+
+        // Still try to continue
+        setTimeout(() => {
+          emit('continue')
+        }, 500)
       }
-    }, 10000)
+    }, 20000) // Even longer timeout to account for slow OIDC flows
   } else {
     // Normal flow - start polling for connection status
+    console.log('🔄 Starting normal connection polling')
     startConnectionPolling()
   }
 })
 
 onUnmounted(() => {
   stopConnectionPolling()
+  cleanupMatrixEventListeners()
 })
 </script>
 

@@ -27,7 +27,7 @@ type CryptoApi = any
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
-import { MatrixEncryptionBootstrapService } from './matrixEncryptionBootstrapService'
+import { MatrixEncryptionService } from './MatrixEncryptionService'
 import getEnv from '../utils/env'
 import { logger } from '../utils/logger'
 
@@ -102,14 +102,17 @@ class MatrixClientService {
    * Check if Matrix client is ready for operations
    */
   isReady (): boolean {
-    const managerReady = matrixClientManager.isReady()
+    // Use isClientAvailable for basic UI checks to prevent timing issues
+    const managerAvailable = matrixClientManager.isClientAvailable()
+    const managerFullyReady = matrixClientManager.isReady()
     const clientLoggedIn = this.client?.isLoggedIn() ?? false
-    const result = managerReady || clientLoggedIn
+    const result = managerAvailable || managerFullyReady || clientLoggedIn
 
     // Debug logging for setup state issues
     if (!result) {
       logger.debug('Matrix client not ready:', {
-        managerReady,
+        managerAvailable,
+        managerFullyReady,
         clientLoggedIn
       })
     }
@@ -168,8 +171,8 @@ class MatrixClientService {
    * Now requires manual initiation to avoid rate limiting
    */
   async initializeClient (forceAuth = false): Promise<MatrixClient> {
-    // Check if MatrixClientManager already has a ready client
-    if (matrixClientManager.isReady()) {
+    // Check if MatrixClientManager already has an available client
+    if (matrixClientManager.isClientAvailable()) {
       this.client = matrixClientManager.getClient()
       return this.client!
     }
@@ -634,15 +637,31 @@ class MatrixClientService {
       const identityServerUrl = getEnv('APP_MATRIX_IDENTITY_SERVER_URL') as string || undefined
 
       logger.debug('🔗 Generating OIDC authorization URL with native SDK')
-      const authorizationUrl = await generateOidcAuthorizationUrl({
-        metadata: oidcConfig,
+      logger.debug('🔍 Authorization URL generation parameters:', {
         clientId,
         homeserverUrl,
         identityServerUrl,
         redirectUri: redirectUrl,
-        nonce,
-        prompt: undefined // Let MAS decide the flow
+        nonce
       })
+
+      let authorizationUrl: string
+      try {
+        authorizationUrl = await generateOidcAuthorizationUrl({
+          metadata: oidcConfig,
+          clientId,
+          homeserverUrl,
+          identityServerUrl,
+          redirectUri: redirectUrl,
+          nonce,
+          prompt: undefined // Let MAS decide the flow
+        })
+
+        logger.debug('✅ Generated authorization URL:', authorizationUrl)
+      } catch (urlError) {
+        logger.error('❌ Failed to generate authorization URL:', urlError)
+        throw new Error(`Authorization URL generation failed: ${urlError.message}`)
+      }
 
       // Step 5: Enhance SDK-generated URL and replace scope if we have stored device ID
       const enhancedUrl = new URL(authorizationUrl)
@@ -687,7 +706,15 @@ class MatrixClientService {
         })
 
         // Perform full-page redirect to enhanced OIDC authorization URL (mobile-friendly)
-        window.location.href = enhancedUrl.toString()
+        logger.debug('🚀 About to perform full-page redirect to:', enhancedUrl.toString())
+
+        // Test: Add a small delay to see if we can spot the issue
+        setTimeout(() => {
+          logger.debug('🚀 Performing redirect now...')
+          window.location.href = enhancedUrl.toString()
+        }, 100)
+
+        logger.debug('🚀 Redirect scheduled (100ms delay)')
       } else {
         logger.warn('⚠️ Missing authentication context - user will see email form:', {
           tenantId: !!tenantId,
@@ -701,7 +728,15 @@ class MatrixClientService {
         logger.debug('🔄 Reusing device ID:', !!finalDeviceId)
 
         // Perform full-page redirect to enhanced OIDC authorization URL (may have custom scope)
-        window.location.href = enhancedUrl.toString()
+        logger.debug('🚀 About to perform full-page redirect to (fallback):', enhancedUrl.toString())
+
+        // Test: Add a small delay for fallback too
+        setTimeout(() => {
+          logger.debug('🚀 Performing fallback redirect now...')
+          window.location.href = enhancedUrl.toString()
+        }, 100)
+
+        logger.debug('🚀 Fallback redirect scheduled (100ms delay)')
       }
 
       return new Promise(() => {
@@ -3167,8 +3202,9 @@ class MatrixClientService {
     try {
       if (!this.client) return
 
-      const encryptionService = new MatrixEncryptionBootstrapService(this.client)
-      const needsSetup = await encryptionService.checkEncryptionSetup()
+      const encryptionService = new MatrixEncryptionService(this.client)
+      const status = await encryptionService.getStatus()
+      const needsSetup = status.needsSetup
 
       if (needsSetup) {
         logger.debug('🔐 Encryption setup needed - user will be prompted during chat access')
@@ -3201,7 +3237,7 @@ class MatrixClientService {
 
   /**
    * Wait for crypto API to become available with retry logic
-   * Based on MatrixEncryptionBootstrapService.waitForCrypto
+   * Based on MatrixEncryptionService patterns
    */
   private async waitForCrypto (maxRetries = 5, delayMs = 1000): Promise<CryptoApi | null> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -3264,12 +3300,12 @@ class MatrixClientService {
       if (matrixClientManager.isCryptoReady()) {
         logger.debug('🔐 Crypto already ready, checking encryption state')
 
-        // Import the encryption bootstrap service
-        const { MatrixEncryptionBootstrapService } = await import('./matrixEncryptionBootstrapService')
-        const encryptionService = new MatrixEncryptionBootstrapService(matrixClient)
+        // Use the new unified encryption service
+        const encryptionService = new MatrixEncryptionService(matrixClient)
 
         // Check if encryption setup is needed
-        const needsSetup = await encryptionService.checkEncryptionSetup()
+        const status = await encryptionService.getStatus()
+        const needsSetup = status.needsSetup
         if (!needsSetup) {
           return 'complete' // Already set up and ready
         }
@@ -3320,9 +3356,9 @@ class MatrixClientService {
   /**
    * Get encryption bootstrap service for UI components
    */
-  getEncryptionService (): MatrixEncryptionBootstrapService | null {
+  getEncryptionService (): MatrixEncryptionService | null {
     if (!this.client) return null
-    return new MatrixEncryptionBootstrapService(this.client)
+    return new MatrixEncryptionService(this.client)
   }
 
   /**

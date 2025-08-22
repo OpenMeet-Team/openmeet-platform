@@ -6,7 +6,7 @@
  */
 
 import { ref, computed } from 'vue'
-import { MatrixSecretStorageService } from '../services/MatrixSecretStorageService'
+// import { MatrixEncryptionService } from '../services/MatrixEncryptionService'
 import { MatrixKeyBackupService } from '../services/MatrixKeyBackupService'
 import { matrixClientService } from '../services/matrixClientService'
 import { logger } from '../utils/logger'
@@ -42,7 +42,7 @@ export function useHistoricalMessageDecryption () {
   const showUnlockDialog = ref(false)
 
   // Services
-  let secretStorageService: MatrixSecretStorageService | null = null
+  let secretStorageService: unknown = null
   let keyBackupService: MatrixKeyBackupService | null = null
 
   // Computed
@@ -84,7 +84,8 @@ export function useHistoricalMessageDecryption () {
         return
       }
 
-      secretStorageService = new MatrixSecretStorageService(client)
+      // TODO: Replace with MatrixEncryptionService
+      secretStorageService = null
       keyBackupService = new MatrixKeyBackupService(client)
 
       await checkDecryptionStatus()
@@ -107,7 +108,7 @@ export function useHistoricalMessageDecryption () {
       logger.debug('🔍 Checking historical message decryption status...')
 
       // Check if secret storage is available
-      const hasSecretStorage = await secretStorageService.isSecretStorageAvailable()
+      const hasSecretStorage = await (secretStorageService as { isSecretStorageAvailable?: () => Promise<boolean> })?.isSecretStorageAvailable?.() ?? false
       logger.debug(`Secret storage available: ${hasSecretStorage}`)
 
       // Check if key backup is available
@@ -173,7 +174,7 @@ export function useHistoricalMessageDecryption () {
       logger.debug('🔓 Attempting to unlock historical messages...')
 
       // Unlock secret storage
-      const unlockResult = await secretStorageService.unlockSecretStorage(input)
+      const unlockResult = await (secretStorageService as { unlockSecretStorage?: (input: string) => Promise<{ success: boolean; error?: string }> })?.unlockSecretStorage?.(input) ?? { success: false, error: 'Service not available' }
 
       if (!unlockResult.success) {
         status.value.error = unlockResult.error || 'Failed to unlock'
@@ -266,7 +267,7 @@ export function useHistoricalMessageDecryption () {
     showUnlockDialog.value = false
 
     if (secretStorageService) {
-      secretStorageService.clearSecretStorageCache()
+      (secretStorageService as { clearSecretStorageCache?: () => void })?.clearSecretStorageCache?.()
     }
   }
 

@@ -1,9 +1,9 @@
 <template>
   <div class="historical-message-handler">
 
-    <!-- Setup Encryption Banner (when no backup exists) -->
+    <!-- Setup Encryption Banner (when encryption is truly not set up) -->
     <div
-      v-if="!status.hasBackup && !status.isUnlocked && props.showStatus"
+      v-if="!status.hasBackup && !status.isUnlocked && props.showStatus && !isReadyEncrypted"
       class="setup-prompt-banner"
     >
       <div class="banner-content">
@@ -82,6 +82,13 @@
     >
       <q-icon name="fas fa-check-circle" class="status-icon" />
       <span class="status-text">Historical messages unlocked</span>
+      <button
+        class="reset-anyway-button"
+        @click="showResetOptions"
+        title="Reset encryption anyway"
+      >
+        <q-icon name="fas fa-cog" class="button-icon" />
+      </button>
     </div>
 
     <!-- Error Banner -->
@@ -167,6 +174,7 @@ const { isReadyEncrypted, checkEncryptionState } = useMatrixEncryption()
 // Local state
 const bannerDismissed = ref(false)
 const errorDismissed = ref(false)
+const showResetDialog = ref(false)
 
 // Banner visibility logic - only show in encrypted rooms
 const shouldShowBanner = computed(() => {
@@ -311,7 +319,7 @@ const triggerEncryptionSetup = () => {
 
 const handleReset = async () => {
   try {
-    logger.debug('🔥 Starting encryption reset flow...')
+    logger.debug('🔄 Starting unified encryption reset...')
 
     // Get Matrix client
     const client = matrixClientService.getClient()
@@ -320,50 +328,117 @@ const handleReset = async () => {
       return
     }
 
-    // Get crypto API
-    const crypto = client.getCrypto()
-    if (!crypto) {
-      logger.error('No crypto API available for reset')
-      return
-    }
-
-    // Close the unlock dialog
+    // Close any open dialogs
     closeUnlockDialog()
+    showResetDialog.value = false
 
-    // Clear the encryption setup completion flag from account data
-    // This is needed to trigger the setup flow restart
-    const ENCRYPTION_SETUP_COMPLETE_KEY = 'm.org.matrix.custom.openmeet.encryption_setup_complete'
-    try {
-      await (client as unknown as { setAccountData: (key: string, data: Record<string, unknown>) => Promise<void> }).setAccountData(ENCRYPTION_SETUP_COMPLETE_KEY, {
-        completed: false,
-        timestamp: Date.now(),
-        reset: true
-      })
-      logger.debug('🔥 Cleared encryption setup completion flag')
-    } catch (error) {
-      logger.warn('⚠️ Failed to clear encryption setup flag (continuing anyway):', error)
+    // Use the unified reset service
+    const { MatrixResetService } = await import('../../../services/MatrixResetService')
+    const resetService = new MatrixResetService(client)
+
+    // Perform unlock failed reset (preserves connection, sets up new encryption)
+    const resetResult = await resetService.performReset({
+      resetType: 'unlock_failed',
+      clearLocalData: false,
+      forceReconnection: false
+    })
+
+    if (resetResult.success) {
+      logger.debug('✅ Unified reset completed successfully')
+
+      // Clear any cached encryption state
+      await refresh()
+
+      // Show success message if we got a recovery key
+      if (resetResult.recoveryKey) {
+        logger.info('🔑 New recovery key generated - user should save it')
+        // TODO: Show recovery key to user in a proper dialog
+        const { Notify } = await import('quasar')
+        Notify.create({
+          type: 'positive',
+          message: 'Encryption reset successfully! New recovery key generated.',
+          timeout: 5000,
+          actions: [
+            {
+              label: 'View Key',
+              color: 'white',
+              handler: () => {
+                // TODO: Show recovery key dialog
+                logger.info('Recovery key:', resetResult.recoveryKey)
+              }
+            }
+          ]
+        })
+      }
+    } else {
+      logger.error('❌ Unified reset failed:', resetResult.error)
+      // Show error and allow retry
+      errorDismissed.value = false
+      throw new Error(resetResult.error || 'Reset failed')
     }
-
-    // Perform the reset (similar to Element Web)
-    logger.debug('🔥 Resetting encryption...')
-    await crypto.resetEncryption(() => Promise.resolve())
-
-    logger.debug('✅ Encryption reset completed')
-
-    // Clear any cached encryption state
-    await refresh()
-
-    // Emit a custom event to notify the setup orchestrator of the reset
-    // This triggers the native Matrix setup flow without page reload
-    logger.debug('🔄 Triggering matrix setup reset event...')
-    window.dispatchEvent(new CustomEvent('matrix-encryption-reset', {
-      detail: { reason: 'forgotten_passphrase' }
-    }))
   } catch (error) {
     logger.error('❌ Failed to reset encryption:', error)
     // Show error and allow retry
     errorDismissed.value = false
   }
+}
+
+const showResetOptions = async () => {
+  const { Dialog } = await import('quasar')
+
+  Dialog.create({
+    title: 'Reset Encryption Options',
+    message: 'Encryption is currently working. Are you sure you want to reset it?',
+    options: {
+      type: 'radio',
+      model: 'forgot_recovery_key',
+      items: [
+        { label: 'I forgot my recovery key (generate new one)', value: 'forgot_recovery_key' },
+        { label: 'Keys seem mismatched (fix verification)', value: 'key_mismatch' },
+        { label: 'Complete reset (nuclear option)', value: 'complete' }
+      ]
+    },
+    cancel: true,
+    persistent: true
+  }).onOk(async (resetType: string) => {
+    try {
+      const client = matrixClientService.getClient()
+      if (!client) {
+        logger.error('No Matrix client available for reset')
+        return
+      }
+
+      const { MatrixResetService } = await import('../../../services/MatrixResetService')
+      const resetService = new MatrixResetService(client)
+
+      const resetResult = await resetService.performReset({
+        resetType: resetType as 'forgot_recovery_key' | 'unlock_failed' | 'key_mismatch' | 'complete',
+        clearLocalData: resetType === 'complete',
+        forceReconnection: resetType === 'complete'
+      })
+
+      if (resetResult.success) {
+        await refresh()
+
+        const { Notify } = await import('quasar')
+        Notify.create({
+          type: 'positive',
+          message: `${resetType.replace('_', ' ')} completed successfully!`,
+          timeout: 3000
+        })
+      } else {
+        throw new Error(resetResult.error || 'Reset failed')
+      }
+    } catch (error) {
+      logger.error('Reset options failed:', error)
+      const { Notify } = await import('quasar')
+      Notify.create({
+        type: 'negative',
+        message: `Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timeout: 5000
+      })
+    }
+  })
 }
 
 </script>
@@ -516,6 +591,26 @@ const handleReset = async () => {
   background: #d1fae5;
   color: #065f46;
   border: 1px solid #a7f3d0;
+  justify-content: space-between;
+}
+
+.reset-anyway-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(6, 95, 70, 0.1);
+  border: 1px solid rgba(6, 95, 70, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #065f46;
+}
+
+.reset-anyway-button:hover {
+  background: rgba(6, 95, 70, 0.2);
+  border-color: rgba(6, 95, 70, 0.3);
 }
 
 .status-icon {

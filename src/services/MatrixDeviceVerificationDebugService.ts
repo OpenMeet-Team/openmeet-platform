@@ -1,6 +1,6 @@
 /**
  * Matrix Device Verification Debug Service
- * 
+ *
  * Provides debugging and manual verification tools for Matrix device verification
  */
 
@@ -60,7 +60,11 @@ export class MatrixDeviceVerificationDebugService {
       }>,
       crossSigningStatus: {
         ready: false,
-        keys: {}
+        keys: {
+          master: false,
+          selfSigning: false,
+          userSigning: false
+        }
       }
     }
 
@@ -88,7 +92,7 @@ export class MatrixDeviceVerificationDebugService {
           result.allDevices.push({
             deviceId: devId,
             displayName: deviceInfo.displayName || 'Unknown Device',
-            verified: deviceInfo.verified || false,
+            verified: Boolean(deviceInfo.verified),
             crossSigned: false // Will be filled if available
           })
         }
@@ -103,7 +107,6 @@ export class MatrixDeviceVerificationDebugService {
       } catch (error) {
         logger.debug('No cross-signing master key found:', error)
       }
-
     } catch (error) {
       logger.error('Failed to get device verification status:', error)
     }
@@ -144,14 +147,14 @@ export class MatrixDeviceVerificationDebugService {
         if (crossSigningReady) {
           // This would typically require the cross-signing private key
           logger.debug('🔑 Cross-signing is ready, attempting to self-sign device')
-          
+
           // For first device, we should already have cross-signing set up
           // The device should be automatically trusted through the bootstrap process
           const deviceInfo = await crypto.getDeviceVerificationStatus(userId, deviceId)
-          if (deviceInfo?.isCrossSigningTrusted()) {
-            logger.debug('✅ Device is cross-signing trusted')
+          if (deviceInfo) {
+            logger.debug('✅ Device verification status available:', deviceInfo)
           } else {
-            logger.debug('⚠️ Device is not cross-signing trusted')
+            logger.debug('⚠️ Device verification status not available')
           }
         }
       } catch (error) {
@@ -185,7 +188,6 @@ export class MatrixDeviceVerificationDebugService {
           message: `Device still not verified. Cross-signing ready: ${finalStatus.currentDevice.crossSigningReady}, Secret storage ready: ${finalStatus.currentDevice.secretStorageReady}`
         }
       }
-
     } catch (error) {
       logger.error('❌ Manual verification failed:', error)
       return {
@@ -200,7 +202,7 @@ export class MatrixDeviceVerificationDebugService {
    */
   async resetAndRebootstrapEncryption (): Promise<{ success: boolean; message: string }> {
     const crypto = this.matrixClient.getCrypto()
-    
+
     if (!crypto) {
       return {
         success: false,
@@ -234,7 +236,7 @@ export class MatrixDeviceVerificationDebugService {
       // Try to verify this device again
       const userId = this.matrixClient.getUserId()
       const deviceId = this.matrixClient.getDeviceId()
-      
+
       if (userId && deviceId) {
         await crypto.setDeviceVerified(userId, deviceId, true)
         logger.debug('✅ Device verified after re-bootstrap')
@@ -244,7 +246,6 @@ export class MatrixDeviceVerificationDebugService {
         success: true,
         message: 'Encryption re-bootstrapped successfully'
       }
-
     } catch (error) {
       logger.error('❌ Re-bootstrap failed:', error)
       return {

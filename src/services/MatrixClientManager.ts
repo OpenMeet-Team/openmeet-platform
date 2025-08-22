@@ -1,10 +1,53 @@
 import type { MatrixClient, ICreateClientOpts, MatrixError as SdkMatrixError } from 'matrix-js-sdk'
 import { ClientEvent, createClient, IndexedDBStore, HttpApiEvent, IndexedDBCryptoStore, LocalStorageCryptoStore, MemoryCryptoStore } from 'matrix-js-sdk'
+import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
+
+// Element Web-style secret storage cache (similar to SecurityManager.ts)
+// This stores the secret storage private keys in memory for the JS SDK. This is
+// only meant to act as a cache to avoid prompting the user multiple times
+// during the same single operation.
+let secretStorageKeys: Record<string, Uint8Array> = {}
+let secretStorageKeyInfo: Record<string, unknown> = {}
+let secretStorageBeingAccessed = false
+
+// Export functions for MatrixEncryptionService to use
+export function setSecretStorageBeingAccessed (accessing: boolean): void {
+  secretStorageBeingAccessed = accessing
+}
+
+export function cacheSecretStorageKeyForBootstrap (keyId: string, keyInfo: unknown, key: Uint8Array): void {
+  logger.debug(`🔑 Caching secret storage key for bootstrap: ${keyId}`)
+  secretStorageKeys[keyId] = key
+  secretStorageKeyInfo[keyId] = keyInfo
+}
+
+export function clearSecretStorageCache (): void {
+  secretStorageKeys = {}
+  secretStorageKeyInfo = {}
+}
+
+/**
+ * Element Web's withSecretStorageKeyCache pattern
+ * Carry out an operation that may require multiple accesses to secret storage, caching the key.
+ */
+export async function withSecretStorageKeyCache<T> (func: () => Promise<T>): Promise<T> {
+  logger.debug('🔑 Enabling secret storage key cache')
+  secretStorageBeingAccessed = true
+  try {
+    return await func()
+  } finally {
+    // Clear secret storage key cache now that work is complete
+    logger.debug('🧹 Clearing secret storage key cache')
+    secretStorageBeingAccessed = false
+    secretStorageKeys = {}
+    secretStorageKeyInfo = {}
+  }
+}
 
 // Interface for Matrix error objects
 interface MatrixError {
@@ -53,13 +96,46 @@ export class MatrixClientManager {
 
   /**
    * Get the current Matrix client instance
+   * Returns client if it exists and is logged in, even if startup isn't fully complete
    */
   public getClient (): MatrixClient | null {
-    return this.client
+    // Return client if it exists and is logged in, even during startup
+    // This prevents the "Matrix Connection Required" UI when Matrix is actually working
+    if (this.client && this.client.isLoggedIn() && !this.isShuttingDown) {
+      return this.client
+    }
+
+    // Debug logging when client is null to help troubleshoot issues
+    if (!this.client) {
+      logger.debug('🔍 getClient() returning null: no client instance', {
+        isInitializing: this.isInitializing,
+        isStarted: this.isStarted,
+        isShuttingDown: this.isShuttingDown
+      })
+    } else if (!this.client.isLoggedIn()) {
+      logger.debug('🔍 getClient() returning null: client not logged in', {
+        isInitializing: this.isInitializing,
+        isStarted: this.isStarted,
+        isShuttingDown: this.isShuttingDown
+      })
+    } else if (this.isShuttingDown) {
+      logger.debug('🔍 getClient() returning null: client shutting down')
+    }
+
+    return null
+  }
+
+  /**
+   * Check if client is available for basic operations (logged in)
+   * Use this for UI state checks and basic Matrix operations
+   */
+  public isClientAvailable (): boolean {
+    return !!(this.client && this.client.isLoggedIn() && !this.isShuttingDown)
   }
 
   /**
    * Check if client is ready (created and started)
+   * Use this for operations that require full client initialization
    */
   public isReady (): boolean {
     const loggedIn = this.client?.isLoggedIn() ?? false
@@ -71,7 +147,8 @@ export class MatrixClientManager {
         loggedIn,
         isStarted: this.isStarted,
         isShuttingDown: this.isShuttingDown,
-        result
+        result,
+        message: 'Client is logged in but startup not complete'
       })
     }
 
@@ -468,29 +545,53 @@ export class MatrixClientManager {
         // Use Element-Web style secret storage callbacks (temporary client for callback setup)
         cryptoCallbacks: {
           getSecretStorageKey: async (opts, name) => {
-            // This will be called when secret storage access is needed
-            // Check if we have a setup key available from MatrixSecretStorageService
-            const { MatrixSecretStorageService } = await import('./MatrixSecretStorageService')
-            const setupKey = MatrixSecretStorageService.getCurrentSetupKey()
+            // Element Web-style callback: check cache first during bootstrap operations
+            const keyIds = Object.keys(opts.keys)
+            logger.debug('🔑 getSecretStorageKey callback invoked', {
+              availableKeys: keyIds,
+              requestedName: name,
+              isBeingAccessed: secretStorageBeingAccessed,
+              hasCachedKeys: Object.keys(secretStorageKeys).length > 0
+            })
 
-            if (setupKey) {
-              logger.debug('🔑 getSecretStorageKey callback invoked - returning setup key', {
-                keyLength: setupKey.length,
-                keyId: Object.keys(opts.keys)[0] || name || 'default'
-              })
-              // Return tuple of [keyId, keyData] as expected by the API
-              const keyId = Object.keys(opts.keys)[0] || name || 'default'
-              return [keyId, setupKey]
-            } else {
-              logger.debug('🔑 getSecretStorageKey callback invoked - no setup key available', {
-                availableKeys: Object.keys(opts.keys),
-                requestedName: name
-              })
-              // For unlock scenarios, we need to prompt the user via the UI
-              // Throw error to indicate the key is not immediately available
-              // The UI should handle this by prompting for passphrase
-              throw new Error('Secret storage key not available - user interaction required')
+            // Check the in-memory cache (Element Web pattern)
+            if (secretStorageBeingAccessed) {
+              // First try the actual requested key IDs
+              for (const keyId of keyIds) {
+                if (secretStorageKeys[keyId]) {
+                  logger.debug(`🔑 getSecretStorageKey: returning cached key ${keyId}`)
+                  return [keyId, secretStorageKeys[keyId]]
+                }
+              }
+
+              // If no match, try the temporary bootstrap key
+              if (secretStorageKeys.temp_bootstrap_key) {
+                logger.debug('🔑 getSecretStorageKey: returning temporary bootstrap key')
+                // Return using the first available key ID
+                const keyId = keyIds[0] || 'temp_bootstrap_key'
+                return [keyId, secretStorageKeys.temp_bootstrap_key]
+              }
             }
+
+            // CRITICAL FIX: Always try cached keys first, even when not explicitly bootstrapping
+            // This prevents key clearing during sync when keys are temporarily not in cache
+            for (const keyId of keyIds) {
+              if (secretStorageKeys[keyId]) {
+                logger.debug(`🔑 getSecretStorageKey: returning persistent cached key ${keyId}`)
+                return [keyId, secretStorageKeys[keyId]]
+              }
+            }
+
+            // Try the bootstrap key as fallback for any key request
+            if (secretStorageKeys.temp_bootstrap_key) {
+              logger.debug('🔑 getSecretStorageKey: returning bootstrap key as fallback')
+              const keyId = keyIds[0] || 'temp_bootstrap_key'
+              return [keyId, secretStorageKeys.temp_bootstrap_key]
+            }
+
+            // No cached key available - for unlock scenarios, we need user interaction
+            logger.debug('🔑 getSecretStorageKey: no cached key available, user interaction required')
+            throw new Error('Secret storage key not available - user interaction required')
           },
           cacheSecretStorageKey: (keyId) => {
             // Cache key for session (this follows Element-Web pattern)
@@ -774,6 +875,12 @@ export class MatrixClientManager {
     // Listen for session logged out events (Element Web pattern)
     // This is emitted by the SDK when token refresh has failed and user action is required
     this.client.on(HttpApiEvent.SessionLoggedOut, this.sessionLoggedOutHandler)
+
+    // Listen for crypto events to detect cross-signing key changes
+    this.client.on(CryptoEvent.KeysChanged, () => {
+      logger.debug('🔍 Crypto keys changed event detected')
+      this.checkCrossSigningKeyStatus()
+    })
 
     this.eventListenersSetup = true
     logger.debug('✅ Matrix client event listeners configured')
@@ -1094,6 +1201,127 @@ export class MatrixClientManager {
   }
 
   /**
+   * Complete Matrix reset - clears everything and forces fresh start
+   * This is useful for troubleshooting or when you need a completely clean state
+   */
+  public async resetMatrixCompletely (userId?: string): Promise<void> {
+    logger.warn('🚨 Starting complete Matrix reset...')
+
+    try {
+      // Step 1: Gracefully stop and clear the client
+      await this.clearClient()
+
+      // Step 2: Clear all device-related storage
+      if (userId) {
+        this.clearAllDeviceStorage(userId)
+      } else {
+        // Clear all device storage patterns
+        const deviceKeys = []
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith('matrix_device_id_') || key.startsWith('device_id_'))) {
+            deviceKeys.push(key)
+          }
+        }
+        deviceKeys.forEach(key => {
+          localStorage.removeItem(key)
+          logger.warn('🗑️ Cleared device storage:', key)
+        })
+      }
+
+      // Step 3: Clear all Matrix-related localStorage
+      const matrixKeys = []
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key && (
+          key.startsWith('matrix_') ||
+          key.includes('matrix-js-sdk') ||
+          key.includes('matrix-crypto') ||
+          (userId && key.includes(userId))
+        )) {
+          matrixKeys.push(key)
+        }
+      }
+
+      matrixKeys.forEach(key => {
+        localStorage.removeItem(key)
+        logger.warn('🗑️ Cleared localStorage:', key)
+      })
+
+      // Step 4: Clear sessionStorage
+      const sessionKeys = []
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i)
+        if (key && (
+          key.startsWith('matrix_') ||
+          (userId && key.includes(userId))
+        )) {
+          sessionKeys.push(key)
+        }
+      }
+
+      sessionKeys.forEach(key => {
+        sessionStorage.removeItem(key)
+        logger.warn('🗑️ Cleared sessionStorage:', key)
+      })
+
+      // Step 5: Clear all Matrix IndexedDB databases
+      try {
+        const databases = await indexedDB.databases()
+        const matrixDbs = databases.filter(db =>
+          db.name && (
+            db.name.includes('matrix-js-sdk') ||
+            db.name.includes('matrix-crypto') ||
+            db.name.includes('matrix_') ||
+            (userId && db.name.includes(userId))
+          )
+        )
+
+        for (const db of matrixDbs) {
+          if (db.name) {
+            try {
+              await new Promise<void>((resolve, reject) => {
+                const deleteReq = indexedDB.deleteDatabase(db.name!)
+                deleteReq.onsuccess = () => {
+                  logger.warn(`🗑️ Cleared IndexedDB: ${db.name}`)
+                  resolve()
+                }
+                deleteReq.onerror = () => reject(deleteReq.error)
+                deleteReq.onblocked = () => {
+                  logger.warn(`⚠️ IndexedDB deletion blocked: ${db.name}`)
+                  resolve() // Continue anyway
+                }
+              })
+            } catch (dbError) {
+              logger.warn(`⚠️ Failed to delete IndexedDB ${db.name}:`, dbError)
+            }
+          }
+        }
+
+        logger.warn(`🗑️ Cleared ${matrixDbs.length} Matrix databases`)
+      } catch (dbListError) {
+        logger.warn('⚠️ Failed to list IndexedDB databases:', dbListError)
+      }
+
+      // Step 6: Reset singleton state
+      this.client = null
+      this.isStarted = false
+      this.isInitializing = false
+      this.initPromise = null
+      this.isShuttingDown = false
+      this.eventListenersSetup = false
+      this.cryptoInitPromise = null
+      this.cryptoInitialized = false
+      this.cryptoInitializing = false
+
+      logger.warn('✅ Complete Matrix reset finished - all data cleared')
+    } catch (error) {
+      logger.error('❌ Complete Matrix reset failed:', error)
+      throw error
+    }
+  }
+
+  /**
    * Clear the crypto store for a specific user and device to resolve device ID mismatches
    */
   private async clearCryptoStore (userId: string, deviceId?: string): Promise<void> {
@@ -1242,6 +1470,53 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('❌ Error during MatrixClientManager shutdown:', error)
       throw error
+    }
+  }
+
+  /**
+   * Check cross-signing key status and attempt recovery if needed
+   * This is called when crypto keys change to detect key clearing
+   */
+  private async checkCrossSigningKeyStatus (): Promise<void> {
+    if (!this.client) return
+
+    const crypto = this.client.getCrypto()
+    if (!crypto) return
+
+    try {
+      const status = await crypto.getCrossSigningStatus()
+      const hasAllKeys = status.privateKeysCachedLocally.masterKey &&
+                        status.privateKeysCachedLocally.selfSigningKey &&
+                        status.privateKeysCachedLocally.userSigningKey
+
+      if (!hasAllKeys) {
+        logger.warn('🚨 Cross-signing keys missing after crypto event - attempting recovery')
+        logger.debug('🔧 Missing keys:', {
+          masterKey: !status.privateKeysCachedLocally.masterKey,
+          selfSigningKey: !status.privateKeysCachedLocally.selfSigningKey,
+          userSigningKey: !status.privateKeysCachedLocally.userSigningKey
+        })
+
+        // Emit event for UI components to show status
+        window.dispatchEvent(new CustomEvent('matrix:crossSigningKeysLost', {
+          detail: { status }
+        }))
+
+        // Try to recover keys using MatrixEncryptionService
+        // Note: Import dynamically to avoid circular dependency
+        const { MatrixEncryptionService } = await import('./MatrixEncryptionService')
+        const encryptionService = new MatrixEncryptionService(this.client)
+
+        const recovered = await encryptionService.handleCrossSigningKeyLoss()
+        if (recovered) {
+          logger.debug('✅ Cross-signing keys successfully recovered')
+          window.dispatchEvent(new CustomEvent('matrix:crossSigningKeysRecovered'))
+        } else {
+          logger.warn('❌ Cross-signing key recovery failed - user intervention may be needed')
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to check cross-signing key status:', error)
     }
   }
 }

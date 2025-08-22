@@ -200,8 +200,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMatrixEncryption } from '../../composables/useMatrixEncryption'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixEncryptionState } from '../../services/matrixEncryptionState'
-import { MatrixSecretStorageService } from '../../services/MatrixSecretStorageService'
+import { MatrixEncryptionService } from '../../services/MatrixEncryptionService'
 import { logger } from '../../utils/logger'
+import { useQuasar } from 'quasar'
 import getEnv from '../../utils/env'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
@@ -234,6 +235,9 @@ const props = withDefaults(defineProps<Props>(), {
   showInfoSidebar: false
 })
 
+// Quasar for notifications
+const $q = useQuasar()
+
 // Element Web style encryption state
 const {
   isLoading,
@@ -259,6 +263,19 @@ const recoveryKey = ref('')
 const showRecoveryKeyDialog = ref(false)
 const recoveryKeySaved = ref(false)
 
+// Encryption service state
+const encryptionService = ref<MatrixEncryptionService | null>(null)
+const setupInProgress = ref(false)
+
+// Initialize encryption service when Matrix client is ready
+const initializeEncryptionService = () => {
+  const client = matrixClientService.getClient()
+  if (client && !encryptionService.value) {
+    encryptionService.value = new MatrixEncryptionService(client)
+    logger.debug('✅ Encryption service initialized')
+  }
+}
+
 // Device verification state
 const showVerificationDialog = ref(false)
 const verificationBannerRef = ref()
@@ -275,12 +292,15 @@ const homeserverUrl = computed(() => {
   return (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'https://matrix.openmeet.net'
 })
 
-// Override needsEncryptionSetup to force setup after reset
-// Note: Only show encryption setup for recovery key needs, not device verification
+// Only show full encryption setup screen when encryption is truly broken
+// Note: ready_encrypted_with_warning means encryption is working, just show banner instead
 const shouldShowEncryptionSetup = computed(() => {
   const state = encryptionStatus.value?.state
   const needsRecoveryKeySetup = state === 'needs_recovery_key'
-  return needsRecoveryKeySetup || forceSetupAfterReset.value
+  // Don't show setup screen if encryption is working (even with warnings)
+  const encryptionIsWorking = state === 'ready_encrypted_with_warning' || state === 'ready_encrypted'
+
+  return (needsRecoveryKeySetup || forceSetupAfterReset.value) && !encryptionIsWorking
 })
 
 // Debug current state
@@ -335,72 +355,43 @@ const handleConnectionComplete = async () => {
   // Clear the force setup flag when user completes the setup flow
   forceSetupAfterReset.value = false
   logger.debug('🔗 Matrix connection complete, initializing encryption')
+  setupInProgress.value = true
 
   try {
-    logger.debug('🔗 Before client initialization - checking if client already exists')
-    const existingClient = matrixClientService.getClient()
-    if (existingClient) {
-      logger.debug('✅ Matrix client already exists, skipping re-initialization')
-      // Client already exists, just mark as connected
-      matrixClientService.setUserChosenToConnect(true)
-    } else {
+    // Initialize Matrix client if needed
+    logger.debug('🔗 Ensuring Matrix client is ready')
+    let client = matrixClientService.getClient()
+
+    if (!client) {
       logger.debug('🔄 Initializing new Matrix client')
-      // Initialize Matrix client
-      const client = await matrixClientService.initializeClient(true)
-      if (client) {
-        matrixClientService.setUserChosenToConnect(true)
-        logger.debug('✅ Matrix client initialized successfully')
+      client = await matrixClientService.initializeClient(true)
+      if (!client) {
+        throw new Error('Failed to initialize Matrix client')
       }
     }
 
-    // Now perform the actual encryption setup with generated recovery key
-    logger.debug('Setting up encryption with generated recovery key...')
-    const client = matrixClientService.getClient()
-    if (client) {
-      try {
-        const crypto = client.getCrypto()
-        if (crypto) {
-          logger.debug('Bootstrapping secret storage and cross-signing...')
+    matrixClientService.setUserChosenToConnect(true)
+    logger.debug('✅ Matrix client ready')
 
-          // Use our MatrixSecretStorageService to properly set up encryption
-          const secretStorageService = new MatrixSecretStorageService(client)
-          const result = await secretStorageService.setupSecretStorage(forceSetupAfterReset.value)
-
-          if (result.success) {
-            logger.debug('Secret storage and key backup setup completed successfully')
-
-            // Clear the force setup flag since encryption is now properly configured
-            forceSetupAfterReset.value = false
-            logger.debug('Cleared force setup flag - encryption setup completed')
-
-            if (result.recoveryKey) {
-              logger.debug('Recovery key generated')
-              recoveryKey.value = result.recoveryKey
-              showRecoveryKeyDialog.value = true
-              logger.debug('Recovery key dialog will be displayed to user')
-            }
-          } else {
-            throw new Error(`Failed to set up secret storage: ${result.error}`)
-          }
-        }
-      } catch (error) {
-        logger.error('Failed to set up encryption:', error)
-        // Keep the reset flag so user can try again
-        logger.debug('Keeping user reset flag due to encryption setup failure')
-      }
-    } else {
-      logger.error('No client available for encryption setup')
+    // Initialize encryption service
+    initializeEncryptionService()
+    if (!encryptionService.value) {
+      throw new Error('Failed to initialize encryption service')
     }
 
-    // Wait a moment for secret storage to fully commit, then re-check encryption state
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    await checkEncryptionState(props.inlineRoomId)
-
-    // Reset setup step for next time
-    setupStep.value = 'education'
+    // Show passphrase input dialog
+    await showPassphraseDialog()
   } catch (error) {
-    logger.error('Failed to complete Matrix connection:', error)
+    logger.error('❌ Failed to complete Matrix connection:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to set up encryption',
+      caption: error.message || 'Please try again'
+    })
+  } finally {
+    setupInProgress.value = false
   }
+  setupStep.value = 'education'
 }
 
 // Handler for going back to unencrypted rooms
@@ -418,24 +409,18 @@ const dismissEncryptionBanner = () => {
   // We could implement persistent dismissal later
 }
 
-const handleEncryptionAction = (state: string) => {
+const handleEncryptionAction = async (state: string) => {
   logger.debug('🔐 User clicked encryption action for state:', state)
 
   switch (state) {
     case 'ready_encrypted_with_warning':
-      // Start recovery setup flow
-      setupStep.value = 'education'
-      forceSetupAfterReset.value = true
+    case 'needs_recovery_key':
+      // Show passphrase dialog to unlock or reset encryption
+      await showPassphraseDialog(true)
       break
     case 'needs_key_backup':
-      // TODO: Implement key backup flow
-      logger.debug('Key backup flow not yet implemented')
-      break
-    case 'needs_recovery_key':
-      // Trigger recovery key entry setup flow
-      logger.debug('Starting recovery key entry flow')
-      setupStep.value = 'education'
-      forceSetupAfterReset.value = true
+      // Setup fresh encryption
+      await showPassphraseDialog(false)
       break
     default:
       logger.warn('Unknown encryption action state:', state)
@@ -485,10 +470,96 @@ const downloadRecoveryKey = () => {
   URL.revokeObjectURL(element.href)
 }
 
+// Passphrase dialog for encryption setup/unlock
+const showPassphraseDialog = async (isUnlock = false) => {
+  return new Promise((resolve, reject) => {
+    $q.dialog({
+      title: isUnlock ? 'Unlock Encryption' : 'Set up Encryption',
+      message: isUnlock
+        ? 'Enter your passphrase or recovery key to unlock your encrypted messages:'
+        : 'Choose a strong passphrase to secure your encrypted messages:',
+      prompt: {
+        model: '',
+        type: 'password',
+        hint: isUnlock ? 'Passphrase or recovery key' : 'At least 12 characters'
+      },
+      cancel: true,
+      persistent: true,
+      ok: {
+        label: isUnlock ? 'Unlock' : 'Set up Encryption',
+        color: 'primary'
+      }
+    }).onOk(async (passphrase: string) => {
+      if (!passphrase?.trim()) {
+        $q.notify({ type: 'negative', message: 'Passphrase cannot be empty' })
+        reject(new Error('Empty passphrase'))
+        return
+      }
+
+      if (!isUnlock && passphrase.length < 12) {
+        $q.notify({ type: 'negative', message: 'Passphrase must be at least 12 characters' })
+        reject(new Error('Passphrase too short'))
+        return
+      }
+
+      try {
+        if (!encryptionService.value) {
+          throw new Error('Encryption service not available')
+        }
+
+        $q.loading.show({ message: isUnlock ? 'Unlocking encryption...' : 'Setting up encryption...' })
+
+        const result = await encryptionService.value.setupEncryption(passphrase)
+
+        if (result.success) {
+          logger.debug('✅ Encryption setup/unlock successful')
+
+          if (result.recoveryKey && !isUnlock) {
+            // Show recovery key for new setups
+            recoveryKey.value = result.recoveryKey
+            showRecoveryKeyDialog.value = true
+          }
+
+          // Clear force setup flag
+          forceSetupAfterReset.value = false
+
+          // Re-check encryption state
+          await checkEncryptionState(props.inlineRoomId)
+
+          $q.notify({
+            type: 'positive',
+            message: isUnlock ? 'Encryption unlocked successfully' : 'Encryption set up successfully',
+            icon: 'fas fa-shield-alt'
+          })
+
+          resolve(result)
+        } else {
+          throw new Error(result.error || 'Unknown error')
+        }
+      } catch (error) {
+        logger.error('❌ Encryption setup/unlock failed:', error)
+        $q.notify({
+          type: 'negative',
+          message: isUnlock ? 'Failed to unlock encryption' : 'Failed to set up encryption',
+          caption: error.message || 'Please check your passphrase and try again'
+        })
+        reject(error)
+      } finally {
+        $q.loading.hide()
+      }
+    }).onCancel(() => {
+      reject(new Error('Cancelled'))
+    })
+  })
+}
+
 // Initialize
 onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
   logger.debug('🔍 Debug state:', debugState.value)
+
+  // Initialize encryption service if Matrix client is ready
+  initializeEncryptionService()
 
   // Listen for encryption reset events
   encryptionResetListener = async (event: CustomEvent) => {

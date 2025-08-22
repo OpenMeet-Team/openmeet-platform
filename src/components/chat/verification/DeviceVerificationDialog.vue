@@ -284,7 +284,7 @@ const loadingDevices = ref(false)
 const initiatingVerification = ref<string | null>(null)
 
 // Device management
-const availableDevices = ref<Array<{deviceId: string, displayName?: string, isCurrentDevice: boolean}>>([])
+const availableDevices = ref<Array<{deviceId: string, displayName?: string, isCurrentDevice: boolean, verified: boolean}>>([])
 
 // Service instance
 let verificationService: MatrixDeviceVerificationService | null = null

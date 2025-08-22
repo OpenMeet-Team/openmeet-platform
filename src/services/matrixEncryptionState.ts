@@ -226,14 +226,15 @@ export class MatrixEncryptionStateService {
           warningMessage: 'Verify this session to access encrypted messages'
         }
       } else if (!allCrossSigningSecretsCached) {
-        logger.debug('🔐 Some secrets not cached: needs recovery key')
+        logger.debug('🔐 Some secrets not cached, but chat is working - show as ready with warning')
+        // If we can decrypt messages, don't force encryption setup - just show warning banner
         return {
-          state: 'needs_recovery_key',
+          state: 'ready_encrypted_with_warning',
           details: {
             hasClient: true,
             hasCrypto: true,
             isInEncryptedRoom: true,
-            canChat: true, // Element Web allows chat while showing recovery key toast
+            canChat: true, // Chat is working even if some keys aren't cached
             crossSigningReady,
             hasKeyBackup,
             hasDeviceKeys,
@@ -243,8 +244,8 @@ export class MatrixEncryptionStateService {
             hasDefaultKeyId,
             keyBackupUploadActive
           },
-          requiresUserAction: true,
-          warningMessage: 'Enter your recovery key to access encrypted message history'
+          requiresUserAction: false, // Don't block chat for missing cached keys
+          warningMessage: 'Some encryption keys may need to be restored from backup'
         }
       } else if (!keyBackupUploadActive) {
         logger.debug('🔐 Key backup upload is off: needs key backup')

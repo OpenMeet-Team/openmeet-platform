@@ -1,6 +1,6 @@
 /**
  * Matrix Device Debug Console Helper
- * 
+ *
  * Provides console commands for debugging Matrix device verification
  * Call `window.matrixDebug.status()` in browser console
  */
@@ -30,24 +30,24 @@ class MatrixDeviceDebugConsole {
    */
   async status () {
     console.log('🔍 Checking Matrix device verification status...')
-    
+
     const debugService = this.getDebugService()
     if (!debugService) return
 
     try {
       const status = await debugService.getDeviceVerificationStatus()
-      
+
       console.log('\n📱 Current Device:')
       console.log(`  User ID: ${status.currentDevice.userId}`)
       console.log(`  Device ID: ${status.currentDevice.deviceId}`)
       console.log(`  Is Verified: ${status.currentDevice.isVerified ? '✅' : '❌'}`)
       console.log(`  Cross-signing Ready: ${status.currentDevice.crossSigningReady ? '✅' : '❌'}`)
       console.log(`  Secret Storage Ready: ${status.currentDevice.secretStorageReady ? '✅' : '❌'}`)
-      
+
       console.log('\n🔐 Cross-signing Status:')
       console.log(`  Ready: ${status.crossSigningStatus.ready ? '✅' : '❌'}`)
       console.log(`  Master Key: ${status.crossSigningStatus.keys.master ? '✅' : '❌'}`)
-      
+
       console.log('\n📋 All Devices:')
       status.allDevices.forEach(device => {
         const currentMarker = device.deviceId === status.currentDevice.deviceId ? ' (current)' : ''
@@ -70,13 +70,13 @@ class MatrixDeviceDebugConsole {
    */
   async verify () {
     console.log('🔐 Attempting to manually verify current device...')
-    
+
     const debugService = this.getDebugService()
     if (!debugService) return
 
     try {
       const result = await debugService.manuallyVerifyCurrentDevice()
-      
+
       if (result.success) {
         console.log('✅ Device verification successful!')
         console.log(`   ${result.message}`)
@@ -108,13 +108,13 @@ class MatrixDeviceDebugConsole {
     }
 
     console.log('🔄 Resetting and re-bootstrapping encryption...')
-    
+
     const debugService = this.getDebugService()
     if (!debugService) return
 
     try {
       const result = await debugService.resetAndRebootstrapEncryption()
-      
+
       if (result.success) {
         console.log('✅ Encryption reset and re-bootstrap successful!')
         console.log(`   ${result.message}`)
@@ -156,16 +156,11 @@ class MatrixDeviceDebugConsole {
 const matrixDeviceDebugConsole = new MatrixDeviceDebugConsole()
 
 // Expose to window for console access
-declare global {
-  interface Window {
-    matrixDebug: MatrixDeviceDebugConsole
-  }
-}
 
 // Only expose in development/debug mode
 if (process.env.NODE_ENV !== 'production' || window.location.hostname.includes('localhost')) {
-  window.matrixDebug = matrixDeviceDebugConsole
-  console.log('🛠️ Matrix Debug Console loaded. Type window.matrixDebug.help() for commands')
+  (window as Window & { matrixDeviceDebug?: MatrixDeviceDebugConsole }).matrixDeviceDebug = matrixDeviceDebugConsole
+  console.log('🛠️ Matrix Device Debug Console loaded. Type window.matrixDeviceDebug.help() for commands')
 }
 
 export { matrixDeviceDebugConsole }
