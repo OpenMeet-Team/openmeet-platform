@@ -1,6 +1,7 @@
 <template>
   <div class="historical-message-handler">
 
+
     <!-- Setup Encryption Banner (when encryption is truly not set up) -->
     <div
       v-if="!status.hasBackup && !status.isUnlocked && props.showStatus && !isReadyEncrypted"
@@ -28,17 +29,6 @@
       </div>
     </div>
 
-    <!-- Debug: Force show banner button (temporary) -->
-    <div v-if="!shouldShowBanner && needsUnlock" style="background: yellow; padding: 8px; margin: 8px; border-radius: 4px;">
-      <strong>🐛 DEBUG: Banner hidden but needsUnlock=true</strong>
-      <button @click="() => promptForPassphrase()" style="margin-left: 8px;">Force Show Unlock Dialog</button>
-      <div style="font-size: 12px; margin-top: 4px;">
-        needsUnlock: {{ needsUnlock }},
-        isReadyEncrypted: {{ isReadyEncrypted }},
-        showStatus: {{ props.showStatus }},
-        roomId: {{ props.roomId }}
-      </div>
-    </div>
 
     <!-- Unlock Prompt Banner -->
     <div
@@ -135,9 +125,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useHistoricalMessageDecryption } from '../../../composables/useHistoricalMessageDecryption'
-import { useMatrixEncryption } from '../../../composables/useMatrixEncryption'
+import { useReactiveMatrixEncryption } from '../../../composables/useReactiveMatrixEncryption'
 import PassphraseUnlockDialog from './PassphraseUnlockDialog.vue'
 import { matrixClientService } from '../../../services/matrixClientService'
 import { logger } from '../../../utils/logger'
@@ -168,23 +158,32 @@ const {
   handleUnlockError
 } = useHistoricalMessageDecryption()
 
-// Matrix encryption state composable (single source of truth)
-const { isReadyEncrypted, checkEncryptionState } = useMatrixEncryption()
+// Reactive Matrix encryption state composable (event-driven, no polling)
+const { isReadyEncrypted, encryptionStatus, isInitialized } = useReactiveMatrixEncryption()
+
+// Add debug logging when reactive encryption state changes
+watch(encryptionStatus, (newState) => {
+  logger.debug('🚀 REACTIVE encryption state changed:', {
+    newState: newState?.state,
+    isReadyEncrypted: isReadyEncrypted.value,
+    roomId: props.roomId
+  })
+}, { deep: true })
 
 // Local state
 const bannerDismissed = ref(false)
 const errorDismissed = ref(false)
 const showResetDialog = ref(false)
 
-// Banner visibility logic - only show in encrypted rooms
+// Banner visibility logic - much simpler with event-driven state (no stability logic needed)
 const shouldShowBanner = computed(() => {
   const result = needsUnlock.value &&
                  !showUnlockDialog.value &&
                  !bannerDismissed.value &&
                  props.showStatus &&
-                 isReadyEncrypted.value // Single source of truth for encryption state
+                 isReadyEncrypted.value // Direct use of reactive state, no flashing
 
-  logger.debug('🔐 Banner visibility computed:', {
+  logger.debug('🔐 Banner visibility computed (REACTIVE):', {
     needsUnlock: needsUnlock.value,
     showUnlockDialog: showUnlockDialog.value,
     bannerDismissed: bannerDismissed.value,
@@ -193,7 +192,17 @@ const shouldShowBanner = computed(() => {
     isUnlocked: status.value.isUnlocked,
     hasBackup: status.value.hasBackup,
     roomId: props.roomId,
-    result
+    result,
+    // Show reactive encryption status
+    reactiveEncryptionState: encryptionStatus.value?.state,
+    isInitialized: isInitialized.value,
+    bannerCondition: {
+      hasBackup: status.value.hasBackup,
+      isUnlocked: status.value.isUnlocked,
+      showStatus: props.showStatus,
+      isReadyEncrypted: isReadyEncrypted.value,
+      shouldShowBanner: !status.value.hasBackup && !status.value.isUnlocked && props.showStatus && !isReadyEncrypted.value
+    }
   })
 
   // Log when banner should show but doesn't
@@ -214,16 +223,14 @@ let encryptionReadyListener: (() => void) | null = null
 let encryptionFailedListener: ((event: CustomEvent) => void) | null = null
 
 onMounted(async () => {
-  logger.debug('🔐 HistoricalMessageHandler mounted, initializing...')
+  logger.debug('🔐 HistoricalMessageHandler mounted, initializing with REACTIVE encryption state...')
 
   // Initialize the decryption system
   await initialize()
 
-  // Check encryption state for this specific room
-  if (props.roomId) {
-    logger.debug('🔍 Checking encryption state for room:', props.roomId)
-    await checkEncryptionState(props.roomId)
-  }
+  // The reactive encryption state is automatically initialized by the composable
+  // No manual state checking needed - it's event-driven!
+  logger.debug('🔍 Reactive encryption state initialized for room:', props.roomId, 'state:', encryptionStatus.value?.state)
 
   // Set up event listeners for encryption events
   setupEventListeners()

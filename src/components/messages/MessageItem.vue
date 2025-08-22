@@ -17,7 +17,10 @@
       <div class="col message-content">
         <div class="message-header row items-center justify-between q-mb-xs" v-if="!isSystemMessage">
           <div class="sender-name text-weight-bold">{{ senderName }}</div>
-          <div class="timestamp text-grey-7 text-caption">{{ formattedTime }}</div>
+          <div class="timestamp-and-indicators row items-center q-gutter-xs text-grey-7 text-caption">
+            <!-- Timestamp -->
+            <div class="timestamp">{{ formattedTime }}</div>
+          </div>
         </div>
 
         <!-- Different message types -->
@@ -173,6 +176,49 @@ const isSystemMessage = computed(() => {
 
   const msgtype = props.message.content.msgtype as string || ''
   return msgtype === 'm.room.member' || (msgtype === 'm.room.message' && props.message.content.body?.startsWith('* '))
+})
+
+// Encryption detection - checks if THIS specific message was encrypted
+const isEncrypted = computed(() => {
+  // Check for 'm.room.encrypted' type (before decryption)
+  if (props.message.type === 'm.room.encrypted') {
+    return true
+  }
+  
+  // Check for decryption metadata in unsigned field
+  if (props.message.unsigned) {
+    // Look for any encryption-related keys
+    const unsignedKeys = Object.keys(props.message.unsigned)
+    if (unsignedKeys.some(key => key.includes('decrypt') || key.includes('encrypt'))) {
+      return true
+    }
+  }
+  
+  // Check for Matrix SDK encryption flags
+  if (props.message._isEncrypted || 
+      props.message.decrypted || 
+      props.message.encrypted ||
+      props.message.isEncrypted) {
+    return true
+  }
+  
+  // Check if the message content has encryption markers
+  // Sometimes the Matrix SDK adds special properties to decrypted content
+  if (props.message.content && typeof props.message.content === 'object') {
+    const contentKeys = Object.keys(props.message.content)
+    if (contentKeys.some(key => key.includes('encrypt') || key.includes('decrypt'))) {
+      return true
+    }
+  }
+  
+  // Check if there's a 'cleartext' or decrypted content indicator
+  if ('cleartext_content' in props.message || 'decrypted_content' in props.message) {
+    return true
+  }
+  
+  // For now, return false if no clear indicators are found
+  // This will be refined as we see real encrypted message data
+  return false
 })
 
 const isImageMessage = computed(() => {
@@ -475,6 +521,19 @@ body.body--dark {
 
 .system-message-content {
   font-style: italic;
+}
+
+.encryption-indicator {
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.encryption-indicator:hover {
+  opacity: 1;
+}
+
+.timestamp-and-indicators {
+  flex-shrink: 0;
 }
 
 /* Dark mode styling */

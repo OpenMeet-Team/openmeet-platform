@@ -30,7 +30,15 @@ export function useMatrixEncryption () {
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')
   const isReadyEncrypted = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'ready_encrypted' || state === 'ready_encrypted_with_warning' || state === 'needs_device_verification'
+    const result = state === 'ready_encrypted' || state === 'ready_encrypted_with_warning' || state === 'needs_device_verification'
+    
+    logger.debug('🔐 isReadyEncrypted computed:', {
+      currentState: state,
+      result,
+      encryptionStatus: encryptionStatus.value
+    })
+    
+    return result
   })
   const requiresUserAction = computed(() => encryptionStatus.value?.requiresUserAction ?? false)
 
@@ -49,6 +57,13 @@ export function useMatrixEncryption () {
    */
   const checkEncryptionState = async (roomId?: string): Promise<void> => {
     if (isLoading.value) return // Prevent concurrent checks
+    
+    // Prevent rapid successive checks (debounce 5 seconds)
+    const now = Date.now()
+    if (now - lastChecked.value < 5000) {
+      logger.debug('🔍 Skipping encryption state check - too recent (debounced)')
+      return
+    }
 
     isLoading.value = true
 
@@ -135,9 +150,12 @@ export function useMatrixEncryption () {
   }
 
   const handleMatrixSync = () => {
-    // Only refresh if we haven't checked recently
-    if (Date.now() - lastChecked.value > 10000) {
+    // Only refresh if we haven't checked recently (30 seconds for sync events)
+    if (Date.now() - lastChecked.value > 30000) {
+      logger.debug('Matrix sync complete, checking encryption state')
       checkEncryptionState()
+    } else {
+      logger.debug('Matrix sync complete, but encryption state recently checked - skipping')
     }
   }
 

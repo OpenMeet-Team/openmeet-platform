@@ -50,21 +50,6 @@
         @open-verification-dialog="showVerificationDialog = true"
       />
 
-      <!-- Temporary Manual Verification Access (for testing) -->
-      <q-banner class="bg-orange-1 text-orange-8 q-mb-sm">
-        <template v-slot:avatar>
-          <q-avatar color="orange" text-color="white" icon="fas fa-wrench" />
-        </template>
-        <strong>Debug:</strong> Manual verification access
-        <template v-slot:action>
-          <q-btn
-            @click="showVerificationDialog = true"
-            color="orange"
-            label="Open Verification Dialog"
-            size="sm"
-          />
-        </template>
-      </q-banner>
 
       <!-- Element Web Style Encryption Warning Banner -->
       <EncryptionWarningBanner
@@ -104,6 +89,7 @@
         :context-type="contextType === 'all' ? 'direct' : contextType"
         :context-id="contextId"
         :mode="mode === 'single-room' ? 'inline' : mode"
+        :is-ready-encrypted="isReadyEncrypted"
         height="500px"
       />
     </template>
