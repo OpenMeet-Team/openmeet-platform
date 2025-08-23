@@ -299,7 +299,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   }
 
   // Watch for timelineSet changes - use direct options access for better reactivity
-  watch(() => [options.client, options.timelineSet], async ([newClient, newTimelineSet]) => {
+  watch(() => [options.client, options.timelineSet], async ([newClient, newTimelineSet]: [MatrixClient | undefined, EventTimelineSet | undefined]) => {
     if (newTimelineSet && newClient) {
       logger.debug('🔄 Timeline dependencies updated:', {
         hasTimelineSet: !!newTimelineSet,

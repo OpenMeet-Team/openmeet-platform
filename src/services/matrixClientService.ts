@@ -1692,7 +1692,7 @@ class MatrixClientService {
         uploadResult = {
           file: {
             url: uploadResponse.content_uri,
-            key: encryptResult.info.key,
+            key: encryptResult.info.key as unknown as Record<string, unknown>,
             iv: encryptResult.info.iv,
             hashes: encryptResult.info.hashes || {},
             v: encryptResult.info.v || 'v1'
@@ -1715,7 +1715,26 @@ class MatrixClientService {
       }
 
       // Create message content with proper structure
-      const content = {
+      interface FileMessageContent {
+        msgtype: string
+        body: string
+        filename: string
+        info: {
+          size: number
+          mimetype: string
+        }
+        file?: {
+          url: string
+          key: Record<string, unknown>
+          iv: string
+          hashes: Record<string, string>
+          v: string
+        }
+        url?: string
+        [key: string]: unknown
+      }
+
+      const content: FileMessageContent = {
         msgtype,
         body: file.name,
         filename: file.name,
