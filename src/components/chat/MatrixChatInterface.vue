@@ -575,7 +575,7 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
       roomId: newTimelineSet.room?.roomId,
       hasRoom: !!newTimelineSet.room
     })
-    
+
     // Manually trigger timeline initialization with current dependencies
     logger.debug('🚀 Manually initializing timeline with new dependencies')
     try {
@@ -745,7 +745,13 @@ const formatTypingUsers = (users: { userId: string, userName: string }[]): strin
 // getFileUrl function removed - unused
 
 // Load authenticated images and create blob URLs
-const loadAuthenticatedImage = async (message: Record<string, any>): Promise<void> => {
+interface MessageWithImageBlob {
+  content?: { url?: string }
+  imageBlobUrl?: string
+  [key: string]: unknown
+}
+
+const loadAuthenticatedImage = async (message: MessageWithImageBlob): Promise<void> => {
   if (!message.content?.url || message.imageBlobUrl) return
 
   try {

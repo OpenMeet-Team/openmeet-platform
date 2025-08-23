@@ -1657,7 +1657,7 @@ class MatrixClientService {
         url?: string
         file?: {
           url: string
-          key: Record<string, any>
+          key: Record<string, unknown>
           iv: string
           hashes: Record<string, string>
           v: string
@@ -1691,8 +1691,11 @@ class MatrixClientService {
         // Return encrypted file structure
         uploadResult = {
           file: {
-            ...encryptResult.info,
-            url: uploadResponse.content_uri
+            url: uploadResponse.content_uri,
+            key: encryptResult.info.key,
+            iv: encryptResult.info.iv,
+            hashes: encryptResult.info.hashes || {},
+            v: encryptResult.info.v || 'v1'
           }
         }
 
@@ -1719,16 +1722,21 @@ class MatrixClientService {
         info: {
           size: file.size,
           mimetype: file.type
-        },
-        // Use either url or file based on encryption
-        ...(uploadResult.file ? { file: uploadResult.file } : { url: uploadResult.url })
+        }
+      }
+
+      // Add either file (encrypted) or url (unencrypted) based on upload result
+      if (uploadResult.file) {
+        content.file = uploadResult.file
+      } else if (uploadResult.url) {
+        content.url = uploadResult.url
       }
 
       logger.debug('📝 Message content prepared:', {
         msgtype,
         filename: file.name,
-        hasUrl: !!content.url,
-        hasFile: !!content.file,
+        hasUrl: !!('url' in content),
+        hasFile: !!('file' in content),
         isEncrypted
       })
 

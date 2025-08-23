@@ -141,6 +141,17 @@ interface MediaInfo {
   h?: number
 }
 
+interface MessageContent {
+  url?: string
+  file?: EncryptedFile
+  msgtype?: string
+  body?: string
+  filename?: string
+  info?: MediaInfo
+  mimetype?: string
+  [key: string]: unknown
+}
+
 /**
  * Decrypt an encrypted file attachment following Element Web's approach
  */
@@ -191,7 +202,7 @@ async function decryptEncryptedFile (file: EncryptedFile, info?: MediaInfo): Pro
 
 interface Props {
   mxEvent: MatrixEvent
-  content: Record<string, any>
+  content: MessageContent
   msgtype?: string
 }
 

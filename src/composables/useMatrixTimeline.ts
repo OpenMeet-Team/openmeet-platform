@@ -77,9 +77,9 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
 
     // Optimize updates: only replace array if content actually changed
     const currentEvents = events.value
-    const hasChanged = allEvents.length !== currentEvents.length || 
+    const hasChanged = allEvents.length !== currentEvents.length ||
                       allEvents.some((event, index) => event.getId() !== currentEvents[index]?.getId())
-    
+
     if (hasChanged) {
       // Force reactivity by creating a new array reference
       events.value = [...allEvents]
@@ -106,7 +106,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   const initializeTimeline = async (eventId?: string, client?: MatrixClient, timelineSet?: EventTimelineSet): Promise<void> => {
     const currentClient = client || options.client
     const currentTimelineSet = timelineSet || options.timelineSet
-    
+
     if (!currentClient || !currentTimelineSet) {
       logger.warn('Cannot initialize timeline: missing client or timelineSet', {
         hasClient: !!currentClient,
@@ -299,7 +299,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   }
 
   // Watch for timelineSet changes - use direct options access for better reactivity
-  watch(() => [options.timelineSet, options.client], async ([newTimelineSet, newClient]) => {
+  watch(() => [options.client, options.timelineSet], async ([newClient, newTimelineSet]) => {
     if (newTimelineSet && newClient) {
       logger.debug('🔄 Timeline dependencies updated:', {
         hasTimelineSet: !!newTimelineSet,
