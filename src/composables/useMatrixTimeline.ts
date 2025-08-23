@@ -77,14 +77,36 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
 
     // Optimize updates: only replace array if content actually changed
     const currentEvents = events.value
+    const redactionChanges = allEvents.map((event, index) => {
+      const currentEvent = currentEvents[index]
+      const redactionChanged = currentEvent && event.getId() === currentEvent.getId() &&
+                              event.isRedacted() !== currentEvent.isRedacted()
+      return {
+        eventId: event.getId(),
+        redactionChanged,
+        isRedacted: event.isRedacted(),
+        wasRedacted: currentEvent?.isRedacted()
+      }
+    }).filter(change => change.redactionChanged)
+
     const hasChanged = allEvents.length !== currentEvents.length ||
-                      allEvents.some((event, index) => event.getId() !== currentEvents[index]?.getId())
+                      allEvents.some((event, index) => {
+                        const currentEvent = currentEvents[index]
+                        return !currentEvent ||
+                               event.getId() !== currentEvent.getId() ||
+                               event.isRedacted() !== currentEvent.isRedacted()
+                      })
+
+    if (redactionChanges.length > 0) {
+      logger.debug('🗑️ REDACTION CHANGES DETECTED:', redactionChanges)
+    }
 
     if (hasChanged) {
       // Force reactivity by creating a new array reference
       events.value = [...allEvents]
       logger.debug('✅ Events updated:', {
         finalEventCount: allEvents.length,
+        redactionChanges: redactionChanges.length,
         lastEventId: allEvents[allEvents.length - 1]?.getId(),
         lastEventType: allEvents[allEvents.length - 1]?.getType(),
         previousCount: currentEvents.length,
@@ -213,13 +235,29 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
 
     // Handle new timeline events
     const onTimelineEvent = async (event: MatrixEvent) => {
+      const isRedactionEvent = event.getType() === 'm.room.redaction'
       logger.debug('🔄 Timeline event received:', {
         eventType: event.getType(),
         eventId: event.getId(),
         roomId: event.getRoomId(),
         isAtLiveEnd: isAtLiveEnd.value,
-        canPaginateForward: timelineWindow.value?.canPaginate(EventTimeline.FORWARDS)
+        canPaginateForward: timelineWindow.value?.canPaginate(EventTimeline.FORWARDS),
+        isRedactionEvent,
+        redactsEventId: isRedactionEvent ? (event.event?.redacts || event.getContent()?.redacts) : null
       })
+
+      // If this is a redaction event, log extra details
+      if (isRedactionEvent) {
+        const redactsEventId = event.event?.redacts || event.getContent()?.redacts
+        const targetEvent = events.value.find(e => e.getId() === redactsEventId)
+        logger.debug('🗑️ REDACTION VIA TIMELINE:', {
+          redactionEventId: event.getId(),
+          redactsEventId,
+          targetEventFound: !!targetEvent,
+          targetEventType: targetEvent?.getType(),
+          currentTimelineLength: events.value.length
+        })
+      }
 
       // If we're not at the live end, we need to move the timeline window to include new events
       if (timelineWindow.value && !isAtLiveEnd.value) {
@@ -260,20 +298,82 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
 
     // Handle event redaction
     const onEventRedacted = (event: MatrixEvent) => {
-      const redactsEventId = event.getContent().redacts
-      logger.debug('🗑️ Redaction event received:', {
+      // For redaction events, check both content.redacts and the redacts field
+      const redactsEventId = event.event?.redacts || event.getContent()?.redacts
+      logger.debug('🗑️ RoomEvent.Redaction received:', {
         redactionEventId: event.getId(),
         redactsEventId,
-        eventType: event.getType()
+        eventType: event.getType(),
+        content: event.getContent(),
+        eventRedacts: event.event?.redacts
       })
+
+      if (!redactsEventId) {
+        logger.warn('🗑️ Redaction event missing redacts field')
+        return
+      }
 
       // Check if the redacted event is in our timeline
       const redactedEvent = events.value.find(e => e.getId() === redactsEventId)
       if (redactedEvent) {
-        logger.debug('Redacted event found in timeline, refreshing:', redactsEventId)
-        // Force a refresh to update the UI
-        setTimeout(() => refreshEvents(), 100)
+        logger.debug('🗑️ REDACTION MATCH: Event found in timeline, forcing refresh:', {
+          redactedEventId: redactsEventId,
+          redactedEventType: redactedEvent.getType(),
+          wasRedactedBefore: redactedEvent.isRedacted(),
+          timelineLength: events.value.length
+        })
+        // Skip normal refreshEvents() since it will skip due to "no changes detected"
+        // Instead, force immediate Vue reactivity update
+        if (timelineWindow.value) {
+          const timelineEvents = timelineWindow.value.getEvents()
+          const allEvents = [...timelineEvents]
+          events.value = [...allEvents]
+          // Also increment decryption counter to force Vue re-render
+          decryptionCounter.value++
+          logger.debug('🗑️ FORCED redaction update - bypassed change detection:', {
+            eventCount: allEvents.length,
+            redactedEventId: redactsEventId,
+            newDecryptionCounter: decryptionCounter.value
+          })
+        }
+      } else {
+        logger.debug('🗑️ Redacted event not found in current timeline:', redactsEventId)
       }
+    }
+
+    // Handle when an event gets replaced/redacted
+    const onEventReplaced = (event: MatrixEvent) => {
+      const isEventInTimeline = events.value.some(e => e.getId() === event.getId())
+      logger.debug('🔄 MatrixEventEvent.Replaced received:', {
+        eventId: event.getId(),
+        eventType: event.getType(),
+        isEventInTimeline,
+        isRedacted: event.isRedacted(),
+        willRefresh: isEventInTimeline
+      })
+      if (isEventInTimeline) {
+        logger.debug('🔄 REPLACED MATCH: Event found in timeline, forcing refresh immediately')
+        // Skip normal refreshEvents() since it may skip due to change detection
+        // Instead, force immediate Vue reactivity update
+        if (timelineWindow.value) {
+          const timelineEvents = timelineWindow.value.getEvents()
+          const allEvents = [...timelineEvents]
+          events.value = [...allEvents]
+          // Also increment decryption counter to force Vue re-render
+          decryptionCounter.value++
+          logger.debug('🔄 FORCED replacement update - bypassed change detection:', {
+            eventCount: allEvents.length,
+            replacedEventId: event.getId(),
+            newDecryptionCounter: decryptionCounter.value
+          })
+        }
+      }
+    }
+
+    // Handle timeline reset (may occur after redactions)
+    const onTimelineReset = () => {
+      logger.debug('🔄 Timeline reset triggered, refreshing events')
+      refreshEvents()
     }
 
     // Add listeners
@@ -282,16 +382,20 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
       logger.debug('🎧 Adding room event listeners for:', room.roomId)
       room.on(RoomEvent.Timeline, onTimelineEvent)
       room.on(RoomEvent.Redaction, onEventRedacted)
+      room.on(RoomEvent.TimelineReset, onTimelineReset)
       eventListeners.push(() => room.off(RoomEvent.Timeline, onTimelineEvent))
       eventListeners.push(() => room.off(RoomEvent.Redaction, onEventRedacted))
+      eventListeners.push(() => room.off(RoomEvent.TimelineReset, onTimelineReset))
       logger.debug('✅ Room event listeners added')
     } else {
       logger.warn('⚠️ No room found for timeline event listeners')
     }
 
-    logger.debug('🎧 Adding client event listener for decryption')
+    logger.debug('🎧 Adding client event listeners for decryption and replacement')
     options.client.on(MatrixEventEvent.Decrypted, onEventDecrypted)
+    options.client.on(MatrixEventEvent.Replaced, onEventReplaced)
     eventListeners.push(() => options.client!.off(MatrixEventEvent.Decrypted, onEventDecrypted))
+    eventListeners.push(() => options.client!.off(MatrixEventEvent.Replaced, onEventReplaced))
     logger.debug('✅ All event listeners setup complete')
   }
 
