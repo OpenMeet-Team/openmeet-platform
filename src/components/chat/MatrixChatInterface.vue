@@ -130,7 +130,7 @@
         <EventTile
           v-for="event in debugTimelineEvents"
           :key="`${event.getId()}-${decryptionCounter}`"
-          :mxEvent="event"
+          :mxEvent="event as MatrixEvent"
           :mode="mode"
           :showSenderNames="showSenderNames"
           :currentUserId="matrixClientService.getClient()?.getUserId()"
@@ -394,10 +394,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, reactive } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
-import { format } from 'date-fns'
-import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, type MatrixClient, type EventTimelineSet } from 'matrix-js-sdk'
+// date-fns format import removed - unused
+import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
@@ -493,7 +493,7 @@ const typingNotificationTimer = ref<number | null>(null)
 // Load More History state
 
 // Matrix Timeline - Following Element Web's TimelineWindow pattern
-const currentUserId = computed(() => matrixClientService.getClient()?.getUserId() || '')
+// Removed - currentUserId is accessed directly where needed
 // Room resolution with proper alias handling
 const resolvedRoomId = ref<string | null>(null)
 const isResolvingRoom = ref(false)
@@ -546,29 +546,22 @@ const updateCurrentRoom = async () => {
 const timelineClient = computed(() => matrixClientService.getClient())
 const timelineSet = computed(() => currentRoom.value?.getUnfilteredTimelineSet())
 
-// Create reactive timeline options that properly track the computed properties
-const timelineOptions = reactive({
-  get client () { return timelineClient.value },
-  get timelineSet () { return timelineSet.value },
-  windowLimit: 1000
-})
-
-// Initialize timeline composable
+// Initialize timeline composable with empty options initially
+// We'll manually initialize when client and timeline set become available
 const {
   events: timelineEvents,
   isLoading: isTimelineLoading,
   canPaginateBack,
-  canPaginateForward,
   isPaginatingBack,
-  isPaginatingForward,
-  isAtLiveEnd,
   decryptionCounter,
   initializeTimeline,
   loadOlderMessages: paginateBackward,
   refreshEvents
-} = useMatrixTimeline(timelineOptions)
+} = useMatrixTimeline({
+  windowLimit: 1000
+})
 
-// Watch timeline dependencies for debugging
+// Watch timeline dependencies and manually trigger timeline initialization
 watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
   logger.debug('🔄 Timeline dependencies changed:', {
     hasClient: !!newClient,
@@ -579,9 +572,18 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
 
   if (newClient && newTimelineSet) {
     logger.debug('🔍 TimelineSet info:', {
-      pendingEventOrdering: newTimelineSet.pendingEventOrdering,
-      roomId: newTimelineSet.room?.roomId
+      roomId: newTimelineSet.room?.roomId,
+      hasRoom: !!newTimelineSet.room
     })
+    
+    // Manually trigger timeline initialization with current dependencies
+    logger.debug('🚀 Manually initializing timeline with new dependencies')
+    try {
+      await initializeTimeline(undefined, newClient, newTimelineSet)
+      logger.debug('✅ Timeline initialization completed successfully')
+    } catch (error) {
+      logger.error('❌ Timeline initialization failed:', error)
+    }
   }
 }, { immediate: true })
 
@@ -606,17 +608,8 @@ watch(timelineEvents, (newEvents, oldEvents) => {
   })
 }, { immediate: true })
 
-// Computed for debugging template rendering
-const debugTimelineEvents = computed(() => {
-  const events = timelineEvents.value
-  logger.debug('🎨 Template accessing timelineEvents:', {
-    length: events.length,
-    isArray: Array.isArray(events),
-    firstEventId: events[0]?.getId(),
-    lastEventId: events[events.length - 1]?.getId()
-  })
-  return events
-})
+// Use timeline events directly - no need for debug wrapper
+const debugTimelineEvents = timelineEvents
 
 // Use Matrix client service directly for real Matrix integration
 
@@ -629,53 +622,7 @@ const countdownTimer = ref<ReturnType<typeof setInterval> | null>(null)
 // Custom event listeners tracking for cleanup
 let customEventListeners: (() => void)[] = []
 
-// Helper function to resolve room aliases to actual Matrix rooms
-const resolveRoom = async (roomIdOrAlias: string) => {
-  const client = matrixClientService.getClient()
-  if (!client) return null
-
-  // First, try direct room ID lookup (for cached room IDs)
-  if (roomIdOrAlias.startsWith('!')) {
-    return client.getRoom(roomIdOrAlias)
-  }
-
-  // If it's a room alias, try to resolve it
-  if (roomIdOrAlias.startsWith('#')) {
-    try {
-      // First check if we already have a room with this alias
-      const rooms = client.getRooms()
-      for (const room of rooms) {
-        if (room.getCanonicalAlias() === roomIdOrAlias ||
-            room.getAltAliases().includes(roomIdOrAlias)) {
-          return room
-        }
-      }
-
-      // If not found locally, resolve the alias via Matrix API
-      // Resolving room alias
-      const aliasResponse = await client.getRoomIdForAlias(roomIdOrAlias)
-      const roomId = aliasResponse.room_id
-
-      // Try to get the room by resolved ID
-      let room = client.getRoom(roomId)
-
-      // If room still not found locally, join via alias
-      if (!room) {
-        // Room not in local state, joining via alias
-        const joinResult = await client.joinRoom(roomIdOrAlias)
-        room = client.getRoom(joinResult.roomId)
-      }
-
-      return room
-    } catch (error) {
-      logger.error('Failed to resolve room alias:', roomIdOrAlias, error)
-      return null
-    }
-  }
-
-  // Fallback: try as room ID anyway
-  return client.getRoom(roomIdOrAlias)
-}
+// resolveRoom function removed - unused
 
 // Watch for roomId changes and resolve the room
 watch(() => props.roomId, updateCurrentRoom, { immediate: true })
@@ -715,10 +662,7 @@ const getMessagesContainerStyle = () => {
   return 'flex: 1; overflow-y: auto; max-height: calc(80vh - 200px);'
 }
 
-const getImageStyle = () => {
-  const maxWidth = props.mode === 'mobile' ? '100%' : '300px'
-  return `max-width: ${maxWidth}; border-radius: 8px;`
-}
+// getImageStyle function removed - unused
 
 const getInputPlaceholder = () => {
   if (!canSendMessages.value) return 'You cannot send messages in this chat'
@@ -732,22 +676,7 @@ const getSenderColor = (senderId: string): string => {
   return colors[index % colors.length]
 }
 
-const cleanDisplayName = (displayName: string, userId: string): string => {
-  // Remove Matrix ID from display name if it's included
-  // Pattern: "Name (@user:server.com)" or "Name (user:server.com)"
-  const escapedUserId = userId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const patterns = [
-    `\\s*\\(${escapedUserId}\\)\\s*`, // Exact match in parentheses
-    `\\s*\\(@?${escapedUserId.replace('@', '')}\\)\\s*` // With or without @ in parentheses
-  ]
-
-  let cleaned = displayName
-  for (const pattern of patterns) {
-    cleaned = cleaned.replace(new RegExp(pattern, 'g'), '').trim()
-  }
-
-  return cleaned || displayName // Return original if cleaning results in empty string
-}
+// cleanDisplayName function removed - unused
 
 const getRoomStatusText = (): string => {
   if (!isConnected.value) {
@@ -800,23 +729,9 @@ const hasOidcConfigError = (): boolean => {
          lastAuthError.value.includes('404')
 }
 
-const formatTime = (date: Date): string => {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
+// formatTime function removed - unused
 
-  if (diff < 60000) return 'now'
-  if (diff < 3600000) return format(date, 'HH:mm')
-  if (diff < 86400000) return format(date, 'HH:mm')
-  return format(date, 'MMM d, HH:mm')
-}
-
-const formatFileSize = (bytes?: number): string => {
-  if (!bytes) return 'Unknown size'
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  if (bytes === 0) return '0 Bytes'
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
-}
+// formatFileSize function removed - unused
 
 const formatTypingUsers = (users: { userId: string, userName: string }[]): string => {
   if (users.length === 0) return ''
@@ -825,55 +740,12 @@ const formatTypingUsers = (users: { userId: string, userName: string }[]): strin
   return `${users.length} people are typing...`
 }
 
-const getFileIcon = (mimetype?: string): string => {
-  if (!mimetype) return 'sym_r_attach_file'
-  if (mimetype.startsWith('image/')) return 'sym_r_image'
-  if (mimetype.startsWith('video/')) return 'sym_r_videocam'
-  if (mimetype.startsWith('audio/')) return 'sym_r_audiotrack'
-  if (mimetype.includes('pdf')) return 'sym_r_picture_as_pdf'
-  if (mimetype.includes('zip') || mimetype.includes('rar')) return 'sym_r_archive'
-  return 'sym_r_attach_file'
-}
+// getFileIcon function removed - unused
 
-const getFileUrl = (url: string): string => {
-  if (!url) {
-    logger.warn('getFileUrl: Empty URL provided')
-    return ''
-  }
-
-  // If it's already an HTTP URL, return as-is
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    // Using HTTP URL as-is
-    return url
-  }
-
-  // Handle Matrix content URLs (mxc://) for file downloads
-  if (url.startsWith('mxc://')) {
-    const client = matrixClientService.getClient()
-    if (!client) {
-      logger.error('getFileUrl: Matrix client not available')
-      return ''
-    }
-
-    // For files, use download endpoint without dimensions
-    const convertedUrl = matrixClientService.getContentUrl(url)
-    // Converting Matrix URL for file download
-
-    if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
-      logger.error('getFileUrl: Matrix URL conversion failed or invalid')
-      return ''
-    }
-
-    return convertedUrl
-  }
-
-  // Fallback - return original URL
-  // Using original URL
-  return url
-}
+// getFileUrl function removed - unused
 
 // Load authenticated images and create blob URLs
-const loadAuthenticatedImage = async (message: any): Promise<void> => {
+const loadAuthenticatedImage = async (message: Record<string, any>): Promise<void> => {
   if (!message.content?.url || message.imageBlobUrl) return
 
   try {
@@ -1069,10 +941,7 @@ const stopTyping = async () => {
   }
 }
 
-const showImageModal = (src: string) => {
-  imageModalSrc.value = src
-  imageModal.value = true
-}
+// showImageModal function removed - unused
 
 // Recovery key dialog functions
 const handleRecoveryKeyGenerated = (event: CustomEvent) => {
@@ -1141,117 +1010,9 @@ const downloadRecoveryKey = () => {
   })
 }
 
-const downloadFile = async (url: string, filename: string) => {
-  try {
-    // Starting file download
+// downloadFile function removed - unused
 
-    // Get Matrix access token for direct authentication (Element Web approach)
-    const client = matrixClientService.getClient()
-    const accessToken = client?.getAccessToken()
-
-    if (!accessToken) {
-      throw new Error('No Matrix access token available')
-    }
-
-    // Using direct token auth
-
-    // Make authenticated request directly to Matrix server
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.status} ${response.statusText}`)
-    }
-
-    // Get the blob data
-    const blob = await response.blob()
-
-    // Create blob URL and download
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = filename
-    a.click()
-
-    // Clean up blob URL
-    URL.revokeObjectURL(blobUrl)
-
-    // File download completed
-  } catch (error) {
-    console.error('❌ File download failed:', error)
-    // Fallback to direct link
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-  }
-}
-
-const previewFile = async (content: { url?: string; filename?: string; mimetype?: string }) => {
-  if (!content.url || !content.filename) {
-    console.warn('Missing file URL or filename for preview')
-    return
-  }
-
-  const fileUrl = getFileUrl(content.url)
-  // Previewing file
-
-  if (!fileUrl) {
-    console.error('❌ Failed to convert file URL for preview')
-    return
-  }
-
-  try {
-    // Get Matrix access token for authenticated preview
-    const client = matrixClientService.getClient()
-    const accessToken = client?.getAccessToken()
-
-    if (!accessToken) {
-      throw new Error('No Matrix access token available')
-    }
-
-    // Using authenticated preview for file
-
-    // Fetch file with authentication
-    const response = await fetch(fileUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`Preview failed: ${response.status} ${response.statusText}`)
-    }
-
-    // Get the blob data
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-
-    // For images, show in a dialog
-    if (content.mimetype?.startsWith('image/')) {
-      showImageModal(blobUrl)
-      // Clean up blob URL after a delay to allow image to load
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000)
-      return
-    }
-
-    // For text files and other previewable content, open in new tab
-    window.open(blobUrl, '_blank')
-
-    // Clean up blob URL after a delay
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
-  } catch (error) {
-    console.error('❌ File preview failed:', error)
-    quasar.notify({
-      type: 'negative',
-      message: 'Failed to preview file: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      timeout: 3000
-    })
-  }
-}
+// previewFile function removed - unused
 
 const scrollToBottom = async (smooth = false) => {
   await nextTick()
@@ -1446,7 +1207,7 @@ const reconnect = async () => {
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
           // Using actual room ID from join result
-          currentRoom.value = result.room
+          resolvedRoomId.value = result.room.roomId
           // Load messages with the correct room ID
           await initializeTimeline()
         } else {
@@ -1482,7 +1243,7 @@ const reconnect = async () => {
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
           // Using actual room ID from join result
-          currentRoom.value = result.room
+          resolvedRoomId.value = result.room.roomId
           // Load messages with the correct room ID
           await initializeTimeline()
         } else {
@@ -1896,92 +1657,17 @@ const setupMatrixEventListeners = () => {
   // Timeline events are now handled by useMatrixTimeline composable
   // client.on(RoomEvent.Timeline, handleTimelineEvent)
 
-  // Handle async decryption events - following Element-Web pattern
-  const handleEventDecrypted = async (event: MatrixEvent) => {
-    logger.debug('🔓 Event decrypted:', {
-      eventId: event.getId(),
-      eventType: event.getType(),
-      roomId: event.getRoomId(),
-      currentRoomId: props.roomId,
-      hasDecryptedContent: !!event.getClearContent()?.body
-    })
+  // Note: Event decryption is now handled by useMatrixTimeline composable
 
-    // Only handle events from our current room
-    if (event.getRoomId() !== props.roomId) {
-      return
-    }
-
-    // Only handle message events
-    if (event.getType() !== 'm.room.encrypted') {
-      return
-    }
-
-    // Find the message in our current messages and update it
-    const eventId = event.getId()
-    if (!eventId) return
-
-    const messageIndex = timelineEvents.value.findIndex(msg => msg.id === eventId)
-    if (messageIndex === -1) {
-      logger.debug('🔍 Decrypted event not found in current messages, will be handled by next message load')
-      return
-    }
-
-    logger.debug('🔄 Updating decrypted message content:', {
-      messageIndex,
-      oldContent: timelineEvents.value[messageIndex].content.body,
-      eventId
-    })
-
-    // Get the decrypted content
-    const clearContent = event.getClearContent()
-    if (!clearContent?.body) {
-      logger.warn('⚠️ Decrypted event has no clear content body')
-      return
-    }
-
-    // Update the message content with decrypted data
-    const updatedMessage = { ...timelineEvents.value[messageIndex] }
-    updatedMessage.content = {
-      ...updatedMessage.content,
-      body: clearContent.body,
-      msgtype: clearContent.msgtype || 'm.text'
-    }
-
-    // Handle different message types after decryption
-    if (clearContent.msgtype === 'm.image' && clearContent.url) {
-      updatedMessage.type = 'image'
-      updatedMessage.content.url = clearContent.url
-      updatedMessage.content.mimetype = clearContent.info?.mimetype
-      updatedMessage.content.size = clearContent.info?.size
-    } else if (clearContent.msgtype === 'm.file' && clearContent.url) {
-      updatedMessage.type = 'file'
-      updatedMessage.content.url = clearContent.url
-      updatedMessage.content.filename = clearContent.filename || clearContent.body
-      updatedMessage.content.mimetype = clearContent.info?.mimetype
-      updatedMessage.content.size = clearContent.info?.size
-    } else {
-      updatedMessage.type = 'text'
-    }
-
-    // Replace the message in the array
-    timelineEvents.value[messageIndex] = updatedMessage
-
-    logger.debug('✅ Message updated with decrypted content:', {
-      eventId,
-      newContent: updatedMessage.content.body,
-      newType: updatedMessage.type
-    })
-  }
-
-  // Listen for decryption events globally
-  client.on(MatrixEventEvent.Decrypted, handleEventDecrypted)
+  // Note: Event decryption is now handled by useMatrixTimeline composable
+  // client.on(MatrixEventEvent.Decrypted, handleEventDecrypted)
 
   // Store cleanup function for onUnmounted
   onUnmounted(() => {
     if (client) {
       client.off(ClientEvent.Sync, handleSyncStateChange)
       client.off(RoomEvent.Timeline, handleTimelineEvent)
-      client.off(MatrixEventEvent.Decrypted, handleEventDecrypted)
+      // client.off(MatrixEventEvent.Decrypted, handleEventDecrypted)
     }
   })
 }
@@ -2238,7 +1924,7 @@ onMounted(async () => {
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
             // Using actual room ID from join result
-            currentRoom.value = result.room
+            resolvedRoomId.value = result.room.roomId
             // Load messages with the correct room ID
             await initializeTimeline()
           } else {
@@ -2258,7 +1944,7 @@ onMounted(async () => {
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
             // Using actual room ID from join result
-            currentRoom.value = result.room
+            resolvedRoomId.value = result.room.roomId
             // Load messages with the correct room ID
             await initializeTimeline()
           } else {

@@ -1634,7 +1634,7 @@ class MatrixClientService {
     logger.debug('🚀 ENTRY: Matrix client is available, proceeding...')
 
     logger.debug('📎 Starting uploadAndSendFile for:', file.name)
-    
+
     // Check if room is encrypted using crypto API like Element Web
     const isEncrypted = await this.client.getCrypto()?.isEncryptionEnabledInRoom(roomId) ?? false
     logger.debug('🔐 Room encryption status:', { roomId, isEncrypted })
@@ -1652,40 +1652,50 @@ class MatrixClientService {
     try {
       // Use Element Web's approach for proper file encryption
       logger.debug('🔄 Step 1: Using Element Web approach for file encryption...')
-      
-      let uploadResult: { url?: string; file?: any }
+
+      interface UploadResult {
+        url?: string
+        file?: {
+          url: string
+          key: Record<string, any>
+          iv: string
+          hashes: Record<string, string>
+          v: string
+        }
+      }
+      let uploadResult: UploadResult
 
       if (isEncrypted) {
         logger.debug('🔐 File will be encrypted before upload...')
-        
+
         // Import encrypt function dynamically
         const encrypt = await import('matrix-encrypt-attachment')
-        
+
         // Read file as ArrayBuffer
         const data = await this.readFileAsArrayBuffer(file)
         logger.debug('📖 File read as ArrayBuffer, size:', data.byteLength)
-        
+
         // Encrypt the file
         const encryptResult = await encrypt.encryptAttachment(data)
         logger.debug('🔒 File encrypted successfully')
-        
+
         // Upload encrypted blob
         const blob = new Blob([encryptResult.data])
         const uploadResponse = await this.client.uploadContent(blob, {
           includeFilename: false,
           type: 'application/octet-stream'
         })
-        
+
         logger.debug('📤 Encrypted file uploaded:', uploadResponse.content_uri)
-        
+
         // Return encrypted file structure
         uploadResult = {
           file: {
             ...encryptResult.info,
-            url: uploadResponse.content_uri,
+            url: uploadResponse.content_uri
           }
         }
-        
+
         logger.debug('🔐 Created encrypted file structure:', {
           hasFile: !!uploadResult.file,
           url: uploadResult.file?.url,
@@ -1693,11 +1703,11 @@ class MatrixClientService {
         })
       } else {
         logger.debug('🔓 File will be uploaded unencrypted...')
-        
+
         // For unencrypted rooms, upload normally
         const uploadResponse = await this.client.uploadContent(file)
         uploadResult = { url: uploadResponse.content_uri }
-        
+
         logger.debug('📤 Unencrypted file uploaded:', uploadResult.url)
       }
 
@@ -1725,7 +1735,7 @@ class MatrixClientService {
       // Send the message
       logger.debug('📤 Sending message to room...')
       const result = await this.sendMessage(roomId, content)
-      
+
       logger.debug('✅ File sent successfully:', {
         eventId: result.eventId,
         filename: file.name,
@@ -1743,7 +1753,7 @@ class MatrixClientService {
   /**
    * Read file as ArrayBuffer for encryption
    */
-  private async readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  private async readFileAsArrayBuffer (file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as ArrayBuffer)

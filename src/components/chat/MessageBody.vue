@@ -118,10 +118,33 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { type MatrixEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
 
+interface EncryptedFile {
+  url: string
+  key: {
+    alg: string
+    ext: boolean
+    k: string
+    key_ops: string[]
+    kty: string
+  }
+  iv: string
+  hashes: {
+    sha256: string
+  }
+  v: string
+}
+
+interface MediaInfo {
+  mimetype?: string
+  size?: number
+  w?: number
+  h?: number
+}
+
 /**
  * Decrypt an encrypted file attachment following Element Web's approach
  */
-async function decryptEncryptedFile(file: any, info?: any): Promise<Blob> {
+async function decryptEncryptedFile (file: EncryptedFile, info?: MediaInfo): Promise<Blob> {
   if (!file || !file.url) {
     throw new Error('No encrypted file information provided')
   }
@@ -147,13 +170,13 @@ async function decryptEncryptedFile(file: any, info?: any): Promise<Blob> {
 
     responseData = await response.arrayBuffer()
   } catch (e) {
-    throw new Error(`Download error: ${e.message}`)
+    throw new Error(`Download error: ${(e as Error).message}`)
   }
 
   // Decrypt the array buffer using the information from the file
   try {
     const dataArray = await encrypt.decryptAttachment(responseData, file)
-    
+
     // Get MIME type, defaulting to safe type
     let mimetype = info?.mimetype ? info.mimetype.split(';')[0].trim() : ''
     if (!mimetype || mimetype.includes('script') || mimetype.includes('html')) {
@@ -162,7 +185,7 @@ async function decryptEncryptedFile(file: any, info?: any): Promise<Blob> {
 
     return new Blob([dataArray], { type: mimetype })
   } catch (e) {
-    throw new Error(`Decryption error: ${e.message}`)
+    throw new Error(`Decryption error: ${(e as Error).message}`)
   }
 }
 
@@ -342,15 +365,52 @@ const onImageError = () => {
 }
 
 const downloadFile = async () => {
-  if (props.content.url) {
-    try {
-      // Get the authenticated URL
-      const fileUrl = matrixClientService.getContentUrl(props.content.url)
+  const url = props.content.url || props.content.file?.url
+  if (!url) return
 
-      // Fetch with authentication headers
-      const client = matrixClientService.getClient()
-      if (!client) return
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) return
 
+    let blob: Blob
+
+    if (props.content.file) {
+      // Handle encrypted file
+      console.debug('Downloading encrypted file:', props.content.file)
+
+      // Import encrypt function dynamically
+      const encrypt = await import('matrix-encrypt-attachment')
+
+      // Download the encrypted file as an array buffer
+      const fileUrl = matrixClientService.getContentUrl(url)
+      const response = await fetch(fileUrl, {
+        headers: {
+          Authorization: `Bearer ${client.getAccessToken()}`
+        }
+      })
+
+      if (!response.ok) {
+        console.error('Failed to fetch encrypted file:', response.status, response.statusText)
+        return
+      }
+
+      const responseData = await response.arrayBuffer()
+
+      // Decrypt the array buffer
+      const dataArray = await encrypt.decryptAttachment(responseData, props.content.file)
+
+      // Get MIME type, defaulting to safe type
+      let mimetype = props.content.info?.mimetype ? props.content.info.mimetype.split(';')[0].trim() : ''
+      if (!mimetype || mimetype.includes('script') || mimetype.includes('html')) {
+        mimetype = 'application/octet-stream'
+      }
+
+      blob = new Blob([dataArray], { type: mimetype })
+    } else {
+      // Handle unencrypted file
+      console.debug('Downloading unencrypted file:', url)
+
+      const fileUrl = matrixClientService.getContentUrl(url)
       const response = await fetch(fileUrl, {
         headers: {
           Authorization: `Bearer ${client.getAccessToken()}`
@@ -362,23 +422,24 @@ const downloadFile = async () => {
         return
       }
 
-      // Create blob and download
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
-
-      // Create download link
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = fileName.value
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // Clean up blob URL
-      URL.revokeObjectURL(blobUrl)
-    } catch (error) {
-      console.error('Error downloading file:', error)
+      blob = await response.blob()
     }
+
+    // Create blob URL and download
+    const blobUrl = URL.createObjectURL(blob)
+
+    // Create download link
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = fileName.value
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // Clean up blob URL
+    URL.revokeObjectURL(blobUrl)
+  } catch (error) {
+    console.error('Error downloading file:', error)
   }
 }
 
@@ -406,7 +467,7 @@ const viewFullImage = async () => {
       // Create blob URL and open in new tab
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
-      const newWindow = window.open(blobUrl, '_blank')
+      window.open(blobUrl, '_blank')
 
       // Clean up blob URL after a delay
       setTimeout(() => {
@@ -514,7 +575,7 @@ const previewFile = async () => {
       // Create blob URL and open in new tab
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
-      const newWindow = window.open(blobUrl, '_blank')
+      window.open(blobUrl, '_blank')
 
       // Clean up blob URL after a delay
       setTimeout(() => {

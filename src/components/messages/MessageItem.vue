@@ -178,48 +178,7 @@ const isSystemMessage = computed(() => {
   return msgtype === 'm.room.member' || (msgtype === 'm.room.message' && props.message.content.body?.startsWith('* '))
 })
 
-// Encryption detection - checks if THIS specific message was encrypted
-const isEncrypted = computed(() => {
-  // Check for 'm.room.encrypted' type (before decryption)
-  if (props.message.type === 'm.room.encrypted') {
-    return true
-  }
-
-  // Check for decryption metadata in unsigned field
-  if (props.message.unsigned) {
-    // Look for any encryption-related keys
-    const unsignedKeys = Object.keys(props.message.unsigned)
-    if (unsignedKeys.some(key => key.includes('decrypt') || key.includes('encrypt'))) {
-      return true
-    }
-  }
-
-  // Check for Matrix SDK encryption flags
-  if (props.message._isEncrypted ||
-      props.message.decrypted ||
-      props.message.encrypted ||
-      props.message.isEncrypted) {
-    return true
-  }
-
-  // Check if the message content has encryption markers
-  // Sometimes the Matrix SDK adds special properties to decrypted content
-  if (props.message.content && typeof props.message.content === 'object') {
-    const contentKeys = Object.keys(props.message.content)
-    if (contentKeys.some(key => key.includes('encrypt') || key.includes('decrypt'))) {
-      return true
-    }
-  }
-
-  // Check if there's a 'cleartext' or decrypted content indicator
-  if ('cleartext_content' in props.message || 'decrypted_content' in props.message) {
-    return true
-  }
-
-  // For now, return false if no clear indicators are found
-  // This will be refined as we see real encrypted message data
-  return false
-})
+// isEncrypted computed removed - unused
 
 const isImageMessage = computed(() => {
   if (!props.message.content) return false

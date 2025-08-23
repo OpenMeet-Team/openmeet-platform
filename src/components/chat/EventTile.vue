@@ -97,22 +97,7 @@ following Element Web's proven approach for better performance and maintainabili
                 >
                   <q-tooltip>Sent</q-tooltip>
                 </q-icon>
-                <q-icon
-                  v-else-if="messageStatus === 'delivered'"
-                  name="fas fa-check-double"
-                  size="12px"
-                  color="grey-6"
-                >
-                  <q-tooltip>Delivered</q-tooltip>
-                </q-icon>
-                <q-icon
-                  v-else-if="messageStatus === 'read'"
-                  name="fas fa-check-double"
-                  size="12px"
-                  color="blue-6"
-                >
-                  <q-tooltip>Read</q-tooltip>
-                </q-icon>
+                <!-- Future: Add delivered and read status when read receipts are implemented -->
                 <q-icon
                   v-else-if="messageStatus === 'failed'"
                   name="fas fa-exclamation-triangle"
@@ -173,16 +158,17 @@ following Element Web's proven approach for better performance and maintainabili
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { EventType, type MatrixEvent } from 'matrix-js-sdk'
+import { EventType, type MatrixEvent, type Room } from 'matrix-js-sdk'
 import { format } from 'date-fns'
 import MessageBody from './MessageBody.vue'
+import { matrixClientService } from '../../services/matrixClientService'
 
 interface Props {
   mxEvent: MatrixEvent
   mode?: 'desktop' | 'mobile' | 'inline'
   showSenderNames?: boolean
   currentUserId?: string
-  currentRoom?: any
+  currentRoom?: Room
   decryptionCounter?: number
 }
 
@@ -192,9 +178,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 // Define emits
-const emit = defineEmits<{
+defineEmits<{
   deleteMessage: [event: MatrixEvent]
 }>()
+
+// handleDeleteMessage removed - functionality moved to template
 
 // Event properties following Element Web patterns
 // Force reactivity by accessing event properties in computed and decryption counter
@@ -226,7 +214,10 @@ const senderDisplayName = computed(() => {
          'Unknown'
 })
 const senderAvatarUrl = computed(() => {
-  return senderMember.value?.getAvatarUrl('', 40, 40, 'crop') || undefined
+  if (!senderMember.value) return undefined
+  const client = matrixClientService.getClient()
+  if (!client) return undefined
+  return senderMember.value.getAvatarUrl(client.baseUrl, 40, 40, 'crop', false, true) || undefined
 })
 
 // Event type checks following Element Web patterns
@@ -239,10 +230,10 @@ const isStateEvent = computed(() => {
          eventType.value === EventType.RoomEncryption
 })
 const isEncryptedEvent = computed(() => {
-  const result = eventType.value === EventType.RoomEncrypted || eventType.value === 'm.room.encrypted'
+  const result = eventType.value === EventType.RoomEncryption || eventType.value === 'm.room.encrypted'
   console.debug('🔐 isEncryptedEvent check:', {
     eventType: eventType.value,
-    EventTypeRoomEncrypted: EventType.RoomEncrypted,
+    EventTypeRoomEncryption: EventType.RoomEncryption,
     result
   })
   return result
@@ -345,7 +336,7 @@ const getStateEventText = (): string => {
   const senderName = senderDisplayName.value
 
   switch (eventType.value) {
-    case EventType.RoomMember:
+    case EventType.RoomMember: {
       const membership = content.membership
       const prevMembership = prevContent?.membership
       const targetId = props.mxEvent.getStateKey()
@@ -368,6 +359,7 @@ const getStateEventText = (): string => {
         default:
           return `${senderName} ${membership} ${targetName}`
       }
+    }
 
     case EventType.RoomName:
       return `${senderName} changed the room name to "${content.name}"`

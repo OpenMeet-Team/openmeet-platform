@@ -75,14 +75,27 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
       }
     }
 
-    // Force reactivity by creating a new array reference
-    events.value = [...allEvents]
-    logger.debug('✅ Events updated:', {
-      finalEventCount: allEvents.length,
-      lastEventId: allEvents[allEvents.length - 1]?.getId(),
-      lastEventType: allEvents[allEvents.length - 1]?.getType(),
-      previousCount: events.value.length
-    })
+    // Optimize updates: only replace array if content actually changed
+    const currentEvents = events.value
+    const hasChanged = allEvents.length !== currentEvents.length || 
+                      allEvents.some((event, index) => event.getId() !== currentEvents[index]?.getId())
+    
+    if (hasChanged) {
+      // Force reactivity by creating a new array reference
+      events.value = [...allEvents]
+      logger.debug('✅ Events updated:', {
+        finalEventCount: allEvents.length,
+        lastEventId: allEvents[allEvents.length - 1]?.getId(),
+        lastEventType: allEvents[allEvents.length - 1]?.getType(),
+        previousCount: currentEvents.length,
+        wasChanged: true
+      })
+    } else {
+      logger.debug('⚡ Events refresh skipped - no changes detected:', {
+        eventCount: allEvents.length,
+        lastEventId: allEvents[allEvents.length - 1]?.getId()
+      })
+    }
 
     // Update pagination capabilities
     canPaginateBack.value = timelineWindow.value.canPaginate(EventTimeline.BACKWARDS)
@@ -90,10 +103,34 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   }
 
   // Initialize timeline
-  const initializeTimeline = async (eventId?: string): Promise<void> => {
-    if (!options.client || !options.timelineSet) {
-      logger.warn('Cannot initialize timeline: missing client or timelineSet')
+  const initializeTimeline = async (eventId?: string, client?: MatrixClient, timelineSet?: EventTimelineSet): Promise<void> => {
+    const currentClient = client || options.client
+    const currentTimelineSet = timelineSet || options.timelineSet
+    
+    if (!currentClient || !currentTimelineSet) {
+      logger.warn('Cannot initialize timeline: missing client or timelineSet', {
+        hasClient: !!currentClient,
+        hasTimelineSet: !!currentTimelineSet,
+        optionsClient: !!options.client,
+        optionsTimelineSet: !!options.timelineSet
+      })
       return
+    }
+
+    // Update options if new client/timelineSet provided
+    if (client && client !== options.client) {
+      options.client = client
+    }
+    if (timelineSet && timelineSet !== options.timelineSet) {
+      options.timelineSet = timelineSet
+    }
+
+    // Set up event listeners if we have both client and timelineSet
+    if (options.client && options.timelineSet) {
+      // Clean up old listeners first
+      cleanupEventListeners()
+      // Set up new listeners
+      setupEventListeners()
     }
 
     isLoading.value = true
@@ -101,8 +138,8 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     try {
       // Create new TimelineWindow instance
       timelineWindow.value = new TimelineWindow(
-        options.client,
-        options.timelineSet,
+        currentClient,
+        currentTimelineSet,
         { windowLimit: options.windowLimit }
       )
 
@@ -261,16 +298,28 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     eventListeners.splice(0, eventListeners.length)
   }
 
-  // Watch for timelineSet changes
-  watch(() => options.timelineSet, async (newTimelineSet) => {
-    if (newTimelineSet) {
+  // Watch for timelineSet changes - use direct options access for better reactivity
+  watch(() => [options.timelineSet, options.client], async ([newTimelineSet, newClient]) => {
+    if (newTimelineSet && newClient) {
+      logger.debug('🔄 Timeline dependencies updated:', {
+        hasTimelineSet: !!newTimelineSet,
+        hasClient: !!newClient
+      })
       cleanupEventListeners()
-      await initializeTimeline(options.eventId)
+      await initializeTimeline(options.eventId, newClient, newTimelineSet)
       setupEventListeners()
     }
   }, { immediate: true })
 
-  // Lifecycle management - event listeners are setup via watch, no need for onMounted
+  // Lifecycle management - both watch and onMounted for reliability
+  onMounted(async () => {
+    // Fallback setup in case watch doesn't trigger properly
+    if (options.client && options.timelineSet) {
+      logger.debug('🔄 onMounted fallback: setting up timeline')
+      await initializeTimeline()
+      setupEventListeners()
+    }
+  })
 
   onUnmounted(() => {
     cleanupEventListeners()
