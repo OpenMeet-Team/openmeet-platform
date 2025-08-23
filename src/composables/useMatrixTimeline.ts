@@ -18,9 +18,9 @@ import {
 } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
 
-// Pagination configuration
-const PAGINATION_SIZE = 50
-const INITIAL_LOAD_SIZE = 30
+// Optimized pagination configuration for better performance
+const PAGINATION_SIZE = 10 // Load 10 messages per pagination request
+const INITIAL_LOAD_SIZE = 10 // Initial load only 10 messages
 
 interface TimelineOptions {
   timelineSet?: EventTimelineSet
@@ -143,7 +143,8 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
         { windowLimit: options.windowLimit }
       )
 
-      // Load initial events
+      // Load initial events with optimized batch size
+      logger.debug(`🚀 Loading initial ${INITIAL_LOAD_SIZE} messages (optimized for performance)`)
       await timelineWindow.value.load(eventId, INITIAL_LOAD_SIZE)
       refreshEvents()
 
@@ -175,6 +176,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     paginatingRef.value = true
 
     try {
+      logger.debug(`📖 Loading ${PAGINATION_SIZE} more messages (${direction === EventTimeline.BACKWARDS ? 'older' : 'newer'})`)
       const success = await timelineWindow.value.paginate(direction, PAGINATION_SIZE)
       refreshEvents()
       return success
