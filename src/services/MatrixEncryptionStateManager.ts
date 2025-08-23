@@ -10,12 +10,7 @@ import { EventEmitter } from 'events'
 import { logger } from '../utils/logger'
 
 // Matrix SDK event type definitions for encryption-related events
-type MatrixEventType =
-  | 'crypto.keyBackupStatus'
-  | 'crypto.crossSigning.keysChanged'
-  | 'crypto.devicesUpdated'
-  | 'crypto.userTrustStatusChanged'
-  | 'sync'
+// Note: These events are not properly typed in the Matrix JS SDK
 
 export interface MatrixEncryptionStatus {
   state: 'needs_login' | 'ready_unencrypted' | 'ready_encrypted_with_warning' | 'ready_encrypted' | 'needs_device_verification'
@@ -79,31 +74,36 @@ class MatrixEncryptionStateManager extends EventEmitter {
     const client = this.client
 
     // Key backup status changes
-    client.on('crypto.keyBackupStatus' as MatrixEventType, (enabled: boolean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client.on('crypto.keyBackupStatus' as any, (enabled: boolean) => {
       logger.debug('🔐 Key backup status changed:', enabled)
       this.calculateState()
     })
 
     // Cross-signing key changes
-    client.on('crypto.crossSigning.keysChanged' as MatrixEventType, () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client.on('crypto.crossSigning.keysChanged' as any, () => {
       logger.debug('🔐 Cross-signing keys changed')
       this.calculateState()
     })
 
     // Device verification changes
-    client.on('crypto.devicesUpdated' as MatrixEventType, (users: string[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client.on('crypto.devicesUpdated' as any, (users: string[]) => {
       logger.debug('🔐 Device verification updated for users:', users)
       this.calculateState()
     })
 
     // Trust status changes
-    client.on('crypto.userTrustStatusChanged' as MatrixEventType, (userId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client.on('crypto.userTrustStatusChanged' as any, (userId: string) => {
       logger.debug('🔐 Trust status changed for user:', userId)
       this.calculateState()
     })
 
     // Client sync state changes (but much less frequently)
-    client.on('sync' as MatrixEventType, (state: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client.on('sync' as any, (state: string) => {
       if (state === 'PREPARED') { // Only when sync is fully prepared
         logger.debug('🔐 Matrix sync prepared, checking encryption state')
         this.calculateState()
@@ -202,7 +202,8 @@ class MatrixEncryptionStateManager extends EventEmitter {
   private async checkCrossSigningSecrets (): Promise<boolean> {
     try {
       const crypto = this.client!.getCrypto()!
-      const secretStorage = (crypto as { getSecretsManager?: () => unknown }).getSecretsManager?.()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const secretStorage = (crypto as any).getSecretsManager?.()
 
       if (!secretStorage) {
         // Fallback: assume we have secret storage if crypto is available
@@ -210,9 +211,12 @@ class MatrixEncryptionStateManager extends EventEmitter {
       }
 
       // Check if we have the essential cross-signing secrets
-      const masterKey = await secretStorage.isSecretStored('m.cross_signing.master')
-      const selfSigningKey = await secretStorage.isSecretStored('m.cross_signing.self_signing')
-      const userSigningKey = await secretStorage.isSecretStored('m.cross_signing.user_signing')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const masterKey = await (secretStorage as any).isSecretStored('m.cross_signing.master')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const selfSigningKey = await (secretStorage as any).isSecretStored('m.cross_signing.self_signing')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userSigningKey = await (secretStorage as any).isSecretStored('m.cross_signing.user_signing')
 
       return masterKey && selfSigningKey && userSigningKey
     } catch {
@@ -248,11 +252,16 @@ class MatrixEncryptionStateManager extends EventEmitter {
    */
   private cleanup (): void {
     if (this.client && this.eventListenersAttached) {
-      this.client.removeAllListeners('crypto.keyBackupStatus' as MatrixEventType)
-      this.client.removeAllListeners('crypto.crossSigning.keysChanged' as MatrixEventType)
-      this.client.removeAllListeners('crypto.devicesUpdated' as MatrixEventType)
-      this.client.removeAllListeners('crypto.userTrustStatusChanged' as MatrixEventType)
-      this.client.removeAllListeners('sync' as MatrixEventType)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.client.removeAllListeners('crypto.keyBackupStatus' as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.client.removeAllListeners('crypto.crossSigning.keysChanged' as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.client.removeAllListeners('crypto.devicesUpdated' as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.client.removeAllListeners('crypto.userTrustStatusChanged' as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.client.removeAllListeners('sync' as any)
 
       this.eventListenersAttached = false
       logger.debug('🔐 Matrix encryption event listeners cleaned up')
