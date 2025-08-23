@@ -30,8 +30,10 @@ export interface EncryptionStatus {
   needsSetup: boolean
   hasSecretStorage: boolean
   hasCrossSigningKeys: boolean
+  hasKeyBackup: boolean
   deviceVerified: boolean
   canDecryptHistory: boolean
+  errors?: string[]
 }
 
 /**
@@ -78,6 +80,8 @@ export class MatrixEncryptionService {
           hasSecretStorage: false,
           hasCrossSigningKeys: false,
           hasKeyBackup: false,
+          deviceVerified: false,
+          canDecryptHistory: false,
           errors: ['Matrix client crypto not available']
         }
       }
@@ -89,6 +93,7 @@ export class MatrixEncryptionService {
           needsSetup: true,
           hasSecretStorage: false,
           hasCrossSigningKeys: false,
+          hasKeyBackup: false,
           deviceVerified: false,
           canDecryptHistory: false
         }
@@ -120,6 +125,7 @@ export class MatrixEncryptionService {
         needsSetup: !isReady,
         hasSecretStorage,
         hasCrossSigningKeys,
+        hasKeyBackup: false, // TODO: Implement key backup detection
         deviceVerified,
         canDecryptHistory
       }
@@ -130,6 +136,7 @@ export class MatrixEncryptionService {
         needsSetup: true,
         hasSecretStorage: false,
         hasCrossSigningKeys: false,
+        hasKeyBackup: false,
         deviceVerified: false,
         canDecryptHistory: false
       }
