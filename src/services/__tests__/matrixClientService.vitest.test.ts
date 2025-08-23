@@ -80,6 +80,7 @@ vi.mock('matrix-js-sdk', () => ({
 vi.mock('../MatrixClientManager', () => ({
   matrixClientManager: {
     isReady: vi.fn(() => false),
+    isClientAvailable: vi.fn(() => false),
     getClient: vi.fn(() => null),
     initializeClient: vi.fn()
   }
@@ -180,6 +181,7 @@ describe('MatrixClientService', () => {
 
     // Reset MatrixClientManager mocks to default state
     vi.mocked(matrixClientManager.isReady).mockReturnValue(false)
+    vi.mocked(matrixClientManager.isClientAvailable).mockReturnValue(false)
     vi.mocked(matrixClientManager.getClient).mockReturnValue(null)
 
     // Setup simple mock stores
@@ -245,6 +247,7 @@ describe('MatrixClientService', () => {
 
       // Reset MatrixClientManager to not be ready for OIDC tests
       vi.mocked(matrixClientManager.isReady).mockReturnValue(false)
+      vi.mocked(matrixClientManager.isClientAvailable).mockReturnValue(false)
       vi.mocked(matrixClientManager.getClient).mockReturnValue(null)
     })
 
@@ -424,6 +427,7 @@ describe('MatrixClientService', () => {
     it('should throw error when client not initialized', async () => {
       // Create a fresh test scenario where no client exists
       vi.mocked(matrixClientManager.isReady).mockReturnValue(false)
+      vi.mocked(matrixClientManager.isClientAvailable).mockReturnValue(false)
       vi.mocked(matrixClientManager.getClient).mockReturnValue(null)
 
       // Reset the service state
