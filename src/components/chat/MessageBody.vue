@@ -31,6 +31,8 @@ from Matrix events, similar to Element Web's body component routing.
         <div v-else class="image-placeholder">
           <q-icon name="fas fa-image" size="2rem" />
           <div class="text-caption q-mt-sm">{{ content.body || 'Image' }}</div>
+          <div class="text-xs text-grey-7 q-mt-xs" v-if="!content.url">No URL found</div>
+          <div class="text-xs text-grey-7 q-mt-xs" v-else-if="!imageUrl && !imageLoading">Failed to load</div>
         </div>
       </div>
     </div>
@@ -38,20 +40,32 @@ from Matrix events, similar to Element Web's body component routing.
     <!-- File Messages -->
     <div v-else-if="isFileMessage" class="file-message">
       <div class="file-container row items-center q-gutter-sm q-pa-sm">
-        <q-icon name="fas fa-file" size="1.5rem" color="primary" />
+        <q-icon :name="getFileIcon()" size="1.5rem" color="primary" />
         <div class="file-info">
           <div class="file-name text-weight-medium">{{ fileName }}</div>
           <div v-if="fileSize" class="file-size text-caption">{{ formatFileSize(fileSize) }}</div>
         </div>
-        <q-btn
-          v-if="fileUrl"
-          icon="fas fa-download"
-          size="sm"
-          flat
-          round
-          @click="downloadFile"
-          title="Download file"
-        />
+        <div class="file-actions row">
+          <q-btn
+            v-if="fileUrl && canPreviewFile()"
+            icon="fas fa-eye"
+            size="sm"
+            flat
+            round
+            @click="previewFile"
+            title="Preview file"
+            class="q-mr-xs"
+          />
+          <q-btn
+            v-if="fileUrl"
+            icon="fas fa-download"
+            size="sm"
+            flat
+            round
+            @click="downloadFile"
+            title="Download file"
+          />
+        </div>
       </div>
     </div>
 
@@ -100,9 +114,57 @@ from Matrix events, similar to Element Web's body component routing.
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { type MatrixEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
+
+/**
+ * Decrypt an encrypted file attachment following Element Web's approach
+ */
+async function decryptEncryptedFile(file: any, info?: any): Promise<Blob> {
+  if (!file || !file.url) {
+    throw new Error('No encrypted file information provided')
+  }
+
+  // Import encrypt function dynamically
+  const encrypt = await import('matrix-encrypt-attachment')
+
+  // Download the encrypted file as an array buffer
+  let responseData: ArrayBuffer
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) throw new Error('Matrix client not available')
+
+    const response = await fetch(matrixClientService.getContentUrl(file.url), {
+      headers: {
+        Authorization: `Bearer ${client.getAccessToken()}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download encrypted file: ${response.status} ${response.statusText}`)
+    }
+
+    responseData = await response.arrayBuffer()
+  } catch (e) {
+    throw new Error(`Download error: ${e.message}`)
+  }
+
+  // Decrypt the array buffer using the information from the file
+  try {
+    const dataArray = await encrypt.decryptAttachment(responseData, file)
+    
+    // Get MIME type, defaulting to safe type
+    let mimetype = info?.mimetype ? info.mimetype.split(';')[0].trim() : ''
+    if (!mimetype || mimetype.includes('script') || mimetype.includes('html')) {
+      mimetype = 'application/octet-stream'
+    }
+
+    return new Blob([dataArray], { type: mimetype })
+  } catch (e) {
+    throw new Error(`Decryption error: ${e.message}`)
+  }
+}
 
 interface Props {
   mxEvent: MatrixEvent
@@ -113,9 +175,39 @@ interface Props {
 const props = defineProps<Props>()
 
 // Message type detection following Element Web patterns
-const isTextMessage = computed(() => props.msgtype === 'm.text')
-const isImageMessage = computed(() => props.msgtype === 'm.image')
-const isFileMessage = computed(() => props.msgtype === 'm.file')
+const isTextMessage = computed(() => {
+  const result = props.msgtype === 'm.text'
+  console.debug(`🎬 MessageBody(${props.mxEvent.getId()}): isTextMessage`, { msgtype: props.msgtype, result })
+  return result
+})
+const isImageMessage = computed(() => {
+  const result = props.msgtype === 'm.image'
+
+  // Serialize the content for debugging
+  const contentDebug = {
+    keys: Object.keys(props.content),
+    url: props.content.url,
+    file: props.content.file,
+    filename: props.content.filename,
+    body: props.content.body,
+    info: props.content.info,
+    msgtype: props.content.msgtype
+  }
+
+  console.debug(`🖼️ MessageBody(${props.mxEvent.getId()}): isImageMessage`, {
+    msgtype: props.msgtype,
+    result,
+    hasUrl: !!props.content.url,
+    hasFileUrl: !!(props.content.file?.url),
+    contentDebug
+  })
+  return result
+})
+const isFileMessage = computed(() => {
+  const result = props.msgtype === 'm.file'
+  console.debug(`📁 MessageBody(${props.mxEvent.getId()}): isFileMessage`, { msgtype: props.msgtype, result, hasUrl: !!props.content.url })
+  return result
+})
 const isAudioMessage = computed(() => props.msgtype === 'm.audio')
 const isVideoMessage = computed(() => props.msgtype === 'm.video')
 const isEmoteMessage = computed(() => props.msgtype === 'm.emote')
@@ -140,8 +232,17 @@ const formattedMessageText = computed(() => {
 const fileName = computed(() => props.content.filename || props.content.body || 'Unnamed file')
 const fileSize = computed(() => props.content.info?.size)
 const fileUrl = computed(() => {
-  if (!props.content.url) return null
-  return matrixClientService.getContentUrl(props.content.url)
+  // Check different possible URL properties used by different Matrix clients
+  const url = props.content.url || props.content.file?.url
+  console.debug(`🔗 FileURL check for ${props.mxEvent.getId()}:`, {
+    contentUrl: props.content.url,
+    fileUrl: props.content.file?.url,
+    resolvedUrl: url,
+    hasFile: !!props.content.file,
+    fileKeys: props.content.file ? Object.keys(props.content.file) : []
+  })
+  if (!url) return null
+  return matrixClientService.getContentUrl(url)
 })
 
 // Media URLs (images, audio, video)
@@ -150,31 +251,70 @@ const imageLoading = ref(false)
 
 // Load authenticated image
 const loadImage = async () => {
-  if (!props.content.url || imageLoading.value) return
-  
+  // Check different possible URL properties used by different Matrix clients
+  const url = props.content.url || props.content.file?.url
+  const isEncrypted = !!props.content.file
+
+  console.debug(`🖼️ loadImage called for ${props.mxEvent.getId()}:`, {
+    contentUrl: props.content.url,
+    fileUrl: props.content.file?.url,
+    resolvedUrl: url,
+    isLoading: imageLoading.value,
+    isEncrypted
+  })
+
+  if (!url || imageLoading.value) return
+
   imageLoading.value = true
   try {
-    // Get the authenticated thumbnail URL
-    const thumbnailUrl = matrixClientService.getContentUrl(props.content.url, 400, 300)
-    
-    // Fetch with authentication headers
     const client = matrixClientService.getClient()
     if (!client) return
-    
+
+    if (isEncrypted) {
+      // Handle encrypted files - use Element Web's approach
+      console.debug(`🔐 Loading encrypted image for ${props.mxEvent.getId()}`)
+
+      try {
+        // Use Element Web's decryptFile approach
+        const blob = await decryptEncryptedFile(props.content.file, props.content.info)
+        imageUrl.value = URL.createObjectURL(blob)
+        console.debug(`✅ Encrypted image loaded successfully for ${props.mxEvent.getId()}`)
+        return
+      } catch (encryptedError) {
+        console.error(`Failed to load encrypted image: ${encryptedError.message}`, {
+          eventId: props.mxEvent.getId(),
+          error: encryptedError
+        })
+        // Fall through to try regular thumbnail approach
+      }
+    }
+
+    // Handle unencrypted files - use thumbnail endpoint
+    const thumbnailUrl = matrixClientService.getContentUrl(url, 400, 300)
+    console.debug(`🔗 Loading unencrypted image from URL: ${thumbnailUrl}`)
+
     const response = await fetch(thumbnailUrl, {
       headers: {
-        'Authorization': `Bearer ${client.getAccessToken()}`
+        Authorization: `Bearer ${client.getAccessToken()}`
       }
     })
-    
+
     if (!response.ok) {
-      console.error('Failed to fetch image thumbnail:', response.status, response.statusText)
+      const errorText = await response.text().catch(() => 'Unable to read error')
+      console.error(`Failed to fetch image thumbnail: ${response.status} ${response.statusText}`, {
+        eventId: props.mxEvent.getId(),
+        thumbnailUrl,
+        error: errorText,
+        isEncrypted,
+        fileKeys: props.content.file ? Object.keys(props.content.file) : []
+      })
       return
     }
-    
+
     // Create blob URL for inline display
     const blob = await response.blob()
     imageUrl.value = URL.createObjectURL(blob)
+    console.debug(`✅ Unencrypted image loaded successfully for ${props.mxEvent.getId()}`)
   } catch (error) {
     console.error('Error loading image:', error)
   } finally {
@@ -206,26 +346,26 @@ const downloadFile = async () => {
     try {
       // Get the authenticated URL
       const fileUrl = matrixClientService.getContentUrl(props.content.url)
-      
+
       // Fetch with authentication headers
       const client = matrixClientService.getClient()
       if (!client) return
-      
+
       const response = await fetch(fileUrl, {
         headers: {
-          'Authorization': `Bearer ${client.getAccessToken()}`
+          Authorization: `Bearer ${client.getAccessToken()}`
         }
       })
-      
+
       if (!response.ok) {
         console.error('Failed to fetch file:', response.status, response.statusText)
         return
       }
-      
+
       // Create blob and download
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
-      
+
       // Create download link
       const link = document.createElement('a')
       link.href = blobUrl
@@ -233,7 +373,7 @@ const downloadFile = async () => {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
+
       // Clean up blob URL
       URL.revokeObjectURL(blobUrl)
     } catch (error) {
@@ -247,27 +387,27 @@ const viewFullImage = async () => {
     try {
       // Get the authenticated URL
       const fullImageUrl = matrixClientService.getContentUrl(props.content.url)
-      
+
       // Fetch with authentication headers
       const client = matrixClientService.getClient()
       if (!client) return
-      
+
       const response = await fetch(fullImageUrl, {
         headers: {
-          'Authorization': `Bearer ${client.getAccessToken()}`
+          Authorization: `Bearer ${client.getAccessToken()}`
         }
       })
-      
+
       if (!response.ok) {
         console.error('Failed to fetch image:', response.status, response.statusText)
         return
       }
-      
+
       // Create blob URL and open in new tab
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
       const newWindow = window.open(blobUrl, '_blank')
-      
+
       // Clean up blob URL after a delay
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl)
@@ -289,9 +429,125 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+const getFileIcon = (): string => {
+  const mimeType = props.content.info?.mimetype || ''
+  const filename = fileName.value.toLowerCase()
+
+  // Image files
+  if (mimeType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/.test(filename)) {
+    return 'fas fa-image'
+  }
+
+  // Document files
+  if (mimeType.includes('pdf') || filename.endsWith('.pdf')) {
+    return 'fas fa-file-pdf'
+  }
+
+  if (mimeType.includes('word') || /\.(doc|docx)$/.test(filename)) {
+    return 'fas fa-file-word'
+  }
+
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || /\.(xls|xlsx)$/.test(filename)) {
+    return 'fas fa-file-excel'
+  }
+
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation') || /\.(ppt|pptx)$/.test(filename)) {
+    return 'fas fa-file-powerpoint'
+  }
+
+  // Archive files
+  if (mimeType.includes('zip') || mimeType.includes('rar') || /\.(zip|rar|7z|tar|gz)$/.test(filename)) {
+    return 'fas fa-file-archive'
+  }
+
+  // Audio files
+  if (mimeType.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac)$/.test(filename)) {
+    return 'fas fa-file-audio'
+  }
+
+  // Video files
+  if (mimeType.startsWith('video/') || /\.(mp4|avi|mov|wmv|webm|mkv)$/.test(filename)) {
+    return 'fas fa-file-video'
+  }
+
+  // Text files
+  if (mimeType.startsWith('text/') || /\.(txt|md|json|xml|html|css|js|ts)$/.test(filename)) {
+    return 'fas fa-file-alt'
+  }
+
+  // Default file icon
+  return 'fas fa-file'
+}
+
+const canPreviewFile = (): boolean => {
+  const mimeType = props.content.info?.mimetype || ''
+  const filename = fileName.value.toLowerCase()
+
+  // Can preview images, PDFs, and text files
+  return mimeType.startsWith('image/') ||
+         mimeType.includes('pdf') ||
+         mimeType.startsWith('text/') ||
+         /\.(jpg|jpeg|png|gif|webp|svg|pdf|txt|md|json|xml|html)$/.test(filename)
+}
+
+const previewFile = async () => {
+  if (props.content.url) {
+    try {
+      // Get the authenticated URL
+      const previewUrl = matrixClientService.getContentUrl(props.content.url)
+
+      // Fetch with authentication headers
+      const client = matrixClientService.getClient()
+      if (!client) return
+
+      const response = await fetch(previewUrl, {
+        headers: {
+          Authorization: `Bearer ${client.getAccessToken()}`
+        }
+      })
+
+      if (!response.ok) {
+        console.error('Failed to fetch file for preview:', response.status, response.statusText)
+        return
+      }
+
+      // Create blob URL and open in new tab
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const newWindow = window.open(blobUrl, '_blank')
+
+      // Clean up blob URL after a delay
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl)
+      }, 10000)
+    } catch (error) {
+      console.error('Error previewing file:', error)
+    }
+  }
+}
+
 // Lifecycle hooks
 onMounted(() => {
-  if (isImageMessage.value) {
+  const url = props.content.url || props.content.file?.url
+  if (isImageMessage.value && url) {
+    console.debug(`🖼️ MessageBody mounted - loading image for ${props.mxEvent.getId()}`)
+    loadImage()
+  }
+})
+
+// Watch for content changes (when messages get decrypted)
+watch([() => props.content, isImageMessage], ([newContent, newIsImage]) => {
+  const url = newContent.url || newContent.file?.url
+  console.debug(`🔄 MessageBody content/type changed for ${props.mxEvent.getId()}:`, {
+    isImage: newIsImage,
+    hasUrl: !!url,
+    msgtype: props.msgtype,
+    contentUrl: newContent.url,
+    fileUrl: newContent.file?.url
+  })
+
+  if (newIsImage && url && !imageUrl.value && !imageLoading.value) {
+    console.debug(`🖼️ Loading image after content change for ${props.mxEvent.getId()}`)
     loadImage()
   }
 })
@@ -342,6 +598,7 @@ onUnmounted(() => {
   border-radius: 8px;
   background: #f9f9f9;
   max-width: 300px;
+  min-width: 200px;
 }
 
 .file-info {
@@ -358,6 +615,10 @@ onUnmounted(() => {
 
 .file-size {
   color: #666;
+}
+
+.file-actions {
+  flex-shrink: 0;
 }
 
 .message-audio,

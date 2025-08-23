@@ -88,7 +88,6 @@
         />
       </div>
 
-
       <!-- Historical Message Encryption Handler -->
       <HistoricalMessageHandler
         v-if="isConnected"
@@ -98,7 +97,7 @@
       />
 
       <!-- Messages -->
-      <div v-if="isConnected && timelineEvents.length > 0" class="messages-list" data-cy="messages-list">
+      <div v-if="isConnected && debugTimelineEvents.length > 0" class="messages-list" data-cy="messages-list">
         <!-- Load More History Button -->
         <div class="load-more-history text-center q-pa-md">
           <q-btn
@@ -129,19 +128,20 @@
 
         <!-- Timeline Events using EventTile components -->
         <EventTile
-          v-for="event in timelineEvents"
-          :key="event.getId()"
+          v-for="event in debugTimelineEvents"
+          :key="`${event.getId()}-${decryptionCounter}`"
           :mxEvent="event"
           :mode="mode"
           :showSenderNames="showSenderNames"
           :currentUserId="matrixClientService.getClient()?.getUserId()"
           :currentRoom="currentRoom"
+          :decryptionCounter="decryptionCounter"
           @deleteMessage="handleDeleteMessage"
         />
       </div>
 
       <!-- Empty State with Load More History -->
-      <div v-else-if="isConnected && timelineEvents.length === 0" class="empty-state text-center q-pa-lg">
+      <div v-else-if="isConnected && debugTimelineEvents.length === 0" class="empty-state text-center q-pa-lg">
         <!-- Load More History Button (show even when no messages) -->
         <div v-if="isConnected" class="load-more-history text-center q-pa-md">
           <q-btn
@@ -546,10 +546,10 @@ const updateCurrentRoom = async () => {
 const timelineClient = computed(() => matrixClientService.getClient())
 const timelineSet = computed(() => currentRoom.value?.getUnfilteredTimelineSet())
 
-// Create reactive timeline options
+// Create reactive timeline options that properly track the computed properties
 const timelineOptions = reactive({
-  client: timelineClient.value,
-  timelineSet: timelineSet.value,
+  get client () { return timelineClient.value },
+  get timelineSet () { return timelineSet.value },
   windowLimit: 1000
 })
 
@@ -562,12 +562,13 @@ const {
   isPaginatingBack,
   isPaginatingForward,
   isAtLiveEnd,
+  decryptionCounter,
   initializeTimeline,
   loadOlderMessages: paginateBackward,
   refreshEvents
 } = useMatrixTimeline(timelineOptions)
 
-// Watch timeline dependencies and manually trigger initialization
+// Watch timeline dependencies for debugging
 watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
   logger.debug('🔄 Timeline dependencies changed:', {
     hasClient: !!newClient,
@@ -575,26 +576,12 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
     currentRoom: !!currentRoom.value,
     roomId: props.roomId
   })
-  
-  // Update reactive timeline options
-  timelineOptions.client = newClient
-  timelineOptions.timelineSet = newTimelineSet
-  
+
   if (newClient && newTimelineSet) {
-    logger.debug('🔄 Timeline dependencies available - manually triggering initialization')
     logger.debug('🔍 TimelineSet info:', {
       pendingEventOrdering: newTimelineSet.pendingEventOrdering,
       roomId: newTimelineSet.room?.roomId
     })
-    
-    // Force manual initialization since composable auto-init isn't working
-    try {
-      await nextTick() // Ensure reactive updates are processed
-      await initializeTimeline()
-      logger.debug('✅ Manual timeline initialization completed')
-    } catch (error) {
-      logger.error('❌ Manual timeline initialization failed:', error)
-    }
   }
 }, { immediate: true })
 
@@ -606,6 +593,30 @@ watch(currentRoom, (newRoom) => {
     propsRoomId: props.roomId
   })
 }, { immediate: true })
+
+// Debug timeline events changes
+watch(timelineEvents, (newEvents, oldEvents) => {
+  logger.debug('📊 timelineEvents changed:', {
+    newCount: newEvents.length,
+    oldCount: oldEvents?.length,
+    lastEventId: newEvents[newEvents.length - 1]?.getId(),
+    lastEventType: newEvents[newEvents.length - 1]?.getType(),
+    isConnected: isConnected.value,
+    shouldShowMessagesList: isConnected.value && newEvents.length > 0
+  })
+}, { immediate: true })
+
+// Computed for debugging template rendering
+const debugTimelineEvents = computed(() => {
+  const events = timelineEvents.value
+  logger.debug('🎨 Template accessing timelineEvents:', {
+    length: events.length,
+    isArray: Array.isArray(events),
+    firstEventId: events[0]?.getId(),
+    lastEventId: events[events.length - 1]?.getId()
+  })
+  return events
+})
 
 // Use Matrix client service directly for real Matrix integration
 
@@ -665,7 +676,6 @@ const resolveRoom = async (roomIdOrAlias: string) => {
   // Fallback: try as room ID anyway
   return client.getRoom(roomIdOrAlias)
 }
-
 
 // Watch for roomId changes and resolve the room
 watch(() => props.roomId, updateCurrentRoom, { immediate: true })
@@ -2128,7 +2138,7 @@ const handleDeleteMessage = async (event: MatrixEvent) => {
 
     const roomId = event.getRoomId()
     const eventId = event.getId()
-    
+
     if (!roomId || !eventId) {
       logger.warn('Cannot delete message: missing room ID or event ID')
       return
@@ -2137,12 +2147,12 @@ const handleDeleteMessage = async (event: MatrixEvent) => {
     logger.debug('🗑️ Deleting message:', { roomId, eventId })
     await client.redactEvent(roomId, eventId)
     logger.debug('✅ Message deleted successfully')
-    
+
     // Force timeline refresh to show the redacted message
     await nextTick()
     refreshEvents()
     logger.debug('🔄 Timeline refreshed after deletion')
-    
+
     quasar.notify({
       type: 'positive',
       message: 'Message deleted',

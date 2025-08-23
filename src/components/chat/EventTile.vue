@@ -54,25 +54,25 @@ following Element Web's proven approach for better performance and maintainabili
                 :msgtype="msgtype"
               />
             </div>
-            
+
             <!-- Message Metadata Row -->
             <div class="message-metadata row items-center q-mt-xxs" :class="{ 'justify-end': isOwnEvent, 'justify-start': !isOwnEvent }">
               <!-- Time/Date -->
               <div class="message-time text-caption text-grey-6">
                 {{ formatTime(eventTimestamp) }}
               </div>
-              
+
               <!-- Encryption Shield -->
-              <q-icon 
+              <q-icon
                 v-if="isEncrypted"
-                name="fas fa-shield-alt" 
-                size="12px" 
+                name="fas fa-shield-alt"
+                size="12px"
                 color="green-6"
                 class="q-ml-xs"
               >
                 <q-tooltip>Encrypted message</q-tooltip>
               </q-icon>
-              
+
               <!-- Delete Icon (if can delete) -->
               <q-btn
                 v-if="canDelete"
@@ -86,37 +86,37 @@ following Element Web's proven approach for better performance and maintainabili
               >
                 <q-tooltip>Delete message</q-tooltip>
               </q-btn>
-              
+
               <!-- Read Receipt Status (own messages only) -->
               <div v-if="isOwnEvent" class="read-status q-ml-xs">
-                <q-icon 
+                <q-icon
                   v-if="messageStatus === 'sent'"
-                  name="fas fa-check" 
-                  size="12px" 
+                  name="fas fa-check"
+                  size="12px"
                   color="grey-6"
                 >
                   <q-tooltip>Sent</q-tooltip>
                 </q-icon>
-                <q-icon 
+                <q-icon
                   v-else-if="messageStatus === 'delivered'"
-                  name="fas fa-check-double" 
-                  size="12px" 
+                  name="fas fa-check-double"
+                  size="12px"
                   color="grey-6"
                 >
                   <q-tooltip>Delivered</q-tooltip>
                 </q-icon>
-                <q-icon 
+                <q-icon
                   v-else-if="messageStatus === 'read'"
-                  name="fas fa-check-double" 
-                  size="12px" 
+                  name="fas fa-check-double"
+                  size="12px"
                   color="blue-6"
                 >
                   <q-tooltip>Read</q-tooltip>
                 </q-icon>
-                <q-icon 
+                <q-icon
                   v-else-if="messageStatus === 'failed'"
-                  name="fas fa-exclamation-triangle" 
-                  size="12px" 
+                  name="fas fa-exclamation-triangle"
+                  size="12px"
                   color="red-6"
                 >
                   <q-tooltip>Failed to send</q-tooltip>
@@ -183,6 +183,7 @@ interface Props {
   showSenderNames?: boolean
   currentUserId?: string
   currentRoom?: any
+  decryptionCounter?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -196,7 +197,20 @@ const emit = defineEmits<{
 }>()
 
 // Event properties following Element Web patterns
-const eventContent = computed(() => props.mxEvent.getContent())
+// Force reactivity by accessing event properties in computed and decryption counter
+const eventContent = computed(() => {
+  // Access decryptionCounter to force re-evaluation when events get decrypted
+  const counter = props.decryptionCounter || 0
+  const content = props.mxEvent.getContent()
+  console.debug(`🎯 EventTile(${props.mxEvent.getId()}): Content accessed`, {
+    hasContent: !!content,
+    msgtype: content.msgtype,
+    body: content.body?.substring(0, 50),
+    isDecrypted: !content.encrypted,
+    decryptionCounter: counter
+  })
+  return content
+})
 const senderId = computed(() => props.mxEvent.getSender() || '')
 const eventTimestamp = computed(() => new Date(props.mxEvent.getTs()))
 const eventType = computed(() => props.mxEvent.getType())
@@ -224,7 +238,15 @@ const isStateEvent = computed(() => {
          eventType.value === EventType.RoomAvatar ||
          eventType.value === EventType.RoomEncryption
 })
-const isEncryptedEvent = computed(() => eventType.value === EventType.RoomEncrypted)
+const isEncryptedEvent = computed(() => {
+  const result = eventType.value === EventType.RoomEncrypted || eventType.value === 'm.room.encrypted'
+  console.debug('🔐 isEncryptedEvent check:', {
+    eventType: eventType.value,
+    EventTypeRoomEncrypted: EventType.RoomEncrypted,
+    result
+  })
+  return result
+})
 
 // Message features
 const isEncrypted = computed(() => {
@@ -234,28 +256,28 @@ const isEncrypted = computed(() => {
 
 const canDelete = computed(() => {
   if (!props.currentUserId) return false
-  
+
   // Can always delete our own messages
   if (isOwnEvent.value) return true
-  
+
   // Check room power levels for moderation permissions
   const room = props.currentRoom
   if (!room) return false
-  
+
   try {
     const powerLevels = room.currentState.getStateEvents('m.room.power_levels', '')?.getContent()
     if (!powerLevels) {
       console.debug('🔍 No power levels found in room')
       return false
     }
-    
+
     const currentUserId = props.currentUserId
     const userLevel = powerLevels.users?.[currentUserId] ?? powerLevels.users_default ?? 0
     const redactLevel = powerLevels.redact ?? 50
-    
+
     // Room owners (level 100) and moderators (level 50+) can delete messages
     const canModerate = userLevel >= redactLevel
-    
+
     // Debug logging to see what's happening
     console.debug('🔍 Delete permission check:', {
       currentUserId,
@@ -267,7 +289,7 @@ const canDelete = computed(() => {
       senderId: senderId.value,
       eventId: props.mxEvent.getId()
     })
-    
+
     return canModerate
   } catch (error) {
     console.warn('Error checking delete permissions:', error)
@@ -277,27 +299,43 @@ const canDelete = computed(() => {
 
 const messageStatus = computed(() => {
   if (!isOwnEvent.value) return null
-  
+
   // Check if the event failed to send
   if (props.mxEvent.status === 'not_sent') return 'failed'
-  
+
   // Check if event has been sent successfully
   if (props.mxEvent.getId() && props.mxEvent.status !== 'sending') {
     // For now, we'll consider all sent messages as "sent"
     // In a full implementation, we'd check read receipts for "delivered" and "read"
     return 'sent'
   }
-  
+
   return 'sending'
 })
 
 // Display logic
 const shouldDisplayEvent = computed(() => {
+  const eventId = props.mxEvent.getId()
+  const eventType = props.mxEvent.getType()
+
   // Always display redacted events (will show as "Message deleted")
-  if (props.mxEvent.isRedacted()) return true
+  if (props.mxEvent.isRedacted()) {
+    console.debug(`🎭 EventTile(${eventId}): Redacted event, showing as deleted`)
+    return true
+  }
 
   // Display message events, state events we care about, and encrypted events
-  return isMessageEvent.value || isStateEvent.value || isEncryptedEvent.value
+  const shouldShow = isMessageEvent.value || isStateEvent.value || isEncryptedEvent.value
+
+  console.debug(`🎭 EventTile(${eventId}): Display check`, {
+    eventType,
+    isMessageEvent: isMessageEvent.value,
+    isStateEvent: isStateEvent.value,
+    isEncryptedEvent: isEncryptedEvent.value,
+    shouldShow
+  })
+
+  return shouldShow
 })
 
 // State event text generation

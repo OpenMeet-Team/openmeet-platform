@@ -1633,67 +1633,123 @@ class MatrixClientService {
 
     logger.debug('🚀 ENTRY: Matrix client is available, proceeding...')
 
-    // Use a completely separate try-catch to isolate the issue
-    let contentUri = ''
-
     logger.debug('📎 Starting uploadAndSendFile for:', file.name)
-    logger.debug('🔄 Step 1: Uploading file to Matrix media repository...')
-
-    try {
-      logger.debug('🔄 Step 1a: About to call uploadFile...')
-      contentUri = await this.uploadFile(file)
-      logger.debug('✅ Step 1b: uploadFile returned:', contentUri)
-    } catch (uploadError) {
-      logger.error('❌ Step 1 FAILED: Upload error:', uploadError)
-      throw uploadError
-    }
-
-    logger.debug('✅ Step 1 complete: File uploaded, got content URI:', contentUri)
-
-    logger.debug('🔄 Step 2: Preparing message content...')
+    
+    // Check if room is encrypted using crypto API like Element Web
+    const isEncrypted = await this.client.getCrypto()?.isEncryptionEnabledInRoom(roomId) ?? false
+    logger.debug('🔐 Room encryption status:', { roomId, isEncrypted })
 
     // Determine message type based on file type
     let msgtype = 'm.file'
-    const content = {
-      msgtype,
-      body: file.name,
-      filename: file.name,
-      info: {
-        size: file.size,
-        mimetype: file.type
-      },
-      url: contentUri
-    }
-
     if (file.type.startsWith('image/')) {
       msgtype = 'm.image'
-      content.msgtype = msgtype
     } else if (file.type.startsWith('video/')) {
       msgtype = 'm.video'
-      content.msgtype = msgtype
     } else if (file.type.startsWith('audio/')) {
       msgtype = 'm.audio'
-      content.msgtype = msgtype
     }
-
-    logger.debug('📝 Message content prepared:', {
-      msgtype,
-      filename: file.name,
-      size: file.size,
-      contentUri
-    })
-
-    logger.debug('🔄 Step 3: Sending message to room...')
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.client.sendEvent(roomId, EventType.RoomMessage, content as any)
-      logger.debug('✅ Step 3 complete: Message sent to room:', roomId)
+      // Use Element Web's approach for proper file encryption
+      logger.debug('🔄 Step 1: Using Element Web approach for file encryption...')
+      
+      let uploadResult: { url?: string; file?: any }
+
+      if (isEncrypted) {
+        logger.debug('🔐 File will be encrypted before upload...')
+        
+        // Import encrypt function dynamically
+        const encrypt = await import('matrix-encrypt-attachment')
+        
+        // Read file as ArrayBuffer
+        const data = await this.readFileAsArrayBuffer(file)
+        logger.debug('📖 File read as ArrayBuffer, size:', data.byteLength)
+        
+        // Encrypt the file
+        const encryptResult = await encrypt.encryptAttachment(data)
+        logger.debug('🔒 File encrypted successfully')
+        
+        // Upload encrypted blob
+        const blob = new Blob([encryptResult.data])
+        const uploadResponse = await this.client.uploadContent(blob, {
+          includeFilename: false,
+          type: 'application/octet-stream'
+        })
+        
+        logger.debug('📤 Encrypted file uploaded:', uploadResponse.content_uri)
+        
+        // Return encrypted file structure
+        uploadResult = {
+          file: {
+            ...encryptResult.info,
+            url: uploadResponse.content_uri,
+          }
+        }
+        
+        logger.debug('🔐 Created encrypted file structure:', {
+          hasFile: !!uploadResult.file,
+          url: uploadResult.file?.url,
+          hasKey: !!uploadResult.file?.key
+        })
+      } else {
+        logger.debug('🔓 File will be uploaded unencrypted...')
+        
+        // For unencrypted rooms, upload normally
+        const uploadResponse = await this.client.uploadContent(file)
+        uploadResult = { url: uploadResponse.content_uri }
+        
+        logger.debug('📤 Unencrypted file uploaded:', uploadResult.url)
+      }
+
+      // Create message content with proper structure
+      const content = {
+        msgtype,
+        body: file.name,
+        filename: file.name,
+        info: {
+          size: file.size,
+          mimetype: file.type
+        },
+        // Use either url or file based on encryption
+        ...(uploadResult.file ? { file: uploadResult.file } : { url: uploadResult.url })
+      }
+
+      logger.debug('📝 Message content prepared:', {
+        msgtype,
+        filename: file.name,
+        hasUrl: !!content.url,
+        hasFile: !!content.file,
+        isEncrypted
+      })
+
+      // Send the message
+      logger.debug('📤 Sending message to room...')
+      const result = await this.sendMessage(roomId, content)
+      
+      logger.debug('✅ File sent successfully:', {
+        eventId: result.eventId,
+        filename: file.name,
+        msgtype,
+        isEncrypted,
+        method: 'sendMessage with proper encryption'
+      })
       logger.debug('🎉 File upload and send process completed successfully!')
     } catch (sendError) {
-      logger.error('❌ Step 3 FAILED: Send error:', sendError)
+      logger.error('❌ Failed to send file:', sendError)
       throw sendError
     }
+  }
+
+  /**
+   * Read file as ArrayBuffer for encryption
+   */
+  private async readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as ArrayBuffer)
+      reader.onerror = reject
+      reader.readAsArrayBuffer(file)
+    })
   }
 
   /**

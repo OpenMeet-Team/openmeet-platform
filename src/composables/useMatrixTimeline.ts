@@ -5,7 +5,7 @@
  * TimelineWindow class, following established patterns for reliable timeline management.
  */
 
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, readonly } from 'vue'
 import {
   TimelineWindow,
   EventTimeline,
@@ -38,15 +38,22 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   const canPaginateForward = ref(false)
   const isPaginatingBack = ref(false)
   const isPaginatingForward = ref(false)
+  // Decryption reactivity - incremented when events get decrypted
+  const decryptionCounter = ref(0)
 
   // Extract events from TimelineWindow and handle decryption - Element Web pattern
   const refreshEvents = (): void => {
     if (!timelineWindow.value) {
+      logger.debug('⚠️ refreshEvents called but no timeline window available')
       events.value = []
       return
     }
 
     const timelineEvents = timelineWindow.value.getEvents()
+    logger.debug('🔄 refreshEvents called:', {
+      timelineEventsCount: timelineEvents.length,
+      currentEventsCount: events.value.length
+    })
 
     // Element Web pattern: decrypt from last to first for optimal UX
     if (options.client) {
@@ -68,7 +75,14 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
       }
     }
 
-    events.value = allEvents
+    // Force reactivity by creating a new array reference
+    events.value = [...allEvents]
+    logger.debug('✅ Events updated:', {
+      finalEventCount: allEvents.length,
+      lastEventId: allEvents[allEvents.length - 1]?.getId(),
+      lastEventType: allEvents[allEvents.length - 1]?.getType(),
+      previousCount: events.value.length
+    })
 
     // Update pagination capabilities
     canPaginateBack.value = timelineWindow.value.canPaginate(EventTimeline.BACKWARDS)
@@ -148,18 +162,39 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   const eventListeners: Array<() => void> = []
 
   const setupEventListeners = () => {
-    if (!options.client || !options.timelineSet) return
+    if (!options.client || !options.timelineSet) {
+      logger.debug('⚠️ Cannot setup event listeners - missing client or timelineSet:', {
+        hasClient: !!options.client,
+        hasTimelineSet: !!options.timelineSet
+      })
+      return
+    }
+
+    logger.debug('🎧 Setting up timeline event listeners for room:', options.timelineSet.room?.roomId)
 
     // Handle new timeline events
-    const onTimelineEvent = (event: MatrixEvent) => {
+    const onTimelineEvent = async (event: MatrixEvent) => {
       logger.debug('🔄 Timeline event received:', {
         eventType: event.getType(),
         eventId: event.getId(),
-        isAtLiveEnd: isAtLiveEnd.value
+        roomId: event.getRoomId(),
+        isAtLiveEnd: isAtLiveEnd.value,
+        canPaginateForward: timelineWindow.value?.canPaginate(EventTimeline.FORWARDS)
       })
-      
+
+      // If we're not at the live end, we need to move the timeline window to include new events
+      if (timelineWindow.value && !isAtLiveEnd.value) {
+        logger.debug('📍 Not at live end, moving timeline window to include new event')
+        try {
+          // Try to paginate forward to include the new event
+          const success = await timelineWindow.value.paginate(EventTimeline.FORWARDS, 50)
+          logger.debug('📍 Timeline pagination result:', success)
+        } catch (error) {
+          logger.warn('⚠️ Failed to paginate timeline forward:', error)
+        }
+      }
+
       // Always refresh for new events - we want to see new messages immediately
-      // This is different from Element Web's approach but better for a chat-focused interface
       logger.debug('Timeline event received, refreshing:', event.getType())
       refreshEvents()
     }
@@ -167,7 +202,19 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     // Handle event decryption
     const onEventDecrypted = (event: MatrixEvent) => {
       const isEventInTimeline = events.value.some(e => e.getId() === event.getId())
+      logger.debug('🔓 Timeline onEventDecrypted called:', {
+        eventId: event.getId(),
+        eventType: event.getType(),
+        isEventInTimeline,
+        willRefresh: isEventInTimeline
+      })
       if (isEventInTimeline) {
+        // Increment decryption counter to force EventTile re-renders
+        decryptionCounter.value++
+        logger.debug('🔓 Decryption counter incremented:', {
+          eventId: event.getId(),
+          counter: decryptionCounter.value
+        })
         refreshEvents()
       }
     }
@@ -180,7 +227,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
         redactsEventId,
         eventType: event.getType()
       })
-      
+
       // Check if the redacted event is in our timeline
       const redactedEvent = events.value.find(e => e.getId() === redactsEventId)
       if (redactedEvent) {
@@ -193,14 +240,20 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     // Add listeners
     const room = options.timelineSet?.room
     if (room) {
+      logger.debug('🎧 Adding room event listeners for:', room.roomId)
       room.on(RoomEvent.Timeline, onTimelineEvent)
       room.on(RoomEvent.Redaction, onEventRedacted)
       eventListeners.push(() => room.off(RoomEvent.Timeline, onTimelineEvent))
       eventListeners.push(() => room.off(RoomEvent.Redaction, onEventRedacted))
+      logger.debug('✅ Room event listeners added')
+    } else {
+      logger.warn('⚠️ No room found for timeline event listeners')
     }
 
+    logger.debug('🎧 Adding client event listener for decryption')
     options.client.on(MatrixEventEvent.Decrypted, onEventDecrypted)
     eventListeners.push(() => options.client!.off(MatrixEventEvent.Decrypted, onEventDecrypted))
+    logger.debug('✅ All event listeners setup complete')
   }
 
   const cleanupEventListeners = () => {
@@ -217,24 +270,22 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     }
   }, { immediate: true })
 
-  // Lifecycle management
-  onMounted(() => {
-    setupEventListeners()
-  })
+  // Lifecycle management - event listeners are setup via watch, no need for onMounted
 
   onUnmounted(() => {
     cleanupEventListeners()
   })
 
   return {
-    // Reactive state
-    events: computed(() => events.value),
-    isLoading: computed(() => isLoading.value),
-    canPaginateBack: computed(() => canPaginateBack.value),
-    canPaginateForward: computed(() => canPaginateForward.value),
-    isPaginatingBack: computed(() => isPaginatingBack.value),
-    isPaginatingForward: computed(() => isPaginatingForward.value),
+    // Reactive state - return refs directly for better reactivity
+    events: readonly(events),
+    isLoading: readonly(isLoading),
+    canPaginateBack: readonly(canPaginateBack),
+    canPaginateForward: readonly(canPaginateForward),
+    isPaginatingBack: readonly(isPaginatingBack),
+    isPaginatingForward: readonly(isPaginatingForward),
     isAtLiveEnd,
+    decryptionCounter: readonly(decryptionCounter),
 
     // Methods
     initializeTimeline,
