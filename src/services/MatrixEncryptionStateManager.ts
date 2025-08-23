@@ -9,6 +9,14 @@ import type { MatrixClient } from 'matrix-js-sdk'
 import { EventEmitter } from 'events'
 import { logger } from '../utils/logger'
 
+// Matrix SDK event type definitions for encryption-related events
+type MatrixEventType =
+  | 'crypto.keyBackupStatus'
+  | 'crypto.crossSigning.keysChanged'
+  | 'crypto.devicesUpdated'
+  | 'crypto.userTrustStatusChanged'
+  | 'sync'
+
 export interface MatrixEncryptionStatus {
   state: 'needs_login' | 'ready_unencrypted' | 'ready_encrypted_with_warning' | 'ready_encrypted' | 'needs_device_verification'
   details: {
@@ -71,31 +79,31 @@ class MatrixEncryptionStateManager extends EventEmitter {
     const client = this.client
 
     // Key backup status changes
-    client.on('crypto.keyBackupStatus' as any, (enabled: boolean) => {
+    client.on('crypto.keyBackupStatus' as MatrixEventType, (enabled: boolean) => {
       logger.debug('🔐 Key backup status changed:', enabled)
       this.calculateState()
     })
 
     // Cross-signing key changes
-    client.on('crypto.crossSigning.keysChanged' as any, () => {
+    client.on('crypto.crossSigning.keysChanged' as MatrixEventType, () => {
       logger.debug('🔐 Cross-signing keys changed')
       this.calculateState()
     })
 
     // Device verification changes
-    client.on('crypto.devicesUpdated' as any, (users: string[]) => {
+    client.on('crypto.devicesUpdated' as MatrixEventType, (users: string[]) => {
       logger.debug('🔐 Device verification updated for users:', users)
       this.calculateState()
     })
 
     // Trust status changes
-    client.on('crypto.userTrustStatusChanged' as any, (userId: string) => {
+    client.on('crypto.userTrustStatusChanged' as MatrixEventType, (userId: string) => {
       logger.debug('🔐 Trust status changed for user:', userId)
       this.calculateState()
     })
 
     // Client sync state changes (but much less frequently)
-    client.on('sync' as any, (state: string) => {
+    client.on('sync' as MatrixEventType, (state: string) => {
       if (state === 'PREPARED') { // Only when sync is fully prepared
         logger.debug('🔐 Matrix sync prepared, checking encryption state')
         this.calculateState()
@@ -194,8 +202,8 @@ class MatrixEncryptionStateManager extends EventEmitter {
   private async checkCrossSigningSecrets (): Promise<boolean> {
     try {
       const crypto = this.client!.getCrypto()!
-      const secretStorage = (crypto as any).getSecretsManager?.()
-      
+      const secretStorage = (crypto as { getSecretsManager?: () => unknown }).getSecretsManager?.()
+
       if (!secretStorage) {
         // Fallback: assume we have secret storage if crypto is available
         return true
@@ -240,11 +248,11 @@ class MatrixEncryptionStateManager extends EventEmitter {
    */
   private cleanup (): void {
     if (this.client && this.eventListenersAttached) {
-      this.client.removeAllListeners('crypto.keyBackupStatus' as any)
-      this.client.removeAllListeners('crypto.crossSigning.keysChanged' as any)
-      this.client.removeAllListeners('crypto.devicesUpdated' as any)
-      this.client.removeAllListeners('crypto.userTrustStatusChanged' as any)
-      this.client.removeAllListeners('sync' as any)
+      this.client.removeAllListeners('crypto.keyBackupStatus' as MatrixEventType)
+      this.client.removeAllListeners('crypto.crossSigning.keysChanged' as MatrixEventType)
+      this.client.removeAllListeners('crypto.devicesUpdated' as MatrixEventType)
+      this.client.removeAllListeners('crypto.userTrustStatusChanged' as MatrixEventType)
+      this.client.removeAllListeners('sync' as MatrixEventType)
 
       this.eventListenersAttached = false
       logger.debug('🔐 Matrix encryption event listeners cleaned up')
