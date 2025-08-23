@@ -1241,8 +1241,8 @@ class MatrixClientService {
         }
 
         // Attempt to restart sync after a delay for non-token errors
-        // Add throttling to prevent infinite restart loops
-        if (!this._lastRestartAttempt || (Date.now() - this._lastRestartAttempt) > 30000) {
+        // Add conservative throttling to prevent crypto/WASM corruption
+        if (!this._lastRestartAttempt || (Date.now() - this._lastRestartAttempt) > 60000) {
           setTimeout(async () => {
             if (this.client && this.client.getSyncState() === 'ERROR') {
               logger.debug('🔄 Restarting Matrix sync after error...')
@@ -1253,7 +1253,7 @@ class MatrixClientService {
                 logger.error('❌ Failed to restart Matrix sync:', error)
               }
             }
-          }, 5000)
+          }, 10000)
         } else {
           logger.debug('⏳ Skipping Matrix restart - throttled (last attempt was too recent)')
         }

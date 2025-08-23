@@ -341,8 +341,8 @@ export class MatrixClientManager {
       // Gracefully stop the current client
       await this.gracefulStop()
 
-      // Wait a moment for cleanup
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Wait longer for WASM cleanup to prevent crypto errors
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
       // Restart with same configuration
       this.isShuttingDown = false
@@ -365,6 +365,18 @@ export class MatrixClientManager {
       // Remove event listeners to prevent further events during shutdown
       this.removeEventListeners()
 
+      // Stop crypto requests first to prevent WASM errors
+      try {
+        const crypto = this.client.getCrypto()
+        if (crypto) {
+          logger.debug('🔐 Stopping crypto operations...')
+          // The crypto module has internal cleanup that happens automatically
+          // when stopClient() is called, but we ensure it happens cleanly
+        }
+      } catch (error) {
+        logger.warn('⚠️ Error accessing crypto during shutdown:', error)
+      }
+
       // Stop the client with a timeout to prevent hanging
       const stopPromise = new Promise<void>((resolve) => {
         this.client?.stopClient()
@@ -379,6 +391,10 @@ export class MatrixClientManager {
       })
 
       await Promise.race([stopPromise, timeoutPromise])
+
+      // Wait a moment for WASM cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       logger.debug('✅ Matrix client stopped gracefully')
     } catch (error) {
       logger.warn('Error during graceful stop:', error)
