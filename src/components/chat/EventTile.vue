@@ -221,7 +221,10 @@ const senderAvatarUrl = computed(() => {
 })
 
 // Event type checks following Element Web patterns
-const isMessageEvent = computed(() => eventType.value === EventType.RoomMessage)
+const isMessageEvent = computed(() => {
+  // Regular messages that are not redacted
+  return eventType.value === EventType.RoomMessage && !props.mxEvent.isRedacted()
+})
 const isStateEvent = computed(() => {
   return eventType.value === EventType.RoomMember ||
          eventType.value === EventType.RoomName ||

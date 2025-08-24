@@ -103,6 +103,14 @@ from Matrix events, similar to Element Web's body component routing.
       <div class="notice-text" v-html="formattedMessageText"></div>
     </div>
 
+    <!-- Redacted/Deleted Messages -->
+    <div v-else-if="isRedactedMessage" class="redacted-message">
+      <div class="text-caption text-grey-6">
+        <q-icon name="fas fa-trash" class="q-mr-xs" />
+        Message deleted
+      </div>
+    </div>
+
     <!-- Unsupported Message Types -->
     <div v-else class="unsupported-message">
       <div class="text-caption text-grey-6">
@@ -246,6 +254,16 @@ const isAudioMessage = computed(() => props.msgtype === 'm.audio')
 const isVideoMessage = computed(() => props.msgtype === 'm.video')
 const isEmoteMessage = computed(() => props.msgtype === 'm.emote')
 const isNoticeMessage = computed(() => props.msgtype === 'm.notice')
+const isRedactedMessage = computed(() => {
+  const isRedacted = props.mxEvent.isRedacted()
+  console.debug(`🗑️ MessageBody(${props.mxEvent.getId()}): isRedactedMessage`, {
+    isRedacted,
+    msgtype: props.msgtype,
+    hasContent: !!props.content,
+    contentKeys: Object.keys(props.content || {})
+  })
+  return isRedacted
+})
 
 // Text formatting
 const formattedMessageText = computed(() => {
@@ -722,6 +740,15 @@ onUnmounted(() => {
   opacity: 0.9;
 }
 
+.redacted-message {
+  padding: 0.5rem;
+  background: rgba(158, 158, 158, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #9e9e9e;
+  font-style: italic;
+  opacity: 0.8;
+}
+
 .unsupported-message {
   padding: 0.5rem;
   background: rgba(255, 193, 7, 0.1);
@@ -745,6 +772,11 @@ onUnmounted(() => {
 
   .file-size {
     color: #aaa;
+  }
+
+  .redacted-message {
+    background: rgba(158, 158, 158, 0.2);
+    border-color: #757575;
   }
 
   .unsupported-message {
