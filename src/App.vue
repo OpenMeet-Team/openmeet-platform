@@ -12,7 +12,6 @@ import { versionService } from './services/versionService'
 import { setupGlobalErrorHandling } from './composables/useVersionErrorHandling'
 import { useAuthStore } from './stores/auth-store'
 import matrixDebug from './utils/matrixDebug'
-import './utils/matrixDeviceDebugConsole' // Load device verification debug console
 import { logger } from './utils/logger'
 
 defineOptions({
