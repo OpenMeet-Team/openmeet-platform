@@ -14,24 +14,111 @@
       </div>
     </div>
 
-    <!-- Encryption Setup Required (only for recovery key needs) -->
-    <template v-else-if="shouldShowEncryptionSetup">
-      <div class="encryption-setup-required">
-        <div class="setup-container">
-          <h2>Encryption Setup Required</h2>
-          <p>This room requires encryption. Please set up encryption to continue.</p>
-          <MatrixEducationIntro
-            v-if="setupStep === 'education'"
-            @continue="handleEducationComplete"
-            @skip="goBackToUnencryptedRooms"
-          />
-          <MatrixConnectionFlow
-            v-else-if="setupStep === 'connection'"
-            @continue="handleConnectionComplete"
-            @back="setupStep = 'education'"
-            :homeserver-url="homeserverUrl"
-          />
-        </div>
+    <!-- Simple Encryption Setup Required -->
+    <template v-else-if="needsEncryptionSetup">
+      <div class="encryption-setup-banner">
+        <!-- Step 1: Create Recovery Key Button -->
+        <template v-if="needsRecoveryKeyCreation && !showRecoveryKeyDisplay && !needsDeviceVerificationOnly">
+          <div class="banner-content">
+            <div class="banner-icon">
+              <q-icon name="fas fa-lock" color="warning" size="24px" />
+            </div>
+            <div class="banner-text">
+              <div class="banner-title">Encryption setup needed</div>
+              <div class="banner-subtitle">First create a recovery key to secure your messages</div>
+            </div>
+            <div class="banner-actions">
+              <q-btn
+                color="primary"
+                size="sm"
+                unelevated
+                @click="createRecoveryKeyInline"
+                :loading="creatingKey"
+                icon="fas fa-key"
+                label="Create Recovery Key"
+              />
+            </div>
+          </div>
+        </template>
+
+        <!-- Step 2: Recovery Key Display (after creation) -->
+        <template v-else-if="showRecoveryKeyDisplay">
+          <div class="banner-content">
+            <div class="banner-icon">
+              <q-icon name="fas fa-key" color="positive" size="24px" />
+            </div>
+            <div class="banner-text">
+              <div class="banner-title">Save Your Recovery Key</div>
+              <div class="banner-subtitle">Store this key safely - you'll need it to recover encrypted messages</div>
+            </div>
+          </div>
+          <div class="recovery-key-display-section">
+            <div class="recovery-key-card">
+              <div class="recovery-key-text">{{ createdRecoveryKey }}</div>
+              <div class="recovery-key-actions">
+                <q-btn
+                  flat
+                  color="primary"
+                  icon="fas fa-copy"
+                  label="Copy Key"
+                  @click="copyRecoveryKey"
+                />
+                <q-btn
+                  flat
+                  color="primary"
+                  icon="fas fa-download"
+                  label="Save to File"
+                  @click="downloadRecoveryKey"
+                />
+              </div>
+            </div>
+            <div class="next-step-actions">
+              <q-btn
+                color="primary"
+                unelevated
+                @click="proceedToKeyEntry"
+                label="Next: Enter Key to Complete Setup"
+                icon-right="fas fa-arrow-right"
+              />
+            </div>
+          </div>
+        </template>
+
+        <!-- Step 3: Recovery Key Input (final step or device verification) -->
+        <template v-else>
+          <div class="banner-content">
+            <div class="banner-icon">
+              <q-icon name="fas fa-lock" color="warning" size="24px" />
+            </div>
+            <div class="banner-text">
+              <div class="banner-title">{{ needsDeviceVerificationOnly ? 'Verify your device' : 'Complete encryption setup' }}</div>
+              <div class="banner-subtitle">{{ needsDeviceVerificationOnly ? 'Enter your recovery key to verify this device' : 'Enter your recovery key to complete setup' }}</div>
+            </div>
+          </div>
+          <div class="recovery-key-input-section">
+            <q-input
+              v-model="recoveryKeyInput"
+              placeholder="Enter your recovery key..."
+              outlined
+              dense
+              class="recovery-key-input"
+              :disable="setupInProgress"
+              @keyup.enter="handleInlineSetupEncryption"
+            >
+              <template v-slot:append>
+                <q-btn
+                  flat
+                  round
+                  icon="fas fa-arrow-right"
+                  color="primary"
+                  :loading="setupInProgress"
+                  @click="handleInlineSetupEncryption"
+                  :disable="!recoveryKeyInput?.trim()"
+                />
+              </template>
+            </q-input>
+          </div>
+        </template>
       </div>
     </template>
 
@@ -58,6 +145,45 @@
         @primary-action="handleEncryptionAction"
         @dismiss="dismissEncryptionBanner"
       />
+
+      <!-- Recovery Key Display (after successful setup) -->
+      <div v-if="showRecoveryKeyDisplay && createdRecoveryKey && !needsEncryptionSetup" class="recovery-key-success-banner q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
+        <div class="text-h6 q-mb-sm" style="color: #155724;">
+          <q-icon name="fas fa-key" class="q-mr-sm" />
+          Save Your Recovery Key
+        </div>
+        <p style="color: #155724; margin: 0 0 16px 0;">
+          Your device encryption setup is complete! Please save this recovery key securely - you'll need it to recover encrypted messages if you lose access to your devices.
+        </p>
+        <div class="recovery-key-card">
+          <div class="recovery-key-text">{{ createdRecoveryKey }}</div>
+          <div class="recovery-key-actions q-mt-md">
+            <q-btn
+              flat
+              color="primary"
+              icon="fas fa-copy"
+              label="Copy Key"
+              @click="copyRecoveryKey"
+              class="q-mr-sm"
+            />
+            <q-btn
+              flat
+              color="primary"
+              icon="fas fa-download"
+              label="Save to File"
+              @click="downloadRecoveryKey"
+              class="q-mr-sm"
+            />
+            <q-btn
+              color="green"
+              unelevated
+              icon="fas fa-check"
+              label="I've Saved My Key"
+              @click="dismissRecoveryKeyDisplay"
+            />
+          </div>
+        </div>
+      </div>
 
       <!-- Encrypted Chat Success Info (show for any encrypted state) -->
       <div v-else-if="isReadyEncrypted" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
@@ -188,11 +314,8 @@ import { matrixEncryptionState } from '../../services/matrixEncryptionState'
 import { MatrixEncryptionService } from '../../services/MatrixEncryptionService'
 import { logger } from '../../utils/logger'
 import { useQuasar } from 'quasar'
-import getEnv from '../../utils/env'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
-import MatrixEducationIntro from './setup/MatrixEducationIntro.vue'
-import MatrixConnectionFlow from './setup/MatrixConnectionFlow.vue'
 import EncryptionWarningBanner from './encryption/EncryptionWarningBanner.vue'
 import VerificationNotificationBanner from './verification/VerificationNotificationBanner.vue'
 import DeviceVerificationDialog from './verification/DeviceVerificationDialog.vue'
@@ -240,8 +363,13 @@ const {
   refreshState
 } = useMatrixEncryption()
 
-// Setup flow state
-const setupStep = ref<'education' | 'connection'>('education')
+// Simple setup state
+const setupInProgress = ref(false)
+const recoveryKeyInput = ref('')
+const creatingKey = ref(false)
+const justCreatedKey = ref(false)
+const showRecoveryKeyDisplay = ref(false)
+const createdRecoveryKey = ref('')
 
 // Recovery key display state
 const recoveryKey = ref('')
@@ -250,7 +378,6 @@ const recoveryKeySaved = ref(false)
 
 // Encryption service state
 const encryptionService = ref<MatrixEncryptionService | null>(null)
-const setupInProgress = ref(false)
 
 // Initialize encryption service when Matrix client is ready
 const initializeEncryptionService = () => {
@@ -272,20 +399,187 @@ const forceSetupAfterReset = ref(false)
 let encryptionResetListener: ((event: CustomEvent) => Promise<void>) | null = null
 let encryptionSetupListener: ((event: CustomEvent) => Promise<void>) | null = null
 
-// Configuration
-const homeserverUrl = computed(() => {
-  return (getEnv('APP_MATRIX_HOMESERVER_URL') as string) || 'https://matrix.openmeet.net'
-})
-
-// Only show full encryption setup screen when encryption is truly broken
-// Note: ready_encrypted_with_warning means encryption is working, just show banner instead
+// Proactively show encryption setup when user lacks keys for encrypted room
 const shouldShowEncryptionSetup = computed(() => {
   const state = encryptionStatus.value?.state
-  const needsRecoveryKeySetup = state === 'needs_recovery_key'
-  // Don't show setup screen if encryption is working (even with warnings)
-  const encryptionIsWorking = state === 'ready_encrypted_with_warning' || state === 'ready_encrypted'
+  const details = encryptionStatus.value?.details
 
-  return (needsRecoveryKeySetup || forceSetupAfterReset.value) && !encryptionIsWorking
+  // Core scenarios requiring setup
+  const needsKeys = state === 'needs_recovery_key' ||
+                   state === 'needs_key_backup' ||
+                   state === 'needs_device_verification' ||
+                   state === 'ready_encrypted_with_warning'
+
+  // Check if we have warning messages about backups or key issues
+  const hasKeyIssues = needsBanner.value && (
+    warningMessage.value?.includes('backup') ||
+    warningMessage.value?.includes('key') ||
+    warningMessage.value?.includes('trusted')
+  )
+
+  // Additional check for users who need encryption setup but aren't in the core states
+  // This catches cases like Steve's where device is unverified but state is 'ready_unencrypted'
+  const needsEncryptionSetupBasedOnDetails = details && (
+    details.isCurrentDeviceTrusted === false ||
+    details.hasKeyBackup === false ||
+    details.crossSigningReady === false ||
+    details.secretStorageReady === false ||
+    details.allCrossSigningSecretsCached === false
+  )
+
+  // Don't show if encryption is fully working
+  const encryptionWorking = state === 'ready_encrypted'
+
+  // Force show in certain cases or when explicitly requested
+  const forceShow = forceSetupAfterReset.value
+
+  // Debug logging to understand what's happening
+  const shouldShow = (needsKeys || hasKeyIssues || needsEncryptionSetupBasedOnDetails || forceShow) && !encryptionWorking
+
+  // Debug force show removed - real logic is working now
+  const debugForceShow = false
+
+  console.log('🔍 Banner trigger debug:', {
+    state,
+    needsKeys,
+    hasKeyIssues,
+    needsEncryptionSetupBasedOnDetails,
+    encryptionWorking,
+    forceShow,
+    shouldShow,
+    debugForceShow,
+    details: details ? {
+      hasClient: details.hasClient,
+      hasCrypto: details.hasCrypto,
+      canChat: details.canChat,
+      isCurrentDeviceTrusted: details.isCurrentDeviceTrusted,
+      hasKeyBackup: details.hasKeyBackup,
+      crossSigningReady: details.crossSigningReady,
+      secretStorageReady: details.secretStorageReady,
+      allCrossSigningSecretsCached: details.allCrossSigningSecretsCached,
+      isInEncryptedRoom: details.isInEncryptedRoom
+    } : 'no details'
+  })
+
+  return shouldShow || debugForceShow
+})
+
+// Detect if user needs to create recovery key first
+const needsRecoveryKeyCreation = computed(() => {
+  const details = encryptionStatus.value?.details
+  const state = encryptionStatus.value?.state
+
+  if (!details) return true
+
+  // IMPORTANT: The encryption state service only provides detailed info for encrypted rooms
+  // For unencrypted rooms, it returns 'ready_unencrypted' with minimal details
+  // We need to check if we have encryption capability at all, regardless of room type
+
+  const hasClient = details.hasClient
+  const hasCrypto = details.hasCrypto
+
+  // If we're in ready_unencrypted state, we need to check if encryption is actually set up
+  // by looking at the available details (which may be minimal for unencrypted rooms)
+  if (state === 'ready_unencrypted' && hasClient && hasCrypto) {
+    // Don't show create button if user just completed the flow or is in progress
+    if (justCreatedKey.value || showRecoveryKeyDisplay.value) {
+      console.log('🔍 Recovery key creation check (flow in progress):', {
+        state,
+        justCreatedKey: justCreatedKey.value,
+        showRecoveryKeyDisplay: showRecoveryKeyDisplay.value,
+        needsCreation: false,
+        reason: 'User is in recovery key creation flow'
+      })
+      return false
+    }
+
+    // For unencrypted rooms, we need to actually check if cross-signing and backup exist
+    // Only show create button if BOTH cross-signing keys AND backup don't exist
+    const missingCrossSigning = details.crossSigningReady === false
+    const missingBackup = details.hasKeyBackup === false
+
+    const needsCreation = missingCrossSigning && missingBackup
+
+    console.log('🔍 Recovery key creation check (unencrypted room logic):', {
+      state,
+      hasClient,
+      hasCrypto,
+      crossSigningReady: details.crossSigningReady,
+      hasKeyBackup: details.hasKeyBackup,
+      missingCrossSigning,
+      missingBackup,
+      needsCreation,
+      reason: needsCreation ? 'Missing both cross-signing and backup' : 'Has encryption setup'
+    })
+
+    return needsCreation
+  }
+
+  // Original logic for encrypted rooms or when we have detailed info
+  const hasNoSecretStorage = details.secretStorageReady === false
+  const hasNoKeyBackup = details.hasKeyBackup === false
+  const hasNoDefaultKeyId = details.hasDefaultKeyId === false
+  const crossSigningNotReady = details.crossSigningReady === false
+  const deviceNotTrusted = details.isCurrentDeviceTrusted === false
+  const secretsNotCached = details.allCrossSigningSecretsCached === false
+
+  const missingComponents = [
+    hasNoSecretStorage,
+    hasNoKeyBackup,
+    hasNoDefaultKeyId,
+    crossSigningNotReady,
+    deviceNotTrusted,
+    secretsNotCached
+  ].filter(Boolean).length
+
+  const needsCreation = missingComponents >= 3 && !justCreatedKey.value
+
+  console.log('🔍 Recovery key creation check (detailed logic):', {
+    state,
+    hasNoSecretStorage,
+    hasNoKeyBackup,
+    hasNoDefaultKeyId,
+    crossSigningNotReady,
+    deviceNotTrusted,
+    secretsNotCached,
+    missingComponents,
+    needsCreation,
+    justCreatedKey: justCreatedKey.value
+  })
+
+  return needsCreation
+})
+
+// Detect if we only need device verification (not full key creation)
+// This handles cases like after MAS reset where cross-signing and backup exist but device needs verification
+const needsDeviceVerificationOnly = computed(() => {
+  const details = encryptionStatus.value?.details
+  const state = encryptionStatus.value?.state
+
+  if (!details) return false
+
+  // Check if encryption infrastructure is ready but device is not trusted
+  const hasEncryptionInfrastructure =
+    details.crossSigningReady === true &&
+    details.hasKeyBackup === true &&
+    details.secretStorageReady === true
+
+  const deviceNotTrusted = details.isCurrentDeviceTrusted === false
+
+  // If we have the infrastructure but device isn't trusted, we just need device verification
+  const onlyNeedsDeviceVerification = hasEncryptionInfrastructure && deviceNotTrusted
+
+  console.log('🔍 Device verification only check:', {
+    state,
+    hasEncryptionInfrastructure,
+    crossSigningReady: details.crossSigningReady,
+    hasKeyBackup: details.hasKeyBackup,
+    secretStorageReady: details.secretStorageReady,
+    deviceNotTrusted,
+    onlyNeedsDeviceVerification
+  })
+
+  return onlyNeedsDeviceVerification
 })
 
 // Debug current state
@@ -331,60 +625,167 @@ const connectToMatrix = async () => {
   }
 }
 
-// Setup flow handlers
-const handleEducationComplete = () => {
-  setupStep.value = 'connection'
+// Create recovery key inline
+const createRecoveryKeyInline = async () => {
+  logger.debug('🔧 Creating recovery key inline')
+  creatingKey.value = true
+
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not available')
+    }
+
+    // Use MatrixEncryptionService to create fresh encryption setup
+    const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
+    const encryptionService = new MatrixEncryptionService(client)
+
+    // Create fresh encryption setup (this will generate a new recovery key)
+    const result = await encryptionService.setupEncryption()
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create recovery key')
+    }
+
+    // Show the recovery key display instead of auto-filling input
+    if (result.recoveryKey) {
+      createdRecoveryKey.value = result.recoveryKey
+      showRecoveryKeyDisplay.value = true
+      justCreatedKey.value = true
+
+      logger.debug('✅ Recovery key created, showing display')
+      $q.notify({
+        type: 'positive',
+        message: 'Recovery key created successfully!',
+        caption: 'Please save your key before proceeding'
+      })
+    }
+
+    // Don't refresh state yet - wait for user to save and proceed
+  } catch (error) {
+    logger.error('Failed to create recovery key:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to create recovery key',
+      caption: error.message || 'Please try again'
+    })
+  } finally {
+    creatingKey.value = false
+  }
 }
 
-const handleConnectionComplete = async () => {
-  // Clear the force setup flag when user completes the setup flow
-  forceSetupAfterReset.value = false
-  logger.debug('🔗 Matrix connection complete, initializing encryption')
+// Proceed to key entry step
+const proceedToKeyEntry = () => {
+  showRecoveryKeyDisplay.value = false
+  // Auto-fill the input with the created key
+  recoveryKeyInput.value = createdRecoveryKey.value
+
+  $q.notify({
+    type: 'info',
+    message: 'Ready to complete setup',
+    caption: 'Recovery key has been filled in - click the arrow to finish'
+  })
+}
+
+// Inline recovery key setup handler
+const handleInlineSetupEncryption = async () => {
+  const recoveryKeyValue = recoveryKeyInput.value?.trim()
+  if (!recoveryKeyValue) {
+    $q.notify({
+      type: 'negative',
+      message: 'Please enter your recovery key'
+    })
+    return
+  }
+
+  logger.debug('🔧 Starting inline encryption setup with recovery key')
   setupInProgress.value = true
 
   try {
-    // Initialize Matrix client if needed
-    logger.debug('🔗 Ensuring Matrix client is ready')
-    let client = matrixClientService.getClient()
-
+    const client = matrixClientService.getClient()
     if (!client) {
-      logger.debug('🔄 Initializing new Matrix client')
-      client = await matrixClientService.initializeClient(true)
-      if (!client) {
-        throw new Error('Failed to initialize Matrix client')
+      throw new Error('Matrix client not available')
+    }
+
+    // Use MatrixEncryptionService to properly handle recovery key unlock
+    const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
+    const encryptionService = new MatrixEncryptionService(client)
+
+    // For device verification, use the integrated unlock process that handles key restoration
+    logger.debug(needsDeviceVerificationOnly.value ? '🔐 Device verification needed' : '🔧 Full encryption setup needed')
+
+    const result = await encryptionService.setupEncryption(recoveryKeyValue)
+
+    if (!result.success) {
+      throw new Error(result.error || 'Encryption setup failed')
+    }
+
+    // The setupEncryption method should have handled key restoration as part of unlockExistingStorage
+    // Now just verify the device completed properly
+    if (needsDeviceVerificationOnly.value) {
+      logger.debug('🔐 Device verification - checking if restoration completed during setup')
+      try {
+        // Give the restoration a moment to complete
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // Check if device verification completed
+        const { testAndFixDeviceVerification } = await import('../../utils/deviceVerificationHelper')
+        const verificationResult = await testAndFixDeviceVerification()
+
+        if (verificationResult.success && verificationResult.isVerified) {
+          logger.debug('✅ Device verification completed after setup')
+        } else {
+          logger.debug('🔧 Device verification incomplete, attempting manual verification:', verificationResult.error)
+
+          // If automatic verification didn't work, the setupEncryption should have handled the key restoration
+          // The device verification helper should now be able to complete the process
+        }
+      } catch (verificationError) {
+        logger.warn('⚠️ Device verification check failed:', verificationError)
       }
     }
 
-    matrixClientService.setUserChosenToConnect(true)
-    logger.debug('✅ Matrix client ready')
+    // Clear the input on success
+    recoveryKeyInput.value = ''
 
-    // Initialize encryption service
-    initializeEncryptionService()
-    if (!encryptionService.value) {
-      throw new Error('Failed to initialize encryption service')
-    }
+    // Clear force setup flag after successful setup
+    forceSetupAfterReset.value = false
 
-    // Show passphrase input dialog
-    await showPassphraseDialog()
+    // Refresh state to update UI
+    await refreshState()
+
+    // Check final state after everything
+    const finalState = await matrixEncryptionState.getEncryptionState(client, props.inlineRoomId)
+    logger.debug('✅ Inline encryption setup completed - final state:', {
+      state: finalState.state,
+      deviceTrusted: finalState.details.isCurrentDeviceTrusted,
+      crossSigningReady: finalState.details.crossSigningReady,
+      secretStorageReady: finalState.details.secretStorageReady
+    })
+
+    $q.notify({
+      type: 'positive',
+      message: needsDeviceVerificationOnly.value ? 'Device verification completed' : 'Encryption restored successfully'
+    })
+
+    // After successful setup, clear all creation flags and refresh state
+    showRecoveryKeyDisplay.value = false
+    justCreatedKey.value = false
+    createdRecoveryKey.value = ''
+    recoveryKeyInput.value = ''
+
+    // Refresh encryption state to hide banner
+    await refreshState()
   } catch (error) {
-    logger.error('❌ Failed to complete Matrix connection:', error)
+    logger.error('Failed to restore encryption with recovery key:', error)
     $q.notify({
       type: 'negative',
-      message: 'Failed to set up encryption',
-      caption: error.message || 'Please try again'
+      message: 'Invalid recovery key',
+      caption: 'Please check your recovery key and try again'
     })
   } finally {
     setupInProgress.value = false
   }
-  setupStep.value = 'education'
-}
-
-// Handler for going back to unencrypted rooms
-const goBackToUnencryptedRooms = () => {
-  logger.debug('⬅️ User chose to go back to unencrypted rooms')
-  // Emit event to parent to navigate away from encrypted room
-  // For now, just dismiss the setup and let user manually navigate
-  setupStep.value = 'education'
 }
 
 // Element Web style banner handlers
@@ -398,6 +799,11 @@ const handleEncryptionAction = async (state: string) => {
   logger.debug('🔐 User clicked encryption action for state:', state)
 
   switch (state) {
+    case 'needs_device_verification':
+      // Set up device verification using same flow as preferences "Forgot Recovery Key"
+      logger.debug('🔐 Starting device setup and verification flow...')
+      await setupDeviceEncryption()
+      break
     case 'ready_encrypted_with_warning':
     case 'needs_recovery_key':
       // Show passphrase dialog to unlock or reset encryption
@@ -412,6 +818,76 @@ const handleEncryptionAction = async (state: string) => {
   }
 }
 
+// Device encryption setup (same flow as preferences form "Forgot Recovery Key")
+const setupDeviceEncryption = async () => {
+  try {
+    setupInProgress.value = true
+
+    // Get Matrix client
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not available')
+    }
+
+    // Use unified encryption service to reset and setup encryption
+    const encryptionService = new MatrixEncryptionService(client)
+
+    // Step 1: Reset existing encryption
+    logger.debug('🔄 Step 1: Resetting existing encryption...')
+    const resetResult = await encryptionService.resetEncryption()
+    if (!resetResult.success) {
+      throw new Error(resetResult.error || 'Reset failed')
+    }
+
+    logger.debug('✅ Encryption reset completed, now setting up fresh encryption...')
+
+    // Step 2: Set up fresh encryption with auto-generated recovery key
+    logger.debug('🔄 Step 2: Setting up fresh encryption...')
+    const setupResult = await encryptionService.setupEncryption()
+
+    if (setupResult.success && setupResult.recoveryKey) {
+      // Show the new recovery key to the user
+      createdRecoveryKey.value = setupResult.recoveryKey
+      showRecoveryKeyDisplay.value = true
+
+      $q.notify({
+        type: 'positive',
+        message: 'Device encryption setup completed! Please save your new recovery key.',
+        timeout: 5000
+      })
+
+      // Refresh encryption state
+      await refreshState()
+    } else {
+      throw new Error(setupResult.error || 'Failed to generate recovery key')
+    }
+  } catch (error) {
+    logger.error('Device encryption setup failed:', error)
+
+    $q.notify({
+      type: 'negative',
+      message: `Setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timeout: 5000
+    })
+  } finally {
+    setupInProgress.value = false
+  }
+}
+
+// Dismiss recovery key display (separate from dialog)
+const dismissRecoveryKeyDisplay = () => {
+  showRecoveryKeyDisplay.value = false
+  createdRecoveryKey.value = ''
+
+  // Show success message
+  $q.notify({
+    type: 'positive',
+    message: 'Recovery key dismissed. Your device encryption is now fully set up!',
+    timeout: 3000,
+    icon: 'fas fa-check-circle'
+  })
+}
+
 // Recovery key dialog methods
 const closeRecoveryKeyDialog = () => {
   if (recoveryKeySaved.value) {
@@ -422,28 +898,44 @@ const closeRecoveryKeyDialog = () => {
 }
 
 const copyRecoveryKey = async () => {
+  // Use the appropriate recovery key based on context
+  const keyToCopy = createdRecoveryKey.value || recoveryKey.value
+
   try {
-    await navigator.clipboard.writeText(recoveryKey.value)
+    await navigator.clipboard.writeText(keyToCopy)
     logger.debug('✅ Recovery key copied to clipboard')
+    $q.notify({
+      type: 'positive',
+      message: 'Recovery key copied to clipboard',
+      timeout: 2000
+    })
   } catch (error) {
     logger.error('❌ Failed to copy recovery key:', error)
     // Fallback for older browsers
     const textArea = document.createElement('textarea')
-    textArea.value = recoveryKey.value
+    textArea.value = keyToCopy
     document.body.appendChild(textArea)
     textArea.select()
     document.execCommand('copy')
     document.body.removeChild(textArea)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to copy to clipboard',
+      caption: 'Please copy manually'
+    })
   }
 }
 
 const downloadRecoveryKey = () => {
+  // Use the appropriate recovery key based on context
+  const keyToDownload = createdRecoveryKey.value || recoveryKey.value
+
   const element = document.createElement('a')
   const file = new Blob([
     'OpenMeet Recovery Key\n',
     `Generated: ${new Date().toISOString()}\n`,
     '\n',
-    `Recovery Key:\n${recoveryKey.value}\n`,
+    `Recovery Key:\n${keyToDownload}\n`,
     '\n',
     'IMPORTANT: Store this key safely. You need it to unlock your encrypted messages if you forget your passphrase.\n'
   ], { type: 'text/plain' })
@@ -453,6 +945,11 @@ const downloadRecoveryKey = () => {
   element.click()
   document.body.removeChild(element)
   URL.revokeObjectURL(element.href)
+  $q.notify({
+    type: 'positive',
+    message: 'Recovery key saved to file',
+    timeout: 2000
+  })
 }
 
 // Passphrase dialog for encryption setup/unlock
@@ -551,7 +1048,6 @@ onMounted(async () => {
     logger.debug('🔥 Received encryption reset event:', event.detail)
 
     // Reset to the education step to restart the setup flow
-    setupStep.value = 'education'
 
     // Force the encryption setup UI to show after reset
     forceSetupAfterReset.value = true
@@ -564,7 +1060,6 @@ onMounted(async () => {
       needsEncryptionSetup: needsEncryptionSetup.value,
       shouldShowEncryptionSetup: shouldShowEncryptionSetup.value,
       forceSetupAfterReset: forceSetupAfterReset.value,
-      setupStep: setupStep.value,
       debugState: debugState.value
     })
   }
@@ -577,7 +1072,6 @@ onMounted(async () => {
 
     // Force the setup flow to show
     forceSetupAfterReset.value = true
-    setupStep.value = 'education'
 
     // Refresh encryption state to show setup UI
     await refreshState()
@@ -718,5 +1212,73 @@ onUnmounted(() => {
   background: #1a1a1a;
   border-color: #4a4a4a;
   color: #e5e7eb;
+}
+
+/* Mobile-first encryption setup banner */
+.encryption-setup-banner {
+  padding: 16px;
+  background: var(--q-warning);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  margin-bottom: 12px;
+  justify-content: space-between;
+}
+
+.banner-icon {
+  flex-shrink: 0;
+}
+
+.banner-text {
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+}
+
+.banner-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--q-dark);
+  margin-bottom: 2px;
+}
+
+.banner-subtitle {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.3;
+}
+
+.banner-actions {
+  flex-shrink: 0;
+}
+
+.recovery-key-input-section {
+  margin-top: 8px;
+}
+
+.recovery-key-input {
+  width: 100%;
+}
+
+.recovery-key-input .q-field__control {
+  background: white;
+}
+
+/* Dark mode support */
+.body--dark .banner-title {
+  color: var(--q-dark);
+}
+
+.body--dark .banner-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.body--dark .recovery-key-input .q-field__control {
+  background: #2d2d2d;
 }
 </style>

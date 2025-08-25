@@ -675,8 +675,8 @@ export class MatrixEncryptionService {
 
       logger.debug('🔧 Redirecting to MAS for approval:', masUrl.toString())
 
-      // Full-page redirect (Element Web pattern)
-      window.location.href = masUrl.toString()
+      // Open MAS in new tab to allow flow to continue
+      window.open(masUrl.toString(), '_blank', 'noopener,noreferrer')
 
       // Note: This promise won't resolve in the current page context
       // The flow continues when user returns from MAS

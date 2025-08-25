@@ -24,7 +24,9 @@ export function useMatrixEncryption () {
   })
   const needsBanner = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'ready_encrypted_with_warning' || state === 'needs_key_backup'
+    return state === 'ready_encrypted_with_warning' ||
+           state === 'needs_key_backup' ||
+           state === 'needs_device_verification'
   })
   const warningMessage = computed(() => encryptionStatus.value?.warningMessage)
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')

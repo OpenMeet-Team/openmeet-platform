@@ -38,6 +38,15 @@
                 </q-item-section>
               </q-item>
               <q-separator />
+              <q-item clickable v-close-popup @click="checkEncryptionStatus">
+                <q-item-section avatar>
+                  <q-icon name="sym_r_verified" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>Check Encryption Status</q-item-label>
+                  <q-item-label caption>View Matrix encryption details</q-item-label>
+                </q-item-section>
+              </q-item>
               <q-item clickable v-close-popup @click="showChatHelp">
                 <q-item-section avatar>
                   <q-icon name="sym_r_help" />
@@ -1363,6 +1372,77 @@ const clearMatrixSessions = async () => {
   } catch (error) {
     console.error('❌ Failed to clear Matrix sessions:', error)
     alert('Failed to clear Matrix sessions. Please try again or contact support.')
+  }
+}
+
+// Matrix encryption status check (same as preferences form)
+const checkEncryptionStatus = async () => {
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) {
+      quasar.notify({
+        type: 'negative',
+        message: 'Matrix client not available',
+        timeout: 3000
+      })
+      return
+    }
+
+    const crypto = client.getCrypto()
+    if (!crypto) {
+      quasar.notify({
+        type: 'negative',
+        message: 'Matrix encryption not available',
+        timeout: 3000
+      })
+      return
+    }
+
+    // Get encryption status using the same logic as preferences form
+    const [secretStorageReady, crossSigningReady, hasBackup] = await Promise.all([
+      crypto.isSecretStorageReady(),
+      crypto.getCrossSigningStatus().then(status => {
+        const hasPublicKeys = !!(status?.publicKeysOnDevice)
+        return hasPublicKeys
+      }).catch(() => false),
+      crypto.getKeyBackupInfo().then(info => !!info).catch(() => false)
+    ])
+
+    const userId = client.getUserId()
+    const deviceId = client.getDeviceId()
+
+    let deviceTrusted = false
+    let verificationDetails = ''
+    if (userId && deviceId) {
+      const deviceInfo = await crypto.getDeviceVerificationStatus(userId, deviceId)
+      const isLocallyVerified = deviceInfo?.localVerified || false
+      const isCrossSigningVerified = deviceInfo?.crossSigningVerified || false
+      const isSDKVerified = deviceInfo?.isVerified() || false
+      deviceTrusted = isLocallyVerified && isCrossSigningVerified
+      verificationDetails = `Local: ${isLocallyVerified ? '✅' : '❌'}, Cross-signing: ${isCrossSigningVerified ? '✅' : '❌'}, SDK: ${isSDKVerified ? '✅' : '❌'}`
+    }
+
+    // Show status dialog
+    quasar.dialog({
+      title: 'Matrix Encryption Status',
+      message: `
+        • User ID: ${userId || 'Unknown'}
+        • Device ID: ${deviceId || 'Unknown'}
+        • Secret Storage: ${secretStorageReady ? '✅ Ready' : '❌ Not Ready'}
+        • Cross-Signing: ${crossSigningReady ? '✅ Ready' : '❌ Not Ready'}
+        • Key Backup: ${hasBackup ? '✅ Available' : '❌ Not Available'}
+        • Current Device: ${deviceTrusted ? '✅ Fully Verified' : '❌ Not Fully Verified'} (${verificationDetails})
+      `,
+      html: true,
+      ok: 'Close'
+    })
+  } catch (error) {
+    console.error('Failed to check Matrix status:', error)
+    quasar.notify({
+      type: 'negative',
+      message: `Status check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timeout: 5000
+    })
   }
 }
 
