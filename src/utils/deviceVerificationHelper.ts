@@ -5,20 +5,19 @@
  */
 
 import { matrixClientService } from '../services/matrixClientService'
-import { MatrixDeviceSelfVerification } from '../services/MatrixDeviceSelfVerification'
+import { SimpleDeviceVerification } from '../services/SimpleDeviceVerification'
 import { logger } from './logger'
 
 /**
- * Test and fix device verification
+ * Test and fix device verification using Element Web patterns
  */
 export async function testAndFixDeviceVerification (): Promise<{
   success: boolean
   error?: string
   isVerified?: boolean
-  debugInfo?: Record<string, unknown>
 }> {
   try {
-    console.log('🔍 Testing device verification...')
+    console.log('🔍 Testing device verification using Element Web patterns...')
 
     const client = matrixClientService.getClient()
     if (!client) {
@@ -26,45 +25,23 @@ export async function testAndFixDeviceVerification (): Promise<{
       return { success: false, error: 'No Matrix client available' }
     }
 
-    const selfVerification = new MatrixDeviceSelfVerification(client)
+    const deviceVerification = new SimpleDeviceVerification(client)
 
-    // Get debug info
-    const debugInfo = await selfVerification.getDebugInfo()
-    console.log('🔍 Debug info:', debugInfo)
+    // Check if verification is needed
+    const needsVerification = await deviceVerification.needsVerification()
+    console.log('📊 Needs verification:', needsVerification)
 
-    // Check current status
-    const status = await selfVerification.checkVerificationStatus()
-    console.log('📊 Verification status:', status)
-
-    if (status.isCrossSigningVerified) {
-      console.log('✅ Device is already verified')
-      return { success: true, isVerified: true, debugInfo }
+    if (!needsVerification) {
+      console.log('✅ Device is already verified or verification not needed')
+      return { success: true, isVerified: true }
     }
 
-    if (!status.canSelfVerify) {
-      console.log('❌ Cannot self-verify:', {
-        hasSigningKeys: status.hasSigningKeys,
-        canSelfVerify: status.canSelfVerify
-      })
-      return {
-        success: false,
-        error: 'Cannot self-verify - missing cross-signing keys or setup',
-        debugInfo
-      }
-    }
-
-    // Attempt comprehensive verification
+    // Attempt verification
     console.log('🔧 Attempting device verification...')
-    const result = await selfVerification.comprehensiveVerification()
+    const result = await deviceVerification.verifyDevice()
 
     console.log('📋 Verification result:', result)
-
-    return {
-      success: result.success,
-      error: result.error,
-      isVerified: result.isVerified,
-      debugInfo
-    }
+    return result
   } catch (error) {
     console.error('❌ Device verification test failed:', error)
     return {
@@ -88,14 +65,13 @@ export async function quickVerificationCheck (): Promise<{
       return { isVerified: false, status: 'No Matrix client', canFix: false }
     }
 
-    const selfVerification = new MatrixDeviceSelfVerification(client)
-    const status = await selfVerification.checkVerificationStatus()
+    const deviceVerification = new SimpleDeviceVerification(client)
+    const needsVerification = await deviceVerification.needsVerification()
 
     return {
-      isVerified: status.isCrossSigningVerified,
-      status: status.isCrossSigningVerified ? 'Verified'
-        : status.canSelfVerify ? 'Can be verified' : 'Cannot verify',
-      canFix: status.canSelfVerify && !status.isCrossSigningVerified
+      isVerified: !needsVerification,
+      status: needsVerification ? 'Needs verification' : 'Verified',
+      canFix: needsVerification
     }
   } catch (error) {
     logger.error('Quick verification check failed:', error)

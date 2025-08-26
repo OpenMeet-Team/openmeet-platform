@@ -124,7 +124,7 @@ export class MatrixEncryptionStateService {
       if (crypto) {
         try {
           const [
-            crossSigningReady,
+            ,
             keyBackupInfo,
             deviceKeys,
             crossSigningStatus,
@@ -142,6 +142,12 @@ export class MatrixEncryptionStateService {
             client.secretStorage.getDefaultKeyId().catch(() => null),
             crypto.getDeviceVerificationStatus(client.getUserId()!, client.getDeviceId()!).catch(() => null)
           ])
+
+          // FIXED: Use more reliable crossSigningStatus instead of isCrossSigningReady()
+          // which can return false even when cross-signing is working
+          const crossSigningReady = crossSigningStatus?.privateKeysCachedLocally?.masterKey &&
+                                   crossSigningStatus?.privateKeysCachedLocally?.selfSigningKey &&
+                                   crossSigningStatus?.privateKeysCachedLocally?.userSigningKey
 
           const hasKeyBackup = !!(keyBackupInfo && keyBackupInfo.version)
           const hasDeviceKeys = !!deviceKeys
@@ -285,7 +291,7 @@ export class MatrixEncryptionStateService {
     // Check encryption capabilities following Element Web DeviceListener pattern
     try {
       const [
-        crossSigningReady,
+        ,
         keyBackupInfo,
         deviceKeys,
         crossSigningStatus,
@@ -312,6 +318,12 @@ export class MatrixEncryptionStateService {
         client.secretStorage.getDefaultKeyId().catch(() => null),
         crypto.getDeviceVerificationStatus(client.getUserId()!, client.getDeviceId()!).catch(() => null)
       ])
+
+      // FIXED: Use more reliable crossSigningStatus instead of isCrossSigningReady()
+      // which can return false even when cross-signing is working
+      const crossSigningReady = crossSigningStatus?.privateKeysCachedLocally?.masterKey &&
+                               crossSigningStatus?.privateKeysCachedLocally?.selfSigningKey &&
+                               crossSigningStatus?.privateKeysCachedLocally?.userSigningKey
 
       const hasKeyBackup = !!(keyBackupInfo && keyBackupInfo.version)
       const hasDeviceKeys = !!deviceKeys

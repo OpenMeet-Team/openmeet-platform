@@ -14,9 +14,17 @@
       </div>
     </div>
 
-    <!-- Simple Encryption Setup Required -->
-    <template v-else-if="needsEncryptionSetup">
-      <div class="encryption-setup-banner">
+    <!-- Loading State -->
+    <div v-else-if="isLoading" class="loading-state">
+      <q-spinner size="2rem" />
+      <p>Checking Matrix encryption status...</p>
+    </div>
+
+    <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
+    <template v-else-if="canChat">
+
+      <!-- Simple Encryption Setup Banner (appears on top of chat when needed) -->
+      <div v-if="needsEncryptionSetup || shouldShowEncryptionSetup" class="encryption-setup-banner">
         <!-- Step 1: Create Recovery Key Button -->
         <template v-if="needsRecoveryKeyCreation && !showRecoveryKeyDisplay && !needsDeviceVerificationOnly">
           <div class="banner-content">
@@ -92,7 +100,38 @@
             </div>
             <div class="banner-text">
               <div class="banner-title">{{ needsDeviceVerificationOnly ? 'Verify your device' : 'Complete encryption setup' }}</div>
-              <div class="banner-subtitle">{{ needsDeviceVerificationOnly ? 'Enter your recovery key to verify this device' : 'Enter your recovery key to complete setup' }}</div>
+              <div v-if="setupInProgress" class="banner-progress">
+                <div class="progress-steps">
+                  <div
+                    v-for="(step, index) in setupProgress.steps"
+                    :key="step.id"
+                    class="progress-step"
+                    :class="{
+                      'step-current': index === setupProgress.currentStep,
+                      'step-completed': step.status === 'completed',
+                      'step-pending': step.status === 'pending',
+                      'step-active': step.status === 'active'
+                    }"
+                  >
+                    <div class="step-indicator">
+                      <q-icon
+                        v-if="step.status === 'completed'"
+                        name="fas fa-check"
+                        size="12px"
+                        color="positive"
+                      />
+                      <q-spinner
+                        v-else-if="step.status === 'active'"
+                        size="12px"
+                        color="primary"
+                      />
+                      <div v-else class="step-dot"></div>
+                    </div>
+                    <div class="step-label">{{ step.label }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="banner-subtitle">{{ needsDeviceVerificationOnly ? 'Enter your recovery key to verify this device' : 'Enter your recovery key to complete setup' }}</div>
             </div>
           </div>
           <div class="recovery-key-input-section">
@@ -117,19 +156,36 @@
                 />
               </template>
             </q-input>
+
+            <!-- Forgot Recovery Key Button -->
+            <div class="q-mt-sm text-center">
+              <q-btn
+                flat
+                size="sm"
+                color="grey-7"
+                icon="fas fa-question-circle"
+                label="Forgot recovery key?"
+                @click="handleForgotRecoveryKey"
+                :disable="setupInProgress"
+                class="forgot-key-btn"
+              />
+            </div>
+
+            <!-- Error Display -->
+            <div v-if="setupError" class="error-section q-mt-sm">
+              <q-banner class="text-white bg-negative">
+                <template v-slot:avatar>
+                  <q-icon name="fas fa-exclamation-triangle" color="white" />
+                </template>
+                <div class="error-title">{{ setupError }}</div>
+                <div v-if="setupErrorDetails" class="error-details q-mt-xs text-caption">
+                  {{ setupErrorDetails }}
+                </div>
+              </q-banner>
+            </div>
           </div>
         </template>
       </div>
-    </template>
-
-    <!-- Loading State -->
-    <div v-else-if="isLoading" class="loading-state">
-      <q-spinner size="2rem" />
-      <p>Checking Matrix encryption status...</p>
-    </div>
-
-    <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
-    <template v-else-if="canChat">
 
       <!-- Device Verification Notification Banner -->
       <VerificationNotificationBanner
@@ -139,7 +195,7 @@
 
       <!-- Element Web Style Encryption Warning Banner -->
       <EncryptionWarningBanner
-        v-if="needsBanner && warningMessage"
+        v-if="needsBanner && warningMessage && !shouldShowEncryptionSetup"
         :warning-message="warningMessage"
         :encryption-state="encryptionStatus?.state || ''"
         @primary-action="handleEncryptionAction"
@@ -313,6 +369,7 @@ import { matrixClientService } from '../../services/matrixClientService'
 import { matrixEncryptionState } from '../../services/matrixEncryptionState'
 import { MatrixEncryptionService } from '../../services/MatrixEncryptionService'
 import { logger } from '../../utils/logger'
+import getEnv from '../../utils/env'
 import { useQuasar } from 'quasar'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
@@ -366,10 +423,22 @@ const {
 // Simple setup state
 const setupInProgress = ref(false)
 const recoveryKeyInput = ref('')
+const setupError = ref('')
+const setupErrorDetails = ref('')
 const creatingKey = ref(false)
 const justCreatedKey = ref(false)
 const showRecoveryKeyDisplay = ref(false)
 const createdRecoveryKey = ref('')
+
+// Setup progress tracking
+const setupProgress = ref({
+  currentStep: 0,
+  steps: [
+    { id: 'reset', label: 'Reset encryption', status: 'pending' },
+    { id: 'setup', label: 'Setup fresh encryption', status: 'pending' },
+    { id: 'verify', label: 'Verify device', status: 'pending' }
+  ]
+})
 
 // Recovery key display state
 const recoveryKey = ref('')
@@ -398,6 +467,7 @@ const forceSetupAfterReset = ref(false)
 // Event listener references for cleanup
 let encryptionResetListener: ((event: CustomEvent) => Promise<void>) | null = null
 let encryptionSetupListener: ((event: CustomEvent) => Promise<void>) | null = null
+let masRecoveryKeyListener: ((event: CustomEvent) => Promise<void>) | null = null
 
 // Proactively show encryption setup when user lacks keys for encrypted room
 const shouldShowEncryptionSetup = computed(() => {
@@ -439,7 +509,7 @@ const shouldShowEncryptionSetup = computed(() => {
   // Debug force show removed - real logic is working now
   const debugForceShow = false
 
-  console.log('🔍 Banner trigger debug:', {
+  logger.debug('🔍 shouldShowEncryptionSetup Banner trigger debug:', {
     state,
     needsKeys,
     hasKeyIssues,
@@ -448,6 +518,7 @@ const shouldShowEncryptionSetup = computed(() => {
     forceShow,
     shouldShow,
     debugForceShow,
+    warningMessage: warningMessage.value,
     details: details ? {
       hasClient: details.hasClient,
       hasCrypto: details.hasCrypto,
@@ -483,7 +554,7 @@ const needsRecoveryKeyCreation = computed(() => {
   if (state === 'ready_unencrypted' && hasClient && hasCrypto) {
     // Don't show create button if user just completed the flow or is in progress
     if (justCreatedKey.value || showRecoveryKeyDisplay.value) {
-      console.log('🔍 Recovery key creation check (flow in progress):', {
+      logger.debug('🔍 Recovery key creation check (flow in progress):', {
         state,
         justCreatedKey: justCreatedKey.value,
         showRecoveryKeyDisplay: showRecoveryKeyDisplay.value,
@@ -500,7 +571,7 @@ const needsRecoveryKeyCreation = computed(() => {
 
     const needsCreation = missingCrossSigning && missingBackup
 
-    console.log('🔍 Recovery key creation check (unencrypted room logic):', {
+    logger.debug('🔍 Recovery key creation check (unencrypted room logic):', {
       state,
       hasClient,
       hasCrypto,
@@ -569,7 +640,7 @@ const needsDeviceVerificationOnly = computed(() => {
   // If we have the infrastructure but device isn't trusted, we just need device verification
   const onlyNeedsDeviceVerification = hasEncryptionInfrastructure && deviceNotTrusted
 
-  console.log('🔍 Device verification only check:', {
+  logger.debug('🔍 Device verification only check:', {
     state,
     hasEncryptionInfrastructure,
     crossSigningReady: details.crossSigningReady,
@@ -691,15 +762,17 @@ const proceedToKeyEntry = () => {
 const handleInlineSetupEncryption = async () => {
   const recoveryKeyValue = recoveryKeyInput.value?.trim()
   if (!recoveryKeyValue) {
-    $q.notify({
-      type: 'negative',
-      message: 'Please enter your recovery key'
-    })
+    setupError.value = 'Recovery key required'
+    setupErrorDetails.value = 'Please enter your recovery key to continue'
     return
   }
 
   logger.debug('🔧 Starting inline encryption setup with recovery key')
   setupInProgress.value = true
+
+  // Clear previous errors
+  setupError.value = ''
+  setupErrorDetails.value = ''
 
   try {
     const client = matrixClientService.getClient()
@@ -707,46 +780,147 @@ const handleInlineSetupEncryption = async () => {
       throw new Error('Matrix client not available')
     }
 
-    // Use MatrixEncryptionService to properly handle recovery key unlock
-    const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
-    const encryptionService = new MatrixEncryptionService(client)
-
-    // For device verification, use the integrated unlock process that handles key restoration
-    logger.debug(needsDeviceVerificationOnly.value ? '🔐 Device verification needed' : '🔧 Full encryption setup needed')
-
-    const result = await encryptionService.setupEncryption(recoveryKeyValue)
-
-    if (!result.success) {
-      throw new Error(result.error || 'Encryption setup failed')
-    }
-
-    // The setupEncryption method should have handled key restoration as part of unlockExistingStorage
-    // Now just verify the device completed properly
+    // For device verification scenarios, we need to manage cache lifecycle manually
+    // to keep the recovery key available for cross-signing operations
     if (needsDeviceVerificationOnly.value) {
-      logger.debug('🔐 Device verification - checking if restoration completed during setup')
+      logger.debug('🔐 Device verification needed - using manual cache management')
+
+      // Import cache management functions
+      const { cacheSecretStorageKeyForBootstrap, clearSecretStorageCache, setSecretStorageBeingAccessed } = await import('../../services/MatrixClientManager')
+
       try {
-        // Give the restoration a moment to complete
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Set up cache state for device verification
+        setSecretStorageBeingAccessed(true)
 
-        // Check if device verification completed
-        const { testAndFixDeviceVerification } = await import('../../utils/deviceVerificationHelper')
-        const verificationResult = await testAndFixDeviceVerification()
-
-        if (verificationResult.success && verificationResult.isVerified) {
-          logger.debug('✅ Device verification completed after setup')
-        } else {
-          logger.debug('🔧 Device verification incomplete, attempting manual verification:', verificationResult.error)
-
-          // If automatic verification didn't work, the setupEncryption should have handled the key restoration
-          // The device verification helper should now be able to complete the process
+        // Get the actual secret storage key info and use the correct key ID
+        const defaultKeyId = await client.secretStorage.getDefaultKeyId()
+        if (!defaultKeyId) {
+          throw new Error('No default secret storage key ID found')
         }
-      } catch (verificationError) {
-        logger.warn('⚠️ Device verification check failed:', verificationError)
+        const keyInfo = await client.secretStorage.getKey(defaultKeyId)
+        if (!keyInfo) {
+          throw new Error(`Secret storage key info not found for key ID: ${defaultKeyId}`)
+        }
+        logger.debug('🔑 Using secret storage key:', { keyId: defaultKeyId, keyInfo })
+
+        // Convert recovery key string to Uint8Array format required by cache
+        const { decodeRecoveryKey } = await import('matrix-js-sdk/lib/crypto-api')
+        const recoveryKeyBytes = decodeRecoveryKey(recoveryKeyValue)
+
+        // Pre-cache the recovery key and run device verification directly
+        cacheSecretStorageKeyForBootstrap(defaultKeyId, keyInfo, recoveryKeyBytes)
+        logger.debug('🔑 Recovery key cached for device verification operations')
+
+        // Use MatrixEncryptionService approach (exactly like the dashboard)
+        logger.debug('🔧 Using MatrixEncryptionService approach (dashboard-style)...')
+        const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
+        const encryptionService = new MatrixEncryptionService(client)
+        const result = await encryptionService.setupEncryption(recoveryKeyValue)
+
+        if (result.success) {
+          logger.debug('✅ MatrixEncryptionService setup completed successfully')
+
+          // Wait for Matrix SDK to process everything
+          logger.debug('⏳ Waiting for Matrix SDK state to update...')
+          await new Promise(resolve => setTimeout(resolve, 3000))
+
+          // CRITICAL: Even if MatrixEncryptionService succeeds, we still need to verify the device
+          // MatrixEncryptionService might return success for "Encryption already ready" but device may not be verified
+          logger.debug('🔐 Running device verification after MatrixEncryptionService...')
+
+          // CRITICAL: Re-cache the secret storage key for device verification
+          // MatrixEncryptionService cleared the cache, but device verification needs it
+          logger.debug('🔑 Re-caching secret storage key for device verification...')
+          setSecretStorageBeingAccessed(true)
+          cacheSecretStorageKeyForBootstrap(defaultKeyId, keyInfo, recoveryKeyBytes)
+          try {
+            const { testAndFixDeviceVerification } = await import('../../utils/deviceVerificationHelper')
+            const verificationResult = await testAndFixDeviceVerification()
+
+            if (verificationResult.success && verificationResult.isVerified) {
+              logger.debug('✅ Device verification successful after MatrixEncryptionService!')
+              // Clear the error since device is now verified
+              setupError.value = ''
+              setupErrorDetails.value = ''
+            } else {
+              logger.debug('⚠️ Device verification still failed after MatrixEncryptionService')
+              // Keep showing the verification banner since device is not verified
+              setupError.value = 'Device verification pending'
+              setupErrorDetails.value = `MatrixEncryptionService succeeded but device verification failed: ${verificationResult.error || 'Unknown error'}`
+            }
+          } catch (verificationError) {
+            logger.error('❌ Device verification failed after MatrixEncryptionService:', verificationError)
+            setupError.value = 'Device verification failed'
+            setupErrorDetails.value = `Post-encryption device verification error: ${verificationError.message}`
+          }
+
+          // Success - just like the dashboard approach
+          logger.debug('✅ Encryption setup completed successfully!')
+          recoveryKeyInput.value = ''
+
+          // Clean up cache state
+          setSecretStorageBeingAccessed(false)
+          clearSecretStorageCache()
+
+          // Refresh status to update UI
+          await refreshState()
+          return
+        } else {
+          logger.debug('❌ MatrixEncryptionService setup failed:', result.error)
+          throw new Error(result.error || 'Encryption setup failed')
+        }
+      } catch (deviceVerificationError) {
+        logger.error('Device verification failed:', deviceVerificationError)
+
+        // Handle specific error types with user-friendly messages
+        let errorMessage = 'Encryption setup failed'
+        let errorDetails = 'An unexpected error occurred during device verification. Please try again.'
+        if (deviceVerificationError.message?.includes('cross-signing keys')) {
+          errorMessage = 'Cross-signing keys unavailable'
+          errorDetails = 'The recovery key could not unlock cross-signing keys. This may be due to a different recovery key being used or cross-signing not being properly set up.'
+        } else if (deviceVerificationError.message?.includes('Invalid passphrase')) {
+          errorMessage = 'Invalid recovery key'
+          errorDetails = 'The recovery key you entered is not correct for this account. Please check and try again.'
+        } else if (deviceVerificationError.message?.includes('not ready')) {
+          errorMessage = 'Encryption not ready'
+          errorDetails = 'The Matrix encryption system is not fully initialized. Please try refreshing the page.'
+        }
+
+        // Show the error in the banner
+        setupError.value = errorMessage
+        setupErrorDetails.value = errorDetails
+      } finally {
+        // Clean up cache after device verification attempts complete
+        setSecretStorageBeingAccessed(false)
+        clearSecretStorageCache()
+        logger.debug('🔧 Secret storage cache cleared after device verification')
+      }
+    } else {
+      // For non-device-verification scenarios, use standard approach
+      logger.debug('🔧 Full encryption setup needed')
+      const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
+      const encryptionService = new MatrixEncryptionService(client)
+
+      logger.debug('🔧 Setting up encryption with recovery key...')
+      const result = await encryptionService.setupEncryption(recoveryKeyValue)
+      logger.debug('🔧 Setup result:', result)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Encryption setup failed')
       }
     }
 
-    // Clear the input on success
+    // Clear the input on success, but only clear errors if device is actually verified
     recoveryKeyInput.value = ''
+
+    // Only clear errors if the device verification issue is resolved
+    if (encryptionStatus.value?.details?.isCurrentDeviceTrusted) {
+      setupError.value = ''
+      setupErrorDetails.value = ''
+      logger.debug('✅ Device verification complete - clearing all errors')
+    } else {
+      logger.debug('⚠️ Device still not verified - keeping error visible')
+    }
 
     // Clear force setup flag after successful setup
     forceSetupAfterReset.value = false
@@ -776,15 +950,160 @@ const handleInlineSetupEncryption = async () => {
 
     // Refresh encryption state to hide banner
     await refreshState()
+
+    // Also ensure the force setup flag is cleared to hide the banner
+    forceSetupAfterReset.value = false
+
+    // Additional debug logging
+    logger.debug('🔍 Post-recovery state check:', {
+      canChat: canChat.value,
+      needsEncryptionSetup: needsEncryptionSetup.value,
+      shouldShowEncryptionSetup: shouldShowEncryptionSetup.value,
+      encryptionState: encryptionStatus.value?.state,
+      isReadyEncrypted: isReadyEncrypted.value,
+      forceSetupAfterReset: forceSetupAfterReset.value
+    })
   } catch (error) {
     logger.error('Failed to restore encryption with recovery key:', error)
+
+    // Check for MAS reset completion error
+    if (error instanceof Error && error.message === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
+      logger.debug('🔄 MAS cross-signing reset completed - redirecting to new key generation')
+      
+      // Clear current setup state
+      setupInProgress.value = false
+      setupError.value = ''
+      setupErrorDetails.value = ''
+      recoveryKeyInput.value = ''
+      
+      // Redirect to new key generation flow
+      try {
+        await createRecoveryKeyInline()
+        return // Exit early, don't show error UI
+      } catch (keyGenError) {
+        logger.error('❌ Failed to generate new recovery key after MAS reset:', keyGenError)
+        setupError.value = 'New key generation failed'
+        setupErrorDetails.value = 'MAS reset completed but failed to generate new recovery key. Please try refreshing the page.'
+        setupInProgress.value = false
+        return
+      }
+    }
+
+    // Provide specific error messages based on the error type
+    let errorMessage = 'Encryption setup failed'
+    let errorDetails = ''
+
+    if (error instanceof Error) {
+      if (error.message.includes('Invalid passphrase') || error.message.includes('Invalid recovery key')) {
+        errorMessage = 'Invalid recovery key'
+        errorDetails = 'The recovery key you entered is not correct for this account. Please verify the key and try again.'
+      } else if (error.message.includes('Secret storage key not available')) {
+        errorMessage = 'Cross-signing access failed'
+        errorDetails = 'Unable to access cross-signing keys with this recovery key. The key may be from a different device or account.'
+      } else if (error.message.includes('Matrix client not available')) {
+        errorMessage = 'Connection error'
+        errorDetails = 'Lost connection to Matrix server. Please refresh the page and try again.'
+      } else if (error.message.includes('No default secret storage key')) {
+        errorMessage = 'No encryption keys found'
+        errorDetails = 'This account does not appear to have encryption set up. Please contact support or try creating new encryption keys.'
+      } else {
+        errorMessage = 'Unexpected error'
+        errorDetails = error.message || 'An unknown error occurred during encryption setup.'
+      }
+    } else {
+      errorDetails = 'An unknown error occurred. Please try again.'
+    }
+
+    // Display error in the banner
+    setupError.value = errorMessage
+    setupErrorDetails.value = errorDetails
+
+    // Also show notification for immediate feedback
     $q.notify({
       type: 'negative',
-      message: 'Invalid recovery key',
-      caption: 'Please check your recovery key and try again'
+      message: errorMessage,
+      caption: errorDetails,
+      timeout: 5000
     })
   } finally {
     setupInProgress.value = false
+  }
+}
+
+// Handle forgot recovery key
+const handleForgotRecoveryKey = async () => {
+  try {
+    logger.debug('🔧 User clicked forgot recovery key - starting reset flow')
+
+    // Clear any existing errors
+    setupError.value = ''
+    setupErrorDetails.value = ''
+
+    // Use MatrixEncryptionService to start the recovery key reset flow
+    const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionService')
+    const client = matrixClientService.getClient()
+    if (!client) {
+      throw new Error('Matrix client not available')
+    }
+
+    const encryptionService = new MatrixEncryptionService(client)
+
+    // Show confirmation dialog
+    $q.dialog({
+      title: 'Reset Recovery Key',
+      message: 'This will create a new recovery key and reset your encryption identity. You will need to verify other devices again. Continue?',
+      cancel: true,
+      persistent: true,
+      color: 'warning'
+    }).onOk(async () => {
+      setupInProgress.value = true
+
+      try {
+        logger.debug('🔧 Starting recovery key reset via MAS flow...')
+
+        // Use the encryption reset method
+        const result = await encryptionService.resetEncryption()
+
+        if (result.success) {
+          logger.debug('✅ Encryption reset completed, redirecting to MAS for new key generation')
+
+          // Redirect to MAS for new recovery key generation
+          // Construct MAS URL for cross-signing reset
+          const masBaseUrl = getEnv('APP_MAS_URL')
+          if (!masBaseUrl) {
+            throw new Error('APP_MAS_URL environment variable not configured')
+          }
+          const masUrl = new URL(`${masBaseUrl}/account`)
+          masUrl.searchParams.set('action', 'org.matrix.cross_signing_reset')
+          masUrl.searchParams.set('return_url', window.location.href)
+
+          window.location.href = masUrl.toString()
+        } else {
+          throw new Error(result.error || 'Failed to reset encryption')
+        }
+      } catch (error) {
+        logger.error('❌ Recovery key reset failed:', error)
+        setupError.value = 'Reset failed'
+        setupErrorDetails.value = error.message || 'Failed to start recovery key reset process'
+
+        $q.notify({
+          type: 'negative',
+          message: 'Recovery key reset failed',
+          caption: error.message || 'Please try again or contact support',
+          timeout: 5000
+        })
+      } finally {
+        setupInProgress.value = false
+      }
+    })
+  } catch (error) {
+    logger.error('❌ Failed to initiate recovery key reset:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to start reset process',
+      caption: 'Please try again or contact support',
+      timeout: 5000
+    })
   }
 }
 
@@ -799,11 +1118,36 @@ const handleEncryptionAction = async (state: string) => {
   logger.debug('🔐 User clicked encryption action for state:', state)
 
   switch (state) {
-    case 'needs_device_verification':
-      // Set up device verification using same flow as preferences "Forgot Recovery Key"
-      logger.debug('🔐 Starting device setup and verification flow...')
-      await setupDeviceEncryption()
+    case 'needs_device_verification': {
+      // For device verification, check if user has existing encryption setup
+      const client = matrixClientService.getClient()
+      if (!client) {
+        throw new Error('Matrix client not available')
+      }
+
+      const crypto = client.getCrypto()
+      const [secretStorageReady, crossSigningReady, keyBackupInfo] = await Promise.all([
+        crypto?.isSecretStorageReady().catch(() => false) || false,
+        crypto?.isCrossSigningReady().catch(() => false) || false,
+        crypto?.getKeyBackupInfo().catch(() => null) || null
+      ])
+
+      const hasExistingSetup = secretStorageReady && crossSigningReady && keyBackupInfo
+
+      if (hasExistingSetup) {
+        logger.debug('🔐 User has existing encryption - they should enter their recovery key')
+        // Don't do anything - let them use the recovery key input field that's already showing
+        $q.notify({
+          type: 'info',
+          message: 'Enter your recovery key below to verify this device',
+          timeout: 3000
+        })
+      } else {
+        logger.debug('🔐 No existing encryption - starting full setup flow...')
+        await setupDeviceEncryption()
+      }
       break
+    }
     case 'ready_encrypted_with_warning':
     case 'needs_recovery_key':
       // Show passphrase dialog to unlock or reset encryption
@@ -829,8 +1173,46 @@ const setupDeviceEncryption = async () => {
       throw new Error('Matrix client not available')
     }
 
-    // Use unified encryption service to reset and setup encryption
     const encryptionService = new MatrixEncryptionService(client)
+    const crypto = client.getCrypto()
+
+    // Check current encryption status to determine the right approach
+    const [secretStorageReady, crossSigningReady, keyBackupInfo] = await Promise.all([
+      crypto?.isSecretStorageReady().catch(() => false) || false,
+      crypto?.isCrossSigningReady().catch(() => false) || false,
+      crypto?.getKeyBackupInfo().catch(() => null) || null
+    ])
+
+    const hasExistingSetup = secretStorageReady && crossSigningReady && keyBackupInfo
+
+    if (hasExistingSetup) {
+      logger.debug('🔐 Existing encryption setup detected - using device verification approach')
+      // User already has encryption setup, just need to verify device
+      setupProgress.value = {
+        currentStep: 0,
+        steps: [
+          { id: 'unlock', label: 'Unlock with recovery key', status: 'active' },
+          { id: 'verify', label: 'Verify device', status: 'pending' }
+        ]
+      }
+
+      // Show recovery key input instead of generating new one
+      // This will be handled by the existing recovery key input flow
+      throw new Error('Please enter your recovery key to verify this device')
+    } else {
+      logger.debug('🔐 No existing encryption setup - using full setup approach')
+      // Fresh setup - need to generate new recovery key
+      setupProgress.value = {
+        currentStep: 0,
+        steps: [
+          { id: 'reset', label: 'Reset encryption', status: 'active' },
+          { id: 'setup', label: 'Setup fresh encryption', status: 'pending' },
+          { id: 'verify', label: 'Verify device', status: 'pending' }
+        ]
+      }
+    }
+
+    // Use unified encryption service to reset and setup encryption
 
     // Step 1: Reset existing encryption
     logger.debug('🔄 Step 1: Resetting existing encryption...')
@@ -839,6 +1221,11 @@ const setupDeviceEncryption = async () => {
       throw new Error(resetResult.error || 'Reset failed')
     }
 
+    // Mark reset as completed, move to setup
+    setupProgress.value.steps[0].status = 'completed'
+    setupProgress.value.currentStep = 1
+    setupProgress.value.steps[1].status = 'active'
+
     logger.debug('✅ Encryption reset completed, now setting up fresh encryption...')
 
     // Step 2: Set up fresh encryption with auto-generated recovery key
@@ -846,6 +1233,28 @@ const setupDeviceEncryption = async () => {
     const setupResult = await encryptionService.setupEncryption()
 
     if (setupResult.success && setupResult.recoveryKey) {
+      // Mark setup as completed, move to verification
+      setupProgress.value.steps[1].status = 'completed'
+      setupProgress.value.currentStep = 2
+      setupProgress.value.steps[2].status = 'active'
+
+      // CRITICAL MISSING STEP: Use the recovery key to unlock/verify the device
+      logger.debug('🔐 Step 3: Using recovery key to verify device...')
+      const verificationResult = await encryptionService.setupEncryption(setupResult.recoveryKey)
+
+      if (!verificationResult.success) {
+        logger.error('Device verification with recovery key failed:', verificationResult.error)
+        throw new Error('Device verification failed: ' + verificationResult.error)
+      }
+
+      logger.debug('✅ Device verified with recovery key successfully')
+
+      // Brief delay for verification step visibility
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Mark verification as completed
+      setupProgress.value.steps[2].status = 'completed'
+
       // Show the new recovery key to the user
       createdRecoveryKey.value = setupResult.recoveryKey
       showRecoveryKeyDisplay.value = true
@@ -856,8 +1265,14 @@ const setupDeviceEncryption = async () => {
         timeout: 5000
       })
 
-      // Refresh encryption state
-      await refreshState()
+      // Refresh encryption state multiple times to ensure Matrix state is updated
+      setTimeout(async () => {
+        await refreshState()
+        // Second refresh after another delay to catch any delayed Matrix state changes
+        setTimeout(async () => {
+          await refreshState()
+        }, 2000)
+      }, 1000)
     } else {
       throw new Error(setupResult.error || 'Failed to generate recovery key')
     }
@@ -1081,6 +1496,78 @@ onMounted(async () => {
 
   window.addEventListener('matrix-encryption-setup-requested', encryptionSetupListener as (event: Event) => void)
 
+  // Listen for MAS-generated recovery keys
+  masRecoveryKeyListener = async (event: CustomEvent) => {
+    logger.debug('🔑 Received MAS-generated recovery key:', event.detail)
+
+    try {
+      const { recoveryKey } = event.detail
+
+      if (recoveryKey) {
+        // Auto-populate the recovery key input if the UI is showing
+        if (shouldShowEncryptionSetup.value) {
+          recoveryKeyInput.value = recoveryKey
+          logger.debug('✅ Auto-populated recovery key from MAS flow')
+
+          // Show a notification to let user know the key is ready
+          $q.notify({
+            type: 'positive',
+            message: 'Recovery key generated and ready to use',
+            position: 'top',
+            timeout: 5000,
+            icon: 'vpn_key'
+          })
+
+          // Also clear any existing errors since we now have a valid key
+          setupError.value = ''
+          setupErrorDetails.value = ''
+        } else {
+          // If UI isn't showing, show a notification with the key
+          $q.notify({
+            type: 'info',
+            message: 'New recovery key generated. Click to copy.',
+            position: 'top',
+            timeout: 10000,
+            icon: 'vpn_key',
+            actions: [
+              {
+                label: 'Copy Key',
+                color: 'white',
+                handler: () => {
+                  navigator.clipboard.writeText(recoveryKey).then(() => {
+                    $q.notify({
+                      type: 'positive',
+                      message: 'Recovery key copied to clipboard',
+                      timeout: 3000
+                    })
+                  })
+                }
+              }
+            ]
+          })
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Error handling MAS recovery key:', error)
+    }
+  }
+
+  window.addEventListener('mas-recovery-key-generated', masRecoveryKeyListener as (event: Event) => void)
+
+  // Also check for any previously generated recovery key from MAS flow
+  const existingKey = sessionStorage.getItem('mas_generated_recovery_key')
+  if (existingKey) {
+    logger.debug('🔑 Found existing MAS recovery key from session storage')
+    sessionStorage.removeItem('mas_generated_recovery_key') // Clear it once used
+
+    // Trigger the same handling as if we just received the event
+    if (masRecoveryKeyListener) {
+      masRecoveryKeyListener(new CustomEvent('mas-recovery-key-generated', {
+        detail: { recoveryKey: existingKey }
+      }))
+    }
+  }
+
   // Initial state check with room context - should default to ready_unencrypted
   await checkEncryptionState(props.inlineRoomId)
 
@@ -1106,6 +1593,9 @@ onUnmounted(() => {
   }
   if (encryptionSetupListener) {
     window.removeEventListener('matrix-encryption-setup-requested', encryptionSetupListener as (event: Event) => void)
+  }
+  if (masRecoveryKeyListener) {
+    window.removeEventListener('mas-recovery-key-generated', masRecoveryKeyListener as (event: Event) => void)
   }
 })
 </script>
@@ -1253,6 +1743,65 @@ onUnmounted(() => {
   line-height: 1.3;
 }
 
+.banner-progress {
+  margin-top: 8px;
+}
+
+.progress-steps {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.6);
+  transition: all 0.3s ease;
+}
+
+.progress-step.step-active {
+  color: var(--q-primary);
+  font-weight: 500;
+}
+
+.progress-step.step-completed {
+  color: var(--q-positive);
+  font-weight: 500;
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.step-active .step-dot {
+  background-color: var(--q-primary);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.step-label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .banner-actions {
   flex-shrink: 0;
 }
@@ -1268,6 +1817,13 @@ onUnmounted(() => {
 .recovery-key-input .q-field__control {
   background: white;
 }
+.forgot-key-btn {
+  text-transform: none;
+  font-size: 12px;
+}
+.forgot-key-btn:hover {
+  text-decoration: underline;
+}
 
 /* Dark mode support */
 .body--dark .banner-title {
@@ -1276,6 +1832,22 @@ onUnmounted(() => {
 
 .body--dark .banner-subtitle {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.body--dark .progress-step {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.body--dark .progress-step.step-active {
+  color: var(--q-primary);
+}
+
+.body--dark .progress-step.step-completed {
+  color: var(--q-positive);
+}
+
+.body--dark .step-dot {
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 .body--dark .recovery-key-input .q-field__control {

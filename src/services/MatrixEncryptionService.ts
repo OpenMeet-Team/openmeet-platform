@@ -245,6 +245,14 @@ export class MatrixEncryptionService {
 
         if (verificationResult.success && verificationResult.isVerified) {
           logger.debug('✅ Device self-verification completed successfully')
+        } else if (verificationResult.error === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
+          logger.debug('🔄 MAS cross-signing reset completed - triggering new key generation flow')
+          
+          // Clear any cached secret storage to force new key generation
+          this.clearGlobalSecretStorageCache()
+          
+          // Throw special error to break out and trigger new key generation
+          throw new Error('MAS_RESET_COMPLETE_NEW_KEY_NEEDED')
         } else {
           logger.warn('⚠️ Device self-verification incomplete:', verificationResult.error)
         }
@@ -511,7 +519,9 @@ export class MatrixEncryptionService {
                         logger.debug('🔧 Cross-signing reset requires MAS approval at:', stageParams.url)
 
                         // Use Element Web's popup pattern for MAS approval
-                        await this.handleMASCrossSigningReset(stageParams.url)
+                        // For recovery key reset, return to dashboard instead of MAS success page
+                        const returnUrl = this.getDashboardReturnUrl()
+                        await this.handleMASCrossSigningReset(stageParams.url, returnUrl)
 
                         // Small delay to allow MAS backend to process approval
                         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -527,7 +537,9 @@ export class MatrixEncryptionService {
                         const fallbackUrl = `${masBaseUrl}/account?action=org.matrix.cross_signing_reset`
 
                         logger.debug('🔧 Using fallback MAS approval URL:', fallbackUrl)
-                        await this.handleMASCrossSigningReset(fallbackUrl)
+                        // For recovery key reset, return to dashboard instead of MAS success page
+                        const returnUrl = this.getDashboardReturnUrl()
+                        await this.handleMASCrossSigningReset(fallbackUrl, returnUrl)
 
                         // Longer delay for manual approval flow
                         await new Promise(resolve => setTimeout(resolve, 2000))
@@ -601,11 +613,29 @@ export class MatrixEncryptionService {
         } else {
           logger.debug('✅ MAS redirect completed - user likely approved cross-signing reset')
 
-          // Optionally trigger encryption setup automatically
-          // This could be done with a small delay to allow page to settle
-          setTimeout(() => {
-            logger.debug('🔧 Auto-triggering encryption setup after MAS redirect')
-            // Could call setupEncryption here if desired
+          // Auto-trigger recovery key generation after MAS completion
+          setTimeout(async () => {
+            logger.debug('🔧 Auto-triggering recovery key generation after MAS redirect')
+            try {
+              const result = await this.setupEncryption()
+              if (result.success && result.recoveryKey) {
+                logger.debug('✅ Recovery key generated after MAS completion')
+
+                // Store the recovery key for UI access
+                sessionStorage.setItem('mas_generated_recovery_key', result.recoveryKey)
+
+                // Dispatch a custom event to notify UI components
+                window.dispatchEvent(new CustomEvent('mas-recovery-key-generated', {
+                  detail: { recoveryKey: result.recoveryKey }
+                }))
+
+                logger.debug('🔧 Recovery key stored and UI notified')
+              } else {
+                logger.warn('⚠️ Failed to generate recovery key after MAS completion:', result.error)
+              }
+            } catch (error) {
+              logger.error('❌ Error generating recovery key after MAS completion:', error)
+            }
           }, 2000)
         }
       }
@@ -615,9 +645,24 @@ export class MatrixEncryptionService {
   }
 
   /**
+   * Get appropriate return URL for dashboard context
+   */
+  private getDashboardReturnUrl (): string {
+    const currentPath = window.location.pathname
+
+    // If already on dashboard, return to the same dashboard page
+    if (currentPath.includes('/dashboard')) {
+      return window.location.origin + currentPath
+    }
+
+    // For recovery key reset flows, return to dashboard profile section
+    return window.location.origin + '/dashboard'
+  }
+
+  /**
    * Handle MAS cross-signing reset with mobile-friendly approach
    */
-  private async handleMASCrossSigningReset (approvalUrl: string): Promise<void> {
+  private async handleMASCrossSigningReset (approvalUrl: string, returnUrl?: string): Promise<void> {
     logger.debug('🔧 Starting MAS approval for cross-signing reset')
 
     // Check if we're on mobile or if user prefers full-page redirect
@@ -626,10 +671,10 @@ export class MatrixEncryptionService {
 
     if (isMobile || preferFullPage) {
       // Mobile-friendly: Use full-page redirect (Element Web SSO pattern)
-      return this.handleMASRedirectFullPage(approvalUrl)
+      return this.handleMASRedirectFullPage(approvalUrl, returnUrl)
     } else {
       // Desktop: Try popup first, fallback to full-page if blocked
-      return this.handleMASRedirectWithFallback(approvalUrl)
+      return this.handleMASRedirectWithFallback(approvalUrl, returnUrl)
     }
   }
 
@@ -657,36 +702,101 @@ export class MatrixEncryptionService {
   /**
    * Handle MAS approval using full-page redirect (mobile-friendly)
    */
-  private async handleMASRedirectFullPage (approvalUrl: string): Promise<void> {
-    return new Promise(() => {
+  private async handleMASRedirectFullPage (approvalUrl: string, returnUrl?: string): Promise<void> {
+    return new Promise((resolve, reject) => {
       logger.debug('🔧 Using full-page redirect for MAS approval (mobile-friendly)')
+
+      // Determine the appropriate return URL
+      const finalReturnUrl = returnUrl || window.location.href
 
       // Store current state for restoration after redirect
       const currentState = {
         flow: 'cross-signing-reset',
         timestamp: Date.now(),
-        returnUrl: window.location.href
+        returnUrl: finalReturnUrl
       }
       sessionStorage.setItem('mas_redirect_state', JSON.stringify(currentState))
 
       // Add return URL parameter to MAS approval URL
       const masUrl = new URL(approvalUrl)
-      masUrl.searchParams.set('return_url', window.location.href)
+      masUrl.searchParams.set('return_url', finalReturnUrl)
 
       logger.debug('🔧 Redirecting to MAS for approval:', masUrl.toString())
 
       // Open MAS in new tab to allow flow to continue
-      window.open(masUrl.toString(), '_blank', 'noopener,noreferrer')
+      const masWindow = window.open(masUrl.toString(), '_blank', 'noopener,noreferrer')
 
-      // Note: This promise won't resolve in the current page context
-      // The flow continues when user returns from MAS
+      if (!masWindow) {
+        logger.warn('⚠️ MAS popup blocked - use separate button/link for MAS flow instead')
+        // Instead of auto-redirecting, reject so the calling code can handle it
+        reject(new Error('MAS popup was blocked by browser'))
+        return
+      }
+
+      // Additional check: Test if popup was actually opened
+      setTimeout(() => {
+        try {
+          if (masWindow.closed || !masWindow.location) {
+            logger.warn('⚠️ MAS popup was blocked after opening - popup closed immediately')
+            // Popup was blocked, use fallback
+            logger.debug('🔧 Using fallback redirect due to blocked popup')
+            window.location.href = masUrl.toString()
+            resolve()
+          }
+        } catch (e) {
+          // Cross-origin error is expected and means popup is working
+          logger.debug('🔧 Popup appears to be working (cross-origin access blocked as expected)')
+        }
+      }, 100)
+
+      let hasResolved = false
+
+      // Monitor for window focus to detect when user returns from MAS
+      const handleWindowFocus = () => {
+        if (hasResolved) return
+
+        // Small delay to allow MAS backend to process any changes
+        setTimeout(() => {
+          if (hasResolved) return
+
+          logger.debug('✅ Window regained focus - assuming MAS flow completed')
+          hasResolved = true
+          window.removeEventListener('focus', handleWindowFocus)
+
+          // Clear the MAS redirect state since we're handling completion
+          sessionStorage.removeItem('mas_redirect_state')
+          resolve()
+        }, 1000)
+      }
+
+      // Set up window focus listener
+      window.addEventListener('focus', handleWindowFocus)
+
+      // Set a timeout to avoid infinite waiting
+      const timeout = setTimeout(() => {
+        if (hasResolved) return
+
+        logger.warn('⚠️ MAS flow timeout - proceeding anyway')
+        hasResolved = true
+        window.removeEventListener('focus', handleWindowFocus)
+
+        // Don't reject on timeout, just proceed
+        resolve()
+      }, 300000) // 5 minutes timeout
+
+      // Clean up timeout if resolved early
+      const originalResolve = resolve
+      resolve = (...args) => {
+        clearTimeout(timeout)
+        originalResolve(...args)
+      }
     })
   }
 
   /**
    * Handle MAS approval with popup and fallback (desktop)
    */
-  private async handleMASRedirectWithFallback (approvalUrl: string): Promise<void> {
+  private async handleMASRedirectWithFallback (approvalUrl: string, returnUrl?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       logger.debug('🔧 Attempting popup for MAS approval (desktop)')
 
@@ -700,7 +810,7 @@ export class MatrixEncryptionService {
       if (!popup) {
         logger.warn('⚠️ Popup blocked - falling back to full-page redirect')
         // Fallback to full-page redirect
-        return this.handleMASRedirectFullPage(approvalUrl).then(resolve).catch(reject)
+        return this.handleMASRedirectFullPage(approvalUrl, returnUrl).then(resolve).catch(reject)
       }
 
       // Mobile-friendly popup handling
@@ -926,6 +1036,12 @@ export class MatrixEncryptionService {
 
           if (verificationResult.success && verificationResult.isVerified) {
             logger.debug('✅ Device self-verification completed after key restoration')
+          } else if (verificationResult.error === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
+            logger.debug('🔄 MAS reset detected after key restoration - need new key generation')
+            
+            // Clear caches and trigger new key generation
+            this.clearGlobalSecretStorageCache()
+            throw new Error('MAS_RESET_COMPLETE_NEW_KEY_NEEDED')
           } else {
             logger.warn('⚠️ Device self-verification incomplete after key restoration:', verificationResult.error)
           }
