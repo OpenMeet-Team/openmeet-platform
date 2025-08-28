@@ -159,7 +159,7 @@ following Element Web's proven approach for better performance and maintainabili
 <script setup lang="ts">
 import { computed } from 'vue'
 import { EventType, type MatrixEvent, type Room } from 'matrix-js-sdk'
-import { format } from 'date-fns'
+import { format, isToday } from 'date-fns'
 import MessageBody from './MessageBody.vue'
 import { matrixClientService } from '../../services/matrixClientService'
 import { logger } from '../../utils/logger'
@@ -341,6 +341,11 @@ const getStateEventText = (): string => {
 
 // Utility functions
 const formatTime = (timestamp: Date): string => {
+  // For today's messages, show just the time
+  if (isToday(timestamp)) {
+    return format(timestamp, 'HH:mm')
+  }
+  // For older messages, show time (date is shown in separator)
   return format(timestamp, 'HH:mm')
 }
 

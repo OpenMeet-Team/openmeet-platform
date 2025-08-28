@@ -135,18 +135,29 @@
           <div class="text-caption text-grey-6 q-mt-xs">Loading messages...</div>
         </div>
 
-        <!-- Timeline Events using EventTile components -->
-        <EventTile
-          v-for="event in debugTimelineEvents"
-          :key="`${event.getId()}-${decryptionCounter}`"
-          :mxEvent="event as MatrixEvent"
-          :mode="mode"
-          :showSenderNames="showSenderNames"
-          :currentUserId="matrixClientService.getClient()?.getUserId()"
-          :currentRoom="currentRoom"
-          :decryptionCounter="decryptionCounter"
-          @deleteMessage="handleDeleteMessage"
-        />
+        <!-- Timeline Events with Date Separators -->
+        <template v-for="(item) in timelineWithDateSeparators" :key="item.key">
+          <!-- Date Separator -->
+          <div v-if="item.type === 'date'" class="date-separator q-my-md">
+            <div class="date-separator-line">
+              <div class="date-separator-text text-caption text-grey-6 q-px-sm">
+                {{ item.dateText }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Event Tile -->
+          <EventTile
+            v-else
+            :mxEvent="item.event as MatrixEvent"
+            :mode="mode"
+            :showSenderNames="showSenderNames"
+            :currentUserId="matrixClientService.getClient()?.getUserId()"
+            :currentRoom="currentRoom"
+            :decryptionCounter="decryptionCounter"
+            @deleteMessage="handleDeleteMessage"
+          />
+        </template>
       </div>
 
       <!-- Empty State with Load More History -->
@@ -405,7 +416,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
-// date-fns format import removed - unused
+import { format, isToday, isYesterday, isSameDay } from 'date-fns'
 import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientService } from '../../services/matrixClientService'
@@ -619,6 +630,70 @@ watch(timelineEvents, (newEvents, oldEvents) => {
 
 // Use timeline events directly - no need for debug wrapper
 const debugTimelineEvents = timelineEvents
+
+// Timeline with date separators
+interface TimelineItem {
+  type: 'event' | 'date'
+  key: string
+  event?: MatrixEvent
+  dateText?: string
+  date?: Date
+}
+
+interface TimelineEventItem extends TimelineItem {
+  type: 'event'
+  event: MatrixEvent
+}
+
+interface TimelineDateItem extends TimelineItem {
+  type: 'date'
+  dateText: string
+  date: Date
+}
+
+const timelineWithDateSeparators = computed((): (TimelineEventItem | TimelineDateItem)[] => {
+  const events = debugTimelineEvents.value
+  if (events.length === 0) return []
+
+  const result: (TimelineEventItem | TimelineDateItem)[] = []
+  let lastDate: Date | null = null
+
+  for (const event of events) {
+    const eventDate = new Date(event.getTs())
+
+    // Check if we need a date separator
+    if (!lastDate || !isSameDay(eventDate, lastDate)) {
+      // Format the date text
+      let dateText: string
+      if (isToday(eventDate)) {
+        dateText = 'Today'
+      } else if (isYesterday(eventDate)) {
+        dateText = 'Yesterday'
+      } else {
+        dateText = format(eventDate, 'EEEE, MMMM d, yyyy')
+      }
+
+      // Add date separator
+      result.push({
+        type: 'date',
+        key: `date-${format(eventDate, 'yyyy-MM-dd')}`,
+        dateText,
+        date: eventDate
+      } as TimelineDateItem)
+
+      lastDate = eventDate
+    }
+
+    // Add the event
+    result.push({
+      type: 'event',
+      key: `${event.getId()}-${decryptionCounter.value}`,
+      event
+    } as TimelineEventItem)
+  }
+
+  return result
+})
 
 // Use Matrix client service directly for real Matrix integration
 
@@ -1562,13 +1637,6 @@ const handleSyncStateChange = async (state: string, prevState?: string) => {
         await scrollToBottom()
       }
     }
-
-    // If no messages loaded yet and room is available, retry loading them
-    if (currentRoom.value && timelineEvents.value.length === 0) {
-      logger.debug('🔄 Sync active and room available, loading messages')
-      await initializeTimeline()
-      await scrollToBottom()
-    }
   }
 }
 
@@ -2344,6 +2412,44 @@ onUnmounted(() => {
   .other-message-item {
     margin-right: 10%;
   }
+}
+
+/* Date Separator Styling */
+.date-separator {
+  display: flex;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.date-separator-line {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-separator-line::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--q-separator-color, rgba(0, 0, 0, 0.12));
+}
+
+.date-separator-text {
+  background: var(--q-page-bg, white);
+  position: relative;
+  z-index: 1;
+  font-weight: 500;
+  padding: 0 0.5rem;
+}
+
+/* Dark mode date separator */
+.q-dark .date-separator-text {
+  background: var(--q-dark-page);
 }
 
 /* Improved Message Styling */
