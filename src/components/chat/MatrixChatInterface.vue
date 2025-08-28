@@ -443,12 +443,10 @@ interface Props {
   contextId: string
   mode: 'desktop' | 'mobile' | 'inline'
   height?: string
-  isReadyEncrypted?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  height: '400px',
-  isReadyEncrypted: false
+  height: '400px'
 })
 
 defineEmits<{
@@ -581,31 +579,21 @@ const {
   windowLimit: 50 // Reduced from 1000 to improve initial load performance
 })
 
-// Watch timeline dependencies and manually trigger timeline initialization
+// Initialize timeline only once when dependencies are first available
+let timelineInitialized = false
 watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
-  logger.debug('🔄 Timeline dependencies changed:', {
-    hasClient: !!newClient,
-    hasTimelineSet: !!newTimelineSet,
-    currentRoom: !!currentRoom.value,
-    roomId: props.roomId
-  })
-
-  if (newClient && newTimelineSet) {
-    logger.debug('🔍 TimelineSet info:', {
-      roomId: newTimelineSet.room?.roomId,
-      hasRoom: !!newTimelineSet.room
-    })
-
-    // Manually trigger timeline initialization with current dependencies
-    logger.debug('🚀 Manually initializing timeline with new dependencies')
+  if (newClient && newTimelineSet && !timelineInitialized) {
+    logger.debug('🚀 Initializing timeline for the first time')
     try {
       await initializeTimeline(undefined, newClient, newTimelineSet)
+      timelineInitialized = true
       logger.debug('✅ Timeline initialization completed successfully')
     } catch (error) {
       logger.error('❌ Timeline initialization failed:', error)
     }
   }
 }, { immediate: true })
+
 
 // Debug room resolution
 watch(currentRoom, (newRoom) => {
@@ -1612,12 +1600,30 @@ const onKeysChanged = () => {
 
 // Watchers - only reload when roomId actually changes
 watch(() => props.roomId, async (newRoomId, oldRoomId) => {
+  logger.debug(`🔄 [${instanceId}] Props.roomId changed:`, {
+    oldRoomId,
+    newRoomId,
+    timestamp: new Date().toISOString(),
+    stackTrace: new Error().stack?.split('\n').slice(1, 4).map(line => line.trim())
+  })
+  
   if (newRoomId && newRoomId !== oldRoomId) {
-    logger.debug('🔄 Room ID changed from', oldRoomId, 'to', newRoomId)
+    logger.debug(`🔄 [${instanceId}] Triggering timeline reload due to roomId change`)
     await initializeTimeline()
     await scrollToBottom()
   }
 })
+
+// Watch all props for changes
+watch(() => [props.roomId, props.contextType, props.contextId, props.mode], ([newRoomId, newContextType, newContextId, newMode], [oldRoomId, oldContextType, oldContextId, oldMode]) => {
+  logger.debug(`🔄 [${instanceId}] Props changed:`, {
+    roomId: { old: oldRoomId, new: newRoomId },
+    contextType: { old: oldContextType, new: newContextType },
+    contextId: { old: oldContextId, new: newContextId },
+    mode: { old: oldMode, new: newMode },
+    timestamp: new Date().toISOString()
+  })
+}, { deep: true })
 
 // Add a retry mechanism for loading messages when sync state changes
 const handleSyncStateChange = async (state: string, prevState?: string) => {
@@ -1629,13 +1635,6 @@ const handleSyncStateChange = async (state: string, prevState?: string) => {
     if (!currentRoom.value) {
       logger.debug('🔄 Sync state active, retrying room resolution for:', props.roomId)
       await updateCurrentRoom()
-
-      // If room was resolved, load messages
-      if (currentRoom.value) {
-        logger.debug('✅ Room resolved after sync, loading messages')
-        await initializeTimeline()
-        await scrollToBottom()
-      }
     }
   }
 }
@@ -2068,8 +2067,15 @@ onMounted(async () => {
       roomId: props.roomId,
       contextType: props.contextType,
       contextId: props.contextId,
-      mode: props.mode
+      mode: props.mode,
+      timestamp: new Date().toISOString(),
+      currentPath: window.location.pathname,
+      currentHash: window.location.hash,
+      userAgent: navigator.userAgent.substring(0, 100)
     })
+    
+    // Add stack trace to see what caused the mount
+    logger.debug(`📍 [${instanceId}] Mount stack trace:`, new Error().stack?.split('\n').slice(1, 6).map(line => line.trim()))
 
     let messagesLoaded = false
 
@@ -2174,7 +2180,17 @@ onMounted(async () => {
 
 // Component cleanup
 onUnmounted(() => {
-  logger.debug(`🧹 [${instanceId}] MatrixChatInterface cleanup started`)
+  logger.debug(`🧹 [${instanceId}] MatrixChatInterface cleanup started`, {
+    roomId: props.roomId,
+    contextType: props.contextType,
+    timestamp: new Date().toISOString(),
+    currentPath: window.location.pathname,
+    currentHash: window.location.hash,
+    reason: 'Component unmounting'
+  })
+  
+  // Add stack trace to see what caused the unmount
+  logger.debug(`📍 [${instanceId}] Unmount stack trace:`, new Error().stack?.split('\n').slice(1, 6).map(line => line.trim()))
 
   // Reset listener flag so next instance can set up listeners
   listenersSetUp = false

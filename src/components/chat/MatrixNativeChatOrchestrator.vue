@@ -14,14 +14,15 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-else-if="isLoading" class="loading-state">
-      <q-spinner size="2rem" />
-      <p>Checking Matrix encryption status...</p>
-    </div>
 
-    <!-- Chat Interface (Ready for unencrypted or encrypted chat) -->
-    <template v-else-if="canChat">
+    <!-- Chat Interface (Always render when logged in, regardless of encryption loading) -->
+    <template v-else-if="!needsLogin">
+
+      <!-- Loading State (within chat interface to prevent recreation) -->
+      <div v-if="isLoading" class="loading-overlay q-pa-md q-mb-md text-center">
+        <q-spinner size="2rem" />
+        <p>Checking Matrix encryption status...</p>
+      </div>
 
       <!-- Simple Encryption Setup Banner (appears on top of chat when needed) -->
       <div v-if="needsEncryptionSetup || shouldShowEncryptionSetup" class="encryption-setup-banner">
@@ -270,7 +271,6 @@
         :context-type="contextType === 'all' ? 'direct' : contextType"
         :context-id="contextId"
         :mode="mode === 'single-room' ? 'inline' : mode"
-        :is-ready-encrypted="isReadyEncrypted"
         height="500px"
       />
     </template>
@@ -888,7 +888,8 @@ const handleInlineSetupEncryption = async () => {
       shouldShowEncryptionSetup: shouldShowEncryptionSetup.value,
       encryptionState: encryptionStatus.value?.state,
       isReadyEncrypted: isReadyEncrypted.value,
-      forceSetupAfterReset: forceSetupAfterReset.value
+      forceSetupAfterReset: forceSetupAfterReset.value,
+      chatInterfaceCondition: !needsLogin.value && !isLoading.value
     })
   } catch (error) {
     logger.error('Failed to restore encryption with recovery key:', error)
