@@ -14,7 +14,6 @@
       </div>
     </div>
 
-
     <!-- Chat Interface (Always render when logged in, regardless of encryption loading) -->
     <template v-else-if="!needsLogin">
 

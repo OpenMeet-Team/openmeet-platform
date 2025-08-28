@@ -594,7 +594,6 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
   }
 }, { immediate: true })
 
-
 // Debug room resolution
 watch(currentRoom, (newRoom) => {
   logger.debug('🏠 currentRoom changed:', {
@@ -1606,7 +1605,7 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
     timestamp: new Date().toISOString(),
     stackTrace: new Error().stack?.split('\n').slice(1, 4).map(line => line.trim())
   })
-  
+
   if (newRoomId && newRoomId !== oldRoomId) {
     logger.debug(`🔄 [${instanceId}] Triggering timeline reload due to roomId change`)
     await initializeTimeline()
@@ -2073,7 +2072,7 @@ onMounted(async () => {
       currentHash: window.location.hash,
       userAgent: navigator.userAgent.substring(0, 100)
     })
-    
+
     // Add stack trace to see what caused the mount
     logger.debug(`📍 [${instanceId}] Mount stack trace:`, new Error().stack?.split('\n').slice(1, 6).map(line => line.trim()))
 
@@ -2188,7 +2187,7 @@ onUnmounted(() => {
     currentHash: window.location.hash,
     reason: 'Component unmounting'
   })
-  
+
   // Add stack trace to see what caused the unmount
   logger.debug(`📍 [${instanceId}] Unmount stack trace:`, new Error().stack?.split('\n').slice(1, 6).map(line => line.trim()))
 
