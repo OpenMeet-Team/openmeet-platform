@@ -56,23 +56,34 @@ async function deriveKeyFromPassphrase (passphrase: string, keyInfo: SecretStora
  * Prompt user for secret storage passphrase using mobile-friendly Quasar dialog
  * Following Element Web's AccessSecretStorageDialog pattern
  */
-async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo): Promise<Uint8Array | null> {
+async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo, secretName?: string): Promise<Uint8Array | null> {
   return new Promise((resolve) => {
+    const reasonMessage = secretName?.includes('cross_signing')
+      ? 'This is needed to verify your devices and access encrypted messages.'
+      : secretName?.includes('megolm_backup')
+        ? 'This is needed to decrypt your message history from backups.'
+        : 'This is needed for encrypted messaging features.'
+
     Dialog.create({
-      title: 'Security Key Required',
-      message: 'Please enter your security passphrase to unlock encrypted messaging:',
+      title: 'Security Key Needed',
+      message: `<div style="margin-bottom: 16px;">
+        <p><strong>Why:</strong> ${reasonMessage}</p>
+        <p><strong>When:</strong> You can enter this now or dismiss and try again later when you need encrypted features.</p>
+        <p>Enter your security passphrase:</p>
+      </div>`,
+      html: true,
       prompt: {
         model: '',
         type: 'password',
         placeholder: 'Security passphrase'
       },
-      persistent: true,
+      persistent: false, // Allow dismissing by clicking outside
       ok: {
-        label: 'Unlock',
+        label: 'Unlock Now',
         color: 'primary'
       },
       cancel: {
-        label: 'Cancel',
+        label: 'Ask Me Later',
         color: 'grey'
       }
     }).onOk(async (passphrase: string) => {
@@ -101,7 +112,7 @@ async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo):
         resolve(null)
       }
     }).onCancel(() => {
-      logger.debug('🚫 User cancelled secret storage passphrase prompt')
+      logger.debug('🚫 User cancelled secret storage passphrase prompt for:', secretName || 'unknown secret')
       resolve(null)
     })
   })
@@ -743,7 +754,7 @@ export class MatrixClientManager {
             }
 
             // Prompt user for passphrase and derive key (only for encryption secrets)
-            const derivedKey = await promptForSecretStoragePassphrase(keyInfo)
+            const derivedKey = await promptForSecretStoragePassphrase(keyInfo, name)
 
             if (!derivedKey) {
               throw new Error('User cancelled secret storage key prompt')

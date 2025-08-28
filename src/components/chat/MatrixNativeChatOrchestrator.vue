@@ -241,8 +241,8 @@
         </div>
       </div>
 
-      <!-- Encrypted Chat Success Info (show for any encrypted state) -->
-      <div v-else-if="isReadyEncrypted" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
+      <!-- Encrypted Chat Success Info (show only when room is actually encrypted) -->
+      <div v-else-if="isReadyEncrypted && inlineRoomId && matrixClientService.isRoomEncrypted(inlineRoomId)" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
         <div class="text-h6 q-mb-sm" style="color: #155724;">
           <q-icon name="fas fa-shield-alt" class="q-mr-sm" />
           Encrypted Chat Mode

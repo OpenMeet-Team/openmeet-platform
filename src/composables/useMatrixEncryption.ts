@@ -230,8 +230,7 @@ export function useMatrixEncryption () {
       logger.debug('⚠️ Immediate device verification check failed:', error)
     }
 
-    // Initial check with room context
-    checkEncryptionState()
+    // Skip initial global check - let components call checkEncryptionState(roomId) with proper context
 
     // Start auto-refresh
     startAutoRefresh()
