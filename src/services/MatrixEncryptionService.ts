@@ -292,6 +292,12 @@ export class MatrixEncryptionService {
 
     logger.debug('✅ Secret storage created and cross-signing keys exported')
 
+    // Record that we just completed a cross-signing reset to avoid redundant resets
+    localStorage.setItem('lastCrossSigningReset', Date.now().toString())
+
+    // Clear any pending MAS auth flags since we just completed setup
+    sessionStorage.removeItem('masAuthInProgress')
+
     // Step 3: Check for existing backup and enable if none exists (Element Web pattern)
     logger.debug('🔐 Checking and enabling key backup...')
     const currentKeyBackup = await crypto.checkKeyBackupAndEnable()

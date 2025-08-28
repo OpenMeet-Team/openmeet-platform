@@ -51,12 +51,23 @@ export async function testAndFixDeviceVerification (): Promise<{
     logger.debug('🔧 Attempting device verification with createCrossSigning...')
 
     try {
-      // Use Element Web's approach with complete reset to fix device registration issues
-      logger.debug('🔄 Using complete cross-signing reset to fix device registration')
-      await createCrossSigning(client, true) // forceNew = true for complete reset
+      // Check if we recently completed a cross-signing reset (from recovery key creation)
+      const recentMASAuth = sessionStorage.getItem('masAuthInProgress') ||
+                           (Date.now() - parseInt(localStorage.getItem('lastCrossSigningReset') || '0')) < 60000 // 1 minute
 
-      // Wait for Matrix SDK internal state to update after complete reset
-      logger.debug('⏳ Waiting for Matrix SDK verification state to update after reset...')
+      if (recentMASAuth) {
+        logger.debug('🔄 Recent cross-signing reset detected, attempting simple bootstrap instead of full reset')
+        // Try bootstrap without forcing new keys - should work after recent MAS approval
+        await createCrossSigning(client, false) // forceNew = false
+      } else {
+        logger.debug('🔄 No recent cross-signing reset, using complete reset to fix device registration')
+        // Record that we're doing a cross-signing reset
+        localStorage.setItem('lastCrossSigningReset', Date.now().toString())
+        await createCrossSigning(client, true) // forceNew = true for complete reset
+      }
+
+      // Wait for Matrix SDK internal state to update
+      logger.debug('⏳ Waiting for Matrix SDK verification state to update...')
       await new Promise(resolve => setTimeout(resolve, 3000))
 
       // Verify the device is now verified

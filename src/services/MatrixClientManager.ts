@@ -1045,6 +1045,15 @@ export class MatrixClientManager {
       this.checkCrossSigningKeyStatus()
     })
 
+    // Listen for device verification status changes to detect device ID mismatches
+    this.client.on(CryptoEvent.DevicesUpdated, (users: string[]) => {
+      const currentUserId = this.client?.getUserId()
+      if (currentUserId && users.includes(currentUserId)) {
+        logger.debug('🔍 Own device status updated, checking for device ID mismatch')
+        this.checkDeviceIdMismatch()
+      }
+    })
+
     this.eventListenersSetup = true
     logger.debug('✅ Matrix client event listeners configured')
   }
@@ -1633,6 +1642,84 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('❌ Error during MatrixClientManager shutdown:', error)
       throw error
+    }
+  }
+
+  /**
+   * Check for device ID mismatches that can cause "own device might have been deleted" errors
+   */
+  private async checkDeviceIdMismatch (): Promise<void> {
+    try {
+      if (!this.client) return
+
+      const crypto = this.client.getCrypto()
+      if (!crypto) return
+
+      const userId = this.client.getUserId()
+      const currentDeviceId = this.client.getDeviceId()
+
+      if (!userId || !currentDeviceId) return
+
+      // Get device info from server to check for mismatch
+      const userDeviceInfo = await crypto.getUserDeviceInfo([userId], true) // downloadUncached = true
+      const serverDevices = userDeviceInfo.get(userId)
+
+      if (!serverDevices) {
+        logger.warn('⚠️ No device info returned from server for current user')
+        return
+      }
+
+      // Check if our current device ID exists on server
+      const currentDeviceExists = serverDevices.has(currentDeviceId)
+
+      if (!currentDeviceExists) {
+        logger.error('❌ Device ID mismatch detected! Current device ID not found on server', {
+          currentDeviceId,
+          serverDeviceIds: Array.from(serverDevices.keys()),
+          userId
+        })
+
+        // This indicates a device ID desync - crypto store has old device ID
+        // Clear crypto store and force re-initialization
+        await this.handleDeviceIdMismatch(userId, currentDeviceId)
+      } else {
+        logger.debug('✅ Device ID verified - current device exists on server')
+      }
+    } catch (error) {
+      logger.warn('⚠️ Failed to check device ID mismatch:', error)
+    }
+  }
+
+  /**
+   * Handle device ID mismatch by clearing crypto store and forcing re-initialization
+   */
+  private async handleDeviceIdMismatch (userId: string, oldDeviceId: string): Promise<void> {
+    try {
+      logger.warn('🔄 Handling device ID mismatch - clearing crypto store and restarting client')
+
+      // Stop the current client
+      if (this.client) {
+        this.client.stopClient()
+      }
+
+      // Clear the crypto store that contains the old device ID
+      await this.clearCryptoStore(userId, oldDeviceId)
+
+      // The correct device ID should already be in localStorage or server credentials
+      // Don't arbitrarily pick a device ID - let the normal device ID resolution handle it
+
+      logger.warn('🔄 Device ID mismatch handled - user should refresh page to use correct device ID')
+
+      // Notify user that refresh is needed to complete recovery
+      const event = new CustomEvent('matrix-device-mismatch-recovered', {
+        detail: {
+          oldDeviceId,
+          message: 'Device ID mismatch recovered. Please refresh the page to continue.'
+        }
+      })
+      window.dispatchEvent(event)
+    } catch (error) {
+      logger.error('❌ Failed to handle device ID mismatch:', error)
     }
   }
 

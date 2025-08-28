@@ -170,7 +170,7 @@ async function handleMASCrossSigningReset (
   return new Promise((resolve) => {
     Dialog.create({
       title: 'Matrix Account Verification Required',
-      message: 'To set up encryption, you need to verify your account with Matrix Account Service. This will open your account management page.',
+      message: 'To set up encryption, you need to verify your account with Matrix Account Service. After completing the verification, please return to this page to continue.',
       persistent: true,
       ok: {
         label: 'Continue',
@@ -181,19 +181,14 @@ async function handleMASCrossSigningReset (
         color: 'grey'
       }
     }).onOk(() => {
-      // Add return URL to ensure proper redirect back
-      const returnUrl = window.location.href
-      const masUrlWithReturn = resetParams.url +
-        (resetParams.url.includes('?') ? '&' : '?') +
-        `return_url=${encodeURIComponent(returnUrl)}`
-
-      logger.debug('🔗 Redirecting to MAS for cross-signing approval:', masUrlWithReturn)
+      logger.debug('🔗 Redirecting to MAS for cross-signing approval:', resetParams.url)
 
       // Store minimal state for return detection
       sessionStorage.setItem('masAuthInProgress', 'device_signing')
+      sessionStorage.setItem('masAuthOriginalUrl', window.location.href)
 
-      // Redirect to MAS - this is the Element Web pattern for MAS flows
-      window.location.href = masUrlWithReturn
+      // Redirect to MAS - user will need to manually return
+      window.location.href = resetParams.url
 
       // This won't be reached due to redirect, but satisfy TypeScript
       resolve({ confirmed: true })

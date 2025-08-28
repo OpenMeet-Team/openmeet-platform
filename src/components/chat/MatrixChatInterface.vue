@@ -830,14 +830,14 @@ const sendMessage = async () => {
         msgtype: 'm.text'
       })
     } else {
-      console.error('❌ No Matrix room ID available for sending message')
+      logger.error('❌ No Matrix room ID available for sending message')
       throw new Error('No Matrix room ID available')
     }
 
     // Stop typing indicator when message is sent
     await stopTyping()
   } catch (error) {
-    console.error('❌ Failed to send message:', error)
+    logger.error('❌ Failed to send message:', error)
     // Show error to user but don't manipulate messages array
     quasar.notify({
       type: 'negative',
@@ -933,7 +933,7 @@ const handleTyping = async () => {
       await stopTyping()
     }, 3000)
   } catch (error) {
-    console.warn('⚠️ Failed to send typing indicator:', error)
+    logger.warn('⚠️ Failed to send typing indicator:', error)
   }
 }
 
@@ -952,7 +952,7 @@ const stopTyping = async () => {
       typingTimer.value = null
     }
   } catch (error) {
-    console.warn('⚠️ Failed to stop typing indicator:', error)
+    logger.warn('⚠️ Failed to stop typing indicator:', error)
   }
 }
 
@@ -966,6 +966,32 @@ const handleRecoveryKeyGenerated = (event: CustomEvent) => {
   recoveryKeySaved.value = false
 
   logger.debug('🔑 Recovery key dialog shown', { context, keyLength: key?.length })
+}
+
+const handleDeviceMismatchRecovered = (event: CustomEvent) => {
+  const { oldDeviceId } = event.detail
+
+  logger.warn('🔄 Device ID mismatch recovery detected', { oldDeviceId })
+
+  // Show user-friendly notification about device recovery
+  quasar.notify({
+    type: 'warning',
+    message: 'Device ID mismatch recovered',
+    caption: 'Please refresh the page to use the corrected device settings and restore full functionality.',
+    timeout: 10000,
+    actions: [
+      {
+        label: 'Refresh Now',
+        handler: () => window.location.reload(),
+        color: 'white'
+      },
+      {
+        label: 'Dismiss',
+        handler: () => {},
+        color: 'white'
+      }
+    ]
+  })
 }
 
 const closeRecoveryKeyDialog = () => {
@@ -985,7 +1011,7 @@ const copyRecoveryKey = async () => {
       position: 'top'
     })
   } catch (err) {
-    console.error('Failed to copy recovery key:', err)
+    logger.error('Failed to copy recovery key:', err)
     // Fallback for older browsers
     const textArea = document.createElement('textarea')
     textArea.value = recoveryKey.value
@@ -1060,7 +1086,7 @@ const sendReadReceipts = async () => {
       lastReadReceiptSent.value = lastOtherMessage.id
     }
   } catch (error) {
-    console.warn('⚠️ Failed to send read receipt:', error)
+    logger.warn('⚠️ Failed to send read receipt:', error)
   }
 }
 
@@ -1166,7 +1192,7 @@ const updateReadReceipts = async () => {
       }
     }
   } catch (error) {
-    console.warn('⚠️ Failed to update read receipts:', error)
+    logger.warn('⚠️ Failed to update read receipts:', error)
   }
 }
 
@@ -1181,7 +1207,7 @@ const reconnect = async () => {
       await matrixClientManager.refreshMatrixToken()
       // Matrix token refreshed successfully
     } catch (tokenError) {
-      console.warn('⚠️ Token refresh failed, continuing with existing token:', tokenError)
+      logger.warn('⚠️ Token refresh failed, continuing with existing token:', tokenError)
     }
 
     // Check if Matrix client is already available and just needs to reconnect
@@ -1231,9 +1257,9 @@ const reconnect = async () => {
           await initializeTimeline()
         }
       } catch (error) {
-        console.error('❌ EXCEPTION: Failed to join event chat room')
-        console.error('❌ Error details:', error)
-        console.error('❌ Error message:', error.message)
+        logger.error('❌ EXCEPTION: Failed to join event chat room')
+        logger.error('❌ Error details:', error)
+        logger.error('❌ Error message:', error.message)
 
         // Check if this is a Matrix authentication requirement error
         const errorMessage = error.message || ''
@@ -1243,7 +1269,7 @@ const reconnect = async () => {
           // Don't throw - this is a normal flow that requires authentication
         } else {
           // Other errors - log but don't break the connection
-          console.warn('⚠️ Non-authentication error joining event chat room')
+          logger.warn('⚠️ Non-authentication error joining event chat room')
         }
       }
     }
@@ -1267,7 +1293,7 @@ const reconnect = async () => {
           await initializeTimeline()
         }
       } catch (error) {
-        console.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
+        logger.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
         // Don't throw - connection to Matrix itself succeeded
       }
     }
@@ -1281,7 +1307,7 @@ const reconnect = async () => {
       await scrollToBottom()
     }
   } catch (error: unknown) {
-    console.error('❌ Failed to connect Matrix client:', error)
+    logger.error('❌ Failed to connect Matrix client:', error)
 
     // Check for rate limiting error - handle both object and nested error formats
     const errorObj = (error as Record<string, unknown>)
@@ -1291,7 +1317,7 @@ const reconnect = async () => {
     if ((nestedError as Record<string, unknown>).errcode === 'M_LIMIT_EXCEEDED' || (errorMessage && errorMessage.includes('Too Many Requests'))) {
       // FIRST: Check if rate limit was already set by Matrix client service (most reliable)
       const existingRetryTime = window.matrixRetryAfter
-      console.warn('🔍 Rate limit detected - checking existing timer:', {
+      logger.warn('🔍 Rate limit detected - checking existing timer:', {
         existingRetryTime,
         currentTime: Date.now(),
         hasValidExisting: !!(existingRetryTime && existingRetryTime > Date.now())
@@ -1301,7 +1327,7 @@ const reconnect = async () => {
         // Use the existing rate limit set by Matrix client service
         const remainingMs = existingRetryTime - Date.now()
         const remainingSeconds = Math.ceil(remainingMs / 1000)
-        console.warn(`⚠️ Using Matrix client service rate limit - retry in ${remainingSeconds} seconds (${remainingMs}ms remaining)`)
+        logger.warn(`⚠️ Using Matrix client service rate limit - retry in ${remainingSeconds} seconds (${remainingMs}ms remaining)`)
         rateLimitCountdown.value = remainingMs
         startCountdownTimer()
       } else {
@@ -1321,25 +1347,25 @@ const reconnect = async () => {
 
         if (retryAfterMs && retryAfterMs > 0) {
           const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
-          console.warn(`⚠️ Rate limited - extracted from error, retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
+          logger.warn(`⚠️ Rate limited - extracted from error, retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
           window.matrixRetryAfter = Date.now() + retryAfterMs
           rateLimitCountdown.value = retryAfterMs
           startCountdownTimer()
         } else {
-          console.warn('⚠️ Rate limited - no retry time found anywhere, using 5 minute default')
+          logger.warn('⚠️ Rate limited - no retry time found anywhere, using 5 minute default')
           window.matrixRetryAfter = Date.now() + 300000 // Default to 5 minutes
           rateLimitCountdown.value = 300000
           startCountdownTimer()
         }
       }
     } else if (errorMessage && errorMessage.includes('OIDC authentication is not configured')) {
-      console.warn('⚠️ Matrix OIDC is not configured on the server')
+      logger.warn('⚠️ Matrix OIDC is not configured on the server')
       lastAuthError.value = errorMessage
     } else if (errorMessage && errorMessage.includes('login token')) {
-      console.warn('⚠️ Authentication failed - please refresh the page to re-authenticate')
+      logger.warn('⚠️ Authentication failed - please refresh the page to re-authenticate')
       lastAuthError.value = errorMessage
     } else if (errorMessage && errorMessage.includes('credentials expired')) {
-      console.warn('⚠️ Session expired - please refresh the page to re-authenticate')
+      logger.warn('⚠️ Session expired - please refresh the page to re-authenticate')
       lastAuthError.value = errorMessage
     }
   } finally {
@@ -1367,11 +1393,22 @@ const clearMatrixSessions = async () => {
     // Reset component state
     isConnecting.value = false
 
-    // Matrix sessions cleared
-    alert('Matrix sessions cleared successfully! Please refresh the page to sign in again.')
+    // Matrix sessions cleared - show user-friendly notification
+    quasar.notify({
+      type: 'positive',
+      message: 'Matrix sessions cleared successfully! Please refresh the page to sign in again.',
+      timeout: 5000,
+      actions: [{ label: 'Refresh', handler: () => window.location.reload() }]
+    })
   } catch (error) {
-    console.error('❌ Failed to clear Matrix sessions:', error)
-    alert('Failed to clear Matrix sessions. Please try again or contact support.')
+    logger.error('❌ Failed to clear Matrix sessions:', error)
+    quasar.notify({
+      type: 'negative',
+      message: 'Failed to clear Matrix sessions',
+      caption: 'Please try again or contact support if the problem persists',
+      timeout: 8000,
+      actions: [{ label: 'Retry', handler: () => clearMatrixSessions() }]
+    })
   }
 }
 
@@ -1437,7 +1474,7 @@ const checkEncryptionStatus = async () => {
       ok: 'Close'
     })
   } catch (error) {
-    console.error('Failed to check Matrix status:', error)
+    logger.error('Failed to check Matrix status:', error)
     quasar.notify({
       type: 'negative',
       message: `Status check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1558,7 +1595,7 @@ let listenersSetUp = false
 const setupMatrixEventListeners = () => {
   const client = matrixClientService.getClient()
   if (!client) {
-    console.warn('⚠️ Matrix client not available for event listeners')
+    logger.warn('⚠️ Matrix client not available for event listeners')
     return
   }
 
@@ -1785,7 +1822,7 @@ watch(selectedFile, async (newFile) => {
     logger.debug('🔍 Matrix client check result:', { hasClient: !!client })
 
     if (!client) {
-      console.error('❌ Matrix client not available')
+      logger.error('❌ Matrix client not available')
       throw new Error('Matrix client not available - please connect to Matrix first')
     }
 
@@ -1810,8 +1847,8 @@ watch(selectedFile, async (newFile) => {
     // Clear the selected file
     selectedFile.value = null
   } catch (error) {
-    console.error('❌ Failed to upload file:', error)
-    console.error('❌ Error details:', {
+    logger.error('❌ Failed to upload file:', error)
+    logger.error('❌ Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       error
@@ -1867,7 +1904,7 @@ const handleInvalidTokenRecovery = () => {
     isConnecting.value = false
   } catch (error) {
     // Ignore Vue readonly property errors during cleanup
-    console.warn('⚠️ Error during token recovery cleanup (expected during component teardown):', error.message)
+    logger.warn('⚠️ Error during token recovery cleanup (expected during component teardown):', error.message)
   }
 }
 
@@ -1884,7 +1921,7 @@ const handleTokenError = (event) => {
     isConnecting.value = false
     logger.debug('✅ Token error handled - Connect button should now be visible')
   } catch (error) {
-    console.warn('⚠️ Error during token error handling:', error.message)
+    logger.warn('⚠️ Error during token error handling:', error.message)
   }
 }
 
@@ -1895,7 +1932,7 @@ const handleTokenRefreshFailure = (event) => {
     lastAuthError.value = 'Session expired and could not be renewed. Please click "Connect" to re-authenticate.'
     isConnecting.value = false
   } catch (error) {
-    console.warn('⚠️ Error during token refresh failure handling:', error.message)
+    logger.warn('⚠️ Error during token refresh failure handling:', error.message)
   }
 }
 
@@ -1954,6 +1991,9 @@ onMounted(async () => {
   window.addEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
   // Listen for recovery key generation events from encryption reset
   window.addEventListener('matrix-recovery-key-generated', handleRecoveryKeyGenerated)
+
+  // Listen for device ID mismatch recovery events
+  window.addEventListener('matrix-device-mismatch-recovered', handleDeviceMismatchRecovered)
 
   try {
     logger.debug(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
@@ -2019,7 +2059,7 @@ onMounted(async () => {
             await initializeTimeline()
           }
         } catch (error) {
-          console.warn('Failed to join event chat room:', error)
+          logger.warn('Failed to join event chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
         }
       } else if (props.contextType === 'group' && props.contextId) {
@@ -2039,7 +2079,7 @@ onMounted(async () => {
             await initializeTimeline()
           }
         } catch (error) {
-          console.warn('Failed to join group chat room:', error)
+          logger.warn('Failed to join group chat room:', error)
           // Don't throw - connection to Matrix itself succeeded
         }
       }
@@ -2057,7 +2097,7 @@ onMounted(async () => {
       }
     }
   } catch (error) {
-    console.error('❌ Failed to initialize Matrix chat:', error)
+    logger.error('❌ Failed to initialize Matrix chat:', error)
     lastAuthError.value = error.message || 'Connection failed'
   } finally {
     isConnecting.value = false
@@ -2082,6 +2122,9 @@ onUnmounted(() => {
   window.removeEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
   // Cleanup recovery key event listener
   window.removeEventListener('matrix-recovery-key-generated', handleRecoveryKeyGenerated)
+
+  // Cleanup device mismatch recovery event listener
+  window.removeEventListener('matrix-device-mismatch-recovered', handleDeviceMismatchRecovered)
 
   // Cleanup custom event listeners
   customEventListeners.forEach(cleanup => cleanup())
