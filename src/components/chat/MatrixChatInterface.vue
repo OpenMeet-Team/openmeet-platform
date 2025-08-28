@@ -1573,8 +1573,8 @@ const setupMatrixEventListeners = () => {
   // Initialize encryption in background for group chats (matches UnifiedChatComponent pattern)
   logger.debug('🔐 Starting background encryption initialization for single-room interface')
   matrixEncryptionService.initializeEncryptionBackground()
-    .then(ready => {
-      logger.debug(ready ? '✅ Background encryption ready for group chat' : '⚠️ Background encryption not ready')
+    .then(() => {
+      logger.debug('✅ Background encryption initialization completed for group chat')
     })
     .catch(error => {
       logger.warn('⚠️ Background encryption initialization error:', error)

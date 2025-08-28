@@ -1,5 +1,6 @@
 import { OidcTokenRefresher, type AccessTokens } from 'matrix-js-sdk'
 import { type IdTokenClaims } from 'oidc-client-ts'
+import { logger } from '../../utils/logger'
 
 /**
  * OpenMeet Matrix OidcTokenRefresher that implements token persistence
@@ -38,7 +39,7 @@ export class TokenRefresher extends OidcTokenRefresher {
    * This method is inherited from OidcTokenRefresher but we add logging to track its usage
    */
   public async doRefreshAccessToken (refreshToken: string): Promise<AccessTokens> {
-    console.log('🔄 TokenRefresher.doRefreshAccessToken() called - starting token refresh', {
+    logger.debug('🔄 TokenRefresher.doRefreshAccessToken() called - starting token refresh', {
       hasRefreshToken: !!refreshToken,
       refreshTokenLength: refreshToken?.length || 0
     })
@@ -47,7 +48,7 @@ export class TokenRefresher extends OidcTokenRefresher {
       // Call the parent class method which handles the actual OIDC token refresh
       const tokens = await super.doRefreshAccessToken(refreshToken)
 
-      console.log('✅ TokenRefresher.doRefreshAccessToken() successful:', {
+      logger.debug('✅ TokenRefresher.doRefreshAccessToken() successful:', {
         hasAccessToken: !!tokens.accessToken,
         hasRefreshToken: !!tokens.refreshToken,
         accessTokenLength: tokens.accessToken?.length || 0
@@ -55,7 +56,7 @@ export class TokenRefresher extends OidcTokenRefresher {
 
       return tokens
     } catch (error) {
-      console.error('❌ TokenRefresher.doRefreshAccessToken() failed:', error)
+      logger.error('❌ TokenRefresher.doRefreshAccessToken() failed:', error)
       throw error
     }
   }
@@ -65,7 +66,7 @@ export class TokenRefresher extends OidcTokenRefresher {
    */
   public async persistTokens ({ accessToken, refreshToken }: AccessTokens): Promise<void> {
     try {
-      console.log('🔑 Persisting refreshed OIDC tokens to storage')
+      logger.debug('🔑 Persisting refreshed OIDC tokens to storage')
 
       // Store tokens in localStorage with user/device specific keys
       const accessTokenKey = `matrix_access_token_${this.userId}_${this.deviceId}`
@@ -87,15 +88,15 @@ export class TokenRefresher extends OidcTokenRefresher {
           }
           credentials.lastRefresh = Date.now()
           localStorage.setItem('matrix_credentials', JSON.stringify(credentials))
-          console.log('✅ Updated stored Matrix credentials with refreshed tokens')
+          logger.debug('✅ Updated stored Matrix credentials with refreshed tokens')
         } catch (error) {
-          console.warn('⚠️ Failed to update stored credentials:', error)
+          logger.warn('⚠️ Failed to update stored credentials:', error)
         }
       }
 
-      console.log('✅ OIDC tokens persisted successfully')
+      logger.debug('✅ OIDC tokens persisted successfully')
     } catch (error) {
-      console.error('❌ Failed to persist OIDC tokens:', error)
+      logger.error('❌ Failed to persist OIDC tokens:', error)
       throw error
     }
   }

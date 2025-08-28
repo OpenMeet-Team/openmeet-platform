@@ -2,17 +2,19 @@
  * Matrix Encryption Service
  *
  * Unified encryption service following Element Web's proven patterns.
- * Handles secret storage AND cross-signing atomically to prevent key conflicts.
+ * Now uses Element Web's simple bootstrap approach instead of complex MAS handling.
  *
- * Replaces:
- * - MatrixCrossSigningAuthService.ts
- * - MatrixSecretStorageService.ts
- * - matrixEncryptionBootstrapService.ts
+ * Key Changes:
+ * - Replaced SimpleDeviceVerification with Element Web's createCrossSigning pattern
+ * - Uses Element Web's accessSecretStorage pattern for key management
+ * - Simplified MAS integration through standard UIA callbacks
  */
 
-import type { MatrixClient, AuthDict } from 'matrix-js-sdk'
-import { encodeRecoveryKey, decodeRecoveryKey, deriveRecoveryKeyFromPassphrase } from 'matrix-js-sdk/lib/crypto-api'
+import type { MatrixClient } from 'matrix-js-sdk'
+import { encodeRecoveryKey, decodeRecoveryKey, CryptoEvent, type GeneratedSecretStorageKey } from 'matrix-js-sdk/lib/crypto-api'
+import { ClientEvent } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
+import { checkMASAuthReturn } from './createCrossSigning'
 import {
   setSecretStorageBeingAccessed,
   cacheSecretStorageKeyForBootstrap,
@@ -45,9 +47,6 @@ export class MatrixEncryptionService {
 
   constructor (matrixClient: MatrixClient) {
     this.matrixClient = matrixClient
-
-    // Check for pending MAS redirect flows on initialization
-    this.checkPendingMASRedirect()
   }
 
   /**
@@ -144,37 +143,62 @@ export class MatrixEncryptionService {
   }
 
   /**
-   * Setup encryption with passphrase - Element Web's accessSecretStorage pattern
+   * Setup encryption - Element Web's simple bootstrap pattern
+   *
+   * This method now follows Element Web's proven approach:
+   * 1. Create cross-signing keys first (via createCrossSigning)
+   * 2. Bootstrap secret storage with recovery key
+   * 3. Setup key backup automatically
+   *
+   * @param recoveryKey Optional recovery key for unlocking existing storage
    */
-  async setupEncryption (passphrase?: string): Promise<EncryptionResult> {
+  async setupEncryption (recoveryKey?: string): Promise<EncryptionResult> {
     return this.withSecretStorageKeyCache(async () => {
       try {
-        logger.debug('🔧 Starting encryption setup')
+        logger.debug('🔧 Starting encryption setup (Element Web pattern)')
+
+        // Check for MAS auth return first
+        const masReturn = checkMASAuthReturn()
+        if (masReturn.isReturn) {
+          logger.debug('🔄 Detected return from MAS auth:', masReturn.flowType)
+          // Continue with setup after MAS approval
+        }
+
         const crypto = this.matrixClient.getCrypto()
         if (!crypto) {
           return { success: false, error: 'Crypto not available' }
         }
 
-        // Check what we need to do
-        const status = await this.getStatus()
-
-        if (status.isReady) {
-          logger.debug('✅ Encryption already ready')
-          return { success: true }
+        // Check if we need to unlock existing storage
+        const hasExistingKey = await this.matrixClient.secretStorage.hasKey()
+        if (hasExistingKey && recoveryKey) {
+          logger.debug('🔓 Unlocking existing secret storage with recovery key')
+          return await this.unlockExistingStorage(recoveryKey)
         }
 
-        // Check if secret storage exists but we need to unlock it
-        const hasKey = await this.matrixClient.secretStorage.hasKey()
-        if (hasKey && !status.hasSecretStorage && passphrase) {
-          logger.debug('🔓 Secret storage exists, attempting unlock')
-          return this.unlockExistingStorage(passphrase)
+        // Check if we need to reset existing keys first
+        if (hasExistingKey && !recoveryKey) {
+          logger.debug('🔄 User wants new keys but existing secret storage found - doing complete reset')
+          // Use Matrix SDK's proper reset method to clear all encryption state
+          await crypto.resetEncryption(async () => {
+            logger.debug('🔄 Complete encryption reset callback executed')
+          })
+          logger.debug('✅ Complete encryption reset completed')
         }
 
-        // Bootstrap fresh setup - Element Web style with auto-generated recovery key
-        logger.debug('🔧 Bootstrapping fresh encryption setup')
-        return this.bootstrapFreshSetup()
+        // Fresh setup - Element Web's approach
+        logger.debug('🆕 Setting up fresh encryption')
+        logger.debug(`🔍 hasExistingKey: ${hasExistingKey}, recoveryKey provided: ${!!recoveryKey}`)
+        return await this.setupFreshEncryption()
       } catch (error) {
         logger.error('❌ Encryption setup failed:', error)
+
+        // Check for MAS reset completion error
+        if (error instanceof Error && error.message === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
+          logger.debug('🔄 MAS cross-signing reset completed - signaling need for new key generation')
+          throw error // Re-throw to be caught by calling code
+        }
+
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -184,89 +208,159 @@ export class MatrixEncryptionService {
   }
 
   /**
-   * Bootstrap fresh encryption setup - Element Web's approach
+   * Wait for next Matrix sync to ensure server has processed changes
    */
-  private async bootstrapFreshSetup (): Promise<EncryptionResult> {
+  private async waitForMatrixSync (): Promise<void> {
+    return new Promise(resolve => {
+      const onSync = () => {
+        this.matrixClient.off(ClientEvent.Sync, onSync)
+        logger.debug('✅ Matrix sync completed - server should be ready')
+        resolve()
+      }
+
+      logger.debug('⏳ Waiting for Matrix sync to complete...')
+      this.matrixClient.on(ClientEvent.Sync, onSync)
+
+      // Fallback timeout in case sync doesn't happen
+      setTimeout(() => {
+        this.matrixClient.off(ClientEvent.Sync, onSync)
+        logger.debug('⏰ Sync timeout - proceeding anyway')
+        resolve()
+      }, 5000)
+    })
+  }
+
+  /**
+   * Setup fresh encryption - Element Web's simple pattern
+   *
+   * This follows Element Web's InitialCryptoSetupStore approach:
+   * 1. Bootstrap both cross-signing AND secret storage together to avoid prompts
+   * 2. Let SDK handle key backup automatically
+   * 3. Then manually verify the current device
+   */
+  private async setupFreshEncryption (): Promise<EncryptionResult> {
     const crypto = this.matrixClient.getCrypto()!
 
-    // Generate recovery key automatically (Element Web approach - no passphrase needed)
-    logger.debug('🔑 Creating fresh recovery key')
-    const recoveryKeyInfo = await crypto.createRecoveryKeyFromPassphrase()
+    logger.debug('🔐 Setting up fresh encryption (Element Web InitialCryptoSetupStore pattern)')
+
+    // Step 0: Ensure device keys are uploaded to the server FIRST
+    // This is critical - cross-signing operations will fail if the device is unknown to the server
+    const userId = this.matrixClient.getUserId()
+    const deviceId = this.matrixClient.getDeviceId()
+    logger.debug(`🔐 Verifying device registration for ${userId}/${deviceId}`)
+
+    try {
+      // Wait for initial Matrix sync to complete - Element Web pattern
+      // Device keys are uploaded during initial sync, not before
+      logger.debug('🔐 Waiting for initial Matrix sync to complete (Element Web pattern)')
+      while (!this.matrixClient.isInitialSyncComplete()) {
+        logger.debug('⏳ Initial sync not yet complete, waiting...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+
+      logger.debug('✅ Initial Matrix sync completed - device keys should be uploaded')
+    } catch (error) {
+      logger.warn('⚠️ Device registration verification failed:', error)
+    }
+
+    // Step 1: Use Matrix SDK's combined bootstrap approach
+    // Bootstrap secret storage AND cross-signing together to avoid export issues
+    logger.debug('🔑 Bootstrapping secret storage and cross-signing together')
+    let recoveryKeyInfo: unknown
+
+    // Bootstrap everything together - this is the cleanest approach
+    await crypto.bootstrapCrossSigning({
+      authUploadDeviceSigningKeys: async (makeRequest) => {
+        // Import the uiAuthCallback function
+        const { uiAuthCallback } = await import('./createCrossSigning')
+        return uiAuthCallback(this.matrixClient, makeRequest)
+      },
+      setupNewCrossSigning: true // Force new keys since we just did a reset
+    })
+
+    logger.debug('✅ Cross-signing keys created successfully')
+
+    // Now bootstrap secret storage - cross-signing keys will be exported automatically
+    await crypto.bootstrapSecretStorage({
+      createSecretStorageKey: async () => {
+        logger.debug('🔑 Generating secret storage key')
+        const keyInfo = await crypto.createRecoveryKeyFromPassphrase()
+        recoveryKeyInfo = keyInfo
+        return keyInfo as GeneratedSecretStorageKey // Type assertion to match Matrix SDK expected return type
+      }
+    })
+
+    logger.debug('✅ Secret storage created and cross-signing keys exported')
+
+    // Step 3: Check for existing backup and enable if none exists (Element Web pattern)
+    logger.debug('🔐 Checking and enabling key backup...')
+    const currentKeyBackup = await crypto.checkKeyBackupAndEnable()
+    if (currentKeyBackup === null) {
+      await crypto.resetKeyBackup()
+      logger.debug('✅ Key backup reset and enabled')
+    } else {
+      logger.debug('✅ Key backup already enabled')
+    }
+
+    // Step 4: Use the recovery key generated during bootstrap
+    logger.debug('🔑 Using recovery key generated during secret storage bootstrap')
 
     if (!recoveryKeyInfo) {
       throw new Error('Failed to create recovery key')
     }
 
-    logger.debug('🔑 Recovery key created successfully')
-
-    // Cache the recovery key in global cache for the bootstrap process (Element Web pattern)
-    // Use temporary key ID for fresh setup - actual key ID will be assigned during bootstrap
-    const tempKeyId = 'temp_bootstrap_key'
-    const cachedKeyData = this.extractRecoveryKey(recoveryKeyInfo)
-    cacheSecretStorageKeyForBootstrap(tempKeyId, { algorithm: 'm.secret_storage.v1.aes-hmac-sha2' }, cachedKeyData)
-
-    // Element Web's sequential approach with secret storage key cache
-    logger.debug('🔧 Using Element Web bootstrap pattern with secret storage cache')
-
-    // Cache the recovery key for the bootstrap process
-    const cachedRecoveryKey = recoveryKeyInfo
-
-    // Use Element Web's withSecretStorageKeyCache pattern
-    const { withSecretStorageKeyCache } = await import('./MatrixClientManager')
-
-    await withSecretStorageKeyCache(async () => {
-      logger.debug('🔑 Starting Element Web bootstrap sequence...')
-
-      // Step 1: Bootstrap cross-signing first (Element Web pattern)
-      logger.debug('🔧 Step 1: Bootstrapping cross-signing...')
-      await crypto.bootstrapCrossSigning({
-        authUploadDeviceSigningKeys: this.createAuthCallback(),
-        setupNewCrossSigning: true
-      })
-      logger.debug('✅ Cross-signing bootstrap completed')
-
-      // Step 2: Bootstrap secret storage second (Element Web pattern)
-      logger.debug('🔧 Step 2: Bootstrapping secret storage...')
-      await crypto.bootstrapSecretStorage({
-        createSecretStorageKey: async () => {
-          logger.debug('🔑 createSecretStorageKey callback - returning recovery key object')
-          return cachedRecoveryKey
-        },
-        setupNewSecretStorage: true,
-        setupNewKeyBackup: true
-      })
-      logger.debug('✅ Secret storage bootstrap completed')
-
-      // Step 3: Device verification within secret storage cache
-      try {
-        logger.debug('🔐 Step 3: Device self-verification with secret storage access...')
-        const { testAndFixDeviceVerification } = await import('../utils/deviceVerificationHelper')
-        const verificationResult = await testAndFixDeviceVerification()
-
-        if (verificationResult.success && verificationResult.isVerified) {
-          logger.debug('✅ Device self-verification completed successfully')
-        } else if (verificationResult.error === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
-          logger.debug('🔄 MAS cross-signing reset completed - triggering new key generation flow')
-          
-          // Clear any cached secret storage to force new key generation
-          this.clearGlobalSecretStorageCache()
-          
-          // Throw special error to break out and trigger new key generation
-          throw new Error('MAS_RESET_COMPLETE_NEW_KEY_NEEDED')
-        } else {
-          logger.warn('⚠️ Device self-verification incomplete:', verificationResult.error)
-        }
-      } catch (verificationError) {
-        logger.warn('⚠️ Device self-verification failed (non-fatal):', verificationError)
-      }
-    })
-
-    logger.debug('✅ Element Web encryption pattern completed successfully')
-
-    // Extract and encode the recovery key for display to user
+    // Extract and encode the recovery key for display
     const recoveryKeyData = this.extractRecoveryKey(recoveryKeyInfo)
     const encodedRecoveryKey = encodeRecoveryKey(recoveryKeyData)
-    logger.debug('✅ Encryption setup completed')
+
+    // Step 5: Check device verification status after fresh setup
+    logger.debug('🔐 Checking device verification status after fresh setup')
+
+    if (userId && deviceId) {
+      try {
+        // Fix device key mismatch by refreshing device state after cross-signing setup
+        logger.debug('🔑 Refreshing device state after cross-signing setup')
+
+        // Wait for cross-signing to settle
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        // Refresh device key state to resolve potential mismatches
+        try {
+          const currentDeviceId = this.matrixClient.getDeviceId()
+          const currentUserId = this.matrixClient.getUserId()
+
+          logger.debug('🔍 Current device info:', {
+            deviceId: currentDeviceId,
+            userId: currentUserId
+          })
+
+          // Force a /keys/query to refresh device key state from server
+          // This helps resolve device key mismatches after cross-signing setup
+          if (currentUserId) {
+            await crypto.getUserDeviceInfo([currentUserId], true) // downloadUncached = true
+            logger.debug('✅ Device info refreshed from server')
+          }
+        } catch (refreshError) {
+          logger.warn('⚠️ Device state refresh failed (continuing anyway):', refreshError)
+        }
+
+        // Check device verification status after bootstrap
+        const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+        logger.debug('🔍 Device verification status after bootstrap:', {
+          isVerified: deviceStatus?.isVerified(),
+          crossSigningVerified: deviceStatus?.crossSigningVerified,
+          signedByOwner: deviceStatus?.signedByOwner
+        })
+
+        // Matrix SDK automatically signs the device during bootstrapCrossSigning
+        // Manual crossSignDevice() call is redundant and can trigger UIA loops
+        logger.debug('✅ Device verification handled automatically by Matrix SDK during bootstrap')
+      } catch (error) {
+        logger.warn('⚠️ Could not check/set device verification after fresh setup:', error)
+      }
+    }
+
+    logger.debug('✅ Fresh encryption setup completed successfully (Element Web pattern)')
 
     return {
       success: true,
@@ -275,11 +369,11 @@ export class MatrixEncryptionService {
   }
 
   /**
-   * Unlock existing secret storage - Element Web pattern
+   * Unlock existing secret storage - Element Web's accessSecretStorage pattern
    */
-  private async unlockExistingStorage (passphrase: string): Promise<EncryptionResult> {
+  private async unlockExistingStorage (recoveryKey: string): Promise<EncryptionResult> {
     try {
-      logger.debug('🔓 Unlocking existing secret storage')
+      logger.debug('🔓 Unlocking existing secret storage with recovery key')
       const crypto = this.matrixClient.getCrypto()!
 
       // Get the default key info
@@ -288,103 +382,86 @@ export class MatrixEncryptionService {
         throw new Error('No default secret storage key found')
       }
 
-      const keyInfo = await this.getSecretStorageKeyInfo(defaultKeyId)
+      const keyInfo = await this.matrixClient.secretStorage.getKey(defaultKeyId)
       if (!keyInfo) {
-        throw new Error('Could not get secret storage key info')
+        throw new Error('Secret storage key info not found')
       }
 
-      // Derive key from passphrase or try as recovery key
-      let recoveryKey: Uint8Array
+      // Decode recovery key
+      let recoveryKeyBytes: Uint8Array
       try {
-        // Try as passphrase first
-        const keyInfoTyped = keyInfo as { passphrase?: { salt: Uint8Array, iterations: number } }
-        const salt = keyInfoTyped.passphrase?.salt
-        const saltString = salt instanceof Uint8Array ? Buffer.from(salt).toString('base64') : (salt || Buffer.from(new Uint8Array(32)).toString('base64'))
-
-        recoveryKey = await deriveRecoveryKeyFromPassphrase(
-          passphrase,
-          saltString,
-          keyInfoTyped.passphrase?.iterations || 500000
-        )
+        recoveryKeyBytes = decodeRecoveryKey(recoveryKey)
       } catch (error) {
-        // Try as recovery key instead of passphrase
+        throw new Error('Invalid recovery key format')
+      }
+
+      // Cache the recovery key for the bootstrap process
+      cacheSecretStorageKeyForBootstrap(defaultKeyId, keyInfo, recoveryKeyBytes)
+
+      logger.debug('🔑 Recovery key cached, bootstrapping cross-signing and secret storage...')
+
+      // Element Web pattern: bootstrap both cross-signing and secret storage with cached key
+      await crypto.bootstrapCrossSigning({})
+      await crypto.bootstrapSecretStorage({})
+
+      // Check for existing backup and enable if needed
+      const currentKeyBackup = await crypto.checkKeyBackupAndEnable()
+      if (currentKeyBackup === null) {
+        await crypto.resetKeyBackup()
+        logger.debug('✅ Key backup reset and enabled')
+      }
+
+      // Check device verification status after unlocking - Element Web pattern
+      logger.debug('🔐 Checking device verification status after unlocking storage')
+      const userId = this.matrixClient.getUserId()
+      const deviceId = this.matrixClient.getDeviceId()
+
+      if (userId && deviceId) {
         try {
-          recoveryKey = decodeRecoveryKey(passphrase)
-        } catch (decodeError) {
-          throw new Error('Invalid passphrase or recovery key')
+          // Check if device verification is needed after unlocking storage
+          const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+          logger.debug('🔍 Device verification status after unlock:', {
+            isVerified: deviceStatus?.isVerified(),
+            crossSigningVerified: deviceStatus?.crossSigningVerified,
+            signedByOwner: deviceStatus?.signedByOwner
+          })
+
+          // If device is not cross-signing verified after unlock, manually sign it
+          // This is needed because SDK bootstrap doesn't always auto-sign the current device
+          if (!deviceStatus?.crossSigningVerified) {
+            logger.debug('🔐 Device not cross-signing verified after unlock - signing with cross-signing keys')
+            try {
+              await crypto.crossSignDevice(deviceId)
+              logger.debug('✅ Device signed with cross-signing keys after recovery key unlock')
+
+              // Verify the signing worked
+              const updatedStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+              logger.debug('🔍 Final device verification status after manual signing:', {
+                isVerified: updatedStatus?.isVerified(),
+                crossSigningVerified: updatedStatus?.crossSigningVerified,
+                signedByOwner: updatedStatus?.signedByOwner
+              })
+            } catch (signingError) {
+              logger.warn('⚠️ Failed to sign device after recovery key unlock:', signingError)
+            }
+          } else {
+            logger.debug('✅ Device already cross-signing verified after unlock')
+          }
+        } catch (error) {
+          logger.warn('⚠️ Could not check device verification status after unlock:', error)
         }
-      }
-
-      // Test the key works - casting is needed as we get keyInfo from SDK
-      // @ts-expect-error - SDK typing mismatch for dynamic key info
-      const isValid = await this.matrixClient.secretStorage.checkKey(recoveryKey, keyInfo)
-      if (!isValid) {
-        throw new Error('Invalid passphrase or recovery key')
-      }
-
-      // Cache the key for operations using global cache
-      cacheSecretStorageKeyForBootstrap(defaultKeyId, keyInfo, recoveryKey)
-
-      // Bootstrap cross-signing if needed
-      const crossSigningReady = await crypto.isCrossSigningReady()
-      if (!crossSigningReady) {
-        logger.debug('🔧 Cross-signing not ready, bootstrapping')
-        await crypto.bootstrapCrossSigning({
-          authUploadDeviceSigningKeys: this.createAuthCallback()
-        })
-      }
-
-      // Verify device if needed
-      const userId = this.matrixClient.getUserId()!
-      const deviceId = this.matrixClient.getDeviceId()!
-      const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
-
-      if (!deviceStatus?.isVerified()) {
-        await this.verifyFirstDevice()
       }
 
       logger.debug('✅ Existing storage unlocked successfully')
-      return { success: true }
+
+      return {
+        success: true
+      }
     } catch (error) {
       logger.error('❌ Failed to unlock existing storage:', error)
-
-      if (error.message.includes('Invalid passphrase')) {
-        return {
-          success: false,
-          error: 'Invalid passphrase or recovery key'
-        }
-      }
-
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to unlock encryption'
-      }
-    }
-  }
-
-  /**
-   * Reset encryption completely - Element Web pattern
-   */
-  async resetEncryption (): Promise<EncryptionResult> {
-    try {
-      logger.debug('🔄 Resetting encryption completely')
-      const crypto = this.matrixClient.getCrypto()
-      if (!crypto) {
-        return { success: false, error: 'Crypto not available' }
-      }
-
-      // Reset everything - Element Web's resetEncryption pattern
-      await crypto.resetEncryption(async () => {
-        logger.debug('🔄 Encryption reset callback executed')
-      })
-
-      logger.debug('✅ Encryption reset completed')
-      return { success: true }
-    } catch (error) {
-      logger.error('❌ Encryption reset failed:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Reset failed'
+        error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
   }
@@ -424,677 +501,197 @@ export class MatrixEncryptionService {
   }
 
   /**
-   * Create auth callback for cross-signing device key upload
+   * Reset encryption completely - Element Web pattern
    */
-  private createAuthCallback () {
-    return async (makeRequest: (auth: AuthDict | null) => Promise<void>) => {
-      try {
-        // Try with no auth first
-        await makeRequest(null)
-      } catch (error: unknown) {
-        logger.debug('🔧 Initial auth failed, checking UIA flows:', error)
-
-        // Check if this is a UIA error with available flows
-        const matrixError = error as { data?: { flows?: unknown[], session?: string } }
-        if (matrixError?.data?.flows && Array.isArray(matrixError.data.flows)) {
-          const flows = matrixError.data.flows
-          const session = matrixError.data.session
-          logger.debug('🔧 Available UIA flows:', flows)
-          logger.debug('🔧 UIA flows detailed structure:', JSON.stringify(flows, null, 2))
-          logger.debug('🔧 UIA session:', session)
-          logger.debug('🔧 Full UIA error data:', JSON.stringify(matrixError.data, null, 2))
-
-          // Try each available flow type
-          for (const flow of flows) {
-            const uiaFlow = flow as { stages?: string[], params?: Record<string, Record<string, unknown>> }
-            logger.debug('🔧 Flow structure:', JSON.stringify(uiaFlow, null, 2))
-            if (uiaFlow.stages && Array.isArray(uiaFlow.stages)) {
-              for (const stage of uiaFlow.stages) {
-                logger.debug(`🔧 Attempting UIA stage: ${stage}`)
-
-                // Check for stage-specific parameters (especially for org.matrix.cross_signing_reset)
-                const stageParams = uiaFlow.params?.[stage]
-                if (stageParams) {
-                  logger.debug(`🔧 Stage parameters for ${stage}:`, JSON.stringify(stageParams, null, 2))
-                }
-
-                try {
-                  let authData: AuthDict
-
-                  // Handle different auth stage types
-                  switch (stage) {
-                    case 'm.login.password':
-                      // Skip password auth for device signing - not applicable
-                      continue
-
-                    case 'm.login.dummy':
-                      // Dummy auth - just provide session
-                      authData = {
-                        type: 'm.login.dummy',
-                        session
-                      }
-                      break
-
-                    case 'm.login.token': {
-                      // Access token auth with fallback to refresh
-                      let accessToken = this.matrixClient.getAccessToken()
-                      logger.debug('🔧 Using access token for UIA auth')
-
-                      if (!accessToken) {
-                        logger.debug('🔧 No access token, attempting token refresh...')
-                        try {
-                          // Force token refresh if no access token
-                          const refreshToken = this.matrixClient.getRefreshToken()
-                          if (refreshToken) {
-                            await this.matrixClient.refreshToken(refreshToken)
-                          }
-                          accessToken = this.matrixClient.getAccessToken()
-                          logger.debug('🔧 Token refreshed successfully')
-                        } catch (refreshError) {
-                          logger.warn('⚠️ Token refresh failed:', refreshError)
-                          continue
-                        }
-                      }
-
-                      if (!accessToken) {
-                        logger.debug('🔧 Still no access token after refresh, skipping m.login.token')
-                        continue
-                      }
-
-                      authData = {
-                        type: 'm.login.token',
-                        token: accessToken,
-                        session
-                      }
-                      break
-                    }
-
-                    case 'org.matrix.cross_signing_reset':
-                      // Cross-signing reset auth requires user interaction with MAS interface
-                      // Implement Element Web's popup pattern for MAS approval
-                      logger.debug('🔧 Handling cross-signing reset auth stage')
-                      logger.debug('🔧 Session for cross-signing reset:', session)
-
-                      if (stageParams?.url && typeof stageParams.url === 'string') {
-                        logger.debug('🔧 Cross-signing reset requires MAS approval at:', stageParams.url)
-
-                        // Use Element Web's popup pattern for MAS approval
-                        // For recovery key reset, return to dashboard instead of MAS success page
-                        const returnUrl = this.getDashboardReturnUrl()
-                        await this.handleMASCrossSigningReset(stageParams.url, returnUrl)
-
-                        // Small delay to allow MAS backend to process approval
-                        await new Promise(resolve => setTimeout(resolve, 1000))
-
-                        // After user approval, continue with auth
-                        logger.debug('🔧 MAS approval completed, proceeding with cross-signing reset auth')
-                      } else {
-                        logger.warn('⚠️ No URL provided for cross-signing reset by MAS')
-                        logger.debug('🔧 Attempting to construct MAS approval URL manually')
-
-                        // Fallback: construct MAS approval URL manually
-                        const masBaseUrl = this.matrixClient.getHomeserverUrl().replace('matrix', 'mas')
-                        const fallbackUrl = `${masBaseUrl}/account?action=org.matrix.cross_signing_reset`
-
-                        logger.debug('🔧 Using fallback MAS approval URL:', fallbackUrl)
-                        // For recovery key reset, return to dashboard instead of MAS success page
-                        const returnUrl = this.getDashboardReturnUrl()
-                        await this.handleMASCrossSigningReset(fallbackUrl, returnUrl)
-
-                        // Longer delay for manual approval flow
-                        await new Promise(resolve => setTimeout(resolve, 2000))
-
-                        logger.debug('🔧 Fallback MAS approval flow completed')
-                      }
-
-                      // Check if we have a dummy session and need to retry for real session
-                      if (session === 'dummy') {
-                        logger.warn('⚠️ Received dummy UIA session - this may indicate MAS configuration issue')
-                        logger.debug('🔧 Attempting to proceed with dummy session anyway')
-                      }
-
-                      authData = { type: stage, session }
-                      logger.debug('🔧 Auth data being submitted:', JSON.stringify(authData, null, 2))
-                      break
-
-                    default:
-                      // Unknown auth type, skip
-                      logger.debug(`🔧 Unknown auth stage type: ${stage}`)
-                      continue
-                  }
-
-                  // Attempt auth with this stage
-                  await makeRequest(authData)
-                  logger.debug(`✅ UIA successful with stage: ${stage}`)
-                  return
-                } catch (stageError: unknown) {
-                  logger.debug(`❌ UIA stage ${stage} failed:`, stageError)
-                  // Continue to next stage
-                }
-              }
-            }
-          }
-
-          // If we get here, all UIA flows failed
-          logger.error('❌ All UIA flows failed for device signing key upload')
-          throw new Error('Device signing key upload requires authentication - all flows failed')
-        } else {
-          // Not a UIA error, re-throw
-          throw error
-        }
-      }
-    }
-  }
-
-  /**
-   * Check for pending MAS redirect flows when page loads
-   */
-  private checkPendingMASRedirect (): void {
+  async resetEncryption (): Promise<EncryptionResult> {
     try {
-      const storedState = sessionStorage.getItem('mas_redirect_state')
-      if (!storedState) return
-
-      const state = JSON.parse(storedState)
-      const timeSinceRedirect = Date.now() - state.timestamp
-
-      // Check if this is a recent redirect (within 10 minutes)
-      if (timeSinceRedirect < 600000 && state.flow === 'cross-signing-reset') {
-        logger.debug('🔧 Detected return from MAS redirect - user may have completed approval')
-
-        // Clear the stored state
-        sessionStorage.removeItem('mas_redirect_state')
-
-        // Check URL parameters for success/error indicators
-        const urlParams = new URLSearchParams(window.location.search)
-        const error = urlParams.get('error')
-
-        if (error) {
-          logger.warn('⚠️ MAS redirect returned with error:', error)
-        } else {
-          logger.debug('✅ MAS redirect completed - user likely approved cross-signing reset')
-
-          // Auto-trigger recovery key generation after MAS completion
-          setTimeout(async () => {
-            logger.debug('🔧 Auto-triggering recovery key generation after MAS redirect')
-            try {
-              const result = await this.setupEncryption()
-              if (result.success && result.recoveryKey) {
-                logger.debug('✅ Recovery key generated after MAS completion')
-
-                // Store the recovery key for UI access
-                sessionStorage.setItem('mas_generated_recovery_key', result.recoveryKey)
-
-                // Dispatch a custom event to notify UI components
-                window.dispatchEvent(new CustomEvent('mas-recovery-key-generated', {
-                  detail: { recoveryKey: result.recoveryKey }
-                }))
-
-                logger.debug('🔧 Recovery key stored and UI notified')
-              } else {
-                logger.warn('⚠️ Failed to generate recovery key after MAS completion:', result.error)
-              }
-            } catch (error) {
-              logger.error('❌ Error generating recovery key after MAS completion:', error)
-            }
-          }, 2000)
-        }
-      }
-    } catch (error) {
-      logger.warn('⚠️ Error checking pending MAS redirect:', error)
-    }
-  }
-
-  /**
-   * Get appropriate return URL for dashboard context
-   */
-  private getDashboardReturnUrl (): string {
-    const currentPath = window.location.pathname
-
-    // If already on dashboard, return to the same dashboard page
-    if (currentPath.includes('/dashboard')) {
-      return window.location.origin + currentPath
-    }
-
-    // For recovery key reset flows, return to dashboard profile section
-    return window.location.origin + '/dashboard'
-  }
-
-  /**
-   * Handle MAS cross-signing reset with mobile-friendly approach
-   */
-  private async handleMASCrossSigningReset (approvalUrl: string, returnUrl?: string): Promise<void> {
-    logger.debug('🔧 Starting MAS approval for cross-signing reset')
-
-    // Check if we're on mobile or if user prefers full-page redirect
-    const isMobile = this.isMobileDevice()
-    const preferFullPage = this.shouldUseFullPageRedirect()
-
-    if (isMobile || preferFullPage) {
-      // Mobile-friendly: Use full-page redirect (Element Web SSO pattern)
-      return this.handleMASRedirectFullPage(approvalUrl, returnUrl)
-    } else {
-      // Desktop: Try popup first, fallback to full-page if blocked
-      return this.handleMASRedirectWithFallback(approvalUrl, returnUrl)
-    }
-  }
-
-  /**
-   * Check if we're on a mobile device
-   */
-  private isMobileDevice (): boolean {
-    // Check screen size and user agent
-    const isMobileScreen = window.innerWidth <= 768 || window.innerHeight <= 600
-    const isMobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-
-    return isMobileScreen || isMobileUA || isTouchDevice
-  }
-
-  /**
-   * Check if we should use full-page redirect
-   */
-  private shouldUseFullPageRedirect (): boolean {
-    // Check localStorage preference or other factors
-    const userPreference = localStorage.getItem('mas_redirect_preference')
-    return userPreference === 'fullpage'
-  }
-
-  /**
-   * Handle MAS approval using full-page redirect (mobile-friendly)
-   */
-  private async handleMASRedirectFullPage (approvalUrl: string, returnUrl?: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      logger.debug('🔧 Using full-page redirect for MAS approval (mobile-friendly)')
-
-      // Determine the appropriate return URL
-      const finalReturnUrl = returnUrl || window.location.href
-
-      // Store current state for restoration after redirect
-      const currentState = {
-        flow: 'cross-signing-reset',
-        timestamp: Date.now(),
-        returnUrl: finalReturnUrl
-      }
-      sessionStorage.setItem('mas_redirect_state', JSON.stringify(currentState))
-
-      // Add return URL parameter to MAS approval URL
-      const masUrl = new URL(approvalUrl)
-      masUrl.searchParams.set('return_url', finalReturnUrl)
-
-      logger.debug('🔧 Redirecting to MAS for approval:', masUrl.toString())
-
-      // Open MAS in new tab to allow flow to continue
-      const masWindow = window.open(masUrl.toString(), '_blank', 'noopener,noreferrer')
-
-      if (!masWindow) {
-        logger.warn('⚠️ MAS popup blocked - use separate button/link for MAS flow instead')
-        // Instead of auto-redirecting, reject so the calling code can handle it
-        reject(new Error('MAS popup was blocked by browser'))
-        return
+      logger.debug('🔄 Resetting encryption completely')
+      const crypto = this.matrixClient.getCrypto()
+      if (!crypto) {
+        return { success: false, error: 'Crypto not available' }
       }
 
-      // Additional check: Test if popup was actually opened
-      setTimeout(() => {
-        try {
-          if (masWindow.closed || !masWindow.location) {
-            logger.warn('⚠️ MAS popup was blocked after opening - popup closed immediately')
-            // Popup was blocked, use fallback
-            logger.debug('🔧 Using fallback redirect due to blocked popup')
-            window.location.href = masUrl.toString()
-            resolve()
-          }
-        } catch (e) {
-          // Cross-origin error is expected and means popup is working
-          logger.debug('🔧 Popup appears to be working (cross-origin access blocked as expected)')
-        }
-      }, 100)
-
-      let hasResolved = false
-
-      // Monitor for window focus to detect when user returns from MAS
-      const handleWindowFocus = () => {
-        if (hasResolved) return
-
-        // Small delay to allow MAS backend to process any changes
-        setTimeout(() => {
-          if (hasResolved) return
-
-          logger.debug('✅ Window regained focus - assuming MAS flow completed')
-          hasResolved = true
-          window.removeEventListener('focus', handleWindowFocus)
-
-          // Clear the MAS redirect state since we're handling completion
-          sessionStorage.removeItem('mas_redirect_state')
-          resolve()
-        }, 1000)
-      }
-
-      // Set up window focus listener
-      window.addEventListener('focus', handleWindowFocus)
-
-      // Set a timeout to avoid infinite waiting
-      const timeout = setTimeout(() => {
-        if (hasResolved) return
-
-        logger.warn('⚠️ MAS flow timeout - proceeding anyway')
-        hasResolved = true
-        window.removeEventListener('focus', handleWindowFocus)
-
-        // Don't reject on timeout, just proceed
-        resolve()
-      }, 300000) // 5 minutes timeout
-
-      // Clean up timeout if resolved early
-      const originalResolve = resolve
-      resolve = (...args) => {
-        clearTimeout(timeout)
-        originalResolve(...args)
-      }
-    })
-  }
-
-  /**
-   * Handle MAS approval with popup and fallback (desktop)
-   */
-  private async handleMASRedirectWithFallback (approvalUrl: string, returnUrl?: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      logger.debug('🔧 Attempting popup for MAS approval (desktop)')
-
-      // Try to open popup with mobile-friendly dimensions
-      const popup = window.open(
-        approvalUrl,
-        'mas_approval',
-        'width=400,height=600,scrollbars=yes,resizable=yes,status=no,toolbar=no,menubar=no,location=no'
-      )
-
-      if (!popup) {
-        logger.warn('⚠️ Popup blocked - falling back to full-page redirect')
-        // Fallback to full-page redirect
-        return this.handleMASRedirectFullPage(approvalUrl, returnUrl).then(resolve).catch(reject)
-      }
-
-      // Mobile-friendly popup handling
-      let hasResolved = false
-
-      // Listen for popup completion
-      const checkClosed = setInterval(() => {
-        if (popup.closed && !hasResolved) {
-          clearInterval(checkClosed)
-          hasResolved = true
-          logger.debug('✅ MAS approval popup closed - assuming user completed approval')
-          resolve()
-        }
-      }, 1000)
-
-      // Listen for message from popup
-      const messageHandler = (event: MessageEvent) => {
-        if (event.source === popup && event.data === 'authDone' && !hasResolved) {
-          clearInterval(checkClosed)
-          window.removeEventListener('message', messageHandler)
-          popup.close()
-          hasResolved = true
-          logger.debug('✅ Received authDone message from MAS approval popup')
-          resolve()
-        }
-      }
-
-      window.addEventListener('message', messageHandler)
-
-      // Shorter timeout for better UX
-      setTimeout(() => {
-        if (!hasResolved) {
-          clearInterval(checkClosed)
-          window.removeEventListener('message', messageHandler)
-          if (!popup.closed) {
-            popup.close()
-          }
-          hasResolved = true
-          logger.warn('⚠️ MAS approval popup timeout - proceeding anyway')
-          resolve() // Don't reject on timeout
-        }
-      }, 180000) // 3 minutes (shorter than before)
-    })
-  }
-
-  /**
-   * Verify first device and ensure cross-signing verification
-   */
-  private async verifyFirstDevice (): Promise<void> {
-    try {
-      const crypto = this.matrixClient.getCrypto()!
-      const userId = this.matrixClient.getUserId()!
-      const deviceId = this.matrixClient.getDeviceId()!
-
-      logger.debug('🔐 Verifying first device as trust anchor')
-
-      // Mark device as locally verified first
-      await crypto.setDeviceVerified(userId, deviceId, true)
-
-      // Check if cross-signing is ready for device signing
-      const crossSigningReady = await crypto.isCrossSigningReady()
-      if (crossSigningReady) {
-        logger.debug('🔐 Cross-signing ready, attempting to cross-sign device')
-
-        try {
-          // Cross-sign the device with our self-signing key
-          await crypto.setDeviceVerified(userId, deviceId, true)
-          logger.debug('🔐 Device cross-signed successfully')
-        } catch (crossSignError) {
-          logger.warn('⚠️ Cross-signing device failed:', crossSignError)
-        }
-      } else {
-        logger.warn('⚠️ Cross-signing not ready, device will be locally verified only')
-      }
-
-      // Wait for verification status to update
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Check final verification status
-      const status = await crypto.getDeviceVerificationStatus(userId, deviceId)
-      logger.debug('🔍 Final device verification status:', {
-        isVerified: status?.isVerified(),
-        localVerified: status?.localVerified,
-        crossSigningVerified: status?.crossSigningVerified,
-        signedByOwner: status?.signedByOwner
+      // Reset everything - Element Web's resetEncryption pattern
+      await crypto.resetEncryption(async () => {
+        logger.debug('🔄 Encryption reset callback executed')
       })
 
-      // If cross-signing verification is still false, log a warning
-      if (status && !status.crossSigningVerified) {
-        logger.warn('⚠️ Device is locally verified but not cross-signing verified')
-        logger.warn('⚠️ This may be due to device signing key upload failure')
-      }
+      logger.debug('✅ Encryption reset completed')
+      return { success: true }
     } catch (error) {
-      logger.error('❌ Device verification failed:', error)
-      // Don't throw - verification failure shouldn't break setup
+      logger.error('❌ Encryption reset failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Reset failed'
+      }
     }
   }
 
   /**
-   * Initialize encryption in background (for component compatibility)
+   * Wait for device verification to complete using Matrix events
    */
-  async initializeEncryptionBackground (): Promise<boolean> {
+  private async waitForDeviceVerification (userId: string, deviceId: string, timeoutMs: number = 5000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup()
+        reject(new Error('Device verification timeout'))
+      }, timeoutMs)
+
+      const cleanup = () => {
+        clearTimeout(timeout)
+        this.matrixClient.off(CryptoEvent.UserTrustStatusChanged, onTrustChanged)
+        this.matrixClient.off(CryptoEvent.DevicesUpdated, onDevicesUpdated)
+      }
+
+      const checkStatus = async () => {
+        try {
+          const crypto = this.matrixClient.getCrypto()
+          if (!crypto) return false
+
+          const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+          logger.debug('🔍 Checking device verification status:', {
+            isVerified: deviceStatus?.isVerified(),
+            crossSigningVerified: deviceStatus?.crossSigningVerified,
+            signedByOwner: deviceStatus?.signedByOwner
+          })
+
+          if (deviceStatus?.crossSigningVerified) {
+            logger.debug('✅ Device verification completed via event')
+            cleanup()
+            resolve()
+            return true
+          }
+          return false
+        } catch (error) {
+          logger.error('Error checking device verification status:', error)
+          return false
+        }
+      }
+
+      const onTrustChanged = async (changedUserId: string) => {
+        if (changedUserId === userId) {
+          logger.debug('🔍 User trust status changed, checking device verification')
+          await checkStatus()
+        }
+      }
+
+      const onDevicesUpdated = async (users: string[]) => {
+        if (users.includes(userId)) {
+          logger.debug('🔍 Devices updated, checking device verification')
+          await checkStatus()
+        }
+      }
+
+      // Set up event listeners
+      this.matrixClient.on(CryptoEvent.UserTrustStatusChanged, onTrustChanged)
+      this.matrixClient.on(CryptoEvent.DevicesUpdated, onDevicesUpdated)
+
+      // Check status immediately in case it's already verified
+      checkStatus().then(verified => {
+        if (!verified) {
+          logger.debug('🔍 Device not yet verified, waiting for Matrix events...')
+        }
+      })
+    })
+  }
+
+  /**
+   * Handle cross-signing key loss - stub for compatibility
+   */
+  async handleCrossSigningKeyLoss (): Promise<boolean> {
+    logger.debug('🔧 Cross-signing key loss detected - using createCrossSigning approach')
     try {
-      const status = await this.getStatus()
-      return status.isReady
+      // Use our Element Web-style createCrossSigning approach
+      const { createCrossSigning } = await import('./createCrossSigning')
+      await createCrossSigning(this.matrixClient)
+      return true
     } catch (error) {
-      logger.error('Background encryption initialization failed:', error)
+      logger.error('❌ Failed to handle cross-signing key loss:', error)
       return false
     }
   }
 
   /**
-   * Get encryption status (for component compatibility)
-   */
-  getEncryptionStatus () {
-    return this.getStatus()
-  }
-
-  /**
-   * Get detailed debug information about encryption status
+   * Get debug info - stub for compatibility
    */
   async getDebugInfo (): Promise<Record<string, unknown>> {
     try {
-      const crypto = this.matrixClient.getCrypto()
-      if (!crypto) {
-        return { error: 'Crypto not available' }
-      }
-
-      const userId = this.matrixClient.getUserId()
-      const deviceId = this.matrixClient.getDeviceId()
       const status = await this.getStatus()
-
-      let deviceStatus = null
-      let crossSigningKeys = null
-
-      if (userId && deviceId) {
-        try {
-          deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
-          crossSigningKeys = await crypto.getCrossSigningKeyId()
-        } catch (error) {
-          logger.debug('Could not get detailed status:', error)
-        }
-      }
-
       return {
-        userId,
-        deviceId,
         status,
-        deviceStatus: deviceStatus ? {
-          isVerified: deviceStatus.isVerified(),
-          localVerified: deviceStatus.localVerified,
-          crossSigningVerified: deviceStatus.crossSigningVerified,
-          signedByOwner: deviceStatus.signedByOwner
-        } : null,
-        crossSigningKeys,
-        hasSecretStorageKey: await this.matrixClient.secretStorage.hasKey(),
-        operationInProgress: this.operationInProgress
+        timestamp: new Date().toISOString(),
+        clientReady: !!this.matrixClient,
+        cryptoReady: !!this.matrixClient.getCrypto()
       }
     } catch (error) {
       return {
         error: error instanceof Error ? error.message : 'Unknown error',
-        operationInProgress: this.operationInProgress
+        timestamp: new Date().toISOString()
       }
-    }
-  }
-
-  /**
-   * Restore cross-signing keys from secret storage
-   * This fixes the key clearing issue during sync
-   */
-  async restoreCrossSigningKeysFromStorage (): Promise<boolean> {
-    try {
-      const crypto = this.matrixClient.getCrypto()
-      if (!crypto) {
-        logger.warn('No crypto module available for key restoration')
-        return false
-      }
-
-      logger.debug('🔄 Attempting to restore cross-signing keys from secret storage...')
-
-      // Check current cross-signing status
-      const status = await crypto.getCrossSigningStatus()
-      const hasAllKeys = status.privateKeysCachedLocally.masterKey &&
-                        status.privateKeysCachedLocally.selfSigningKey &&
-                        status.privateKeysCachedLocally.userSigningKey
-
-      if (hasAllKeys) {
-        logger.debug('✅ Cross-signing keys already available')
-        return true
-      }
-
-      logger.debug('🔧 Cross-signing keys missing - attempting restoration...')
-      logger.debug('🔧 Current status:', {
-        masterKey: status.privateKeysCachedLocally.masterKey,
-        selfSigningKey: status.privateKeysCachedLocally.selfSigningKey,
-        userSigningKey: status.privateKeysCachedLocally.userSigningKey
-      })
-
-      // Try to restore keys from secret storage
-      // Note: This uses the existing secret storage cache system
-      await crypto.bootstrapCrossSigning({
-        setupNewCrossSigning: false, // Don't create new keys, restore existing
-        authUploadDeviceSigningKeys: async (): Promise<void> => {
-          logger.debug('🔧 Cross-signing key restoration - no auth needed for existing keys')
-          // Empty auth for restoration
-        }
-      })
-
-      // Verify restoration worked
-      const newStatus = await crypto.getCrossSigningStatus()
-      const restored = newStatus.privateKeysCachedLocally.masterKey &&
-                      newStatus.privateKeysCachedLocally.selfSigningKey &&
-                      newStatus.privateKeysCachedLocally.userSigningKey
-
-      if (restored) {
-        logger.debug('✅ Cross-signing keys successfully restored from secret storage')
-
-        // After successful key restoration, verify the current device
-        try {
-          logger.debug('🔐 Starting device self-verification after key restoration...')
-          const { testAndFixDeviceVerification } = await import('../utils/deviceVerificationHelper')
-          const verificationResult = await testAndFixDeviceVerification()
-
-          if (verificationResult.success && verificationResult.isVerified) {
-            logger.debug('✅ Device self-verification completed after key restoration')
-          } else if (verificationResult.error === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
-            logger.debug('🔄 MAS reset detected after key restoration - need new key generation')
-            
-            // Clear caches and trigger new key generation
-            this.clearGlobalSecretStorageCache()
-            throw new Error('MAS_RESET_COMPLETE_NEW_KEY_NEEDED')
-          } else {
-            logger.warn('⚠️ Device self-verification incomplete after key restoration:', verificationResult.error)
-          }
-        } catch (verificationError) {
-          logger.warn('⚠️ Device self-verification failed after key restoration (non-fatal):', verificationError)
-        }
-      } else {
-        logger.warn('⚠️ Cross-signing key restoration did not complete all keys')
-      }
-
-      return restored
-    } catch (error) {
-      logger.warn('Failed to restore cross-signing keys from secret storage:', error)
-      return false
-    }
-  }
-
-  /**
-   * Handle cross-signing key loss during sync
-   * This is called when the Rust SDK clears keys due to DiffResult inconsistencies
-   */
-  async handleCrossSigningKeyLoss (): Promise<boolean> {
-    try {
-      logger.warn('🚨 Detected cross-signing key loss - attempting recovery')
-
-      // First, try to restore from secret storage
-      const restored = await this.restoreCrossSigningKeysFromStorage()
-      if (restored) {
-        logger.debug('✅ Cross-signing keys recovered from secret storage')
-        return true
-      }
-
-      // If restoration fails, check if we have secret storage setup
-      const crypto = this.matrixClient.getCrypto()
-      if (!crypto) return false
-
-      const hasSecretStorage = await this.matrixClient.secretStorage.hasKey()
-      if (!hasSecretStorage) {
-        logger.warn('❌ No secret storage available - full encryption re-setup required')
-        return false // Require user to re-setup encryption
-      }
-
-      logger.warn('⚠️ Cross-signing key recovery failed - may need user interaction')
-      return false
-    } catch (error) {
-      logger.error('Failed to handle cross-signing key loss:', error)
-      return false
     }
   }
 }
 
-// Export both class and singleton for flexibility
-export const matrixEncryptionService = new MatrixEncryptionService(
-  // Will be injected when created by components
-  {} as MatrixClient
-)
+/**
+ * Service instance - created lazily when matrix client is available
+ */
+let _matrixEncryptionServiceInstance: MatrixEncryptionService | null = null
+
+export const matrixEncryptionService = {
+  /**
+   * Initialize encryption background - compatible with existing usage
+   */
+  async initializeEncryptionBackground (): Promise<void> {
+    const { matrixClientService } = await import('./matrixClientService')
+    const client = matrixClientService.getClient()
+    if (!client) {
+      console.warn('Matrix client not available for encryption initialization')
+      return
+    }
+
+    if (!_matrixEncryptionServiceInstance) {
+      _matrixEncryptionServiceInstance = new MatrixEncryptionService(client)
+    }
+
+    // Background initialization - check status and log
+    try {
+      const status = await _matrixEncryptionServiceInstance.getStatus()
+      logger.debug('🔐 Encryption status on background init:', status)
+    } catch (error) {
+      logger.error('❌ Failed to get encryption status on background init:', error)
+    }
+  },
+
+  /**
+   * Get encryption status - compatible with existing usage
+   */
+  async getEncryptionStatus () {
+    const { matrixClientService } = await import('./matrixClientService')
+    const client = matrixClientService.getClient()
+    if (!client) {
+      return {
+        isReady: false,
+        needsSetup: true,
+        hasSecretStorage: false,
+        hasCrossSigningKeys: false,
+        hasKeyBackup: false,
+        deviceVerified: false,
+        canDecryptHistory: false,
+        errors: ['No Matrix client available']
+      }
+    }
+
+    if (!_matrixEncryptionServiceInstance) {
+      _matrixEncryptionServiceInstance = new MatrixEncryptionService(client)
+    }
+
+    return await _matrixEncryptionServiceInstance.getStatus()
+  },
+
+  /**
+   * Get service instance for advanced usage
+   */
+  getInstance (): MatrixEncryptionService | null {
+    return _matrixEncryptionServiceInstance
+  }
+}

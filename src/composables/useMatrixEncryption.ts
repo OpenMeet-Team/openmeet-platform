@@ -14,6 +14,7 @@ export function useMatrixEncryption () {
   const encryptionStatus = ref<MatrixEncryptionStatus | null>(null)
   const isLoading = ref(false)
   const lastChecked = ref<number>(0)
+  const currentRoomId = ref<string | null>(null)
 
   // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
@@ -58,6 +59,13 @@ export function useMatrixEncryption () {
    * Check encryption state using Matrix SDK
    */
   const checkEncryptionState = async (roomId?: string): Promise<void> => {
+    logger.debug('🔍 checkEncryptionState called with:', { roomId, roomIdType: typeof roomId, hasRoomId: !!roomId })
+
+    // Update current room ID if provided
+    if (roomId) {
+      currentRoomId.value = roomId
+    }
+
     if (isLoading.value) return // Prevent concurrent checks
 
     // Prevent rapid successive checks (debounce 5 seconds)
@@ -71,7 +79,10 @@ export function useMatrixEncryption () {
 
     try {
       const client = matrixClientService.getClient()
-      const status = await matrixEncryptionState.getEncryptionState(client, roomId)
+      // Use the provided roomId, or fall back to current room ID if available
+      const targetRoomId = roomId || currentRoomId.value || undefined
+      logger.debug('🔍 About to call getEncryptionState with roomId:', targetRoomId)
+      const status = await matrixEncryptionState.getEncryptionState(client, targetRoomId)
 
       encryptionStatus.value = status
       lastChecked.value = Date.now()
@@ -123,7 +134,8 @@ export function useMatrixEncryption () {
    * Refresh state when Matrix client changes
    */
   const refreshState = async (): Promise<void> => {
-    await checkEncryptionState()
+    // Use current room ID for refresh if available
+    await checkEncryptionState(currentRoomId.value || undefined)
   }
 
   // Auto-refresh on client state changes
@@ -133,7 +145,8 @@ export function useMatrixEncryption () {
     // Check every 30 seconds, but only if we need user action
     refreshInterval = setInterval(async () => {
       if (!requiresUserAction.value) {
-        await checkEncryptionState()
+        // Use current room ID for auto-refresh if available
+        await checkEncryptionState(currentRoomId.value || undefined)
       }
     }, 30000)
   }
@@ -148,22 +161,76 @@ export function useMatrixEncryption () {
   // Matrix client event handlers
   const handleMatrixReady = () => {
     logger.debug('Matrix client ready, checking encryption state')
-    checkEncryptionState()
+    // Use current room ID if available
+    checkEncryptionState(currentRoomId.value || undefined)
   }
 
   const handleMatrixSync = () => {
     // Only refresh if we haven't checked recently (30 seconds for sync events)
     if (Date.now() - lastChecked.value > 30000) {
       logger.debug('Matrix sync complete, checking encryption state')
-      checkEncryptionState()
+      // Use current room ID if available
+      checkEncryptionState(currentRoomId.value || undefined)
     } else {
       logger.debug('Matrix sync complete, but encryption state recently checked - skipping')
     }
   }
 
   // Lifecycle
-  onMounted(() => {
-    // Initial check
+  onMounted(async () => {
+    // Immediate device verification check - don't wait for room state
+    try {
+      const client = matrixClientService.getClient()
+      if (client) {
+        const crypto = client.getCrypto()
+        if (crypto) {
+          // Check device verification status using Element Web's robust approach
+          const [secretStorageReady, crossSigningReady, keyBackupInfo] = await Promise.all([
+            crypto.isSecretStorageReady().catch(() => false),
+            crypto.isCrossSigningReady().catch(() => false),
+            crypto.getKeyBackupInfo().catch(() => null)
+          ])
+
+          // Element Web pattern: check specific device verification status
+          const deviceId = client.getDeviceId()
+          const userId = client.getUserId() || client.getSafeUserId()
+          let isCurrentDeviceTrusted = false
+
+          if (crossSigningReady && deviceId && userId) {
+            try {
+              const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+              isCurrentDeviceTrusted = Boolean(deviceStatus?.crossSigningVerified)
+              logger.debug('🔍 Element Web style device verification check:', {
+                deviceId,
+                userId,
+                crossSigningReady,
+                crossSigningVerified: deviceStatus?.crossSigningVerified,
+                isCurrentDeviceTrusted
+              })
+            } catch (error) {
+              logger.warn('⚠️ Device verification status check failed:', error)
+            }
+          }
+
+          const needsDeviceSetup = !secretStorageReady || !crossSigningReady || !keyBackupInfo || !isCurrentDeviceTrusted
+
+          if (needsDeviceSetup) {
+            // Immediately set needs verification state
+            encryptionStatus.value = {
+              state: 'needs_device_verification',
+              details: { hasClient: true, hasCrypto: true, isInEncryptedRoom: true, canChat: true },
+              requiresUserAction: true,
+              warningMessage: 'Verify this session to access encrypted messages'
+            }
+            logger.debug('🚨 Immediate device verification needed detected')
+          }
+        }
+      }
+    } catch (error) {
+      logger.debug('⚠️ Immediate device verification check failed:', error)
+    }
+
+    // Initial check with room context
     checkEncryptionState()
 
     // Start auto-refresh

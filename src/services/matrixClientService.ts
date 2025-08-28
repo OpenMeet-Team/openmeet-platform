@@ -1175,8 +1175,6 @@ class MatrixClientService {
 
     // Listen for sync state changes to detect connection issues
     this.client.on(ClientEvent.Sync, async (state: string, prevState: string | null, data: unknown) => {
-      logger.debug(`🔄 Matrix sync state: ${prevState} → ${state}`, data)
-
       // Emit connection state events for UI components
       const connectionStateEvent = new CustomEvent('matrix:connectionState', {
         detail: {
@@ -1202,8 +1200,6 @@ class MatrixClientService {
           }
         })
         window.dispatchEvent(readyEvent)
-      } else if (state === 'SYNCING') {
-        logger.debug('🔄 Matrix client syncing...')
       } else if (state === 'ERROR') {
         logger.error('❌ Matrix sync error:', data)
 
@@ -1918,10 +1914,8 @@ class MatrixClientService {
       // Transform v3 media URLs to v1 authenticated endpoints for MSC3861/MAS
       if (httpUrl.includes('/_matrix/media/v3/download/')) {
         httpUrl = httpUrl.replace('/_matrix/media/v3/download/', '/_matrix/client/v1/media/download/')
-        logger.debug('🔄 Transformed to v1 download endpoint:', httpUrl)
       } else if (httpUrl.includes('/_matrix/media/v3/thumbnail/')) {
         httpUrl = httpUrl.replace('/_matrix/media/v3/thumbnail/', '/_matrix/client/v1/media/thumbnail/')
-        logger.debug('🔄 Transformed to v1 thumbnail endpoint:', httpUrl)
       }
 
       return httpUrl
@@ -3097,7 +3091,6 @@ class MatrixClientService {
       logger.debug('⏳ Waiting for Matrix client sync to reach PREPARED state...')
       await new Promise<void>((resolve, reject) => {
         const onSyncStateChange = (state: string) => {
-          logger.debug('🔄 Matrix sync state changed to:', state)
           if (state === 'PREPARED') {
             this.client?.off(ClientEvent.Sync, onSyncStateChange)
             resolve()

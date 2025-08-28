@@ -85,7 +85,7 @@ export class MatrixEncryptionStateService {
    * Following element-web pattern: only require encryption when in encrypted rooms
    */
   async getEncryptionState (client: MatrixClient | null, roomId?: string): Promise<MatrixEncryptionStatus> {
-    logger.debug('🔍 Getting simplified encryption state - unencrypted first approach')
+    logger.debug('🔍 Getting simplified encryption state - unencrypted first approach', { roomId })
 
     // Step 1: Basic client availability
     if (!client) {
@@ -120,151 +120,13 @@ export class MatrixEncryptionStateService {
 
     // Step 4: Determine state based on simplified logic
     if (!isInEncryptedRoom) {
-      // For unencrypted rooms, still check encryption capabilities for device verification
-      if (crypto) {
-        try {
-          const [
-            ,
-            keyBackupInfo,
-            deviceKeys,
-            crossSigningStatus,
-            secretStorageReady,
-            defaultKeyId,
-            deviceVerificationStatus
-          ] = await Promise.all([
-            crypto.isCrossSigningReady().catch(() => false),
-            crypto.getKeyBackupInfo().catch(() => null),
-            crypto.getOwnDeviceKeys().catch(() => null),
-            crypto.getCrossSigningStatus().catch(() => ({
-              privateKeysCachedLocally: { masterKey: false, selfSigningKey: false, userSigningKey: false }
-            })),
-            crypto.isSecretStorageReady().catch(() => false),
-            client.secretStorage.getDefaultKeyId().catch(() => null),
-            crypto.getDeviceVerificationStatus(client.getUserId()!, client.getDeviceId()!).catch(() => null)
-          ])
-
-          // FIXED: Use more reliable crossSigningStatus instead of isCrossSigningReady()
-          // which can return false even when cross-signing is working
-          const crossSigningReady = crossSigningStatus?.privateKeysCachedLocally?.masterKey &&
-                                   crossSigningStatus?.privateKeysCachedLocally?.selfSigningKey &&
-                                   crossSigningStatus?.privateKeysCachedLocally?.userSigningKey
-
-          const hasKeyBackup = !!(keyBackupInfo && keyBackupInfo.version)
-          const hasDeviceKeys = !!deviceKeys
-          const isCurrentDeviceTrusted = !!(deviceVerificationStatus?.signedByOwner && deviceVerificationStatus?.crossSigningVerified)
-          const allCrossSigningSecretsCached = !!(
-            crossSigningStatus.privateKeysCachedLocally.masterKey &&
-            crossSigningStatus.privateKeysCachedLocally.selfSigningKey &&
-            crossSigningStatus.privateKeysCachedLocally.userSigningKey
-          )
-          const hasDefaultKeyId = !!defaultKeyId
-          const keyBackupUploadActive = hasKeyBackup && await crypto.getActiveSessionBackupVersion().catch(() => null) !== null
-
-          logger.debug('🔍 Encryption capabilities check for unencrypted context:', {
-            crossSigningReady,
-            hasKeyBackup,
-            isCurrentDeviceTrusted,
-            secretStorageReady,
-            allCrossSigningSecretsCached
-          })
-
-          // Even in unencrypted rooms, check if device needs verification
-          if (!isCurrentDeviceTrusted) {
-            logger.debug('🔐 Device not verified even in unencrypted context - needs device verification')
-            return {
-              state: 'needs_device_verification',
-              details: {
-                hasClient: true,
-                hasCrypto: true,
-                isInEncryptedRoom: false,
-                canChat: true,
-                crossSigningReady,
-                hasKeyBackup,
-                hasDeviceKeys,
-                isCurrentDeviceTrusted,
-                allCrossSigningSecretsCached,
-                secretStorageReady,
-                hasDefaultKeyId,
-                keyBackupUploadActive
-              },
-              requiresUserAction: true,
-              warningMessage: 'Verify this device to enable encrypted messaging'
-            }
-          } else if (!allCrossSigningSecretsCached && secretStorageReady) {
-            logger.debug('🔐 Secrets not cached but storage ready - needs recovery key')
-            return {
-              state: 'needs_recovery_key',
-              details: {
-                hasClient: true,
-                hasCrypto: true,
-                isInEncryptedRoom: false,
-                canChat: true,
-                crossSigningReady,
-                hasKeyBackup,
-                hasDeviceKeys,
-                isCurrentDeviceTrusted,
-                allCrossSigningSecretsCached,
-                secretStorageReady,
-                hasDefaultKeyId,
-                keyBackupUploadActive
-              },
-              requiresUserAction: true,
-              warningMessage: 'Enter your recovery key to access encrypted messaging'
-            }
-          } else if (!crossSigningReady || !secretStorageReady) {
-            logger.debug('🔐 Cross-signing or secret storage not ready - show ready with warning')
-            return {
-              state: 'ready_encrypted_with_warning',
-              details: {
-                hasClient: true,
-                hasCrypto: true,
-                isInEncryptedRoom: false,
-                canChat: true,
-                crossSigningReady,
-                hasKeyBackup,
-                hasDeviceKeys,
-                isCurrentDeviceTrusted,
-                allCrossSigningSecretsCached,
-                secretStorageReady,
-                hasDefaultKeyId,
-                keyBackupUploadActive
-              },
-              requiresUserAction: false,
-              warningMessage: 'Complete encryption setup to enable encrypted messaging'
-            }
-          }
-
-          logger.debug('✅ Ready for unencrypted chat (with encryption details)')
-          return {
-            state: 'ready_unencrypted',
-            details: {
-              hasClient: true,
-              hasCrypto: true,
-              isInEncryptedRoom: false,
-              canChat: true,
-              crossSigningReady,
-              hasKeyBackup,
-              hasDeviceKeys,
-              isCurrentDeviceTrusted,
-              allCrossSigningSecretsCached,
-              secretStorageReady,
-              hasDefaultKeyId,
-              keyBackupUploadActive
-            },
-            requiresUserAction: false
-          }
-        } catch (error) {
-          logger.warn('Error checking encryption details for unencrypted room:', error)
-        }
-      }
-
-      // Fallback to minimal details if crypto check fails
-      logger.debug('✅ Ready for unencrypted chat (minimal details)')
+      // For unencrypted rooms, we don't need any encryption setup - just ready for chat!
+      logger.debug('🔍 Not in encrypted room - defaulting to ready_unencrypted state')
       return {
         state: 'ready_unencrypted',
         details: {
           hasClient: true,
-          hasCrypto,
+          hasCrypto: true,
           isInEncryptedRoom: false,
           canChat: true
         },
@@ -327,7 +189,21 @@ export class MatrixEncryptionStateService {
 
       const hasKeyBackup = !!(keyBackupInfo && keyBackupInfo.version)
       const hasDeviceKeys = !!deviceKeys
-      const isCurrentDeviceTrusted = !!(deviceVerificationStatus?.signedByOwner && deviceVerificationStatus?.crossSigningVerified)
+      // Element Web pattern: only check crossSigningVerified, not signedByOwner
+      // This is more robust in multi-device scenarios
+      const isCurrentDeviceTrusted = Boolean(deviceVerificationStatus?.crossSigningVerified)
+
+      // Debug logging for multi-device scenarios
+      if (deviceVerificationStatus) {
+        logger.debug('🔍 Device verification details:', {
+          deviceId: client.getDeviceId(),
+          userId: client.getUserId(),
+          crossSigningVerified: deviceVerificationStatus.crossSigningVerified,
+          signedByOwner: deviceVerificationStatus.signedByOwner,
+          isVerified: deviceVerificationStatus.isVerified?.(),
+          isCurrentDeviceTrusted
+        })
+      }
       const allCrossSigningSecretsCached = !!(
         crossSigningStatus.privateKeysCachedLocally.masterKey &&
         crossSigningStatus.privateKeysCachedLocally.selfSigningKey &&
@@ -523,28 +399,63 @@ export class MatrixEncryptionStateService {
         return true
       }
 
-      // Now check encryption status with the actual room ID
-      try {
-        const isEncrypted = await crypto.isEncryptionEnabledInRoom(actualRoomId)
-        logger.debug('🔍 Room encryption check result:', { roomId: actualRoomId, isEncrypted })
+      // Priority 1: Direct room state check (immediate when available)
+      const room = client.getRoom(actualRoomId)
+      if (room) {
+        // Method 1: Check timeline for encrypted messages (fastest)
+        const timeline = room.getLiveTimeline()
+        if (timeline) {
+          const events = timeline.getEvents()
+          const hasEncryptedMessages = events.some(event =>
+            event.getType() === 'm.room.encrypted' || event.isEncrypted()
+          )
+          if (hasEncryptedMessages) {
+            logger.debug('🔍 Timeline-based encryption detection - found encrypted messages:', {
+              roomId: actualRoomId,
+              totalEvents: events.length
+            })
+            this.knownEncryptedRooms.add(actualRoomId)
+            return true
+          }
+        }
 
-        // Cache positive results to prevent flapping
+        // Method 2: Use hasEncryptionStateEvent if available
+        if (room.hasEncryptionStateEvent) {
+          const hasEncryptionState = room.hasEncryptionStateEvent()
+          logger.debug('🔍 Room state encryption check (hasEncryptionStateEvent):', {
+            roomId: actualRoomId,
+            hasEncryptionState
+          })
+
+          if (hasEncryptionState) {
+            this.knownEncryptedRooms.add(actualRoomId)
+            return true
+          }
+        }
+
+        // Method 3: Fallback to manual state event check
+        const encryptionEvent = room.currentState.getStateEvents('m.room.encryption', '')
+        const isEncrypted = !!encryptionEvent
+        logger.debug('🔍 Manual state event encryption check:', {
+          roomId: actualRoomId,
+          hasEncryptionEvent: isEncrypted,
+          encryptionEventContent: encryptionEvent?.getContent()
+        })
+
         if (isEncrypted) {
           this.knownEncryptedRooms.add(actualRoomId)
-          logger.debug('📝 Cached encrypted room:', actualRoomId)
         }
 
         return isEncrypted
-      } catch (encryptionCheckError) {
-        logger.debug('⚠️ Encryption check failed for room (treating as unencrypted):', {
-          roomId: actualRoomId,
-          error: encryptionCheckError?.message || 'Unknown error'
-        })
+      } else {
+        logger.debug('🔍 Room not found locally, assuming unencrypted:', actualRoomId)
         return false
       }
-    } catch (error) {
-      logger.debug('Could not check room encryption capability:', error)
-      // Default to unencrypted rather than blocking the UI
+    } catch (encryptionCheckError) {
+      logger.debug('⚠️ Encryption check failed for room (treating as unencrypted):', {
+        originalRoomId: roomId,
+        error: encryptionCheckError?.message || 'Unknown error'
+      })
       return false
     }
   }

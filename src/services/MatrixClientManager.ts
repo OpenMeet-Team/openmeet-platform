@@ -6,6 +6,106 @@ import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
+import { Dialog, Notify } from 'quasar'
+
+// Type definitions for secret storage
+interface SecretStorageKeyInfo {
+  passphrase?: {
+    salt: string
+    iterations: number
+  }
+  algorithm?: string
+}
+
+/**
+ * Derive a secret storage key from passphrase using PBKDF2
+ * Following Element Web's key derivation pattern
+ */
+async function deriveKeyFromPassphrase (passphrase: string, keyInfo: SecretStorageKeyInfo): Promise<Uint8Array> {
+  const saltBytes = new Uint8Array(keyInfo.passphrase?.salt ? atob(keyInfo.passphrase.salt).split('').map(c => c.charCodeAt(0)) : [])
+  const iterations = keyInfo.passphrase?.iterations || 500000
+
+  const encoder = new TextEncoder()
+  const passphraseBytes = encoder.encode(passphrase)
+
+  // Import passphrase as a key
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    passphraseBytes,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  // Derive key using PBKDF2
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations,
+      hash: 'SHA-512'
+    },
+    baseKey,
+    256 // 32 bytes
+  )
+
+  return new Uint8Array(derivedBits)
+}
+
+/**
+ * Prompt user for secret storage passphrase using mobile-friendly Quasar dialog
+ * Following Element Web's AccessSecretStorageDialog pattern
+ */
+async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo): Promise<Uint8Array | null> {
+  return new Promise((resolve) => {
+    Dialog.create({
+      title: 'Security Key Required',
+      message: 'Please enter your security passphrase to unlock encrypted messaging:',
+      prompt: {
+        model: '',
+        type: 'password',
+        placeholder: 'Security passphrase'
+      },
+      persistent: true,
+      ok: {
+        label: 'Unlock',
+        color: 'primary'
+      },
+      cancel: {
+        label: 'Cancel',
+        color: 'grey'
+      }
+    }).onOk(async (passphrase: string) => {
+      try {
+        if (!passphrase.trim()) {
+          Notify.create({
+            type: 'negative',
+            message: 'Please enter your passphrase'
+          })
+          resolve(null)
+          return
+        }
+
+        logger.debug('🔑 Deriving secret storage key from passphrase')
+        const derivedKey = await deriveKeyFromPassphrase(passphrase, keyInfo)
+
+        logger.debug('✅ Secret storage key derived successfully')
+        resolve(derivedKey)
+      } catch (error) {
+        logger.error('❌ Failed to derive secret storage key:', error)
+        Notify.create({
+          type: 'negative',
+          message: 'Invalid passphrase or key derivation failed',
+          caption: 'Please check your passphrase and try again'
+        })
+        resolve(null)
+      }
+    }).onCancel(() => {
+      logger.debug('🚫 User cancelled secret storage passphrase prompt')
+      resolve(null)
+    })
+  })
+}
 
 // Element Web-style secret storage cache (similar to SecurityManager.ts)
 // This stores the secret storage private keys in memory for the JS SDK. This is
@@ -29,6 +129,7 @@ export function cacheSecretStorageKeyForBootstrap (keyId: string, keyInfo: unkno
 export function clearSecretStorageCache (): void {
   secretStorageKeys = {}
   secretStorageKeyInfo = {}
+  logger.debug('🗑️ Secret storage cache cleared')
 }
 
 /**
@@ -204,6 +305,13 @@ export class MatrixClientManager {
 
       // Use Matrix SDK's built-in secret storage mechanism for secure backup restoration
       try {
+        // Check if secret storage is properly set up before attempting to load from it
+        const hasSecretStorage = await crypto.isSecretStorageReady()
+        if (!hasSecretStorage) {
+          logger.debug('ℹ️ Secret storage not ready - skipping backup restoration (expected after MAS identity reset)')
+          return
+        }
+
         logger.debug('🔐 Attempting automatic key backup restoration from secret storage...')
         await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
         logger.debug('✅ Key backup private key loaded from secret storage')
@@ -217,6 +325,7 @@ export class MatrixClientManager {
       } catch (secretStorageError) {
         logger.debug('ℹ️ Could not load backup key from secret storage:', secretStorageError.message)
         // This is expected if the user hasn't set up secret storage or backup properly
+        // Also expected after MAS identity reset when secret storage is cleared
         // The Matrix SDK will handle requesting keys from other devices automatically
       }
     } catch (error) {
@@ -605,13 +714,57 @@ export class MatrixClientManager {
               return [keyId, secretStorageKeys.temp_bootstrap_key]
             }
 
-            // No cached key available - for unlock scenarios, we need user interaction
-            logger.debug('🔑 getSecretStorageKey: no cached key available, user interaction required')
-            throw new Error('Secret storage key not available - user interaction required')
+            // CRITICAL FIX: Only prompt for security key during intentional encryption operations
+            // Check if this is for an encryption-related secret (not just random sync operations)
+            const isEncryptionSecret = name && (
+              name.includes('cross_signing') ||
+              name.includes('megolm_backup') ||
+              name.includes('secret_storage')
+            )
+
+            if (!isEncryptionSecret) {
+              logger.debug('🔑 getSecretStorageKey: not an encryption secret, skipping user prompt', { name })
+              throw new Error(`Secret storage key not available for ${name || 'unknown'} - no user interaction for non-encryption secrets`)
+            }
+
+            logger.debug('🔑 getSecretStorageKey: encryption secret requested, prompting user for passphrase', { name })
+
+            // Get key info from the first available key ID
+            const keyId = keyIds[0]
+            if (!keyId) {
+              throw new Error('No secret storage key IDs provided')
+            }
+
+            // Get key info from opts (Matrix SDK provides this)
+            const keyInfo = opts.keys[keyId]
+
+            if (!keyInfo) {
+              throw new Error(`Secret storage key info not found for ${keyId}`)
+            }
+
+            // Prompt user for passphrase and derive key (only for encryption secrets)
+            const derivedKey = await promptForSecretStoragePassphrase(keyInfo)
+
+            if (!derivedKey) {
+              throw new Error('User cancelled secret storage key prompt')
+            }
+
+            // Cache the key for this session
+            secretStorageKeys[keyId] = derivedKey
+            secretStorageKeyInfo[keyId] = keyInfo
+
+            logger.debug('✅ Secret storage key derived and cached from user input')
+            return [keyId, derivedKey]
           },
-          cacheSecretStorageKey: (keyId) => {
+          cacheSecretStorageKey: (keyId, keyInfo, key) => {
             // Cache key for session (this follows Element-Web pattern)
             logger.debug('🔑 cacheSecretStorageKey callback invoked for keyId:', keyId)
+            // Actually cache the key so it can be used for export operations
+            if (key) {
+              secretStorageKeys[keyId] = key
+              secretStorageKeyInfo[keyId] = keyInfo
+              logger.debug(`🔑 Cached secret storage key ${keyId} for export operations`)
+            }
           }
         }
       }
@@ -638,14 +791,10 @@ export class MatrixClientManager {
         // Use Element Web pattern: pass tokenRefresher's doRefreshAccessToken method
         clientOptions.refreshToken = credentials.refreshToken
 
-        // Create a wrapped function for better debugging
+        // Create a wrapped function for error handling
         const tokenRefreshFunction = async (refreshToken: string) => {
-          logger.debug('🔄 tokenRefreshFunction called by Matrix SDK - delegating to TokenRefresher', {
-            hasRefreshToken: !!refreshToken
-          })
           try {
             const result = await tokenRefresher.doRefreshAccessToken(refreshToken)
-            logger.debug('✅ tokenRefreshFunction completed successfully')
             return result
           } catch (error) {
             logger.error('❌ tokenRefreshFunction failed:', error)
@@ -841,8 +990,6 @@ export class MatrixClientManager {
 
     // Store sync state change handler for cleanup
     this.syncStateHandler = (state: string, prevState: string, data: unknown) => {
-      logger.debug(`🔄 Matrix sync state: ${prevState} → ${state}`)
-
       if (onSyncStateChange) {
         onSyncStateChange(state)
       }

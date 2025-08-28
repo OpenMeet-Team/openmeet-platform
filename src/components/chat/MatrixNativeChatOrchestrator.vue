@@ -403,8 +403,9 @@ const props = withDefaults(defineProps<Props>(), {
 // Quasar for notifications
 const $q = useQuasar()
 
-// Element Web style encryption state
+// Use only the old system but make it faster by immediate initialization
 const {
+  encryptionStatus,
   isLoading,
   canChat,
   needsLogin,
@@ -414,7 +415,6 @@ const {
   isReadyUnencrypted,
   isReadyEncrypted,
   requiresUserAction,
-  encryptionStatus,
   checkEncryptionState,
   initializeEncryption,
   refreshState
@@ -469,188 +469,83 @@ let encryptionResetListener: ((event: CustomEvent) => Promise<void>) | null = nu
 let encryptionSetupListener: ((event: CustomEvent) => Promise<void>) | null = null
 let masRecoveryKeyListener: ((event: CustomEvent) => Promise<void>) | null = null
 
-// Proactively show encryption setup when user lacks keys for encrypted room
+// Element Web's simple decision tree - show setup when encryption is needed but not complete
 const shouldShowEncryptionSetup = computed(() => {
   const state = encryptionStatus.value?.state
-  const details = encryptionStatus.value?.details
 
-  // Core scenarios requiring setup
-  const needsKeys = state === 'needs_recovery_key' ||
-                   state === 'needs_key_backup' ||
-                   state === 'needs_device_verification' ||
-                   state === 'ready_encrypted_with_warning'
+  // Element Web pattern: Show banner for these specific states
+  const needsSetup = state === 'needs_recovery_key' ||
+                    state === 'needs_key_backup' ||
+                    state === 'needs_device_verification' ||
+                    state === 'ready_encrypted_with_warning'
 
-  // Check if we have warning messages about backups or key issues
-  const hasKeyIssues = needsBanner.value && (
-    warningMessage.value?.includes('backup') ||
-    warningMessage.value?.includes('key') ||
-    warningMessage.value?.includes('trusted')
-  )
-
-  // Additional check for users who need encryption setup but aren't in the core states
-  // This catches cases like Steve's where device is unverified but state is 'ready_unencrypted'
-  const needsEncryptionSetupBasedOnDetails = details && (
-    details.isCurrentDeviceTrusted === false ||
-    details.hasKeyBackup === false ||
-    details.crossSigningReady === false ||
-    details.secretStorageReady === false ||
-    details.allCrossSigningSecretsCached === false
-  )
-
-  // Don't show if encryption is fully working
-  const encryptionWorking = state === 'ready_encrypted'
-
-  // Force show in certain cases or when explicitly requested
+  // Force show after reset (like Element Web after identity reset)
   const forceShow = forceSetupAfterReset.value
 
-  // Debug logging to understand what's happening
-  const shouldShow = (needsKeys || hasKeyIssues || needsEncryptionSetupBasedOnDetails || forceShow) && !encryptionWorking
+  // Don't show if encryption is fully working
+  const encryptionReady = state === 'ready_encrypted'
 
-  // Debug force show removed - real logic is working now
-  const debugForceShow = false
+  const shouldShow = (needsSetup || forceShow) && !encryptionReady
 
-  logger.debug('🔍 shouldShowEncryptionSetup Banner trigger debug:', {
+  logger.debug('🔍 Element Web banner logic:', {
     state,
-    needsKeys,
-    hasKeyIssues,
-    needsEncryptionSetupBasedOnDetails,
-    encryptionWorking,
+    needsSetup,
     forceShow,
-    shouldShow,
-    debugForceShow,
-    warningMessage: warningMessage.value,
-    details: details ? {
-      hasClient: details.hasClient,
-      hasCrypto: details.hasCrypto,
-      canChat: details.canChat,
-      isCurrentDeviceTrusted: details.isCurrentDeviceTrusted,
-      hasKeyBackup: details.hasKeyBackup,
-      crossSigningReady: details.crossSigningReady,
-      secretStorageReady: details.secretStorageReady,
-      allCrossSigningSecretsCached: details.allCrossSigningSecretsCached,
-      isInEncryptedRoom: details.isInEncryptedRoom
-    } : 'no details'
+    encryptionReady,
+    shouldShow
   })
 
-  return shouldShow || debugForceShow
+  return shouldShow
 })
 
-// Detect if user needs to create recovery key first
+// Element Web's simple pattern - does user need to create a recovery key?
 const needsRecoveryKeyCreation = computed(() => {
-  const details = encryptionStatus.value?.details
   const state = encryptionStatus.value?.state
+  const details = encryptionStatus.value?.details
 
-  if (!details) return true
-
-  // IMPORTANT: The encryption state service only provides detailed info for encrypted rooms
-  // For unencrypted rooms, it returns 'ready_unencrypted' with minimal details
-  // We need to check if we have encryption capability at all, regardless of room type
-
-  const hasClient = details.hasClient
-  const hasCrypto = details.hasCrypto
-
-  // If we're in ready_unencrypted state, we need to check if encryption is actually set up
-  // by looking at the available details (which may be minimal for unencrypted rooms)
-  if (state === 'ready_unencrypted' && hasClient && hasCrypto) {
-    // Don't show create button if user just completed the flow or is in progress
-    if (justCreatedKey.value || showRecoveryKeyDisplay.value) {
-      logger.debug('🔍 Recovery key creation check (flow in progress):', {
-        state,
-        justCreatedKey: justCreatedKey.value,
-        showRecoveryKeyDisplay: showRecoveryKeyDisplay.value,
-        needsCreation: false,
-        reason: 'User is in recovery key creation flow'
-      })
-      return false
-    }
-
-    // For unencrypted rooms, we need to actually check if cross-signing and backup exist
-    // Only show create button if BOTH cross-signing keys AND backup don't exist
-    const missingCrossSigning = details.crossSigningReady === false
-    const missingBackup = details.hasKeyBackup === false
-
-    const needsCreation = missingCrossSigning && missingBackup
-
-    logger.debug('🔍 Recovery key creation check (unencrypted room logic):', {
-      state,
-      hasClient,
-      hasCrypto,
-      crossSigningReady: details.crossSigningReady,
-      hasKeyBackup: details.hasKeyBackup,
-      missingCrossSigning,
-      missingBackup,
-      needsCreation,
-      reason: needsCreation ? 'Missing both cross-signing and backup' : 'Has encryption setup'
-    })
-
-    return needsCreation
+  // Don't show create button if user is in the middle of the flow
+  if (justCreatedKey.value || showRecoveryKeyDisplay.value) {
+    return false
   }
 
-  // Original logic for encrypted rooms or when we have detailed info
-  const hasNoSecretStorage = details.secretStorageReady === false
-  const hasNoKeyBackup = details.hasKeyBackup === false
-  const hasNoDefaultKeyId = details.hasDefaultKeyId === false
-  const crossSigningNotReady = details.crossSigningReady === false
-  const deviceNotTrusted = details.isCurrentDeviceTrusted === false
-  const secretsNotCached = details.allCrossSigningSecretsCached === false
+  // Element Web pattern: Show "Create Recovery Key" ONLY for truly fresh setups
+  // If secret storage exists, user has a recovery key and needs to enter it, not create new one
+  const needsFullSetup = (state === 'needs_key_backup' ||
+                         !details?.secretStorageReady) &&
+                         !details?.hasDefaultKeyId // Don't create if recovery key exists
 
-  const missingComponents = [
-    hasNoSecretStorage,
-    hasNoKeyBackup,
-    hasNoDefaultKeyId,
-    crossSigningNotReady,
-    deviceNotTrusted,
-    secretsNotCached
-  ].filter(Boolean).length
-
-  const needsCreation = missingComponents >= 3 && !justCreatedKey.value
-
-  console.log('🔍 Recovery key creation check (detailed logic):', {
+  logger.debug('🔍 Recovery key creation (Element Web pattern):', {
     state,
-    hasNoSecretStorage,
-    hasNoKeyBackup,
-    hasNoDefaultKeyId,
-    crossSigningNotReady,
-    deviceNotTrusted,
-    secretsNotCached,
-    missingComponents,
-    needsCreation,
-    justCreatedKey: justCreatedKey.value
+    needsFullSetup,
+    secretStorageReady: details?.secretStorageReady,
+    crossSigningReady: details?.crossSigningReady
   })
 
-  return needsCreation
+  return needsFullSetup
 })
 
-// Detect if we only need device verification (not full key creation)
-// This handles cases like after MAS reset where cross-signing and backup exist but device needs verification
+// Element Web pattern - does user only need device verification?
 const needsDeviceVerificationOnly = computed(() => {
-  const details = encryptionStatus.value?.details
   const state = encryptionStatus.value?.state
+  const details = encryptionStatus.value?.details
 
-  if (!details) return false
+  // Element Web pattern: User has recovery key but device isn't verified
+  const hasRecoveryKey = details?.secretStorageReady || details?.hasDefaultKeyId
+  const deviceNotTrusted = details?.isCurrentDeviceTrusted === false
+  const needsDeviceVerification = state === 'needs_device_verification'
 
-  // Check if encryption infrastructure is ready but device is not trusted
-  const hasEncryptionInfrastructure =
-    details.crossSigningReady === true &&
-    details.hasKeyBackup === true &&
-    details.secretStorageReady === true
+  // If user has recovery key but device isn't trusted, they need to enter the key to verify
+  const onlyNeedsDevice = hasRecoveryKey && (deviceNotTrusted || needsDeviceVerification)
 
-  const deviceNotTrusted = details.isCurrentDeviceTrusted === false
-
-  // If we have the infrastructure but device isn't trusted, we just need device verification
-  const onlyNeedsDeviceVerification = hasEncryptionInfrastructure && deviceNotTrusted
-
-  logger.debug('🔍 Device verification only check:', {
+  logger.debug('🔍 Device verification only (Element Web pattern):', {
     state,
-    hasEncryptionInfrastructure,
-    crossSigningReady: details.crossSigningReady,
-    hasKeyBackup: details.hasKeyBackup,
-    secretStorageReady: details.secretStorageReady,
+    hasRecoveryKey,
     deviceNotTrusted,
-    onlyNeedsDeviceVerification
+    needsDeviceVerification,
+    onlyNeedsDevice
   })
 
-  return onlyNeedsDeviceVerification
+  return onlyNeedsDevice
 })
 
 // Debug current state
@@ -674,6 +569,27 @@ watch(debugState, (newState) => {
   console.log('🔍 Encryption state debug:', newState)
 }, { deep: true })
 
+// Watch for room ID changes and update encryption state accordingly
+watch(() => props.inlineRoomId, async (newRoomId, oldRoomId) => {
+  logger.debug('🔄 Room ID watcher triggered:', {
+    oldRoomId,
+    newRoomId,
+    hasRoomId: !!newRoomId,
+    roomIdType: typeof newRoomId,
+    isDifferent: newRoomId !== oldRoomId
+  })
+
+  if (newRoomId && newRoomId !== oldRoomId) {
+    // Room ID is now available or has changed - check encryption state for this room
+    logger.debug('✅ Room ID available - checking encryption state for room:', newRoomId)
+    await checkEncryptionState(newRoomId)
+  } else if (!newRoomId) {
+    logger.debug('🔍 Room ID is still null/undefined - waiting')
+  } else {
+    logger.debug('🔍 Room ID unchanged or invalid:', newRoomId)
+  }
+}, { immediate: false }) // Don't run immediately since onMounted handles the initial check
+
 // Actions
 const connectToMatrix = async () => {
   logger.debug('🔗 User requested Matrix connection')
@@ -686,8 +602,10 @@ const connectToMatrix = async () => {
     if (client) {
       matrixClientService.setUserChosenToConnect(true)
 
-      // Re-check state after connection - should default to ready_unencrypted
-      await checkEncryptionState(props.inlineRoomId)
+      // Re-check state after connection - only if we have a room ID
+      if (props.inlineRoomId) {
+        await checkEncryptionState(props.inlineRoomId)
+      }
 
       logger.debug('✅ Matrix connected - ready for unencrypted chat')
     }
@@ -724,6 +642,9 @@ const createRecoveryKeyInline = async () => {
       showRecoveryKeyDisplay.value = true
       justCreatedKey.value = true
 
+      // Clear force setup flag after successful recovery key creation
+      forceSetupAfterReset.value = false
+
       logger.debug('✅ Recovery key created, showing display')
       $q.notify({
         type: 'positive',
@@ -732,7 +653,8 @@ const createRecoveryKeyInline = async () => {
       })
     }
 
-    // Don't refresh state yet - wait for user to save and proceed
+    // Refresh state to update banner visibility
+    await refreshState()
   } catch (error) {
     logger.error('Failed to create recovery key:', error)
     $q.notify({
@@ -838,15 +760,20 @@ const handleInlineSetupEncryption = async () => {
             const verificationResult = await testAndFixDeviceVerification()
 
             if (verificationResult.success && verificationResult.isVerified) {
-              logger.debug('✅ Device verification successful after MatrixEncryptionService!')
+              logger.debug('✅ Device verification completed successfully after MatrixEncryptionService!')
               // Clear the error since device is now verified
               setupError.value = ''
               setupErrorDetails.value = ''
-            } else {
-              logger.debug('⚠️ Device verification still failed after MatrixEncryptionService')
+            } else if (verificationResult.success && !verificationResult.isVerified) {
+              logger.debug('⚠️ MatrixEncryptionService succeeded but device still needs verification')
               // Keep showing the verification banner since device is not verified
               setupError.value = 'Device verification pending'
-              setupErrorDetails.value = `MatrixEncryptionService succeeded but device verification failed: ${verificationResult.error || 'Unknown error'}`
+              setupErrorDetails.value = 'Device setup completed but verification is still required'
+            } else {
+              logger.debug('⚠️ Device verification failed after MatrixEncryptionService')
+              // Show error for verification failures
+              setupError.value = 'Device verification failed'
+              setupErrorDetails.value = `Verification error: ${verificationResult.error || 'Unknown error'}`
             }
           } catch (verificationError) {
             logger.error('❌ Device verification failed after MatrixEncryptionService:', verificationError)
@@ -969,13 +896,13 @@ const handleInlineSetupEncryption = async () => {
     // Check for MAS reset completion error
     if (error instanceof Error && error.message === 'MAS_RESET_COMPLETE_NEW_KEY_NEEDED') {
       logger.debug('🔄 MAS cross-signing reset completed - redirecting to new key generation')
-      
+
       // Clear current setup state
       setupInProgress.value = false
       setupError.value = ''
       setupErrorDetails.value = ''
       recoveryKeyInput.value = ''
-      
+
       // Redirect to new key generation flow
       try {
         await createRecoveryKeyInline()
@@ -1420,8 +1347,10 @@ const showPassphraseDialog = async (isUnlock = false) => {
           // Clear force setup flag
           forceSetupAfterReset.value = false
 
-          // Re-check encryption state
-          await checkEncryptionState(props.inlineRoomId)
+          // Re-check encryption state - only if we have a room ID
+          if (props.inlineRoomId) {
+            await checkEncryptionState(props.inlineRoomId)
+          }
 
           $q.notify({
             type: 'positive',
@@ -1453,6 +1382,7 @@ const showPassphraseDialog = async (isUnlock = false) => {
 // Initialize
 onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
+  logger.debug('🔍 Props on mount:', { inlineRoomId: props.inlineRoomId, contextType: props.contextType, mode: props.mode })
   logger.debug('🔍 Debug state:', debugState.value)
 
   // Initialize encryption service if Matrix client is ready
@@ -1568,20 +1498,28 @@ onMounted(async () => {
     }
   }
 
-  // Initial state check with room context - should default to ready_unencrypted
-  await checkEncryptionState(props.inlineRoomId)
+  // Initial state check with room context - only if we have a room ID
+  if (props.inlineRoomId) {
+    logger.debug('🔍 Initial encryption state check with room ID:', props.inlineRoomId)
+    await checkEncryptionState(props.inlineRoomId)
+  } else {
+    logger.debug('🔍 No room ID available at mount - will check encryption state when room ID becomes available via watcher')
+  }
 
   // Try to initialize chat if we have a client (no forced encryption)
   if (!needsLogin.value) {
-    await initializeEncryption(props.inlineRoomId)
+    // Only pass room ID if we have it - initializeEncryption can work without it for general setup
+    await initializeEncryption(props.inlineRoomId || undefined)
 
     // Re-check encryption state after a brief delay to ensure room is fully loaded
     // This helps detect encryption in rooms where alias resolution initially failed
     if (props.inlineRoomId) {
       setTimeout(async () => {
-        logger.debug('🔄 Re-checking encryption state after initialization')
+        logger.debug('🔄 Re-checking encryption state after initialization (room ID already available)')
         await checkEncryptionState(props.inlineRoomId)
       }, 3000) // 3 second delay to allow room to be joined and state to sync
+    } else {
+      logger.debug('🔄 No room ID yet - watcher will handle encryption state when room ID becomes available')
     }
   }
 })

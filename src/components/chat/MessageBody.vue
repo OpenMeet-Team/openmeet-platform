@@ -125,6 +125,7 @@ from Matrix events, similar to Element Web's body component routing.
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { type MatrixEvent } from 'matrix-js-sdk'
 import { matrixClientService } from '../../services/matrixClientService'
+import { logger } from '../../utils/logger'
 
 interface EncryptedFile {
   url: string
@@ -218,51 +219,20 @@ const props = defineProps<Props>()
 
 // Message type detection following Element Web patterns
 const isTextMessage = computed(() => {
-  const result = props.msgtype === 'm.text'
-  console.debug(`🎬 MessageBody(${props.mxEvent.getId()}): isTextMessage`, { msgtype: props.msgtype, result })
-  return result
+  return props.msgtype === 'm.text'
 })
 const isImageMessage = computed(() => {
-  const result = props.msgtype === 'm.image'
-
-  // Serialize the content for debugging
-  const contentDebug = {
-    keys: Object.keys(props.content),
-    url: props.content.url,
-    file: props.content.file,
-    filename: props.content.filename,
-    body: props.content.body,
-    info: props.content.info,
-    msgtype: props.content.msgtype
-  }
-
-  console.debug(`🖼️ MessageBody(${props.mxEvent.getId()}): isImageMessage`, {
-    msgtype: props.msgtype,
-    result,
-    hasUrl: !!props.content.url,
-    hasFileUrl: !!(props.content.file?.url),
-    contentDebug
-  })
-  return result
+  return props.msgtype === 'm.image'
 })
 const isFileMessage = computed(() => {
-  const result = props.msgtype === 'm.file'
-  console.debug(`📁 MessageBody(${props.mxEvent.getId()}): isFileMessage`, { msgtype: props.msgtype, result, hasUrl: !!props.content.url })
-  return result
+  return props.msgtype === 'm.file'
 })
 const isAudioMessage = computed(() => props.msgtype === 'm.audio')
 const isVideoMessage = computed(() => props.msgtype === 'm.video')
 const isEmoteMessage = computed(() => props.msgtype === 'm.emote')
 const isNoticeMessage = computed(() => props.msgtype === 'm.notice')
 const isRedactedMessage = computed(() => {
-  const isRedacted = props.mxEvent.isRedacted()
-  console.debug(`🗑️ MessageBody(${props.mxEvent.getId()}): isRedactedMessage`, {
-    isRedacted,
-    msgtype: props.msgtype,
-    hasContent: !!props.content,
-    contentKeys: Object.keys(props.content || {})
-  })
-  return isRedacted
+  return props.mxEvent.isRedacted()
 })
 
 // Text formatting
@@ -286,13 +256,6 @@ const fileSize = computed(() => props.content.info?.size)
 const fileUrl = computed(() => {
   // Check different possible URL properties used by different Matrix clients
   const url = props.content.url || props.content.file?.url
-  console.debug(`🔗 FileURL check for ${props.mxEvent.getId()}:`, {
-    contentUrl: props.content.url,
-    fileUrl: props.content.file?.url,
-    resolvedUrl: url,
-    hasFile: !!props.content.file,
-    fileKeys: props.content.file ? Object.keys(props.content.file) : []
-  })
   if (!url) return null
   return matrixClientService.getContentUrl(url)
 })
@@ -307,14 +270,6 @@ const loadImage = async () => {
   const url = props.content.url || props.content.file?.url
   const isEncrypted = !!props.content.file
 
-  console.debug(`🖼️ loadImage called for ${props.mxEvent.getId()}:`, {
-    contentUrl: props.content.url,
-    fileUrl: props.content.file?.url,
-    resolvedUrl: url,
-    isLoading: imageLoading.value,
-    isEncrypted
-  })
-
   if (!url || imageLoading.value) return
 
   imageLoading.value = true
@@ -324,18 +279,15 @@ const loadImage = async () => {
 
     if (isEncrypted) {
       // Handle encrypted files - use Element Web's approach
-      console.debug(`🔐 Loading encrypted image for ${props.mxEvent.getId()}`)
-
       try {
         // Use Element Web's decryptFile approach
         const blob = await decryptEncryptedFile(props.content.file, props.content.info)
         imageUrl.value = URL.createObjectURL(blob)
-        console.debug(`✅ Encrypted image loaded successfully for ${props.mxEvent.getId()}`)
         return
       } catch (encryptedError) {
-        console.error(`Failed to load encrypted image: ${encryptedError.message}`, {
+        logger.error('Failed to load encrypted image:', {
           eventId: props.mxEvent.getId(),
-          error: encryptedError
+          error: encryptedError.message
         })
         // Fall through to try regular thumbnail approach
       }
@@ -343,7 +295,6 @@ const loadImage = async () => {
 
     // Handle unencrypted files - use thumbnail endpoint
     const thumbnailUrl = matrixClientService.getContentUrl(url, 400, 300)
-    console.debug(`🔗 Loading unencrypted image from URL: ${thumbnailUrl}`)
 
     const response = await fetch(thumbnailUrl, {
       headers: {
@@ -353,12 +304,12 @@ const loadImage = async () => {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error')
-      console.error(`Failed to fetch image thumbnail: ${response.status} ${response.statusText}`, {
+      logger.error('Failed to fetch image thumbnail:', {
         eventId: props.mxEvent.getId(),
+        status: response.status,
+        statusText: response.statusText,
         thumbnailUrl,
-        error: errorText,
-        isEncrypted,
-        fileKeys: props.content.file ? Object.keys(props.content.file) : []
+        error: errorText
       })
       return
     }
@@ -366,9 +317,8 @@ const loadImage = async () => {
     // Create blob URL for inline display
     const blob = await response.blob()
     imageUrl.value = URL.createObjectURL(blob)
-    console.debug(`✅ Unencrypted image loaded successfully for ${props.mxEvent.getId()}`)
   } catch (error) {
-    console.error('Error loading image:', error)
+    logger.error('Error loading image:', { eventId: props.mxEvent.getId(), error })
   } finally {
     imageLoading.value = false
   }
@@ -405,7 +355,6 @@ const downloadFile = async () => {
 
     if (props.content.file) {
       // Handle encrypted file
-      console.debug('Downloading encrypted file:', props.content.file)
 
       // Import encrypt function dynamically
       const encrypt = await import('matrix-encrypt-attachment')
@@ -419,7 +368,7 @@ const downloadFile = async () => {
       })
 
       if (!response.ok) {
-        console.error('Failed to fetch encrypted file:', response.status, response.statusText)
+        logger.error('Failed to fetch encrypted file:', { status: response.status, statusText: response.statusText })
         return
       }
 
@@ -437,7 +386,6 @@ const downloadFile = async () => {
       blob = new Blob([dataArray], { type: mimetype })
     } else {
       // Handle unencrypted file
-      console.debug('Downloading unencrypted file:', url)
 
       const fileUrl = matrixClientService.getContentUrl(url)
       const response = await fetch(fileUrl, {
@@ -447,7 +395,7 @@ const downloadFile = async () => {
       })
 
       if (!response.ok) {
-        console.error('Failed to fetch file:', response.status, response.statusText)
+        logger.error('Failed to fetch file:', { status: response.status, statusText: response.statusText })
         return
       }
 
@@ -468,7 +416,7 @@ const downloadFile = async () => {
     // Clean up blob URL
     URL.revokeObjectURL(blobUrl)
   } catch (error) {
-    console.error('Error downloading file:', error)
+    logger.error('Error downloading file:', error)
   }
 }
 
@@ -489,7 +437,7 @@ const viewFullImage = async () => {
       })
 
       if (!response.ok) {
-        console.error('Failed to fetch image:', response.status, response.statusText)
+        logger.error('Failed to fetch image:', { status: response.status, statusText: response.statusText })
         return
       }
 
@@ -503,7 +451,7 @@ const viewFullImage = async () => {
         URL.revokeObjectURL(blobUrl)
       }, 10000)
     } catch (error) {
-      console.error('Error viewing image:', error)
+      logger.error('Error viewing image:', error)
     }
   }
 }
@@ -597,7 +545,7 @@ const previewFile = async () => {
       })
 
       if (!response.ok) {
-        console.error('Failed to fetch file for preview:', response.status, response.statusText)
+        logger.error('Failed to fetch file for preview:', { status: response.status, statusText: response.statusText })
         return
       }
 
@@ -611,7 +559,7 @@ const previewFile = async () => {
         URL.revokeObjectURL(blobUrl)
       }, 10000)
     } catch (error) {
-      console.error('Error previewing file:', error)
+      logger.error('Error previewing file:', error)
     }
   }
 }
@@ -620,7 +568,6 @@ const previewFile = async () => {
 onMounted(() => {
   const url = props.content.url || props.content.file?.url
   if (isImageMessage.value && url) {
-    console.debug(`🖼️ MessageBody mounted - loading image for ${props.mxEvent.getId()}`)
     loadImage()
   }
 })
@@ -628,16 +575,8 @@ onMounted(() => {
 // Watch for content changes (when messages get decrypted)
 watch([() => props.content, isImageMessage], ([newContent, newIsImage]) => {
   const url = newContent.url || newContent.file?.url
-  console.debug(`🔄 MessageBody content/type changed for ${props.mxEvent.getId()}:`, {
-    isImage: newIsImage,
-    hasUrl: !!url,
-    msgtype: props.msgtype,
-    contentUrl: newContent.url,
-    fileUrl: newContent.file?.url
-  })
 
   if (newIsImage && url && !imageUrl.value && !imageLoading.value) {
-    console.debug(`🖼️ Loading image after content change for ${props.mxEvent.getId()}`)
     loadImage()
   }
 })

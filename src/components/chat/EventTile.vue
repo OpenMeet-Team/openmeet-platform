@@ -162,6 +162,7 @@ import { EventType, type MatrixEvent, type Room } from 'matrix-js-sdk'
 import { format } from 'date-fns'
 import MessageBody from './MessageBody.vue'
 import { matrixClientService } from '../../services/matrixClientService'
+import { logger } from '../../utils/logger'
 
 interface Props {
   mxEvent: MatrixEvent
@@ -190,14 +191,8 @@ const eventContent = computed(() => {
   // Access decryptionCounter to force re-evaluation when events get decrypted
   const counter = props.decryptionCounter || 0
   const content = props.mxEvent.getContent()
-  console.debug(`🎯 EventTile(${props.mxEvent.getId()}): Content accessed`, {
-    hasContent: !!content,
-    msgtype: content.msgtype,
-    body: content.body?.substring(0, 50),
-    isDecrypted: !content.encrypted,
-    decryptionCounter: counter
-  })
-  return content
+  // Use counter to ensure reactivity when decryption happens
+  return counter >= 0 ? content : content
 })
 const senderId = computed(() => props.mxEvent.getSender() || '')
 const eventTimestamp = computed(() => new Date(props.mxEvent.getTs()))
@@ -233,13 +228,7 @@ const isStateEvent = computed(() => {
          eventType.value === EventType.RoomEncryption
 })
 const isEncryptedEvent = computed(() => {
-  const result = eventType.value === EventType.RoomEncryption || eventType.value === 'm.room.encrypted'
-  console.debug('🔐 isEncryptedEvent check:', {
-    eventType: eventType.value,
-    EventTypeRoomEncryption: EventType.RoomEncryption,
-    result
-  })
-  return result
+  return eventType.value === EventType.RoomEncryption || eventType.value === 'm.room.encrypted'
 })
 
 // Message features
@@ -261,7 +250,6 @@ const canDelete = computed(() => {
   try {
     const powerLevels = room.currentState.getStateEvents('m.room.power_levels', '')?.getContent()
     if (!powerLevels) {
-      console.debug('🔍 No power levels found in room')
       return false
     }
 
@@ -271,22 +259,9 @@ const canDelete = computed(() => {
 
     // Room owners (level 100) and moderators (level 50+) can delete messages
     const canModerate = userLevel >= redactLevel
-
-    // Debug logging to see what's happening
-    console.debug('🔍 Delete permission check:', {
-      currentUserId,
-      userLevel,
-      redactLevel,
-      canModerate,
-      powerLevels: powerLevels.users,
-      isOwnEvent: isOwnEvent.value,
-      senderId: senderId.value,
-      eventId: props.mxEvent.getId()
-    })
-
     return canModerate
   } catch (error) {
-    console.warn('Error checking delete permissions:', error)
+    logger.warn('Error checking delete permissions:', error)
     return false
   }
 })
@@ -309,27 +284,13 @@ const messageStatus = computed(() => {
 
 // Display logic
 const shouldDisplayEvent = computed(() => {
-  const eventId = props.mxEvent.getId()
-  const eventType = props.mxEvent.getType()
-
   // Always display redacted events (will show as "Message deleted")
   if (props.mxEvent.isRedacted()) {
-    console.debug(`🎭 EventTile(${eventId}): Redacted event, showing as deleted`)
     return true
   }
 
   // Display message events, state events we care about, and encrypted events
-  const shouldShow = isMessageEvent.value || isStateEvent.value || isEncryptedEvent.value
-
-  console.debug(`🎭 EventTile(${eventId}): Display check`, {
-    eventType,
-    isMessageEvent: isMessageEvent.value,
-    isStateEvent: isStateEvent.value,
-    isEncryptedEvent: isEncryptedEvent.value,
-    shouldShow
-  })
-
-  return shouldShow
+  return isMessageEvent.value || isStateEvent.value || isEncryptedEvent.value
 })
 
 // State event text generation
