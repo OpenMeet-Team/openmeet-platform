@@ -178,7 +178,8 @@ export function useMatrixEncryption () {
 
   // Lifecycle
   onMounted(async () => {
-    // Immediate device verification check - don't wait for room state
+    // Store device verification status for use when checking encrypted rooms
+    // Don't immediately set global encryption status - wait for room context
     try {
       const client = matrixClientService.getClient()
       if (client) {
@@ -200,7 +201,7 @@ export function useMatrixEncryption () {
             try {
               const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
               isCurrentDeviceTrusted = Boolean(deviceStatus?.crossSigningVerified)
-              logger.debug('🔍 Element Web style device verification check:', {
+              logger.debug('🔍 Device verification status stored for encrypted room checks:', {
                 deviceId,
                 userId,
                 crossSigningReady,
@@ -215,19 +216,14 @@ export function useMatrixEncryption () {
           const needsDeviceSetup = !secretStorageReady || !crossSigningReady || !keyBackupInfo || !isCurrentDeviceTrusted
 
           if (needsDeviceSetup) {
-            // Immediately set needs verification state
-            encryptionStatus.value = {
-              state: 'needs_device_verification',
-              details: { hasClient: true, hasCrypto: true, isInEncryptedRoom: true, canChat: true },
-              requiresUserAction: true,
-              warningMessage: 'Verify this session to access encrypted messages'
-            }
-            logger.debug('🚨 Immediate device verification needed detected')
+            logger.debug('🚨 Device verification needed - will show banner when in encrypted rooms')
+          } else {
+            logger.debug('✅ Device verification complete - encrypted rooms ready')
           }
         }
       }
     } catch (error) {
-      logger.debug('⚠️ Immediate device verification check failed:', error)
+      logger.debug('⚠️ Device verification status check failed:', error)
     }
 
     // Skip initial global check - let components call checkEncryptionState(roomId) with proper context
