@@ -1765,7 +1765,7 @@ export class MatrixClientManager {
 
         // Try to recover keys using MatrixEncryptionService
         // Note: Import dynamically to avoid circular dependency
-        const { MatrixEncryptionService } = await import('./MatrixEncryptionService')
+        const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
         const encryptionService = new MatrixEncryptionService(this.client)
 
         const recovered = await encryptionService.handleCrossSigningKeyLoss()

@@ -6,14 +6,13 @@
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { matrixClientService } from '../services/matrixClientService'
-import { matrixEncryptionState, type MatrixEncryptionStatus } from '../services/matrixEncryptionState'
+import { matrixEncryptionState, type MatrixEncryptionStatus } from '../services/MatrixEncryptionManager'
 import { logger } from '../utils/logger'
 
 export function useMatrixEncryption () {
   // Single source of truth: Matrix SDK state
   const encryptionStatus = ref<MatrixEncryptionStatus | null>(null)
   const isLoading = ref(false)
-  const lastChecked = ref<number>(0)
   const currentRoomId = ref<string | null>(null)
 
   // Computed helpers based on Element Web pattern
@@ -68,13 +67,6 @@ export function useMatrixEncryption () {
 
     if (isLoading.value) return // Prevent concurrent checks
 
-    // Prevent rapid successive checks (debounce 5 seconds)
-    const now = Date.now()
-    if (now - lastChecked.value < 5000) {
-      logger.debug('🔍 Skipping encryption state check - too recent (debounced)')
-      return
-    }
-
     isLoading.value = true
 
     try {
@@ -85,7 +77,6 @@ export function useMatrixEncryption () {
       const status = await matrixEncryptionState.getEncryptionState(client, targetRoomId)
 
       encryptionStatus.value = status
-      lastChecked.value = Date.now()
 
       logger.debug('🔍 Matrix-native encryption state:', status)
     } catch (error) {
@@ -166,14 +157,9 @@ export function useMatrixEncryption () {
   }
 
   const handleMatrixSync = () => {
-    // Only refresh if we haven't checked recently (30 seconds for sync events)
-    if (Date.now() - lastChecked.value > 30000) {
-      logger.debug('Matrix sync complete, checking encryption state')
-      // Use current room ID if available
-      checkEncryptionState(currentRoomId.value || undefined)
-    } else {
-      logger.debug('Matrix sync complete, but encryption state recently checked - skipping')
-    }
+    logger.debug('Matrix sync complete, checking encryption state')
+    // Use current room ID if available
+    checkEncryptionState(currentRoomId.value || undefined)
   }
 
   // Lifecycle

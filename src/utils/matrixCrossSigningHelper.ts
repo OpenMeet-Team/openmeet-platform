@@ -6,7 +6,7 @@
  */
 
 import type { MatrixClient } from 'matrix-js-sdk'
-import { MatrixDeviceSetup } from '../services/MatrixDeviceSetup'
+import { MatrixDeviceManager } from '../services/MatrixDeviceManager'
 import { logger } from './logger'
 
 /**
@@ -20,8 +20,8 @@ export async function setupMainOpenMeetDevice (matrixClient: MatrixClient): Prom
   instructions?: string
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
-    const result = await deviceSetup.setupMainDevice()
+    const deviceManager = new MatrixDeviceManager(matrixClient)
+    const result = await deviceManager.setupMainDevice()
 
     if (result.success) {
       logger.info('✅ Main OpenMeet device set up successfully')
@@ -59,9 +59,9 @@ export async function checkDeviceReadiness (matrixClient: MatrixClient): Promise
   deviceCount: number
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
-    const status = await deviceSetup.getDeviceStatus()
-    const instructions = await deviceSetup.getSetupInstructions()
+    const deviceManager = new MatrixDeviceManager(matrixClient)
+    const status = await deviceManager.getDeviceStatus()
+    const instructions = await deviceManager.getSetupInstructions()
 
     return {
       isReady: status.isVerified && status.crossSigningReady,
@@ -94,10 +94,10 @@ export async function handleAdditionalDeviceVerification (matrixClient: MatrixCl
   instructions?: string
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
+    const deviceManager = new MatrixDeviceManager(matrixClient)
 
     // First make sure main device is ready
-    const prepResult = await deviceSetup.prepareForAdditionalDevices()
+    const prepResult = await deviceManager.prepareForAdditionalDevices()
     if (!prepResult.success) {
       return {
         success: false,
@@ -107,7 +107,7 @@ export async function handleAdditionalDeviceVerification (matrixClient: MatrixCl
     }
 
     // Handle the verification workflow
-    const verifyResult = await deviceSetup.handleSecondDeviceVerification()
+    const verifyResult = await deviceManager.handleSecondDeviceVerification()
     if (!verifyResult.success) {
       return {
         success: false,
@@ -138,8 +138,8 @@ export async function cleanupStaleDevices (matrixClient: MatrixClient, keepCount
   error?: string
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
-    const result = await deviceSetup.cleanupOldDevices(keepCount)
+    const deviceManager = new MatrixDeviceManager(matrixClient)
+    const result = await deviceManager.cleanupOldDevices(keepCount)
 
     return {
       success: result.success,
@@ -167,8 +167,8 @@ export async function resetCrossSigningCompletely (matrixClient: MatrixClient): 
   instructions?: string
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
-    const result = await deviceSetup.resetAndSetupFresh()
+    const deviceManager = new MatrixDeviceManager(matrixClient)
+    const result = await deviceManager.resetAndSetupFresh()
 
     if (result.success) {
       return {
@@ -207,8 +207,8 @@ export async function getDebugStatus (matrixClient: MatrixClient): Promise<{
   serverType: 'mas' | 'synapse' | 'unknown'
 }> {
   try {
-    const deviceSetup = new MatrixDeviceSetup(matrixClient)
-    const status = await deviceSetup.getDeviceStatus()
+    const deviceManager = new MatrixDeviceManager(matrixClient)
+    const status = await deviceManager.getDeviceStatus()
 
     // Try to determine server type
     let serverType: 'mas' | 'synapse' | 'unknown' = 'unknown'

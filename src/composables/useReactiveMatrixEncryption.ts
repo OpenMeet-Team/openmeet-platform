@@ -7,7 +7,7 @@
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { matrixClientService } from '../services/matrixClientService'
-import { matrixEncryptionStateManager, type MatrixEncryptionStatus } from '../services/MatrixEncryptionStateManager'
+import { matrixEncryptionStateManager, type MatrixEncryptionStatus } from '../services/MatrixEncryptionManager'
 import { logger } from '../utils/logger'
 
 export function useReactiveMatrixEncryption () {

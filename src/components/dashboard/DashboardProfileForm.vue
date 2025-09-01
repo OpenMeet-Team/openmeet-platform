@@ -564,8 +564,8 @@ import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
 import { matrixClientService } from '../../services/matrixClientService'
-import { MatrixEncryptionService } from '../../services/MatrixEncryptionService'
-import { MatrixDeviceVerificationService } from '../../services/MatrixDeviceVerificationService'
+import { MatrixEncryptionService } from '../../services/MatrixEncryptionManager'
+import { MatrixDeviceManager } from '../../services/MatrixDeviceManager'
 
 const { error, success } = useNotification()
 
@@ -1205,7 +1205,7 @@ const onRefreshDevices = async () => {
       return
     }
 
-    const deviceService = new MatrixDeviceVerificationService(client)
+    const deviceService = new MatrixDeviceManager(client)
     const devices = await deviceService.getAllUserDevices()
     deviceList.value = devices
 
@@ -1227,7 +1227,7 @@ const onVerifyDevice = async (deviceId: string) => {
       return
     }
 
-    const deviceService = new MatrixDeviceVerificationService(client)
+    const deviceService = new MatrixDeviceManager(client)
     const result = await deviceService.manuallyVerifyDevice(deviceId)
 
     if (result.success) {
@@ -1270,7 +1270,7 @@ const onCleanupDevices = async () => {
       return
     }
 
-    const deviceService = new MatrixDeviceVerificationService(client)
+    const deviceService = new MatrixDeviceManager(client)
     const result = await deviceService.cleanupStaleDevices(5)
 
     if (result.success) {

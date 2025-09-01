@@ -27,7 +27,7 @@ type CryptoApi = any
 import { useAuthStore } from '../stores/auth-store'
 import type { MatrixMessageContent } from '../types/matrix'
 import { matrixClientManager } from './MatrixClientManager'
-import { MatrixEncryptionService } from './MatrixEncryptionService'
+import { MatrixEncryptionService } from './MatrixEncryptionManager'
 import getEnv from '../utils/env'
 import { logger } from '../utils/logger'
 
@@ -462,6 +462,22 @@ class MatrixClientService {
           const checkReady = async () => {
             if (this.client && this.client.isInitialSyncComplete()) {
               logger.debug('✅ Matrix client ready and synced')
+
+              // Check for MAS authentication returns first - this handles interrupted reset flows
+              try {
+                const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+                const encryptionManager = new MatrixEncryptionManager(this.client)
+                const masResult = await encryptionManager.handleMASReturn()
+
+                if (masResult.handled) {
+                  logger.debug('🔄 Handled MAS return:', masResult)
+                  if (!masResult.success) {
+                    logger.warn('⚠️ MAS return handling failed:', masResult.error)
+                  }
+                }
+              } catch (error) {
+                logger.warn('⚠️ Failed to check MAS return:', error)
+              }
 
               // Log crypto status and check encryption setup
               const crypto = this.client.getCrypto()
@@ -1158,9 +1174,6 @@ class MatrixClientService {
           content: event.getContent(),
           timestamp: new Date(event.getTs()).toLocaleTimeString()
         })
-        logger.debug('🔍 Current Matrix client user ID:', this.client.getUserId())
-        logger.debug('🔍 Event sender ID:', event.getSender())
-        logger.debug('🔍 Is this our own message?', event.getSender() === this.client.getUserId())
         this._handleTimelineEvent(event, room, toStartOfTimeline)
       } else if (eventType === 'm.room.redaction') {
         logger.debug('🗑️ Matrix redaction event received:', {

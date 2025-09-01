@@ -421,7 +421,7 @@ import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'mat
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
-import { matrixEncryptionService } from '../../services/MatrixEncryptionService'
+import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
 import HistoricalMessageHandler from './encryption/HistoricalMessageHandler.vue'
@@ -1589,6 +1589,13 @@ const onEventDecrypted = (event: MatrixEvent) => {
 
 const onKeysChanged = () => {
   logger.debug('🔑 Cross-signing keys changed - checking if timeline refresh needed')
+
+  // Circuit breaker: prevent timeline refresh loops during client restart
+  if (matrixEncryptionService?.isClientRestartInProgress()) {
+    logger.debug('🚫 Cross-signing key change ignored - client restart in progress')
+    return
+  }
+
   // This could indicate successful key restore, refresh timeline
   if (timelineEvents.value.length > 0) {
     refreshEvents()

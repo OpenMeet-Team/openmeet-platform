@@ -8,7 +8,7 @@
 import type { MatrixClient } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
 // import { MatrixEncryptionService } from './MatrixEncryptionService'
-import { MatrixDeviceVerificationService } from './MatrixDeviceVerificationService'
+// NOTE: This import is retained for backward compatibility during migration
 
 export interface DeviceSetupResult {
   success: boolean
@@ -24,12 +24,12 @@ export interface DeviceSetupResult {
 export class MatrixDeviceSetup {
   private matrixClient: MatrixClient
   // private crossSigningAuthService: MatrixCrossSigningService
-  private deviceVerificationService: MatrixDeviceVerificationService
+  // NOTE: Removed deviceVerificationService - now using unified MatrixDeviceManager
 
   constructor (matrixClient: MatrixClient) {
     this.matrixClient = matrixClient
     // this.crossSigningAuthService = new MatrixCrossSigningService(matrixClient)
-    this.deviceVerificationService = new MatrixDeviceVerificationService(matrixClient)
+    // NOTE: Removed deviceVerificationService initialization - now using unified MatrixDeviceManager
   }
 
   /**
@@ -41,7 +41,7 @@ export class MatrixDeviceSetup {
       logger.debug('🔐 Setting up main OpenMeet device with cross-signing...')
 
       // First, set up encryption with cross-signing
-      const { MatrixEncryptionService } = await import('./MatrixEncryptionService')
+      const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
       const encryptionService = new MatrixEncryptionService(this.matrixClient)
       const setupResult = await encryptionService.setupEncryption('default-passphrase')
 
@@ -117,8 +117,9 @@ export class MatrixDeviceSetup {
       if (!isVerified) {
         logger.debug('Current device not verified, attempting verification...')
         // Use our device verification helper
-        const { testAndFixDeviceVerification } = await import('../utils/deviceVerificationHelper')
-        const verifyResult = await testAndFixDeviceVerification()
+        // Use the unified device manager for verification
+        const deviceManager = new (await import('./MatrixDeviceManager')).MatrixDeviceManager(this.matrixClient)
+        const verifyResult = await deviceManager.testAndFixDeviceVerification()
         if (!verifyResult.success) {
           return {
             success: false,
@@ -184,8 +185,9 @@ export class MatrixDeviceSetup {
         crypto.getKeyBackupInfo().catch(() => null)
       ])
 
-      // Get device count
-      const devices = await this.deviceVerificationService.getAllUserDevices()
+      // Get device count using unified device manager
+      const deviceManager = new (await import('./MatrixDeviceManager')).MatrixDeviceManager(this.matrixClient)
+      const devices = await deviceManager.getAllUserDevices()
 
       return {
         deviceId: deviceId || undefined,
@@ -215,7 +217,8 @@ export class MatrixDeviceSetup {
     try {
       logger.debug(`🧹 Cleaning up old devices (keeping ${keepCount})...`)
 
-      const cleanupResult = await this.deviceVerificationService.cleanupStaleDevices(keepCount)
+      const deviceManager = new (await import('./MatrixDeviceManager')).MatrixDeviceManager(this.matrixClient)
+      const cleanupResult = await deviceManager.cleanupStaleDevices(keepCount)
 
       if (!cleanupResult.success) {
         return {
@@ -247,8 +250,9 @@ export class MatrixDeviceSetup {
     try {
       logger.debug('🔐 Handling second device verification workflow...')
 
-      // Check for pending verification requests
-      const pendingRequests = this.deviceVerificationService.getPendingRequests()
+      // Check for pending verification requests using unified device manager
+      const deviceManager = new (await import('./MatrixDeviceManager')).MatrixDeviceManager(this.matrixClient)
+      const pendingRequests = deviceManager.getPendingRequests()
 
       if (pendingRequests.length === 0) {
         return {
@@ -263,7 +267,7 @@ export class MatrixDeviceSetup {
       logger.debug('🔍 Processing verification request:', latestRequest.requestId)
 
       // Accept the verification request
-      const acceptResult = await this.deviceVerificationService.acceptVerificationRequest(
+      const acceptResult = await deviceManager.acceptVerificationRequest(
         latestRequest.requestId,
         'm.sas.v1'
       )
@@ -300,7 +304,7 @@ export class MatrixDeviceSetup {
       logger.debug('🔄 Performing complete reset and fresh setup...')
 
       // Force reset cross-signing keys using MatrixEncryptionService
-      const { MatrixEncryptionService } = await import('./MatrixEncryptionService')
+      const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
       const encryptionService = new MatrixEncryptionService(this.matrixClient)
 
       // Reset and setup fresh encryption

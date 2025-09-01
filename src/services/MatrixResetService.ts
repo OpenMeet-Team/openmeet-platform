@@ -7,7 +7,11 @@
 
 import type { MatrixClient } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
-import { MatrixEncryptionService } from './MatrixEncryptionService'
+
+// Forward declaration to avoid circular imports
+interface IMatrixEncryptionManager {
+  setClientRestartInProgress(inProgress: boolean): void
+}
 
 export interface ResetResult {
   success: boolean
@@ -15,6 +19,8 @@ export interface ResetResult {
   recoveryKey?: string
   requiresReconnection?: boolean
   step?: string
+  message?: string
+  needsSetup?: boolean
 }
 
 export interface ResetOptions {
@@ -43,9 +49,11 @@ export interface ResetOptions {
  */
 export class MatrixResetService {
   private matrixClient: MatrixClient
+  private encryptionManager?: IMatrixEncryptionManager
 
-  constructor (matrixClient: MatrixClient) {
+  constructor (matrixClient: MatrixClient, encryptionManager?: IMatrixEncryptionManager) {
     this.matrixClient = matrixClient
+    this.encryptionManager = encryptionManager
   }
 
   /**
@@ -90,10 +98,17 @@ export class MatrixResetService {
     logger.debug('🔑 Handling forgot recovery key reset...')
 
     try {
-      // Step 1: Reset encryption completely
-      const encryptionResetResult = await this.resetEncryptionData()
+      // Step 1: Reset device keys using Element Web approach (with UIA support)
+      logger.debug('🔄 Using MatrixEncryptionManager resetDeviceKeys with Element Web UIA flow...')
+      const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+      const encryptionManager = new MatrixEncryptionManager(this.matrixClient)
+      const encryptionResetResult = await encryptionManager.resetDeviceKeys('forgot_recovery_key')
       if (!encryptionResetResult.success) {
-        return encryptionResetResult
+        return {
+          success: false,
+          error: encryptionResetResult.error,
+          step: 'encryption-reset'
+        }
       }
 
       // Step 2: Set up new encryption with cross-signing
@@ -142,10 +157,60 @@ export class MatrixResetService {
       }
 
       // For unlock failures, we do a lighter reset that preserves connection
-      logger.debug('🔄 Resetting encryption for unlock failure...')
-      await crypto.resetEncryption(() => Promise.resolve())
+      logger.debug('🔄 Resetting encryption for unlock failure with UIA support...')
+
+      // UIA callback to handle MAS cross-signing reset authorization (Element Web pattern)
+      const uiaCallback = async (makeRequest: (auth?: Record<string, unknown>) => Promise<void>) => {
+        try {
+          return await makeRequest({})
+        } catch (error: unknown) {
+          // Check if this is a UIA challenge with org.matrix.cross_signing_reset stage
+          const errorData = error as { data?: { flows?: { stages?: string[] }[] } }
+          const flows = errorData.data?.flows || []
+          const crossSigningResetFlow = flows.find((flow: { stages?: string[] }) =>
+            flow.stages?.includes('org.matrix.cross_signing_reset')
+          )
+
+          if (crossSigningResetFlow) {
+            logger.debug('🔐 UIA flow requires MAS cross-signing reset authorization')
+
+            // Get the MAS URL for authorization (should be provided in stageParams)
+            const errorData = error as { data?: { params?: { ['org.matrix.cross_signing_reset']?: { url?: string } } } }
+            const stageParams = errorData.data?.params?.['org.matrix.cross_signing_reset']
+            const masUrl = stageParams?.url
+
+            if (masUrl) {
+              // Show user a confirmation dialog and open MAS URL
+              const shouldProceed = confirm(
+                'To reset your encryption keys, you need to authorize this action in your account settings.\n\n' +
+                'Click OK to open your account page, complete the authorization, then try the reset again.'
+              )
+
+              if (shouldProceed) {
+                // Open MAS URL in new tab/popup (Element Web uses popup)
+                window.open(masUrl, '_blank', 'width=600,height=600,scrollbars=yes,resizable=yes')
+
+                // For now, we'll throw a user-friendly error asking them to retry
+                // In a full implementation, we would show a dialog with a "Retry" button
+                throw new Error('Please complete the authorization in the opened tab, then click "Reset Device Keys" again.')
+              } else {
+                throw new Error('Encryption reset cancelled by user.')
+              }
+            } else {
+              logger.warn('⚠️ MAS cross-signing reset flow detected but no URL provided')
+              throw new Error('Server requires authorization but did not provide authorization URL.')
+            }
+          }
+
+          // For other UIA errors, rethrow as-is
+          throw error
+        }
+      }
+
+      await crypto.resetEncryption(uiaCallback)
 
       // Set up cross-signing after reset
+      const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
       const encryptionService = new MatrixEncryptionService(this.matrixClient)
       const crossSigningResult = await encryptionService.setupEncryption('default-passphrase')
 
@@ -183,6 +248,7 @@ export class MatrixResetService {
     logger.debug('🔐 Handling key mismatch reset...')
 
     try {
+      const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
       const encryptionService = new MatrixEncryptionService(this.matrixClient)
       await encryptionService.resetEncryption()
       const result = await encryptionService.setupEncryption('default-passphrase')
@@ -221,15 +287,24 @@ export class MatrixResetService {
     logger.debug('💥 Handling complete reset...')
 
     try {
-      // Step 1: Clear all local data
-      if (options.clearLocalData !== false) {
-        await this.clearAllLocalData()
+      // Step 1: Reset encryption first (Element Web approach handles both server and client cleanup)
+      // Note: Don't clear local data first - let resetEncryption() handle the proper sequencing
+      logger.debug('🔄 Using MatrixEncryptionManager resetDeviceKeys with Element Web UIA flow...')
+      const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+      const encryptionManager = new MatrixEncryptionManager(this.matrixClient)
+      const encryptionResetResult = await encryptionManager.resetDeviceKeys('complete')
+      if (!encryptionResetResult.success) {
+        return {
+          success: false,
+          error: encryptionResetResult.error,
+          step: 'encryption-reset'
+        }
       }
 
-      // Step 2: Reset encryption
-      const encryptionResetResult = await this.resetEncryptionData()
-      if (!encryptionResetResult.success) {
-        return encryptionResetResult
+      // Step 2: Clear remaining local data after successful encryption reset
+      if (options.clearLocalData !== false) {
+        logger.debug('🧹 Clearing remaining local data after encryption reset...')
+        await this.clearAllLocalData()
       }
 
       // Step 3: Mark for reconnection if requested
@@ -257,6 +332,7 @@ export class MatrixResetService {
 
   /**
    * Reset encryption data (crypto, secret storage, etc.)
+   * Includes MAS authorization to prevent one-time key conflicts
    */
   private async resetEncryptionData (): Promise<ResetResult> {
     try {
@@ -271,29 +347,68 @@ export class MatrixResetService {
 
       logger.debug('🔄 Resetting encryption data...')
 
-      // Reset key backup
-      try {
-        await crypto.resetKeyBackup()
-        logger.debug('✅ Key backup reset')
-      } catch (error) {
-        logger.warn('⚠️ Key backup reset failed (continuing):', error)
+      // Step 1: Complete client shutdown and clear stores approach (like Element Web logout)
+      logger.debug('🔐 Using complete client shutdown and store clearing approach...')
+
+      // Activate circuit breaker to prevent event loops during reset
+      if (this.encryptionManager) {
+        this.encryptionManager.setClientRestartInProgress(true)
       }
 
-      // Note: There's no direct resetCrossSigning method in the Matrix SDK
-      // Cross-signing reset is typically handled by re-bootstrapping
-      logger.debug('ℹ️ Cross-signing reset will be handled by re-bootstrapping')
+      // Step 3: Stop client before clearing stores (Element Web pattern)
+      logger.debug('🛑 Stopping Matrix client before store clearing...')
+      await this.matrixClient.stopClient()
 
-      // Reset main encryption
+      // Step 4: Clear stores to remove all crypto data (Element Web pattern)
       try {
-        await crypto.resetEncryption(() => Promise.resolve())
-        logger.debug('✅ Encryption reset')
+        logger.debug('🗑️ Clearing Matrix stores to remove all crypto data...')
+        await this.matrixClient.clearStores()
+        logger.debug('✅ Matrix stores cleared successfully')
       } catch (error) {
-        logger.warn('⚠️ Encryption reset failed (continuing):', error)
+        logger.warn('⚠️ Store clearing failed:', error)
       }
 
-      return { success: true }
+      // Step 5: Wait for clearing to complete
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Step 6: Start client again to reinitialize crypto from scratch
+      logger.debug('🔄 Starting Matrix client to reinitialize crypto from scratch...')
+      await this.matrixClient.startClient({
+        initialSyncLimit: 0
+      })
+
+      // Step 7: Wait for client to be ready
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Step 8: Verify crypto is available and try to bootstrap
+      try {
+        const newCrypto = this.matrixClient.getCrypto()
+        if (newCrypto) {
+          logger.debug('✅ Crypto available after restart, ready for fresh setup')
+        } else {
+          logger.warn('⚠️ Crypto not available after restart')
+        }
+      } catch (error) {
+        logger.warn('⚠️ Crypto verification failed:', error)
+      }
+
+      // Step 9: Deactivate circuit breaker
+      if (this.encryptionManager) {
+        this.encryptionManager.setClientRestartInProgress(false)
+      }
+
+      return {
+        success: true,
+        requiresReconnection: false
+      }
     } catch (error) {
       logger.error('❌ Encryption data reset failed:', error)
+
+      // Ensure circuit breaker is deactivated on error
+      if (this.encryptionManager) {
+        this.encryptionManager.setClientRestartInProgress(false)
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -309,6 +424,28 @@ export class MatrixResetService {
     try {
       logger.debug('🆕 Setting up fresh encryption...')
 
+      // Wait for crypto to be available after client restart
+      let crypto = this.matrixClient.getCrypto()
+      let retries = 0
+      const maxRetries = 10
+
+      while (!crypto && retries < maxRetries) {
+        logger.debug(`⏳ Waiting for crypto to be available... (${retries + 1}/${maxRetries})`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        crypto = this.matrixClient.getCrypto()
+        retries++
+      }
+
+      if (!crypto) {
+        return {
+          success: false,
+          error: 'Crypto not available after client restart',
+          step: 'fresh-encryption-setup'
+        }
+      }
+
+      logger.debug('✅ Crypto is ready, proceeding with fresh setup')
+      const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
       const encryptionService = new MatrixEncryptionService(this.matrixClient)
       const result = await encryptionService.setupEncryption('default-passphrase')
 
@@ -355,17 +492,23 @@ export class MatrixResetService {
   }
 
   /**
-   * Clear all local Matrix data
+   * Clear local Matrix data for current user only
    */
   private async clearAllLocalData (): Promise<void> {
     try {
-      logger.debug('🧹 Clearing all local Matrix data...')
+      const userId = this.matrixClient.getUserId()
+      if (!userId) {
+        logger.warn('⚠️ No user ID available, skipping local data clearing')
+        return
+      }
 
-      // Clear localStorage items
+      logger.debug('🧹 Clearing local Matrix data for user:', userId)
+
+      // Clear user-specific localStorage items
       const matrixKeys = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key && (key.includes('matrix') || key.includes('mx_'))) {
+        if (key && this.isUserSpecificKey(key, userId)) {
           matrixKeys.push(key)
         }
       }
@@ -375,11 +518,11 @@ export class MatrixResetService {
         logger.debug(`🗑️ Removed localStorage: ${key}`)
       })
 
-      // Clear IndexedDB databases
+      // Clear user-specific IndexedDB databases
       try {
         const databases = await indexedDB.databases()
         for (const db of databases) {
-          if (db.name && (db.name.includes('matrix') || db.name.includes('mx_'))) {
+          if (db.name && this.isUserSpecificDatabase(db.name, userId)) {
             const deleteRequest = indexedDB.deleteDatabase(db.name)
             await new Promise<void>((resolve, reject) => {
               deleteRequest.onsuccess = () => {
@@ -398,11 +541,43 @@ export class MatrixResetService {
         logger.warn('⚠️ IndexedDB clearing failed:', error)
       }
 
-      logger.debug('✅ Local data clearing completed')
+      logger.debug('✅ User-specific local data clearing completed')
     } catch (error) {
       logger.error('❌ Local data clearing failed:', error)
       throw error
     }
+  }
+
+  /**
+   * Check if a localStorage key belongs to the current user
+   */
+  private isUserSpecificKey (key: string, userId: string): boolean {
+    // Match patterns like: matrix_device_id_@user:domain.com
+    if (key.includes(`matrix_device_id_${userId}`)) return true
+
+    // Match patterns like: matrix-js-sdk:@user:domain.com:device
+    if (key.includes(`matrix-js-sdk:${userId}:`)) return true
+
+    // Match encryption setup flags
+    if (key.includes('encryption_setup') && key.includes(userId)) return true
+
+    // Match recovery key storage patterns
+    if (key.includes('recovery_key') && key.includes(userId)) return true
+
+    return false
+  }
+
+  /**
+   * Check if an IndexedDB database belongs to the current user
+   */
+  private isUserSpecificDatabase (dbName: string, userId: string): boolean {
+    // Match patterns like: matrix-js-sdk:@user:domain.com
+    if (dbName.includes(`matrix-js-sdk:${userId}`)) return true
+
+    // Match crypto store patterns like: matrix-js-sdk:crypto:@user:domain.com:device
+    if (dbName.includes(`matrix-js-sdk:crypto:${userId}:`)) return true
+
+    return false
   }
 
   /**

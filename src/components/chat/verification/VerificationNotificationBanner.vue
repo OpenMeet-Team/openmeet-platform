@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { MatrixDeviceVerificationService, type VerificationRequestInfo } from '../../../services/MatrixDeviceVerificationService'
+import { MatrixDeviceManager, type VerificationRequestInfo } from '../../../services/MatrixDeviceManager'
 import { matrixClientService } from '../../../services/matrixClientService'
 import { logger } from '../../../utils/logger'
 
@@ -57,7 +57,7 @@ const pendingCount = ref(0)
 const dismissed = ref(false)
 
 // Service instance
-let verificationService: MatrixDeviceVerificationService | null = null
+let verificationService: MatrixDeviceManager | null = null
 
 onMounted(() => {
   initializeVerificationService()
@@ -76,7 +76,7 @@ const initializeVerificationService = () => {
     return
   }
 
-  verificationService = new MatrixDeviceVerificationService(client)
+  verificationService = new MatrixDeviceManager(client)
 
   // Listen for new verification requests
   verificationService.onVerificationRequest((request: VerificationRequestInfo) => {

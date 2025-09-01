@@ -1,32 +1,7 @@
 <template>
   <div class="historical-message-handler">
 
-    <!-- Setup Encryption Banner (when encryption is truly not set up) -->
-    <div
-      v-if="!status.hasBackup && !status.isUnlocked && props.showStatus && !isReadyEncrypted"
-      class="setup-prompt-banner"
-    >
-      <div class="banner-content">
-        <div class="banner-icon">
-          <q-icon name="fas fa-shield-alt" class="icon" />
-        </div>
-        <div class="banner-text">
-          <h4 class="banner-title">Encryption Setup Required</h4>
-          <p class="banner-description">
-            Set up encryption to secure your message history and decrypt historical messages.
-          </p>
-        </div>
-        <div class="banner-actions">
-          <button
-            class="setup-button"
-            @click="() => triggerEncryptionSetup()"
-          >
-            <q-icon name="fas fa-key" class="button-icon" />
-            Set Up Encryption
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- Setup Encryption Banner removed - now handled by UnifiedEncryptionBanner -->
 
     <!-- Unlock Prompt Banner -->
     <div
@@ -313,14 +288,7 @@ const handleRetry = async () => {
   }
 }
 
-const triggerEncryptionSetup = () => {
-  logger.debug('🔧 User requested encryption setup from HistoricalMessageHandler')
-
-  // Emit an event to trigger the setup flow
-  window.dispatchEvent(new CustomEvent('matrix-encryption-setup-requested', {
-    detail: { reason: 'no_backup_exists' }
-  }))
-}
+// triggerEncryptionSetup function removed - now handled by UnifiedEncryptionBanner
 
 const handleReset = async () => {
   try {
@@ -454,7 +422,6 @@ const showResetOptions = async () => {
 }
 
 .unlock-prompt-banner,
-.setup-prompt-banner,
 .error-banner {
   margin-bottom: 16px;
   border-radius: 8px;
@@ -463,10 +430,10 @@ const showResetOptions = async () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.unlock-prompt-banner,
-.setup-prompt-banner {
-  border-color: #3b82f6;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+.unlock-prompt-banner {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
 }
 
 .error-banner {
@@ -525,6 +492,15 @@ const showResetOptions = async () => {
   line-height: 1.4;
 }
 
+/* White text for blue banners */
+.unlock-prompt-banner .banner-title {
+  color: white !important;
+}
+
+.unlock-prompt-banner .banner-description {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
 .banner-actions {
   display: flex;
   gap: 8px;
@@ -532,28 +508,7 @@ const showResetOptions = async () => {
 }
 
 .unlock-button,
-.setup-button,
-.retry-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
 .unlock-button:hover:not(:disabled),
-.setup-button:hover,
-.retry-button:hover {
-  background: #2563eb;
-}
-
 .unlock-button:disabled {
   background: #9ca3af;
   cursor: not-allowed;

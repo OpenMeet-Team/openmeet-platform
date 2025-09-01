@@ -76,7 +76,8 @@ export async function createCrossSigning (cli: MatrixClient, forceNew = false): 
  */
 export async function uiAuthCallback (
   matrixClient: MatrixClient,
-  makeRequest: (authData: AuthDict | null) => Promise<void>
+  makeRequest: (authData: AuthDict | null) => Promise<void>,
+  resetOperation?: string
 ): Promise<void> {
   logger.debug('🔐 UI Auth callback invoked for device signing key upload')
 
@@ -86,6 +87,13 @@ export async function uiAuthCallback (
     await makeRequest(null)
     logger.debug('✅ Device signing key upload successful without additional auth')
   } catch (error) {
+    logger.debug('🔍 Error caught in uiAuthCallback:', {
+      isMatrixError: error instanceof MatrixError,
+      hasData: !!(error as unknown as { data?: unknown })?.data,
+      hasFlows: !!(error as unknown as { data?: { flows?: unknown } })?.data?.flows,
+      error
+    })
+
     if (!(error instanceof MatrixError) || !error.data || !error.data.flows) {
       // Not a UIA response - re-throw original error
       logger.debug('❌ Non-UIA error during device signing key upload:', error)
@@ -183,9 +191,17 @@ async function handleMASCrossSigningReset (
     }).onOk(() => {
       logger.debug('🔗 Redirecting to MAS for cross-signing approval:', resetParams.url)
 
-      // Store minimal state for return detection
+      // Store comprehensive state for return detection and reset completion
       sessionStorage.setItem('masAuthInProgress', 'device_signing')
       sessionStorage.setItem('masAuthOriginalUrl', window.location.href)
+
+      // Store additional context about what reset operation was in progress
+      const resetContext = {
+        operation: 'reset_device_keys',
+        timestamp: Date.now(),
+        userInitiated: true
+      }
+      sessionStorage.setItem('masAuthResetContext', JSON.stringify(resetContext))
 
       // Redirect to MAS - user will need to manually return
       window.location.href = resetParams.url
@@ -311,8 +327,9 @@ async function handleGenericAuth (
  * Check if we're returning from a MAS authentication flow
  * Only considers it a return if there's a URL parameter indicating actual MAS return
  */
-export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string } {
+export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string; resetContext?: unknown } {
   const masAuthInProgress = sessionStorage.getItem('masAuthInProgress')
+  const resetContextStr = sessionStorage.getItem('masAuthResetContext')
   const urlParams = new URLSearchParams(window.location.search)
   const hasCodeParam = urlParams.has('code') // OAuth2 authorization code from MAS
   const hasStateParam = urlParams.has('state') // OAuth2 state parameter
@@ -321,8 +338,23 @@ export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string } 
   // This prevents false positives when user clicks "Create Recovery Key" repeatedly
   if (masAuthInProgress && (hasCodeParam || hasStateParam)) {
     logger.debug('🔄 Detected return from MAS auth flow:', masAuthInProgress)
+
+    // Parse reset context if available
+    let resetContext = null
+    if (resetContextStr) {
+      try {
+        resetContext = JSON.parse(resetContextStr)
+        logger.debug('🔄 Found reset context:', resetContext)
+      } catch (error) {
+        logger.warn('⚠️ Failed to parse reset context:', error)
+      }
+    }
+
+    // Clean up session storage
     sessionStorage.removeItem('masAuthInProgress')
-    return { isReturn: true, flowType: masAuthInProgress }
+    sessionStorage.removeItem('masAuthResetContext')
+
+    return { isReturn: true, flowType: masAuthInProgress, resetContext }
   }
 
   // If session storage exists but no URL params, this is likely a repeated click

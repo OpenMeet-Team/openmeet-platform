@@ -247,7 +247,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { MatrixDeviceVerificationService, type VerificationRequestInfo, type EmojiVerificationData } from '../../../services/MatrixDeviceVerificationService'
+import { MatrixDeviceManager, type VerificationRequestInfo, type EmojiVerificationData } from '../../../services/MatrixDeviceManager'
 import { matrixClientService } from '../../../services/matrixClientService'
 import { logger } from '../../../utils/logger'
 
@@ -287,7 +287,7 @@ const initiatingVerification = ref<string | null>(null)
 const availableDevices = ref<Array<{deviceId: string, displayName?: string, isCurrentDevice: boolean, verified: boolean}>>([])
 
 // Service instance
-let verificationService: MatrixDeviceVerificationService | null = null
+let verificationService: MatrixDeviceManager | null = null
 
 onMounted(() => {
   initializeVerificationService()
@@ -306,7 +306,7 @@ const initializeVerificationService = () => {
     return
   }
 
-  verificationService = new MatrixDeviceVerificationService(client)
+  verificationService = new MatrixDeviceManager(client)
 
   // Listen for new verification requests
   verificationService.onVerificationRequest((request) => {
