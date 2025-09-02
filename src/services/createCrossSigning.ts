@@ -76,9 +76,10 @@ export async function createCrossSigning (cli: MatrixClient, forceNew = false): 
  */
 export async function uiAuthCallback (
   matrixClient: MatrixClient,
-  makeRequest: (authData: AuthDict | null) => Promise<void>
+  makeRequest: (authData: AuthDict | null) => Promise<void>,
+  context: 'first_time_setup' | 'device_reset' = 'device_reset'
 ): Promise<void> {
-  logger.debug('🔐 UI Auth callback invoked for device signing key upload')
+  logger.debug('🔐 UI Auth callback invoked for device signing key upload', { context })
 
   try {
     // First try with no auth - many servers don't require additional auth
@@ -102,7 +103,7 @@ export async function uiAuthCallback (
     logger.debug('🔐 UIA required for device signing key upload:', error.data.flows)
 
     // Handle UIA flows through mobile-friendly dialogs
-    const authResult = await handleUIAFlows(matrixClient, error.data as MatrixErrorData, makeRequest)
+    const authResult = await handleUIAFlows(matrixClient, error.data as MatrixErrorData, makeRequest, context)
 
     if (!authResult.confirmed) {
       throw new Error('Cross-signing key upload auth canceled')
@@ -119,7 +120,8 @@ export async function uiAuthCallback (
 async function handleUIAFlows (
   matrixClient: MatrixClient,
   uiaData: UIAData,
-  makeRequest: (authData: AuthDict | null) => Promise<void>
+  makeRequest: (authData: AuthDict | null) => Promise<void>,
+  context: 'first_time_setup' | 'device_reset' = 'device_reset'
 ): Promise<{ confirmed: boolean }> {
   logger.debug('🔐 Handling UIA flows for device signing:', {
     flows: uiaData.flows,
@@ -132,8 +134,12 @@ async function handleUIAFlows (
     flow.stages?.includes('org.matrix.cross_signing_reset')
   )
 
-  if (hasResetFlow && uiaData.params?.['org.matrix.cross_signing_reset']) {
+  // Skip MAS reset flow during first-time setup - only use it for actual device resets
+  if (hasResetFlow && uiaData.params?.['org.matrix.cross_signing_reset'] && context === 'device_reset') {
+    logger.debug('🔄 Using MAS cross-signing reset flow for device reset')
     return await handleMASCrossSigningReset(uiaData)
+  } else if (hasResetFlow && context === 'first_time_setup') {
+    logger.debug('⏭️ Skipping MAS cross-signing reset during first-time setup')
   }
 
   // Check for SSO flow
@@ -176,8 +182,8 @@ async function handleMASCrossSigningReset (
 
   return new Promise((resolve) => {
     Dialog.create({
-      title: 'Matrix Account Verification Required',
-      message: 'To set up encryption, you need to verify your account with Matrix Account Service. After completing the verification, please return to this page to continue.',
+      title: 'Cross-Signing Reset Required',
+      message: 'To complete encryption setup, your cross-signing keys need to be reset in Matrix Account Service. After the reset is complete, return to this page to continue setup.',
       persistent: true,
       ok: {
         label: 'Continue',
@@ -333,20 +339,24 @@ export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string; r
   const hasCodeParam = urlParams.has('code') // OAuth2 authorization code from MAS
   const hasStateParam = urlParams.has('state') // OAuth2 state parameter
 
-  // Only treat as MAS return if we have OAuth2 parameters AND session storage flag
-  // This prevents false positives when user clicks "Create Recovery Key" repeatedly
-  if (masAuthInProgress && (hasCodeParam || hasStateParam)) {
-    logger.debug('🔄 Detected return from MAS auth flow:', masAuthInProgress)
+  // Treat as MAS return if we have OAuth2 parameters OR session storage flag with timestamp
+  // This handles both OAuth2 redirect AND back button navigation
+  const parsedResetContext = resetContextStr ? JSON.parse(resetContextStr) : null
+  const isRecentReturn = parsedResetContext && (Date.now() - parsedResetContext.timestamp) < 300000 // 5 minutes
 
-    // Parse reset context if available
-    let resetContext = null
-    if (resetContextStr) {
-      try {
-        resetContext = JSON.parse(resetContextStr)
-        logger.debug('🔄 Found reset context:', resetContext)
-      } catch (error) {
-        logger.warn('⚠️ Failed to parse reset context:', error)
-      }
+  if (masAuthInProgress && (hasCodeParam || hasStateParam || isRecentReturn)) {
+    logger.debug('🔄 Detected return from MAS auth flow:', {
+      flowType: masAuthInProgress,
+      hasCodeParam,
+      hasStateParam,
+      isRecentReturn,
+      currentUrl: window.location.href
+    })
+
+    // Use already parsed reset context
+    const resetContext = parsedResetContext
+    if (resetContext) {
+      logger.debug('🔄 Found reset context:', resetContext)
     }
 
     // Clean up session storage

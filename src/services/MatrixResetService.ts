@@ -102,7 +102,7 @@ export class MatrixResetService {
       logger.debug('🔄 Using MatrixEncryptionManager resetDeviceKeys with Element Web UIA flow...')
       const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
       const encryptionManager = new MatrixEncryptionManager(this.matrixClient)
-      const encryptionResetResult = await encryptionManager.resetDeviceKeys('forgot_recovery_key')
+      const encryptionResetResult = await encryptionManager.resetDeviceKeys()
       if (!encryptionResetResult.success) {
         return {
           success: false,
@@ -292,7 +292,7 @@ export class MatrixResetService {
       logger.debug('🔄 Using MatrixEncryptionManager resetDeviceKeys with Element Web UIA flow...')
       const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
       const encryptionManager = new MatrixEncryptionManager(this.matrixClient)
-      const encryptionResetResult = await encryptionManager.resetDeviceKeys('complete')
+      const encryptionResetResult = await encryptionManager.resetDeviceKeys()
       if (!encryptionResetResult.success) {
         return {
           success: false,
