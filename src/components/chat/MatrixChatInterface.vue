@@ -105,6 +105,24 @@
         :room-id="props.roomId"
       />
 
+      <!-- Experimental Encryption Warning -->
+      <q-banner
+        v-if="isConnected && isRoomEncrypted"
+        class="bg-orange-1 text-orange-9 q-mb-md"
+        rounded
+        dense
+      >
+        <template v-slot:avatar>
+          <q-icon name="sym_r_warning" color="orange" />
+        </template>
+        <div class="text-body2">
+          <strong>⚠️ Experimental Encrypted Chat</strong>
+        </div>
+        <div class="text-caption q-mt-xs">
+          This encrypted chat room is experimental. Message loss may occur and some features may not work properly.
+        </div>
+      </q-banner>
+
       <!-- Messages -->
       <div v-if="isConnected && debugTimelineEvents.length > 0" class="messages-list" data-cy="messages-list">
         <!-- Load More History Button -->
@@ -520,6 +538,18 @@ const currentRoom = computed(() => {
   const client = matrixClientService.getClient()
   if (!client || !resolvedRoomId.value) return null
   return matrixClientService.getRoom(resolvedRoomId.value)
+})
+
+// Check if the current room is encrypted
+const isRoomEncrypted = computed(() => {
+  const room = currentRoom.value
+  if (!room) return false
+
+  const client = matrixClientService.getClient()
+  if (!client) return false
+
+  // Check if the room has encryption enabled
+  return client.isRoomEncrypted(room.roomId)
 })
 
 // Function to resolve room alias to room ID and join if needed

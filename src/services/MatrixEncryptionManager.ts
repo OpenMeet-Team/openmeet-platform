@@ -415,7 +415,7 @@ export class MatrixEncryptionManager extends EventEmitter {
         // Check if cross-signing infrastructure exists on server
         const crypto = this.matrixClient?.getCrypto()
         const hasCrossSigningKeys = await crypto?.isCrossSigningReady().catch(() => false)
-        
+
         if (!hasCrossSigningKeys) {
           // No cross-signing keys on server = needs initial setup, not mismatch
           const deviceId = this.matrixClient?.getDeviceId()
@@ -1155,7 +1155,7 @@ export class MatrixEncryptionManager extends EventEmitter {
 
       // Use Element Web's resetEncryption method with UIA callback
       const { uiAuthCallback } = await import('./createCrossSigning')
-      await crypto.resetEncryption((makeRequest) => uiAuthCallback(this.matrixClient!, makeRequest, resetOperation))
+      await crypto.resetEncryption((makeRequest) => uiAuthCallback(this.matrixClient!, makeRequest))
 
       logger.debug('✅ Element Web style resetEncryption completed successfully')
 
@@ -1561,7 +1561,7 @@ export class MatrixEncryptionManager extends EventEmitter {
       // Follow Element Web DeviceListener logic exactly
       if (!isCurrentDeviceTrusted) {
         // Check if cross-signing infrastructure exists to distinguish between:
-        // - Initial setup needed (no cross-signing keys) vs. 
+        // - Initial setup needed (no cross-signing keys) vs.
         // - Device verification needed (cross-signing exists but device not verified)
         if (!crossSigningReady) {
           logger.debug('🔐 No cross-signing infrastructure: needs initial encryption setup')

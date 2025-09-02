@@ -76,8 +76,7 @@ export async function createCrossSigning (cli: MatrixClient, forceNew = false): 
  */
 export async function uiAuthCallback (
   matrixClient: MatrixClient,
-  makeRequest: (authData: AuthDict | null) => Promise<void>,
-  resetOperation?: string
+  makeRequest: (authData: AuthDict | null) => Promise<void>
 ): Promise<void> {
   logger.debug('🔐 UI Auth callback invoked for device signing key upload')
 
