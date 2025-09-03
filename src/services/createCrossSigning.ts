@@ -137,7 +137,7 @@ async function handleUIAFlows (
   // Skip MAS reset flow during first-time setup - only use it for actual device resets
   if (hasResetFlow && uiaData.params?.['org.matrix.cross_signing_reset'] && context === 'device_reset') {
     logger.debug('🔄 Using MAS cross-signing reset flow for device reset')
-    return await handleMASCrossSigningReset(uiaData)
+    return await handleMASCrossSigningReset(uiaData, matrixClient, context)
   } else if (hasResetFlow && context === 'first_time_setup') {
     logger.debug('⏭️ Skipping MAS cross-signing reset during first-time setup')
   }
@@ -169,7 +169,9 @@ async function handleUIAFlows (
  * Handle MAS cross-signing reset flow with mobile-optimized dialog
  */
 async function handleMASCrossSigningReset (
-  uiaData: UIAData
+  uiaData: UIAData,
+  matrixClient: MatrixClient,
+  context: 'first_time_setup' | 'device_reset' = 'device_reset'
 ): Promise<{ confirmed: boolean }> {
   const resetParams = uiaData.params?.['org.matrix.cross_signing_reset'] as MASResetParams
 
@@ -204,9 +206,21 @@ async function handleMASCrossSigningReset (
       const resetContext = {
         operation: 'reset_device_keys',
         timestamp: Date.now(),
-        userInitiated: true
+        userInitiated: true,
+        reason: context, // first_time_setup or device_reset
+        deviceId: matrixClient.getDeviceId(),
+        userId: matrixClient.getUserId()
       }
       sessionStorage.setItem('masAuthResetContext', JSON.stringify(resetContext))
+
+      // Store verification workflow state to resume after MAS return
+      const verificationState = {
+        step: 'awaiting_mas_approval',
+        startTime: Date.now(),
+        deviceId: matrixClient.getDeviceId(),
+        userId: matrixClient.getUserId()
+      }
+      localStorage.setItem('verificationWorkflowState', JSON.stringify(verificationState))
 
       // Redirect to MAS - user will need to manually return
       window.location.href = resetParams.url
@@ -330,47 +344,74 @@ async function handleGenericAuth (
 
 /**
  * Check if we're returning from a MAS authentication flow
- * Only considers it a return if there's a URL parameter indicating actual MAS return
+ * Enhanced to handle verification workflow resumption
  */
-export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string; resetContext?: unknown } {
+export function checkMASAuthReturn (): { isReturn: boolean; flowType?: string; resetContext?: unknown; verificationState?: unknown } {
   const masAuthInProgress = sessionStorage.getItem('masAuthInProgress')
   const resetContextStr = sessionStorage.getItem('masAuthResetContext')
+  const verificationStateStr = localStorage.getItem('verificationWorkflowState')
   const urlParams = new URLSearchParams(window.location.search)
   const hasCodeParam = urlParams.has('code') // OAuth2 authorization code from MAS
   const hasStateParam = urlParams.has('state') // OAuth2 state parameter
 
-  // Treat as MAS return if we have OAuth2 parameters OR session storage flag with timestamp
-  // This handles both OAuth2 redirect AND back button navigation
+  // Parse stored contexts
   const parsedResetContext = resetContextStr ? JSON.parse(resetContextStr) : null
-  const isRecentReturn = parsedResetContext && (Date.now() - parsedResetContext.timestamp) < 300000 // 5 minutes
+  const parsedVerificationState = verificationStateStr ? JSON.parse(verificationStateStr) : null
 
-  if (masAuthInProgress && (hasCodeParam || hasStateParam || isRecentReturn)) {
+  // Check for recent return based on timestamps
+  const isRecentReturn = parsedResetContext && (Date.now() - parsedResetContext.timestamp) < 300000 // 5 minutes
+  const isRecentVerification = parsedVerificationState && (Date.now() - parsedVerificationState.startTime) < 600000 // 10 minutes
+
+  // Detect MAS return via multiple signals
+  const hasUrlSignals = hasCodeParam || hasStateParam
+  const hasRecentActivity = isRecentReturn || isRecentVerification
+  const hasPersistentState = masAuthInProgress || parsedVerificationState
+
+  if (hasPersistentState && (hasUrlSignals || hasRecentActivity)) {
     logger.debug('🔄 Detected return from MAS auth flow:', {
       flowType: masAuthInProgress,
       hasCodeParam,
       hasStateParam,
       isRecentReturn,
-      currentUrl: window.location.href
+      isRecentVerification,
+      currentUrl: window.location.href,
+      verificationState: parsedVerificationState
     })
 
-    // Use already parsed reset context
-    const resetContext = parsedResetContext
-    if (resetContext) {
-      logger.debug('🔄 Found reset context:', resetContext)
+    // Return comprehensive state information
+    const result = {
+      isReturn: true,
+      flowType: masAuthInProgress,
+      resetContext: parsedResetContext,
+      verificationState: parsedVerificationState
     }
 
-    // Clean up session storage
+    // Clean up session storage but preserve verification state for potential retry
     sessionStorage.removeItem('masAuthInProgress')
     sessionStorage.removeItem('masAuthResetContext')
 
-    return { isReturn: true, flowType: masAuthInProgress, resetContext }
+    // Only clean up verification state if we successfully detected a return
+    if (hasUrlSignals) {
+      localStorage.removeItem('verificationWorkflowState')
+    }
+
+    return result
   }
 
-  // If session storage exists but no URL params, this is likely a repeated click
-  // Clear the stale session storage to prevent confusion
-  if (masAuthInProgress && !hasCodeParam && !hasStateParam) {
-    logger.debug('🧹 Clearing stale MAS auth session storage (no URL params)')
+  // Enhanced stale state cleanup
+  const now = Date.now()
+
+  // Clean up old session storage
+  if (masAuthInProgress && !hasUrlSignals && !isRecentReturn) {
+    logger.debug('🧹 Clearing stale MAS auth session storage')
     sessionStorage.removeItem('masAuthInProgress')
+    sessionStorage.removeItem('masAuthResetContext')
+  }
+
+  // Clean up old verification state (older than 10 minutes)
+  if (parsedVerificationState && (now - parsedVerificationState.startTime) > 600000) {
+    logger.debug('🧹 Clearing expired verification workflow state')
+    localStorage.removeItem('verificationWorkflowState')
   }
 
   return { isReturn: false }

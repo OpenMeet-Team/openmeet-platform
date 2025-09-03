@@ -16,7 +16,7 @@
         </div>
         <div class="banner-text">
           <div class="banner-title">Encryption setup needed</div>
-          <div class="banner-subtitle">Set up end-to-end encryption to secure your messages</div>
+          <div class="banner-subtitle">Set up end-to-end encryption to secure your messages. Not setting this up will result in chat history loss.</div>
         </div>
         <div class="banner-actions">
           <q-btn

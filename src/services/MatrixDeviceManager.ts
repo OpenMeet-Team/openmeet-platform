@@ -1572,25 +1572,50 @@ export class MatrixDeviceManager {
         return { success: true, isVerified: true }
       }
 
-      // Attempt verification using Element Web's simple approach
-      logger.debug('🔧 Attempting device verification with createCrossSigning...')
+      // Smart device verification: distinguish recovery from reset
+      logger.debug('🔧 Attempting intelligent device verification...')
 
       try {
-        // Check if we recently completed a cross-signing reset (from recovery key creation)
+        // First, check if we can recover existing keys instead of resetting
+        const [secretStorageReady, hasKeyBackup, hasDefaultKeyId] = await Promise.all([
+          crypto.isSecretStorageReady().catch(() => false),
+          crypto.getKeyBackupInfo().then(info => !!(info && info.version)).catch(() => false),
+          client.secretStorage.getDefaultKeyId().then(id => !!id).catch(() => false)
+        ])
+
+        const canRecoverKeys = secretStorageReady && hasKeyBackup && hasDefaultKeyId
+
+        if (canRecoverKeys) {
+          logger.debug('🔑 Infrastructure exists - attempting key recovery instead of reset')
+          // Use MatrixEncryptionManager for intelligent recovery
+          const { matrixEncryptionState } = await import('./MatrixEncryptionManager')
+          const recoveryResult = await matrixEncryptionState.recoverCrossSigningKeys()
+
+          if (recoveryResult.success) {
+            logger.debug('✅ Key recovery successful - device should now be verified')
+            return { success: true, isVerified: true }
+          } else {
+            logger.debug('⚠️ Key recovery failed, falling back to bootstrap:', recoveryResult.error)
+          }
+        }
+
+        // Fallback to bootstrap approach if recovery isn't possible or failed
         const recentMASAuth = sessionStorage.getItem('masAuthInProgress') ||
                              (Date.now() - parseInt(localStorage.getItem('lastCrossSigningReset') || '0')) < 60000 // 1 minute
 
         if (recentMASAuth) {
-          logger.debug('🔄 Recent cross-signing reset detected, attempting simple bootstrap instead of full reset')
-          // Try bootstrap without forcing new keys - should work after recent MAS approval
+          logger.debug('🔄 Recent MAS auth detected, attempting simple bootstrap')
           const { createCrossSigning } = await import('./createCrossSigning')
           await createCrossSigning(client, false) // forceNew = false
-        } else {
-          logger.debug('🔄 No recent cross-signing reset, using complete reset to fix device registration')
-          // Record that we're doing a cross-signing reset
+        } else if (!canRecoverKeys) {
+          logger.debug('🔄 No infrastructure exists - need fresh setup with MAS')
           localStorage.setItem('lastCrossSigningReset', Date.now().toString())
           const { createCrossSigning } = await import('./createCrossSigning')
-          await createCrossSigning(client, true) // forceNew = true for complete reset
+          await createCrossSigning(client, true) // forceNew = true for fresh setup
+        } else {
+          logger.debug('🔧 Attempting simple cross-signing bootstrap after recovery failure')
+          const { createCrossSigning } = await import('./createCrossSigning')
+          await createCrossSigning(client, false) // forceNew = false
         }
 
         // Wait for Matrix SDK internal state to update

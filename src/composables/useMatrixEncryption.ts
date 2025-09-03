@@ -20,13 +20,18 @@ export function useMatrixEncryption () {
   const needsLogin = computed(() => encryptionStatus.value?.state === 'needs_login')
   const needsEncryptionSetup = computed(() => {
     const state = encryptionStatus.value?.state
-    return state === 'needs_recovery_key'
+    return state === 'needs_recovery_key' // Fresh setup with MAS
+  })
+  const needsKeyRecovery = computed(() => {
+    const state = encryptionStatus.value?.state
+    return state === 'needs_key_recovery' // Recovery from existing keys
   })
   const needsBanner = computed(() => {
     const state = encryptionStatus.value?.state
     return state === 'ready_encrypted_with_warning' ||
            state === 'needs_key_backup' ||
-           state === 'needs_device_verification'
+           state === 'needs_device_verification' ||
+           state === 'needs_key_recovery' // Show banner for key recovery
   })
   const warningMessage = computed(() => encryptionStatus.value?.warningMessage)
   const isReadyUnencrypted = computed(() => encryptionStatus.value?.state === 'ready_unencrypted')
@@ -53,6 +58,35 @@ export function useMatrixEncryption () {
     if (!encryptionStatus.value) return 'login'
     return matrixEncryptionState.getRequiredUI(encryptionStatus.value.state)
   })
+
+  /**
+   * Trigger key recovery for existing keys (no MAS needed)
+   */
+  const recoverEncryptionKeys = async (recoveryKey?: string): Promise<boolean> => {
+    try {
+      isLoading.value = true
+      const client = matrixClientService.getClient()
+      if (!client) {
+        logger.error('No Matrix client available for key recovery')
+        return false
+      }
+
+      const result = await matrixEncryptionState.recoverCrossSigningKeys(recoveryKey)
+
+      if (result.success) {
+        await checkEncryptionState(currentRoomId.value || undefined)
+        return true
+      } else {
+        logger.error('Key recovery failed:', result.error)
+        return false
+      }
+    } catch (error) {
+      logger.error('Key recovery error:', error)
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   /**
    * Check encryption state using Matrix SDK
@@ -237,6 +271,7 @@ export function useMatrixEncryption () {
     canChat,
     needsLogin,
     needsEncryptionSetup,
+    needsKeyRecovery,
     needsBanner,
     warningMessage,
     isReadyUnencrypted,
@@ -253,7 +288,8 @@ export function useMatrixEncryption () {
     checkEncryptionState,
     initializeEncryption,
     canEncryptInRoom,
-    refreshState
+    refreshState,
+    recoverEncryptionKeys
   }
 }
 

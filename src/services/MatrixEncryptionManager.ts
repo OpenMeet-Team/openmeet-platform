@@ -12,7 +12,7 @@
 import type { MatrixClient } from 'matrix-js-sdk'
 import { ClientEvent } from 'matrix-js-sdk'
 import { EventEmitter } from 'events'
-import { encodeRecoveryKey, decodeRecoveryKey, type GeneratedSecretStorageKey } from 'matrix-js-sdk/lib/crypto-api'
+import { encodeRecoveryKey, decodeRecoveryKey, type GeneratedSecretStorageKey, type CryptoApi, type DeviceVerificationStatus } from 'matrix-js-sdk/lib/crypto-api'
 import { logger } from '../utils/logger'
 import { checkMASAuthReturn } from './createCrossSigning'
 import {
@@ -48,7 +48,8 @@ export type MatrixEncryptionState =
   | 'ready_encrypted_with_warning' // Can encrypt but needs backup setup
   | 'ready_encrypted' // Full encryption working
   | 'needs_device_verification' // Device needs verification
-  | 'needs_recovery_key' // Missing cached secrets, need recovery key
+  | 'needs_recovery_key' // Fresh setup - need to create new keys with MAS
+  | 'needs_key_recovery' // Recovery - keys exist but need to be recovered
   | 'needs_key_backup' // Key backup is off
   | 'needs_device_reset' // Device key mismatch - needs reset
 
@@ -97,10 +98,74 @@ export class MatrixEncryptionManager extends EventEmitter {
 
   constructor (matrixClient?: MatrixClient) {
     super()
-    if (matrixClient) {
+    if (matrixClient && this.isClientUsable(matrixClient)) {
       this.initialize(matrixClient)
     }
     logger.debug('🔐 MatrixEncryptionManager initialized')
+  }
+
+  /**
+   * Check if Matrix client is in a usable state
+   */
+  private isClientUsable (client: MatrixClient): boolean {
+    try {
+      // Check if client is invalid
+      if (!client) {
+        logger.debug('❌ Matrix client is invalid')
+        return false
+      }
+
+      // Check if client has valid access token
+      const accessToken = client.getAccessToken()
+      if (!accessToken) {
+        logger.debug('❌ Matrix client has no access token')
+        return false
+      }
+
+      // Check if client has basic required state
+      if (!client.getUserId() || !client.getDeviceId()) {
+        logger.debug('❌ Matrix client missing user ID or device ID')
+        return false
+      }
+
+      // Check if crypto is available and not corrupted
+      const crypto = client.getCrypto()
+      if (!crypto) {
+        logger.debug('❌ Matrix client has no crypto')
+        return false
+      }
+
+      return true
+    } catch (error) {
+      logger.debug('❌ Matrix client validation failed:', error)
+      return false
+    }
+  }
+
+  /**
+   * Safely get device verification status to prevent "null pointer passed to rust" errors
+   */
+  private async safeGetDeviceVerificationStatus (crypto: CryptoApi, client: MatrixClient): Promise<DeviceVerificationStatus | null> {
+    try {
+      const userId = client.getUserId()
+      const deviceId = client.getDeviceId()
+
+      if (!userId || !deviceId) {
+        logger.debug('❌ Missing userId or deviceId for device verification check')
+        return null
+      }
+
+      // Double-check client is still valid before making crypto call
+      if (!this.isClientUsable(client)) {
+        logger.debug('❌ Client became invalid before device verification check')
+        return null
+      }
+
+      return await crypto.getDeviceVerificationStatus(userId, deviceId)
+    } catch (error) {
+      logger.debug('⚠️ Safe device verification status check failed:', error?.message || 'Unknown error')
+      return null
+    }
   }
 
   /**
@@ -363,18 +428,26 @@ export class MatrixEncryptionManager extends EventEmitter {
 
       const device = await crypto.getDeviceVerificationStatus(userId, deviceId)
 
-      // For proper trust, we need cross-signing verification, not just basic verification
+      // Element Web approach: Accept either crossSigningVerified OR signedByOwner
+      // crossSigningVerified can be unreliable immediately after bootstrap
       const crossSigningVerified = device?.crossSigningVerified ?? false
+      const signedByOwner = device?.signedByOwner ?? false
+      const isBasicallyVerified = device?.isVerified?.() ?? false
+
+      // Device is trusted if it's signed by owner OR cross-signing verified
+      // This handles the case where crossSigningVerified is slow to update after bootstrap
+      const isTrusted = (signedByOwner && isBasicallyVerified) || crossSigningVerified
 
       logger.debug('🔍 Device trust check:', {
         deviceId,
         userId,
-        isVerified: device?.isVerified?.(),
+        isVerified: isBasicallyVerified,
         crossSigningVerified,
-        signedByOwner: device?.signedByOwner
+        signedByOwner,
+        isTrusted
       })
 
-      return crossSigningVerified
+      return isTrusted
     } catch (error) {
       logger.error('Failed to check device trust:', error)
       return false
@@ -742,6 +815,21 @@ export class MatrixEncryptionManager extends EventEmitter {
         const masReturn = checkMASAuthReturn()
         if (masReturn.isReturn) {
           logger.debug('🔄 Detected return from MAS auth:', masReturn.flowType)
+
+          // Handle verification workflow resumption
+          if (masReturn.verificationState) {
+            const verState = masReturn.verificationState as { step: string; deviceId: string; userId: string }
+            logger.debug('🔄 Resuming verification workflow after MAS return:', verState)
+
+            // Update verification state to indicate MAS approval completed
+            const resumeState = {
+              ...verState,
+              step: 'mas_approved',
+              resumeTime: Date.now()
+            }
+            localStorage.setItem('verificationWorkflowState', JSON.stringify(resumeState))
+          }
+
           // Continue with setup after MAS approval
         }
 
@@ -1039,44 +1127,40 @@ export class MatrixEncryptionManager extends EventEmitter {
         logger.debug('✅ Key backup reset and enabled')
       }
 
-      // Check device verification status after unlocking - Element Web pattern
-      logger.debug('🔐 Checking device verification status after unlocking storage')
+      // Element Web approach with fallback: Trust Matrix SDK, but verify it worked
+      logger.debug('🔄 Waiting for Matrix SDK to update device verification state after unlock...')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Check if device was properly signed during bootstrap
       const userId = this.matrixClient!.getUserId()
       const deviceId = this.matrixClient!.getDeviceId()
-
       if (userId && deviceId) {
         try {
-          // Check if device verification is needed after unlocking storage
           const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
-          logger.debug('🔍 Device verification status after unlock:', {
+          logger.debug('🔍 Post-bootstrap device status check:', {
             isVerified: deviceStatus?.isVerified(),
             crossSigningVerified: deviceStatus?.crossSigningVerified,
             signedByOwner: deviceStatus?.signedByOwner
           })
 
-          // If device is not cross-signing verified after unlock, manually sign it
-          // This is needed because SDK bootstrap doesn't always auto-sign the current device
-          if (!deviceStatus?.crossSigningVerified) {
-            logger.debug('🔐 Device not cross-signing verified after unlock - signing with cross-signing keys')
+          // If device wasn't properly signed by bootstrap (like when MAS is skipped), sign it manually
+          if (!deviceStatus?.signedByOwner && !deviceStatus?.crossSigningVerified) {
+            logger.debug('🔐 Bootstrap did not sign device - manually signing with cross-signing keys')
             try {
               await crypto.crossSignDevice(deviceId)
-              logger.debug('✅ Device signed with cross-signing keys after recovery key unlock')
+              logger.debug('✅ Device manually signed after bootstrap')
 
-              // Verify the signing worked
-              const updatedStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
-              logger.debug('🔍 Final device verification status after manual signing:', {
-                isVerified: updatedStatus?.isVerified(),
-                crossSigningVerified: updatedStatus?.crossSigningVerified,
-                signedByOwner: updatedStatus?.signedByOwner
-              })
+              // Element Web approach: Trust the Matrix SDK and UserTrustStatusChanged event
+              // Don't immediately check status - let the reactive system handle UI updates
+              logger.debug('🔔 Trusting Matrix SDK UserTrustStatusChanged event for UI updates')
             } catch (signingError) {
-              logger.warn('⚠️ Failed to sign device after recovery key unlock:', signingError)
+              logger.warn('⚠️ Manual device signing failed:', signingError)
             }
           } else {
-            logger.debug('✅ Device already cross-signing verified after unlock')
+            logger.debug('✅ Device properly signed during bootstrap')
           }
         } catch (error) {
-          logger.warn('⚠️ Could not check device verification status after unlock:', error)
+          logger.warn('⚠️ Could not verify device signing after bootstrap:', error)
         }
       }
 
@@ -1492,8 +1576,8 @@ export class MatrixEncryptionManager extends EventEmitter {
     const targetClient = client || this.matrixClient
     logger.debug('🔍 Getting simplified encryption state - unencrypted first approach', { roomId })
 
-    // Step 1: Basic client availability
-    if (!targetClient) {
+    // Step 1: Basic client availability and validation
+    if (!targetClient || !this.isClientUsable(targetClient)) {
       return {
         state: 'needs_login',
         details: {
@@ -1556,7 +1640,23 @@ export class MatrixEncryptionManager extends EventEmitter {
     }
 
     // Check encryption capabilities following Element Web DeviceListener pattern
+    // Add extra safety checks to prevent "null pointer passed to rust" errors
     try {
+      // Validate client state again before making crypto calls
+      if (!this.isClientUsable(targetClient)) {
+        logger.debug('❌ Client became invalid during encryption state check')
+        return {
+          state: 'needs_login',
+          details: {
+            hasClient: false,
+            hasCrypto: false,
+            isInEncryptedRoom: true,
+            canChat: false
+          },
+          requiresUserAction: true
+        }
+      }
+
       const [
         ,
         keyBackupInfo,
@@ -1583,7 +1683,8 @@ export class MatrixEncryptionManager extends EventEmitter {
         })),
         crypto.isSecretStorageReady().catch(() => false),
         targetClient.secretStorage.getDefaultKeyId().catch(() => null),
-        crypto.getDeviceVerificationStatus(targetClient.getUserId()!, targetClient.getDeviceId()!).catch(() => null)
+        // Add extra safety for device verification - this is where the "null pointer" error comes from
+        this.safeGetDeviceVerificationStatus(crypto, targetClient).catch(() => null)
       ])
 
       // FIXED: Use more reliable crossSigningStatus instead of isCrossSigningReady()
@@ -1651,15 +1752,46 @@ export class MatrixEncryptionManager extends EventEmitter {
         }
       }
 
-      // Follow Element Web DeviceListener logic exactly
+      // Follow Element Web DeviceListener logic with smart recovery detection
       if (!isCurrentDeviceTrusted) {
-        // Check if cross-signing infrastructure exists AND secret storage is ready to distinguish between:
-        // - Initial setup needed (no cross-signing keys OR no secret storage) vs.
-        // - Device verification needed (cross-signing exists AND secret storage ready but device not verified)
-        if (!crossSigningReady || !secretStorageReady) {
-          logger.debug('🔐 No cross-signing infrastructure or secret storage: needs initial encryption setup', {
+        // Smart detection: distinguish between recovery vs fresh setup
+        const canRecoverKeys = secretStorageReady && hasKeyBackup && hasDefaultKeyId
+        const needsFreshSetup = !secretStorageReady || !hasKeyBackup
+
+        if (canRecoverKeys && !crossSigningReady && !allCrossSigningSecretsCached) {
+          // Case 1: Recovery scenario - infrastructure exists but keys inaccessible
+          logger.debug('🔑 Cross-signing key recovery needed - keys exist but inaccessible', {
+            secretStorageReady,
+            hasKeyBackup,
+            hasDefaultKeyId,
             crossSigningReady,
-            secretStorageReady
+            allCrossSigningSecretsCached
+          })
+          return {
+            state: 'needs_key_recovery',
+            details: {
+              hasClient: true,
+              hasCrypto: true,
+              isInEncryptedRoom: true,
+              canChat: false, // Block chat until keys are recovered
+              crossSigningReady,
+              hasKeyBackup,
+              hasDeviceKeys,
+              isCurrentDeviceTrusted,
+              allCrossSigningSecretsCached,
+              secretStorageReady,
+              hasDefaultKeyId,
+              keyBackupUploadActive
+            },
+            requiresUserAction: true,
+            warningMessage: 'Recover your encryption keys to access encrypted messages'
+          }
+        } else if (needsFreshSetup) {
+          // Case 2: Fresh setup needed - no infrastructure exists
+          logger.debug('🔐 Fresh encryption setup needed - no infrastructure exists', {
+            secretStorageReady,
+            hasKeyBackup,
+            hasDefaultKeyId
           })
           return {
             state: 'needs_recovery_key',
@@ -1979,7 +2111,7 @@ export class MatrixEncryptionManager extends EventEmitter {
   /**
    * Simple helper to determine what UI to show (Element Web style)
    */
-  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'banner' | 'encryption_setup' {
+  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'banner' | 'encryption_setup' | 'key_recovery' {
     switch (state) {
       case 'ready_unencrypted':
       case 'ready_encrypted':
@@ -1994,10 +2126,143 @@ export class MatrixEncryptionManager extends EventEmitter {
       case 'needs_device_reset':
         return 'banner' // Show device reset banner
       case 'needs_recovery_key':
-        return 'encryption_setup' // Show setup dialog
+        return 'encryption_setup' // Show fresh setup dialog with MAS
+      case 'needs_key_recovery':
+        return 'key_recovery' // Show key recovery dialog (no MAS needed)
       default:
         return 'login'
     }
+  }
+
+  /**
+   * Recover existing cross-signing keys from secret storage
+   * This is the intelligent recovery path that doesn't require MAS reset
+   */
+  async recoverCrossSigningKeys (recoveryKey?: string): Promise<EncryptionResult> {
+    return this.withSecretStorageKeyCache(async () => {
+      try {
+        logger.debug('🔑 Starting cross-signing key recovery (no reset needed)')
+
+        const crypto = this.matrixClient!.getCrypto()
+        if (!crypto) {
+          return { success: false, error: 'Crypto not available' }
+        }
+
+        // Step 1: Check if we can access secret storage
+        const hasExistingKey = await this.matrixClient!.secretStorage.hasKey()
+        if (!hasExistingKey) {
+          return { success: false, error: 'No secret storage key found - fresh setup required' }
+        }
+
+        // Step 2: Try to bootstrap cross-signing from existing keys
+        logger.debug('🔍 Attempting to bootstrap cross-signing from existing secret storage')
+
+        try {
+          // Use Element Web's bootstrap approach without forcing new keys
+          const { createCrossSigning } = await import('./createCrossSigning')
+          await createCrossSigning(this.matrixClient!, false) // forceNew = false for recovery
+
+          logger.debug('✅ Cross-signing bootstrap successful')
+        } catch (bootstrapError) {
+          logger.warn('⚠️ Cross-signing bootstrap failed, trying secret storage unlock:', bootstrapError)
+
+          // If bootstrap fails, try unlocking secret storage first
+          if (recoveryKey) {
+            const unlockResult = await this.unlockExistingStorage(recoveryKey)
+            if (!unlockResult.success) {
+              return unlockResult
+            }
+
+            // Retry bootstrap after unlock
+            const { createCrossSigning } = await import('./createCrossSigning')
+            await createCrossSigning(this.matrixClient!, false)
+          } else {
+            return {
+              success: false,
+              error: 'Cross-signing keys inaccessible - recovery key may be needed',
+              needsSetup: false // Don't trigger fresh setup
+            }
+          }
+        }
+
+        // Step 3: Verify cross-signing is now working
+        const crossSigningReady = await crypto.isCrossSigningReady()
+        if (!crossSigningReady) {
+          return { success: false, error: 'Cross-signing recovery incomplete' }
+        }
+
+        // Step 4: Complete device verification using recovered keys
+        logger.debug('🔐 Completing device verification with recovered keys')
+
+        // Element Web approach with fallback: Trust Matrix SDK, but verify it worked
+        logger.debug('🔄 Waiting for Matrix SDK to update device verification state...')
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        // Check if device was properly signed during bootstrap
+        const userId = this.matrixClient!.getUserId()
+        const deviceId = this.matrixClient!.getDeviceId()
+        if (userId && deviceId) {
+          try {
+            const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+            logger.debug('🔍 Post-recovery device status check:', {
+              isVerified: deviceStatus?.isVerified(),
+              crossSigningVerified: deviceStatus?.crossSigningVerified,
+              signedByOwner: deviceStatus?.signedByOwner
+            })
+
+            // If device wasn't properly signed by bootstrap (like when MAS is skipped), sign it manually
+            if (!deviceStatus?.signedByOwner && !deviceStatus?.crossSigningVerified) {
+              logger.debug('🔐 Bootstrap did not sign device - manually signing with cross-signing keys')
+              try {
+                await crypto.crossSignDevice(deviceId)
+                logger.debug('✅ Device manually signed after key recovery')
+
+                // Element Web approach: Trust the Matrix SDK and UserTrustStatusChanged event
+                // Don't immediately check status - let the reactive system handle UI updates
+                logger.debug('🔔 Trusting Matrix SDK UserTrustStatusChanged event for UI updates')
+              } catch (signingError) {
+                logger.warn('⚠️ Manual device signing failed after recovery:', signingError)
+              }
+            } else {
+              logger.debug('✅ Device properly signed during bootstrap')
+            }
+          } catch (error) {
+            logger.warn('⚠️ Could not verify device signing after recovery:', error)
+          }
+        }
+
+        // Step 5: Ensure key backup is working
+        let keyBackupReady = false
+        try {
+          const keyBackupInfo = await crypto.getKeyBackupInfo()
+          keyBackupReady = !!(keyBackupInfo && keyBackupInfo.version)
+
+          if (!keyBackupReady) {
+            logger.debug('🔧 Setting up key backup with recovered keys')
+            await crypto.checkKeyBackupAndEnable()
+            keyBackupReady = true
+          }
+        } catch (backupError) {
+          logger.warn('⚠️ Key backup setup failed after recovery:', backupError)
+        }
+
+        logger.debug('✅ Cross-signing key recovery completed successfully')
+
+        // Emit state change to trigger UI updates
+        this.emit('stateChanged')
+
+        return {
+          success: true,
+          message: 'Encryption keys recovered successfully'
+        }
+      } catch (error) {
+        logger.error('❌ Cross-signing key recovery failed:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Key recovery failed'
+        }
+      }
+    })
   }
 
   /**
@@ -2177,9 +2442,14 @@ export const matrixEncryptionState = {
     return await manager.waitForChatReady(client, timeout)
   },
 
-  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'banner' | 'encryption_setup' {
+  getRequiredUI (state: MatrixEncryptionState): 'none' | 'login' | 'banner' | 'encryption_setup' | 'key_recovery' {
     const manager = getMatrixEncryptionManager()
     return manager.getRequiredUI(state)
+  },
+
+  async recoverCrossSigningKeys (recoveryKey?: string): Promise<EncryptionResult> {
+    const manager = getMatrixEncryptionManager()
+    return await manager.recoverCrossSigningKeys(recoveryKey)
   }
 }
 

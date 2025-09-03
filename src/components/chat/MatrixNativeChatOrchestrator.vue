@@ -460,6 +460,11 @@ const createRecoveryKeyInline = async () => {
       throw new Error('Matrix client not available')
     }
 
+    // Check if client is in valid state before attempting encryption setup
+    if (!client.getAccessToken()) {
+      throw new Error('Matrix client is not in valid state - please re-login')
+    }
+
     // Use MatrixEncryptionService to create fresh encryption setup
     const { MatrixEncryptionService } = await import('../../services/MatrixEncryptionManager')
     const encryptionService = new MatrixEncryptionService(client)
