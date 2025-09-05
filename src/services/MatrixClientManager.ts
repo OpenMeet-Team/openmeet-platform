@@ -114,9 +114,19 @@ async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo, 
           return
         }
 
-        logger.debug('🔑 Deriving secret storage key from passphrase')
+        logger.debug('🔑 RECOVERY KEY DEBUG: Starting key derivation')
+        logger.debug('🔑 Recovery key input length:', passphrase.length)
+        logger.debug('🔑 Recovery key first 10 chars:', passphrase.substring(0, 10))
+        logger.debug('🔑 KeyInfo details:', {
+          algorithm: keyInfo.algorithm,
+          passphrase: keyInfo.passphrase ? 'present' : 'missing',
+          keyInfoKeys: Object.keys(keyInfo)
+        })
+
         const derivedKey = await deriveKeyFromPassphrase(passphrase, keyInfo)
 
+        logger.debug('🔑 RECOVERY KEY DEBUG: Key derivation completed')
+        logger.debug('🔑 Derived key length:', derivedKey.length)
         logger.debug('✅ Secret storage key derived successfully')
         resolve(derivedKey)
       } catch (error) {
@@ -700,11 +710,14 @@ export class MatrixClientManager {
           getSecretStorageKey: async (opts, name) => {
             // Element Web-style callback: check cache first during bootstrap operations
             const keyIds = Object.keys(opts.keys)
-            logger.debug('🔑 getSecretStorageKey callback invoked', {
+            logger.debug('🔑 SECRET STORAGE DEBUG: getSecretStorageKey callback invoked', {
               availableKeys: keyIds,
               requestedName: name,
               isBeingAccessed: secretStorageBeingAccessed,
-              hasCachedKeys: Object.keys(secretStorageKeys).length > 0
+              hasCachedKeys: Object.keys(secretStorageKeys).length > 0,
+              secretName: name,
+              isForCrossSigning: name?.includes('cross_signing'),
+              isForBackup: name?.includes('backup')
             })
 
             // CRITICAL FIX: Don't prompt for keys during initial setup when none exist yet
@@ -790,6 +803,12 @@ export class MatrixClientManager {
             secretStorageKeys[keyId] = derivedKey
             secretStorageKeyInfo[keyId] = keyInfo
 
+            logger.debug('🔑 SECRET STORAGE DEBUG: Key successfully derived and cached', {
+              keyId,
+              keyLength: derivedKey.length,
+              secretName: name,
+              keyInfoAlgorithm: keyInfo.algorithm
+            })
             logger.debug('✅ Secret storage key derived and cached from user input')
             return [keyId, derivedKey]
           },
