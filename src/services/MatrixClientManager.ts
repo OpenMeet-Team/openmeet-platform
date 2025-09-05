@@ -1577,6 +1577,11 @@ export class MatrixClientManager {
       await this.cryptoInitPromise
       this.cryptoInitialized = true
       logger.debug('✅ Crypto initialization completed successfully')
+
+      // Perform initial encryption setup for new logins
+      // This prevents device key mismatch issues on subsequent logins
+      await this.performInitialEncryptionSetup()
+
       return true
     } catch (error) {
       logger.error('❌ Crypto initialization failed:', error)
@@ -1584,6 +1589,123 @@ export class MatrixClientManager {
       return false
     } finally {
       this.cryptoInitializing = false
+    }
+  }
+
+  /**
+   * Perform initial encryption setup for new logins
+   * This prevents device key mismatch issues on subsequent logins
+   */
+  private async performInitialEncryptionSetup (): Promise<void> {
+    try {
+      logger.debug('🔐 === STARTING INITIAL ENCRYPTION SETUP DEBUG ===')
+
+      if (!this.client) {
+        logger.debug('🔐 ❌ No client available for initial encryption setup')
+        return
+      }
+
+      const crypto = this.client.getCrypto()
+      if (!crypto) {
+        logger.debug('🔐 ❌ No crypto available for initial encryption setup')
+        return
+      }
+
+      const userId = this.client.getUserId()
+      const deviceId = this.client.getDeviceId()
+
+      logger.debug('🔐 Initial setup debug info:', {
+        userId: userId || 'MISSING',
+        deviceId: deviceId || 'MISSING',
+        hasClient: !!this.client,
+        hasCrypto: !!crypto
+      })
+
+      if (!userId || !deviceId) {
+        logger.debug('🔐 ❌ Missing userId or deviceId for initial encryption setup')
+        return
+      }
+
+      logger.debug('🔐 Checking current encryption state...')
+
+      // Check if this looks like a brand new device that needs setup
+      const crossSigningReady = await crypto.isCrossSigningReady().catch((e) => {
+        logger.debug('🔐 Error checking crossSigningReady:', e)
+        return false
+      })
+
+      const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId).catch((e) => {
+        logger.debug('🔐 Error checking deviceVerificationStatus:', e)
+        return null
+      })
+
+      const isDeviceVerified = deviceStatus?.crossSigningVerified || false
+
+      logger.debug('🔐 Current encryption state:', {
+        crossSigningReady,
+        isDeviceVerified,
+        deviceStatus: {
+          isVerified: deviceStatus?.isVerified?.() || 'unknown',
+          crossSigningVerified: deviceStatus?.crossSigningVerified || false,
+          signedByOwner: deviceStatus?.signedByOwner || false
+        }
+      })
+
+      // Skip setup if encryption is already properly configured
+      if (crossSigningReady && isDeviceVerified) {
+        logger.debug('🔐 ✅ Encryption already properly set up, skipping initial setup')
+        return
+      }
+
+      // Check if this is a completely fresh start (no cross-signing at all)
+      const hasAnySecrets = await this.client.secretStorage.isStored('m.cross_signing.master').catch((e) => {
+        logger.debug('🔐 Error checking secret storage:', e)
+        return null
+      })
+
+      logger.debug('🔐 Secret storage check:', {
+        hasAnySecrets,
+        secretStorageAvailable: typeof this.client.secretStorage?.isStored === 'function'
+      })
+
+      if (!hasAnySecrets) {
+        logger.debug('🔐 🆕 Brand new device detected - performing initial encryption setup')
+
+        // Import and use MatrixEncryptionService for proper setup
+        const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
+        const encryptionService = new MatrixEncryptionService(this.client)
+
+        logger.debug('🔐 Starting MatrixEncryptionService.setupEncryption()...')
+        const setupResult = await encryptionService.setupEncryption()
+
+        logger.debug('🔐 Setup result:', {
+          success: setupResult.success,
+          error: setupResult.error,
+          recoveryKey: setupResult.recoveryKey ? '***PROVIDED***' : 'NONE'
+        })
+
+        if (setupResult.success) {
+          logger.debug('🔐 ✅ Initial encryption setup completed successfully')
+
+          // Store flag to indicate initial setup was completed
+          localStorage.setItem('matrix_initial_encryption_setup_completed', Date.now().toString())
+
+          // Also store the recovery key if provided for UI display
+          if (setupResult.recoveryKey) {
+            logger.debug('🔐 🔑 Storing recovery key for UI display')
+            sessionStorage.setItem('matrix_fresh_recovery_key', setupResult.recoveryKey)
+          }
+        } else {
+          logger.warn('🔐 ⚠️ Initial encryption setup failed (non-fatal):', setupResult.error)
+        }
+      } else {
+        logger.debug('🔐 🔑 Existing secrets detected - skipping fresh setup, may need recovery later')
+      }
+
+      logger.debug('🔐 === COMPLETED INITIAL ENCRYPTION SETUP DEBUG ===')
+    } catch (error) {
+      logger.warn('🔐 ⚠️ Initial encryption setup error (non-fatal):', error)
+      // Don't throw - this is optional setup that can be done later
     }
   }
 

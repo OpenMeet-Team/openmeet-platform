@@ -456,8 +456,8 @@ export class MatrixEncryptionManager extends EventEmitter {
   }
 
   /**
-   * Simple device verification detection - Element Web pattern
-   * Detects when device needs verification to show banner
+   * Smart device verification detection - Element Web pattern with new user handling
+   * Only detects real mismatches, not normal new user states
    */
   private async checkDeviceMismatchFromStatus (deviceVerificationStatus: unknown): Promise<boolean> {
     if (!deviceVerificationStatus || this.operationInProgress) {
@@ -480,16 +480,52 @@ export class MatrixEncryptionManager extends EventEmitter {
       return false
     }
 
-    // Element Web pattern: device claims verified but cross-signing disagrees
-    // This means device needs verification (not reset)
+    // CRITICAL FIX: Check if cross-signing exists at all before flagging mismatch
+    // For new users, cross-signing doesn't exist yet, so crossSigningVerified=false is normal
+    const crypto = this.matrixClient!.getCrypto()!
+    const crossSigningReady = await crypto.isCrossSigningReady().catch(() => false)
+
+    if (!crossSigningReady) {
+      // No cross-signing set up yet - this is a new user, not a mismatch
+      logger.debug('🔐 Cross-signing not ready yet, skipping device mismatch check (new user)')
+      return false
+    }
+
+    // Check for fresh encryption setup grace period
+    const lastSetup = localStorage.getItem('lastEncryptionSetup')
+    const matrixSetup = localStorage.getItem('matrix_initial_encryption_setup_completed')
+    if (lastSetup || matrixSetup) {
+      const setupTime = Math.max(
+        lastSetup ? parseInt(lastSetup) : 0,
+        matrixSetup ? parseInt(matrixSetup) : 0
+      )
+      const timeSinceSetup = Date.now() - setupTime
+      if (timeSinceSetup < 300000) { // 5 minutes grace period
+        logger.debug('🔐 Within setup grace period, skipping device mismatch check')
+        return false
+      }
+    }
+
+    // NOW we can check for actual mismatch: device claims verified but cross-signing disagrees
     const deviceClaims = deviceVerificationStatus.isVerified()
     const crossSigningDisagrees = !deviceVerificationStatus.crossSigningVerified
 
-    return deviceClaims && crossSigningDisagrees
+    const hasMismatch = deviceClaims && crossSigningDisagrees
+
+    if (hasMismatch) {
+      logger.debug('🔐 ⚠️ Actual device mismatch detected:', {
+        deviceClaims,
+        crossSigningVerified: deviceVerificationStatus.crossSigningVerified,
+        crossSigningReady
+      })
+    }
+
+    return hasMismatch
   }
 
   /**
-   * Simple device existence check - Element Web pattern
+   * Enhanced device key mismatch detection - Element Web pattern with improvements
+   * Now properly handles new users without cross-signing setup
    */
   private async checkDeviceKeyMismatch (): Promise<boolean> {
     try {
@@ -498,12 +534,65 @@ export class MatrixEncryptionManager extends EventEmitter {
       const userId = this.matrixClient!.getUserId()
       if (!deviceId || !userId) return false
 
-      // Simple check: does our device exist on the server?
+      logger.debug('🔐 Checking device key mismatch for user:', { userId, deviceId })
+
+      // CRITICAL FIX: Check if cross-signing exists at all before flagging mismatch
+      // For new users, cross-signing doesn't exist yet, so device not being on server is normal
+      const crossSigningReady = await crypto.isCrossSigningReady().catch(() => false)
+
+      if (!crossSigningReady) {
+        // No cross-signing set up yet - this is a new user, not a mismatch
+        logger.debug('🔐 Cross-signing not ready yet, skipping device mismatch check (new user)')
+        return false
+      }
+
+      // Check if we recently completed encryption setup (grace period)
+      const lastSetup = localStorage.getItem('lastEncryptionSetup')
+      const matrixSetup = localStorage.getItem('matrix_initial_encryption_setup_completed')
+      if (lastSetup || matrixSetup) {
+        const setupTime = Math.max(
+          lastSetup ? parseInt(lastSetup) : 0,
+          matrixSetup ? parseInt(matrixSetup) : 0
+        )
+        const timeSinceSetup = Date.now() - setupTime
+        if (timeSinceSetup < 300000) { // 5 minutes grace period
+          logger.debug('🔐 Within setup grace period, skipping device mismatch check')
+          return false
+        }
+      }
+
+      // NOW we can check for actual device existence issues (only for users with cross-signing)
       const userDeviceInfo = await crypto.getUserDeviceInfo([userId], true)
       const serverDevices = userDeviceInfo.get(userId)
+      const deviceExists = serverDevices?.has(deviceId) || false
 
-      return !serverDevices?.has(deviceId)
-    } catch {
+      if (!deviceExists) {
+        logger.debug('🔐 ⚠️ Device key mismatch detected: device not found on server (user has cross-signing)', {
+          deviceId,
+          serverDeviceCount: serverDevices?.size || 0,
+          crossSigningReady
+        })
+        return true
+      }
+
+      // Additional check: verify device has proper crypto setup
+      try {
+        const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+        const hasBasicCrypto = deviceStatus !== null
+
+        if (!hasBasicCrypto) {
+          logger.debug('🔐 ⚠️ Device key mismatch detected: device has no crypto status (user has cross-signing)')
+          return true
+        }
+      } catch (cryptoError) {
+        logger.debug('🔐 ⚠️ Device crypto status check failed, assuming mismatch:', cryptoError)
+        return true
+      }
+
+      logger.debug('🔐 ✅ No device key mismatch detected')
+      return false
+    } catch (error) {
+      logger.debug('🔐 Device mismatch check failed, assuming no mismatch:', error)
       return false // Conservative: assume no mismatch if check fails
     }
   }
@@ -790,7 +879,7 @@ export class MatrixEncryptionManager extends EventEmitter {
    * This follows Element Web's InitialCryptoSetupStore approach:
    * 1. Bootstrap both cross-signing AND secret storage together to avoid prompts
    * 2. Let SDK handle key backup automatically
-   * 3. Then manually verify the current device
+   * 3. Then properly verify the current device with signing
    */
   private async setupFreshEncryption (): Promise<EncryptionResult> {
     const crypto = this.matrixClient!.getCrypto()!
@@ -828,16 +917,48 @@ export class MatrixEncryptionManager extends EventEmitter {
       await crypto.resetKeyBackup()
     }
 
-    // Step 4: Extract recovery key
+    // Step 4: CRITICAL - Ensure device is properly signed by cross-signing
+    // This prevents the "device key mismatch" banner on subsequent logins
+    logger.debug('🔐 Ensuring device is properly signed by cross-signing keys')
+    const userId = this.matrixClient!.getUserId()!
+    const deviceId = this.matrixClient!.getDeviceId()!
+
+    try {
+      // Wait for cross-signing to be fully ready
+      let retryCount = 0
+      while (retryCount < 10) {
+        const isReady = await crypto.isCrossSigningReady()
+        if (isReady) break
+        logger.debug(`⏳ Waiting for cross-signing to be ready (attempt ${retryCount + 1}/10)`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        retryCount++
+      }
+
+      // Sign the current device with cross-signing keys
+      await crypto.crossSignDevice(deviceId)
+      logger.debug('✅ Device signed with cross-signing keys')
+
+      // Wait for device verification status to update
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Verify the device is now properly verified
+      const deviceStatus = await crypto.getDeviceVerificationStatus(userId, deviceId)
+      logger.debug('🔍 Final device verification status:', {
+        isVerified: deviceStatus?.isVerified(),
+        crossSigningVerified: deviceStatus?.crossSigningVerified,
+        signedByOwner: deviceStatus?.signedByOwner
+      })
+    } catch (deviceSigningError) {
+      logger.warn('⚠️ Device signing after setup failed (non-fatal):', deviceSigningError)
+      // Continue - the bootstrap process should have handled basic verification
+    }
+
+    // Step 5: Extract recovery key
     if (!recoveryKeyInfo) {
       throw new Error('Failed to create recovery key')
     }
     const recoveryKeyData = this.extractRecoveryKey(recoveryKeyInfo)
     const encodedRecoveryKey = encodeRecoveryKey(recoveryKeyData)
-
-    // Step 5: Element Web doesn't do complex device verification after setup
-    // The Matrix SDK handles this automatically during bootstrap
-    logger.debug('✅ Cross-signing and secret storage setup complete')
 
     logger.debug('✅ Fresh encryption setup completed successfully (Element Web pattern)')
 

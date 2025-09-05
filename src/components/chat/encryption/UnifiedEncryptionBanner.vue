@@ -173,17 +173,29 @@
         </div>
         <div class="banner-text">
           <div class="banner-title">Device key mismatch detected</div>
-          <div class="banner-subtitle">Your encryption keys are out of sync. Reset device keys to fix chat access.</div>
+          <div class="banner-subtitle">
+            This usually happens after a fresh login or code update. Try setting up encryption first before resetting.
+          </div>
         </div>
         <div class="banner-actions">
           <q-btn
-            color="negative"
+            color="primary"
             unelevated
+            size="sm"
+            @click="handleSetupEncryption"
+            :loading="setupInProgress"
+            icon="fas fa-key"
+            label="Set Up Encryption"
+            class="q-mr-sm"
+          />
+          <q-btn
+            color="negative"
+            outline
             size="sm"
             @click="handleResetDeviceKeys"
             :loading="setupInProgress"
             icon="fas fa-sync"
-            label="Reset Device Keys"
+            label="Reset Keys"
           />
         </div>
       </div>
