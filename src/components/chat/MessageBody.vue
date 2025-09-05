@@ -71,25 +71,71 @@ from Matrix events, similar to Element Web's body component routing.
 
     <!-- Audio Messages -->
     <div v-else-if="isAudioMessage" class="audio-message">
-      <audio v-if="audioUrl" controls class="message-audio">
-        <source :src="audioUrl" :type="content.info?.mimetype || 'audio/mpeg'">
-        Your browser does not support the audio element.
-      </audio>
-      <div v-else class="audio-placeholder">
-        <q-icon name="fas fa-volume-up" size="1.5rem" />
-        <span class="q-ml-sm">{{ content.body || 'Audio message' }}</span>
+      <div class="audio-container">
+        <audio v-if="audioUrl" controls class="message-audio" ref="audioPlayer">
+          <source :src="audioUrl" :type="content.info?.mimetype || 'audio/mpeg'">
+          Your browser does not support the audio element.
+        </audio>
+        <div v-else-if="audioLoading" class="audio-placeholder">
+          <q-spinner size="1.5rem" />
+          <span class="q-ml-sm">Loading audio...</span>
+        </div>
+        <div v-else class="audio-placeholder">
+          <q-icon name="fas fa-volume-up" size="1.5rem" />
+          <span class="q-ml-sm">{{ content.body || 'Audio message' }}</span>
+          <div class="text-xs text-grey-7 q-mt-xs" v-if="!content.url">No URL found</div>
+          <div class="text-xs text-grey-7 q-mt-xs" v-else-if="!audioUrl && !audioLoading">Failed to load</div>
+        </div>
+        <!-- Download button for audio -->
+        <div class="media-actions row q-mt-xs">
+          <q-btn
+            v-if="audioUrl"
+            icon="fas fa-download"
+            size="sm"
+            flat
+            round
+            @click="downloadFile"
+            title="Download audio file"
+          />
+        </div>
       </div>
     </div>
 
     <!-- Video Messages -->
     <div v-else-if="isVideoMessage" class="video-message">
-      <video v-if="videoUrl" controls class="message-video">
-        <source :src="videoUrl" :type="content.info?.mimetype || 'video/mp4'">
-        Your browser does not support the video element.
-      </video>
-      <div v-else class="video-placeholder">
-        <q-icon name="fas fa-play" size="2rem" />
-        <div class="text-caption q-mt-sm">{{ content.body || 'Video' }}</div>
+      <div class="video-container">
+        <video v-if="videoUrl" controls class="message-video" preload="metadata">
+          <!-- Try multiple formats for better compatibility -->
+          <source :src="videoUrl" :type="getVideoMimeType()">
+          <!-- Fallback sources with different codecs -->
+          <source v-if="supportsWebM" :src="videoUrl" type="video/webm">
+          <source v-if="supportsOgg" :src="videoUrl" type="video/ogg">
+          <!-- Generic fallback -->
+          <source :src="videoUrl" type="video/mp4">
+          Your browser does not support the video element.
+        </video>
+        <div v-else-if="videoLoading" class="video-placeholder">
+          <q-spinner size="2rem" />
+          <div class="text-caption q-mt-sm">Loading video...</div>
+        </div>
+        <div v-else class="video-placeholder">
+          <q-icon name="fas fa-play" size="2rem" />
+          <div class="text-caption q-mt-sm">{{ content.body || 'Video' }}</div>
+          <div class="text-xs text-grey-7 q-mt-xs" v-if="!content.url">No URL found</div>
+          <div class="text-xs text-grey-7 q-mt-xs" v-else-if="!videoUrl && !videoLoading">Failed to load</div>
+        </div>
+        <!-- Download button for video -->
+        <div class="media-actions row q-mt-xs">
+          <q-btn
+            v-if="videoUrl"
+            icon="fas fa-download"
+            size="sm"
+            flat
+            round
+            @click="downloadFile"
+            title="Download video file"
+          />
+        </div>
       </div>
     </div>
 
@@ -263,6 +309,11 @@ const fileUrl = computed(() => {
 // Media URLs (images, audio, video)
 const imageUrl = ref<string | null>(null)
 const imageLoading = ref(false)
+const audioUrl = ref<string | null>(null)
+const audioLoading = ref(false)
+const videoUrl = ref<string | null>(null)
+const videoLoading = ref(false)
+const audioPlayer = ref<HTMLAudioElement | null>(null)
 
 // Load authenticated image
 const loadImage = async () => {
@@ -324,15 +375,107 @@ const loadImage = async () => {
   }
 }
 
-const audioUrl = computed(() => {
-  if (!props.content.url) return null
-  return matrixClientService.getContentUrl(props.content.url)
-})
+// Load authenticated audio
+const loadAudio = async () => {
+  const url = props.content.url || props.content.file?.url
+  const isEncrypted = !!props.content.file
 
-const videoUrl = computed(() => {
-  if (!props.content.url) return null
-  return matrixClientService.getContentUrl(props.content.url)
-})
+  if (!url || audioLoading.value) return
+
+  audioLoading.value = true
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) return
+
+    if (isEncrypted) {
+      try {
+        const blob = await decryptEncryptedFile(props.content.file, props.content.info)
+        audioUrl.value = URL.createObjectURL(blob)
+        return
+      } catch (encryptedError) {
+        logger.error('Failed to load encrypted audio:', {
+          eventId: props.mxEvent.getId(),
+          error: encryptedError.message
+        })
+      }
+    }
+
+    // For unencrypted audio, create authenticated blob URL
+    const audioFileUrl = matrixClientService.getContentUrl(url)
+    const response = await fetch(audioFileUrl, {
+      headers: {
+        Authorization: `Bearer ${client.getAccessToken()}`
+      }
+    })
+
+    if (!response.ok) {
+      logger.error('Failed to fetch audio:', {
+        eventId: props.mxEvent.getId(),
+        status: response.status,
+        statusText: response.statusText
+      })
+      return
+    }
+
+    const blob = await response.blob()
+    audioUrl.value = URL.createObjectURL(blob)
+  } catch (error) {
+    logger.error('Error loading audio:', { eventId: props.mxEvent.getId(), error })
+  } finally {
+    audioLoading.value = false
+  }
+}
+
+// Load authenticated video
+const loadVideo = async () => {
+  const url = props.content.url || props.content.file?.url
+  const isEncrypted = !!props.content.file
+
+  if (!url || videoLoading.value) return
+
+  videoLoading.value = true
+  try {
+    const client = matrixClientService.getClient()
+    if (!client) return
+
+    if (isEncrypted) {
+      try {
+        const blob = await decryptEncryptedFile(props.content.file, props.content.info)
+        videoUrl.value = URL.createObjectURL(blob)
+        return
+      } catch (encryptedError) {
+        logger.error('Failed to load encrypted video:', {
+          eventId: props.mxEvent.getId(),
+          error: encryptedError.message
+        })
+      }
+    }
+
+    // For unencrypted video, create authenticated blob URL
+    const videoFileUrl = matrixClientService.getContentUrl(url)
+    const response = await fetch(videoFileUrl, {
+      headers: {
+        Authorization: `Bearer ${client.getAccessToken()}`
+      }
+    })
+
+    if (!response.ok) {
+      logger.error('Failed to fetch video:', {
+        eventId: props.mxEvent.getId(),
+        status: response.status,
+        statusText: response.statusText
+      })
+      return
+    }
+
+    const blob = await response.blob()
+    videoUrl.value = URL.createObjectURL(blob)
+  } catch (error) {
+    logger.error('Error loading video:', { eventId: props.mxEvent.getId(), error })
+  } finally {
+    videoLoading.value = false
+  }
+}
 
 // Event handlers
 const onImageLoad = () => {
@@ -564,27 +707,70 @@ const previewFile = async () => {
   }
 }
 
+// Video format detection utilities
+const getVideoMimeType = (): string => {
+  const mimetype = props.content.info?.mimetype
+  if (mimetype) return mimetype
+
+  const filename = fileName.value.toLowerCase()
+  if (filename.endsWith('.webm')) return 'video/webm'
+  if (filename.endsWith('.ogg') || filename.endsWith('.ogv')) return 'video/ogg'
+  if (filename.endsWith('.mov')) return 'video/quicktime'
+  if (filename.endsWith('.avi')) return 'video/x-msvideo'
+  if (filename.endsWith('.mkv')) return 'video/x-matroska'
+
+  return 'video/mp4' // Default fallback
+}
+
+const supportsWebM = computed(() => {
+  const video = document.createElement('video')
+  return video.canPlayType('video/webm') !== ''
+})
+
+const supportsOgg = computed(() => {
+  const video = document.createElement('video')
+  return video.canPlayType('video/ogg') !== ''
+})
+
 // Lifecycle hooks
 onMounted(() => {
   const url = props.content.url || props.content.file?.url
   if (isImageMessage.value && url) {
     loadImage()
   }
+  if (isAudioMessage.value && url) {
+    loadAudio()
+  }
+  if (isVideoMessage.value && url) {
+    loadVideo()
+  }
 })
 
 // Watch for content changes (when messages get decrypted)
-watch([() => props.content, isImageMessage], ([newContent, newIsImage]) => {
+watch([() => props.content, isImageMessage, isAudioMessage, isVideoMessage], ([newContent, newIsImage, newIsAudio, newIsVideo]) => {
   const url = newContent.url || newContent.file?.url
 
   if (newIsImage && url && !imageUrl.value && !imageLoading.value) {
     loadImage()
   }
+  if (newIsAudio && url && !audioUrl.value && !audioLoading.value) {
+    loadAudio()
+  }
+  if (newIsVideo && url && !videoUrl.value && !videoLoading.value) {
+    loadVideo()
+  }
 })
 
 onUnmounted(() => {
-  // Clean up blob URL when component is destroyed
+  // Clean up blob URLs when component is destroyed
   if (imageUrl.value) {
     URL.revokeObjectURL(imageUrl.value)
+  }
+  if (audioUrl.value) {
+    URL.revokeObjectURL(audioUrl.value)
+  }
+  if (videoUrl.value) {
+    URL.revokeObjectURL(videoUrl.value)
   }
 })
 </script>
@@ -650,6 +836,13 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.audio-container,
+.video-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .message-audio,
 .message-video {
   max-width: 100%;
@@ -658,6 +851,11 @@ onUnmounted(() => {
 
 .message-video {
   max-width: 400px;
+}
+
+.media-actions {
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .audio-placeholder {
