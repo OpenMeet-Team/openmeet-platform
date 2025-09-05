@@ -368,7 +368,7 @@
                 <div class="text-caption text-grey-6 q-mt-md">
                   <div v-if="!matrixConnectionStatus.connected"><strong>Connect to Matrix:</strong> Initial setup or reconnection to Matrix chat service</div>
                   <div v-if="matrixConnectionStatus.connected"><strong>Complete Verification Setup:</strong> Set up cross-signing for full device verification with Element</div>
-                  <div><strong>Forgot Recovery Key:</strong> Reset encryption if you've lost your recovery key (generates new key)</div>
+                  <div><strong>Generate Recovery Key:</strong> Create a new recovery key for your existing encryption (replaces old key)</div>
                   <div><strong>Check Status:</strong> View detailed information about your Matrix connection and encryption status</div>
                 </div>
               </q-card-section>
@@ -981,12 +981,12 @@ const onConnectToMatrix = async () => {
 const onForgotRecoveryKey = async () => {
   const confirmed = await new Promise((resolve) => {
     Dialog.create({
-      title: 'Forgot Recovery Key',
-      message: 'This will reset your Matrix encryption and generate a new recovery key. You will lose access to historical encrypted messages unless you can unlock them later. Continue?',
+      title: 'Generate New Recovery Key',
+      message: 'This will generate a new recovery key for your existing encryption setup. Your old recovery key will no longer work. Continue?',
       cancel: true,
       persistent: true,
       ok: {
-        label: 'Reset Encryption',
+        label: 'Generate New Key',
         color: 'orange'
       }
     }).onOk(() => resolve(true)).onCancel(() => resolve(false))
@@ -997,59 +997,44 @@ const onForgotRecoveryKey = async () => {
   try {
     isForgotRecoveryKey.value = true
 
-    // Get Matrix client
+    logger.debug('🔑 Generating new recovery key via preferences')
+
+    // Get Matrix client and create encryption service
     const client = matrixClientService.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
 
-    // Use new unified encryption service to reset everything
     const encryptionService = new MatrixEncryptionService(client)
 
-    // Step 1: Reset existing encryption
-    logger.debug('🔄 Step 1: Resetting existing encryption...')
-    const resetResult = await encryptionService.resetEncryption()
-    if (!resetResult.success) {
-      throw new Error(resetResult.error || 'Reset failed')
-    }
+    // Use the new generateNewRecoveryKey method
+    const result = await encryptionService.generateNewRecoveryKey()
 
-    logger.debug('✅ Encryption reset completed, now setting up fresh encryption...')
-
-    // Step 2: Set up fresh encryption with auto-generated recovery key
-    logger.debug('🔄 Step 2: Setting up fresh encryption...')
-    const setupResult = await encryptionService.setupEncryption()
-
-    if (setupResult.success && setupResult.recoveryKey) {
+    if (result.success && result.recoveryKey) {
       matrixConnectionStatus.value = {
         connected: true,
-        message: 'Encryption reset completed - new recovery key generated',
+        message: 'New recovery key generated successfully',
         details: 'Please save your new recovery key securely'
       }
 
-      // Show the new recovery key to the user
-      recoveryKey.value = setupResult.recoveryKey
+      // Show the new recovery key to the user (using existing UI)
+      recoveryKey.value = result.recoveryKey
       showRecoveryKeyDialog.value = true
 
       Notify.create({
         type: 'positive',
-        message: 'Encryption reset completed! Please save your new recovery key.',
+        message: 'New recovery key generated! Please save it securely.',
         timeout: 5000
       })
     } else {
-      throw new Error(setupResult.error || 'Failed to generate new recovery key')
+      throw new Error(result.error || 'Failed to generate new recovery key')
     }
   } catch (error) {
-    logger.error('Forgot recovery key reset failed:', error)
-
-    matrixConnectionStatus.value = {
-      connected: false,
-      message: 'Reset failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }
+    logger.error('Recovery key generation failed:', error)
 
     Notify.create({
       type: 'negative',
-      message: `Reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Failed to generate recovery key: ${error instanceof Error ? error.message : 'Unknown error'}`,
       timeout: 5000
     })
   } finally {

@@ -134,12 +134,10 @@ async function handleUIAFlows (
     flow.stages?.includes('org.matrix.cross_signing_reset')
   )
 
-  // Skip MAS reset flow during first-time setup - only use it for actual device resets
-  if (hasResetFlow && uiaData.params?.['org.matrix.cross_signing_reset'] && context === 'device_reset') {
-    logger.debug('🔄 Using MAS cross-signing reset flow for device reset')
+  // Handle MAS reset flow for both fresh setup and device reset
+  if (hasResetFlow && uiaData.params?.['org.matrix.cross_signing_reset']) {
+    logger.debug('🔄 MAS cross-signing reset flow required for context:', context)
     return await handleMASCrossSigningReset(uiaData, matrixClient, context)
-  } else if (hasResetFlow && context === 'first_time_setup') {
-    logger.debug('⏭️ Skipping MAS cross-signing reset during first-time setup')
   }
 
   // Check for SSO flow
@@ -184,46 +182,51 @@ async function handleMASCrossSigningReset (
 
   return new Promise((resolve) => {
     Dialog.create({
-      title: 'Cross-Signing Reset Required',
-      message: 'To complete encryption setup, your cross-signing keys need to be reset in Matrix Account Service. After the reset is complete, return to this page to continue setup.',
+      title: 'Authorization Required',
+      html: true,
+      message: `
+        <div class="q-mb-md">To complete encryption setup, you need to approve cross-signing reset.</div>
+        <div class="text-caption text-grey-7 q-mb-md">
+          You'll be redirected to Matrix Account Service. After approval, use your browser's back button to return here.
+        </div>
+        <div class="text-weight-medium text-primary">✓ Tap "Continue" to redirect</div>
+        <div class="text-weight-medium text-primary">✓ Approve on the authorization page</div>
+        <div class="text-weight-medium text-primary">✓ Use back button to return</div>
+      `,
       persistent: true,
       ok: {
-        label: 'Continue',
-        color: 'primary'
+        label: 'Continue to Authorization',
+        color: 'primary',
+        class: 'full-width'
       },
       cancel: {
-        label: 'Cancel',
-        color: 'grey'
+        label: 'Cancel Setup',
+        color: 'grey',
+        flat: true
       }
     }).onOk(() => {
-      logger.debug('🔗 Redirecting to MAS for cross-signing approval:', resetParams.url)
+      logger.debug('🔗 Redirecting to MAS for cross-signing approval (mobile-friendly):', resetParams.url)
 
-      // Store comprehensive state for return detection and reset completion
-      sessionStorage.setItem('masAuthInProgress', 'device_signing')
+      // Store state for return detection and resume
+      sessionStorage.setItem('masAuthInProgress', 'cross_signing_reset')
       sessionStorage.setItem('masAuthOriginalUrl', window.location.href)
+      sessionStorage.setItem('masAuthReturnExpected', 'true')
 
-      // Store additional context about what reset operation was in progress
+      // Store reset context for resume
       const resetContext = {
-        operation: 'reset_device_keys',
+        operation: 'cross_signing_reset',
         timestamp: Date.now(),
         userInitiated: true,
-        reason: context, // first_time_setup or device_reset
+        context,
         deviceId: matrixClient.getDeviceId(),
-        userId: matrixClient.getUserId()
+        userId: matrixClient.getUserId(),
+        masUrl: resetParams.url
       }
       sessionStorage.setItem('masAuthResetContext', JSON.stringify(resetContext))
 
-      // Store verification workflow state to resume after MAS return
-      const verificationState = {
-        step: 'awaiting_mas_approval',
-        startTime: Date.now(),
-        deviceId: matrixClient.getDeviceId(),
-        userId: matrixClient.getUserId()
-      }
-      localStorage.setItem('verificationWorkflowState', JSON.stringify(verificationState))
-
-      // Redirect to MAS - user will need to manually return
-      window.location.href = resetParams.url
+      // Mobile-friendly same-tab redirect
+      logger.debug('🔄 Redirecting to MAS URL in same tab for better mobile UX')
+      window.location.href = resetParams.url!
 
       // This won't be reached due to redirect, but satisfy TypeScript
       resolve({ confirmed: true })

@@ -476,17 +476,10 @@ const createRecoveryKeyInline = async () => {
       throw new Error(result.error || 'Failed to create recovery key')
     }
 
-    // CRITICAL STEP: Use the recovery key to verify the device (this was missing!)
+    // Element Web pattern: Device is automatically trusted after successful bootstrap
+    // No need to verify with the recovery key we just created
     if (result.recoveryKey) {
-      logger.debug('🔐 Using generated recovery key to verify device...')
-      const verificationResult = await encryptionService.setupEncryption(result.recoveryKey)
-
-      if (!verificationResult.success) {
-        logger.error('Device verification with recovery key failed:', verificationResult.error)
-        throw new Error('Device verification failed: ' + verificationResult.error)
-      }
-
-      logger.debug('✅ Device verified with recovery key successfully')
+      logger.debug('✅ Fresh encryption setup completed - device automatically trusted')
     }
 
     // Show the recovery key display instead of auto-filling input
@@ -1097,26 +1090,19 @@ const setupDeviceEncryption = async () => {
     const setupResult = await encryptionService.setupEncryption()
 
     if (setupResult.success && setupResult.recoveryKey) {
-      // Mark setup as completed, move to verification
+      // Element Web pattern: Device is automatically trusted after successful bootstrap
+      // No additional verification step needed - the device was already signed during bootstrap
+      logger.debug('✅ Fresh encryption setup completed - device automatically trusted')
+
+      // Mark setup as completed and skip verification step
       setupProgress.value.steps[1].status = 'completed'
       setupProgress.value.currentStep = 2
-      setupProgress.value.steps[2].status = 'active'
+      setupProgress.value.steps[2].status = 'completed' // Skip verification for fresh setup
 
-      // CRITICAL MISSING STEP: Use the recovery key to unlock/verify the device
-      logger.debug('🔐 Step 3: Using recovery key to verify device...')
-      const verificationResult = await encryptionService.setupEncryption(setupResult.recoveryKey)
-
-      if (!verificationResult.success) {
-        logger.error('Device verification with recovery key failed:', verificationResult.error)
-        throw new Error('Device verification failed: ' + verificationResult.error)
-      }
-
-      logger.debug('✅ Device verified with recovery key successfully')
-
-      // Brief delay for verification step visibility
+      // Brief delay for UI visibility
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      // Mark verification as completed
+      // Mark verification as completed (skipped for fresh setup)
       setupProgress.value.steps[2].status = 'completed'
 
       // Show the new recovery key to the user
