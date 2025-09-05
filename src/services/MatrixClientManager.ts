@@ -57,6 +57,23 @@ async function deriveKeyFromPassphrase (passphrase: string, keyInfo: SecretStora
  * Following Element Web's AccessSecretStorageDialog pattern
  */
 async function promptForSecretStoragePassphrase (keyInfo: SecretStorageKeyInfo, secretName?: string): Promise<Uint8Array | null> {
+  // CRITICAL FIX: Don't show security key dialog during initial setup or when no recovery key exists
+  // This prevents the confusing "Security Key Needed" popup for new users
+  const isInitialSetup = localStorage.getItem('matrix_initial_encryption_setup_completed')
+  const recentSetup = isInitialSetup && (Date.now() - parseInt(isInitialSetup)) < 600000 // 10 minutes
+
+  if (recentSetup) {
+    logger.debug('🔐 Skipping security key prompt during recent initial setup')
+    return null
+  }
+
+  // Also skip if this appears to be for fresh encryption setup (no existing recovery)
+  const hasLastEncryptionSetup = localStorage.getItem('lastEncryptionSetup')
+  if (!hasLastEncryptionSetup && secretName?.includes('cross_signing')) {
+    logger.debug('🔐 Skipping security key prompt for fresh encryption setup (no existing recovery)')
+    return null
+  }
+
   return new Promise((resolve) => {
     const reasonMessage = secretName?.includes('cross_signing')
       ? 'This is needed to verify your devices and access encrypted messages.'
@@ -689,6 +706,15 @@ export class MatrixClientManager {
               isBeingAccessed: secretStorageBeingAccessed,
               hasCachedKeys: Object.keys(secretStorageKeys).length > 0
             })
+
+            // CRITICAL FIX: Don't prompt for keys during initial setup when none exist yet
+            const isInitialSetup = localStorage.getItem('matrix_initial_encryption_setup_completed')
+            const recentSetup = isInitialSetup && (Date.now() - parseInt(isInitialSetup)) < 600000 // 10 minutes
+
+            if (recentSetup && !secretStorageBeingAccessed) {
+              logger.debug('🔐 Skipping secret storage key request during recent initial setup')
+              throw new Error('Secret storage not available during initial setup')
+            }
 
             // Check the in-memory cache (Element Web pattern)
             if (secretStorageBeingAccessed) {
