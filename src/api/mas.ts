@@ -65,7 +65,7 @@ export const masApi = {
       }
     )
 
-    // Debug: log the full response to see what we're getting  
+    // Debug: log the full response to see what we're getting
     logger.debug('MAS getCurrentUser response:', response.data)
 
     return response
