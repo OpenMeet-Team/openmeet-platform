@@ -1,9 +1,6 @@
 import { boot } from 'quasar/wrappers'
-import { initConsoleFiltering } from '../utils/consoleFilter'
 
 export default boot(async () => {
-  // Initialize console filtering for Matrix SDK logs in development
-  initConsoleFiltering()
   try {
     const response = await fetch('/config.json')
     if (!response.ok) {

@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from 'axios'
 import getEnv from '../utils/env'
 import { matrixApi } from './matrix'
+import { logger } from '../utils/logger'
 
 // Create separate axios instance for MAS without tenant headers
 const masApiClient = axios.create()
@@ -14,7 +15,7 @@ masApiClient.interceptors.request.use(async (config) => {
       config.headers.Authorization = `Bearer ${matrixToken}`
     }
   } catch (error) {
-    console.log('🔴 Failed to get Matrix token for MAS request:', error)
+    logger.error('Failed to get Matrix token for MAS request:', error)
   }
 
   return config
@@ -64,8 +65,8 @@ export const masApi = {
       }
     )
 
-    // Debug: log the full response to see what we're getting
-    console.log('🔐 MAS getCurrentUser response:', JSON.stringify(response.data, null, 2))
+    // Debug: log the full response to see what we're getting  
+    logger.debug('MAS getCurrentUser response:', response.data)
 
     return response
   },
