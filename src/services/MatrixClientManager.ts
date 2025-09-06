@@ -1,5 +1,7 @@
-import type { MatrixClient, ICreateClientOpts, MatrixError as SdkMatrixError } from 'matrix-js-sdk'
-import { ClientEvent, createClient, IndexedDBStore, HttpApiEvent, IndexedDBCryptoStore, LocalStorageCryptoStore, MemoryCryptoStore } from 'matrix-js-sdk'
+import type { MatrixClient, ICreateClientOpts, MatrixError as SdkMatrixError, MatrixEvent, Room, OidcClientConfig, ICreateRoomOpts } from 'matrix-js-sdk'
+import type { RoomMessageEventContent } from 'matrix-js-sdk/lib/@types/events'
+import { ClientEvent, createClient, IndexedDBStore, HttpApiEvent, IndexedDBCryptoStore, LocalStorageCryptoStore, MemoryCryptoStore, generateOidcAuthorizationUrl, completeAuthorizationCodeGrant, registerOidcClient, EventType } from 'matrix-js-sdk'
+import { Visibility, Preset } from 'matrix-js-sdk/lib/@types/partials'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
@@ -7,6 +9,10 @@ import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 import { Dialog, Notify } from 'quasar'
+import type { MatrixMessageContent } from '../types/matrix'
+import getEnv from '../utils/env'
+import { useAuthStore } from '../stores/auth-store'
+// Config will be accessed via getEnv
 
 // Type definitions for secret storage
 interface SecretStorageKeyInfo {
@@ -278,7 +284,11 @@ export class MatrixClientManager {
    */
   public isReady (): boolean {
     const loggedIn = this.client?.isLoggedIn() ?? false
-    const result = loggedIn && this.isStarted && !this.isShuttingDown
+    const syncState = this.client?.getSyncState()
+    const isPrepared = syncState === 'PREPARED'
+
+    // Consider ready if logged in AND (startup complete OR client is prepared and functional)
+    const result = loggedIn && (this.isStarted || isPrepared) && !this.isShuttingDown
 
     // Debug logging for timing issues
     if (loggedIn && !result) {
@@ -286,8 +296,16 @@ export class MatrixClientManager {
         loggedIn,
         isStarted: this.isStarted,
         isShuttingDown: this.isShuttingDown,
+        syncState,
+        isPrepared,
         result,
-        message: 'Client is logged in but startup not complete'
+        message: 'Client is logged in but not ready'
+      })
+    } else if (loggedIn && result && !this.isStarted && isPrepared) {
+      logger.debug('✅ MatrixClientManager ready via sync state (startup still in progress)', {
+        syncState,
+        isPrepared,
+        isStarted: this.isStarted
       })
     }
 
@@ -373,11 +391,112 @@ export class MatrixClientManager {
   }
 
   /**
-   * Create and initialize Matrix client with optimized configuration
+   * Initialize Matrix client from stored session (Element Web pattern)
+   * Like Element Web's restoreSessionFromStorage() - only restores existing sessions
+   * @returns Promise<MatrixClient | null> - client if session restored, null if no session
    */
-  public async initializeClient (credentials: {
+  public async initializeClient (): Promise<MatrixClient | null> {
+    // Return existing client if already initialized
+    if (this.client && this.client.isLoggedIn() && !this.isShuttingDown) {
+      logger.debug('✅ Matrix client already initialized and ready')
+      return this.client
+    }
+
+    // Try to restore from stored session (like Element Web's restoreSessionFromStorage)
+    if (this.hasStoredSession()) {
+      try {
+        return await this.restoreFromStoredSession()
+      } catch (error) {
+        logger.warn('⚠️ Failed to restore from stored session:', error)
+        return null
+      }
+    }
+
+    logger.debug('🔍 No stored session found')
+    return null
+  }
+
+  /**
+   * Restore Matrix client from stored session data
+   * Like Element Web's restoreSessionFromStorage logic
+   */
+  private async restoreFromStoredSession (): Promise<MatrixClient> {
+    const homeserverUrl = getEnv('APP_MATRIX_HOMESERVER_URL') as string
+
+    // Get current OpenMeet user for user-specific storage keys
+    const authStore = useAuthStore()
+    const openMeetUserSlug = authStore.getUserSlug
+
+    if (!openMeetUserSlug) {
+      throw new Error('No OpenMeet user logged in for Matrix session restore')
+    }
+
+    // Use user-specific storage keys
+    const accessTokenKey = `matrix_access_token_${openMeetUserSlug}`
+    const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+    const sessionKey = `matrix_session_${openMeetUserSlug}`
+
+    const accessToken = sessionStorage.getItem(accessTokenKey)
+    const refreshToken = localStorage.getItem(refreshTokenKey)
+
+    // Get session data
+    const sessionDataJson = localStorage.getItem(sessionKey)
+    if (!sessionDataJson) {
+      throw new Error('No Matrix session data found for current user')
+    }
+
+    const sessionData = JSON.parse(sessionDataJson)
+    const userId = sessionData.userId
+    const deviceId = sessionData.deviceId
+
+    // Retrieve OIDC metadata for proper TokenRefresher configuration
+    const oidcIssuer = localStorage.getItem(`matrix_oidc_issuer_${openMeetUserSlug}`)
+    const oidcClientId = localStorage.getItem(`matrix_oidc_client_id_${openMeetUserSlug}`)
+    const oidcRedirectUri = localStorage.getItem(`matrix_oidc_redirect_uri_${openMeetUserSlug}`)
+    const idTokenClaimsJson = localStorage.getItem(`matrix_id_token_claims_${openMeetUserSlug}`)
+
+    // Allow restoration with refresh token only (access token may have expired)
+    if (!accessToken && !refreshToken) {
+      throw new Error('No valid access token or refresh token found for Matrix session restore')
+    }
+
+    if (!userId) {
+      throw new Error('Incomplete session data in storage')
+    }
+
+    const credentials = {
+      homeserverUrl,
+      accessToken: accessToken || undefined,
+      userId,
+      deviceId: deviceId || undefined,
+      refreshToken: refreshToken || undefined,
+      oidcIssuer: oidcIssuer || undefined,
+      oidcClientId: oidcClientId || undefined,
+      oidcRedirectUri: oidcRedirectUri || undefined,
+      idTokenClaims: idTokenClaimsJson ? JSON.parse(idTokenClaimsJson) : undefined
+    }
+
+    logger.debug('🔍 DEBUG: Session restore credentials:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      hasOidcIssuer: !!oidcIssuer,
+      hasOidcClientId: !!oidcClientId,
+      hasOidcRedirectUri: !!oidcRedirectUri,
+      hasIdTokenClaims: !!idTokenClaimsJson,
+      userId
+    })
+
+    return await this.initializeClientWithCredentials(credentials)
+  }
+
+  /**
+   * Create Matrix client with explicit credentials (internal method)
+   * Like Element Web's doSetLoggedIn() - used after OAuth completion
+   * Made public for testing purposes
+   */
+  public async initializeClientWithCredentials (credentials: {
     homeserverUrl: string
-    accessToken: string
+    accessToken?: string
     userId: string
     deviceId?: string
     refreshToken?: string
@@ -623,7 +742,7 @@ export class MatrixClientManager {
    */
   private async _performInitialization (credentials: {
     homeserverUrl: string
-    accessToken: string
+    accessToken?: string
     userId: string
     deviceId?: string
     refreshToken?: string
@@ -693,7 +812,7 @@ export class MatrixClientManager {
       // Create the client with refresh token support
       const clientOptions: ICreateClientOpts = {
         baseUrl,
-        accessToken: credentials.accessToken,
+        ...(credentials.accessToken && { accessToken: credentials.accessToken }),
         userId,
         deviceId,
         store,
@@ -826,6 +945,15 @@ export class MatrixClientManager {
       }
 
       // Add refresh token support with Element Web-style TokenRefresher pattern
+      logger.debug('🔍 DEBUG: Token refresh setup check:', {
+        hasRefreshToken: !!credentials.refreshToken,
+        hasOidcIssuer: !!credentials.oidcIssuer,
+        hasOidcClientId: !!credentials.oidcClientId,
+        refreshToken: credentials.refreshToken,
+        oidcIssuer: credentials.oidcIssuer,
+        oidcClientId: credentials.oidcClientId
+      })
+
       if (credentials.refreshToken && credentials.oidcIssuer && credentials.oidcClientId) {
         logger.debug('🔑 Creating TokenRefresher for OIDC token management', {
           hasRefreshToken: !!credentials.refreshToken,
@@ -963,6 +1091,64 @@ export class MatrixClientManager {
         })
       }
 
+      // Store credentials to localStorage for session persistence (CRITICAL for token refresh)
+      logger.debug('💾 Storing credentials to localStorage for session persistence')
+      logger.debug('🔍 DEBUG: Credentials being stored:', {
+        hasRefreshToken: !!credentials.refreshToken,
+        hasOidcIssuer: !!credentials.oidcIssuer,
+        hasOidcClientId: !!credentials.oidcClientId,
+        refreshToken: credentials.refreshToken,
+        oidcIssuer: credentials.oidcIssuer,
+        oidcClientId: credentials.oidcClientId
+      })
+
+      // Get current OpenMeet user for user-specific storage keys (multi-user support)
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+      const storageUserId = openMeetUserSlug || credentials.userId
+
+      // Use user-specific storage keys to support multiple Matrix clients per browser
+      const accessTokenKey = `matrix_access_token_${storageUserId}`
+      const refreshTokenKey = `matrix_refresh_token_${storageUserId}`
+      const sessionKey = `matrix_session_${storageUserId}`
+
+      // Use sessionStorage for access token (cleared on tab close) for better security
+      if (credentials.accessToken) {
+        sessionStorage.setItem(accessTokenKey, credentials.accessToken)
+      }
+
+      // Store basic session data in localStorage
+      const sessionData = {
+        homeserverUrl: credentials.homeserverUrl,
+        userId: credentials.userId,
+        deviceId,
+        timestamp: Date.now(),
+        hasSession: true,
+        openMeetUserSlug
+      }
+      localStorage.setItem(sessionKey, JSON.stringify(sessionData))
+      localStorage.setItem('matrix_user_id', credentials.userId)
+      localStorage.setItem('matrix_device_id', deviceId)
+
+      if (credentials.refreshToken) {
+        localStorage.setItem(refreshTokenKey, credentials.refreshToken)
+        logger.debug('🔄 Stored refresh token for automatic token refresh')
+      }
+
+      // Store OIDC metadata for proper TokenRefresher configuration on restore
+      if (credentials.oidcIssuer) {
+        localStorage.setItem(`matrix_oidc_issuer_${storageUserId}`, credentials.oidcIssuer)
+      }
+      if (credentials.oidcClientId) {
+        localStorage.setItem(`matrix_oidc_client_id_${storageUserId}`, credentials.oidcClientId)
+      }
+      if (credentials.oidcRedirectUri) {
+        localStorage.setItem(`matrix_oidc_redirect_uri_${storageUserId}`, credentials.oidcRedirectUri)
+      }
+      if (credentials.idTokenClaims) {
+        localStorage.setItem(`matrix_id_token_claims_${storageUserId}`, JSON.stringify(credentials.idTokenClaims))
+      }
+
       return this.client
     } catch (error: unknown) {
       logger.error('❌ Failed to initialize Matrix client:', error)
@@ -1064,6 +1250,18 @@ export class MatrixClientManager {
       if (state === 'PREPARED') {
         const rooms = this.client?.getRooms() || []
         logger.debug(`📊 Matrix client has ${rooms.length} rooms after sync`)
+
+        // Dispatch matrix:ready event for UI components
+        const readyEvent = new CustomEvent('matrix:ready', {
+          detail: {
+            client: this.client,
+            roomCount: rooms.length,
+            state,
+            timestamp: new Date().toISOString()
+          }
+        })
+        window.dispatchEvent(readyEvent)
+        logger.debug('🎉 Dispatched matrix:ready event')
       }
     }
 
@@ -1090,6 +1288,13 @@ export class MatrixClientManager {
     // Only essential listeners for performance
     this.client.on(ClientEvent.Sync, this.syncStateHandler)
     this.client.once(ClientEvent.Sync, this.readyHandler)
+
+    // Check if client is already in PREPARED state and call readyHandler immediately
+    const currentSyncState = this.client.getSyncState()
+    if (currentSyncState === 'PREPARED' && this.readyHandler) {
+      logger.debug('🎯 Client already in PREPARED state, calling readyHandler immediately')
+      this.readyHandler(currentSyncState)
+    }
 
     // Listen for session logged out events (Element Web pattern)
     // This is emitted by the SDK when token refresh has failed and user action is required
@@ -1803,6 +2008,19 @@ export class MatrixClientManager {
   }
 
   /**
+   * Stop and cleanup Matrix client (for testing)
+   */
+  async cleanup (): Promise<void> {
+    if (this.client) {
+      logger.debug('🧹 Cleaning up Matrix client')
+      this.client.stopClient()
+      this.client = null
+    }
+    this.isInitializing = false
+    this.initPromise = null
+  }
+
+  /**
    * Complete shutdown and cleanup (for application termination)
    */
   public async shutdown (): Promise<void> {
@@ -1945,6 +2163,810 @@ export class MatrixClientManager {
       }
     } catch (error) {
       logger.warn('Failed to check cross-signing key status:', error)
+    }
+  }
+
+  /**
+   * Format Matrix content URI for display
+   */
+  public getContentUrl (mxcUrl: string, width?: number, height?: number): string {
+    if (!this.client || !mxcUrl.startsWith('mxc://')) return mxcUrl
+
+    try {
+      let httpUrl: string | null = null
+
+      // If width/height provided, use thumbnail endpoint; otherwise use download endpoint
+      if (width !== undefined && height !== undefined) {
+        // Use thumbnail endpoint with dimensions
+        httpUrl = this.client.mxcUrlToHttp(mxcUrl, width, height, 'scale')
+      } else {
+        // Use download endpoint without dimensions for direct file access
+        httpUrl = this.client.mxcUrlToHttp(mxcUrl)
+      }
+
+      if (!httpUrl) return mxcUrl
+
+      // Transform v3 media URLs to v1 authenticated endpoints for MSC3861/MAS
+      if (httpUrl.includes('/_matrix/media/v3/download/')) {
+        httpUrl = httpUrl.replace('/_matrix/media/v3/download/', '/_matrix/client/v1/media/download/')
+      } else if (httpUrl.includes('/_matrix/media/v3/thumbnail/')) {
+        httpUrl = httpUrl.replace('/_matrix/media/v3/thumbnail/', '/_matrix/client/v1/media/thumbnail/')
+      }
+
+      return httpUrl
+    } catch (error) {
+      logger.error('Error formatting content URL:', error)
+      return mxcUrl
+    }
+  }
+
+  /**
+   * Send typing notification
+   */
+  public async sendTyping (roomId: string, isTyping: boolean, timeout?: number): Promise<void> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      await this.client.sendTyping(roomId, isTyping, timeout || 10000)
+    } catch (error) {
+      logger.error('❌ Failed to send typing notification:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Send a message to a room
+   */
+  public async sendMessage (roomId: string, content: MatrixMessageContent): Promise<{ eventId: string }> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      const result = await this.client.sendEvent(roomId, EventType.RoomMessage, content as RoomMessageEventContent)
+      return { eventId: result.event_id }
+    } catch (error) {
+      logger.error('❌ Failed to send message:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Load historical messages for a room
+   */
+  public async loadRoomHistory (roomId: string, limit = 50): Promise<MatrixEvent[]> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    const room = this.client.getRoom(roomId)
+    if (!room) {
+      throw new Error(`Room not found: ${roomId}`)
+    }
+
+    logger.debug(`🔄 Loading room history for ${roomId} with limit ${limit}`)
+
+    try {
+      // Get the unfiltered timeline set for full message history
+      const timelineSet = room.getUnfilteredTimelineSet()
+      const liveTimeline = timelineSet.getLiveTimeline()
+
+      // Paginate backwards to load more messages if needed
+      try {
+        await this.client.paginateEventTimeline(liveTimeline, { backwards: true, limit })
+      } catch (error) {
+        // Timeline may not be paginable
+        logger.debug('Timeline pagination not available or failed:', error)
+      }
+
+      // Get events from the timeline
+      const events = liveTimeline.getEvents()
+
+      // Return the most recent events up to the limit
+      return events.slice(-limit)
+    } catch (error) {
+      logger.error('❌ Failed to load room history:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Join a room
+   */
+  public async joinRoom (roomId: string): Promise<Room> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('🚪 Attempting to join room:', roomId)
+
+      // Check if room already exists locally first
+      const existingRoom = this.client.getRoom(roomId)
+      if (existingRoom) {
+        logger.debug('✅ Room already exists locally:', roomId)
+        return existingRoom
+      }
+
+      logger.debug('🔍 Room not found locally, calling Matrix server to join:', roomId)
+      const room = await this.client.joinRoom(roomId)
+      logger.debug('🚪 Successfully joined room:', roomId, 'Room ID:', room.roomId)
+      return room
+    } catch (error) {
+      const errorMessage = (error as Error)?.message || 'Unknown error'
+      const errorCode = (error as { errcode?: string })?.errcode || 'No error code'
+
+      logger.error('❌ Failed to join room:', roomId)
+      logger.error('❌ Error code:', errorCode)
+      logger.error('❌ Error message:', errorMessage)
+      logger.error('❌ Full error:', error)
+
+      // Log specific error types for debugging
+      if (errorCode === 'M_FORBIDDEN') {
+        logger.warn('🚫 M_FORBIDDEN: User not invited to room - this should trigger appservice auto-invitation')
+      } else if (errorCode === 'M_NOT_FOUND') {
+        logger.warn('🔍 M_NOT_FOUND: Room does not exist or user cannot see it')
+      }
+
+      throw error
+    }
+  }
+
+  /**
+   * Join an event chat room by event slug using Matrix-native room aliases
+   */
+  public async joinEventChatRoom (eventSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('🎪 Joining event chat room for event:', eventSlug)
+
+      // Matrix-native approach: Use room aliases instead of backend API calls
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
+
+      // Import room alias utility (assuming it's added to matrixUtils)
+      const { generateEventRoomAlias } = await import('../utils/matrixUtils')
+      const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
+
+      logger.debug('🏠 Generated room alias:', roomAlias)
+
+      // First, ensure the room exists by querying the alias
+      // This will trigger Application Service room creation if the room doesn't exist
+      let roomId: string
+      try {
+        logger.debug('🔍 Resolving room alias to trigger Application Service if needed...')
+        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+        roomId = aliasResult.room_id
+        logger.debug('✅ Room alias resolved to room ID:', roomId)
+      } catch (aliasError) {
+        logger.debug('⚠️ Room alias not found, attempting direct join which may trigger creation')
+        // If alias resolution fails, the room might not exist yet
+        // Try direct join which might work if Application Service creates it immediately
+        roomId = roomAlias // Fallback to using alias as room identifier
+      }
+
+      // Now join the room using the resolved room ID or alias
+      const room = await this.joinRoom(roomId)
+
+      logger.debug('✅ Joined event chat room via room alias:', roomAlias)
+      return {
+        room,
+        roomInfo: {
+          matrixRoomId: room.roomId,
+          roomAlias,
+          source: 'matrix-native'
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Failed to join event chat room:', error)
+      throw error
+    }
+  }
+
+  public hasUserChosenToConnect (): boolean {
+    try {
+      const authStore = (window as Window & { useAuthStore?: () => { getUserSlug?: () => string; user?: { slug?: string } } }).useAuthStore?.() || {}
+      const userSlug = authStore.getUserSlug?.() || authStore.user?.slug
+      if (!userSlug) return false
+
+      const key = `matrix_user_chosen_to_connect_${userSlug}`
+      return localStorage.getItem(key) === 'true'
+    } catch (error) {
+      logger.error('Error checking user chosen to connect:', error)
+      return false
+    }
+  }
+
+  public setUserChosenToConnect (chosen: boolean): void {
+    try {
+      const authStore = (window as Window & { useAuthStore?: () => { getUserSlug?: () => string; user?: { slug?: string } } }).useAuthStore?.() || {}
+      const userSlug = authStore.getUserSlug?.() || authStore.user?.slug
+      if (!userSlug) {
+        logger.warn('Cannot set user chosen to connect: no user slug available')
+        return
+      }
+
+      const key = `matrix_user_chosen_to_connect_${userSlug}`
+      if (chosen) {
+        localStorage.setItem(key, 'true')
+      } else {
+        localStorage.removeItem(key)
+      }
+    } catch (error) {
+      logger.error('Error setting user chosen to connect:', error)
+    }
+  }
+
+  public hasStoredSession (): boolean {
+    try {
+      // Get current OpenMeet user for user-specific storage keys
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        return false
+      }
+
+      // Check for user-specific session data
+      const sessionKey = `matrix_session_${openMeetUserSlug}`
+      const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+
+      const sessionData = localStorage.getItem(sessionKey)
+      const refreshToken = localStorage.getItem(refreshTokenKey)
+
+      // We need either session data or refresh token to have a valid session
+      return !!(sessionData || refreshToken)
+    } catch (error) {
+      logger.error('Error checking stored session:', error)
+      return false
+    }
+  }
+
+  public async joinGroupChatRoom (groupSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('👥 Joining group chat room for group:', groupSlug)
+
+      // Matrix-native approach: Use room aliases
+      const tenantId = (window as Window & { getEnv?: (key: string) => string }).getEnv?.('APP_TENANT_ID') || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
+
+      // Import room alias utility
+      const { generateGroupRoomAlias } = await import('../utils/matrixUtils')
+      const roomAlias = generateGroupRoomAlias(groupSlug, tenantId)
+
+      logger.debug('🏠 Generated room alias:', roomAlias)
+
+      // Resolve alias and join room
+      let roomId: string
+      try {
+        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+        roomId = aliasResult.room_id
+        logger.debug('✅ Room alias resolved to room ID:', roomId)
+      } catch (error) {
+        logger.debug('⚠️ Room alias not found, attempting direct join:', roomAlias)
+        roomId = roomAlias
+      }
+
+      const room = await this.joinRoom(roomId)
+
+      logger.debug('✅ Joined group chat room via room alias:', roomAlias)
+      return {
+        room,
+        roomInfo: {
+          matrixRoomId: room.roomId,
+          roomAlias,
+          source: 'matrix-native'
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Failed to join group chat room:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Upload file to Matrix media repository
+   */
+  async uploadFile (file: File): Promise<string> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('🔄 uploadFile: Starting upload to Matrix media repository...')
+      logger.debug('🔄 uploadFile: File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })
+      logger.debug('🔄 uploadFile: Matrix client ready, calling uploadContent...')
+
+      const upload = await this.client.uploadContent(file)
+
+      logger.debug('✅ uploadFile: Upload successful!')
+      logger.debug('📎 uploadFile: File uploaded with content URI:', upload.content_uri)
+      logger.debug('📎 uploadFile: Full upload response:', upload)
+
+      return upload.content_uri
+    } catch (error) {
+      logger.error('❌ uploadFile: Failed to upload file:', error)
+
+      // Provide more user-friendly error messages for common issues
+      if (error instanceof Error) {
+        // Check for network/CORS errors that often indicate file size limits or timeouts
+        if (error.message === '' && error.stack?.includes('onreadystatechange')) {
+          throw new Error('File upload failed - this may be due to file size limits or network timeout')
+        }
+        throw error
+      }
+      throw new Error('Unknown error uploading file')
+    }
+  }
+
+  public async uploadAndSendFile (roomId: string, file: File): Promise<{ eventId: string; url: string }> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('📎 Uploading and sending file:', { roomId, fileName: file.name, fileSize: file.size })
+
+      // Upload file to Matrix media repo
+      const uploadResult = await this.client.uploadContent(file, {
+        name: file.name,
+        type: file.type,
+        rawResponse: false
+      } as { name: string; type: string; rawResponse: boolean })
+
+      logger.debug('✅ File uploaded:', uploadResult)
+
+      // Determine message type based on file type
+      let msgtype = 'm.file'
+      if (file.type.startsWith('image/')) {
+        msgtype = 'm.image'
+      } else if (file.type.startsWith('video/')) {
+        msgtype = 'm.video'
+      } else if (file.type.startsWith('audio/')) {
+        msgtype = 'm.audio'
+      }
+
+      // Send message with file
+      const content = {
+        msgtype,
+        body: file.name,
+        filename: file.name,
+        info: {
+          mimetype: file.type,
+          size: file.size
+        },
+        url: uploadResult.content_uri
+      }
+
+      // Add image/video specific info
+      if (msgtype === 'm.image' || msgtype === 'm.video') {
+        // For images/videos, we might want to include dimensions
+        // This is optional and would require additional processing
+        const extendedInfo = content.info as Record<string, unknown>
+        extendedInfo.w = undefined // width would be detected from file
+        extendedInfo.h = undefined // height would be detected from file
+      }
+
+      const result = await this.sendMessage(roomId, content)
+
+      logger.debug('✅ File message sent:', result)
+
+      return {
+        eventId: result.eventId,
+        url: uploadResult.content_uri
+      }
+    } catch (error) {
+      logger.error('❌ Failed to upload and send file:', error)
+      throw error
+    }
+  }
+
+  public async clearAllMatrixData (): Promise<void> {
+    try {
+      logger.debug('🧹 Clearing all Matrix data...')
+
+      // Stop client
+      if (this.client) {
+        await this.client.stopClient()
+      }
+
+      // Clear localStorage Matrix keys
+      const keysToRemove = Object.keys(localStorage).filter(key =>
+        key.includes('matrix') || key.includes('mx_') || key.includes('oidc')
+      )
+
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key)
+        logger.debug(`🗑️ Removed localStorage: ${key}`)
+      })
+
+      // Clear sessionStorage
+      const sessionKeys = Object.keys(sessionStorage).filter(key =>
+        key.includes('matrix') || key.includes('mx_') || key.includes('oidc')
+      )
+
+      sessionKeys.forEach(key => {
+        sessionStorage.removeItem(key)
+        logger.debug(`🗑️ Removed sessionStorage: ${key}`)
+      })
+
+      // Clear client instance
+      this.client = null
+
+      logger.debug('✅ All Matrix data cleared')
+    } catch (error) {
+      logger.error('❌ Failed to clear Matrix data:', error)
+      throw error
+    }
+  }
+
+  public async forceSyncAfterInvitation (type: 'event' | 'group', identifier: string): Promise<void> {
+    if (!this.client) {
+      logger.warn('Matrix client not available for force sync')
+      return
+    }
+
+    try {
+      logger.debug(`🔄 Forcing sync after ${type} invitation:`, identifier)
+
+      // Force a sync to ensure we get the latest room state
+      await this.client.startClient({ initialSyncLimit: 10 })
+
+      // Wait a bit for sync to complete
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      logger.debug('✅ Force sync completed')
+    } catch (error) {
+      logger.error('❌ Force sync failed:', error)
+      // Don't throw - this is not critical
+    }
+  }
+
+  public async joinDirectMessageRoom (matrixUserId: string): Promise<Room> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('💬 Joining direct message room with:', matrixUserId)
+
+      // Create a DM room with the user
+      const roomOptions: ICreateRoomOpts = {
+        visibility: Visibility.Private,
+        is_direct: true,
+        invite: [matrixUserId],
+        preset: Preset.TrustedPrivateChat
+      }
+      const room = await this.client.createRoom(roomOptions)
+
+      logger.debug('✅ Created/joined DM room:', room.room_id)
+      return this.client.getRoom(room.room_id)!
+    } catch (error) {
+      logger.error('❌ Failed to join direct message room:', error)
+      throw error
+    }
+  }
+
+  public getReadReceipts (roomId: string, eventId: string): Array<{ userId: string; timestamp: number }> {
+    if (!this.client) return []
+
+    try {
+      const room = this.client.getRoom(roomId)
+      if (!room) return []
+
+      const event = room.findEventById(eventId)
+      if (!event) return []
+
+      // Get read receipts for the event
+      const receipts = room.getReceiptsForEvent(event)
+      return receipts.map((receipt) => ({
+        userId: receipt.userId,
+        timestamp: receipt.data.ts || 0
+      }))
+    } catch (error) {
+      logger.error('Error getting read receipts:', error)
+      return []
+    }
+  }
+
+  public async sendReadReceipt (roomId: string, eventId: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      // Get the room and event to create proper read receipt
+      const room = this.client.getRoom(roomId)
+      if (!room) {
+        throw new Error(`Room ${roomId} not found`)
+      }
+
+      const event = room.findEventById(eventId)
+      if (!event) {
+        logger.warn('Event not found for read receipt:', eventId)
+        return
+      }
+
+      await this.client.sendReadReceipt(event)
+      logger.debug('📖 Read receipt sent for event:', eventId)
+    } catch (error) {
+      logger.error('❌ Failed to send read receipt:', error)
+      throw error
+    }
+  }
+
+  public async redactMessage (roomId: string, eventId: string, reason?: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('🗑️ Redacting message:', eventId, 'in room:', roomId)
+
+      await this.client.redactEvent(roomId, eventId, reason)
+      logger.debug('✅ Message redacted successfully')
+    } catch (error) {
+      logger.error('❌ Failed to redact message:', error)
+      throw error
+    }
+  }
+
+  public needsEncryptionSetup (): boolean {
+    if (!this.client) return false
+
+    try {
+      // Check if crypto is available and ready
+      const crypto = this.client.getCrypto()
+      return !crypto || !this.isCryptoReady()
+    } catch (error) {
+      logger.error('Error checking encryption setup:', error)
+      return true
+    }
+  }
+
+  /**
+   * Get OIDC client metadata for dynamic registration
+   * Similar to Element Web's PlatformPeg.getOidcClientMetadata()
+   */
+  private async getOidcClientMetadata (): Promise<{
+    clientName: string;
+    clientUri: string;
+    redirectUris: string[];
+    applicationType: 'web' | 'native';
+    logoUri?: string;
+    contacts: string[];
+    tosUri?: string;
+    policyUri?: string;
+  }> {
+    const frontendDomain = getEnv('frontendDomain') as string
+    const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
+
+    return {
+      clientName: 'OpenMeet Platform',
+      clientUri: frontendDomain,
+      redirectUris: [`${frontendDomain}${redirectPath}`],
+      applicationType: 'web' as const,
+      logoUri: `${frontendDomain}/openmeet/openmeet-logo.png`,
+      contacts: ['support@openmeet.net'],
+      tosUri: `${frontendDomain}/terms`,
+      policyUri: `${frontendDomain}/privacy`
+    }
+  }
+
+  /**
+   * Get the OIDC client ID for authentication
+   * Uses dynamic registration with the Matrix Authentication Service
+   * Similar to Element Web's getOidcClientId approach
+   */
+  private async getOidcClientId (delegatedAuthConfig: OidcClientConfig): Promise<string> {
+    try {
+      // Use dynamic client registration with MAS
+      const clientMetadata = await this.getOidcClientMetadata()
+      const clientId = await registerOidcClient(delegatedAuthConfig, clientMetadata as Parameters<typeof registerOidcClient>[1])
+      logger.debug(`🔧 Dynamic client registration successful, clientId: ${clientId}`)
+      return clientId
+    } catch (error) {
+      logger.error('❌ Failed to register OIDC client:', error)
+      throw new Error(`Failed to register OIDC client: ${error}`)
+    }
+  }
+
+  /**
+   * Start OIDC authentication flow (Element Web pattern)
+   * Uses dynamic client registration and Matrix SDK's generateOidcAuthorizationUrl
+   */
+  public async startAuthenticationFlow (): Promise<MatrixClient | null> {
+    try {
+      logger.debug('🚀 Starting Matrix OIDC authentication flow...')
+
+      // Get Matrix homeserver URL and discover OIDC config
+      const homeserverUrl = getEnv('APP_MATRIX_HOMESERVER_URL') as string
+
+      // Create temporary client to get OIDC metadata (Element Web pattern)
+      const tempClient = createClient({ baseUrl: homeserverUrl })
+      const delegatedAuthConfig = await tempClient.getAuthMetadata()
+
+      if (!delegatedAuthConfig) {
+        throw new Error('Matrix server does not support OIDC authentication')
+      }
+
+      // Get dynamic client ID using Element Web's approach
+      const clientId = await this.getOidcClientId(delegatedAuthConfig)
+
+      // Get redirect URI
+      const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
+      const frontendDomain = getEnv('frontendDomain') as string
+      const redirectUri = `${frontendDomain}${redirectPath}`
+
+      logger.debug('🔧 OIDC Auth components:', {
+        homeserverUrl,
+        issuer: delegatedAuthConfig.issuer,
+        clientId,
+        redirectUri
+      })
+
+      // Generate authorization URL using Matrix SDK (Element Web pattern)
+      const authorizationUrl = await generateOidcAuthorizationUrl({
+        metadata: delegatedAuthConfig,
+        redirectUri,
+        clientId,
+        homeserverUrl,
+        nonce: Date.now().toString()
+      })
+
+      logger.debug('🔗 Generated OIDC auth URL:', authorizationUrl)
+
+      if (typeof window !== 'undefined') {
+        // Store current page URL to return after authentication
+        sessionStorage.setItem('matrixReturnUrl', window.location.href)
+        logger.debug('📍 Stored return URL for post-auth navigation:', window.location.href)
+
+        logger.debug('🌐 Redirecting to OIDC auth URL...')
+        window.location.href = authorizationUrl
+      } else {
+        logger.warn('⚠️ Window not available for redirect')
+      }
+
+      return null // Will complete after redirect
+    } catch (error) {
+      logger.error('❌ Failed to start OIDC authentication flow:', error)
+      throw error
+    }
+  }
+
+  public isRoomEncrypted (roomId: string): boolean {
+    if (!this.client) return false
+
+    try {
+      const room = this.client.getRoom(roomId)
+      if (!room) return false
+
+      return this.client.isRoomEncrypted(roomId)
+    } catch (error) {
+      logger.error('Error checking room encryption:', error)
+      return false
+    }
+  }
+
+  /**
+   * Get user ID and device ID from access token (Element Web pattern)
+   * Calls Matrix server's /whoami endpoint to get user details
+   */
+  private async getUserIdFromAccessToken (accessToken: string, homeserverUrl: string): Promise<{
+    user_id: string;
+    device_id: string;
+    is_guest?: boolean;
+  }> {
+    const response = await fetch(`${homeserverUrl}/_matrix/client/v3/account/whoami`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to get user info: ${response.statusText}`)
+    }
+
+    return await response.json()
+  }
+
+  /**
+   * Complete OIDC OAuth login using Matrix SDK (Element Web pattern)
+   * Uses Matrix SDK's completeAuthorizationCodeGrant + getUserIdFromAccessToken
+   */
+  public async completeOAuthLogin (code: string, state: string): Promise<MatrixClient> {
+    try {
+      logger.debug('🔐 Completing OIDC login using Matrix SDK')
+
+      // Use Matrix SDK's completeAuthorizationCodeGrant (Element Web pattern)
+      const result = await completeAuthorizationCodeGrant(code, state)
+
+      logger.debug('🔐 Matrix SDK OIDC completion successful')
+
+      // Get user ID and device ID from server (Element Web pattern)
+      const userInfo = await this.getUserIdFromAccessToken(
+        result.tokenResponse.access_token,
+        result.homeserverUrl
+      )
+
+      logger.debug('🔐 Retrieved user info from Matrix server:', { userId: userInfo.user_id, deviceId: userInfo.device_id })
+
+      // Extract credentials with proper user and device IDs + OIDC metadata for TokenRefresher
+      const credentials = {
+        homeserverUrl: result.homeserverUrl,
+        accessToken: result.tokenResponse.access_token,
+        userId: userInfo.user_id,
+        deviceId: userInfo.device_id,
+        refreshToken: result.tokenResponse.refresh_token,
+        // Include OIDC metadata for proper TokenRefresher configuration
+        oidcIssuer: result.oidcClientSettings?.issuer,
+        oidcClientId: result.oidcClientSettings?.clientId,
+        oidcRedirectUri: `${window.location.origin}/auth/matrix`,
+        idTokenClaims: result.idTokenClaims
+      }
+
+      return await this.initializeClientWithCredentials(credentials)
+    } catch (error) {
+      logger.error('❌ Failed to complete OIDC login:', error)
+      throw error
+    }
+  }
+
+  public async getStoredCredentials (): Promise<{ homeserverUrl: string; accessToken: string; userId: string; refreshToken?: string } | Record<string, never>> {
+    try {
+      // Look for stored Matrix credentials in localStorage
+      const keys = Object.keys(localStorage).filter(key => key.includes('matrix'))
+
+      let accessToken = ''
+      let userId = ''
+      let refreshToken = ''
+
+      for (const key of keys) {
+        const value = localStorage.getItem(key) || ''
+        if (key.includes('access_token')) {
+          accessToken = value
+        } else if (key.includes('user_id')) {
+          userId = value
+        } else if (key.includes('refresh_token')) {
+          refreshToken = value
+        }
+      }
+
+      if (accessToken && userId) {
+        const credentials: { homeserverUrl: string; accessToken: string; userId: string; refreshToken?: string } = {
+          homeserverUrl: getEnv('APP_MATRIX_HOMESERVER_URL') as string,
+          accessToken,
+          userId
+        }
+
+        if (refreshToken) {
+          credentials.refreshToken = refreshToken
+        }
+
+        return credentials
+      }
+
+      return {} as Record<string, never>
+    } catch (error) {
+      logger.error('Error getting stored credentials:', error)
+      return {} as Record<string, never>
     }
   }
 }

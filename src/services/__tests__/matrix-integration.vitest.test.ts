@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 // We'll import the current service but test it like a black box
-import matrixClientService from '../matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 
 // Mock external dependencies but keep Matrix behavior intact
 vi.mock('../../utils/env', () => ({
@@ -44,25 +44,25 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
   describe('User Connection Flow', () => {
     it('should track user consent for Matrix connection', () => {
       // GIVEN: User hasn't chosen to connect yet
-      expect(matrixClientService.hasUserChosenToConnect()).toBe(false)
+      expect(matrixClientManager.hasUserChosenToConnect()).toBe(false)
 
       // WHEN: User gives consent to connect
-      matrixClientService.setUserChosenToConnect(true)
+      matrixClientManager.setUserChosenToConnect(true)
 
       // THEN: System should remember their choice
-      expect(matrixClientService.hasUserChosenToConnect()).toBe(true)
+      expect(matrixClientManager.hasUserChosenToConnect()).toBe(true)
     })
 
     it('should allow user to revoke consent', () => {
       // GIVEN: User previously consented
-      matrixClientService.setUserChosenToConnect(true)
-      expect(matrixClientService.hasUserChosenToConnect()).toBe(true)
+      matrixClientManager.setUserChosenToConnect(true)
+      expect(matrixClientManager.hasUserChosenToConnect()).toBe(true)
 
       // WHEN: User revokes consent
-      matrixClientService.setUserChosenToConnect(false)
+      matrixClientManager.setUserChosenToConnect(false)
 
       // THEN: System should forget their choice
-      expect(matrixClientService.hasUserChosenToConnect()).toBe(false)
+      expect(matrixClientManager.hasUserChosenToConnect()).toBe(false)
     })
   })
 
@@ -71,7 +71,7 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       // GIVEN: Fresh browser state
       // WHEN: Checking for existing session
       // THEN: Should report no session
-      expect(matrixClientService.hasStoredSession()).toBe(false)
+      expect(matrixClientManager.hasStoredSession()).toBe(false)
     })
 
     it('should detect stored Matrix credentials', () => {
@@ -92,7 +92,7 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
 
       // WHEN: Checking for existing session
       // THEN: Should detect the session
-      expect(matrixClientService.hasStoredSession()).toBe(true)
+      expect(matrixClientManager.hasStoredSession()).toBe(true)
     })
 
     it('should handle corrupted credentials gracefully', () => {
@@ -101,7 +101,7 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
 
       // WHEN: Checking for existing session
       // THEN: Should handle gracefully and report no session
-      expect(matrixClientService.hasStoredSession()).toBe(false)
+      expect(matrixClientManager.hasStoredSession()).toBe(false)
     })
   })
 
@@ -110,7 +110,7 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       // GIVEN: No Matrix client initialized
       // WHEN: Checking if ready
       // THEN: Should report not ready
-      expect(matrixClientService.isReady()).toBe(false)
+      expect(matrixClientManager.isReady()).toBe(false)
     })
 
     it('should retrieve stored credentials when available', async () => {
@@ -131,17 +131,17 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       sessionStorage.setItem(`matrix_access_token_${userSlug}`, 'stored-access-token')
 
       // WHEN: Getting stored credentials
-      const credentials = await matrixClientService.getStoredCredentials()
+      const credentials = await matrixClientManager.getStoredCredentials()
 
       // THEN: Should return the stored credentials
-      expect(credentials.accessToken).toBe('stored-access-token')
-      expect(credentials.refreshToken).toBe('stored-refresh-token')
+      expect(credentials).toHaveProperty('accessToken', 'stored-access-token')
+      expect(credentials).toHaveProperty('refreshToken', 'stored-refresh-token')
     })
 
     it('should return empty credentials when none stored', async () => {
       // GIVEN: No credentials in storage
       // WHEN: Getting stored credentials
-      const credentials = await matrixClientService.getStoredCredentials()
+      const credentials = await matrixClientManager.getStoredCredentials()
 
       // THEN: Should return empty object
       expect(credentials).toEqual({})
@@ -159,8 +159,8 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       try {
         // WHEN: Checking for stored session
         // THEN: Should handle gracefully without crashing
-        expect(() => matrixClientService.hasStoredSession()).not.toThrow()
-        expect(matrixClientService.hasStoredSession()).toBe(false)
+        expect(() => matrixClientManager.hasStoredSession()).not.toThrow()
+        expect(matrixClientManager.hasStoredSession()).toBe(false)
       } finally {
         localStorage.getItem = originalGetItem
       }
@@ -180,7 +180,7 @@ describe('Matrix Client State Management (Behavior-Driven)', () => {
   it('should provide access to Matrix client when available', () => {
     // GIVEN: No client initialized yet
     // WHEN: Getting client
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
 
     // THEN: Should return null (not throw error)
     expect(client).toBeNull()
@@ -192,7 +192,7 @@ describe('Matrix Client State Management (Behavior-Driven)', () => {
 
     // GIVEN: Fresh service state
     // WHEN: Checking readiness
-    const isReady = matrixClientService.isReady()
+    const isReady = matrixClientManager.isReady()
 
     // THEN: Should return a boolean (not undefined or throw error)
     expect(typeof isReady).toBe('boolean')
@@ -209,7 +209,7 @@ describe('Matrix Client State Management (Behavior-Driven)', () => {
  * 4. Avoiding mocking internal methods or testing call sequences
  * 5. Testing error conditions and edge cases that users encounter
  *
- * When we refactor matrixClientService into multiple services,
+ * When we refactor matrixClientManager into multiple services,
  * these tests should continue to pass by testing through whatever
  * public interface we maintain (whether it's a facade or individual services).
  */

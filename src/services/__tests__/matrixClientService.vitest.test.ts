@@ -4,10 +4,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { MatrixClient } from 'matrix-js-sdk'
-import matrixClientService from '../matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { useAuthStore } from '../../stores/auth-store'
 import { useMessageStore } from '../../stores/unified-message-store'
-import { matrixClientManager } from '../MatrixClientManager'
 
 // Mock the stores
 vi.mock('../../stores/auth-store')
@@ -201,18 +200,18 @@ describe('MatrixClientService', () => {
     vi.mocked(useMessageStore).mockReturnValue(mockMessageStore as unknown as ReturnType<typeof useMessageStore>)
 
     // Reset the client state
-    matrixClientService.cleanup()
+    matrixClientManager.cleanup()
   })
 
   afterEach(() => {
-    matrixClientService.cleanup()
+    matrixClientManager.cleanup()
   })
 
   describe('Client Initialization', () => {
     it('should require user to be authenticated before initializing', async () => {
       mockAuthStore.isAuthenticated = false
 
-      await expect(matrixClientService.initializeClient()).rejects.toThrow(
+      await expect(matrixClientManager.initializeClient()).rejects.toThrow(
         'Matrix client not authenticated. Manual authentication required.'
       )
     })
@@ -228,8 +227,8 @@ describe('MatrixClientService', () => {
 
     it('should handle initialization in progress', async () => {
       // Start first initialization
-      const promise1 = matrixClientService.initializeClient()
-      const promise2 = matrixClientService.initializeClient()
+      const promise1 = matrixClientManager.initializeClient()
+      const promise2 = matrixClientManager.initializeClient()
 
       // Both should resolve to the same result
       const [result1, result2] = await Promise.allSettled([promise1, promise2])
@@ -264,7 +263,7 @@ describe('MatrixClientService', () => {
       })
 
       // Test should trigger redirect-based authentication but fail due to missing configuration
-      await expect(matrixClientService.initializeClient(true)).rejects.toThrow()
+      await expect(matrixClientManager.initializeClient()).rejects.toThrow()
 
       // Verify that redirect would have been attempted
       // (In real usage, the redirect would prevent this assertion from running)
@@ -300,7 +299,7 @@ describe('MatrixClientService', () => {
       })
 
       // Test should detect OAuth code and attempt completion
-      await expect(matrixClientService.initializeClient(true)).rejects.toThrow()
+      await expect(matrixClientManager.initializeClient()).rejects.toThrow()
 
       // Verify URL cleanup occurred
       expect(window.history.replaceState).toHaveBeenCalled()
@@ -309,7 +308,7 @@ describe('MatrixClientService', () => {
     it('should handle OIDC timeout', async () => {
       vi.useFakeTimers()
 
-      const initPromise = matrixClientService.initializeClient(true) // forceAuth = true to trigger OIDC flow
+      const initPromise = matrixClientManager.initializeClient() // OIDC flow will be triggered automatically
 
       // Fast-forward past the 30 second timeout
       vi.advanceTimersByTime(30001)
@@ -322,14 +321,14 @@ describe('MatrixClientService', () => {
 
   describe('Client State Management', () => {
     it('should report ready state correctly', () => {
-      expect(matrixClientService.isReady()).toBe(false)
+      expect(matrixClientManager.isReady()).toBe(false)
 
       // NOTE: Cannot access private client property for testing
       // Would need service refactoring to test this properly
     })
 
     it('should return current client', () => {
-      expect(matrixClientService.getClient()).toBeNull()
+      expect(matrixClientManager.getClient()).toBeNull()
 
       // NOTE: Cannot access private client property for testing
       // getClient() method access would need initialized client through public API
@@ -338,8 +337,8 @@ describe('MatrixClientService', () => {
     it('should cleanup properly', async () => {
       // NOTE: Cannot access private client property for testing
       // cleanup() should be tested through integration tests
-      await matrixClientService.cleanup()
-      expect(matrixClientService.getClient()).toBeNull()
+      await matrixClientManager.cleanup()
+      expect(matrixClientManager.getClient()).toBeNull()
     })
   })
 
@@ -352,7 +351,7 @@ describe('MatrixClientService', () => {
 
       // Simulate the service having an initialized client by calling getClient()
       // which will set the internal client from MatrixClientManager
-      matrixClientService.getClient()
+      matrixClientManager.getClient()
     })
 
     it('should send messages to rooms', async () => {
@@ -361,7 +360,7 @@ describe('MatrixClientService', () => {
 
       mockMatrixClient.sendEvent.mockResolvedValue({ event_id: '$event123' })
 
-      await matrixClientService.sendMessage(roomId, content)
+      await matrixClientManager.sendMessage(roomId, content)
 
       expect(mockMatrixClient.sendEvent).toHaveBeenCalledWith(
         roomId,
@@ -375,7 +374,7 @@ describe('MatrixClientService', () => {
 
       mockMatrixClient.sendTyping.mockResolvedValue({})
 
-      await matrixClientService.sendTyping(roomId, true)
+      await matrixClientManager.sendTyping(roomId, true)
 
       expect(mockMatrixClient.sendTyping).toHaveBeenCalledWith(
         roomId,
@@ -390,7 +389,7 @@ describe('MatrixClientService', () => {
 
       mockMatrixClient.joinRoom.mockResolvedValue(mockRoom)
 
-      const result = await matrixClientService.joinRoom(roomId)
+      const result = await matrixClientManager.joinRoom(roomId)
 
       expect(mockMatrixClient.joinRoom).toHaveBeenCalledWith(roomId)
       expect(result).toBe(mockRoom)
@@ -402,7 +401,7 @@ describe('MatrixClientService', () => {
 
       mockMatrixClient.uploadContent.mockResolvedValue(mockUploadResult)
 
-      const result = await matrixClientService.uploadFile(mockFile)
+      const result = await matrixClientManager.uploadFile(mockFile)
 
       expect(mockMatrixClient.uploadContent).toHaveBeenCalledWith(mockFile)
       expect(result).toBe(mockUploadResult.content_uri)
@@ -415,7 +414,7 @@ describe('MatrixClientService', () => {
 
       mockMatrixClient.redactEvent.mockResolvedValue({})
 
-      await matrixClientService.redactMessage(roomId, eventId, reason)
+      await matrixClientManager.redactMessage(roomId, eventId, reason)
 
       expect(mockMatrixClient.redactEvent).toHaveBeenCalledWith(
         roomId,
@@ -431,13 +430,13 @@ describe('MatrixClientService', () => {
       vi.mocked(matrixClientManager.getClient).mockReturnValue(null)
 
       // Reset the service state
-      matrixClientService.cleanup()
+      matrixClientManager.cleanup()
 
       // Verify getClient returns null when no client is available
-      expect(matrixClientService.getClient()).toBeNull()
+      expect(matrixClientManager.getClient()).toBeNull()
 
       // Now matrix operations should throw the expected error
-      await expect(matrixClientService.sendMessage('!room', { body: 'test', msgtype: 'm.text' })).rejects.toThrow(
+      await expect(matrixClientManager.sendMessage('!room', { body: 'test', msgtype: 'm.text' })).rejects.toThrow(
         'Matrix client not initialized'
       )
     })

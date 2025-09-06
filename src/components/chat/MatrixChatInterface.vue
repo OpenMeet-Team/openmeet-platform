@@ -170,7 +170,7 @@
             :mxEvent="item.event as MatrixEvent"
             :mode="mode"
             :showSenderNames="showSenderNames"
-            :currentUserId="matrixClientService.getClient()?.getUserId()"
+            :currentUserId="matrixClientManager.getClient()?.getUserId()"
             :currentRoom="currentRoom"
             :decryptionCounter="decryptionCounter"
             @deleteMessage="handleDeleteMessage"
@@ -437,7 +437,6 @@ import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, isSameDay } from 'date-fns'
 import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
-import { matrixClientService } from '../../services/matrixClientService'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import getEnv from '../../utils/env'
@@ -488,8 +487,8 @@ const recoveryKeySaved = ref(false)
 // Connection state tracking
 
 const isConnected = computed(() => {
-  const client = matrixClientService.getClient()
-  const isReady = matrixClientService.isReady()
+  const client = matrixClientManager.getClient()
+  const isReady = matrixClientManager.isReady()
   const isLoggedIn = client?.isLoggedIn() ?? false
 
   // Consider connected if we have a resolved room and no auth errors
@@ -535,9 +534,14 @@ const resolvedRoomId = ref<string | null>(null)
 const isResolvingRoom = ref(false)
 
 const currentRoom = computed(() => {
-  const client = matrixClientService.getClient()
-  if (!client || !resolvedRoomId.value) return null
-  return matrixClientService.getRoom(resolvedRoomId.value)
+  const client = matrixClientManager.getClient()
+  if (!client || !resolvedRoomId.value) {
+    logger.debug('🏠 currentRoom computed: null', { hasClient: !!client, resolvedRoomId: resolvedRoomId.value })
+    return null
+  }
+  const room = client.getRoom(resolvedRoomId.value)
+  logger.debug('🏠 currentRoom computed:', { roomId: resolvedRoomId.value, hasRoom: !!room })
+  return room
 })
 
 // Check if the current room is encrypted
@@ -545,7 +549,7 @@ const isRoomEncrypted = computed(() => {
   const room = currentRoom.value
   if (!room) return false
 
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (!client) return false
 
   // Check if the room has encryption enabled
@@ -556,32 +560,94 @@ const isRoomEncrypted = computed(() => {
 const updateCurrentRoom = async () => {
   if (!props.roomId || isResolvingRoom.value) return
 
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (!client) return
+
+  // Check if Matrix client is ready and has synced rooms
+  const syncState = client.getSyncState()
+  const totalRooms = client.getRooms().length
+  
+  logger.debug('🔄 updateCurrentRoom called:', { 
+    roomId: props.roomId, 
+    syncState, 
+    isReady: matrixClientManager.isReady(),
+    totalRooms
+  })
+
+  // Don't try to resolve rooms if sync hasn't started or no rooms are available yet
+  // This prevents premature resolution attempts before the client has synced
+  if (!syncState || (syncState !== 'SYNCING' && syncState !== 'PREPARED')) {
+    logger.debug('⏳ Waiting for Matrix client sync to complete before resolving room:', { syncState, totalRooms })
+    return
+  }
+
+  // Also wait if client has no rooms yet (sync still in progress)
+  if (totalRooms === 0) {
+    logger.debug('⏳ Waiting for Matrix client to load rooms before resolving:', { totalRooms })
+    return
+  }
 
   isResolvingRoom.value = true
 
   try {
     let roomId = props.roomId
+    let room = null
 
-    // If it's a room alias (starts with #), resolve it first
+    // If it's a room alias (starts with #), try multiple resolution strategies
     if (props.roomId.startsWith('#')) {
       logger.debug('🔍 Resolving room alias:', props.roomId)
-      const aliasResult = await client.getRoomIdForAlias(props.roomId)
-      roomId = aliasResult.room_id
-      logger.debug('✅ Room alias resolved:', { alias: props.roomId, roomId })
+      
+      // Strategy 1: Try to find room by alias in already-joined rooms first
+      const allRooms = client.getRooms()
+      logger.debug('📋 Searching through joined rooms:', { 
+        totalRooms: allRooms.length,
+        roomNames: allRooms.map(r => ({ roomId: r.roomId, canonical: r.getCanonicalAlias(), altAliases: r.getAltAliases() })),
+        searchingFor: props.roomId
+      })
+      
+      room = allRooms.find(r => {
+        const canonical = r.getCanonicalAlias()
+        const altAliases = r.getAltAliases() || []
+        const matches = canonical === props.roomId || altAliases.includes(props.roomId)
+        if (matches) {
+          logger.debug('🎯 Found matching room:', { roomId: r.roomId, canonical, altAliases })
+        }
+        return matches
+      })
+      
+      if (room) {
+        roomId = room.roomId
+        logger.debug('✅ Room found in joined rooms by alias:', { alias: props.roomId, roomId })
+      } else {
+        logger.debug('❌ Room not found in joined rooms, trying homeserver resolution')
+        
+        // Strategy 2: Try homeserver alias resolution as fallback
+        try {
+          const aliasResult = await client.getRoomIdForAlias(props.roomId)
+          roomId = aliasResult.room_id
+          logger.debug('✅ Room alias resolved via homeserver:', { alias: props.roomId, roomId })
+        } catch (aliasError) {
+          logger.warn('⚠️ Homeserver alias resolution failed:', aliasError.message)
+          logger.debug('🔍 Full alias resolution error:', aliasError)
+          // Strategy 3: If we can't resolve alias, maybe the room joining logic will handle it
+          roomId = props.roomId // Keep the alias for joinRoom to handle
+        }
+      }
     }
 
-    // Check if we're already in the room
-    let room = matrixClientService.getRoom(roomId)
+    // Check if we're already in the room (or found it above)
+    if (!room) {
+      room = client.getRoom(roomId)
+    }
+    
     if (!room) {
       logger.debug('🚪 Room not found, attempting to join:', roomId)
-      room = await matrixClientService.joinRoom(roomId)
+      room = await matrixClientManager.joinRoom(roomId)
       logger.debug('✅ Successfully joined room:', roomId)
     }
 
-    resolvedRoomId.value = roomId
-    logger.debug('🏠 Room resolved and available:', { roomId, hasRoom: !!room })
+    resolvedRoomId.value = room?.roomId || roomId
+    logger.debug('🏠 Room resolved and available:', { roomId: resolvedRoomId.value, hasRoom: !!room, originalRoomId: props.roomId })
   } catch (error) {
     logger.error('❌ Failed to resolve/join room:', error)
     resolvedRoomId.value = null
@@ -591,7 +657,7 @@ const updateCurrentRoom = async () => {
 }
 
 // Timeline reactive refs for proper composable integration
-const timelineClient = computed(() => matrixClientService.getClient())
+const timelineClient = computed(() => matrixClientManager.getClient())
 const timelineSet = computed(() => currentRoom.value?.getUnfilteredTimelineSet())
 
 // Initialize timeline composable with empty options initially
@@ -602,12 +668,30 @@ const {
   canPaginateBack,
   isPaginatingBack,
   decryptionCounter,
-  initializeTimeline,
+  initializeTimeline: rawInitializeTimeline,
   loadOlderMessages: paginateBackward,
   refreshEvents
 } = useMatrixTimeline({
   windowLimit: 50 // Reduced from 1000 to improve initial load performance
 })
+
+// Helper function that automatically gets client and timelineSet for initializeTimeline
+const initializeTimeline = async () => {
+  const client = matrixClientManager.getClient()
+  const roomTimelineSet = currentRoom.value?.getUnfilteredTimelineSet()
+
+  if (!client || !roomTimelineSet) {
+    logger.warn('⚠️ Cannot initialize timeline: missing client or room timelineSet', {
+      hasClient: !!client,
+      hasTimelineSet: !!roomTimelineSet,
+      hasCurrentRoom: !!currentRoom.value,
+      roomId: props.roomId
+    })
+    return
+  }
+
+  await rawInitializeTimeline(undefined, client, roomTimelineSet)
+}
 
 // Initialize timeline only once when dependencies are first available
 let timelineInitialized = false
@@ -615,7 +699,7 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
   if (newClient && newTimelineSet && !timelineInitialized) {
     logger.debug('🚀 Initializing timeline for the first time')
     try {
-      await initializeTimeline(undefined, newClient, newTimelineSet)
+      await rawInitializeTimeline(undefined, newClient, newTimelineSet)
       timelineInitialized = true
       logger.debug('✅ Timeline initialization completed successfully')
     } catch (error) {
@@ -625,6 +709,10 @@ watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
 }, { immediate: true })
 
 // Debug room resolution
+watch(resolvedRoomId, (newRoomId) => {
+  logger.debug('🔄 resolvedRoomId changed:', { newRoomId, propsRoomId: props.roomId })
+}, { immediate: true })
+
 watch(currentRoom, (newRoom) => {
   logger.debug('🏠 currentRoom changed:', {
     hasRoom: !!newRoom,
@@ -729,7 +817,7 @@ let customEventListeners: (() => void)[] = []
 watch(() => props.roomId, updateCurrentRoom, { immediate: true })
 
 // Also watch for Matrix client availability
-watch(() => matrixClientService.getClient(), (newClient) => {
+watch(() => matrixClientManager.getClient(), (newClient) => {
   if (newClient) {
     logger.debug('🔌 Matrix client became available, updating room')
     updateCurrentRoom()
@@ -819,8 +907,8 @@ const getConnectButtonLabel = (): string => {
   }
 
   // Check if this is a first-time setup
-  const needsSetup = !matrixClientService.hasUserChosenToConnect() ||
-                     matrixClientService.needsEncryptionSetup?.() || false
+  const needsSetup = !matrixClientManager.hasUserChosenToConnect() ||
+                     matrixClientManager.needsEncryptionSetup?.() || false
 
   return needsSetup ? 'Set Up Secure Chat' : 'Connect'
 }
@@ -856,7 +944,7 @@ const loadAuthenticatedImage = async (message: MessageWithImageBlob): Promise<vo
   if (!message.content?.url || message.imageBlobUrl) return
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     const accessToken = client?.getAccessToken()
 
     if (!accessToken) {
@@ -865,10 +953,10 @@ const loadAuthenticatedImage = async (message: MessageWithImageBlob): Promise<vo
     }
 
     // Get thumbnail URL for timeline display (300x300)
-    const thumbnailUrl = matrixClientService.getContentUrl(message.content.url, 300, 300)
+    const thumbnailUrl = matrixClientManager.getContentUrl(message.content.url, 300, 300)
 
     // Get full-size URL for modal display
-    const fullSizeUrl = matrixClientService.getContentUrl(message.content.url)
+    const fullSizeUrl = matrixClientManager.getContentUrl(message.content.url)
 
     // Load thumbnail image
     const thumbnailResponse = await fetch(thumbnailUrl, {
@@ -917,7 +1005,7 @@ const sendMessage = async () => {
     // Send message via Matrix client directly - let Matrix SDK handle optimistic rendering
     const roomId = currentRoom.value?.roomId
     if (roomId) {
-      await matrixClientService.sendMessage(roomId, {
+      await matrixClientManager.sendMessage(roomId, {
         body: text,
         msgtype: 'm.text'
       })
@@ -1010,7 +1098,7 @@ const handleTyping = async () => {
   try {
     // Only send typing if we weren't already typing
     if (!isTyping.value) {
-      await matrixClientService.sendTyping(roomId, true, 10000) // 10 second timeout
+      await matrixClientManager.sendTyping(roomId, true, 10000) // 10 second timeout
       isTyping.value = true
       // Started typing indicator
     }
@@ -1034,7 +1122,7 @@ const stopTyping = async () => {
   if (!isConnected.value || !roomId || !isTyping.value) return
 
   try {
-    await matrixClientService.sendTyping(roomId, false)
+    await matrixClientManager.sendTyping(roomId, false)
     isTyping.value = false
     // Stopped typing indicator
 
@@ -1173,7 +1261,16 @@ const sendReadReceipts = async () => {
     if (lastOtherMessage && lastOtherMessage.id && lastOtherMessage.id !== lastReadReceiptSent.value) {
       const roomId = currentRoom.value?.roomId
       if (roomId) {
-        await matrixClientService.sendReadReceipt(roomId, lastOtherMessage.id)
+        const client = matrixClientManager.getClient()
+        if (client) {
+          const room = client.getRoom(roomId)
+          if (room) {
+            const event = room.findEventById(lastOtherMessage.id)
+            if (event) {
+              await client.sendReadReceipt(event)
+            }
+          }
+        }
       }
       lastReadReceiptSent.value = lastOtherMessage.id
     }
@@ -1188,7 +1285,7 @@ const updateReadReceipts = async () => {
 
   try {
     // Update read receipts for all messages
-    const currentUserId = matrixClientService.getClient()?.getUserId()
+    const currentUserId = matrixClientManager.getClient()?.getUserId()
     if (!currentUserId) return
 
     const room = currentRoom.value
@@ -1211,7 +1308,7 @@ const updateReadReceipts = async () => {
 
     for (const messageId of recentEventIds) {
       if (messageId && !messageId.includes('welcome')) {
-        const receipts = matrixClientService.getReadReceipts(props.roomId, messageId)
+        const receipts = matrixClientManager.getReadReceipts(props.roomId, messageId)
         receiptCache.set(messageId, receipts)
 
         if (receipts.length > 0) {
@@ -1303,7 +1400,7 @@ const reconnect = async () => {
     }
 
     // Check if Matrix client is already available and just needs to reconnect
-    if (matrixClientService.isReady()) {
+    if (matrixClientManager.isReady()) {
       // Matrix client already ready
       roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
@@ -1315,14 +1412,11 @@ const reconnect = async () => {
       return
     }
 
-    // Check if user has stored credentials for reconnection
-    if (matrixClientService.hasStoredSession()) {
-      // Try to reconnect using stored credentials (no MAS auth flow)
-      logger.debug('🔄 Attempting reconnection with stored credentials')
-      await matrixClientService.initializeClient()
-    } else {
-      // No stored credentials - user needs to manually connect
-      logger.debug('🔑 No stored credentials for reconnect, showing connect button')
+    // Try to restore from stored session (Element Web pattern)
+    const client = await matrixClientManager.initializeClient()
+    if (!client) {
+      // No stored session or restoration failed - user needs to connect
+      logger.debug('🔑 No stored session or restoration failed, showing connect button')
       lastAuthError.value = 'Matrix connection required. Please click Connect to continue.'
       isConnecting.value = false
       return
@@ -1333,10 +1427,10 @@ const reconnect = async () => {
     if (props.contextType === 'event' && props.contextId) {
       try {
         // Joining event chat room
-        const result = await matrixClientService.joinEventChatRoom(props.contextId)
+        const result = await matrixClientManager.joinEventChatRoom(props.contextId)
         // Event chat room joined successfully
         // Force Matrix client to sync to pick up new invitation
-        await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+        await matrixClientManager.forceSyncAfterInvitation('event', props.contextId)
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
           // Using actual room ID from join result
@@ -1369,10 +1463,10 @@ const reconnect = async () => {
     if (props.contextType === 'group' && props.contextId) {
       try {
         // Joining group chat room
-        const result = await matrixClientService.joinGroupChatRoom(props.contextId)
+        const result = await matrixClientManager.joinGroupChatRoom(props.contextId)
         // Group chat room joined successfully
         // Force Matrix client to sync to pick up new invitation
-        await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+        await matrixClientManager.forceSyncAfterInvitation('group', props.contextId)
         // Update current room to use the actual room ID from join result
         if (result.room?.roomId) {
           // Using actual room ID from join result
@@ -1480,7 +1574,7 @@ const clearMatrixSessions = async () => {
     }
 
     // Clear all Matrix data including encryption keys via service
-    await matrixClientService.clearAllMatrixData()
+    await matrixClientManager.clearAllMatrixData()
 
     // Reset component state
     isConnecting.value = false
@@ -1507,7 +1601,7 @@ const clearMatrixSessions = async () => {
 // Matrix encryption status check (same as preferences form)
 const checkEncryptionStatus = async () => {
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       quasar.notify({
         type: 'negative',
@@ -1696,7 +1790,7 @@ let listenersSetUp = false
 
 // Set up Matrix client event listeners
 const setupMatrixEventListeners = () => {
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (!client) {
     logger.warn('⚠️ Matrix client not available for event listeners')
     return
@@ -1808,7 +1902,7 @@ const setupMatrixEventListeners = () => {
 
       // For encrypted events, trigger immediate decryption attempt FIRST
       if (eventType === 'm.room.encrypted') {
-        const client = matrixClientService.getClient()
+        const client = matrixClientManager.getClient()
         if (client) {
           try {
             // Attempt to decrypt the event immediately - Element-Web pattern
@@ -1846,7 +1940,7 @@ const setupMatrixEventListeners = () => {
         sender: {
           id: senderId || '',
           name: member?.name || member?.rawDisplayName || senderId?.split(':')[0].substring(1) || 'Unknown',
-          avatar: member?.getAvatarUrl?.(matrixClientService.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
+          avatar: member?.getAvatarUrl?.(matrixClientManager.getClient()?.baseUrl || '', 32, 32, 'crop', false, false) || undefined
         },
         content: messageType === 'text' ? {
           body: content.body || (eventType === 'm.room.encrypted' ? '🔒 [Unable to decrypt message]' : '')
@@ -1858,7 +1952,7 @@ const setupMatrixEventListeners = () => {
           msgtype: content.msgtype
         },
         timestamp: new Date(event.getTs()),
-        isOwn: senderId === matrixClientService.getClient()?.getUserId(),
+        isOwn: senderId === matrixClientManager.getClient()?.getUserId(),
         status: 'read' as const
       }
 
@@ -1921,7 +2015,7 @@ watch(selectedFile, async (newFile) => {
     logger.debug('🔄 Checking Matrix client availability...')
 
     // Check if Matrix client is available
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     logger.debug('🔍 Matrix client check result:', { hasClient: !!client })
 
     if (!client) {
@@ -1943,7 +2037,7 @@ watch(selectedFile, async (newFile) => {
     }
 
     logger.debug('📤 About to call uploadAndSendFile with resolved room ID:', roomId)
-    const result = await matrixClientService.uploadAndSendFile(roomId, newFile)
+    const result = await matrixClientManager.uploadAndSendFile(roomId, newFile)
     logger.debug('✅ uploadAndSendFile completed, result:', result)
     logger.debug('✅ File uploaded successfully!')
 
@@ -1994,9 +2088,71 @@ const instanceId = Math.random().toString(36).substring(2, 8)
 
 // Connection and room management
 // Matrix ready event handler (defined outside onMounted for cleanup access)
-const handleMatrixReady = () => {
-  logger.debug('🎧 Matrix client ready - setting up timeline event listeners')
-  setupMatrixEventListeners()
+const handleMatrixReady = async () => {
+  logger.debug('🎧 Matrix client ready - setting up timeline and loading messages')
+
+  try {
+    // Clear any previous auth errors
+    lastAuthError.value = ''
+
+    // Set up Matrix event listeners
+    setupMatrixEventListeners()
+
+    // Handle room joining and timeline initialization
+    if (props.roomId) {
+      logger.debug('🔄 Handling room joining and timeline initialization after matrix:ready event')
+
+      // Join the appropriate room type first
+      if (props.contextType === 'event' && props.contextId) {
+        try {
+          const result = await matrixClientManager.joinEventChatRoom(props.contextId)
+          await matrixClientManager.forceSyncAfterInvitation('event', props.contextId)
+          if (result.room?.roomId) {
+            resolvedRoomId.value = result.room.roomId
+          } else {
+            await updateCurrentRoom()
+          }
+        } catch (error) {
+          logger.warn('⚠️ Failed to join event chat room after matrix:ready:', error)
+          // Try to update current room as fallback
+          await updateCurrentRoom()
+        }
+      } else if (props.contextType === 'group' && props.contextId) {
+        try {
+          const result = await matrixClientManager.joinGroupChatRoom(props.contextId)
+          await matrixClientManager.forceSyncAfterInvitation('group', props.contextId)
+          if (result.room?.roomId) {
+            resolvedRoomId.value = result.room.roomId
+          } else {
+            await updateCurrentRoom()
+          }
+        } catch (error) {
+          logger.warn('⚠️ Failed to join group chat room after matrix:ready:', error)
+          // Try to update current room as fallback
+          await updateCurrentRoom()
+        }
+      } else {
+        // For direct room IDs, just update current room
+        await updateCurrentRoom()
+      }
+
+      // Now initialize timeline with the resolved room
+      await initializeTimeline()
+      await nextTick()
+      await scrollToBottom()
+      logger.debug('✅ Timeline initialized and scrolled after matrix:ready')
+    }
+
+    // Update room name
+    roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
+
+    // Stop loading state
+    isConnecting.value = false
+  } catch (error) {
+    logger.error('❌ Error during matrix:ready handling:', error)
+    lastAuthError.value = 'Failed to load chat messages. Please try refreshing.'
+    isConnecting.value = false
+  }
 }
 
 // Invalid token recovery event handler (resets UI state when tokens are cleared)
@@ -2042,7 +2198,7 @@ const handleTokenRefreshFailure = (event) => {
 // Handle delete message
 const handleDeleteMessage = async (event: MatrixEvent) => {
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       logger.warn('Cannot delete message: no Matrix client available')
       return
@@ -2116,7 +2272,7 @@ onMounted(async () => {
     let messagesLoaded = false
 
     // Check if Matrix client is already ready
-    if (matrixClientService.isReady()) {
+    if (matrixClientManager.isReady()) {
       lastAuthError.value = '' // Clear any previous errors
       roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
 
@@ -2130,22 +2286,20 @@ onMounted(async () => {
         messagesLoaded = true
       }
     } else {
-      // Check if user has stored credentials before attempting auto-connection
-      if (matrixClientService.hasStoredSession()) {
-        // Try to initialize Matrix connection using stored credentials only
-        try {
-          logger.debug('🔑 Found stored credentials, attempting auto-connection')
-          await matrixClientService.initializeClient()
-        } catch (authError) {
-          logger.debug('🔑 Stored credentials failed:', authError.message)
-          lastAuthError.value = 'Matrix session expired. Please connect to continue.'
+      // Try to restore from stored session (Element Web pattern)
+      try {
+        const client = await matrixClientManager.initializeClient()
+        if (!client) {
+          // No stored session - show connect button
+          logger.debug('🔑 No stored session, showing connect button')
+          lastAuthError.value = '' // Clear error to show clean connect button
           isConnecting.value = false
           return // Exit early to show connect button
         }
-      } else {
-        // No stored credentials - show connect button without attempting auth
-        logger.debug('🔑 No stored credentials, showing connect button')
-        lastAuthError.value = '' // Clear error to show clean connect button
+        // Session restored successfully, continue...
+      } catch (authError) {
+        logger.debug('🔑 Session restoration failed:', authError.message)
+        lastAuthError.value = 'Matrix session expired. Please connect to continue.'
         isConnecting.value = false
         return // Exit early to show connect button
       }
@@ -2154,9 +2308,9 @@ onMounted(async () => {
       // This handles cases where the bot invitation failed during RSVP
       if (props.contextType === 'event' && props.contextId) {
         try {
-          const result = await matrixClientService.joinEventChatRoom(props.contextId)
+          const result = await matrixClientManager.joinEventChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
-          await matrixClientService.forceSyncAfterInvitation('event', props.contextId)
+          await matrixClientManager.forceSyncAfterInvitation('event', props.contextId)
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
             // Using actual room ID from join result
@@ -2174,9 +2328,9 @@ onMounted(async () => {
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
-          const result = await matrixClientService.joinGroupChatRoom(props.contextId)
+          const result = await matrixClientManager.joinGroupChatRoom(props.contextId)
           // Force Matrix client to sync to pick up new invitation
-          await matrixClientService.forceSyncAfterInvitation('group', props.contextId)
+          await matrixClientManager.forceSyncAfterInvitation('group', props.contextId)
           // Update current room to use the actual room ID from join result
           if (result.room?.roomId) {
             // Using actual room ID from join result
