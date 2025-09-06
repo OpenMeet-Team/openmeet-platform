@@ -94,7 +94,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    
+
     // Clear any stored state
     localStorage.clear()
     sessionStorage.clear()
@@ -107,7 +107,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
 
     // Inject mock client into the real MatrixClientManager
     // Access the private property for testing purposes
-    ;(matrixClientManager as any).client = mockMatrixClient
+    ;(matrixClientManager as unknown as { client: typeof mockMatrixClient }).client = mockMatrixClient
   })
 
   describe('Message Sending', () => {
@@ -147,7 +147,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
 
     it('should require Matrix client to be initialized', async () => {
       // GIVEN: No Matrix client initialized
-      ;(matrixClientManager as any).client = null
+      ;(matrixClientManager as unknown as { client: null }).client = null
 
       // WHEN: Attempting to send a message
       const messagePromise = matrixClientManager.sendMessage('!room:example.com', {
@@ -326,7 +326,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
   describe('Error Handling', () => {
     it('should require initialized client for all operations', async () => {
       // GIVEN: Uninitialized Matrix client
-      ;(matrixClientManager as any).client = null
+      ;(matrixClientManager as unknown as { client: null }).client = null
 
       // WHEN/THEN: All messaging operations should fail gracefully
       await expect(matrixClientManager.sendMessage('!room:example.com', { body: 'test', msgtype: 'm.text' }))
