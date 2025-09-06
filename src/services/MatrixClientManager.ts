@@ -2010,7 +2010,7 @@ export class MatrixClientManager {
   /**
    * Stop and cleanup Matrix client (for testing)
    */
-  async cleanup (): Promise<void> {
+  public cleanup (): void {
     if (this.client) {
       logger.debug('🧹 Cleaning up Matrix client')
       this.client.stopClient()
@@ -2372,8 +2372,8 @@ export class MatrixClientManager {
 
   public hasUserChosenToConnect (): boolean {
     try {
-      const authStore = (window as Window & { useAuthStore?: () => { getUserSlug?: () => string; user?: { slug?: string } } }).useAuthStore?.() || {}
-      const userSlug = authStore.getUserSlug?.() || authStore.user?.slug
+      const authStore = useAuthStore()
+      const userSlug = authStore.getUserSlug
       if (!userSlug) return false
 
       const key = `matrix_user_chosen_to_connect_${userSlug}`
@@ -2386,8 +2386,8 @@ export class MatrixClientManager {
 
   public setUserChosenToConnect (chosen: boolean): void {
     try {
-      const authStore = (window as Window & { useAuthStore?: () => { getUserSlug?: () => string; user?: { slug?: string } } }).useAuthStore?.() || {}
-      const userSlug = authStore.getUserSlug?.() || authStore.user?.slug
+      const authStore = useAuthStore()
+      const userSlug = authStore.getUserSlug
       if (!userSlug) {
         logger.warn('Cannot set user chosen to connect: no user slug available')
         return
@@ -2926,47 +2926,6 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('❌ Failed to complete OIDC login:', error)
       throw error
-    }
-  }
-
-  public async getStoredCredentials (): Promise<{ homeserverUrl: string; accessToken: string; userId: string; refreshToken?: string } | Record<string, never>> {
-    try {
-      // Look for stored Matrix credentials in localStorage
-      const keys = Object.keys(localStorage).filter(key => key.includes('matrix'))
-
-      let accessToken = ''
-      let userId = ''
-      let refreshToken = ''
-
-      for (const key of keys) {
-        const value = localStorage.getItem(key) || ''
-        if (key.includes('access_token')) {
-          accessToken = value
-        } else if (key.includes('user_id')) {
-          userId = value
-        } else if (key.includes('refresh_token')) {
-          refreshToken = value
-        }
-      }
-
-      if (accessToken && userId) {
-        const credentials: { homeserverUrl: string; accessToken: string; userId: string; refreshToken?: string } = {
-          homeserverUrl: getEnv('APP_MATRIX_HOMESERVER_URL') as string,
-          accessToken,
-          userId
-        }
-
-        if (refreshToken) {
-          credentials.refreshToken = refreshToken
-        }
-
-        return credentials
-      }
-
-      return {} as Record<string, never>
-    } catch (error) {
-      logger.error('Error getting stored credentials:', error)
-      return {} as Record<string, never>
     }
   }
 }

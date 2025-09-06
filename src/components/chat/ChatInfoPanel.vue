@@ -321,7 +321,7 @@ import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { format } from 'date-fns'
 import { Room, MatrixEvent } from 'matrix-js-sdk'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 // import { useAuthStore } from '../../stores/auth-store'
 import { getMatrixDisplayName } from '../../utils/matrixUtils'
 
@@ -381,7 +381,7 @@ const loadMatrixMembers = async () => {
   isLoadingMembers.value = true
   try {
     console.log('🔄 Loading Matrix members for room:', props.chat.matrixRoomId)
-    const matrixClient = await matrixClientService.initializeClient()
+    const matrixClient = matrixClientManager.getClient()
     if (!matrixClient) return
 
     const room = matrixClient.getRoom(props.chat.matrixRoomId)
@@ -529,7 +529,7 @@ const getInitials = (name: string): string => {
 }
 
 const isCurrentUser = (userId: string): boolean => {
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   return client?.getUserId() === userId
 }
 

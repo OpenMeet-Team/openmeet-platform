@@ -8,6 +8,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
+// Mock Storage for tests
+const storageMock = () => {
+  let store: Record<string, string> = {}
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => { store[key] = value },
+    removeItem: (key: string) => { delete store[key] },
+    clear: () => { store = {} }
+  }
+}
+
+// Setup storage if not available
+if (typeof localStorage === 'undefined') {
+  Object.defineProperty(global, 'localStorage', { value: storageMock() })
+}
+if (typeof sessionStorage === 'undefined') {
+  Object.defineProperty(global, 'sessionStorage', { value: storageMock() })
+}
+
 // We'll import the current service but test it like a black box
 import { matrixClientManager } from '../../services/MatrixClientManager'
 
@@ -113,8 +132,8 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       expect(matrixClientManager.isReady()).toBe(false)
     })
 
-    it('should retrieve stored credentials when available', async () => {
-      // GIVEN: Valid credentials stored with user-specific keys
+    it('should restore session from stored credentials when available', async () => {
+      // GIVEN: Valid session data stored with user-specific keys
       const userSlug = 'test-user' // Matches our mock auth store
       const mockCredentials = {
         homeserverUrl: 'https://matrix.example.com',
@@ -130,21 +149,20 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       localStorage.setItem(`matrix_refresh_token_${userSlug}`, 'stored-refresh-token')
       sessionStorage.setItem(`matrix_access_token_${userSlug}`, 'stored-access-token')
 
-      // WHEN: Getting stored credentials
-      const credentials = await matrixClientManager.getStoredCredentials()
+      // WHEN: Checking if session can be restored
+      const hasSession = matrixClientManager.hasStoredSession()
 
-      // THEN: Should return the stored credentials
-      expect(credentials).toHaveProperty('accessToken', 'stored-access-token')
-      expect(credentials).toHaveProperty('refreshToken', 'stored-refresh-token')
+      // THEN: Should detect the stored session
+      expect(hasSession).toBe(true)
     })
 
-    it('should return empty credentials when none stored', async () => {
+    it('should detect when no stored session exists', () => {
       // GIVEN: No credentials in storage
-      // WHEN: Getting stored credentials
-      const credentials = await matrixClientManager.getStoredCredentials()
+      // WHEN: Checking if session exists
+      const hasSession = matrixClientManager.hasStoredSession()
 
-      // THEN: Should return empty object
-      expect(credentials).toEqual({})
+      // THEN: Should return false
+      expect(hasSession).toBe(false)
     })
   })
 

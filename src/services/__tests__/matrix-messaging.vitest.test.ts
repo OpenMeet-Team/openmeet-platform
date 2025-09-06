@@ -8,8 +8,27 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
+// Mock Storage for tests
+const storageMock = () => {
+  let store: Record<string, string> = {}
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => { store[key] = value },
+    removeItem: (key: string) => { delete store[key] },
+    clear: () => { store = {} }
+  }
+}
+
+// Setup storage if not available
+if (typeof localStorage === 'undefined') {
+  Object.defineProperty(global, 'localStorage', { value: storageMock() })
+}
+if (typeof sessionStorage === 'undefined') {
+  Object.defineProperty(global, 'sessionStorage', { value: storageMock() })
+}
+
 // Import current service for black-box testing
-import matrixClientService from '../matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 
 // Mock Matrix JS SDK to simulate messaging behavior
 const mockMatrixClient = {
@@ -59,13 +78,8 @@ vi.mock('../../stores/auth-store', () => ({
   }))
 }))
 
-// Mock MatrixClientManager
-vi.mock('../MatrixClientManager', () => ({
-  matrixClientManager: {
-    getClient: vi.fn(() => mockMatrixClient),
-    isReady: vi.fn(() => true)
-  }
-}))
+// We don't mock MatrixClientManager - we test it directly
+// Instead we'll inject our mock client into the real service
 
 // Mock console methods
 vi.mock('../../utils/logger', () => ({
@@ -80,6 +94,10 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    
+    // Clear any stored state
+    localStorage.clear()
+    sessionStorage.clear()
 
     // Set up default successful responses
     mockMatrixClient.sendEvent.mockResolvedValue({ event_id: '$test-event-id:example.com' })
@@ -87,11 +105,9 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
     mockMatrixClient.getRoom.mockReturnValue(mockRoom)
     mockMatrixClient.mxcUrlToHttp.mockReturnValue('https://matrix.example.com/_matrix/media/r0/download/example.com/test-file')
 
-    // Mock matrixClientService to have an initialized client
-    Object.defineProperty(matrixClientService, 'client', {
-      value: mockMatrixClient,
-      writable: true
-    })
+    // Inject mock client into the real MatrixClientManager
+    // Access the private property for testing purposes
+    ;(matrixClientManager as any).client = mockMatrixClient
   })
 
   describe('Message Sending', () => {
@@ -104,7 +120,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       }
 
       // WHEN: Sending a message
-      const result = await matrixClientService.sendMessage(roomId, messageContent)
+      const result = await matrixClientManager.sendMessage(roomId, messageContent)
 
       // THEN: Should call Matrix SDK and return event ID
       expect(mockMatrixClient.sendEvent).toHaveBeenCalledWith(
@@ -120,7 +136,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       mockMatrixClient.sendEvent.mockRejectedValue(new Error('Network error'))
 
       // WHEN: Attempting to send a message
-      const messagePromise = matrixClientService.sendMessage('!room:example.com', {
+      const messagePromise = matrixClientManager.sendMessage('!room:example.com', {
         body: 'Test message',
         msgtype: 'm.text'
       })
@@ -131,13 +147,10 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
 
     it('should require Matrix client to be initialized', async () => {
       // GIVEN: No Matrix client initialized
-      Object.defineProperty(matrixClientService, 'client', {
-        value: null,
-        writable: true
-      })
+      ;(matrixClientManager as any).client = null
 
       // WHEN: Attempting to send a message
-      const messagePromise = matrixClientService.sendMessage('!room:example.com', {
+      const messagePromise = matrixClientManager.sendMessage('!room:example.com', {
         body: 'Test message',
         msgtype: 'm.text'
       })
@@ -153,11 +166,17 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' })
 
       // WHEN: Uploading the file
-      const contentUri = await matrixClientService.uploadFile(mockFile)
+      const roomId = '!testroom:example.com'
+      const result = await matrixClientManager.uploadAndSendFile(roomId, mockFile)
 
-      // THEN: Should call Matrix upload and return URI
-      expect(mockMatrixClient.uploadContent).toHaveBeenCalledWith(mockFile)
-      expect(contentUri).toBe('mxc://example.com/test-file')
+      // THEN: Should call Matrix upload and return result
+      expect(mockMatrixClient.uploadContent).toHaveBeenCalledWith(mockFile, {
+        name: 'test.txt',
+        type: 'text/plain',
+        rawResponse: false
+      })
+      expect(result).toHaveProperty('eventId')
+      expect(result).toHaveProperty('url')
     })
 
     it('should upload and send files in one operation', async () => {
@@ -166,10 +185,14 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const roomId = '!testroom:example.com'
 
       // WHEN: Uploading and sending the file
-      await matrixClientService.uploadAndSendFile(roomId, mockFile)
+      await matrixClientManager.uploadAndSendFile(roomId, mockFile)
 
       // THEN: Should upload file and send message
-      expect(mockMatrixClient.uploadContent).toHaveBeenCalledWith(mockFile)
+      expect(mockMatrixClient.uploadContent).toHaveBeenCalledWith(mockFile, {
+        name: 'test.txt',
+        type: 'text/plain',
+        rawResponse: false
+      })
       expect(mockMatrixClient.sendEvent).toHaveBeenCalledWith(
         roomId,
         'm.room.message',
@@ -187,7 +210,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       mockMatrixClient.uploadContent.mockRejectedValue(new Error('Upload failed'))
 
       // WHEN: Attempting to upload
-      const uploadPromise = matrixClientService.uploadFile(new File(['test'], 'test.txt'))
+      const uploadPromise = matrixClientManager.uploadAndSendFile('!testroom:example.com', new File(['test'], 'test.txt'))
 
       // THEN: Should handle failure gracefully
       await expect(uploadPromise).rejects.toThrow()
@@ -200,7 +223,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const roomId = '!testroom:example.com'
 
       // WHEN: Sending typing indicator
-      await matrixClientService.sendTyping(roomId, true, 5000)
+      await matrixClientManager.sendTyping(roomId, true, 5000)
 
       // THEN: Should call Matrix SDK with correct parameters
       expect(mockMatrixClient.sendTyping).toHaveBeenCalledWith(roomId, true, 5000)
@@ -211,7 +234,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const roomId = '!testroom:example.com'
 
       // WHEN: Stopping typing indicator
-      await matrixClientService.sendTyping(roomId, false)
+      await matrixClientManager.sendTyping(roomId, false)
 
       // THEN: Should call Matrix SDK to stop typing
       expect(mockMatrixClient.sendTyping).toHaveBeenCalledWith(roomId, false, 10000)
@@ -227,7 +250,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       mockRoom.findEventById.mockReturnValue(mockEvent)
 
       // WHEN: Sending read receipt
-      await matrixClientService.sendReadReceipt(roomId, eventId)
+      await matrixClientManager.sendReadReceipt(roomId, eventId)
 
       // THEN: Should call Matrix SDK with the event
       expect(mockMatrixClient.sendReadReceipt).toHaveBeenCalledWith(mockEvent)
@@ -242,7 +265,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const reason = 'Inappropriate content'
 
       // WHEN: Redacting the message
-      await matrixClientService.redactMessage(roomId, eventId, reason)
+      await matrixClientManager.redactMessage(roomId, eventId, reason)
 
       // THEN: Should call Matrix SDK redaction
       expect(mockMatrixClient.redactEvent).toHaveBeenCalledWith(roomId, eventId, reason)
@@ -254,7 +277,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const eventId = '$bad-message:example.com'
 
       // WHEN: Redacting without reason
-      await matrixClientService.redactMessage(roomId, eventId)
+      await matrixClientManager.redactMessage(roomId, eventId)
 
       // THEN: Should call Matrix SDK redaction
       expect(mockMatrixClient.redactEvent).toHaveBeenCalledWith(roomId, eventId, undefined)
@@ -267,7 +290,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const mxcUrl = 'mxc://example.com/test-content'
 
       // WHEN: Converting to HTTP URL
-      const httpUrl = matrixClientService.getContentUrl(mxcUrl)
+      const httpUrl = matrixClientManager.getContentUrl(mxcUrl)
 
       // THEN: Should return HTTP URL for media access
       expect(mockMatrixClient.mxcUrlToHttp).toHaveBeenCalledWith(mxcUrl)
@@ -281,7 +304,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const height = 64
 
       // WHEN: Converting to thumbnail URL
-      const thumbnailUrl = matrixClientService.getContentUrl(mxcUrl, width, height)
+      const thumbnailUrl = matrixClientManager.getContentUrl(mxcUrl, width, height)
 
       // THEN: Should request thumbnail with dimensions
       expect(mockMatrixClient.mxcUrlToHttp).toHaveBeenCalledWith(mxcUrl, width, height, 'scale')
@@ -293,7 +316,7 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
       const invalidUrl = 'invalid-url'
 
       // WHEN: Converting invalid URL
-      const result = matrixClientService.getContentUrl(invalidUrl)
+      const result = matrixClientManager.getContentUrl(invalidUrl)
 
       // THEN: Should return the original URL as fallback (actual behavior)
       expect(result).toBe(invalidUrl)
@@ -303,19 +326,16 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
   describe('Error Handling', () => {
     it('should require initialized client for all operations', async () => {
       // GIVEN: Uninitialized Matrix client
-      Object.defineProperty(matrixClientService, 'client', {
-        value: null,
-        writable: true
-      })
+      ;(matrixClientManager as any).client = null
 
       // WHEN/THEN: All messaging operations should fail gracefully
-      await expect(matrixClientService.sendMessage('!room:example.com', { body: 'test', msgtype: 'm.text' }))
+      await expect(matrixClientManager.sendMessage('!room:example.com', { body: 'test', msgtype: 'm.text' }))
         .rejects.toThrow('Matrix client not initialized')
 
-      await expect(matrixClientService.uploadFile(new File(['test'], 'test.txt')))
+      await expect(matrixClientManager.uploadAndSendFile('!testroom:example.com', new File(['test'], 'test.txt')))
         .rejects.toThrow('Matrix client not initialized')
 
-      await expect(matrixClientService.sendTyping('!room:example.com', true))
+      await expect(matrixClientManager.sendTyping('!room:example.com', true))
         .rejects.toThrow('Matrix client not initialized')
     })
 
@@ -326,10 +346,10 @@ describe('Matrix Messaging Integration (Behavior-Driven)', () => {
 
       // WHEN: Operations fail due to network
       // THEN: Should propagate errors appropriately
-      await expect(matrixClientService.sendMessage('!room:example.com', { body: 'test', msgtype: 'm.text' }))
+      await expect(matrixClientManager.sendMessage('!room:example.com', { body: 'test', msgtype: 'm.text' }))
         .rejects.toThrow()
 
-      await expect(matrixClientService.uploadFile(new File(['test'], 'test.txt')))
+      await expect(matrixClientManager.uploadAndSendFile('!testroom:example.com', new File(['test'], 'test.txt')))
         .rejects.toThrow()
     })
   })
