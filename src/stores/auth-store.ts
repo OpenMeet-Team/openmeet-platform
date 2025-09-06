@@ -12,6 +12,7 @@ import {
   UserPermission
 } from '../types'
 import analyticsService from '../services/analyticsService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 
 export const useAuthStore = defineStore('authStore', {
@@ -147,8 +148,7 @@ export const useAuthStore = defineStore('authStore', {
       return authApi.logout().finally(async () => {
         // Clear Matrix session before clearing OpenMeet auth
         try {
-          const { matrixClientService } = await import('../services/matrixClientService')
-          await matrixClientService.clearSession()
+          await matrixClientManager.clearClientAndCredentials()
         } catch (error) {
           logger.warn('Failed to clear Matrix session during logout:', error)
         }

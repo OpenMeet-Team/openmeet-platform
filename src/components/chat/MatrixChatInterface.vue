@@ -566,10 +566,10 @@ const updateCurrentRoom = async () => {
   // Check if Matrix client is ready and has synced rooms
   const syncState = client.getSyncState()
   const totalRooms = client.getRooms().length
-  
-  logger.debug('🔄 updateCurrentRoom called:', { 
-    roomId: props.roomId, 
-    syncState, 
+
+  logger.debug('🔄 updateCurrentRoom called:', {
+    roomId: props.roomId,
+    syncState,
     isReady: matrixClientManager.isReady(),
     totalRooms
   })
@@ -596,15 +596,15 @@ const updateCurrentRoom = async () => {
     // If it's a room alias (starts with #), try multiple resolution strategies
     if (props.roomId.startsWith('#')) {
       logger.debug('🔍 Resolving room alias:', props.roomId)
-      
+
       // Strategy 1: Try to find room by alias in already-joined rooms first
       const allRooms = client.getRooms()
-      logger.debug('📋 Searching through joined rooms:', { 
+      logger.debug('📋 Searching through joined rooms:', {
         totalRooms: allRooms.length,
         roomNames: allRooms.map(r => ({ roomId: r.roomId, canonical: r.getCanonicalAlias(), altAliases: r.getAltAliases() })),
         searchingFor: props.roomId
       })
-      
+
       room = allRooms.find(r => {
         const canonical = r.getCanonicalAlias()
         const altAliases = r.getAltAliases() || []
@@ -614,13 +614,13 @@ const updateCurrentRoom = async () => {
         }
         return matches
       })
-      
+
       if (room) {
         roomId = room.roomId
         logger.debug('✅ Room found in joined rooms by alias:', { alias: props.roomId, roomId })
       } else {
         logger.debug('❌ Room not found in joined rooms, trying homeserver resolution')
-        
+
         // Strategy 2: Try homeserver alias resolution as fallback
         try {
           const aliasResult = await client.getRoomIdForAlias(props.roomId)
@@ -639,7 +639,7 @@ const updateCurrentRoom = async () => {
     if (!room) {
       room = client.getRoom(roomId)
     }
-    
+
     if (!room) {
       logger.debug('🚪 Room not found, attempting to join:', roomId)
       room = await matrixClientManager.joinRoom(roomId)

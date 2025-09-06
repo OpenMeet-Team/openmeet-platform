@@ -4,23 +4,24 @@
  * Utilities for debugging Matrix connection issues
  */
 
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 
 /**
  * Debug Matrix connection state
  */
 export function debugMatrixConnectionState (): void {
   try {
-    const client = matrixClientService.getClient()
-    const isReady = matrixClientService.isReady()
-    const hasSession = matrixClientService.hasStoredSession()
-    const hasChosen = matrixClientService.hasUserChosenToConnect()
+    const client = matrixClientManager.getClient()
+    const isReady = matrixClientManager.isReady()
+    // TODO: Re-enable when MatrixClientManager exposes these methods
+    // const hasSession = matrixClientManager.hasStoredSession()
+    // const hasChosen = matrixClientManager.hasUserChosenToConnect()
 
     console.log('🔍 Matrix Connection Debug State:', {
       hasClient: !!client,
       isReady,
-      hasSession,
-      hasChosen,
+      // hasSession,
+      // hasChosen,
       clientLoggedIn: client?.isLoggedIn() || false,
       clientUserId: client?.getUserId() || 'none',
       clientDeviceId: client?.getDeviceId() || 'none'
@@ -94,11 +95,15 @@ export async function testMatrixConnection (): Promise<void> {
     // First check current state
     debugMatrixConnectionState()
 
-    // Try to connect
-    console.log('🔗 Attempting Matrix connection...')
-    await matrixClientService.connectToMatrix()
+    // Check if client is available
+    console.log('🔗 Checking Matrix client availability...')
+    if (matrixClientManager.isClientAvailable()) {
+      console.log('✅ Matrix client is available and ready')
+    } else {
+      console.log('❌ Matrix client is not available - user may need to authenticate')
+    }
 
-    console.log('✅ Matrix connection call completed')
+    console.log('✅ Matrix connection check completed')
   } catch (error) {
     console.error('❌ Matrix connection test failed:', error)
   }

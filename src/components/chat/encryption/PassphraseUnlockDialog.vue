@@ -105,7 +105,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 // import { MatrixEncryptionService } from '../../../services/MatrixEncryptionService'
-import { matrixClientService } from '../../../services/matrixClientService'
+import { matrixClientManager } from '../../../services/MatrixClientManager'
 import { logger } from '../../../utils/logger'
 // Icon placeholders - replace with actual icons from your project
 const LockIcon = 'div'
@@ -151,7 +151,7 @@ onMounted(() => {
 })
 
 const initializeService = () => {
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (client) {
     // TODO: Replace with MatrixEncryptionService
     secretStorageService = null

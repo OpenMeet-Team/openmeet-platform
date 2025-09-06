@@ -8,7 +8,7 @@
 import { ref, computed } from 'vue'
 // import { MatrixEncryptionService } from '../services/MatrixEncryptionService'
 import { MatrixKeyBackupService } from '../services/MatrixKeyBackupService'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 
 export interface DecryptionStatus {
@@ -78,7 +78,7 @@ export function useHistoricalMessageDecryption () {
    */
   const initialize = async (): Promise<void> => {
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) {
         logger.warn('Matrix client not available for historical decryption')
         return

@@ -93,7 +93,7 @@
       </div>
 
       <!-- Encrypted Chat Success Info (show only when room is actually encrypted) -->
-      <div v-else-if="isReadyEncrypted && inlineRoomId && matrixClientService.isRoomEncrypted(inlineRoomId)" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
+      <div v-else-if="isReadyEncrypted && inlineRoomId && matrixClientManager.isRoomEncrypted(inlineRoomId)" class="encryption-info q-pa-md q-mb-md" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px;">
         <div class="text-h6 q-mb-sm" style="color: #155724;">
           <q-icon name="fas fa-shield-alt" class="q-mr-sm" />
           Encrypted Chat Mode
@@ -215,7 +215,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useMatrixEncryption } from '../../composables/useMatrixEncryption'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionState, MatrixEncryptionService, type MatrixEncryptionStatus } from '../../services/MatrixEncryptionManager'
 import { logger } from '../../utils/logger'
 import { useQuasar } from 'quasar'
@@ -308,7 +308,7 @@ const encryptionService = ref<MatrixEncryptionService | null>(null)
 
 // Initialize encryption service when Matrix client is ready
 const initializeEncryptionService = () => {
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (client && !encryptionService.value) {
     encryptionService.value = new MatrixEncryptionService(client)
     logger.debug('✅ Encryption service initialized')
@@ -433,9 +433,9 @@ const connectToMatrix = async () => {
     matrixEncryptionState.clearEncryptionSkipped()
 
     // Trigger Matrix connection flow
-    const client = await matrixClientService.initializeClient(true)
+    const client = await matrixClientManager.startAuthenticationFlow()
     if (client) {
-      matrixClientService.setUserChosenToConnect(true)
+      matrixClientManager.setUserChosenToConnect(true)
 
       // Re-check state after connection - only if we have a room ID
       if (props.inlineRoomId) {
@@ -455,7 +455,7 @@ const createRecoveryKeyInline = async () => {
   creatingKey.value = true
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
@@ -533,7 +533,7 @@ const handleInlineSetupEncryption = async () => {
   setupErrorDetails.value = ''
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
@@ -806,7 +806,7 @@ const handleForgotRecoveryKey = async () => {
 
     // Use MatrixResetService to handle the unified forgot recovery key flow
     const { MatrixResetService } = await import('../../services/MatrixResetService')
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
@@ -913,7 +913,7 @@ const handleResetDeviceKeys = async () => {
 
     // Use MatrixResetService for comprehensive device key reset
     const { MatrixResetService } = await import('../../services/MatrixResetService')
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
@@ -977,7 +977,7 @@ const handleEncryptionAction = async (state: string) => {
   switch (state) {
     case 'needs_device_verification': {
       // For device verification, check if user has existing encryption setup
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) {
         throw new Error('Matrix client not available')
       }
@@ -1025,7 +1025,7 @@ const setupDeviceEncryption = async () => {
     setupInProgress.value = true
 
     // Get Matrix client
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }

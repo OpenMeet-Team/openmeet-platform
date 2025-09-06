@@ -15,7 +15,6 @@ const router = useRouter()
 
 // Removed unused useQuasar
 const event = computed(() => useEventStore().event)
-// Use Matrix client service directly
 
 // Get the Matrix room ID from the event - try different properties
 const matrixRoomId = computed(() => {
@@ -111,7 +110,7 @@ const handleExpandChat = async () => {
 
   // First priority: get the actual Matrix room ID from the client
   try {
-    const matrixClient = await import('../../services/matrixClientService').then(m => m.matrixClientService)
+    const matrixClient = await import('../../services/MatrixClientManager').then(m => m.matrixClientManager)
     const client = await matrixClient.getClient()
 
     if (client && matrixRoomId.value) {

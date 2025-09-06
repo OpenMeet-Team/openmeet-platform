@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { MatrixDeviceManager, type VerificationRequestInfo } from '../../../services/MatrixDeviceManager'
-import { matrixClientService } from '../../../services/matrixClientService'
+import { matrixClientManager } from '../../../services/MatrixClientManager'
 import { logger } from '../../../utils/logger'
 
 interface Emits {
@@ -70,7 +70,7 @@ onUnmounted(() => {
 })
 
 const initializeVerificationService = () => {
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (!client) {
     logger.warn('No Matrix client available for verification notifications')
     return

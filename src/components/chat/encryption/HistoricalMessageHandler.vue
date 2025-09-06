@@ -102,7 +102,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useHistoricalMessageDecryption } from '../../../composables/useHistoricalMessageDecryption'
 import { useReactiveMatrixEncryption } from '../../../composables/useReactiveMatrixEncryption'
 import PassphraseUnlockDialog from './PassphraseUnlockDialog.vue'
-import { matrixClientService } from '../../../services/matrixClientService'
+import { matrixClientManager } from '../../../services/MatrixClientManager'
 import { logger } from '../../../utils/logger'
 
 interface Props {
@@ -295,7 +295,7 @@ const handleReset = async () => {
     logger.debug('🔄 Starting unified encryption reset...')
 
     // Get Matrix client
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       logger.error('No Matrix client available for reset')
       return
@@ -375,7 +375,7 @@ const showResetOptions = async () => {
     persistent: true
   }).onOk(async (resetType: string) => {
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) {
         logger.error('No Matrix client available for reset')
         return

@@ -18,7 +18,8 @@ import { checkMASAuthReturn } from './createCrossSigning'
 import {
   setSecretStorageBeingAccessed,
   cacheSecretStorageKeyForBootstrap,
-  clearSecretStorageCache
+  clearSecretStorageCache,
+  matrixClientManager
 } from './MatrixClientManager'
 
 // Combined interfaces from all three services
@@ -2480,8 +2481,7 @@ export const matrixEncryptionService = {
    * Initialize encryption background - compatible with existing usage
    */
   async initializeEncryptionBackground (): Promise<void> {
-    const { matrixClientService } = await import('./matrixClientService')
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.warn('Matrix client not available for encryption initialization')
       return
@@ -2502,8 +2502,7 @@ export const matrixEncryptionService = {
    * Get encryption status - compatible with existing usage
    */
   async getEncryptionStatus () {
-    const { matrixClientService } = await import('./matrixClientService')
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       return {
         isReady: false,

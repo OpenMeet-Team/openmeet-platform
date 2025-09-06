@@ -75,14 +75,14 @@ onMounted(async () => {
       logger.debug('🔍 Matrix debug utilities available at window.matrixDebug')
       logger.debug('🔍 Available methods:', Object.keys(matrixDebug))
 
-      // SECURITY: Only expose matrixClientService in test environments for E2E testing
+      // SECURITY: Only expose matrixClientManager in test environments for E2E testing
       // Never expose in any production-like environment to prevent credential leakage
       if (isTest && (qEnv === 'test' || currentMode === 'test')) {
-        const { matrixClientService } = await import('./services/matrixClientService')
-        ;(window as unknown as { matrixClientService: unknown }).matrixClientService = matrixClientService
-        logger.debug('🔍 Matrix client service available at window.matrixClientService (TEST ONLY)')
+        const { matrixClientManager } = await import('./services/MatrixClientManager')
+        ;(window as unknown as { matrixClientManager: unknown }).matrixClientManager = matrixClientManager
+        logger.debug('🔍 Matrix client manager available at window.matrixClientManager (TEST ONLY)')
       } else {
-        logger.debug('🔒 Matrix client service NOT exposed (production security)')
+        logger.debug('🔒 Matrix client manager NOT exposed (production security)')
       }
 
       // Set a flag so we know debugging is enabled

@@ -69,8 +69,8 @@ const handleExpandChat = async () => {
 
   // First priority: get the actual Matrix room ID from the client
   try {
-    const matrixClient = await import('../../services/matrixClientService').then(m => m.matrixClientService)
-    const client = await matrixClient.getClient()
+    const { matrixClientManager } = await import('../../services/MatrixClientManager')
+    const client = matrixClientManager.getClient()
 
     if (client && matrixRoomId.value) {
       if (matrixRoomId.value.startsWith('#')) {

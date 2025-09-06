@@ -161,7 +161,7 @@ import { computed } from 'vue'
 import { EventType, type MatrixEvent, type Room } from 'matrix-js-sdk'
 import { format, isToday } from 'date-fns'
 import MessageBody from './MessageBody.vue'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { logger } from '../../utils/logger'
 
 interface Props {
@@ -210,7 +210,7 @@ const senderDisplayName = computed(() => {
 })
 const senderAvatarUrl = computed(() => {
   if (!senderMember.value) return undefined
-  const client = matrixClientService.getClient()
+  const client = matrixClientManager.getClient()
   if (!client) return undefined
   return senderMember.value.getAvatarUrl(client.baseUrl, 40, 40, 'crop', false, true) || undefined
 })

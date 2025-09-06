@@ -220,7 +220,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import ChatListPanel from './ChatListPanel.vue'
 import ChatInfoPanel from './ChatInfoPanel.vue'
@@ -301,13 +301,16 @@ onMounted(async () => {
   try {
     // Only initialize if user has already chosen to connect to Matrix
     // (The MatrixNativeChatOrchestrator handles the initial setup flow for dashboard mode)
-    if (!matrixClientService.hasUserChosenToConnect()) {
+    if (!matrixClientManager.hasUserChosenToConnect()) {
       // User has not chosen to connect to Matrix - skipping initialization
       return
     }
 
-    // Initialize basic Matrix client first
-    await matrixClientService.initializeClient()
+    // Check if Matrix client is available
+    if (!matrixClientManager.isReady()) {
+      logger.warn('⚠️ Matrix client not ready and no credentials to initialize')
+      return
+    }
 
     // Start background encryption initialization (non-blocking)
     logger.debug('🔐 Starting background encryption initialization...')
@@ -453,8 +456,8 @@ const attemptAutoSelection = async () => {
   // Strategy 3: Room alias resolution using Matrix client
   if (!targetElement && roomIdentifier.startsWith('#')) {
     try {
-      const { matrixClientService } = await import('../../services/matrixClientService')
-      const client = await matrixClientService.getClient()
+      const { matrixClientManager } = await import('../../services/MatrixClientManager')
+      const client = await matrixClientManager.getClient()
       if (client) {
         let resolvedRoomId = null
 
@@ -493,8 +496,8 @@ const attemptAutoSelection = async () => {
   // Strategy 4: Reverse lookup - if we have a room ID, try to find by alias
   if (!targetElement && roomIdentifier.startsWith('!')) {
     try {
-      const { matrixClientService } = await import('../../services/matrixClientService')
-      const client = await matrixClientService.getClient()
+      const { matrixClientManager } = await import('../../services/MatrixClientManager')
+      const client = await matrixClientManager.getClient()
       if (client) {
         const room = client.getRoom(roomIdentifier)
         if (room) {

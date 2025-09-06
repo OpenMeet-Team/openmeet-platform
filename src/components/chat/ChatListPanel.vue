@@ -331,7 +331,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { groupsApi } from '../../api/groups'
 import { eventsApi } from '../../api/events'
 import { searchApi } from '../../api/search'
@@ -388,8 +388,8 @@ const isMatrixInitializing = ref(true)
 const loadRealRooms = async () => {
   isLoadingRooms.value = true
   try {
-    // Initialize Matrix client to get actual room information
-    const matrixClient = await matrixClientService.initializeClient()
+    // Get Matrix client to get actual room information
+    const matrixClient = matrixClientManager.getClient()
     if (!matrixClient) {
       logger.warn('No Matrix client available')
       return
@@ -593,10 +593,15 @@ onMounted(async () => {
 
     // For the main chats page, we want to show available chats proactively
     // Accessing the chats dashboard implies user consent to connect to Matrix
-    matrixClientService.setUserChosenToConnect(true)
+    matrixClientManager.setUserChosenToConnect(true)
 
-    // Use forceAuth = true to initialize with stored credentials or fresh auth
-    const matrixClient = await matrixClientService.initializeClient(true)
+    // Try to restore from stored session (Element Web pattern)
+    const matrixClient = await matrixClientManager.initializeClient()
+    if (!matrixClient) {
+      // No stored session - start authentication flow
+      await matrixClientManager.startAuthenticationFlow()
+      return // Will complete after redirect
+    }
     isMatrixInitializing.value = false
 
     // Listen for Matrix events to keep chat list reactive
@@ -806,10 +811,10 @@ const joinChat = async (chat: Chat) => {
       if (groupSlug) {
         // Use Matrix client service to join the group chat room
         // Joining group chat room using Matrix client
-        const result = await matrixClientService.joinGroupChatRoom(groupSlug)
+        const result = await matrixClientManager.joinGroupChatRoom(groupSlug)
 
         // Force Matrix client to sync to pick up new invitation
-        await matrixClientService.forceSyncAfterInvitation('group', groupSlug)
+        await matrixClientManager.forceSyncAfterInvitation('group', groupSlug)
 
         // Update the chat's Matrix room ID if different
         if (result.room?.roomId && result.room.roomId !== chat.matrixRoomId) {
@@ -826,10 +831,10 @@ const joinChat = async (chat: Chat) => {
       if (eventSlug) {
         // Use Matrix client service to join the event chat room
         // Joining event chat room using Matrix client
-        const result = await matrixClientService.joinEventChatRoom(eventSlug)
+        const result = await matrixClientManager.joinEventChatRoom(eventSlug)
 
         // Force Matrix client to sync to pick up new invitation
-        await matrixClientService.forceSyncAfterInvitation('event', eventSlug)
+        await matrixClientManager.forceSyncAfterInvitation('event', eventSlug)
 
         // Update the chat's Matrix room ID if different
         if (result.room?.roomId && result.room.roomId !== chat.matrixRoomId) {
@@ -864,7 +869,7 @@ const joinChat = async (chat: Chat) => {
           matrixUserId = `@${userIdentifier}-${tenantId}:matrix.openmeet.net`
         }
 
-        const room = await matrixClientService.joinDirectMessageRoom(matrixUserId)
+        const room = await matrixClientManager.joinDirectMessageRoom(matrixUserId)
 
         // Update the chat's Matrix room ID
         if (room.roomId !== chat.matrixRoomId) {
@@ -900,7 +905,7 @@ const refreshRooms = async () => {
 
 const markAllRead = async () => {
   try {
-    const matrixClient = await matrixClientService.initializeClient()
+    const matrixClient = matrixClientManager.getClient()
     if (!matrixClient) return
 
     // Marking all rooms as read

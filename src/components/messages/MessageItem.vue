@@ -90,7 +90,7 @@ import { useQuasar } from 'quasar'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useAuthStore } from '../../stores/auth-store'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -106,7 +106,7 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
 
   // If it's a Matrix content URL (mxc://), convert it to HTTP
   if (url.startsWith('mxc://')) {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.error('❌ convertMatrixUrl: Matrix client not available')
       return ''
@@ -118,10 +118,10 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
       // For images, use thumbnail dimensions and call thumbnail endpoint
       const finalWidth = width || 300
       const finalHeight = height || 300
-      convertedUrl = matrixClientService.getContentUrl(url, finalWidth, finalHeight)
+      convertedUrl = matrixClientManager.getContentUrl(url, finalWidth, finalHeight)
     } else {
       // For files, use download endpoint without dimensions
-      convertedUrl = matrixClientService.getContentUrl(url)
+      convertedUrl = matrixClientManager.getContentUrl(url)
     }
 
     if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {

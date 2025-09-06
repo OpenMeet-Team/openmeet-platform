@@ -563,7 +563,7 @@ import { logger } from '../../utils/logger'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { MatrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import { MatrixDeviceManager } from '../../services/MatrixDeviceManager'
 
@@ -608,7 +608,7 @@ const isForgotRecoveryKey = ref(false)
 
 // Helper to initialize encryption service when needed
 // const getOrCreateEncryptionService = (): MatrixEncryptionService | null => {
-//   const client = matrixClientService.getClient()
+//   const client = matrixClientManager.getClient()
 //   if (!client) return null
 //   if (!encryptionService.value) {
 //     encryptionService.value = new MatrixEncryptionService(client)
@@ -876,7 +876,7 @@ const onDeleteAccount = () => {
   isResettingMatrix.value = true
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       error('Matrix client not available')
       return
@@ -908,7 +908,7 @@ const onConnectToMatrix = async () => {
     isConnectingMatrix.value = true
 
     // Check if we already have a Matrix session
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (client) {
       matrixConnectionStatus.value = {
         connected: true,
@@ -934,9 +934,9 @@ const onConnectToMatrix = async () => {
     logger.debug('🔗 Initializing Matrix client from profile settings')
 
     // Use the same connection logic as the chat orchestrator
-    const newClient = await matrixClientService.initializeClient(true)
+    const newClient = await matrixClientManager.startAuthenticationFlow()
     if (newClient) {
-      matrixClientService.setUserChosenToConnect(true)
+      matrixClientManager.setUserChosenToConnect(true)
 
       matrixConnectionStatus.value = {
         connected: true,
@@ -1000,7 +1000,7 @@ const onForgotRecoveryKey = async () => {
     logger.debug('🔑 Generating new recovery key via preferences')
 
     // Get Matrix client and create encryption service
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available')
     }
@@ -1044,7 +1044,7 @@ const onForgotRecoveryKey = async () => {
 
 const onCheckMatrixStatus = async () => {
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       matrixConnectionStatus.value = {
         connected: false,
@@ -1184,7 +1184,7 @@ const downloadRecoveryKey = () => {
 const onRefreshDevices = async () => {
   refreshingDevices.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       error('Matrix client not available')
       return
@@ -1206,7 +1206,7 @@ const onRefreshDevices = async () => {
 const onVerifyDevice = async (deviceId: string) => {
   verifyingDevice.value = deviceId
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       error('Matrix client not available')
       return
@@ -1249,7 +1249,7 @@ const onCleanupDevices = async () => {
 
   cleaningUpDevices.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       error('Matrix client not available')
       return
@@ -1283,7 +1283,7 @@ const onCleanupDevices = async () => {
 const onSetupCrossSigning = async () => {
   settingUpCrossSigning.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       error('Matrix client not available')
       return
@@ -1427,7 +1427,7 @@ const onSetupCrossSigning = async () => {
   isResettingMatrixCompletely.value = true
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     const userId = client?.getUserId()
 
     success('Starting complete Matrix reset...')

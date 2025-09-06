@@ -1877,8 +1877,8 @@ export class MatrixDeviceManager {
 if (typeof window !== 'undefined') {
   (window as Window & { deviceVerification?: Record<string, unknown> }).deviceVerification = {
     test: async () => {
-      const { matrixClientService } = await import('./matrixClientService')
-      const client = matrixClientService.getClient()
+      const { matrixClientManager } = await import('./MatrixClientManager')
+      const client = matrixClientManager.getClient()
       if (client) {
         const manager = new MatrixDeviceManager(client)
         return await manager.testAndFixDeviceVerification()
@@ -1886,8 +1886,8 @@ if (typeof window !== 'undefined') {
       return { success: false, error: 'No Matrix client available' }
     },
     check: async () => {
-      const { matrixClientService } = await import('./matrixClientService')
-      const client = matrixClientService.getClient()
+      const { matrixClientManager } = await import('./MatrixClientManager')
+      const client = matrixClientManager.getClient()
       if (client) {
         const manager = new MatrixDeviceManager(client)
         return await manager.quickVerificationCheck()

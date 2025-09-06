@@ -170,7 +170,7 @@ from Matrix events, similar to Element Web's body component routing.
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { type MatrixEvent } from 'matrix-js-sdk'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { logger } from '../../utils/logger'
 
 interface EncryptedFile {
@@ -221,10 +221,10 @@ async function decryptEncryptedFile (file: EncryptedFile, info?: MediaInfo): Pro
   // Download the encrypted file as an array buffer
   let responseData: ArrayBuffer
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) throw new Error('Matrix client not available')
 
-    const response = await fetch(matrixClientService.getContentUrl(file.url), {
+    const response = await fetch(matrixClientManager.getContentUrl(file.url), {
       headers: {
         Authorization: `Bearer ${client.getAccessToken()}`
       }
@@ -303,7 +303,7 @@ const fileUrl = computed(() => {
   // Check different possible URL properties used by different Matrix clients
   const url = props.content.url || props.content.file?.url
   if (!url) return null
-  return matrixClientService.getContentUrl(url)
+  return matrixClientManager.getContentUrl(url)
 })
 
 // Media URLs (images, audio, video)
@@ -325,7 +325,7 @@ const loadImage = async () => {
 
   imageLoading.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) return
 
     if (isEncrypted) {
@@ -345,7 +345,7 @@ const loadImage = async () => {
     }
 
     // Handle unencrypted files - use thumbnail endpoint
-    const thumbnailUrl = matrixClientService.getContentUrl(url, 400, 300)
+    const thumbnailUrl = matrixClientManager.getContentUrl(url, 400, 300)
 
     const response = await fetch(thumbnailUrl, {
       headers: {
@@ -384,7 +384,7 @@ const loadAudio = async () => {
 
   audioLoading.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) return
 
     if (isEncrypted) {
@@ -401,7 +401,7 @@ const loadAudio = async () => {
     }
 
     // For unencrypted audio, create authenticated blob URL
-    const audioFileUrl = matrixClientService.getContentUrl(url)
+    const audioFileUrl = matrixClientManager.getContentUrl(url)
     const response = await fetch(audioFileUrl, {
       headers: {
         Authorization: `Bearer ${client.getAccessToken()}`
@@ -435,7 +435,7 @@ const loadVideo = async () => {
 
   videoLoading.value = true
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) return
 
     if (isEncrypted) {
@@ -452,7 +452,7 @@ const loadVideo = async () => {
     }
 
     // For unencrypted video, create authenticated blob URL
-    const videoFileUrl = matrixClientService.getContentUrl(url)
+    const videoFileUrl = matrixClientManager.getContentUrl(url)
     const response = await fetch(videoFileUrl, {
       headers: {
         Authorization: `Bearer ${client.getAccessToken()}`
@@ -491,7 +491,7 @@ const downloadFile = async () => {
   if (!url) return
 
   try {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) return
 
     let blob: Blob
@@ -503,7 +503,7 @@ const downloadFile = async () => {
       const encrypt = await import('matrix-encrypt-attachment')
 
       // Download the encrypted file as an array buffer
-      const fileUrl = matrixClientService.getContentUrl(url)
+      const fileUrl = matrixClientManager.getContentUrl(url)
       const response = await fetch(fileUrl, {
         headers: {
           Authorization: `Bearer ${client.getAccessToken()}`
@@ -530,7 +530,7 @@ const downloadFile = async () => {
     } else {
       // Handle unencrypted file
 
-      const fileUrl = matrixClientService.getContentUrl(url)
+      const fileUrl = matrixClientManager.getContentUrl(url)
       const response = await fetch(fileUrl, {
         headers: {
           Authorization: `Bearer ${client.getAccessToken()}`
@@ -567,10 +567,10 @@ const viewFullImage = async () => {
   if (props.content.url) {
     try {
       // Get the authenticated URL
-      const fullImageUrl = matrixClientService.getContentUrl(props.content.url)
+      const fullImageUrl = matrixClientManager.getContentUrl(props.content.url)
 
       // Fetch with authentication headers
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) return
 
       const response = await fetch(fullImageUrl, {
@@ -675,10 +675,10 @@ const previewFile = async () => {
   if (props.content.url) {
     try {
       // Get the authenticated URL
-      const previewUrl = matrixClientService.getContentUrl(props.content.url)
+      const previewUrl = matrixClientManager.getContentUrl(props.content.url)
 
       // Fetch with authentication headers
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) return
 
       const response = await fetch(previewUrl, {

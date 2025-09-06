@@ -5,7 +5,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { matrixEncryptionState, type MatrixEncryptionStatus } from '../services/MatrixEncryptionManager'
 import { logger } from '../utils/logger'
 
@@ -65,7 +65,7 @@ export function useMatrixEncryption () {
   const recoverEncryptionKeys = async (recoveryKey?: string): Promise<boolean> => {
     try {
       isLoading.value = true
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) {
         logger.error('No Matrix client available for key recovery')
         return false
@@ -104,7 +104,7 @@ export function useMatrixEncryption () {
     isLoading.value = true
 
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       // Use the provided roomId, or fall back to current room ID if available
       const targetRoomId = roomId || currentRoomId.value || undefined
       logger.debug('🔍 About to call getEncryptionState with roomId:', targetRoomId)
@@ -125,7 +125,7 @@ export function useMatrixEncryption () {
    */
   const initializeEncryption = async (roomId?: string): Promise<boolean> => {
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (!client) {
         logger.debug('No Matrix client available for chat initialization')
         return false
@@ -151,7 +151,7 @@ export function useMatrixEncryption () {
    * Check if we can encrypt in a specific room
    */
   const canEncryptInRoom = async (roomId: string): Promise<boolean> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     return matrixEncryptionState.canEncryptInRoom(client, roomId)
   }
 
@@ -201,7 +201,7 @@ export function useMatrixEncryption () {
     // Store device verification status for use when checking encrypted rooms
     // Don't immediately set global encryption status - wait for room context
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
       if (client) {
         const crypto = client.getCrypto()
         if (crypto) {

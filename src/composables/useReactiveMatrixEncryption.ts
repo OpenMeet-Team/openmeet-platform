@@ -6,7 +6,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { matrixEncryptionStateManager, type MatrixEncryptionStatus } from '../services/MatrixEncryptionManager'
 import { logger } from '../utils/logger'
 
@@ -56,7 +56,7 @@ export function useReactiveMatrixEncryption () {
    */
   const initializeEncryption = async (): Promise<boolean> => {
     try {
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
 
       // Initialize the state manager with current client
       matrixEncryptionStateManager.initialize(client)
@@ -89,7 +89,7 @@ export function useReactiveMatrixEncryption () {
    * Check if we can encrypt in a specific room
    */
   const canEncryptInRoom = async (roomId: string): Promise<boolean> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) return false
 
     try {
