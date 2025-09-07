@@ -1016,6 +1016,10 @@ const sendMessage = async () => {
 
     // Stop typing indicator when message is sent
     await stopTyping()
+
+    // Always scroll to bottom after sending a message to keep input field visible
+    await nextTick()
+    await scrollToBottom(true)
   } catch (error) {
     logger.error('❌ Failed to send message:', error)
     // Show error to user but don't manipulate messages array
@@ -1966,7 +1970,7 @@ const setupMatrixEventListeners = () => {
         loadAuthenticatedImage(newMessage)
       }
 
-      // Only scroll if this is not our own message (to avoid disrupting typing)
+      // Only scroll if this is not our own message (our own messages scroll in sendMessage)
       if (!newMessage.isOwn) {
         await nextTick()
         await scrollToBottom(true) // smooth scroll for new messages
