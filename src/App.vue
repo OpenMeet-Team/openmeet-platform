@@ -45,6 +45,16 @@ onMounted(async () => {
     await versionService.initializeVersionChecking()
     setupGlobalErrorHandling()
 
+    // Initialize Matrix client from stored session if available
+    // This prevents users from seeing "Connect to Matrix" after page reload
+    try {
+      const { matrixClientManager } = await import('./services/MatrixClientManager')
+      await matrixClientManager.initializeClientWhenReady()
+      logger.debug('✅ Matrix client initialization completed during app startup')
+    } catch (error) {
+      logger.debug('📱 Matrix client initialization skipped during app startup:', error.message)
+    }
+
     // Initialize Matrix debug utilities - ONLY expose in secure development environments
     const isDev = import.meta.env.DEV
     const currentMode = import.meta.env.MODE

@@ -391,6 +391,22 @@ export class MatrixClientManager {
   }
 
   /**
+   * Initialize Matrix client automatically after auth store is ready
+   * This should be called during app startup to restore sessions
+   */
+  public async initializeClientWhenReady (): Promise<MatrixClient | null> {
+    const authStore = useAuthStore()
+
+    // Wait for auth store to be initialized
+    if (!authStore.isInitialized) {
+      logger.debug('📱 Waiting for auth store to be initialized before Matrix client restore...')
+      await authStore.waitForInitialization()
+    }
+
+    return this.initializeClient()
+  }
+
+  /**
    * Initialize Matrix client from stored session (Element Web pattern)
    * Like Element Web's restoreSessionFromStorage() - only restores existing sessions
    * @returns Promise<MatrixClient | null> - client if session restored, null if no session
@@ -425,6 +441,12 @@ export class MatrixClientManager {
 
     // Get current OpenMeet user for user-specific storage keys
     const authStore = useAuthStore()
+
+    // Wait for auth store to be initialized
+    if (!authStore.isInitialized) {
+      throw new Error('Auth store not initialized yet - cannot restore Matrix session')
+    }
+
     const openMeetUserSlug = authStore.getUserSlug
 
     if (!openMeetUserSlug) {
@@ -723,13 +745,9 @@ export class MatrixClientManager {
             keysToRemove.push(key)
           } else if (!currentUserId && !userSlug) {
             // Fallback: if we can't identify current user, clear generic matrix keys without user identifiers
-            if (!key.includes('@') && !key.includes(':') && !key.includes('_01')) {
-              keysToRemove.push(key)
-            }
           }
-        }
-        // Also clear matrix-js-sdk and matrix-crypto keys that are generic (not user-specific)
-        else if (key && (key.includes('matrix-js-sdk') || key.includes('matrix-crypto'))) {
+        } else if (key && (key.includes('matrix-js-sdk') || key.includes('matrix-crypto'))) {
+          // Also clear matrix-js-sdk and matrix-crypto keys that are generic (not user-specific)
           // Only clear if they don't contain user identifiers
           if (currentUserId && key.includes(currentUserId)) {
             keysToRemove.push(key)
@@ -2360,9 +2378,17 @@ export class MatrixClientManager {
     try {
       // Get current OpenMeet user for user-specific storage keys
       const authStore = useAuthStore()
+
+      // Wait for auth store to be initialized before checking sessions
+      if (!authStore.isInitialized) {
+        logger.debug('📱 Auth store not initialized yet, cannot check stored sessions')
+        return false
+      }
+
       const openMeetUserSlug = authStore.getUserSlug
 
       if (!openMeetUserSlug) {
+        logger.debug('📱 No user slug available after auth store initialization')
         return false
       }
 
