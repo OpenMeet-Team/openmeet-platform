@@ -966,7 +966,7 @@ export class MatrixClientManager {
         const tokenRefresher = new TokenRefresher(
           credentials.oidcIssuer,
           credentials.oidcClientId,
-          credentials.oidcRedirectUri || `${window.location.origin}/auth/matrix`,
+          credentials.oidcRedirectUri,
           deviceId,
           credentials.idTokenClaims || {} as IdTokenClaims,
           userId
@@ -2758,6 +2758,21 @@ export class MatrixClientManager {
     const frontendDomain = getEnv('frontendDomain') as string
     const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
+    // Debug logging to help identify configuration issues
+    logger.debug('🔧 OIDC Client Metadata Config:', {
+      frontendDomain,
+      redirectPath,
+      allConfig: getEnv()
+    })
+
+    if (!frontendDomain) {
+      throw new Error('Missing required environment variable: frontendDomain')
+    }
+
+    if (!redirectPath) {
+      throw new Error('Missing required environment variable: APP_MAS_REDIRECT_PATH')
+    }
+
     return {
       clientName: 'OpenMeet Platform',
       clientUri: frontendDomain,
@@ -2918,7 +2933,7 @@ export class MatrixClientManager {
         // Include OIDC metadata for proper TokenRefresher configuration
         oidcIssuer: result.oidcClientSettings?.issuer,
         oidcClientId: result.oidcClientSettings?.clientId,
-        oidcRedirectUri: `${window.location.origin}/auth/matrix`,
+        oidcRedirectUri: `${window.location.origin}${getEnv('APP_MAS_REDIRECT_PATH')}`,
         idTokenClaims: result.idTokenClaims
       }
 
