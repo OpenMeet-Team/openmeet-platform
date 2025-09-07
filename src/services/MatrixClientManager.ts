@@ -704,18 +704,38 @@ export class MatrixClientManager {
     // Clear the client
     await this.clearClient()
 
-    // Clear stored credentials from localStorage
+    // Clear stored credentials from localStorage - only for current user
     try {
-      // Clear all Matrix-related storage
+      // Get current user identifier to target specific credentials
+      const currentUserId = this.client?.getUserId()
+      const authStore = useAuthStore()
+      const userSlug = authStore.getUserSlug || ''
+
+      // Clear user-specific Matrix credentials only
       const keysToRemove = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key && (
-          key.startsWith('matrix_') ||
-          key.includes('matrix-js-sdk') ||
-          key.includes('matrix-crypto')
-        )) {
-          keysToRemove.push(key)
+        if (key && key.startsWith('matrix_')) {
+          // Only clear credentials that contain current user identifiers
+          if (currentUserId && key.includes(currentUserId)) {
+            keysToRemove.push(key)
+          } else if (userSlug && key.includes(userSlug)) {
+            keysToRemove.push(key)
+          } else if (!currentUserId && !userSlug) {
+            // Fallback: if we can't identify current user, clear generic matrix keys without user identifiers
+            if (!key.includes('@') && !key.includes(':') && !key.includes('_01')) {
+              keysToRemove.push(key)
+            }
+          }
+        }
+        // Also clear matrix-js-sdk and matrix-crypto keys that are generic (not user-specific)
+        else if (key && (key.includes('matrix-js-sdk') || key.includes('matrix-crypto'))) {
+          // Only clear if they don't contain user identifiers
+          if (currentUserId && key.includes(currentUserId)) {
+            keysToRemove.push(key)
+          } else if (!key.includes('@') && !key.includes(':')) {
+            keysToRemove.push(key)
+          }
         }
       }
 
@@ -724,12 +744,20 @@ export class MatrixClientManager {
         logger.debug(`🧹 Removed stored credential: ${key}`)
       })
 
-      // Also clear sessionStorage
+      // Also clear sessionStorage - only for current user
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i)
         if (key && key.startsWith('matrix_')) {
-          sessionStorage.removeItem(key)
-          logger.debug(`🧹 Removed session credential: ${key}`)
+          if (currentUserId && key.includes(currentUserId)) {
+            sessionStorage.removeItem(key)
+            logger.debug(`🧹 Removed session credential: ${key}`)
+          } else if (userSlug && key.includes(userSlug)) {
+            sessionStorage.removeItem(key)
+            logger.debug(`🧹 Removed session credential: ${key}`)
+          } else if (!currentUserId && !userSlug && !key.includes('@') && !key.includes(':') && !key.includes('_01')) {
+            sessionStorage.removeItem(key)
+            logger.debug(`🧹 Removed session credential: ${key}`)
+          }
         }
       }
     } catch (error) {
@@ -772,8 +800,6 @@ export class MatrixClientManager {
       // Create optimized IndexedDB stores
       const userId = credentials.userId
       // Always use persistent device ID to prevent device ID changes on reload
-      // First consolidate any existing device IDs
-      this.consolidateDeviceIds(userId)
 
       // Check crypto store first to avoid device ID mismatches
       const cryptoStoreDeviceId = await this.getCryptoStoreDeviceId(userId)
@@ -1493,17 +1519,7 @@ export class MatrixClientManager {
       localStorage.setItem(storageKey, deviceId)
       logger.debug('💾 Stored device ID for user:', userId, 'deviceId:', deviceId)
 
-      // Also sync with OpenMeet device ID storage if needed
-      const openMeetDeviceId = this.getOpenMeetDeviceId()
-      if (!openMeetDeviceId || openMeetDeviceId !== deviceId) {
-        // Extract user slug from userId for OpenMeet storage
-        const match = userId.match(/@([^_]+)_/)
-        if (match) {
-          const userSlug = match[1]
-          localStorage.setItem(`device_id_${userSlug}`, deviceId)
-          logger.debug('🔄 Synced OpenMeet device ID storage for slug:', userSlug)
-        }
-      }
+      // Device ID is now stored only in Matrix format - no need for legacy OpenMeet storage
     } catch (error) {
       logger.warn('⚠️ Failed to store device ID:', error)
     }
@@ -1524,75 +1540,11 @@ export class MatrixClientManager {
         return existingDeviceId
       }
 
-      // Try to get from OpenMeet device ID storage for consistency
-      const openMeetDeviceId = this.getOpenMeetDeviceId()
-      if (openMeetDeviceId) {
-        logger.warn('📱 Using OpenMeet stored device ID:', openMeetDeviceId)
-        // Store it in Matrix format for future use
-        localStorage.setItem(storageKey, openMeetDeviceId)
-        return openMeetDeviceId
-      }
-
       logger.debug('📱 No stored device ID found for user:', userId)
       return null
     } catch (error) {
       logger.error('❌ Failed to get stored device ID:', error)
       return null
-    }
-  }
-
-  /**
-   * Get a consistent device ID, using the Matrix device ID if available
-   */
-  private getOpenMeetDeviceId (): string | null {
-    try {
-      // Look for existing Matrix device ID for this user to reuse
-      const userId = '@b-b-pryyzu_lsdfaopkljdfs:matrix.openmeet.net'
-      const existingMatrixDeviceId = localStorage.getItem(`matrix_device_id_${userId}`)
-      if (existingMatrixDeviceId) {
-        logger.warn('🔗 Reusing existing Matrix device ID:', existingMatrixDeviceId)
-        return existingMatrixDeviceId
-      }
-
-      // Look for user slug based device ID
-      const userSlugDeviceId = localStorage.getItem('matrix_device_id_b-b-pryyzu')
-      if (userSlugDeviceId) {
-        logger.warn('🔗 Found user slug device ID:', userSlugDeviceId)
-        return userSlugDeviceId
-      }
-
-      logger.debug('📱 No existing device ID found in localStorage')
-      return null
-    } catch (error) {
-      logger.debug('📱 Could not access device ID:', error.message)
-      return null
-    }
-  }
-
-  /**
-   * Consolidate multiple device IDs into one consistent ID
-   */
-  private consolidateDeviceIds (userId: string): void {
-    try {
-      const fullUserIdKey = `matrix_device_id_${userId}`
-      const userSlugKey = 'matrix_device_id_b-b-pryyzu'
-
-      const fullUserId = localStorage.getItem(fullUserIdKey)
-      const userSlugId = localStorage.getItem(userSlugKey)
-
-      if (fullUserId && userSlugId && fullUserId !== userSlugId) {
-        // Use the more recent one (assume full user ID is newer pattern)
-        logger.warn('🔄 Consolidating device IDs:', { fullUserId, userSlugId, using: fullUserId })
-        localStorage.setItem(userSlugKey, fullUserId)
-      } else if (fullUserId && !userSlugId) {
-        logger.warn('🔄 Copying full user device ID to slug format:', fullUserId)
-        localStorage.setItem(userSlugKey, fullUserId)
-      } else if (!fullUserId && userSlugId) {
-        logger.warn('🔄 Copying slug device ID to full user format:', userSlugId)
-        localStorage.setItem(fullUserIdKey, userSlugId)
-      }
-    } catch (error) {
-      logger.warn('⚠️ Failed to consolidate device IDs:', error)
     }
   }
 
