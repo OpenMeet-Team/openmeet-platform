@@ -42,7 +42,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
   const decryptionCounter = ref(0)
 
   // Extract events from TimelineWindow and handle decryption - Element Web pattern
-  const refreshEvents = (): void => {
+  const refreshEvents = (skipIfOnlyNewMessages = false): void => {
     if (!timelineWindow.value) {
       logger.debug('⚠️ refreshEvents called but no timeline window available')
       events.value = []
@@ -52,7 +52,8 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     const timelineEvents = timelineWindow.value.getEvents()
     logger.debug('🔄 refreshEvents called:', {
       timelineEventsCount: timelineEvents.length,
-      currentEventsCount: events.value.length
+      currentEventsCount: events.value.length,
+      skipIfOnlyNewMessages
     })
 
     // Element Web pattern: decrypt from last to first for optimal UX
@@ -89,6 +90,27 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
       }
     }).filter(change => change.redactionChanged)
 
+    // Optimization: Check if we're only adding new messages to the end (most common case)
+    const isOnlyNewMessagesAtEnd = currentEvents.length > 0 &&
+                                  allEvents.length > currentEvents.length &&
+                                  allEvents.slice(0, currentEvents.length).every((event, index) =>
+                                    event.getId() === currentEvents[index]?.getId()
+                                  )
+
+    // Skip full refresh if we're only adding new messages and caller requested optimization
+    if (skipIfOnlyNewMessages && isOnlyNewMessagesAtEnd) {
+      // Optimized incremental update - only append new messages
+      const newMessages = allEvents.slice(currentEvents.length)
+      // Create new array reference to ensure Vue reactivity
+      events.value = [...currentEvents, ...newMessages]
+      logger.debug('⚡ Incremental update - added new messages:', {
+        newMessageCount: newMessages.length,
+        totalCount: events.value.length,
+        lastNewEventId: newMessages[newMessages.length - 1]?.getId()
+      })
+      return
+    }
+
     const hasChanged = allEvents.length !== currentEvents.length ||
                       allEvents.some((event, index) => {
                         const currentEvent = currentEvents[index]
@@ -104,13 +126,14 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     if (hasChanged) {
       // Force reactivity by creating a new array reference
       events.value = [...allEvents]
-      logger.debug('✅ Events updated:', {
+      logger.debug('✅ Events updated (full refresh):', {
         finalEventCount: allEvents.length,
         redactionChanges: redactionChanges.length,
         lastEventId: allEvents[allEvents.length - 1]?.getId(),
         lastEventType: allEvents[allEvents.length - 1]?.getType(),
         previousCount: currentEvents.length,
-        wasChanged: true
+        wasChanged: true,
+        wasIncremental: false
       })
     } else {
       logger.debug('⚡ Events refresh skipped - no changes detected:', {
@@ -271,9 +294,12 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
         }
       }
 
-      // Always refresh for new events - we want to see new messages immediately
-      logger.debug('Timeline event received, refreshing:', event.getType())
-      refreshEvents()
+      // Optimize refresh for regular messages - use incremental update when possible
+      const isRegularMessage = event.getType() === 'm.room.message' || event.getType() === 'm.room.encrypted'
+      logger.debug('Timeline event received, refreshing:', event.getType(), 'isRegular:', isRegularMessage)
+
+      // Use incremental update for regular messages to avoid image reloads
+      refreshEvents(isRegularMessage)
     }
 
     // Handle event decryption
@@ -292,7 +318,7 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
           eventId: event.getId(),
           counter: decryptionCounter.value
         })
-        refreshEvents()
+        refreshEvents() // Full refresh for decryption changes
       }
     }
 
