@@ -187,11 +187,11 @@ async function handleMASCrossSigningReset (
       message: `
         <div class="q-mb-md">To complete encryption setup, you need to approve cross-signing reset.</div>
         <div class="text-caption text-grey-7 q-mb-md">
-          You'll be redirected to Matrix Account Service. After approval, use your browser's back button to return here.
+          You'll be redirected to Matrix Account Service. After resetting, use your browser's back button to return here.
         </div>
         <div class="text-weight-medium text-primary">✓ Tap "Continue" to redirect</div>
-        <div class="text-weight-medium text-primary">✓ Approve on the authorization page</div>
-        <div class="text-weight-medium text-primary">✓ Use back button to return</div>
+        <div class="text-weight-medium text-primary">✓ Approve reset on the following page</div>
+        <div class="text-weight-medium text-primary">✓ Use back button to return here</div>
       `,
       persistent: true,
       ok: {
