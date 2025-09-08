@@ -8,6 +8,7 @@ import { parseRoomAlias } from '../utils/matrixUtils'
 import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
+import { matrixDeviceListener } from './MatrixDeviceListener'
 import { Dialog, Notify } from 'quasar'
 import type { MatrixMessageContent } from '../types/matrix'
 import getEnv from '../utils/env'
@@ -159,7 +160,7 @@ let secretStorageKeys: Record<string, Uint8Array> = {}
 let secretStorageKeyInfo: Record<string, unknown> = {}
 let secretStorageBeingAccessed = false
 
-// Export functions for MatrixEncryptionService to use
+// Export functions for MatrixEncryptionManager to use
 export function setSecretStorageBeingAccessed (accessing: boolean): void {
   secretStorageBeingAccessed = accessing
 }
@@ -231,6 +232,9 @@ export class MatrixClientManager {
   private cryptoInitPromise: Promise<void> | null = null
   private cryptoInitialized = false
   private cryptoInitializing = false
+
+  // Encryption manager for room key sharing policies
+  private encryptionManager: import('./MatrixEncryptionManager').MatrixEncryptionManager | null = null
 
   public static getInstance (): MatrixClientManager {
     if (!MatrixClientManager.instance) {
@@ -634,6 +638,17 @@ export class MatrixClientManager {
     ])
 
     this.isStarted = true
+
+    // Initialize encryption manager to handle room key sharing policies
+    try {
+      const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+      this.encryptionManager = new MatrixEncryptionManager(this.client)
+      await this.encryptionManager.start()
+      logger.debug('✅ MatrixEncryptionManager initialized and started')
+    } catch (error) {
+      logger.warn('⚠️ Failed to initialize MatrixEncryptionManager:', error)
+    }
+
     const duration = performance.now() - startTime
     logger.debug(`✅ Matrix client started with batched operations in ${duration.toFixed(2)}ms`)
   }
@@ -677,6 +692,21 @@ export class MatrixClientManager {
     try {
       // Remove event listeners to prevent further events during shutdown
       this.removeEventListeners()
+
+      // Stop device listener for room key sharing
+      matrixDeviceListener.stop()
+
+      // Stop encryption manager
+      if (this.encryptionManager) {
+        try {
+          await this.encryptionManager.stop()
+          logger.debug('✅ MatrixEncryptionManager stopped')
+        } catch (error) {
+          logger.warn('⚠️ Error stopping MatrixEncryptionManager:', error)
+        } finally {
+          this.encryptionManager = null
+        }
+      }
 
       // Stop crypto requests first to prevent WASM errors
       try {
@@ -730,6 +760,7 @@ export class MatrixClientManager {
     this.initPromise = null
     this.isShuttingDown = false
     this.eventListenersSetup = false
+    this.encryptionManager = null
   }
 
   /**
@@ -834,6 +865,13 @@ export class MatrixClientManager {
 
       const startTime = performance.now()
 
+      // Wait for auth store to be initialized before device storage operations
+      const authStore = useAuthStore()
+      if (!authStore.isInitialized) {
+        logger.debug('📱 Waiting for auth store to be initialized for device storage...')
+        await authStore.waitForInitialization()
+      }
+
       // Determine base URL
       let baseUrl = credentials.homeserverUrl
       if (!baseUrl.startsWith('http')) {
@@ -844,32 +882,26 @@ export class MatrixClientManager {
       const userId = credentials.userId
       // Always use persistent device ID to prevent device ID changes on reload
 
-      // Check crypto store first to avoid device ID mismatches
-      const cryptoStoreDeviceId = await this.getCryptoStoreDeviceId(userId)
-      const storedDeviceId = this.getStoredDeviceId(userId)
+      // Follow Element Web pattern: Always use server-provided device ID (server authority)
+      // This prevents conflicts between server authentication and client device expectations
       const serverDeviceId = credentials.deviceId
+      const storedDeviceId = this.getStoredDeviceId()
 
-      let deviceId: string
+      if (!serverDeviceId) {
+        throw new Error('No device ID provided by Matrix server during authentication.')
+      }
 
-      if (cryptoStoreDeviceId) {
-        logger.warn('🔐 Using device ID from crypto store:', cryptoStoreDeviceId)
-        deviceId = cryptoStoreDeviceId
+      const deviceId = serverDeviceId
+      logger.debug('🔗 Using server-provided device ID (Element Web pattern):', deviceId)
 
-        // Sync localStorage with crypto store to prevent future mismatches
-        if (storedDeviceId !== cryptoStoreDeviceId) {
-          logger.warn('🔄 Syncing localStorage with crypto store device ID')
-          this.setStoredDeviceId(userId, cryptoStoreDeviceId)
-        }
-      } else if (storedDeviceId) {
-        logger.warn('📱 Using stored device ID from localStorage:', storedDeviceId)
-        deviceId = storedDeviceId
-      } else if (serverDeviceId) {
-        logger.warn('🔗 Using server-provided device ID:', serverDeviceId)
-        deviceId = serverDeviceId
-        // Store server device ID for future use
-        this.setStoredDeviceId(userId, serverDeviceId)
-      } else {
-        throw new Error('No device ID available from crypto store, storage, or server.')
+      // Store server device ID for session tracking
+      this.setStoredDeviceId(userId, deviceId)
+
+      // Check if this is a new device (different from stored)
+      if (storedDeviceId && storedDeviceId !== deviceId) {
+        logger.warn('📱 Server issued new device ID - clearing old crypto store to prevent conflicts')
+        // Clear old crypto store to prevent device ID mismatches
+        await this.clearCryptoStore(userId, storedDeviceId)
       }
 
       // Use separate databases for main store and crypto store
@@ -1172,7 +1204,6 @@ export class MatrixClientManager {
       })
 
       // Get current OpenMeet user for user-specific storage keys (multi-user support)
-      const authStore = useAuthStore()
       const openMeetUserSlug = authStore.getUserSlug
       const storageUserId = openMeetUserSlug || credentials.userId
 
@@ -1553,16 +1584,45 @@ export class MatrixClientManager {
   }
 
   /**
-   * Set device ID in localStorage
+   * Extract OpenMeet user slug from Matrix user ID
+   * Matrix user ID format: @{username}_{tenantId}:matrix.openmeet.net
+   */
+  private extractOpenMeetUserSlug (matrixUserId: string): string | null {
+    try {
+      // Extract from pattern: @{anything}_{tenantId}:matrix.openmeet.net
+      const match = matrixUserId.match(/@([^_]+)_[^:]+:matrix\.openmeet\.net$/)
+      return match ? match[1] : null
+    } catch (error) {
+      logger.warn('⚠️ Failed to extract OpenMeet user slug from Matrix user ID:', matrixUserId, error)
+      return null
+    }
+  }
+
+  /**
+   * Set device ID in localStorage using Matrix user ID to extract stable OpenMeet slug
    */
   private setStoredDeviceId (userId: string, deviceId: string): void {
-    const storageKey = `matrix_device_id_${userId}`
-
     try {
-      localStorage.setItem(storageKey, deviceId)
-      logger.debug('💾 Stored device ID for user:', userId, 'deviceId:', deviceId)
+      // Get stable OpenMeet user slug for consistent device storage
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
 
-      // Device ID is now stored only in Matrix format - no need for legacy OpenMeet storage
+      if (!openMeetUserSlug) {
+        logger.warn('⚠️ No OpenMeet user slug available, cannot store device ID persistently')
+        return
+      }
+
+      const storageKey = `matrix_device_id_${openMeetUserSlug}`
+      localStorage.setItem(storageKey, deviceId)
+      logger.debug('💾 Stored device ID for OpenMeet user:', openMeetUserSlug, 'deviceId:', deviceId)
+
+      // Verify storage worked
+      const verification = localStorage.getItem(storageKey)
+      if (verification === deviceId) {
+        logger.debug('✅ Device ID storage verified for user:', openMeetUserSlug)
+      } else {
+        logger.error('❌ Device ID storage verification failed for user:', openMeetUserSlug)
+      }
     } catch (error) {
       logger.warn('⚠️ Failed to store device ID:', error)
     }
@@ -1572,18 +1632,26 @@ export class MatrixClientManager {
    * Get stored device ID for a user
    * Device IDs should only come from Matrix server or previous storage, never generated client-side
    */
-  private getStoredDeviceId (userId: string): string | null {
-    const storageKey = `matrix_device_id_${userId}`
-
+  private getStoredDeviceId (): string | null {
     try {
-      // First try to get from Matrix device ID storage
+      // Get stable OpenMeet user slug for consistent device retrieval
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (!openMeetUserSlug) {
+        logger.warn('⚠️ No OpenMeet user slug available, cannot retrieve stored device ID')
+        return null
+      }
+
+      const storageKey = `matrix_device_id_${openMeetUserSlug}`
       const existingDeviceId = localStorage.getItem(storageKey)
+
       if (existingDeviceId) {
-        logger.warn('📱 Using existing stored device ID:', existingDeviceId)
+        logger.debug('📱 Found stored device ID for OpenMeet user:', openMeetUserSlug, 'deviceId:', existingDeviceId)
         return existingDeviceId
       }
 
-      logger.debug('📱 No stored device ID found for user:', userId)
+      logger.debug('📱 No stored device ID found for OpenMeet user:', openMeetUserSlug)
       return null
     } catch (error) {
       logger.error('❌ Failed to get stored device ID:', error)
@@ -1618,11 +1686,17 @@ export class MatrixClientManager {
   /**
    * Clear the persistent device ID for a user (for testing or troubleshooting)
    */
-  public clearPersistentDeviceId (userId: string): void {
-    const storageKey = `matrix_device_id_${userId}`
+  public clearPersistentDeviceId (): void {
     try {
-      localStorage.removeItem(storageKey)
-      logger.warn('🗑️ Cleared persistent device ID for user:', userId)
+      // Clear device storage using stable OpenMeet user slug
+      const authStore = useAuthStore()
+      const openMeetUserSlug = authStore.getUserSlug
+
+      if (openMeetUserSlug) {
+        const storageKey = `matrix_device_id_${openMeetUserSlug}`
+        localStorage.removeItem(storageKey)
+        logger.warn('🗑️ Cleared persistent device ID for OpenMeet user:', openMeetUserSlug)
+      }
     } catch (error) {
       logger.error('❌ Failed to clear persistent device ID:', error)
     }
@@ -1741,6 +1815,7 @@ export class MatrixClientManager {
       this.cryptoInitPromise = null
       this.cryptoInitialized = false
       this.cryptoInitializing = false
+      this.encryptionManager = null
 
       logger.warn('✅ Complete Matrix reset finished - all data cleared')
     } catch (error) {
@@ -1826,6 +1901,9 @@ export class MatrixClientManager {
       // Perform initial encryption setup for new logins
       // This prevents device key mismatch issues on subsequent logins
       await this.performInitialEncryptionSetup()
+
+      // Start device listener for room key sharing (Element Web pattern)
+      matrixDeviceListener.start(this.client)
 
       return true
     } catch (error) {
@@ -1916,11 +1994,11 @@ export class MatrixClientManager {
       if (!hasAnySecrets) {
         logger.debug('🔐 🆕 Brand new device detected - performing initial encryption setup')
 
-        // Import and use MatrixEncryptionService for proper setup
-        const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
-        const encryptionService = new MatrixEncryptionService(this.client)
+        // Import and use MatrixEncryptionManager for proper setup
+        const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+        const encryptionService = new MatrixEncryptionManager(this.client)
 
-        logger.debug('🔐 Starting MatrixEncryptionService.setupEncryption()...')
+        logger.debug('🔐 Starting MatrixEncryptionManager.setupEncryption()...')
         const setupResult = await encryptionService.setupEncryption()
 
         logger.debug('🔐 Setup result:', {
@@ -2143,10 +2221,10 @@ export class MatrixClientManager {
           detail: { status }
         }))
 
-        // Try to recover keys using MatrixEncryptionService
+        // Try to recover keys using MatrixEncryptionManager
         // Note: Import dynamically to avoid circular dependency
-        const { MatrixEncryptionService } = await import('./MatrixEncryptionManager')
-        const encryptionService = new MatrixEncryptionService(this.client)
+        const { MatrixEncryptionManager } = await import('./MatrixEncryptionManager')
+        const encryptionService = new MatrixEncryptionManager(this.client)
 
         const recovered = await encryptionService.handleCrossSigningKeyLoss()
         if (recovered) {
