@@ -2836,7 +2836,7 @@ export class MatrixClientManager {
     tosUri?: string;
     policyUri?: string;
   }> {
-    const frontendDomain = getEnv('frontendDomain') as string
+    const frontendDomain = window.location.origin
     const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
 
     // Debug logging to help identify configuration issues
@@ -2908,7 +2908,7 @@ export class MatrixClientManager {
 
       // Get redirect URI
       const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
-      const frontendDomain = getEnv('frontendDomain') as string
+      const frontendDomain = window.location.origin
       const redirectUri = `${frontendDomain}${redirectPath}`
 
       logger.debug('🔧 OIDC Auth components:', {
