@@ -271,6 +271,14 @@ export class MatrixClientManager {
   }
 
   /**
+   * Check if Matrix client is currently initializing (e.g. during app startup)
+   * Components should wait for initialization to complete before showing "Connect to Matrix"
+   */
+  public isClientInitializing (): boolean {
+    return this.isInitializing
+  }
+
+  /**
    * Check if client is available for basic operations (logged in)
    * Use this for UI state checks and basic Matrix operations
    */
@@ -395,15 +403,32 @@ export class MatrixClientManager {
    * This should be called during app startup to restore sessions
    */
   public async initializeClientWhenReady (): Promise<MatrixClient | null> {
-    const authStore = useAuthStore()
+    // Set initializing flag to prevent components from showing "Connect" too early
+    this.isInitializing = true
+    logger.debug('📱 Starting app startup Matrix client initialization...')
 
-    // Wait for auth store to be initialized
-    if (!authStore.isInitialized) {
-      logger.debug('📱 Waiting for auth store to be initialized before Matrix client restore...')
-      await authStore.waitForInitialization()
+    try {
+      const authStore = useAuthStore()
+
+      // Wait for auth store to be initialized
+      if (!authStore.isInitialized) {
+        logger.debug('📱 Waiting for auth store to be initialized before Matrix client restore...')
+        await authStore.waitForInitialization()
+      }
+
+      const client = await this.initializeClient()
+
+      if (client) {
+        logger.debug('✅ Matrix client restored successfully during app startup')
+      } else {
+        logger.debug('📱 No stored session found during app startup - user will need to connect')
+      }
+
+      return client
+    } finally {
+      this.isInitializing = false
+      logger.debug('📱 App startup Matrix client initialization completed')
     }
-
-    return this.initializeClient()
   }
 
   /**
