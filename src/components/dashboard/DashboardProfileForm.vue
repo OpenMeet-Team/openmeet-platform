@@ -933,8 +933,15 @@ const onConnectToMatrix = async () => {
 
     logger.debug('🔗 Initializing Matrix client from profile settings')
 
-    // Use the same connection logic as the chat orchestrator
-    const newClient = await matrixClientManager.startAuthenticationFlow()
+    // Try to restore from stored session first (Element Web pattern)
+    let newClient = await matrixClientManager.initializeClient()
+    if (!newClient) {
+      // No stored session - start authentication flow
+      logger.debug('🔗 No stored session found, starting authentication flow')
+      newClient = await matrixClientManager.startAuthenticationFlow()
+    } else {
+      logger.debug('✅ Restored Matrix session from storage')
+    }
     if (newClient) {
       matrixClientManager.setUserChosenToConnect(true)
 

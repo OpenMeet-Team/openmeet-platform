@@ -432,8 +432,15 @@ const connectToMatrix = async () => {
     // Clear any residual encryption skipped state first
     matrixEncryptionState.clearEncryptionSkipped()
 
-    // Trigger Matrix connection flow
-    const client = await matrixClientManager.startAuthenticationFlow()
+    // Try to restore from stored session first (Element Web pattern)
+    let client = await matrixClientManager.initializeClient()
+    if (!client) {
+      // No stored session - start authentication flow
+      logger.debug('🔗 No stored session found, starting authentication flow')
+      client = await matrixClientManager.startAuthenticationFlow()
+    } else {
+      logger.debug('✅ Restored Matrix session from storage')
+    }
     if (client) {
       matrixClientManager.setUserChosenToConnect(true)
 

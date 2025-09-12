@@ -147,7 +147,7 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
       // Store session data and tokens separately as the system does
       localStorage.setItem(`matrix_session_${userSlug}`, JSON.stringify(mockCredentials))
       localStorage.setItem(`matrix_refresh_token_${userSlug}`, 'stored-refresh-token')
-      sessionStorage.setItem(`matrix_access_token_${userSlug}`, 'stored-access-token')
+      localStorage.setItem(`matrix_access_token_${userSlug}`, 'stored-access-token')
 
       // WHEN: Checking if session can be restored
       const hasSession = matrixClientManager.hasStoredSession()
