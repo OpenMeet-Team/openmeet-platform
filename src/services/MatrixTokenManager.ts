@@ -62,6 +62,14 @@ class MatrixTokenManager {
       const storageKey = this.getStorageKey(userId)
       const storedData = localStorage.getItem(storageKey)
 
+      // CRITICAL DEBUG: Check what's actually in localStorage
+      logger.debug('🔍 CRITICAL DEBUG - Raw localStorage check:', {
+        storageKey,
+        hasData: !!storedData,
+        dataLength: storedData?.length || 0,
+        dataPreview: storedData ? storedData.substring(0, 150) + '...' : 'NULL'
+      })
+
       if (!storedData) {
         logger.debug('🔍 No tokens found in storage for user:', userId, 'storageKey:', storageKey)
         return null
@@ -138,6 +146,15 @@ class MatrixTokenManager {
       }
 
       localStorage.setItem(storageKey, JSON.stringify(tokenData))
+
+      // CRITICAL DEBUG: Verify storage immediately after setItem
+      const verifyStored = localStorage.getItem(storageKey)
+      logger.debug('🔍 CRITICAL DEBUG - Verifying localStorage immediately after setItem:', {
+        storageKey,
+        wasStored: !!verifyStored,
+        storedLength: verifyStored?.length || 0,
+        storedDataPreview: verifyStored ? verifyStored.substring(0, 100) + '...' : 'NULL'
+      })
 
       logger.debug('✅ Tokens stored successfully:', {
         userId,
@@ -233,7 +250,11 @@ class MatrixTokenManager {
       refreshTokenPreview: refreshToken.substring(0, 10) + '...'
     })
 
-    const tokenEndpoint = `${tokenData.oidcIssuer}/oauth2/token`
+    // Safely construct token endpoint URL to avoid double slashes
+    const baseUrl = tokenData.oidcIssuer?.endsWith('/')
+      ? tokenData.oidcIssuer.slice(0, -1)
+      : tokenData.oidcIssuer
+    const tokenEndpoint = `${baseUrl}/oauth2/token`
 
     const requestBody = new URLSearchParams({
       grant_type: 'refresh_token',

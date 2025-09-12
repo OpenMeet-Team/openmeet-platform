@@ -412,6 +412,16 @@ export class MatrixClientManager {
     logger.debug('📱 Starting app startup Matrix client initialization...')
 
     try {
+      // CRITICAL: Check if we're in the middle of OAuth callback processing
+      const currentPath = window.location.pathname
+      const redirectPath = getEnv('APP_MAS_REDIRECT_PATH') as string
+
+      if (currentPath === redirectPath) {
+        logger.debug('🔄 OAuth callback in progress - skipping app startup initialization to prevent race condition')
+        this.isInitializing = false
+        return null
+      }
+
       const authStore = useAuthStore()
 
       // Wait for auth store to be initialized
@@ -764,7 +774,8 @@ export class MatrixClientManager {
   }
 
   /**
-   * Clear client and stored credentials when tokens are invalid
+   * Clear client and SDK state when tokens are invalid
+   * NOTE: Preserves token storage (matrix_session_*) to allow refresh attempts
    */
   public async clearClientAndCredentials (): Promise<void> {
     logger.debug('🚫 Clearing Matrix client and stored credentials due to token error')
@@ -789,12 +800,18 @@ export class MatrixClientManager {
       const authStore = useAuthStore()
       const userSlug = authStore.getUserSlug || ''
 
-      // Clear user-specific Matrix credentials only
+      // Clear Matrix SDK state but preserve tokens needed for refresh
       const keysToRemove = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
         if (key && key.startsWith('matrix_')) {
-          // Only clear credentials that contain current user identifiers
+          // CRITICAL: Never clear matrix_session_* keys - these contain tokens needed for refresh
+          if (key.startsWith('matrix_session_')) {
+            logger.debug('🔒 Preserving token storage during cleanup:', key)
+            continue // Skip token storage - preserve for refresh attempts
+          }
+
+          // Only clear other Matrix credentials that contain current user identifiers
           if (currentUserId && key.includes(currentUserId)) {
             keysToRemove.push(key)
           } else if (userSlug && key.includes(userSlug)) {
@@ -1103,14 +1120,16 @@ export class MatrixClientManager {
         }
 
         // Use MatrixTokenManager's refresh function for Matrix SDK
+        // CRITICAL: SDK needs refreshToken to know it should attempt refresh
+        // Our tokenRefreshFunction will override the built-in behavior
         clientOptions.refreshToken = credentials.refreshToken
         clientOptions.tokenRefreshFunction = matrixTokenManager.getTokenRefreshFunction(userId)
         logger.debug('🔑 Matrix client configured with unified MatrixTokenManager')
         logger.debug('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
       } else if (credentials.refreshToken) {
-        // Fallback to basic refresh token support for non-OIDC scenarios
-        clientOptions.refreshToken = credentials.refreshToken
-        logger.debug('🔑 Matrix client created with basic refresh token - SDK will handle automatic token refresh')
+        // Fallback: We have refresh token but missing OIDC config
+        // Still avoid using SDK's built-in refresh due to double slash bug
+        logger.debug('⚠️ Refresh token found but missing OIDC config - cannot set up token refresh')
       }
 
       this.client = createClient(clientOptions)
@@ -2918,17 +2937,45 @@ export class MatrixClientManager {
         reusingDeviceId: !!storedDeviceId
       })
 
-      // Generate authorization URL using Matrix SDK (Element Web pattern)
-      // Include stored device_id to reuse existing device across sessions
-      const authorizationUrl = await generateOidcAuthorizationUrl({
+      // Generate authorization URL with custom device ID scope
+      // Use modern OIDC flow consistently for proper state management
+      let authorizationUrl: string
+
+      // Always use generateOidcAuthorizationUrl for consistent state storage
+      authorizationUrl = await generateOidcAuthorizationUrl({
         metadata: delegatedAuthConfig,
         redirectUri,
         clientId,
         homeserverUrl,
-        nonce: Date.now().toString(),
-        // Include device_id if we have one stored to reuse the same device
-        ...(storedDeviceId && { deviceId: storedDeviceId })
+        nonce: Date.now().toString()
       })
+
+      // If we have a stored device ID, modify the URL to include our custom device scope
+      if (storedDeviceId) {
+        logger.debug('🔧 Modifying OAuth URL to include stored device ID:', storedDeviceId)
+
+        const url = new URL(authorizationUrl)
+        const currentScope = url.searchParams.get('scope') || ''
+
+        // Replace any existing device scope with our stored device ID
+        const deviceScopePattern = /urn:matrix:org\.matrix\.msc2967\.client:device:[^\s]+/
+        let newScope = currentScope
+
+        if (deviceScopePattern.test(currentScope)) {
+          // Replace existing device scope
+          newScope = currentScope.replace(deviceScopePattern, `urn:matrix:org.matrix.msc2967.client:device:${storedDeviceId}`)
+        } else {
+          // Add our device scope
+          newScope = `${currentScope} urn:matrix:org.matrix.msc2967.client:device:${storedDeviceId}`
+        }
+
+        url.searchParams.set('scope', newScope)
+        authorizationUrl = url.toString()
+
+        logger.debug('🔧 Modified scope to include stored device ID')
+      } else {
+        logger.debug('🔧 No stored device ID, using Matrix SDK default scope generation')
+      }
 
       logger.debug('🔗 Generated OIDC auth URL:', authorizationUrl)
 
