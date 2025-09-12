@@ -2911,20 +2911,32 @@ export class MatrixClientManager {
       const frontendDomain = window.location.origin
       const redirectUri = `${frontendDomain}${redirectPath}`
 
+      // Try to reuse stored device_id to maintain device consistency across sessions
+      const storedDeviceId = this.getStoredDeviceId()
+      if (storedDeviceId) {
+        logger.debug('📱 Found stored device_id for reuse:', storedDeviceId)
+      } else {
+        logger.debug('📱 No stored device_id found, server will generate new one')
+      }
+
       logger.debug('🔧 OIDC Auth components:', {
         homeserverUrl,
         issuer: delegatedAuthConfig.issuer,
         clientId,
-        redirectUri
+        redirectUri,
+        reusingDeviceId: !!storedDeviceId
       })
 
       // Generate authorization URL using Matrix SDK (Element Web pattern)
+      // Include stored device_id to reuse existing device across sessions
       const authorizationUrl = await generateOidcAuthorizationUrl({
         metadata: delegatedAuthConfig,
         redirectUri,
         clientId,
         homeserverUrl,
-        nonce: Date.now().toString()
+        nonce: Date.now().toString(),
+        // Include device_id if we have one stored to reuse the same device
+        ...(storedDeviceId && { deviceId: storedDeviceId })
       })
 
       logger.debug('🔗 Generated OIDC auth URL:', authorizationUrl)

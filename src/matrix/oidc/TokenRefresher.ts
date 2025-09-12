@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger'
 export class TokenRefresher extends OidcTokenRefresher {
   private readonly deviceId: string
   private readonly userId: string
+  private refreshTimer?: ReturnType<typeof setTimeout>
 
   public constructor (
     issuer: string,
@@ -41,7 +42,8 @@ export class TokenRefresher extends OidcTokenRefresher {
   public async doRefreshAccessToken (refreshToken: string): Promise<AccessTokens> {
     logger.debug('🔄 TokenRefresher.doRefreshAccessToken() called - starting token refresh', {
       hasRefreshToken: !!refreshToken,
-      refreshTokenLength: refreshToken?.length || 0
+      refreshTokenLength: refreshToken?.length || 0,
+      refreshTokenPreview: refreshToken ? refreshToken.substring(0, 10) + '...' : 'none'
     })
 
     try {
@@ -51,8 +53,16 @@ export class TokenRefresher extends OidcTokenRefresher {
       logger.debug('✅ TokenRefresher.doRefreshAccessToken() successful:', {
         hasAccessToken: !!tokens.accessToken,
         hasRefreshToken: !!tokens.refreshToken,
-        accessTokenLength: tokens.accessToken?.length || 0
+        accessTokenLength: tokens.accessToken?.length || 0,
+        refreshTokenLength: tokens.refreshToken?.length || 0,
+        newRefreshTokenPreview: tokens.refreshToken ? tokens.refreshToken.substring(0, 10) + '...' : 'none'
       })
+
+      // Persist the new tokens immediately
+      await this.persistTokens(tokens)
+
+      // Schedule proactive refresh for the next token
+      this.scheduleProactiveRefresh(tokens)
 
       return tokens
     } catch (error) {
@@ -68,13 +78,30 @@ export class TokenRefresher extends OidcTokenRefresher {
     try {
       logger.debug('🔑 Persisting refreshed OIDC tokens to storage')
 
-      // Store tokens in localStorage with user/device specific keys
-      const accessTokenKey = `matrix_access_token_${this.userId}_${this.deviceId}`
-      const refreshTokenKey = `matrix_refresh_token_${this.userId}_${this.deviceId}`
+      // Store tokens using the same keys that MatrixClientManager uses for retrieval
+      // Extract user slug from userId to match MatrixClientManager pattern
+      const userSlugMatch = this.userId.match(/@(.+?)_[^_]+:/)
+      const userSlug = userSlugMatch ? userSlugMatch[1] : this.userId.replace(/[@:]/g, '_')
 
+      const accessTokenKey = `matrix_access_token_${userSlug}`
+      const refreshTokenKey = `matrix_refresh_token_${userSlug}`
+
+      // Also store with device-specific keys for backward compatibility
+      const deviceAccessTokenKey = `matrix_access_token_${this.userId}_${this.deviceId}`
+      const deviceRefreshTokenKey = `matrix_refresh_token_${this.userId}_${this.deviceId}`
+
+      // Store both ways to ensure compatibility
       localStorage.setItem(accessTokenKey, accessToken)
+      localStorage.setItem(deviceAccessTokenKey, accessToken)
+
       if (refreshToken) {
         localStorage.setItem(refreshTokenKey, refreshToken)
+        localStorage.setItem(deviceRefreshTokenKey, refreshToken)
+        logger.debug('🔄 Updated refresh token in storage:', {
+          userSlug,
+          refreshTokenLength: refreshToken.length,
+          refreshTokenKey
+        })
       }
 
       // Also update the main credentials storage
@@ -98,6 +125,69 @@ export class TokenRefresher extends OidcTokenRefresher {
     } catch (error) {
       logger.error('❌ Failed to persist OIDC tokens:', error)
       throw error
+    }
+  }
+
+  /**
+   * Schedule proactive token refresh before expiration
+   * For 2-minute tokens, refresh after 60 seconds (50% of lifetime)
+   */
+  private scheduleProactiveRefresh (tokens: AccessTokens): void {
+    // Clear any existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer)
+    }
+
+    if (!tokens.expiry || !tokens.refreshToken) {
+      logger.debug('🔄 Cannot schedule proactive refresh - no expiry or refresh token')
+      return
+    }
+
+    const now = Date.now()
+    const expiryTime = tokens.expiry.getTime()
+    const tokenLifetime = expiryTime - now
+
+    // For short-lived tokens (< 5 minutes), refresh at 50% of lifetime
+    // For longer tokens, refresh 60 seconds before expiry
+    const refreshDelay = tokenLifetime < 5 * 60 * 1000
+      ? Math.max(tokenLifetime * 0.5, 10 * 1000) // At least 10 seconds
+      : Math.max(tokenLifetime - 60 * 1000, 10 * 1000)
+
+    logger.debug('🕐 Scheduling proactive token refresh:', {
+      tokenLifetime: Math.round(tokenLifetime / 1000) + 's',
+      refreshDelay: Math.round(refreshDelay / 1000) + 's',
+      refreshAt: new Date(now + refreshDelay).toISOString()
+    })
+
+    this.refreshTimer = setTimeout(async () => {
+      try {
+        logger.debug('🔄 Proactive token refresh triggered')
+
+        // Use the same key logic as persistTokens() to find the refresh token
+        const userSlugMatch = this.userId.match(/@(.+?)_[^_]+:/)
+        const userSlug = userSlugMatch ? userSlugMatch[1] : this.userId.replace(/[@:]/g, '_')
+        const refreshTokenKey = `matrix_refresh_token_${userSlug}`
+
+        const currentRefreshToken = localStorage.getItem(refreshTokenKey)
+        if (currentRefreshToken) {
+          logger.debug('🔄 Found refresh token for proactive refresh:', { refreshTokenKey, tokenLength: currentRefreshToken.length })
+          await this.doRefreshAccessToken(currentRefreshToken)
+        } else {
+          logger.warn('⚠️ No refresh token found for proactive refresh:', { refreshTokenKey, userId: this.userId, userSlug })
+        }
+      } catch (error) {
+        logger.error('❌ Proactive token refresh failed:', error)
+      }
+    }, refreshDelay)
+  }
+
+  /**
+   * Clean up any scheduled refresh timers
+   */
+  public destroy (): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer)
+      this.refreshTimer = undefined
     }
   }
 }
