@@ -5,7 +5,7 @@ import { Visibility, Preset } from 'matrix-js-sdk/lib/@types/partials'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
-import { TokenRefresher } from '../matrix/oidc/TokenRefresher'
+import { matrixTokenManager } from './MatrixTokenManager'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 import { matrixDeviceListener } from './MatrixDeviceListener'
@@ -482,16 +482,10 @@ export class MatrixClientManager {
       throw new Error('No OpenMeet user logged in for Matrix session restore')
     }
 
-    // Use user-specific storage keys
-    const accessTokenKey = `matrix_access_token_${openMeetUserSlug}`
-    const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+    // Try to get session data from legacy storage first (for migration)
     const sessionKey = `matrix_session_${openMeetUserSlug}`
-
-    const accessToken = sessionStorage.getItem(accessTokenKey)
-    const refreshToken = localStorage.getItem(refreshTokenKey)
-
-    // Get session data
     const sessionDataJson = localStorage.getItem(sessionKey)
+
     if (!sessionDataJson) {
       throw new Error('No Matrix session data found for current user')
     }
@@ -500,40 +494,46 @@ export class MatrixClientManager {
     const userId = sessionData.userId
     const deviceId = sessionData.deviceId
 
-    // Retrieve OIDC metadata for proper TokenRefresher configuration
-    const oidcIssuer = localStorage.getItem(`matrix_oidc_issuer_${openMeetUserSlug}`)
-    const oidcClientId = localStorage.getItem(`matrix_oidc_client_id_${openMeetUserSlug}`)
-    const oidcRedirectUri = localStorage.getItem(`matrix_oidc_redirect_uri_${openMeetUserSlug}`)
-    const idTokenClaimsJson = localStorage.getItem(`matrix_id_token_claims_${openMeetUserSlug}`)
-
-    // Allow restoration with refresh token only (access token may have expired)
-    if (!accessToken && !refreshToken) {
-      throw new Error('No valid access token or refresh token found for Matrix session restore')
-    }
-
     if (!userId) {
       throw new Error('Incomplete session data in storage')
     }
 
+    // Get tokens from MatrixTokenManager
+    const tokenData = await matrixTokenManager.getTokens(userId)
+
+    if (!tokenData?.accessToken && !tokenData?.refreshToken) {
+      throw new Error('No Matrix tokens found - user needs to authenticate')
+    }
+
+    // Get the canonical stored device ID for consistent reuse
+    const storedDeviceId = this.getStoredDeviceId()
+
+    logger.debug('🔍 Device ID sources for session restore:', {
+      storedDeviceId: storedDeviceId || 'none',
+      tokenManagerDeviceId: tokenData.deviceId || 'none',
+      legacySessionDeviceId: deviceId || 'none',
+      finalDeviceId: storedDeviceId || tokenData.deviceId || deviceId
+    })
+
     const credentials = {
       homeserverUrl,
-      accessToken: accessToken || undefined,
+      accessToken: tokenData.accessToken,
       userId,
-      deviceId: deviceId || undefined,
-      refreshToken: refreshToken || undefined,
-      oidcIssuer: oidcIssuer || undefined,
-      oidcClientId: oidcClientId || undefined,
-      oidcRedirectUri: oidcRedirectUri || undefined,
-      idTokenClaims: idTokenClaimsJson ? JSON.parse(idTokenClaimsJson) : undefined
+      deviceId: storedDeviceId || tokenData.deviceId || deviceId,
+      refreshToken: tokenData.refreshToken,
+      oidcIssuer: tokenData.oidcIssuer,
+      oidcClientId: tokenData.oidcClientId,
+      oidcRedirectUri: tokenData.oidcRedirectUri,
+      idTokenClaims: tokenData.idTokenClaims
     }
 
     logger.debug('🔍 DEBUG: Session restore credentials:', {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      hasOidcIssuer: !!oidcIssuer,
-      hasOidcClientId: !!oidcClientId,
-      hasOidcRedirectUri: !!oidcRedirectUri,
-      hasIdTokenClaims: !!idTokenClaimsJson,
+      hasAccessToken: !!tokenData.accessToken,
+      hasRefreshToken: !!tokenData.refreshToken,
+      hasOidcIssuer: !!tokenData.oidcIssuer,
+      hasOidcClientId: !!tokenData.oidcClientId,
+      hasOidcRedirectUri: !!tokenData.oidcRedirectUri,
+      hasIdTokenClaims: !!tokenData.idTokenClaims,
       userId
     })
 
@@ -1063,32 +1063,49 @@ export class MatrixClientManager {
           deviceId
         })
 
-        // Create TokenRefresher similar to Element Web's approach
-        const tokenRefresher = new TokenRefresher(
-          credentials.oidcIssuer,
-          credentials.oidcClientId,
-          credentials.oidcRedirectUri,
-          deviceId,
-          credentials.idTokenClaims || {} as IdTokenClaims,
-          userId
-        )
+        // Initialize OIDC configuration in MatrixTokenManager
+        await matrixTokenManager.initializeOidcConfig(userId, {
+          issuer: credentials.oidcIssuer,
+          clientId: credentials.oidcClientId,
+          redirectUri: credentials.oidcRedirectUri,
+          idTokenClaims: credentials.idTokenClaims || {} as IdTokenClaims
+        })
 
-        // Use Element Web pattern: pass tokenRefresher's doRefreshAccessToken method
-        clientOptions.refreshToken = credentials.refreshToken
+        // Store tokens in unified MatrixTokenManager (only if we have valid tokens)
+        if (credentials.accessToken || credentials.refreshToken) {
+          logger.debug('🔧 Additional data being passed to setTokens:', {
+            deviceId,
+            hasDeviceId: !!deviceId,
+            deviceIdType: typeof deviceId,
+            oidcIssuer: credentials.oidcIssuer,
+            oidcClientId: credentials.oidcClientId,
+            hasAccessToken: !!credentials.accessToken,
+            hasRefreshToken: !!credentials.refreshToken
+          })
 
-        // Create a wrapped function for error handling
-        const tokenRefreshFunction = async (refreshToken: string) => {
-          try {
-            const result = await tokenRefresher.doRefreshAccessToken(refreshToken)
-            return result
-          } catch (error) {
-            logger.error('❌ tokenRefreshFunction failed:', error)
-            throw error
-          }
+          await matrixTokenManager.setTokens(userId, {
+            accessToken: credentials.accessToken,
+            refreshToken: credentials.refreshToken,
+            expiry: undefined // Will be set by token manager based on response
+          }, {
+            deviceId,
+            oidcIssuer: credentials.oidcIssuer,
+            oidcClientId: credentials.oidcClientId,
+            oidcRedirectUri: credentials.oidcRedirectUri,
+            idTokenClaims: credentials.idTokenClaims
+          })
+        } else {
+          logger.debug('🔧 Skipping setTokens() call - no valid tokens to store:', {
+            hasAccessToken: !!credentials.accessToken,
+            hasRefreshToken: !!credentials.refreshToken,
+            deviceId
+          })
         }
 
-        clientOptions.tokenRefreshFunction = tokenRefreshFunction
-        logger.debug('🔑 Matrix client configured with Element Web-style TokenRefresher')
+        // Use MatrixTokenManager's refresh function for Matrix SDK
+        clientOptions.refreshToken = credentials.refreshToken
+        clientOptions.tokenRefreshFunction = matrixTokenManager.getTokenRefreshFunction(userId)
+        logger.debug('🔑 Matrix client configured with unified MatrixTokenManager')
         logger.debug('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
       } else if (credentials.refreshToken) {
         // Fallback to basic refresh token support for non-OIDC scenarios
@@ -1207,17 +1224,8 @@ export class MatrixClientManager {
       const openMeetUserSlug = authStore.getUserSlug
       const storageUserId = openMeetUserSlug || credentials.userId
 
-      // Use user-specific storage keys to support multiple Matrix clients per browser
-      const accessTokenKey = `matrix_access_token_${storageUserId}`
-      const refreshTokenKey = `matrix_refresh_token_${storageUserId}`
+      // Store basic session data (not tokens - those go in MatrixTokenManager)
       const sessionKey = `matrix_session_${storageUserId}`
-
-      // Use sessionStorage for access token (cleared on tab close) for better security
-      if (credentials.accessToken) {
-        sessionStorage.setItem(accessTokenKey, credentials.accessToken)
-      }
-
-      // Store basic session data in localStorage
       const sessionData = {
         homeserverUrl: credentials.homeserverUrl,
         userId: credentials.userId,
@@ -1230,24 +1238,7 @@ export class MatrixClientManager {
       localStorage.setItem('matrix_user_id', credentials.userId)
       localStorage.setItem('matrix_device_id', deviceId)
 
-      if (credentials.refreshToken) {
-        localStorage.setItem(refreshTokenKey, credentials.refreshToken)
-        logger.debug('🔄 Stored refresh token for automatic token refresh')
-      }
-
-      // Store OIDC metadata for proper TokenRefresher configuration on restore
-      if (credentials.oidcIssuer) {
-        localStorage.setItem(`matrix_oidc_issuer_${storageUserId}`, credentials.oidcIssuer)
-      }
-      if (credentials.oidcClientId) {
-        localStorage.setItem(`matrix_oidc_client_id_${storageUserId}`, credentials.oidcClientId)
-      }
-      if (credentials.oidcRedirectUri) {
-        localStorage.setItem(`matrix_oidc_redirect_uri_${storageUserId}`, credentials.oidcRedirectUri)
-      }
-      if (credentials.idTokenClaims) {
-        localStorage.setItem(`matrix_id_token_claims_${storageUserId}`, JSON.stringify(credentials.idTokenClaims))
-      }
+      // OIDC metadata and tokens are now stored in MatrixTokenManager
 
       return this.client
     } catch (error: unknown) {
