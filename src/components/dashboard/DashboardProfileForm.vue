@@ -943,8 +943,6 @@ const onConnectToMatrix = async () => {
       logger.debug('✅ Restored Matrix session from storage')
     }
     if (newClient) {
-      matrixClientManager.setUserChosenToConnect(true)
-
       matrixConnectionStatus.value = {
         connected: true,
         message: 'Connected to Matrix',

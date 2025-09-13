@@ -300,27 +300,12 @@ export class MatrixClientManager {
     const syncState = this.client?.getSyncState()
     const isPrepared = syncState === 'PREPARED'
 
-    // Consider ready if logged in AND (startup complete OR client is prepared and functional)
-    const result = loggedIn && (this.isStarted || isPrepared) && !this.isShuttingDown
+    // Also consider SYNCING as ready if client is functional
+    // This handles cases where client gets stuck in SYNCING but is actually working
+    const isSyncingAndFunctional = syncState === 'SYNCING' && loggedIn
 
-    // Debug logging for timing issues
-    if (loggedIn && !result) {
-      logger.debug('🔍 MatrixClientManager.isReady() timing issue:', {
-        loggedIn,
-        isStarted: this.isStarted,
-        isShuttingDown: this.isShuttingDown,
-        syncState,
-        isPrepared,
-        result,
-        message: 'Client is logged in but not ready'
-      })
-    } else if (loggedIn && result && !this.isStarted && isPrepared) {
-      logger.debug('✅ MatrixClientManager ready via sync state (startup still in progress)', {
-        syncState,
-        isPrepared,
-        isStarted: this.isStarted
-      })
-    }
+    // Consider ready if logged in AND (startup complete OR client is prepared OR syncing and functional)
+    const result = loggedIn && (this.isStarted || isPrepared || isSyncingAndFunctional) && !this.isShuttingDown
 
     return result
   }
@@ -2438,40 +2423,6 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('❌ Failed to join event chat room:', error)
       throw error
-    }
-  }
-
-  public hasUserChosenToConnect (): boolean {
-    try {
-      const authStore = useAuthStore()
-      const userSlug = authStore.getUserSlug
-      if (!userSlug) return false
-
-      const key = `matrix_user_chosen_to_connect_${userSlug}`
-      return localStorage.getItem(key) === 'true'
-    } catch (error) {
-      logger.error('Error checking user chosen to connect:', error)
-      return false
-    }
-  }
-
-  public setUserChosenToConnect (chosen: boolean): void {
-    try {
-      const authStore = useAuthStore()
-      const userSlug = authStore.getUserSlug
-      if (!userSlug) {
-        logger.warn('Cannot set user chosen to connect: no user slug available')
-        return
-      }
-
-      const key = `matrix_user_chosen_to_connect_${userSlug}`
-      if (chosen) {
-        localStorage.setItem(key, 'true')
-      } else {
-        localStorage.removeItem(key)
-      }
-    } catch (error) {
-      logger.error('Error setting user chosen to connect:', error)
     }
   }
 

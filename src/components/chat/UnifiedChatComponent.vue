@@ -299,14 +299,8 @@ const handleEncryptionFailed = (event: CustomEvent) => {
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
-    // Only initialize if user has already chosen to connect to Matrix
-    // (The MatrixNativeChatOrchestrator handles the initial setup flow for dashboard mode)
-    if (!matrixClientManager.hasUserChosenToConnect()) {
-      // User has not chosen to connect to Matrix - skipping initialization
-      return
-    }
-
-    // Check if Matrix client is available
+    // Try to initialize if Matrix client is available
+    // (The MatrixNativeChatOrchestrator handles the initial setup flow when client isn't ready)
     if (!matrixClientManager.isReady()) {
       logger.warn('⚠️ Matrix client not ready and no credentials to initialize')
       return

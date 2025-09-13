@@ -18,11 +18,11 @@ export function useMatrixEncryption () {
   // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
   const needsLogin = computed(() => {
-    // If user hasn't chosen to connect to Matrix yet, they need to "login" (connect)
-    if (!matrixClientManager.hasUserChosenToConnect()) {
+    // If we don't have encryption status yet, we need to connect/login first
+    if (encryptionStatus.value === null) {
       return true
     }
-    // Otherwise, check the encryption state
+    // Otherwise, check if the encryption state specifically requires login
     return encryptionStatus.value?.state === 'needs_login'
   })
   const needsEncryptionSetup = computed(() => {
@@ -112,6 +112,26 @@ export function useMatrixEncryption () {
 
     try {
       const client = matrixClientManager.getClient()
+
+      // Wait for Matrix client to be ready before checking encryption state
+      // Allow proceeding if client exists and is logged in, even if manager thinks it's not ready
+      if (!client) {
+        logger.debug('🔍 No Matrix client available')
+        encryptionStatus.value = null
+        return
+      }
+
+      if (!client.isLoggedIn()) {
+        logger.debug('🔍 Matrix client not logged in')
+        encryptionStatus.value = null
+        return
+      }
+
+      if (!matrixClientManager.isReady()) {
+        logger.debug('🔍 Matrix client manager not ready, but client exists and is logged in - proceeding with caution...')
+        // Continue with the check since the client itself might be functional
+      }
+
       // Use the provided roomId, or fall back to current room ID if available
       const targetRoomId = roomId || currentRoomId.value || undefined
       logger.debug('🔍 About to call getEncryptionState with roomId:', targetRoomId)
@@ -171,21 +191,17 @@ export function useMatrixEncryption () {
   }
 
   // Auto-refresh on client state changes
-  let refreshInterval: ReturnType<typeof setInterval> | null = null
+  let refreshInterval: ReturnType<typeof setTimeout> | null = null
 
   const startAutoRefresh = () => {
-    // Check every 30 seconds, but only if we need user action
-    refreshInterval = setInterval(async () => {
-      if (!requiresUserAction.value) {
-        // Use current room ID for auto-refresh if available
-        await checkEncryptionState(currentRoomId.value || undefined)
-      }
-    }, 30000)
+    // Disable auto-refresh for now - rely on Matrix client event handlers
+    // The repeated checkEncryptionState calls were causing issues
+    logger.debug('🔄 Auto-refresh disabled - relying on Matrix client events')
   }
 
   const stopAutoRefresh = () => {
     if (refreshInterval) {
-      clearInterval(refreshInterval)
+      clearTimeout(refreshInterval)
       refreshInterval = null
     }
   }

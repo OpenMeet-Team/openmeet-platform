@@ -592,8 +592,6 @@ onMounted(async () => {
     // ChatListPanel mounted, checking Matrix connection
 
     // For the main chats page, we want to show available chats proactively
-    // Accessing the chats dashboard implies user consent to connect to Matrix
-    matrixClientManager.setUserChosenToConnect(true)
 
     // Try to restore from stored session (Element Web pattern)
     const matrixClient = await matrixClientManager.initializeClient()

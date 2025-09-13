@@ -442,8 +442,6 @@ const connectToMatrix = async () => {
       logger.debug('✅ Restored Matrix session from storage')
     }
     if (client) {
-      matrixClientManager.setUserChosenToConnect(true)
-
       // Re-check state after connection - only if we have a room ID
       if (props.inlineRoomId) {
         await checkEncryptionState(props.inlineRoomId)

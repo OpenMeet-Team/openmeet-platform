@@ -60,31 +60,6 @@ describe('Matrix Authentication Integration (Behavior-Driven)', () => {
     sessionStorage.clear()
   })
 
-  describe('User Connection Flow', () => {
-    it('should track user consent for Matrix connection', () => {
-      // GIVEN: User hasn't chosen to connect yet
-      expect(matrixClientManager.hasUserChosenToConnect()).toBe(false)
-
-      // WHEN: User gives consent to connect
-      matrixClientManager.setUserChosenToConnect(true)
-
-      // THEN: System should remember their choice
-      expect(matrixClientManager.hasUserChosenToConnect()).toBe(true)
-    })
-
-    it('should allow user to revoke consent', () => {
-      // GIVEN: User previously consented
-      matrixClientManager.setUserChosenToConnect(true)
-      expect(matrixClientManager.hasUserChosenToConnect()).toBe(true)
-
-      // WHEN: User revokes consent
-      matrixClientManager.setUserChosenToConnect(false)
-
-      // THEN: System should forget their choice
-      expect(matrixClientManager.hasUserChosenToConnect()).toBe(false)
-    })
-  })
-
   describe('Session Management', () => {
     it('should detect when no Matrix session exists', () => {
       // GIVEN: Fresh browser state
