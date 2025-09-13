@@ -68,14 +68,6 @@
     >
       <!-- Connection Status removed - handled by MatrixNativeChatOrchestrator -->
 
-      <!-- Historical Message Encryption Handler -->
-      <HistoricalMessageHandler
-        v-if="isConnected"
-        :auto-prompt="true"
-        :show-status="true"
-        :room-id="props.roomId"
-      />
-
       <!-- Experimental Encryption Warning -->
       <q-banner
         v-if="isConnected && isRoomEncrypted"
@@ -412,7 +404,6 @@ import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
-import HistoricalMessageHandler from './encryption/HistoricalMessageHandler.vue'
 import EventTile from './EventTile.vue'
 import { useMatrixTimeline } from '../../composables/useMatrixTimeline'
 
@@ -1004,7 +995,7 @@ const addEmoji = (emoji: string) => {
 // Show chat help dialog
 const showChatHelp = () => {
   // Get the homeserver URL from environment
-  const homeserverUrl = getEnv('MATRIX_HOMESERVER_URL')
+  const homeserverUrl = getEnv('APP_MATRIX_HOMESERVER_URL')
 
   quasar.dialog({
     title: 'Chat Help - Use Other Matrix Clients',

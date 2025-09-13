@@ -474,7 +474,7 @@ const downloadRecoveryKey = () => {
   padding: 8px 16px;
 }
 
-/* Setup needed - blue (using HistoricalMessageHandler styling) */
+/* Setup needed - blue styling */
 .banner-setup {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
   border: 1px solid #2563eb !important;
