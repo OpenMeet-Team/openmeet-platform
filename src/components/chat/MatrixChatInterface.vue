@@ -489,7 +489,6 @@ const imageModal = ref(false)
 const imageModalSrc = ref('')
 const roomName = ref('')
 const canSendMessages = ref(true)
-const rateLimitCountdown = ref(0)
 const lastAuthError = ref('')
 const showTypingNotification = ref(false)
 const lastReadReceiptSent = ref<string | null>(null)
@@ -664,17 +663,37 @@ const initializeTimeline = async () => {
   await rawInitializeTimeline(undefined, client, roomTimelineSet)
 }
 
-// Initialize timeline only once when dependencies are first available
+// Track timeline initialization state per room
 let timelineInitialized = false
-watch([timelineClient, timelineSet], async ([newClient, newTimelineSet]) => {
-  if (newClient && newTimelineSet && !timelineInitialized) {
-    logger.debug('🚀 Initializing timeline for the first time')
+let lastInitializedRoomId: string | null = null
+
+watch([timelineClient, timelineSet, () => props.roomId, resolvedRoomId], async ([newClient, newTimelineSet, newRoomId, newResolvedRoomId]) => {
+  // Reset initialization flag when room changes
+  if (newRoomId && newRoomId !== lastInitializedRoomId) {
+    timelineInitialized = false
+    lastInitializedRoomId = null
+  }
+
+  // Only initialize if we have a resolved room ID (actual Matrix room ID)
+  const actualRoomId = newResolvedRoomId || (newRoomId?.startsWith('!') ? newRoomId : null)
+
+  if (newClient && newTimelineSet && !timelineInitialized && newRoomId && actualRoomId) {
+    logger.debug('🚀 Initializing timeline', {
+      hasClient: !!newClient,
+      hasTimelineSet: !!newTimelineSet,
+      roomId: newRoomId,
+      actualRoomId,
+      currentRoomId: currentRoom.value?.roomId,
+      lastInitializedRoomId
+    })
     try {
       await rawInitializeTimeline(undefined, newClient, newTimelineSet)
       timelineInitialized = true
+      lastInitializedRoomId = newRoomId
       logger.debug('✅ Timeline initialization completed successfully')
     } catch (error) {
       logger.error('❌ Timeline initialization failed:', error)
+      timelineInitialized = false // Reset flag to allow retry
     }
   }
 }, { immediate: true })
@@ -704,8 +723,8 @@ watch(timelineEvents, (newEvents, oldEvents) => {
   })
 }, { immediate: true })
 
-// Use timeline events directly - no need for debug wrapper
-const debugTimelineEvents = timelineEvents
+// Use timeline events directly - reactive reference
+const debugTimelineEvents = computed(() => timelineEvents.value)
 
 // Timeline with date separators
 interface TimelineItem {
@@ -777,7 +796,6 @@ const timelineWithDateSeparators = computed((): (TimelineEventItem | TimelineDat
 const messagesContainer = ref<HTMLElement>()
 const messageInput = ref()
 const fileInput = ref()
-const countdownTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
 // Custom event listeners tracking for cleanup
 let customEventListeners: (() => void)[] = []
@@ -840,16 +858,6 @@ const getSenderColor = (senderId: string): string => {
 
 const getRoomStatusText = (): string => {
   if (!isConnected.value) {
-    // Check if we're rate limited
-    if (rateLimitCountdown.value > 0) {
-      const remainingMinutes = Math.ceil(rateLimitCountdown.value / 60000)
-      const remainingSeconds = Math.ceil((rateLimitCountdown.value % 60000) / 1000)
-      if (remainingMinutes > 1) {
-        return `Rate limited - try again in ${remainingMinutes} min`
-      } else {
-        return `Rate limited - try again in ${remainingSeconds}s`
-      }
-    }
     return 'Matrix chat unavailable'
   }
 
@@ -1447,22 +1455,6 @@ const checkEncryptionStatus = async () => {
 
 // Removed unused recreateEventRoom and recreateGroupRoom functions in Phase 2
 
-// Start countdown timer for rate limiting
-const startCountdownTimer = () => {
-  if (countdownTimer.value) {
-    clearInterval(countdownTimer.value)
-  }
-
-  countdownTimer.value = setInterval(() => {
-    if (rateLimitCountdown.value > 0) {
-      rateLimitCountdown.value -= 1000
-    } else {
-      clearInterval(countdownTimer.value!)
-      countdownTimer.value = null
-    }
-  }, 1000)
-}
-
 // Load older messages with pagination
 
 // Prevent duplicate loading
@@ -1514,8 +1506,8 @@ watch(() => props.roomId, async (newRoomId, oldRoomId) => {
   })
 
   if (newRoomId && newRoomId !== oldRoomId) {
-    logger.debug(`🔄 [${instanceId}] Triggering timeline reload due to roomId change`)
-    await initializeTimeline()
+    logger.debug(`🔄 [${instanceId}] Room changed - timeline watcher will handle initialization`)
+    await nextTick()
     await scrollToBottom()
   }
 })
@@ -1912,11 +1904,10 @@ const handleMatrixReady = async () => {
         await updateCurrentRoom()
       }
 
-      // Now initialize timeline with the resolved room
-      await initializeTimeline()
+      // Timeline initialization is handled by watcher
       await nextTick()
       await scrollToBottom()
-      logger.debug('✅ Timeline initialized and scrolled after matrix:ready')
+      logger.debug('✅ Ready to display timeline after matrix:ready')
     }
 
     // Update room name
@@ -2055,9 +2046,9 @@ onMounted(async () => {
       // Set up Matrix client event listeners (with duplicate protection)
       setupMatrixEventListeners()
 
-      // Load messages only if we have a room ID
+      // Timeline initialization is handled by watcher
       if (props.roomId) {
-        await initializeTimeline()
+        await nextTick()
         await scrollToBottom()
         messagesLoaded = true
       }
@@ -2091,12 +2082,11 @@ onMounted(async () => {
           if (result.room?.roomId) {
             // Using actual room ID from join result
             resolvedRoomId.value = result.room.roomId
-            // Load messages with the correct room ID
-            await initializeTimeline()
+            // Timeline initialization is handled by watcher
           } else {
-            // Fallback: update current room state and load messages
+            // Fallback: update current room state
             await updateCurrentRoom()
-            await initializeTimeline()
+            // Timeline initialization is handled by watcher
           }
         } catch (error) {
           logger.warn('Failed to join event chat room:', error)
@@ -2111,12 +2101,11 @@ onMounted(async () => {
           if (result.room?.roomId) {
             // Using actual room ID from join result
             resolvedRoomId.value = result.room.roomId
-            // Load messages with the correct room ID
-            await initializeTimeline()
+            // Timeline initialization is handled by watcher
           } else {
-            // Fallback: update current room state and load messages
+            // Fallback: update current room state
             await updateCurrentRoom()
-            await initializeTimeline()
+            // Timeline initialization is handled by watcher
           }
         } catch (error) {
           logger.warn('Failed to join group chat room:', error)
