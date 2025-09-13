@@ -10,7 +10,6 @@
  *
  * This service replaces:
  * - MatrixDeviceVerificationService
- * - MatrixDeviceSetup
  * - Original MatrixDeviceManager
  * - deviceVerificationHelper utilities
  */
