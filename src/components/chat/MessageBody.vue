@@ -811,9 +811,10 @@ onUnmounted(() => {
 .file-container {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  background: #f9f9f9;
+  background: #ffffff;
   max-width: 300px;
   min-width: 200px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .file-info {
@@ -823,13 +824,16 @@ onUnmounted(() => {
 
 .file-name {
   font-size: 0.875rem;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #333;
 }
 
 .file-size {
   color: #666;
+  font-size: 0.75rem;
 }
 
 .file-actions {
@@ -895,20 +899,32 @@ onUnmounted(() => {
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
-  .file-container,
+  .file-container {
+    background: #1e1e1e;
+    border-color: #555;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
   .audio-placeholder {
-    background: #2d2d2d;
-    border-color: #444;
+    background: #1e1e1e;
+    border-color: #555;
+    color: #ffffff;
   }
 
   .image-placeholder,
   .video-placeholder {
-    border-color: #444;
+    border-color: #555;
     color: #ccc;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .file-name {
+    color: #ffffff;
   }
 
   .file-size {
-    color: #aaa;
+    color: #bbb;
   }
 
   .redacted-message {

@@ -17,7 +17,14 @@ export function useMatrixEncryption () {
 
   // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
-  const needsLogin = computed(() => encryptionStatus.value?.state === 'needs_login')
+  const needsLogin = computed(() => {
+    // If user hasn't chosen to connect to Matrix yet, they need to "login" (connect)
+    if (!matrixClientManager.hasUserChosenToConnect()) {
+      return true
+    }
+    // Otherwise, check the encryption state
+    return encryptionStatus.value?.state === 'needs_login'
+  })
   const needsEncryptionSetup = computed(() => {
     const state = encryptionStatus.value?.state
     return state === 'needs_recovery_key' // Fresh setup with MAS

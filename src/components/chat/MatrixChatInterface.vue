@@ -28,16 +28,7 @@
                   <q-item-label caption>Fix authentication issues</q-item-label>
                 </q-item-section>
               </q-item>
-              <q-item clickable v-close-popup @click="reconnect">
-                <q-item-section avatar>
-                  <q-icon name="sym_r_refresh" />
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>Reconnect</q-item-label>
-                  <q-item-label caption>Retry connection</q-item-label>
-                </q-item-section>
-              </q-item>
-              <q-separator />
+              <!-- Reconnect option removed - handled by orchestrator -->
               <q-item clickable v-close-popup @click="checkEncryptionStatus">
                 <q-item-section avatar>
                   <q-icon name="sym_r_verified" />
@@ -75,27 +66,7 @@
       ref="messagesContainer"
       data-cy="messages-container"
     >
-      <!-- Connection Status -->
-      <div v-if="!isConnected" class="connection-status text-center q-pa-md">
-        <q-spinner v-if="isConnecting" size="24px" />
-        <div class="text-body2 text-grey-6 q-mt-sm">
-          {{ isConnecting ? 'Connecting to chat...' : getRoomStatusText() }}
-        </div>
-        <div v-if="hasOidcConfigError()" class="text-caption text-orange q-mt-sm">
-          Matrix chat server configuration issue. Please contact support.
-        </div>
-        <q-btn
-          v-if="!isConnecting && !hasOidcConfigError()"
-          :label="getConnectButtonLabel()"
-          color="primary"
-          outline
-          size="sm"
-          @click="reconnect"
-          :disable="isRateLimited()"
-          class="q-mt-sm"
-          data-cy="matrix-connect-button"
-        />
-      </div>
+      <!-- Connection Status removed - handled by MatrixNativeChatOrchestrator -->
 
       <!-- Historical Message Encryption Handler -->
       <HistoricalMessageHandler
@@ -891,32 +862,7 @@ const getRoomStatusText = (): string => {
   }
 }
 
-const isRateLimited = (): boolean => {
-  return rateLimitCountdown.value > 0
-}
-
-const getConnectButtonLabel = (): string => {
-  if (rateLimitCountdown.value > 0) {
-    const remainingMinutes = Math.ceil(rateLimitCountdown.value / 60000)
-    const remainingSeconds = Math.ceil((rateLimitCountdown.value % 60000) / 1000)
-    if (remainingMinutes > 1) {
-      return `Try again in ${remainingMinutes} min`
-    } else {
-      return `Try again in ${remainingSeconds}s`
-    }
-  }
-
-  // Check if this is a first-time setup
-  const needsSetup = !matrixClientManager.hasUserChosenToConnect() ||
-                     matrixClientManager.needsEncryptionSetup?.() || false
-
-  return needsSetup ? 'Set Up Secure Chat' : 'Connect'
-}
-
-const hasOidcConfigError = (): boolean => {
-  return lastAuthError.value.includes('OIDC authentication is not configured') ||
-         lastAuthError.value.includes('404')
-}
+// Connection functions removed - handled by MatrixNativeChatOrchestrator
 
 // formatTime function removed - unused
 
@@ -1386,180 +1332,6 @@ const updateReadReceipts = async () => {
     }
   } catch (error) {
     logger.warn('⚠️ Failed to update read receipts:', error)
-  }
-}
-
-const reconnect = async () => {
-  isConnecting.value = true
-
-  try {
-    // Attempting to reconnect Matrix client
-
-    // First try to refresh the Matrix token
-    try {
-      await matrixClientManager.refreshMatrixToken()
-      // Matrix token refreshed successfully
-    } catch (tokenError) {
-      logger.warn('⚠️ Token refresh failed, continuing with existing token:', tokenError)
-    }
-
-    // Check if Matrix client is already available and just needs to reconnect
-    if (matrixClientManager.isReady()) {
-      // Matrix client already ready
-      roomName.value = props.contextType === 'event' ? 'Event Chatroom' : props.contextType === 'group' ? 'Group Chatroom' : `${props.contextType} Chat`
-
-      // Reload messages if we have a room ID
-      if (props.roomId) {
-        await initializeTimeline()
-        await scrollToBottom()
-      }
-      return
-    }
-
-    // Try to restore from stored session (Element Web pattern)
-    const client = await matrixClientManager.initializeClient()
-    if (!client) {
-      // No stored session or restoration failed - user needs to connect
-      logger.debug('🔑 No stored session or restoration failed, showing connect button')
-      lastAuthError.value = 'Matrix connection required. Please click Connect to continue.'
-      isConnecting.value = false
-      return
-    }
-    // Matrix client connected successfully
-
-    // After successful Matrix connection, ensure we're invited to the chat room
-    if (props.contextType === 'event' && props.contextId) {
-      try {
-        // Joining event chat room
-        const result = await matrixClientManager.joinEventChatRoom(props.contextId)
-        // Event chat room joined successfully
-        // Force Matrix client to sync to pick up new invitation
-        await matrixClientManager.forceSyncAfterInvitation('event', props.contextId)
-        // Update current room to use the actual room ID from join result
-        if (result.room?.roomId) {
-          // Using actual room ID from join result
-          resolvedRoomId.value = result.room.roomId
-          // Load messages with the correct room ID
-          await initializeTimeline()
-        } else {
-          // Fallback: update current room state and load messages
-          await updateCurrentRoom()
-          await initializeTimeline()
-        }
-      } catch (error) {
-        logger.error('❌ EXCEPTION: Failed to join event chat room')
-        logger.error('❌ Error details:', error)
-        logger.error('❌ Error message:', error.message)
-
-        // Check if this is a Matrix authentication requirement error
-        const errorMessage = error.message || ''
-        if (errorMessage.includes('has not authenticated with Matrix') ||
-            errorMessage.includes('must complete Matrix authentication')) {
-          // User needs Matrix authentication
-          // Don't throw - this is a normal flow that requires authentication
-        } else {
-          // Other errors - log but don't break the connection
-          logger.warn('⚠️ Non-authentication error joining event chat room')
-        }
-      }
-    }
-
-    if (props.contextType === 'group' && props.contextId) {
-      try {
-        // Joining group chat room
-        const result = await matrixClientManager.joinGroupChatRoom(props.contextId)
-        // Group chat room joined successfully
-        // Force Matrix client to sync to pick up new invitation
-        await matrixClientManager.forceSyncAfterInvitation('group', props.contextId)
-        // Update current room to use the actual room ID from join result
-        if (result.room?.roomId) {
-          // Using actual room ID from join result
-          resolvedRoomId.value = result.room.roomId
-          // Load messages with the correct room ID
-          await initializeTimeline()
-        } else {
-          // Fallback: update current room state and load messages
-          await updateCurrentRoom()
-          await initializeTimeline()
-        }
-      } catch (error) {
-        logger.warn('⚠️ Failed to join group chat room (continuing anyway):', error)
-        // Don't throw - connection to Matrix itself succeeded
-      }
-    }
-
-    lastAuthError.value = '' // Clear any previous errors
-    roomName.value = `${props.contextType} Chat`
-
-    // Reload messages if we have a room ID
-    if (props.roomId) {
-      await initializeTimeline()
-      await scrollToBottom()
-    }
-  } catch (error: unknown) {
-    logger.error('❌ Failed to connect Matrix client:', error)
-
-    // Check for rate limiting error - handle both object and nested error formats
-    const errorObj = (error as Record<string, unknown>)
-    const nestedError = errorObj.errcode ? errorObj : (errorObj.data || errorObj)
-    const errorMessage = (error as Error).message
-
-    if ((nestedError as Record<string, unknown>).errcode === 'M_LIMIT_EXCEEDED' || (errorMessage && errorMessage.includes('Too Many Requests'))) {
-      // FIRST: Check if rate limit was already set by Matrix client service (most reliable)
-      const existingRetryTime = window.matrixRetryAfter
-      logger.warn('🔍 Rate limit detected - checking existing timer:', {
-        existingRetryTime,
-        currentTime: Date.now(),
-        hasValidExisting: !!(existingRetryTime && existingRetryTime > Date.now())
-      })
-
-      if (existingRetryTime && existingRetryTime > Date.now()) {
-        // Use the existing rate limit set by Matrix client service
-        const remainingMs = existingRetryTime - Date.now()
-        const remainingSeconds = Math.ceil(remainingMs / 1000)
-        logger.warn(`⚠️ Using Matrix client service rate limit - retry in ${remainingSeconds} seconds (${remainingMs}ms remaining)`)
-        rateLimitCountdown.value = remainingMs
-        startCountdownTimer()
-      } else {
-        // Fallback: try to extract retry_after_ms from the error
-        let retryAfterMs = (nestedError as Record<string, unknown>).retry_after_ms as number
-
-        // Check alternative locations for retry time
-        if (!retryAfterMs) {
-          retryAfterMs = (nestedError as Record<string, unknown>).retry_after as number
-        }
-        if (!retryAfterMs && (errorObj as { retry_after_ms?: number }).retry_after_ms) {
-          retryAfterMs = (errorObj as { retry_after_ms?: number }).retry_after_ms
-        }
-        if (!retryAfterMs && (errorObj as { data?: { retry_after_ms?: number } }).data?.retry_after_ms) {
-          retryAfterMs = (errorObj as { data?: { retry_after_ms?: number } }).data.retry_after_ms
-        }
-
-        if (retryAfterMs && retryAfterMs > 0) {
-          const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
-          logger.warn(`⚠️ Rate limited - extracted from error, retry in ${retryAfterSeconds} seconds (${retryAfterMs}ms)`)
-          window.matrixRetryAfter = Date.now() + retryAfterMs
-          rateLimitCountdown.value = retryAfterMs
-          startCountdownTimer()
-        } else {
-          logger.warn('⚠️ Rate limited - no retry time found anywhere, using 5 minute default')
-          window.matrixRetryAfter = Date.now() + 300000 // Default to 5 minutes
-          rateLimitCountdown.value = 300000
-          startCountdownTimer()
-        }
-      }
-    } else if (errorMessage && errorMessage.includes('OIDC authentication is not configured')) {
-      logger.warn('⚠️ Matrix OIDC is not configured on the server')
-      lastAuthError.value = errorMessage
-    } else if (errorMessage && errorMessage.includes('login token')) {
-      logger.warn('⚠️ Authentication failed - please refresh the page to re-authenticate')
-      lastAuthError.value = errorMessage
-    } else if (errorMessage && errorMessage.includes('credentials expired')) {
-      logger.warn('⚠️ Session expired - please refresh the page to re-authenticate')
-      lastAuthError.value = errorMessage
-    }
-  } finally {
-    isConnecting.value = false
   }
 }
 
