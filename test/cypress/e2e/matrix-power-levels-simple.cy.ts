@@ -43,9 +43,9 @@ describe('Matrix Power Level - Simple Test', () => {
   afterEach(() => {
     // Stop Matrix client to prevent hanging sync requests
     cy.window().then((win) => {
-      const matrixClientService = (win as typeof win & { matrixClientService?: unknown }).matrixClientService
-      if (matrixClientService) {
-        const client = (matrixClientService as { getClient: () => unknown }).getClient() as {
+      const matrixClientManager = (win as typeof win & { matrixClientManager?: unknown }).matrixClientManager
+      if (matrixClientManager) {
+        const client = (matrixClientManager as { getClient: () => unknown }).getClient() as {
           stopClient?: () => void
           logout?: () => Promise<unknown>
         } | null
@@ -305,8 +305,8 @@ describe('Matrix Power Level - Simple Test', () => {
 
     // Wait for Matrix client service to be available
     cy.window().should((win) => {
-      const matrixClientService = (win as typeof win & { matrixClientService?: unknown }).matrixClientService
-      if (!matrixClientService) {
+      const matrixClientManager = (win as typeof win & { matrixClientManager?: unknown }).matrixClientManager
+      if (!matrixClientManager) {
         throw new Error('Matrix client service not yet available')
       }
     })
@@ -321,9 +321,9 @@ describe('Matrix Power Level - Simple Test', () => {
     cy.wait(5000)
     
     cy.window().then((win) => {
-      const matrixClientService = (win as typeof win & { matrixClientService?: unknown }).matrixClientService
+      const matrixClientManager = (win as typeof win & { matrixClientManager?: unknown }).matrixClientManager
 
-      if (!matrixClientService) {
+      if (!matrixClientManager) {
         cy.log('⚠️ Matrix client service not accessible - checking if integration is working via UI')
         // If we can't access the client service, at least verify we're on the right page with Matrix features
         cy.contains('Successfully connected to Matrix chat').should('be.visible')
@@ -331,7 +331,7 @@ describe('Matrix Power Level - Simple Test', () => {
         return
       }
 
-      const client = (matrixClientService as { getClient: () => unknown }).getClient() as {
+      const client = (matrixClientManager as { getClient: () => unknown }).getClient() as {
         getUserId: () => string
         getRooms: () => Array<{
           roomId: string
@@ -415,13 +415,13 @@ describe('Matrix Power Level - Simple Test', () => {
     cy.log('🔄 Verifying Matrix client connection and functionality...')
 
     cy.window().then((win) => {
-      const matrixClientService = (win as typeof win & { matrixClientService?: unknown }).matrixClientService
+      const matrixClientManager = (win as typeof win & { matrixClientManager?: unknown }).matrixClientManager
 
-      if (!matrixClientService) {
+      if (!matrixClientManager) {
         throw new Error('Matrix client service not accessible')
       }
 
-      const client = (matrixClientService as { getClient: () => unknown }).getClient() as {
+      const client = (matrixClientManager as { getClient: () => unknown }).getClient() as {
         getUserId: () => string
         isLoggedIn: () => boolean
         getSyncState: () => string

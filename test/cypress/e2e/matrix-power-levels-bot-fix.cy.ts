@@ -133,36 +133,36 @@ describe('Matrix Power Levels Bot Fix', () => {
       }
     })
 
-    // Verify power levels by accessing Matrix client through exposed matrixClientService
+    // Verify power levels by accessing Matrix client through exposed matrixClientManager
     cy.window().then((win) => {
-      // Access Matrix client through matrixClientService (exposed in development)
-      const matrixClientService = (win as unknown as {
-        matrixClientService?: {
+      // Access Matrix client through matrixClientManager (exposed in development)
+      const matrixClientManager = (win as unknown as {
+        matrixClientManager?: {
           getClient: () => unknown
           isReady: () => boolean
         }
-      }).matrixClientService
+      }).matrixClientManager
 
-      if (!matrixClientService) {
-        cy.log('❌ matrixClientService not available in window')
+      if (!matrixClientManager) {
+        cy.log('❌ matrixClientManager not available in window')
 
         // Fall back to checking console errors as primary verification
         const errors = (win as unknown as { botNotInRoomErrors?: string[] }).botNotInRoomErrors || []
         expect(errors, 'No "bot not in room" errors should occur').to.have.length(0)
         cy.log('✅ Primary test passed: No bot room membership errors occurred')
-        cy.log('⚠️ Could not verify detailed power levels - matrixClientService not available')
+        cy.log('⚠️ Could not verify detailed power levels - matrixClientManager not available')
         return
       }
 
-      cy.log('✅ Found matrixClientService, checking if Matrix client is ready')
+      cy.log('✅ Found matrixClientManager, checking if Matrix client is ready')
 
-      const isReady = matrixClientService.isReady()
+      const isReady = matrixClientManager.isReady()
       cy.log(`📊 Matrix client ready: ${isReady}`)
 
-      const client = matrixClientService.getClient()
+      const client = matrixClientManager.getClient()
 
       if (!client) {
-        cy.log('❌ Matrix client not available from matrixClientService')
+        cy.log('❌ Matrix client not available from matrixClientManager')
 
         // Fall back to checking console errors as primary verification
         const errors = (win as unknown as { botNotInRoomErrors?: string[] }).botNotInRoomErrors || []
@@ -417,19 +417,19 @@ describe('Matrix Power Levels Bot Fix', () => {
               cy.log('🔍 Verifying Matrix power levels after role change...')
 
               // Re-access Matrix client to check updated power levels
-              const matrixClientService = (win as unknown as {
-                matrixClientService?: {
+              const matrixClientManager = (win as unknown as {
+                matrixClientManager?: {
                   getClient: () => unknown
                   isReady: () => boolean
                 }
-              }).matrixClientService
+              }).matrixClientManager
 
-              if (!matrixClientService) {
+              if (!matrixClientManager) {
                 cy.log('⚠️ Matrix client service not available for role verification')
                 return
               }
 
-              const client = matrixClientService.getClient()
+              const client = matrixClientManager.getClient()
               if (!client) {
                 cy.log('⚠️ Matrix client not available for role verification')
                 return
