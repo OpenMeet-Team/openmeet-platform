@@ -6,6 +6,7 @@ import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { matrixTokenManager } from './MatrixTokenManager'
+import { PlatformTokenRefresher } from './PlatformTokenRefresher'
 // Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 import { matrixDeviceListener } from './MatrixDeviceListener'
@@ -1119,12 +1120,23 @@ export class MatrixClientManager {
           })
         }
 
-        // Use MatrixTokenManager's refresh function for Matrix SDK
-        // CRITICAL: SDK needs refreshToken to know it should attempt refresh
-        // Our tokenRefreshFunction will override the built-in behavior
+        // Use SDK's OidcTokenRefresher following Element Web pattern
+        // This eliminates manual token refresh and ensures proper client token state management
+        const tokenRefresher = new PlatformTokenRefresher(
+          credentials.oidcIssuer,
+          credentials.oidcClientId,
+          credentials.oidcRedirectUri || getEnv('APP_BASE_URL') as string,
+          deviceId,
+          credentials.idTokenClaims || {} as IdTokenClaims,
+          userId
+        )
+
+        // Wait for the OIDC client to initialize
+        await tokenRefresher.oidcClientReady
+
         clientOptions.refreshToken = credentials.refreshToken
-        clientOptions.tokenRefreshFunction = matrixTokenManager.getTokenRefreshFunction(userId)
-        logger.debug('🔑 Matrix client configured with unified MatrixTokenManager')
+        clientOptions.tokenRefreshFunction = tokenRefresher.doRefreshAccessToken.bind(tokenRefresher)
+        logger.debug('🔑 Matrix client configured with SDK PlatformTokenRefresher')
         logger.debug('🔧 tokenRefreshFunction set to:', typeof clientOptions.tokenRefreshFunction)
       } else if (credentials.refreshToken) {
         // Fallback: We have refresh token but missing OIDC config
