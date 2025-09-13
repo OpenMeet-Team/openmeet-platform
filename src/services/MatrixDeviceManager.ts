@@ -8,10 +8,7 @@
  * - Device verification utilities
  * - Trust management and persistence
  *
- * This service replaces:
- * - MatrixDeviceVerificationService
- * - Original MatrixDeviceManager
- * - deviceVerificationHelper utilities
+ * This service consolidates all Matrix device management functionality.
  */
 
 import type { MatrixClient, MatrixEvent } from 'matrix-js-sdk'
@@ -1872,7 +1869,7 @@ export class MatrixDeviceManager {
   }
 }
 
-// Add to window for easy access in browser console (from deviceVerificationHelper)
+// Add to window for easy access in browser console
 if (typeof window !== 'undefined') {
   (window as Window & { deviceVerification?: Record<string, unknown> }).deviceVerification = {
     test: async () => {
