@@ -1,0 +1,25 @@
+{
+  "APP_TENANT_DESCRIPTION": "Openmeet is a billionaire-proof platform for sharing events and creating communities. Let's get together more.",
+  "APP_TENANT_NAME": "OpenMeet",
+  "APP_TENANT_IMAGE": "/openmeet/openmeet-logo.png",
+
+  "APP_API_URL": "https://om-api.ngrok.app",
+  "APP_MATRIX_HOMESERVER_URL": "https://om-matrix.ngrok.app",
+  "APP_MATRIX_SERVER_NAME": "matrix.openmeet.net",
+  "APP_MAS_URL": "https://om-mas.ngrok.app",
+  "APP_MAS_SCOPES": "openid urn:matrix:org.matrix.msc2967.client:api:*",
+  "APP_MAS_REDIRECT_PATH": "/auth/matrix/callback",
+  "APP_TENANT_ID_ALT": "oiupsdknasfdf",
+  "APP_TENANT_ID": "lsdfaopkljdfs",
+  "NODE_ENV": "development",
+  "APP_HUBSPOT_PORTAL_ID": "47380304",
+  "APP_HUBSPOT_FORM_ID": "7aa8f331-96a9-48ec-a787-0c894dc5f85e",
+
+  "frontendDomain": "https://om-platform.ngrok.app",
+  "companyDomain": "https://openmeet.net",
+  "logoUrl": "https://om-platform.ngrok.app/openmeet/openmeet-logo.png",
+  "mailDefaultEmail": "noreply@openmeet.net",
+  "mailDefaultName": "OpenMeet",
+  "APP_GOOGLE_CLIENT_ID": "721803341071-dpuqf93q2am0r430vqmifhuf6brcj1g2.apps.googleusercontent.com",
+  "APP_GITHUB_CLIENT_ID": "Ov23li54Pi2QcT3YZ5eT"
+}
