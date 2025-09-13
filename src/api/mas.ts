@@ -79,7 +79,7 @@ export const masApi = {
     const masBaseUrl = getEnv('APP_MAS_URL') as string
 
     // Debug: log the userId being sent to MAS
-    console.log('🔐 MAS allowCrossSigningReset called with userId:', userId)
+    logger.debug('🔐 MAS allowCrossSigningReset called with userId:', userId)
 
     const graphqlQuery = {
       query: `

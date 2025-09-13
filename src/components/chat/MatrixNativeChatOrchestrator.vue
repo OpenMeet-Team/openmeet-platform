@@ -401,7 +401,7 @@ const debugState = computed(() => {
 
 // Log debug state when it changes
 watch(debugState, (newState) => {
-  console.log('🔍 Encryption state debug:', newState)
+  logger.debug('🔍 Encryption state debug:', newState)
 }, { deep: true })
 
 // Watch for room ID changes and update encryption state accordingly

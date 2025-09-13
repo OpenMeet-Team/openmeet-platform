@@ -1309,19 +1309,16 @@ const onSetupCrossSigning = async () => {
       reset: () => encryptionService.resetEncryption(),
       unlockWithRecoveryKey: async (recoveryKey: string) => {
         // Helper to unlock and set up encryption using recovery key
-        console.log('Setting up encryption with recovery key...')
+        logger.debug('Setting up encryption with recovery key...')
         const result = await encryptionService.setupEncryption(recoveryKey)
-        console.log('Setup result:', result)
+        logger.debug('Setup result:', result)
         return result
       }
     }
 
-    console.log('🔧 Setting up encryption (Element Web style)...')
-    console.log('Debug available at: window.encryptionDebug')
-
     // First check current status
     const statusBefore = await encryptionService.getStatus()
-    console.log('Status before setup:', statusBefore)
+    logger.debug('Status before setup:', statusBefore)
 
     // This function appears to be a debug/testing function, so we'll just show the status
     const result: { success: boolean; message: string; error?: string } = { success: true, message: 'Use the UI or debug functions to set up encryption' }
@@ -1331,7 +1328,7 @@ const onSetupCrossSigning = async () => {
 
       // Check status after
       const statusAfter = await encryptionService.getStatus()
-      console.log('Status after setup:', statusAfter)
+      logger.debug('Status after setup:', statusAfter)
 
       await onRefreshDevices()
     } else {
@@ -1339,7 +1336,7 @@ const onSetupCrossSigning = async () => {
 
       // Debug the failure
       const debugInfo = await encryptionService.getDebugInfo()
-      console.log('Debug info for failure:', debugInfo)
+      logger.debug('Debug info for failure:', debugInfo)
     }
   } catch (err) {
     console.error('Failed to setup cross-signing:', err)

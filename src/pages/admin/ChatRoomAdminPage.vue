@@ -231,7 +231,7 @@ async function deleteEventRoom () {
 
     // Ensure Matrix client is connected
     if (!matrixClientManager.isReady()) {
-      console.log('⚠️ Matrix client not ready')
+      logger.warn('⚠️ Matrix client not ready')
       return
     }
 
@@ -341,7 +341,7 @@ async function deleteGroupRoom () {
 
     // Ensure Matrix client is connected
     if (!matrixClientManager.isReady()) {
-      console.log('⚠️ Matrix client not ready')
+      logger.warn('⚠️ Matrix client not ready')
       return
     }
 
