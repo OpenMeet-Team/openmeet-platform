@@ -1062,7 +1062,7 @@ export class MatrixClientManager {
         }
       }
 
-      // Add refresh token support with Element Web-style TokenRefresher pattern
+      // Add refresh token support with unified MatrixTokenManager pattern
       logger.debug('🔍 DEBUG: Token refresh setup check:', {
         hasRefreshToken: !!credentials.refreshToken,
         hasOidcIssuer: !!credentials.oidcIssuer,
@@ -1073,7 +1073,7 @@ export class MatrixClientManager {
       })
 
       if (credentials.refreshToken && credentials.oidcIssuer && credentials.oidcClientId) {
-        logger.debug('🔑 Creating TokenRefresher for OIDC token management', {
+        logger.debug('🔑 Configuring MatrixTokenManager for OIDC token management', {
           hasRefreshToken: !!credentials.refreshToken,
           oidcIssuer: credentials.oidcIssuer,
           oidcClientId: credentials.oidcClientId,
@@ -1228,36 +1228,12 @@ export class MatrixClientManager {
         })
       }
 
-      // Store credentials to localStorage for session persistence (CRITICAL for token refresh)
-      logger.debug('💾 Storing credentials to localStorage for session persistence')
-      logger.debug('🔍 DEBUG: Credentials being stored:', {
-        hasRefreshToken: !!credentials.refreshToken,
-        hasOidcIssuer: !!credentials.oidcIssuer,
-        hasOidcClientId: !!credentials.oidcClientId,
-        refreshToken: credentials.refreshToken,
-        oidcIssuer: credentials.oidcIssuer,
-        oidcClientId: credentials.oidcClientId
-      })
-
-      // Get current OpenMeet user for user-specific storage keys (multi-user support)
-      const openMeetUserSlug = authStore.getUserSlug
-      const storageUserId = openMeetUserSlug || credentials.userId
-
-      // Store basic session data (not tokens - those go in MatrixTokenManager)
-      const sessionKey = `matrix_session_${storageUserId}`
-      const sessionData = {
-        homeserverUrl: credentials.homeserverUrl,
-        userId: credentials.userId,
-        deviceId,
-        timestamp: Date.now(),
-        hasSession: true,
-        openMeetUserSlug
-      }
-      localStorage.setItem(sessionKey, JSON.stringify(sessionData))
+      // Store basic session metadata (tokens are handled by MatrixTokenManager)
+      logger.debug('💾 Storing session metadata to localStorage')
       localStorage.setItem('matrix_user_id', credentials.userId)
       localStorage.setItem('matrix_device_id', deviceId)
 
-      // OIDC metadata and tokens are now stored in MatrixTokenManager
+      // All tokens and OIDC metadata are now stored in MatrixTokenManager
 
       return this.client
     } catch (error: unknown) {
@@ -3054,14 +3030,14 @@ export class MatrixClientManager {
 
       logger.debug('🔐 Retrieved user info from Matrix server:', { userId: userInfo.user_id, deviceId: userInfo.device_id })
 
-      // Extract credentials with proper user and device IDs + OIDC metadata for TokenRefresher
+      // Extract credentials with proper user and device IDs + OIDC metadata for MatrixTokenManager
       const credentials = {
         homeserverUrl: result.homeserverUrl,
         accessToken: result.tokenResponse.access_token,
         userId: userInfo.user_id,
         deviceId: userInfo.device_id,
         refreshToken: result.tokenResponse.refresh_token,
-        // Include OIDC metadata for proper TokenRefresher configuration
+        // Include OIDC metadata for proper MatrixTokenManager configuration
         oidcIssuer: result.oidcClientSettings?.issuer,
         oidcClientId: result.oidcClientSettings?.clientId,
         oidcRedirectUri: `${window.location.origin}${getEnv('APP_MAS_REDIRECT_PATH')}`,

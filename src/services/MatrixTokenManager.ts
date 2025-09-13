@@ -127,22 +127,28 @@ class MatrixTokenManager {
       })
 
       // Get existing data to preserve non-token information
-      const existingData = await this.getTokens(userId) || {}
+      const existingData = await this.getTokens(userId)
 
       const tokenData: TokenData = {
-        ...existingData,
+        // Start with existing data as base
+        ...(existingData || {}),
         // Add non-token data from additionalData (excluding tokens)
         ...(additionalData && Object.fromEntries(
           Object.entries(additionalData).filter(([key]) =>
             !['accessToken', 'refreshToken', 'expiry'].includes(key)
           )
         )),
+        // Always set these core fields
         userId,
         lastRefresh: Date.now(),
-        // Only store non-empty tokens (these must come LAST to avoid being overwritten)
-        ...(tokens.accessToken && tokens.accessToken.trim() !== '' && { accessToken: tokens.accessToken }),
-        ...(tokens.refreshToken && tokens.refreshToken.trim() !== '' && { refreshToken: tokens.refreshToken }),
-        ...(tokens.expiry && { expiry: tokens.expiry })
+        // Update tokens: preserve existing tokens if new ones are empty, otherwise use new ones
+        accessToken: (tokens.accessToken && tokens.accessToken.trim() !== '')
+          ? tokens.accessToken
+          : existingData?.accessToken,
+        refreshToken: (tokens.refreshToken && tokens.refreshToken.trim() !== '')
+          ? tokens.refreshToken
+          : existingData?.refreshToken,
+        expiry: tokens.expiry || existingData?.expiry
       }
 
       localStorage.setItem(storageKey, JSON.stringify(tokenData))
@@ -178,63 +184,6 @@ class MatrixTokenManager {
   }
 
   // === REFRESH OPERATIONS ===
-
-  /**
-   * Refresh tokens for a user (with mutex to prevent concurrent refreshes)
-   */
-  async refreshTokens (userId: string): Promise<AccessTokens> {
-    // Check if refresh is already in progress for this user
-    const existingRefresh = this.refreshMutexes.get(userId)
-    if (existingRefresh) {
-      logger.debug('🔄 Refresh already in progress for user, waiting...', userId)
-      return await existingRefresh
-    }
-
-    // Start new refresh with mutex
-    const refreshPromise = this.doRefreshTokens(userId)
-    this.refreshMutexes.set(userId, refreshPromise)
-
-    try {
-      const result = await refreshPromise
-      return result
-    } finally {
-      // Always clean up mutex
-      this.refreshMutexes.delete(userId)
-    }
-  }
-
-  /**
-   * Internal method to perform the actual token refresh
-   */
-  private async doRefreshTokens (userId: string): Promise<AccessTokens> {
-    logger.debug('🔄 Starting token refresh for user:', userId)
-
-    try {
-      // Get current token data
-      const tokenData = await this.getTokens(userId)
-      if (!tokenData?.refreshToken) {
-        throw new Error('No refresh token available for user: ' + userId)
-      }
-
-      // Perform OIDC refresh
-      const newTokens = await this.performOidcRefresh(tokenData.refreshToken, tokenData)
-
-      // Store new tokens immediately
-      await this.setTokens(userId, newTokens, {
-        deviceId: tokenData.deviceId,
-        oidcIssuer: tokenData.oidcIssuer,
-        oidcClientId: tokenData.oidcClientId,
-        oidcRedirectUri: tokenData.oidcRedirectUri,
-        idTokenClaims: tokenData.idTokenClaims
-      })
-
-      logger.debug('✅ Token refresh completed successfully for user:', userId)
-      return newTokens
-    } catch (error) {
-      logger.error('❌ Token refresh failed for user:', userId, error)
-      throw error
-    }
-  }
 
   /**
    * Perform OIDC token refresh using the refresh token
@@ -348,7 +297,16 @@ class MatrixTokenManager {
     const timer = setTimeout(async () => {
       try {
         logger.debug('🔄 Proactive token refresh triggered for user:', userId)
-        await this.refreshTokens(userId)
+
+        // Get the refresh function and call it with current refresh token
+        const refreshFunction = this.getTokenRefreshFunction(userId)
+        const currentTokenData = await this.getTokens(userId)
+
+        if (currentTokenData?.refreshToken) {
+          await refreshFunction(currentTokenData.refreshToken)
+        } else {
+          logger.warn('⚠️ Proactive refresh skipped - no refresh token available')
+        }
       } catch (error) {
         logger.error('❌ Proactive token refresh failed for user:', userId, error)
       } finally {
@@ -362,19 +320,39 @@ class MatrixTokenManager {
   // === MATRIX SDK INTEGRATION ===
 
   /**
-   * Get a token refresh function for the Matrix SDK
+   * Get a token refresh function for the Matrix SDK (Element Web pattern)
+   * This is the function passed to Matrix SDK as tokenRefreshFunction
    */
   getTokenRefreshFunction (userId: string): (refreshToken: string) => Promise<AccessTokens> {
-    return async (refreshToken: string): Promise<AccessTokens> => {
+    return async (sdkProvidedRefreshToken: string): Promise<AccessTokens> => {
       logger.debug('🔄 Matrix SDK requested token refresh for user:', userId, {
-        sdkProvidedToken: refreshToken.substring(0, 10) + '...'
+        sdkProvidedToken: sdkProvidedRefreshToken.substring(0, 10) + '...'
       })
 
       try {
-        // Use our centralized refresh logic (ignores SDK-provided token in favor of current stored token)
-        const newTokens = await this.refreshTokens(userId)
+        // Get current stored tokens and OIDC config
+        const tokenData = await this.getTokens(userId)
+        if (!tokenData?.refreshToken || !tokenData?.oidcIssuer || !tokenData?.oidcClientId) {
+          throw new Error(`Missing OIDC config or refresh token for user: ${userId}`)
+        }
 
-        logger.debug('✅ Matrix SDK token refresh completed for user:', userId)
+        // Perform OIDC refresh with our stored refresh token (not SDK provided one)
+        const newTokens = await this.performOidcRefresh(tokenData.refreshToken, tokenData)
+
+        // Store the new tokens immediately (this updates both access and refresh tokens)
+        await this.setTokens(userId, newTokens, {
+          deviceId: tokenData.deviceId,
+          oidcIssuer: tokenData.oidcIssuer,
+          oidcClientId: tokenData.oidcClientId,
+          oidcRedirectUri: tokenData.oidcRedirectUri,
+          idTokenClaims: tokenData.idTokenClaims
+        })
+
+        logger.debug('✅ Matrix SDK token refresh completed successfully for user:', userId, {
+          hasNewAccessToken: !!newTokens.accessToken,
+          hasNewRefreshToken: !!newTokens.refreshToken
+        })
+
         return newTokens
       } catch (error) {
         logger.error('❌ Matrix SDK token refresh failed for user:', userId, error)
