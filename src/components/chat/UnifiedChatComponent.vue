@@ -195,14 +195,6 @@
           <q-icon name="fas fa-comments" class="q-mr-sm" />
           <div class="text-subtitle1">Discussion</div>
           <q-space />
-          <q-btn
-            v-if="canOpenFullscreen"
-            icon="fullscreen"
-            flat
-            round
-            size="sm"
-            @click="openFullscreen"
-          />
         </div>
       </div>
       <MatrixChatInterface
@@ -218,7 +210,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
@@ -277,7 +269,7 @@ const encryptionStatus = ref({
   canDecryptHistory: false
 })
 
-const router = useRouter()
+// const router = useRouter() // DISABLED - not used since dashboard chats is disabled
 const route = useRoute()
 const $q = useQuasar()
 
@@ -329,14 +321,6 @@ onUnmounted(() => {
 const selectChat = (chat: Chat) => {
   activeChat.value = chat
   // Selected chat
-
-  // Update URL if in dashboard mode
-  if (props.mode === 'dashboard') {
-    router.push({
-      name: 'DashboardChatsPage',
-      query: { chat: chat.id }
-    })
-  }
 }
 
 const selectChatMobile = (chat: Chat) => {
@@ -350,16 +334,6 @@ const selectChatMobile = (chat: Chat) => {
   if ($q.screen.lt.sm) {
     leftDrawerOpen.value = false
   }
-}
-
-const openFullscreen = () => {
-  router.push({
-    name: 'DashboardChatsPage',
-    query: {
-      chat: props.inlineRoomId,
-      return: router.currentRoute.value.fullPath
-    }
-  })
 }
 
 const getChatColor = (chat: Chat): string => {

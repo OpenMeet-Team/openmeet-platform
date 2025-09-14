@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useGroupStore } from '../../stores/group-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { GroupPermission } from '../../types'
@@ -11,8 +10,6 @@ import { generateGroupRoomAlias } from '../../utils/matrixUtils'
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
-const router = useRouter()
-
 const group = computed(() => groupStore.group)
 
 // Get the Matrix room ID from the group - similar to event logic
@@ -64,65 +61,7 @@ const isGroupMember = computed(() => {
 // Group chat initialization is now handled internally by MatrixChatInterface
 
 // Handle expand event to navigate to chats page with focus on current room
-const handleExpandChat = async () => {
-  let actualRoomId = null
-
-  // First priority: get the actual Matrix room ID from the client
-  try {
-    const { matrixClientManager } = await import('../../services/MatrixClientManager')
-    const client = matrixClientManager.getClient()
-
-    if (client && matrixRoomId.value) {
-      if (matrixRoomId.value.startsWith('#')) {
-        // Resolve room alias to actual room ID
-        try {
-          const room = client.getRoom(matrixRoomId.value)
-          if (room?.roomId) {
-            actualRoomId = room.roomId
-            console.log(`🔗 Resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
-          } else {
-            // Try Matrix API resolution if local lookup fails
-            const roomDirectory = await client.getRoomIdForAlias(matrixRoomId.value)
-            if (roomDirectory?.room_id) {
-              actualRoomId = roomDirectory.room_id
-              console.log(`🔗 API resolved room alias ${matrixRoomId.value} to room ID ${actualRoomId}`)
-            }
-          }
-        } catch (error) {
-          console.log('Could not resolve room alias to room ID:', error)
-        }
-      } else if (matrixRoomId.value.startsWith('!')) {
-        // Already have the room ID
-        actualRoomId = matrixRoomId.value
-        console.log(`🔗 Using existing room ID: ${actualRoomId}`)
-      }
-    }
-  } catch (error) {
-    console.log('Could not access Matrix client for room ID resolution:', error)
-  }
-
-  // Build the chat ID using the actual room ID if we have it
-  let chatId = ''
-  if (actualRoomId) {
-    chatId = actualRoomId
-  } else if (matrixRoomId.value) {
-    // Fallback to using the original room identifier
-    chatId = matrixRoomId.value
-  } else if (group.value?.slug) {
-    // Last resort: use group slug
-    chatId = `group-${group.value.slug}`
-  }
-
-  console.log(`🔗 Navigating to chats with chat ID: ${chatId} (actual room ID: ${actualRoomId || 'none'})`)
-
-  router.push({
-    name: 'DashboardChatsPage',
-    query: {
-      chat: chatId,
-      return: router.currentRoute.value.fullPath
-    }
-  })
-}
+const handleExpandChat = () => {}
 
 // Simplified - MatrixChatInterface handles all initialization internally
 onMounted(() => {

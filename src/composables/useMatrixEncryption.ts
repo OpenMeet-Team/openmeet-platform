@@ -14,16 +14,45 @@ export function useMatrixEncryption () {
   const encryptionStatus = ref<MatrixEncryptionStatus | null>(null)
   const isLoading = ref(false)
   const currentRoomId = ref<string | null>(null)
+  // Reactive client readiness state (updated by Matrix client events)
+  const clientReadiness = ref(0) // Increment to trigger reactivity
 
   // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
   const needsLogin = computed(() => {
-    // If we don't have encryption status yet, we need to connect/login first
-    if (encryptionStatus.value === null) {
+    // Access clientReadiness to make this computed reactive to Matrix client events
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = clientReadiness.value // This triggers reactivity when events fire
+
+    // Check Matrix client connection directly
+    // For basic "Connect to Matrix" flow, we only need client + logged in
+    // Don't require full sync state (isReady) as that's for actual chat operations
+    const client = matrixClientManager.getClient()
+    const hasConnection = client && client.isLoggedIn()
+
+    logger.debug('useMatrixEncryption.needsLogin() computed evaluation:', {
+      hasClient: !!client,
+      isLoggedIn: client?.isLoggedIn(),
+      hasConnection,
+      encryptionState: encryptionStatus.value?.state
+    })
+
+    // If we have no connection, definitely need login
+    if (!hasConnection) {
+      logger.debug('useMatrixEncryption.needsLogin(): has no connection, show connect screen')
       return true
     }
-    // Otherwise, check if the encryption state specifically requires login
-    return encryptionStatus.value?.state === 'needs_login'
+
+    // If we have connection but encryption status says we need login, respect that
+    // (This preserves any encryption-specific login requirements)
+    if (encryptionStatus.value?.state === 'needs_login') {
+      logger.debug('useMatrixEncryption.needsLogin(): has encryption state "needs login", show connect screen')
+      return true
+    }
+
+    // Otherwise, we don't need login
+    logger.debug('useMatrixEncryption.needsLogin(): is logged in, show chat interface')
+    return false
   })
   const needsEncryptionSetup = computed(() => {
     const state = encryptionStatus.value?.state
@@ -209,12 +238,16 @@ export function useMatrixEncryption () {
   // Matrix client event handlers
   const handleMatrixReady = () => {
     logger.debug('Matrix client ready, checking encryption state')
+    // Trigger reactivity for needsLogin computed
+    clientReadiness.value++
     // Use current room ID if available
     checkEncryptionState(currentRoomId.value || undefined)
   }
 
   const handleMatrixSync = () => {
     logger.debug('Matrix sync complete, checking encryption state')
+    // Trigger reactivity for needsLogin computed
+    clientReadiness.value++
     // Use current room ID if available
     checkEncryptionState(currentRoomId.value || undefined)
   }

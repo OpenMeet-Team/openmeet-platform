@@ -50,12 +50,6 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-btn
-          icon="sym_r_open_in_new"
-          flat
-          round
-          @click="$emit('expand')"
-        />
       </div>
     </div>
 

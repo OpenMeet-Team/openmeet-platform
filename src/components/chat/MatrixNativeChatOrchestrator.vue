@@ -448,6 +448,15 @@ const connectToMatrix = async () => {
       }
 
       logger.debug('✅ Matrix connected - ready for unencrypted chat')
+
+      // Force reactivity update by checking needsLogin state
+      logger.debug('🔍 Post-connection state:', {
+        needsLogin: needsLogin.value,
+        hasClient: !!matrixClientManager.getClient(),
+        isLoggedIn: matrixClientManager.getClient()?.isLoggedIn(),
+        isReady: matrixClientManager.isReady(),
+        encryptionState: typedEncryptionStatus.value?.state
+      })
     }
   } catch (error) {
     logger.error('Failed to connect to Matrix:', error)
