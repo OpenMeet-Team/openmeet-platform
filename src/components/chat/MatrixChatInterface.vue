@@ -1019,8 +1019,9 @@ const showChatHelp = () => {
         <p><strong>How to connect:</strong></p>
         <ol>
           <li>Download and install any Matrix/Element client</li>
-          <li><strong>Set the homeserver to:</strong> <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">${homeserverUrl}</code></li>
+          <li><strong>Set the homeserver to:</strong> <code style="padding: 2px 4px; border-radius: 3px;">${homeserverUrl}</code></li>
           <li><strong>Sign in using your OpenMeet credentials</strong> (same username/email and password you use for OpenMeet)</li>
+          <li><strong>Verify your new device using your recovery</strong> key if you have generated one</li>
           <li>Look for your event/group chatrooms in the room list</li>
         </ol>
 
