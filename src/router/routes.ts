@@ -85,7 +85,6 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       { path: 'profile', name: 'DashboardProfilePage', component: () => import('pages/dashboard/ProfilePage.vue') },
-      { path: 'chats', name: 'DashboardChatsPage', component: () => import('pages/dashboard/ChatsPage.vue') },
       { path: 'calendar-demo', name: 'CalendarDemoPage', component: () => import('pages/dashboard/CalendarDemoPage.vue') }
     ],
     meta: { requiresAuth: true }
