@@ -66,7 +66,7 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { GroupPermission, GroupRole } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 
 const route = useRoute()
@@ -115,7 +115,7 @@ onMounted(async () => {
 
         if (userSlug) {
           logger.debug(`Joining chat room for group ${groupSlug} with user ${userSlug} using Matrix-native approach`)
-          const joinResult = await matrixClientService.joinGroupChatRoom(groupSlug)
+          const joinResult = await matrixClientManager.joinGroupChatRoom(groupSlug)
           logger.debug('Group chat room join result:', joinResult.roomInfo)
 
           if (joinResult.room?.roomId) {

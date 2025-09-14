@@ -23,7 +23,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useSocialAuthError } from '../../composables/useSocialAuthError'
 import SocialAuthError from '../../components/auth/SocialAuthError.vue'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,7 +52,7 @@ const handleCallback = async () => {
 
     // Complete Matrix authentication using the authorization code
     // State validation is now handled by the native matrix-js-sdk
-    await matrixClientService.completeOAuthLogin(code, returnedState)
+    await matrixClientManager.completeOAuthLogin(code, returnedState)
 
     // The native SDK cleans up its own state storage
 

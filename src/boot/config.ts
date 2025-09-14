@@ -1,4 +1,5 @@
 import { boot } from 'quasar/wrappers'
+
 export default boot(async () => {
   try {
     const response = await fetch('/config.json')

@@ -64,6 +64,39 @@
                     <div class="text-subtitle2">{{ activeChat.name }}</div>
                     <div class="text-caption">{{ getChatSubtitle(activeChat) }}</div>
                   </div>
+
+                  <!-- Encryption Status Indicator -->
+                  <q-chip
+                    v-if="encryptionStatus.isReady"
+                    size="sm"
+                    color="green"
+                    text-color="white"
+                    icon="lock"
+                    class="q-mr-sm"
+                  >
+                    Encrypted
+                  </q-chip>
+                  <q-chip
+                    v-else-if="encryptionStatus.needsSetup"
+                    size="sm"
+                    color="orange"
+                    text-color="white"
+                    icon="hourglass_empty"
+                    class="q-mr-sm"
+                  >
+                    Loading...
+                  </q-chip>
+                  <q-chip
+                    v-else-if="!encryptionStatus.hasSecretStorage"
+                    size="sm"
+                    color="grey-6"
+                    text-color="white"
+                    icon="info"
+                    class="q-mr-sm"
+                  >
+                    Setup Needed
+                  </q-chip>
+
                   <q-btn
                     flat
                     dense
@@ -184,10 +217,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
+import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import ChatListPanel from './ChatListPanel.vue'
 import ChatInfoPanel from './ChatInfoPanel.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
@@ -232,23 +266,63 @@ const props = withDefaults(defineProps<Props>(), {
 const leftDrawerOpen = ref(false)
 const rightDrawerOpen = ref(false)
 const activeChat = ref<Chat | null>(null)
+
+// Encryption status tracking
+const encryptionStatus = ref({
+  isReady: false,
+  needsSetup: true,
+  hasSecretStorage: false,
+  hasCrossSigningKeys: false,
+  deviceVerified: false,
+  canDecryptHistory: false
+})
+
 const router = useRouter()
 const route = useRoute()
 const $q = useQuasar()
 
+// Encryption event handlers
+const updateEncryptionStatus = async () => {
+  encryptionStatus.value = await matrixEncryptionService.getEncryptionStatus()
+}
+
+const handleEncryptionReady = () => {
+  logger.debug('🔐 Encryption is now ready')
+  updateEncryptionStatus()
+}
+
+const handleEncryptionFailed = (event: CustomEvent) => {
+  logger.debug('⚠️ Encryption initialization failed:', event.detail)
+  updateEncryptionStatus()
+}
+
 // Initialize Matrix on component mount
 onMounted(async () => {
   try {
-    // Only initialize if user has already chosen to connect to Matrix
-    // (The ChatSetupOrchestrator handles the initial setup flow for dashboard mode)
-    if (!matrixClientService.hasUserChosenToConnect()) {
-      // User has not chosen to connect to Matrix - skipping initialization
+    // Try to initialize if Matrix client is available
+    // (The MatrixNativeChatOrchestrator handles the initial setup flow when client isn't ready)
+    if (!matrixClientManager.isReady()) {
+      logger.warn('⚠️ Matrix client not ready and no credentials to initialize')
       return
     }
-    await matrixClientService.initializeClient()
+
+    // Start background encryption initialization (non-blocking)
+    logger.debug('🔐 Starting background encryption initialization...')
+    matrixEncryptionService.initializeEncryptionBackground()
+    updateEncryptionStatus()
   } catch (error) {
     logger.error('Failed to initialize Matrix:', error)
   }
+
+  // Set up encryption status listeners
+  window.addEventListener('matrix-encryption-ready', handleEncryptionReady)
+  window.addEventListener('matrix-encryption-failed', handleEncryptionFailed)
+})
+
+onUnmounted(() => {
+  // Clean up event listeners
+  window.removeEventListener('matrix-encryption-ready', handleEncryptionReady)
+  window.removeEventListener('matrix-encryption-failed', handleEncryptionFailed)
 })
 
 // Methods
@@ -376,8 +450,8 @@ const attemptAutoSelection = async () => {
   // Strategy 3: Room alias resolution using Matrix client
   if (!targetElement && roomIdentifier.startsWith('#')) {
     try {
-      const { matrixClientService } = await import('../../services/matrixClientService')
-      const client = await matrixClientService.getClient()
+      const { matrixClientManager } = await import('../../services/MatrixClientManager')
+      const client = await matrixClientManager.getClient()
       if (client) {
         let resolvedRoomId = null
 
@@ -416,8 +490,8 @@ const attemptAutoSelection = async () => {
   // Strategy 4: Reverse lookup - if we have a room ID, try to find by alias
   if (!targetElement && roomIdentifier.startsWith('!')) {
     try {
-      const { matrixClientService } = await import('../../services/matrixClientService')
-      const client = await matrixClientService.getClient()
+      const { matrixClientManager } = await import('../../services/MatrixClientManager')
+      const client = await matrixClientManager.getClient()
       if (client) {
         const room = client.getRoom(roomIdentifier)
         if (room) {

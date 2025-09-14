@@ -99,8 +99,8 @@ describe('Matrix Tenant-Specific Bot Authentication', () => {
 
     // Validate tenant-specific bot authentication through Matrix client
     cy.window().then((win) => {
-      const matrixClientService = (win as unknown as {
-        matrixClientService?: {
+      const matrixClientManager = (win as unknown as {
+        matrixClientManager?: {
           getClient: (...args: unknown[]) => {
             getRooms: () => Array<{
               roomId: string
@@ -124,14 +124,14 @@ describe('Matrix Tenant-Specific Bot Authentication', () => {
           }
           isReady: () => boolean
         }
-      }).matrixClientService
+      }).matrixClientManager
 
-      if (!matrixClientService?.isReady() || !matrixClientService.getClient()) {
+      if (!matrixClientManager?.isReady() || !matrixClientManager.getClient()) {
         cy.log('⚠️ Matrix client not ready, skipping detailed validation')
         return
       }
 
-      const matrixClient = matrixClientService.getClient()
+      const matrixClient = matrixClientManager.getClient()
       const rooms = matrixClient.getRooms()
       cy.log(`📊 Found ${rooms.length} Matrix rooms`)
 
@@ -255,8 +255,8 @@ describe('Matrix Tenant-Specific Bot Authentication', () => {
 
       // Access Matrix client to check redaction permissions
       cy.window().then((win) => {
-        const matrixClientService = (win as unknown as {
-          matrixClientService?: {
+        const matrixClientManager = (win as unknown as {
+          matrixClientManager?: {
             getClient: (...args: unknown[]) => {
               getRooms: () => Array<{
                 roomId: string
@@ -275,14 +275,14 @@ describe('Matrix Tenant-Specific Bot Authentication', () => {
             }
             isReady: () => boolean
           }
-        }).matrixClientService
+        }).matrixClientManager
 
-        if (!matrixClientService?.isReady()) {
+        if (!matrixClientManager?.isReady()) {
           cy.log('⚠️ Matrix client not ready for redaction validation')
           return
         }
 
-        const matrixClient = matrixClientService.getClient()
+        const matrixClient = matrixClientManager.getClient()
         const rooms = matrixClient.getRooms()
         const eventRoom = rooms.find(room =>
           room.name && room.name.includes('Tenant Bot Auth Test')

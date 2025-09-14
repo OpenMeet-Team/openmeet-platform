@@ -6,6 +6,7 @@ import { AxiosError } from 'axios'
 import { eventsApi } from '../api/events'
 import { chatApi } from '../api/chat'
 import { EventSeriesService } from '../services/eventSeriesService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 const { error, success } = useNotification()
 export const useEventStore = defineStore('event', {
@@ -251,8 +252,7 @@ export const useEventStore = defineStore('event', {
     async actionJoinEventChatRoom () {
       try {
         if (this.event?.slug) {
-          const { matrixClientService } = await import('../services/matrixClientService')
-          const joinResult = await matrixClientService.joinEventChatRoom(this.event.slug)
+          const joinResult = await matrixClientManager.joinEventChatRoom(this.event.slug)
 
           // Cache the room ID for efficiency
           if (joinResult.room && this.event) {

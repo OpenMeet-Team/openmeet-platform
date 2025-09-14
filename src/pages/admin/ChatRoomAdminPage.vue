@@ -185,7 +185,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth-store'
 import { UserRole } from '../../types'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { generateEventRoomAlias, generateGroupRoomAlias } from '../../utils/matrixUtils'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
@@ -230,12 +230,12 @@ async function deleteEventRoom () {
     loading.value = true
 
     // Ensure Matrix client is connected
-    if (!matrixClientService.isReady()) {
-      // console.log('🔌 Matrix client not ready, attempting to initialize...')
-      await matrixClientService.initializeClient()
+    if (!matrixClientManager.isReady()) {
+      logger.warn('⚠️ Matrix client not ready')
+      return
     }
 
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available. Please connect to Matrix first by visiting any event page.')
     }
@@ -295,7 +295,7 @@ async function createEventRoom () {
 
     // Matrix-native approach: Join room using room alias
     // The Application Service will create the room on-demand if it doesn't exist
-    const result = await matrixClientService.joinEventChatRoom(eventSlug.value)
+    const result = await matrixClientManager.joinEventChatRoom(eventSlug.value)
 
     // console.log('✅ Event chat room created/joined successfully:', result.roomInfo)
 
@@ -340,12 +340,12 @@ async function deleteGroupRoom () {
     loading.value = true
 
     // Ensure Matrix client is connected
-    if (!matrixClientService.isReady()) {
-      // console.log('🔌 Matrix client not ready, attempting to initialize...')
-      await matrixClientService.initializeClient()
+    if (!matrixClientManager.isReady()) {
+      logger.warn('⚠️ Matrix client not ready')
+      return
     }
 
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not available. Please connect to Matrix first by visiting any event page.')
     }
@@ -405,7 +405,7 @@ async function createGroupRoom () {
 
     // Matrix-native approach: Join room using room alias
     // The Application Service will create the room on-demand if it doesn't exist
-    const result = await matrixClientService.joinGroupChatRoom(groupSlug.value)
+    const result = await matrixClientManager.joinGroupChatRoom(groupSlug.value)
 
     // console.log('✅ Group chat room created/joined successfully:', result.roomInfo)
 

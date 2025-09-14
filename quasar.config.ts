@@ -9,6 +9,7 @@ import 'dotenv/config'
 import istanbul from 'vite-plugin-istanbul'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import wasm from 'vite-plugin-wasm'
 
 // Helper function to get tenant ID from config
 function getTenantId () {
@@ -92,6 +93,7 @@ export default configure((ctx) => {
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleusercontent.com https://*.posthog.com",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
           "img-src 'self' data: https: blob: https://*.google.com https://*.googleusercontent.com",
+          "media-src 'self' blob: data: https://matrix-dev.openmeet.net https://matrix.openmeet.net https://om-matrix.ngrok.app",
           "font-src 'self' https://fonts.gstatic.com",
           "frame-src 'self' https://accounts.google.com https://play.google.com https://*.google.com https://accounts.youtube.com http://localhost:8448 https://localhost:8448 http://localhost:3000 https://localhost:3000 https://matrix-dev.openmeet.net https://matrix.openmeet.net https://api-dev.openmeet.net https://api.openmeet.net https://om-api.ngrok.app https://om-mas.ngrok.app https://om-matrix.ngrok.app",
           "connect-src 'self' blob: http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0:* https://0.0.0.0:* https://accounts.google.com https://*.google.com https://play.google.com https://api-dev.openmeet.net https://api.openmeet.net wss://api-dev.openmeet.net wss://api.openmeet.net https://*.amazonaws.com https://*.openstreetmap.org https://*.posthog.com https://api.hsforms.com https://om-api.ngrok.app wss://om-api.ngrok.app https://om-mas.ngrok.app wss://om-mas.ngrok.app https://om-matrix.ngrok.app wss://om-matrix.ngrok.app https://matrix-dev.openmeet.net wss://matrix-dev.openmeet.net *",
@@ -121,6 +123,19 @@ export default configure((ctx) => {
         if (viteConf.server) {
           viteConf.server.open = frontendDomain || true
         }
+
+        // Configure WASM handling using vite-plugin-wasm
+        viteConf.plugins = viteConf.plugins || []
+        viteConf.plugins.push(wasm())
+
+        // Configure dependency optimization for Matrix SDK and related modules
+        viteConf.optimizeDeps = viteConf.optimizeDeps || {}
+        viteConf.optimizeDeps.exclude = viteConf.optimizeDeps.exclude || []
+        // Only exclude the WASM crypto module to avoid bundling issues
+        viteConf.optimizeDeps.exclude.push('@matrix-org/matrix-sdk-crypto-wasm')
+
+        // Let Vite handle matrix-js-sdk and its dependencies normally
+        // This should resolve CommonJS/ESM compatibility issues automatically
       },
       // viteVuePluginOptions: {},
 

@@ -215,13 +215,13 @@ describe('Matrix OIDC Flow - Reference Test', () => {
 
   const verifyMatrixPowerLevels = () => {
     cy.window().then((win) => {
-      const matrixClientService = (win as typeof win & { matrixClientService?: unknown }).matrixClientService
+      const matrixClientManager = (win as typeof win & { matrixClientManager?: unknown }).matrixClientManager
 
-      if (!matrixClientService) {
+      if (!matrixClientManager) {
         throw new Error('Matrix debugging interfaces not accessible - cannot verify actual client power levels')
       }
 
-      const client = (matrixClientService as { getClient: () => unknown }).getClient() as {
+      const client = (matrixClientManager as { getClient: () => unknown }).getClient() as {
         getUserId: () => string
         getRooms: () => Array<{
           roomId: string

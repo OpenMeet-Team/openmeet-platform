@@ -374,7 +374,7 @@ onMounted(async () => {
   // No manual provisioning needed for users who can write
 
   // LEGACY: WebSocket-based Matrix integration disabled
-  // We now use Matrix JS SDK client directly (matrixClientService.ts)
+  // We now use Matrix JS SDK client directly (matrixClientManager.ts)
   // The MatrixChatInterface component handles all Matrix communication
 
   await loadMessages()

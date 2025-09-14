@@ -17,7 +17,10 @@
       <div class="col message-content">
         <div class="message-header row items-center justify-between q-mb-xs" v-if="!isSystemMessage">
           <div class="sender-name text-weight-bold">{{ senderName }}</div>
-          <div class="timestamp text-grey-7 text-caption">{{ formattedTime }}</div>
+          <div class="timestamp-and-indicators row items-center q-gutter-xs text-grey-7 text-caption">
+            <!-- Timestamp -->
+            <div class="timestamp">{{ formattedTime }}</div>
+          </div>
         </div>
 
         <!-- Different message types -->
@@ -87,7 +90,7 @@ import { useQuasar } from 'quasar'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useAuthStore } from '../../stores/auth-store'
-import { matrixClientService } from '../../services/matrixClientService'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -103,7 +106,7 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
 
   // If it's a Matrix content URL (mxc://), convert it to HTTP
   if (url.startsWith('mxc://')) {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.error('❌ convertMatrixUrl: Matrix client not available')
       return ''
@@ -115,10 +118,10 @@ const convertMatrixUrl = (url: string, width?: number, height?: number, isImage 
       // For images, use thumbnail dimensions and call thumbnail endpoint
       const finalWidth = width || 300
       const finalHeight = height || 300
-      convertedUrl = matrixClientService.getContentUrl(url, finalWidth, finalHeight)
+      convertedUrl = matrixClientManager.getContentUrl(url, finalWidth, finalHeight)
     } else {
       // For files, use download endpoint without dimensions
-      convertedUrl = matrixClientService.getContentUrl(url)
+      convertedUrl = matrixClientManager.getContentUrl(url)
     }
 
     if (!convertedUrl || convertedUrl === url || !convertedUrl.startsWith('http')) {
@@ -174,6 +177,8 @@ const isSystemMessage = computed(() => {
   const msgtype = props.message.content.msgtype as string || ''
   return msgtype === 'm.room.member' || (msgtype === 'm.room.message' && props.message.content.body?.startsWith('* '))
 })
+
+// isEncrypted computed removed - unused
 
 const isImageMessage = computed(() => {
   if (!props.message.content) return false
@@ -475,6 +480,19 @@ body.body--dark {
 
 .system-message-content {
   font-style: italic;
+}
+
+.encryption-indicator {
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.encryption-indicator:hover {
+  opacity: 1;
+}
+
+.timestamp-and-indicators {
+  flex-shrink: 0;
 }
 
 /* Dark mode styling */

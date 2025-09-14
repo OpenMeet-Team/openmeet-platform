@@ -3,7 +3,7 @@
  * Add these to the browser console to debug live chat issues
  */
 
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 
 // Add to window for browser console access
 declare global {
@@ -23,7 +23,7 @@ const matrixDebug = {
    * Check Matrix client state
    */
   checkClientState () {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.log('❌ Matrix client not initialized')
       return
@@ -39,14 +39,14 @@ const matrixDebug = {
     })
 
     // Check if client is ready
-    console.log('🔍 Matrix Client Ready:', matrixClientService.isReady())
+    console.log('🔍 Matrix Client Ready:', matrixClientManager.isReady())
   },
 
   /**
    * Check specific room state
    */
   checkRoomState (roomId: string) {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.log('❌ Matrix client not initialized')
       return
@@ -85,7 +85,7 @@ const matrixDebug = {
    * Simulate sending a message (for testing)
    */
   async simulateMessage (roomId: string, message: string) {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       console.log('❌ Matrix client not initialized')
       return

@@ -1,7 +1,7 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { MatrixMessage } from '../types/matrix'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 
 export const matrixApi = {
   // Set Matrix password for direct client access (existing backend endpoint)
@@ -10,7 +10,7 @@ export const matrixApi = {
 
   // Send typing indicator to a room using Matrix client directly
   sendTyping: async (roomId: string, isTyping: boolean): Promise<void> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
     }
@@ -24,7 +24,7 @@ export const matrixApi = {
 
   // Get messages for a room using Matrix client directly
   getMessages: async (roomId: string, limit = 50): Promise<{ messages: MatrixMessage[], end: string }> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
     }
@@ -57,7 +57,7 @@ export const matrixApi = {
 
   // Send a message to a room using Matrix client directly
   sendMessage: async (roomId: string, message: string): Promise<{ id: string }> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client) {
       throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
     }
@@ -68,7 +68,7 @@ export const matrixApi = {
 
   // Get Matrix access token (for direct Matrix operations)
   getToken: async (): Promise<string> => {
-    const client = matrixClientService.getClient()
+    const client = matrixClientManager.getClient()
     if (!client || !client.getAccessToken()) {
       throw new Error('Matrix client not authenticated. Please connect to Matrix first.')
     }

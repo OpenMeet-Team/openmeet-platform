@@ -7,7 +7,7 @@ import { useAuthStore } from './auth-store'
 import { ChatEntity } from '../types/model'
 import { chatApi } from '../api/chat'
 import { RouteQueryAndHash } from 'vue-router'
-import { matrixClientService } from '../services/matrixClientService'
+import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 
 const { error } = useNotification()
@@ -243,7 +243,7 @@ export const useMessageStore = defineStore('messages', {
     // Initialize Matrix connection
     async initializeMatrix () {
       // LEGACY: WebSocket-based Matrix service disabled
-      // We now use Matrix JS SDK client directly (matrixClientService.ts)
+      // We now use Matrix JS SDK client directly (matrixClientManager.ts)
       // The MatrixChatInterface component handles all Matrix communication
 
       if (this.matrixConnectionAttempted) return this.matrixConnected
@@ -510,7 +510,7 @@ export const useMessageStore = defineStore('messages', {
         this.isUserTyping = isTyping
 
         // Send typing status to server via Matrix JS SDK
-        await matrixClientService.sendTyping(roomId, isTyping)
+        await matrixClientManager.sendTyping(roomId, isTyping)
 
         // Clear any existing timer
         if (this.typingTimer) {
@@ -556,7 +556,7 @@ export const useMessageStore = defineStore('messages', {
         } else {
           // Direct messages or other types
           // Use Matrix JS SDK for message fetching
-          const events = await matrixClientService.loadRoomHistory(this.activeRoomId, limit)
+          const events = await matrixClientManager.loadRoomHistory(this.activeRoomId, limit)
           const messages: MatrixMessage[] = events.map(event => ({
             eventId: event.getId() || '',
             sender: event.getSender() || '',
@@ -663,7 +663,7 @@ export const useMessageStore = defineStore('messages', {
           // General context type or fallback for unknown types
           // Sending message through matrixService
           // Send message via Matrix JS SDK
-          await matrixClientService.sendMessage(this.activeRoomId, {
+          await matrixClientManager.sendMessage(this.activeRoomId, {
             body: message,
             msgtype: 'm.text'
           })
