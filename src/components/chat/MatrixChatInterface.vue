@@ -288,7 +288,6 @@
               :key="emoji"
               :label="emoji"
               flat
-              size="sm"
               @click="addEmoji(emoji)"
               class="emoji-btn"
             />
@@ -2603,6 +2602,46 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
   color: #f5f5f5;
+}
+
+/* Emoji Picker Styles */
+.emoji-picker {
+  max-width: 100%;
+}
+
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.emoji-btn {
+  min-width: 40px !important;
+  min-height: 40px !important;
+  font-size: 1.8rem !important;
+  padding: 8px !important;
+}
+
+.emoji-btn .q-btn__content {
+  font-size: 1.8rem !important;
+  line-height: 1 !important;
+}
+
+.emoji-btn .q-btn__content .q-btn__content > span {
+  font-size: 1.8rem !important;
+}
+
+/* More specific targeting for emoji text */
+.emoji-grid .q-btn {
+  min-width: 40px !important;
+  min-height: 40px !important;
+}
+
+.emoji-grid .q-btn .q-btn__content {
+  font-size: 1.8rem !important;
+  line-height: 1 !important;
 }
 
 </style>
