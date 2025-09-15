@@ -282,12 +282,15 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
         })
       }
 
-      // If we're not at the live end, we need to move the timeline window to include new events
-      if (timelineWindow.value && !isAtLiveEnd.value) {
-        logger.debug('📍 Not at live end, moving timeline window to include new event')
+      // Always try to advance timeline window for new events (Element Web pattern)
+      if (timelineWindow.value) {
+        if (!isAtLiveEnd.value) {
+          logger.debug('📍 Not at live end, moving timeline window to include new event')
+        }
         try {
-          // Try to paginate forward to include the new event
-          const success = await timelineWindow.value.paginate(EventTimeline.FORWARDS, 50)
+          // Element Web calls paginate(FORWARDS, 1, false) for live events
+          // This advances the timeline window to include the new event
+          const success = await timelineWindow.value.paginate(EventTimeline.FORWARDS, 1, false)
           logger.debug('📍 Timeline pagination result:', success)
         } catch (error) {
           logger.warn('⚠️ Failed to paginate timeline forward:', error)
