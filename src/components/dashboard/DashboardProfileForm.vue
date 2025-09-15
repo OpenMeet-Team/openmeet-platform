@@ -185,7 +185,7 @@
     </q-form>
 
     <!-- Matrix settings (separate section) -->
-    <q-card class="q-mb-md" data-cy="profile-matrix" v-if="hasMatrixAccount">
+    <q-card class="q-mb-md" data-cy="profile-matrix" v-if="hasMatrixAccount && isMatrixChatSettingsEnabled">
       <q-card-section>
         <div class="text-h6 q-mb-md">
           <q-icon name="sym_r_chat" class="q-mr-sm" />
@@ -560,6 +560,7 @@ import { subcategoriesApi } from '../../api/subcategories'
 import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 import { useMatrixAccess } from '../../composables/useMatrixAccess'
 import { logger } from '../../utils/logger'
+import getEnv from '../../utils/env'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
@@ -643,6 +644,11 @@ const {
 // Computed properties for Matrix integration
 const hasMatrixAccount = computed(() => checkHasMatrixAccount())
 const matrixUserId = computed(() => getMatrixUserId())
+
+// Feature flag for Matrix chat settings visibility (defaults to hidden)
+const isMatrixChatSettingsEnabled = computed(() => {
+  return getEnv('ENABLE_MATRIX_CHAT_SETTINGS') === 'true'
+})
 
 // Main profile form submission - handles basic profile data only (not passwords)
 const onSubmit = async () => {
