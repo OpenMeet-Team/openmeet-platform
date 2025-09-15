@@ -1,16 +1,18 @@
 # OpenMeet Platform
 
-## Building Communities Through Meaningful Connections
+## Find Your People. Build Your Community.
 
-OpenMeet is an open-source community platform designed to help people overcome isolation and build stronger local connections. Our mission is to strengthen local communities by making it easier for people to meet in person and build meaningful relationships.
+OpenMeet is a platform that makes it easy to find or create events and interest groups - whether you're new to an area, looking to expand your social circle, or want to connect with people who share your passions. From hiking meetups and book clubs to tech talks and hobby gatherings, OpenMeet helps you discover events and build communities around your interests.
 
-Unlike corporate platforms that charge high fees and prioritize profit over community, OpenMeet is:
-- **Free and open-source**: Accessible to everyone
-- **Community-focused**: Designed to foster genuine face-to-face connections
-- **Privacy-respecting**: Your personal information remains private and secure
-- **Decentralized**: Putting community needs first
+**Why choose OpenMeet?**
+- **People-first, not profit**: Built as community infrastructure, not a business model
+- **Privacy-focused**: We won't sell your data or spam you with ads
+- **Flexible connections**: Support for in-person, virtual, and hybrid gatherings
+- **Open source**: Transparent, community-driven development
 
-OpenMeet helps community members who want to be more social reach out and join events or create and share their own gatherings. Connect with your neighbors, build community, and have fun without sitting behind a desk or phone alone.
+**Getting started is simple**: Browse events in your area, RSVP instantly, or create your own gathering in minutes. Share location details, send last-minute updates, and follow up with attendees after events. From neighborhood meetups to city-wide gatherings, OpenMeet provides the infrastructure you need to organize successful events and build meaningful connections.
+
+Stop scrolling alone. Start building the community you want to be part of.
 
 ## Project Architecture
 
@@ -37,13 +39,11 @@ The project follows a modular architecture with:
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v20, v22, or v24)
-- npm (>= 6.13.4) or yarn (>= 1.21.1)
+- Node.js (v22)
+- npm (>= 6.13.4)
 
 ### Install the dependencies
 ```bash
-yarn
-# or
 npm install
 ```
 
@@ -76,8 +76,6 @@ Key configuration options:
 
 Start the app in development mode (hot-code reloading, error reporting, etc.):
 ```bash
-yarn dev
-# or
 npm run dev
 ```
 
@@ -85,8 +83,6 @@ npm run dev
 
 Lint the files:
 ```bash
-yarn lint
-# or
 npm run lint
 ```
 
@@ -94,8 +90,6 @@ npm run lint
 
 Build the app for production:
 ```bash
-yarn build
-# or
 npm run build
 ```
 
@@ -104,26 +98,15 @@ npm run build
 #### Unit Tests
 ```bash
 # Run unit tests
-yarn test:unit
-# or
-npm run test:unit
-
-# Run unit tests with UI
-yarn test:unit:ui
-# or
-npm run test:unit:ui
+npm run test:unit:ci
 ```
 
 #### End-to-End Tests
 ```bash
 # Run E2E tests with Cypress UI
-yarn test:e2e
-# or
 npm run test:e2e
 
 # Run E2E tests in headless mode
-yarn test:e2e:ci
-# or
 npm run test:e2e:ci
 
 # Run against a specific URL
@@ -133,8 +116,6 @@ npx cypress run --config baseUrl=https://platform.openmeet.net
 #### Component Tests
 ```bash
 # Run component tests with Cypress UI
-yarn test:component
-# or
 npm run test:component
 ```
 
