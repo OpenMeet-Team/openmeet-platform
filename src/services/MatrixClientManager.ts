@@ -1350,22 +1350,21 @@ export class MatrixClientManager {
 
     // Store session logged out handler for cleanup (Element Web pattern)
     this.sessionLoggedOutHandler = (error: SdkMatrixError) => {
-      logger.warn('Matrix session logged out - SDK determined token refresh failed', error)
+      logger.warn('Matrix session logged out event received - letting SDK handle token refresh', error)
 
-      // Emit token error event for UI components to react (following our existing pattern)
+      // Just emit notification event for UI components
+      // Don't destroy the client - let the SDK handle token refresh internally
       const tokenErrorEvent = new CustomEvent('matrix:tokenError', {
         detail: {
           error,
           context: 'matrix_session_logged_out',
-          sdkManagedTokenRefresh: true
+          sdkManagedTokenRefresh: true,
+          action: 'notification_only'
         }
       })
       window.dispatchEvent(tokenErrorEvent)
 
-      // Clear credentials to force re-authentication
-      this.clearClientAndCredentials().catch(clearError => {
-        logger.error('❌ Failed to clear credentials after session logged out:', clearError)
-      })
+      logger.debug('📢 SessionLoggedOut event handled - client preserved for SDK token refresh')
     }
 
     // Only essential listeners for performance

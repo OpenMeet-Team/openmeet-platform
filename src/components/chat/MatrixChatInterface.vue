@@ -1922,6 +1922,13 @@ const handleInvalidTokenRecovery = () => {
 // Token error event handler (handles real-time token failures)
 const handleTokenError = (event) => {
   logger.debug('🚫 Matrix token error received:', event.detail)
+
+  // If this is just a notification during SDK-managed refresh, don't change UI
+  if (event.detail?.action === 'notification_only' && event.detail?.sdkManagedTokenRefresh) {
+    logger.debug('📢 Token error is notification-only during SDK refresh - preserving UI state')
+    return
+  }
+
   logger.debug('🔧 Current UI state before token error handling:', {
     isConnected: isConnected.value,
     lastAuthError: lastAuthError.value,
