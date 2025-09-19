@@ -1101,11 +1101,44 @@ const handleDeviceMismatchRecovered = (event: CustomEvent) => {
   })
 }
 
-const handleAttendanceStatusChanged = (event: CustomEvent) => {
+const handleAttendanceStatusChanged = async (event: CustomEvent) => {
   logger.debug('🎫 Attendance status changed:', event.detail)
   if (event.detail?.status === 'confirmed') {
-    logger.debug('🎫 User confirmed attendance, refreshing room lookup')
-    findJoinedRoom()
+    logger.debug('🎫 User confirmed attendance, joining chat room')
+
+    // Follow the same pattern as matrix:ready handler
+    if (props.contextType === 'event' && props.contextId) {
+      try {
+        const result = await matrixClientManager.joinEventChatRoom(props.contextId)
+        await matrixClientManager.forceSyncAfterInvitation('event', props.contextId)
+        if (result.room?.roomId) {
+          resolvedRoomId.value = result.room.roomId
+          logger.debug('🎫 ✅ Event chat room joined after attendance confirmation')
+        } else {
+          findJoinedRoom()
+        }
+      } catch (error) {
+        logger.warn('⚠️ Failed to join event chat room after attendance confirmation:', error)
+        findJoinedRoom()
+      }
+    } else if (props.contextType === 'group' && props.contextId) {
+      try {
+        const result = await matrixClientManager.joinGroupChatRoom(props.contextId)
+        await matrixClientManager.forceSyncAfterInvitation('group', props.contextId)
+        if (result.room?.roomId) {
+          resolvedRoomId.value = result.room.roomId
+          logger.debug('🎫 ✅ Group chat room joined after attendance confirmation')
+        } else {
+          findJoinedRoom()
+        }
+      } catch (error) {
+        logger.warn('⚠️ Failed to join group chat room after attendance confirmation:', error)
+        findJoinedRoom()
+      }
+    } else {
+      // Fallback for direct room IDs
+      findJoinedRoom()
+    }
   }
 }
 
