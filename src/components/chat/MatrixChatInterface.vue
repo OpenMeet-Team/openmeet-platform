@@ -391,7 +391,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, isSameDay } from 'date-fns'
-import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent } from 'matrix-js-sdk'
+import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, RoomMemberEvent, RoomMember } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
@@ -485,7 +485,6 @@ const typingNotificationTimer = ref<number | null>(null)
 // Removed - currentUserId is accessed directly where needed
 // Room resolution with proper alias handling
 const resolvedRoomId = ref<string | null>(null)
-const isResolvingRoom = ref(false)
 
 const currentRoom = computed(() => {
   const client = matrixClientManager.getClient()
@@ -511,102 +510,74 @@ const isRoomEncrypted = computed(() => {
 })
 
 // Function to resolve room alias to room ID and join if needed
-const updateCurrentRoom = async () => {
-  if (!props.roomId || isResolvingRoom.value) return
+// Simple synchronous room lookup - no async operations or auto-joining
+const findJoinedRoom = () => {
+  if (!props.roomId) {
+    resolvedRoomId.value = null
+    return
+  }
 
   const client = matrixClientManager.getClient()
-  if (!client) return
-
-  // Check if Matrix client is ready and has synced rooms
-  const syncState = client.getSyncState()
-  const totalRooms = client.getRooms().length
-
-  logger.debug('🔄 updateCurrentRoom called:', {
-    roomId: props.roomId,
-    syncState,
-    isReady: matrixClientManager.isReady(),
-    totalRooms
-  })
-
-  // Don't try to resolve rooms if sync hasn't started or no rooms are available yet
-  // This prevents premature resolution attempts before the client has synced
-  if (!syncState || (syncState !== 'SYNCING' && syncState !== 'PREPARED')) {
-    logger.debug('⏳ Waiting for Matrix client sync to complete before resolving room:', { syncState, totalRooms })
-    return
-  }
-
-  // Also wait if client has no rooms yet (sync still in progress)
-  if (totalRooms === 0) {
-    logger.debug('⏳ Waiting for Matrix client to load rooms before resolving:', { totalRooms })
-    return
-  }
-
-  isResolvingRoom.value = true
-
-  try {
-    let roomId = props.roomId
-    let room = null
-
-    // If it's a room alias (starts with #), try multiple resolution strategies
-    if (props.roomId.startsWith('#')) {
-      logger.debug('🔍 Resolving room alias:', props.roomId)
-
-      // Strategy 1: Try to find room by alias in already-joined rooms first
-      const allRooms = client.getRooms()
-      logger.debug('📋 Searching through joined rooms:', {
-        totalRooms: allRooms.length,
-        roomNames: allRooms.map(r => ({ roomId: r.roomId, canonical: r.getCanonicalAlias(), altAliases: r.getAltAliases() })),
-        searchingFor: props.roomId
-      })
-
-      room = allRooms.find(r => {
-        const canonical = r.getCanonicalAlias()
-        const altAliases = r.getAltAliases() || []
-        const matches = canonical === props.roomId || altAliases.includes(props.roomId)
-        if (matches) {
-          logger.debug('🎯 Found matching room:', { roomId: r.roomId, canonical, altAliases })
-        }
-        return matches
-      })
-
-      if (room) {
-        roomId = room.roomId
-        logger.debug('✅ Room found in joined rooms by alias:', { alias: props.roomId, roomId })
-      } else {
-        logger.debug('❌ Room not found in joined rooms, trying homeserver resolution')
-
-        // Strategy 2: Try homeserver alias resolution as fallback
-        try {
-          const aliasResult = await client.getRoomIdForAlias(props.roomId)
-          roomId = aliasResult.room_id
-          logger.debug('✅ Room alias resolved via homeserver:', { alias: props.roomId, roomId })
-        } catch (aliasError) {
-          logger.warn('⚠️ Homeserver alias resolution failed:', aliasError.message)
-          logger.debug('🔍 Full alias resolution error:', aliasError)
-          // Strategy 3: If we can't resolve alias, maybe the room joining logic will handle it
-          roomId = props.roomId // Keep the alias for joinRoom to handle
-        }
-      }
-    }
-
-    // Check if we're already in the room (or found it above)
-    if (!room) {
-      room = client.getRoom(roomId)
-    }
-
-    if (!room) {
-      logger.debug('🚪 Room not found, attempting to join:', roomId)
-      room = await matrixClientManager.joinRoom(roomId)
-      logger.debug('✅ Successfully joined room:', roomId)
-    }
-
-    resolvedRoomId.value = room?.roomId || roomId
-    logger.debug('🏠 Room resolved and available:', { roomId: resolvedRoomId.value, hasRoom: !!room, originalRoomId: props.roomId })
-  } catch (error) {
-    logger.error('❌ Failed to resolve/join room:', error)
+  if (!client || !client.isLoggedIn()) {
     resolvedRoomId.value = null
-  } finally {
-    isResolvingRoom.value = false
+    return
+  }
+
+  let room = null
+
+  // If direct room ID, look it up directly
+  if (!props.roomId.startsWith('#')) {
+    room = client.getRoom(props.roomId)
+  } else {
+    // For room aliases, search through already-joined rooms only
+    const allRooms = client.getRooms()
+    room = allRooms.find(r => {
+      const canonical = r.getCanonicalAlias()
+      const altAliases = r.getAltAliases() || []
+      return canonical === props.roomId || altAliases.includes(props.roomId)
+    })
+  }
+
+  // Set resolved room if user is joined OR invited (auto-accept invitations)
+  const membership = room?.getMyMembership()
+  if (room && (membership === 'join' || membership === 'invite')) {
+    // Auto-accept invitation if needed
+    if (membership === 'invite') {
+      logger.debug('🎟️ Auto-accepting room invitation:', { roomId: room.roomId })
+      matrixClientManager.getClient()?.joinRoom(room.roomId).then(() => {
+        logger.debug('✅ Auto-join completed, refreshing room state to trigger timeline')
+        // Wait a bit for Matrix SDK to process the join, then refresh room lookup
+        setTimeout(() => {
+          findJoinedRoom() // This should trigger the timeline watcher with updated room state
+
+          // Force timeline initialization if conditions are met (bypasses Vue reactivity delay)
+          setTimeout(() => {
+            const client = matrixClientManager.getClient()
+            const timelineSet = currentRoom.value?.getUnfilteredTimelineSet()
+            const membership = currentRoom.value?.getMyMembership()
+
+            if (client && timelineSet && !timelineInitialized && membership === 'join') {
+              logger.debug('🔧 Manual timeline initialization after auto-join')
+              rawInitializeTimeline(undefined, client, timelineSet).then(() => {
+                timelineInitialized = true
+                lastInitializedRoomId = props.roomId
+                logger.debug('✅ Timeline ready after auto-join')
+              }).catch(error => {
+                logger.error('❌ Timeline initialization failed:', error)
+              })
+            }
+          }, 100)
+        }, 200)
+      }).catch(error => {
+        logger.error('❌ Failed to auto-accept invitation:', error)
+      })
+    }
+
+    resolvedRoomId.value = room.roomId
+    logger.debug('✅ Found accessible room:', { alias: props.roomId, roomId: room.roomId, membership })
+  } else {
+    resolvedRoomId.value = null
+    logger.debug('⏳ Room not found or accessible:', { roomId: props.roomId, hasRoom: !!room, membership })
   }
 }
 
@@ -658,17 +629,21 @@ watch([timelineClient, timelineSet, () => props.roomId, resolvedRoomId], async (
     lastInitializedRoomId = null
   }
 
-  // Only initialize if we have a resolved room ID (actual Matrix room ID)
+  // Only initialize if we have a resolved room ID (actual Matrix room ID) and are properly joined
   const actualRoomId = newResolvedRoomId || (newRoomId?.startsWith('!') ? newRoomId : null)
+  const room = actualRoomId ? newClient?.getRoom(actualRoomId) : null
+  const isProperlyJoined = room?.getMyMembership() === 'join'
 
-  if (newClient && newTimelineSet && !timelineInitialized && newRoomId && actualRoomId) {
+  if (newClient && newTimelineSet && !timelineInitialized && newRoomId && actualRoomId && isProperlyJoined) {
     logger.debug('🚀 Initializing timeline', {
       hasClient: !!newClient,
       hasTimelineSet: !!newTimelineSet,
       roomId: newRoomId,
       actualRoomId,
       currentRoomId: currentRoom.value?.roomId,
-      lastInitializedRoomId
+      lastInitializedRoomId,
+      membership: room?.getMyMembership(),
+      isProperlyJoined
     })
     try {
       await rawInitializeTimeline(undefined, newClient, newTimelineSet)
@@ -786,15 +761,9 @@ let customEventListeners: (() => void)[] = []
 
 // resolveRoom function removed - unused
 
-// Watch for roomId changes and resolve the room
-watch(() => props.roomId, updateCurrentRoom, { immediate: true })
-
-// Also watch for Matrix client availability
-watch(() => matrixClientManager.getClient(), (newClient) => {
-  if (newClient) {
-    logger.debug('🔌 Matrix client became available, updating room')
-    updateCurrentRoom()
-  }
+// Simple watcher that looks up rooms when roomId or client changes
+watch(() => [props.roomId, matrixClientManager.getClient()?.isLoggedIn()], () => {
+  findJoinedRoom()
 }, { immediate: true })
 
 // Mock data
@@ -1115,6 +1084,14 @@ const handleDeviceMismatchRecovered = (event: CustomEvent) => {
       }
     ]
   })
+}
+
+const handleAttendanceStatusChanged = (event: CustomEvent) => {
+  logger.debug('🎫 Attendance status changed:', event.detail)
+  if (event.detail?.status === 'confirmed') {
+    logger.debug('🎫 User confirmed attendance, refreshing room lookup')
+    findJoinedRoom()
+  }
 }
 
 const closeRecoveryKeyDialog = () => {
@@ -1517,7 +1494,7 @@ const handleSyncStateChange = async (state: string, prevState?: string) => {
     // If room resolution failed before, retry now that sync is active
     if (!currentRoom.value) {
       logger.debug('🔄 Sync state active, retrying room resolution for:', props.roomId)
-      await updateCurrentRoom()
+      findJoinedRoom()
     }
   }
 }
@@ -1569,6 +1546,21 @@ const setupMatrixEventListeners = () => {
 
   // Listen for sync state changes to retry room resolution
   client.on(ClientEvent.Sync, handleSyncStateChange)
+
+  // Listen for room membership changes (invitations, joins) to trigger room lookup
+  const handleMembershipChange = (event: MatrixEvent, member: RoomMember) => {
+    // Only care about our own membership changes
+    if (member.userId === matrixClientManager.getClient()?.getUserId()) {
+      logger.debug('🔄 Membership changed for current user:', {
+        roomId: member.roomId,
+        membership: member.membership,
+        propsRoomId: props.roomId
+      })
+      // Trigger room lookup to see if this affects our current room
+      findJoinedRoom()
+    }
+  }
+  client.on(RoomMemberEvent.Membership, handleMembershipChange)
 
   // Listen for crypto events to refresh timeline when decryption becomes available (Element Web pattern)
   client.on(CryptoEvent.KeyBackupStatus, onKeyBackupStatus)
@@ -1739,6 +1731,7 @@ const setupMatrixEventListeners = () => {
   onUnmounted(() => {
     if (client) {
       client.off(ClientEvent.Sync, handleSyncStateChange)
+      client.off(RoomMemberEvent.Membership, handleMembershipChange)
       client.off(RoomEvent.Timeline, handleTimelineEvent)
       // client.off(MatrixEventEvent.Decrypted, handleEventDecrypted)
     }
@@ -1863,12 +1856,12 @@ const handleMatrixReady = async () => {
           if (result.room?.roomId) {
             resolvedRoomId.value = result.room.roomId
           } else {
-            await updateCurrentRoom()
+            findJoinedRoom()
           }
         } catch (error) {
           logger.warn('⚠️ Failed to join event chat room after matrix:ready:', error)
           // Try to update current room as fallback
-          await updateCurrentRoom()
+          findJoinedRoom()
         }
       } else if (props.contextType === 'group' && props.contextId) {
         try {
@@ -1877,16 +1870,16 @@ const handleMatrixReady = async () => {
           if (result.room?.roomId) {
             resolvedRoomId.value = result.room.roomId
           } else {
-            await updateCurrentRoom()
+            findJoinedRoom()
           }
         } catch (error) {
           logger.warn('⚠️ Failed to join group chat room after matrix:ready:', error)
           // Try to update current room as fallback
-          await updateCurrentRoom()
+          findJoinedRoom()
         }
       } else {
         // For direct room IDs, just update current room
-        await updateCurrentRoom()
+        findJoinedRoom()
       }
 
       // Timeline initialization is handled by watcher
@@ -2013,6 +2006,9 @@ onMounted(async () => {
   // Listen for device ID mismatch recovery events
   window.addEventListener('matrix-device-mismatch-recovered', handleDeviceMismatchRecovered)
 
+  // Listen for attendance status changes to trigger room joining
+  window.addEventListener('attendee-status-changed', handleAttendanceStatusChanged)
+
   try {
     logger.debug(`🔌 [${instanceId}] MatrixChatInterface initializing for:`, {
       roomId: props.roomId,
@@ -2077,7 +2073,7 @@ onMounted(async () => {
             // Timeline initialization is handled by watcher
           } else {
             // Fallback: update current room state
-            await updateCurrentRoom()
+            findJoinedRoom()
             // Timeline initialization is handled by watcher
           }
         } catch (error) {
@@ -2096,7 +2092,7 @@ onMounted(async () => {
             // Timeline initialization is handled by watcher
           } else {
             // Fallback: update current room state
-            await updateCurrentRoom()
+            findJoinedRoom()
             // Timeline initialization is handled by watcher
           }
         } catch (error) {
@@ -2153,6 +2149,9 @@ onUnmounted(() => {
   window.removeEventListener('matrix:tokenRefreshFailure', handleTokenRefreshFailure)
   // Cleanup recovery key event listener
   window.removeEventListener('matrix-recovery-key-generated', handleRecoveryKeyGenerated)
+
+  // Cleanup attendance status change event listener
+  window.removeEventListener('attendee-status-changed', handleAttendanceStatusChanged)
 
   // Cleanup device mismatch recovery event listener
   window.removeEventListener('matrix-device-mismatch-recovered', handleDeviceMismatchRecovered)
