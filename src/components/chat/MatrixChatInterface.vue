@@ -391,7 +391,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { format, isToday, isYesterday, isSameDay } from 'date-fns'
-import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, RoomMemberEvent, RoomMember } from 'matrix-js-sdk'
+import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, RoomMemberEvent, RoomMember, EventTimelineSet } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
@@ -621,12 +621,25 @@ const initializeTimeline = async () => {
 // Track timeline initialization state per room
 let timelineInitialized = false
 let lastInitializedRoomId: string | null = null
+let lastTimelineSet: EventTimelineSet | null = null
 
 watch([timelineClient, timelineSet, () => props.roomId, resolvedRoomId], async ([newClient, newTimelineSet, newRoomId, newResolvedRoomId]) => {
   // Reset initialization flag when room changes
   if (newRoomId && newRoomId !== lastInitializedRoomId) {
     timelineInitialized = false
     lastInitializedRoomId = null
+    lastTimelineSet = null
+  }
+
+  // Also reset if timelineSet changes (room state transition from pre-join to live)
+  const timelineSetChanged = newTimelineSet && newTimelineSet !== lastTimelineSet
+  if (timelineSetChanged && timelineInitialized) {
+    logger.debug('🔄 TimelineSet changed after room join - forcing re-initialization', {
+      roomId: newRoomId,
+      hadPreviousTimelineSet: !!lastTimelineSet,
+      hasNewTimelineSet: !!newTimelineSet
+    })
+    timelineInitialized = false
   }
 
   // Only initialize if we have a resolved room ID (actual Matrix room ID) and are properly joined
@@ -643,12 +656,14 @@ watch([timelineClient, timelineSet, () => props.roomId, resolvedRoomId], async (
       currentRoomId: currentRoom.value?.roomId,
       lastInitializedRoomId,
       membership: room?.getMyMembership(),
-      isProperlyJoined
+      isProperlyJoined,
+      timelineSetChanged
     })
     try {
       await rawInitializeTimeline(undefined, newClient, newTimelineSet)
       timelineInitialized = true
       lastInitializedRoomId = newRoomId
+      lastTimelineSet = newTimelineSet
       logger.debug('✅ Timeline initialization completed successfully')
     } catch (error) {
       logger.error('❌ Timeline initialization failed:', error)
