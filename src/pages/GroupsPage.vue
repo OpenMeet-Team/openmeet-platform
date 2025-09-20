@@ -78,12 +78,17 @@ const fetchGroups = async () => {
   useGroupsStore().actionGetGroups(route.query).finally(LoadingBar.stop)
 }
 
-watch(() => currentPage.value, (newVal) => {
-  if (newVal) {
-    router.push({ query: { ...route.query, page: newVal } })
-  }
-})
-watch(() => route.query, fetchGroups)
+watch(
+  () => route.query,
+  async (newQuery, oldQuery) => {
+    if (JSON.stringify(newQuery) !== JSON.stringify(oldQuery)) {
+      currentPage.value = parseInt(newQuery.page as string) || 1
+      LoadingBar.start()
+      fetchGroups().finally(LoadingBar.stop)
+    }
+  },
+  { immediate: true, deep: true }
+)
 
 const onPageChange = (page: number) => {
   router.push({ query: { ...route.query, page } })
