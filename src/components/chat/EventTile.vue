@@ -381,7 +381,7 @@ const getSenderColor = (userId: string): string => {
 }
 
 .own-event-container .message-content {
-  max-width: 70%;
+  max-width: 85%;
 }
 
 .own-message {
@@ -401,6 +401,14 @@ const getSenderColor = (userId: string): string => {
   font-size: 0.85rem; /* Smaller text */
 }
 
+/* Remove bubble styling for file messages */
+.own-message-body:has(.file-message) {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: initial;
+}
+
 /* Other message styling */
 .message-content:not(.own-message) .message-body-wrapper {
   background: #f5f5f5;
@@ -412,6 +420,14 @@ const getSenderColor = (userId: string): string => {
   max-width: 100%;
   word-wrap: break-word;
   font-size: 0.85rem; /* Smaller text */
+}
+
+/* Remove bubble styling for file messages from others too */
+.message-content:not(.own-message) .message-body-wrapper:has(.file-message) {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
 }
 
 /* Message metadata styling */

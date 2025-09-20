@@ -39,13 +39,13 @@ from Matrix events, similar to Element Web's body component routing.
 
     <!-- File Messages -->
     <div v-else-if="isFileMessage" class="file-message">
-      <div class="file-container row items-center q-gutter-sm q-pa-sm">
+      <div class="file-container row items-start q-gutter-sm q-pa-sm">
         <q-icon :name="getFileIcon()" size="1.5rem" color="primary" />
         <div class="file-info">
           <div class="file-name text-weight-medium">{{ fileName }}</div>
           <div v-if="fileSize" class="file-size text-caption">{{ formatFileSize(fileSize) }}</div>
         </div>
-        <div class="file-actions row">
+        <div class="file-actions row items-start">
           <q-btn
             v-if="fileUrl && canPreviewFile()"
             icon="fas fa-eye"
@@ -808,36 +808,39 @@ onUnmounted(() => {
   color: #666;
 }
 
-.file-container {
+.message-body .file-message .file-container {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  background: #ffffff;
-  max-width: 300px;
-  min-width: 200px;
+  background: #f5f5f5;
+  color: #333;
+  max-width: 100%;
+  min-width: 180px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .file-info {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: calc(100% - 100px); /* Reserve space for icon and buttons */
 }
 
-.file-name {
+.message-body .file-message .file-name {
   font-size: 0.875rem;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.2;
   color: #333;
 }
 
-.file-size {
+.message-body .file-message .file-size {
   color: #666;
   font-size: 0.75rem;
 }
 
 .file-actions {
   flex-shrink: 0;
+  min-width: 50px; /* Ensure download button always fits */
 }
 
 .audio-container,
@@ -898,8 +901,8 @@ onUnmounted(() => {
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .file-container {
+body.body--dark {
+  .message-body .file-message .file-container {
     background: #1e1e1e;
     border-color: #555;
     color: #ffffff;
@@ -919,11 +922,11 @@ onUnmounted(() => {
     background: rgba(255, 255, 255, 0.05);
   }
 
-  .file-name {
+  .message-body .file-message .file-name {
     color: #ffffff;
   }
 
-  .file-size {
+  .message-body .file-message .file-size {
     color: #bbb;
   }
 
