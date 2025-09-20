@@ -404,7 +404,7 @@ const getSenderColor = (userId: string): string => {
 /* Remove bubble styling for file messages */
 .own-message-body:has(.file-message) {
   background: transparent;
-  padding: 0;
+  padding: 4px 8px;
   border-radius: 0;
   color: initial;
 }
@@ -425,7 +425,7 @@ const getSenderColor = (userId: string): string => {
 /* Remove bubble styling for file messages from others too */
 .message-content:not(.own-message) .message-body-wrapper:has(.file-message) {
   background: transparent;
-  padding: 0;
+  padding: 4px 8px;
   border-radius: 0;
   color: inherit;
 }
