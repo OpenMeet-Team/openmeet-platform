@@ -106,6 +106,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Auth',
     component: () => import('layouts/AuthLayout.vue'),
     children: [
+      { path: 'google/callback', name: 'AuthGoogleCallbackPage', component: () => import('pages/auth/GoogleCallbackPage.vue') },
       { path: 'github/callback', name: 'AuthGithubCallbackPage', component: () => import('pages/auth/GithubCallbackPage.vue') },
       {
         path: 'bluesky/callback',

@@ -155,6 +155,12 @@ const handleUseEmailLogin = () => {
   })
 }
 
+const retryAuth = () => {
+  error.value = null
+  clearSocialAuthError()
+  handleGoogleLogin()
+}
+
 </script>
 
 <style scoped>
