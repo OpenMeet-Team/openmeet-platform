@@ -68,6 +68,9 @@ export const authApi = {
   googleLogin: (idToken: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/google/login`, { idToken }, { withCredentials: true }),
 
+  googleOAuth2Login: (data: { code: string; redirectUri: string; state?: string }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/google/oauth2/callback`, data, { withCredentials: true }),
+
   githubLogin: (code: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/github/login`, { code }, { withCredentials: true }),
 
