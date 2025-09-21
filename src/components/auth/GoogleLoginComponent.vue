@@ -108,10 +108,7 @@ const {
 
 // Add these state variables
 const COOLDOWN_PERIOD = 2000 // 2 second cooldown between attempts
-const PROMPT_COOLDOWN = 5000 // 5 seconds between prompts
 let lastAuthAttempt = 0
-let lastPromptTime = 0
-let isAuthInProgress = false
 
 // Methods
 const initializeGoogleSignIn = () => {
@@ -140,8 +137,7 @@ const initializeGoogleSignIn = () => {
       client_id: googleClientId,
       callback: handleGoogleResponse,
       auto_select: false,
-      cancel_on_tap_outside: true,
-      prompt_parent_id: 'google-signin-button',
+      cancel_on_tap_outside: false,
       itp_support: true
     })
 
@@ -187,8 +183,7 @@ const renderButton = () => {
           text: props.text,
           shape: props.shape,
           logo_alignment: 'left',
-          width: '100%',
-          click_listener: handleButtonClick
+          width: '100%'
         }
       )
       console.log('GoogleLogin: Button rendered successfully')
@@ -199,34 +194,6 @@ const renderButton = () => {
     }
   } else {
     console.error('GoogleLogin: Cannot render button - missing container or Google API')
-  }
-}
-
-// Add click handler to control prompt timing
-const handleButtonClick = async () => {
-  const now = Date.now()
-  if (isAuthInProgress || now - lastPromptTime < PROMPT_COOLDOWN) {
-    console.log('Auth in progress or cooldown active')
-    return
-  }
-
-  try {
-    isAuthInProgress = true
-    lastPromptTime = now
-    error.value = null
-
-    // Use One Tap
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt()
-    }
-  } catch (err) {
-    console.error('Google prompt error:', err)
-    error.value = 'Failed to start authentication'
-  } finally {
-    // Reset after delay
-    setTimeout(() => {
-      isAuthInProgress = false
-    }, PROMPT_COOLDOWN)
   }
 }
 
@@ -274,7 +241,6 @@ const handleGoogleResponse = async (response: GoogleResponse) => {
     emit('error', err as Error)
   } finally {
     isLoading.value = false
-    isAuthInProgress = false
   }
 }
 
@@ -331,11 +297,8 @@ const handleUseEmailLogin = () => {
 }
 
 const cleanup = () => {
-  isAuthInProgress = false
-
   if (window.google?.accounts?.id) {
     try {
-      window.google.accounts.id.cancel()
       const buttonEl = document.getElementById('google-signin-button')
       if (buttonEl) {
         buttonEl.innerHTML = ''
@@ -369,12 +332,6 @@ declare global {
         id: {
           initialize: (config: GoogleInitializeConfig) => void;
           renderButton: (element: HTMLElement, config: GoogleButtonConfig) => void;
-          prompt: (callback?: (notification: {
-            isNotDisplayed: () => boolean;
-            isSkippedMoment: () => boolean;
-            isDismissedMoment: () => boolean;
-          }) => void) => void;
-          cancel: () => void;
         };
       };
     };
