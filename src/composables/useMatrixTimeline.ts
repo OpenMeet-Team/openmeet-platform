@@ -18,9 +18,9 @@ import {
 } from 'matrix-js-sdk'
 import { logger } from '../utils/logger'
 
-// Optimized pagination configuration for better performance
-const PAGINATION_SIZE = 10 // Load 10 messages per pagination request
-const INITIAL_LOAD_SIZE = 10 // Initial load only 10 messages
+// Optimized pagination configuration for better user experience
+const PAGINATION_SIZE = 20 // Load 20 messages per pagination request
+const INITIAL_LOAD_SIZE = 50 // Initial load 50 messages to show more conversation history
 
 interface TimelineOptions {
   timelineSet?: EventTimelineSet
