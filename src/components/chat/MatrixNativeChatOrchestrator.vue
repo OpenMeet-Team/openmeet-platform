@@ -1,7 +1,13 @@
 <template>
   <div class="matrix-native-chat-orchestrator">
+    <!-- Loading State: Auth Store Not Ready -->
+    <div v-if="!authStore.isInitialized" class="loading-overlay q-pa-md text-center">
+      <q-spinner size="2rem" />
+      <p>Initializing authentication...</p>
+    </div>
+
     <!-- Matrix Connection Required -->
-    <div v-if="needsLogin" class="connection-required">
+    <div v-else-if="needsLogin" class="connection-required">
       <div class="connection-container">
         <h2>Matrix Connection Required</h2>
         <p>Please connect to Matrix to access chat features.</p>
@@ -216,6 +222,8 @@
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useMatrixEncryption } from '../../composables/useMatrixEncryption'
 import { matrixClientManager } from '../../services/MatrixClientManager'
+import { useAuthStore } from '../../stores/auth-store'
+import { hasStoredMatrixTokens } from '../../utils/matrixTokenUtils'
 import { matrixEncryptionState, MatrixEncryptionService, type MatrixEncryptionStatus } from '../../services/MatrixEncryptionManager'
 import { logger } from '../../utils/logger'
 import { useQuasar } from 'quasar'
@@ -251,12 +259,25 @@ const props = withDefaults(defineProps<Props>(), {
 // Quasar for notifications
 const $q = useQuasar()
 
-// Use only the old system but make it faster by immediate initialization
+// Auth store for simple token checking
+const authStore = useAuthStore()
+
+// Simple, fast token check - no complex async logic or race conditions
+const needsLogin = computed(() => {
+  // Wait for auth store to be ready
+  if (!authStore.isInitialized || !authStore.user?.slug) {
+    return false // Show loading instead of connect button until we're sure
+  }
+
+  // Simple sync check: do we have any Matrix tokens stored?
+  return !hasStoredMatrixTokens(authStore.user.slug)
+})
+
+// Keep the encryption logic from useMatrixEncryption but override needsLogin
 const {
   encryptionStatus,
   isLoading,
   canChat,
-  needsLogin,
   needsEncryptionSetup,
   needsBanner,
   warningMessage,

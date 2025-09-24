@@ -1,4 +1,21 @@
 // Matrix utilities for room management and user handling
+import getEnv from './env'
+
+/**
+ * Generate a Matrix user ID from user slug and tenant ID
+ * @param userSlug The user's slug
+ * @param tenantId The tenant ID (optional, will be fetched if not provided)
+ * @returns The Matrix user ID (e.g., @userslug_tenantid:matrix.openmeet.net)
+ */
+export const generateMatrixUserId = (userSlug: string, tenantId?: string): string => {
+  const serverName = getEnv('APP_MATRIX_SERVER_NAME') as string
+  if (!serverName) {
+    throw new Error('APP_MATRIX_SERVER_NAME is not configured')
+  }
+
+  const actualTenantId = tenantId || getEnv('APP_TENANT_ID') || localStorage.getItem('tenantId') || 'default'
+  return `@${userSlug}_${actualTenantId}:${serverName}`
+}
 
 /**
  * Extracts a display name from a Matrix user ID
@@ -19,7 +36,10 @@ export const getMatrixDisplayName = (matrixUserId: string): string => {
  * @returns The Matrix room alias (e.g., #event-my-event-tenant123:matrix.openmeet.net)
  */
 export const generateEventRoomAlias = (eventSlug: string, tenantId: string): string => {
-  const serverName = 'matrix.openmeet.net' // This should match your Matrix server configuration
+  const serverName = getEnv('APP_MATRIX_SERVER_NAME') as string
+  if (!serverName) {
+    throw new Error('APP_MATRIX_SERVER_NAME is not configured')
+  }
   return `#event-${eventSlug}-${tenantId}:${serverName}`
 }
 
@@ -30,7 +50,10 @@ export const generateEventRoomAlias = (eventSlug: string, tenantId: string): str
  * @returns The Matrix room alias (e.g., #group-my-group-tenant123:matrix.openmeet.net)
  */
 export const generateGroupRoomAlias = (groupSlug: string, tenantId: string): string => {
-  const serverName = 'matrix.openmeet.net' // This should match your Matrix server configuration
+  const serverName = getEnv('APP_MATRIX_SERVER_NAME') as string
+  if (!serverName) {
+    throw new Error('APP_MATRIX_SERVER_NAME is not configured')
+  }
   return `#group-${groupSlug}-${tenantId}:${serverName}`
 }
 
