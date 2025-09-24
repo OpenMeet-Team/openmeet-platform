@@ -181,6 +181,18 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
     isLoading.value = true
 
     try {
+      // Pre-load more timeline messages using scrollback before creating TimelineWindow
+      const room = currentTimelineSet.room
+      if (room) {
+        logger.debug(`📖 Pre-loading ${INITIAL_LOAD_SIZE} messages via scrollback...`)
+        try {
+          await currentClient.scrollback(room, INITIAL_LOAD_SIZE)
+          logger.debug('✅ Scrollback completed, timeline should now have more messages')
+        } catch (error) {
+          logger.warn('⚠️ Scrollback failed, continuing with available messages:', error)
+        }
+      }
+
       // Create new TimelineWindow instance
       timelineWindow.value = new TimelineWindow(
         currentClient,
@@ -189,14 +201,42 @@ export function useMatrixTimeline (options: TimelineOptions = {}) {
       )
 
       // Load initial events with optimized batch size
-      logger.debug(`🚀 Loading initial ${INITIAL_LOAD_SIZE} messages (optimized for performance)`)
-      await timelineWindow.value.load(eventId, INITIAL_LOAD_SIZE)
+      logger.debug(`🚀 Loading initial ${INITIAL_LOAD_SIZE} messages`, {
+        eventId,
+        initialWindowSize: INITIAL_LOAD_SIZE,
+        PAGINATION_SIZE,
+        windowLimit: options.windowLimit,
+        typeOfInitialLoadSize: typeof INITIAL_LOAD_SIZE,
+        valueOfInitialLoadSize: INITIAL_LOAD_SIZE,
+        isNumber: typeof INITIAL_LOAD_SIZE === 'number'
+      })
+
+      // Extra paranoid check - make sure we're passing the right value
+      const loadSize = INITIAL_LOAD_SIZE
+      logger.debug('🔍 About to call Matrix SDK load() with params:', {
+        param1_eventId: eventId,
+        param2_loadSize: loadSize,
+        loadSizeType: typeof loadSize,
+        loadSizeValue: loadSize
+      })
+
+      await timelineWindow.value.load(eventId, loadSize)
+
+      // Debug what the Matrix SDK actually loaded
+      const loadedEvents = timelineWindow.value.getEvents()
+      logger.debug('🔍 Matrix SDK load() completed', {
+        requestedSize: INITIAL_LOAD_SIZE,
+        actualEventsFromSDK: loadedEvents.length,
+        eventIds: loadedEvents.map(e => e.getId()).slice(0, 5)
+      })
+
       refreshEvents()
 
       logger.debug('Timeline initialized successfully', {
-        eventCount: events.value.length,
+        eventsAfterRefresh: events.value.length,
         canPaginateBack: canPaginateBack.value,
-        canPaginateForward: canPaginateForward.value
+        canPaginateForward: canPaginateForward.value,
+        eventsFromTimelineWindow: timelineWindow.value.getEvents().length
       })
     } catch (error) {
       logger.error('Failed to initialize timeline:', error)
