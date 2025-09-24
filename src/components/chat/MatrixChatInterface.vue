@@ -597,7 +597,7 @@ const {
   loadOlderMessages: paginateBackward,
   refreshEvents
 } = useMatrixTimeline({
-  windowLimit: 50 // Reduced from 1000 to improve initial load performance
+  windowLimit: 200 // Increased to ensure initial load of 50 messages works properly
 })
 
 // Helper function that automatically gets client and timelineSet for initializeTimeline
