@@ -107,7 +107,19 @@ export function useMatrixAccess () {
    */
   const getMatrixUserId = (): string | null => {
     const userData = authStore.user
-    return userData?.matrixUserId || null
+
+    // Generate Matrix user ID from user slug
+    if (userData?.slug) {
+      try {
+        const { generateMatrixUserId } = require('../utils/matrixUtils')
+        return generateMatrixUserId(userData.slug)
+      } catch (error) {
+        console.error('Failed to generate Matrix user ID:', error)
+        return null
+      }
+    }
+
+    return null
   }
 
   return {

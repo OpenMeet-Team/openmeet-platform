@@ -19,40 +19,21 @@ export function useMatrixEncryption () {
 
   // Computed helpers based on Element Web pattern
   const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
-  const needsLogin = computed(() => {
-    // Access clientReadiness to make this computed reactive to Matrix client events
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = clientReadiness.value // This triggers reactivity when events fire
 
-    // Check Matrix client connection directly
-    // For basic "Connect to Matrix" flow, we only need client + logged in
-    // Don't require full sync state (isReady) as that's for actual chat operations
+  // Simple computed that just checks if we have a Matrix connection
+  // This is now only used for encryption-specific login needs, not general connection
+  const needsLogin = computed(() => {
     const client = matrixClientManager.getClient()
     const hasConnection = client && client.isLoggedIn()
 
-    logger.debug('useMatrixEncryption.needsLogin() computed evaluation:', {
-      hasClient: !!client,
-      isLoggedIn: client?.isLoggedIn(),
-      hasConnection,
-      encryptionState: encryptionStatus.value?.state
-    })
-
-    // If we have no connection, definitely need login
-    if (!hasConnection) {
-      logger.debug('useMatrixEncryption.needsLogin(): has no connection, show connect screen')
+    // If we have a connection, check if encryption specifically needs login
+    if (hasConnection && encryptionStatus.value?.state === 'needs_login') {
       return true
     }
 
-    // If we have connection but encryption status says we need login, respect that
-    // (This preserves any encryption-specific login requirements)
-    if (encryptionStatus.value?.state === 'needs_login') {
-      logger.debug('useMatrixEncryption.needsLogin(): has encryption state "needs login", show connect screen')
-      return true
-    }
-
-    // Otherwise, we don't need login
-    logger.debug('useMatrixEncryption.needsLogin(): is logged in, show chat interface')
-    return false
+    // Otherwise defer to whatever is using this composable
+    // The main connection check is now handled by the component
+    return !hasConnection
   })
   const needsEncryptionSetup = computed(() => {
     const state = encryptionStatus.value?.state

@@ -395,6 +395,7 @@ import { MatrixEvent, Room, ClientEvent, RoomEvent, MatrixEventEvent, RoomMember
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
+import { useAuthStore } from '../../stores/auth-store'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
 import EventTile from './EventTile.vue'
@@ -838,22 +839,12 @@ const getRoomStatusText = (): string => {
   }
 }
 
-// Connection functions removed - handled by MatrixNativeChatOrchestrator
-
-// formatTime function removed - unused
-
-// formatFileSize function removed - unused
-
 const formatTypingUsers = (users: { userId: string, userName: string }[]): string => {
   if (users.length === 0) return ''
   if (users.length === 1) return `${users[0].userName} is typing...`
   if (users.length === 2) return `${users[0].userName} and ${users[1].userName} are typing...`
   return `${users.length} people are typing...`
 }
-
-// getFileIcon function removed - unused
-
-// getFileUrl function removed - unused
 
 // Load authenticated images and create blob URLs
 interface MessageWithImageBlob {
@@ -2093,14 +2084,45 @@ onMounted(async () => {
       try {
         const client = await matrixClientManager.initializeClient()
         if (!client) {
-          // No stored session - show connect button
-          logger.debug('🔑 No stored session, showing connect button')
+          // Check if we have valid/refreshable tokens before showing connect button
+          const authStore = useAuthStore()
+
+          // Wait for auth store to be initialized to avoid timing issues
+          if (!authStore.isInitialized) {
+            try {
+              await authStore.waitForInitialization()
+            } catch (error) {
+              logger.warn('⚠️ Auth store initialization timeout, falling back to connect button')
+              lastAuthError.value = '' // Clear error to show clean connect button
+              isConnecting.value = false
+              return // Exit early to show connect button
+            }
+          }
+
+          // No stored session - let the parent component handle showing connect button
+          logger.debug('🔑 No stored session available')
           lastAuthError.value = '' // Clear error to show clean connect button
           isConnecting.value = false
           return // Exit early to show connect button
         }
         // Session restored successfully, continue...
       } catch (authError) {
+        // Check if we have valid/refreshable tokens before showing connect button
+        const authStore = useAuthStore()
+
+        // Wait for auth store to be initialized to avoid timing issues
+        if (!authStore.isInitialized) {
+          try {
+            await authStore.waitForInitialization()
+          } catch (error) {
+            logger.warn('⚠️ Auth store initialization timeout, falling back to connect button')
+            lastAuthError.value = 'Matrix session expired. Please connect to continue.'
+            isConnecting.value = false
+            return // Exit early to show connect button
+          }
+        }
+
+        // Session restoration failed - let parent component handle showing connect button
         logger.debug('🔑 Session restoration failed:', authError.message)
         lastAuthError.value = 'Matrix session expired. Please connect to continue.'
         isConnecting.value = false

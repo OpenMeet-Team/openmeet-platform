@@ -49,9 +49,18 @@ class MatrixTokenManager {
    * Extract user slug from Matrix user ID
    */
   private extractUserSlug (userId: string): string {
-    // Extract user slug from Matrix ID format: @username_slug_devicehash:domain
+    // Extract user slug from Matrix ID format: @username_tenantid:domain
     const userSlugMatch = userId.match(/@(.+?)_[^_]+:/)
-    return userSlugMatch ? userSlugMatch[1] : userId.replace(/[@:]/g, '_')
+    const result = userSlugMatch ? userSlugMatch[1] : userId.replace(/[@:]/g, '_')
+
+    logger.debug('🔍 CRITICAL DEBUG - User slug extraction:', {
+      userId,
+      regex: '/@(.+?)_[^_]+:/',
+      userSlugMatch,
+      extractedSlug: result
+    })
+
+    return result
   }
 
   /**
