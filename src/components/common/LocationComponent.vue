@@ -260,8 +260,9 @@ const displayValue = computed(() => {
   return searchQuery.value || currentLocation.value.location
 })
 
-// Debounced search timeout
+// Debounced search timeout and request cancellation
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
+let currentSearchController: AbortController | null = null
 
 // Load recent locations from localStorage
 const loadRecentLocations = () => {
@@ -320,7 +321,7 @@ const onInputChange = (value: string) => {
     if (value.length >= 3) {
       fetchLocationSuggestions(value)
     }
-  }, 300)
+  }, 600)
 }
 
 // Handle custom/informal location input
@@ -485,10 +486,19 @@ const fetchLocationSuggestions = async (search: string) => {
     return
   }
 
+  // Cancel previous request if it exists
+  if (currentSearchController) {
+    currentSearchController.abort()
+  }
+
+  // Create new abort controller for this request
+  currentSearchController = new AbortController()
+
   try {
     loading.value = true
     const response = await axios.get(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=5&accept-language=en`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=5&accept-language=en`,
+      { signal: currentSearchController.signal }
     )
     locationSuggestions.value = response.data
 
@@ -497,11 +507,15 @@ const fetchLocationSuggestions = async (search: string) => {
       suggestionsMenuRef.value?.updatePosition()
     }
   } catch (err) {
-    console.error('Error fetching location suggestions:', err)
-    error('Failed to fetch location suggestions')
+    // Don't show error for aborted requests
+    if (err.name !== 'AbortError' && err.name !== 'CanceledError') {
+      console.error('Error fetching location suggestions:', err)
+      error('Failed to fetch location suggestions')
+    }
     locationSuggestions.value = []
   } finally {
     loading.value = false
+    currentSearchController = null
   }
 }
 
