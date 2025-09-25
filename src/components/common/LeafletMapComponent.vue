@@ -12,6 +12,14 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import SpinnerComponent from '../common/SpinnerComponent.vue'
 
+// Fix for Leaflet marker icons not displaying
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png'
+})
+
 // Refs and interfaces
 const mapContainer = ref<HTMLElement | null>(null)
 const map = ref<LMap | null>(null)
@@ -309,11 +317,5 @@ defineExpose({
   width: 100% !important;
   height: 100% !important;
   overflow: hidden !important;
-}
-</style>
-
-<style>
-.leaflet-default-icon-path {
-  background-image: url('leaflet/dist/images/marker-icon.png');
 }
 </style>
