@@ -291,6 +291,11 @@ const saveToRecentLocations = (location: OSMLocationSuggestion) => {
 const onInputChange = (value: string) => {
   searchQuery.value = value
 
+  // Show suggestions as soon as user starts typing
+  if (value.length > 0) {
+    showSuggestions.value = true
+  }
+
   // Clear search timeout
   if (searchTimeout) {
     clearTimeout(searchTimeout)
@@ -301,6 +306,7 @@ const onInputChange = (value: string) => {
     currentLocation.value = { location: '', lat: 0, lon: 0 }
     locationSuggestions.value = []
     emit('update:model-value', currentLocation.value)
+    showSuggestions.value = false
     return
   }
 
