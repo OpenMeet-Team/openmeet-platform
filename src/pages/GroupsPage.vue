@@ -6,14 +6,54 @@
       <span class="text-bold q-ml-xs">Groups list</span>
     </div>
 
-    <div class="row q-col-gutter-md q-mb-lg q-mt-md">
-      <CategoriesFilterComponent/>
-      <LocationFilterComponent/>
-      <RadiusFilterComponent/>
-      <div class="row items-center" v-if="route.query.categories || route.query.location || route.query.radius">
-        <q-btn data-cy="groups-reset-filters" no-caps size="md" flat label="Reset filters" @click="router.push({ path: ''})"/>
+    <!-- Collapsible Filters Section -->
+    <q-expansion-item
+      :model-value="showFilters"
+      @update:model-value="showFilters = $event"
+      icon="sym_r_tune"
+      :label="filterLabel"
+      header-class="text-h6 q-py-md"
+      class="q-mb-md"
+    >
+      <template v-slot:header>
+        <q-item-section avatar>
+          <q-icon name="sym_r_tune" />
+        </q-item-section>
+        <q-item-section>
+          <q-item-label class="text-h6">{{ filterLabel }}</q-item-label>
+          <q-item-label caption v-if="activeFiltersCount > 0">
+            {{ activeFiltersCount }} filter{{ activeFiltersCount > 1 ? 's' : '' }} applied
+          </q-item-label>
+        </q-item-section>
+        <q-item-section side v-if="hasActiveFilters">
+          <q-btn
+            flat
+            dense
+            round
+            icon="sym_r_clear_all"
+            @click.stop="clearAllFilters"
+            color="negative"
+            size="sm"
+            data-cy="groups-clear-all-filters"
+          >
+            <q-tooltip>Clear all filters</q-tooltip>
+          </q-btn>
+        </q-item-section>
+      </template>
+
+      <div class="row q-col-gutter-md q-pb-md">
+        <!-- Single row layout for groups (fewer filters than events) -->
+        <div class="col-12 col-sm-6 col-md-4">
+          <CategoriesFilterComponent/>
+        </div>
+        <div class="col-12 col-sm-4 col-md-4">
+          <LocationFilterComponent/>
+        </div>
+        <div class="col-12 col-sm-2 col-md-2">
+          <RadiusFilterComponent/>
+        </div>
       </div>
-    </div>
+    </q-expansion-item>
 
     <GroupsListComponent
       :groups="groups?.data"
@@ -44,6 +84,9 @@ import { useAuthSession } from '../boot/auth-session'
 const router = useRouter()
 const route = useRoute()
 
+// Filters state
+const showFilters = ref(false)
+
 useMeta({
   title: 'Groups'
 })
@@ -51,6 +94,36 @@ useMeta({
 // Pagination
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 const groups = computed(() => useGroupsStore().groups)
+
+// Filter state helpers
+const hasActiveFilters = computed(() => {
+  return !!(route.query.categories ||
+           route.query.location ||
+           route.query.radius)
+})
+
+const activeFiltersCount = computed(() => {
+  let count = 0
+  if (route.query.categories) count++
+  if (route.query.location) count++
+  if (route.query.radius) count++
+  return count
+})
+
+const filterLabel = computed(() => {
+  return showFilters.value ? 'Filters' : 'Show Filters'
+})
+
+const clearAllFilters = () => {
+  router.push({ path: route.path })
+}
+
+// Auto-open filters if any are active
+watch(() => hasActiveFilters.value, (newVal) => {
+  if (newVal) {
+    showFilters.value = true
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   LoadingBar.start()

@@ -7,7 +7,7 @@
     :outlined="true"
     filled
     :hide-dropdown-icon="!!radius"
-    style="min-width: 200px;"
+    style="min-width: 120px; width: 100%;"
     data-cy="radius-filter"
     @update:model-value="onFilterByRadius"
     emit-value

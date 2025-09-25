@@ -168,9 +168,9 @@ const group = ref<GroupEntity>({
 
 const loading = ref(false)
 
-const onUpdateLocation = (address: { lat: string, lon: string, location: string }) => {
-  group.value.lat = parseFloat(address.lat as string)
-  group.value.lon = parseFloat(address.lon as string)
+const onUpdateLocation = (address: { lat: number, lon: number, location: string }) => {
+  group.value.lat = address.lat
+  group.value.lon = address.lon
   group.value.location = address.location
 }
 

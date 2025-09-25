@@ -15,12 +15,12 @@ const selectedLocation = ref<string | null>(route.query.location as string || nu
 const onFilterByLocation = (addressLocation: AddressLocation) => {
   const { lat, lon, location } = addressLocation
 
-  // Check if both lat and lon are zero
-  if (lat === 0 && lon === 0) {
-    // Remove location from query if lat/lon are zero
+  // Check if location is cleared (empty or coordinates are zero)
+  if (!location || (lat === 0 && lon === 0)) {
+    // Remove location from query if cleared
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { location, lat, lon, ...rest } = route.query // Destructure to remove location
-    selectedLocation.value = ''
+    const { location: _, lat: __, lon: ___, radius, ...rest } = route.query // Also remove radius when location is cleared
+    selectedLocation.value = null
     selectedLat.value = null
     selectedLon.value = null
     router.push({
@@ -30,15 +30,15 @@ const onFilterByLocation = (addressLocation: AddressLocation) => {
       }
     })
   } else {
-    selectedLocation.value = location as string
-    selectedLat.value = lat as number
-    selectedLon.value = lon as number
+    selectedLocation.value = location
+    selectedLat.value = lat
+    selectedLon.value = lon
     router.push({
       query: {
         ...route.query,
         location,
-        lat,
-        lon,
+        lat: lat.toString(),
+        lon: lon.toString(),
         page: 1
       }
     })
@@ -59,13 +59,13 @@ watch(() => route.query, (newQuery) => {
     data-cy="location-filter"
     :location="selectedLocation as string"
     :lat="selectedLat as number"
-    :long="selectedLon as number"
+    :lon="selectedLon as number"
     label="Any location"
+    placeholder="Search by city or address"
     clearable
     :outlined="true"
     filled
-    :hide-search-icon="!!selectedLocation"
-    style="min-width: 200px;"
+    style="min-width: 200px; width: 100%;"
     @update:model-value="onFilterByLocation"
   />
 </template>

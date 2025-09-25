@@ -487,9 +487,9 @@ const onPublish = () => {
   formRef.value?.submit()
 }
 
-const onUpdateLocation = (address: { lat: string, lon: string, location: string }) => {
-  eventData.value.lat = parseFloat(address.lat as string)
-  eventData.value.lon = parseFloat(address.lon as string)
+const onUpdateLocation = (address: { lat: number, lon: number, location: string }) => {
+  eventData.value.lat = address.lat
+  eventData.value.lon = address.lon
   eventData.value.location = address.location
 }
 
