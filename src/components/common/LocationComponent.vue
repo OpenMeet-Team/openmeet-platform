@@ -50,7 +50,7 @@
           <q-tooltip>Select on map</q-tooltip>
         </q-btn>
         <q-btn
-          v-if="location && clearable"
+          v-if="(searchQuery || currentLocation.location) && clearable"
           flat
           dense
           round
