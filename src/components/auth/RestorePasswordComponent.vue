@@ -93,9 +93,6 @@ const onSubmit = async () => {
     await authStore.actionRestorePassword({ password: password.value, hash })
 
     showSuccessDialog.value = true
-
-    // Reset form field after successful submission
-    password.value = ''
   } catch (err) {
     error('Failed to change password. Please try again.')
   } finally {

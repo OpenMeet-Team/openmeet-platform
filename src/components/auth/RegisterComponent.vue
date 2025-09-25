@@ -142,13 +142,6 @@ const onSubmit = async () => {
     email: email.value,
     password: password.value
   }).then(() => {
-    firstName.value = ''
-    lastName.value = ''
-    email.value = ''
-    password.value = ''
-    confirmPassword.value = ''
-    accept.value = false
-
     emits('register')
     return router.push((route.query.redirect || '/') as string)
   }).catch(() => {

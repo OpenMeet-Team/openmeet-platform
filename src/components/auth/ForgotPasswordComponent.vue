@@ -90,9 +90,6 @@ const onSubmit = async () => {
     await authStore.actionForgotPassword({ email: email.value })
 
     showSuccessDialog.value = true
-
-    // Reset form field after successful submission
-    email.value = ''
   } catch (err) {
     console.log(err)
     error('Failed to send reset instructions. Please try again.')
