@@ -72,6 +72,8 @@
       self="top start"
       class="location-suggestions-menu"
       :offset="[0, 8]"
+      @mouseenter="onMenuEnter"
+      @mouseleave="onMenuLeave"
     >
       <q-list>
         <!-- Recent locations -->
@@ -263,6 +265,7 @@ const displayValue = computed(() => {
 // Debounced search timeout and request cancellation
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 let currentSearchController: AbortController | null = null
+let isMenuHovered = false
 
 // Load recent locations from localStorage
 const loadRecentLocations = () => {
@@ -364,8 +367,25 @@ const onInputFocus = () => {
 const onInputBlur = () => {
   // Delay hiding to allow menu clicks
   setTimeout(() => {
-    showSuggestions.value = false
+    // Don't hide if mouse is over the menu
+    if (!isMenuHovered) {
+      showSuggestions.value = false
+    }
   }, 200)
+}
+
+const onMenuEnter = () => {
+  isMenuHovered = true
+}
+
+const onMenuLeave = () => {
+  isMenuHovered = false
+  // Close menu when mouse leaves after a short delay
+  setTimeout(() => {
+    if (!isMenuHovered) {
+      showSuggestions.value = false
+    }
+  }, 100)
 }
 
 // Geolocation
