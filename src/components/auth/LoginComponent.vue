@@ -161,8 +161,6 @@ const onSubmit = (): void => {
       email: email.value,
       password: password.value
     }).then(() => {
-      email.value = ''
-      password.value = ''
       emits('login')
 
       // Check for OIDC flow after successful login
