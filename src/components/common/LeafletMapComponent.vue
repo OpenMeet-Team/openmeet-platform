@@ -125,24 +125,11 @@ const initializeMapDirect = async () => {
   }
 
   try {
-    // Ensure container has proper dimensions before creating map
-    if (mapContainer.value.offsetWidth === 0 || mapContainer.value.offsetHeight === 0) {
-      console.warn('LeafletMap: Container has zero dimensions, waiting for proper sizing')
-      setTimeout(() => initializeMapDirect(), 100)
-      return
-    }
+    // Create map instance
+    map.value = L.map(mapContainer.value).setView(center, props.zoom)
 
-    // Create map instance with proper options
-    map.value = L.map(mapContainer.value, {
-      preferCanvas: false,
-      attributionControl: true,
-      zoomControl: true
-    }).setView(center, props.zoom)
-
-    // Add tile layer with standard options
-    tileLayer.value = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map.value as LMap)
+    // Add tile layer
+    tileLayer.value = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value as LMap)
 
     addMarker(center, 'Initial location')
 
@@ -157,7 +144,7 @@ const initializeMapDirect = async () => {
     // Force Leaflet to recalculate container size to prevent display issues
     setTimeout(() => {
       if (map.value) {
-        map.value.invalidateSize({ animate: false, pan: false })
+        map.value.invalidateSize()
       }
     }, 100)
 
@@ -202,16 +189,9 @@ const handleMapClick = (e: L.LeafletMouseEvent) => {
   emit('markerLocation', { lat, lng })
 }
 
-// Handle window resize with proper timing
+// Handle window resize
 const handleResize = () => {
-  if (map.value) {
-    // Use setTimeout to ensure the container has finished resizing
-    setTimeout(() => {
-      if (map.value) {
-        map.value.invalidateSize({ animate: false, pan: false })
-      }
-    }, 100)
-  }
+  map.value?.invalidateSize()
 }
 
 // Add a new marker
@@ -315,6 +295,7 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 300px;
+  overflow: hidden;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
 }
@@ -324,12 +305,29 @@ defineExpose({
   height: 100%;
   position: relative;
   z-index: 1;
-  overflow: hidden;
 }
 
-/* Ensure Leaflet container fills the space properly */
+/* Ensure Leaflet controls stay within bounds */
 :deep(.leaflet-container) {
   width: 100% !important;
   height: 100% !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Fix for Leaflet popup z-index issues */
+:deep(.leaflet-popup-pane) {
+  z-index: 2 !important;
+}
+
+/* Ensure attribution stays within bounds */
+:deep(.leaflet-control-attribution) {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  z-index: 3 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  padding: 2px 4px !important;
+  font-size: 10px !important;
 }
 </style>
