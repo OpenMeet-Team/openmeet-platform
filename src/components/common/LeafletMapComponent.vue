@@ -74,16 +74,25 @@ const getUserLocation = (): Promise<[number, number]> => {
   })
 }
 
-// Check if container is visible in DOM (no dimension check)
+// Check if container is visible in DOM
 const isContainerVisible = (): boolean => {
   if (!mapContainer.value) return false
 
-  // Check if container is in DOM and not hidden
-  const isInDOM = mapContainer.value.offsetParent !== null
-  const computedStyle = window.getComputedStyle(mapContainer.value)
-  const isVisible = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden'
+  // Check if element has dimensions and is in the DOM
+  const rect = mapContainer.value.getBoundingClientRect()
+  const isVisible = (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    mapContainer.value.offsetParent !== null
+  )
 
-  return isInDOM && isVisible
+  // Additional check for computed styles
+  if (isVisible) {
+    const computedStyle = window.getComputedStyle(mapContainer.value)
+    return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden'
+  }
+
+  return false
 }
 
 // Force initialization after a timeout, even if visibility checks fail
@@ -116,7 +125,14 @@ const initializeMapDirect = async () => {
   }
 
   try {
-    // Create map instance with proper options - let Leaflet handle zero dimensions
+    // Ensure container has proper dimensions before creating map
+    if (mapContainer.value.offsetWidth === 0 || mapContainer.value.offsetHeight === 0) {
+      console.warn('LeafletMap: Container has zero dimensions, waiting for proper sizing')
+      setTimeout(() => initializeMapDirect(), 100)
+      return
+    }
+
+    // Create map instance with proper options
     map.value = L.map(mapContainer.value, {
       preferCanvas: false,
       attributionControl: true,
@@ -159,18 +175,18 @@ const initializeMap = async () => {
   // Skip if already initialized
   if (map.value) return
 
-  // Check if container is visible
+  // Check if container is ready
   if (!mapContainer.value || !isContainerVisible()) {
-    // If we've attempted too many times, force initialization anyway
+    // If we've attempted too many times, wait for intersection observer to trigger
     if (initAttempts.value >= MAX_INIT_ATTEMPTS) {
-      console.log('LeafletMap: Container not visible after multiple attempts, force initializing anyway')
-      await initializeMapDirect()
+      console.log('LeafletMap: Container not visible after multiple attempts, will retry when shown')
       return
     }
 
     // Increment attempts and try again after a delay
     initAttempts.value++
-    setTimeout(initializeMap, 500)
+    // Use a longer delay for better stability
+    setTimeout(initializeMap, 1000)
     return
   }
 
@@ -299,7 +315,6 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 300px;
-  overflow: hidden;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
 }
@@ -312,10 +327,9 @@ defineExpose({
   overflow: hidden;
 }
 
-/* Ensure Leaflet container fills the space properly and contains tiles */
+/* Ensure Leaflet container fills the space properly */
 :deep(.leaflet-container) {
   width: 100% !important;
   height: 100% !important;
-  overflow: hidden !important;
 }
 </style>
