@@ -512,14 +512,22 @@ const isRoomEncrypted = computed(() => {
 
 // Function to resolve room alias to room ID and join if needed
 // Simple synchronous room lookup - no async operations or auto-joining
-const findJoinedRoom = () => {
+const findJoinedRoom = async () => {
   if (!props.roomId) {
     resolvedRoomId.value = null
     return
   }
 
   const client = matrixClientManager.getClient()
-  if (!client || !client.isLoggedIn()) {
+  if (!client) {
+    resolvedRoomId.value = null
+    return
+  }
+
+  // Validate tokens before attempting room operations to prevent zombie state
+  const isValidlyLoggedIn = await matrixClientManager.isValidlyLoggedIn()
+  if (!isValidlyLoggedIn) {
+    logger.warn('⚠️ Matrix tokens invalid - cannot access rooms')
     resolvedRoomId.value = null
     return
   }
@@ -545,11 +553,19 @@ const findJoinedRoom = () => {
     // Auto-accept invitation if needed
     if (membership === 'invite') {
       logger.debug('🎟️ Auto-accepting room invitation:', { roomId: room.roomId })
+
+      // Validate tokens before joining room to prevent failures
+      const isValidForJoin = await matrixClientManager.isValidlyLoggedIn()
+      if (!isValidForJoin) {
+        logger.warn('⚠️ Cannot join room - Matrix tokens invalid')
+        return
+      }
+
       matrixClientManager.getClient()?.joinRoom(room.roomId).then(() => {
         logger.debug('✅ Auto-join completed, refreshing room state to trigger timeline')
         // Wait a bit for Matrix SDK to process the join, then refresh room lookup
-        setTimeout(() => {
-          findJoinedRoom() // This should trigger the timeline watcher with updated room state
+        setTimeout(async () => {
+          await findJoinedRoom() // This should trigger the timeline watcher with updated room state
 
           // Force timeline initialization if conditions are met (bypasses Vue reactivity delay)
           setTimeout(() => {
@@ -778,8 +794,8 @@ let customEventListeners: (() => void)[] = []
 // resolveRoom function removed - unused
 
 // Simple watcher that looks up rooms when roomId or client changes
-watch(() => [props.roomId, matrixClientManager.getClient()?.isLoggedIn()], () => {
-  findJoinedRoom()
+watch(() => [props.roomId, matrixClientManager.getClient()?.isLoggedIn()], async () => {
+  await findJoinedRoom()
 }, { immediate: true })
 
 // Mock data
@@ -2107,6 +2123,20 @@ onMounted(async () => {
         }
         // Session restored successfully, continue...
       } catch (authError) {
+        // Enhanced error handling for token validation failures
+        logger.warn('⚠️ Matrix client initialization failed:', authError.message)
+
+        // Check if this is a token validation error (zombie state)
+        const isTokenError = authError.message?.includes('Matrix token validation failed') ||
+                            authError.message?.includes('M_UNKNOWN_TOKEN') ||
+                            authError.message?.includes('401')
+
+        if (isTokenError) {
+          logger.debug('🧟 Detected zombie state - invalid tokens, clearing client')
+          // Clear invalid client to ensure clean state
+          await matrixClientManager.clearClientAndCredentials()
+        }
+
         // Check if we have valid/refreshable tokens before showing connect button
         const authStore = useAuthStore()
 

@@ -262,11 +262,19 @@ const $q = useQuasar()
 // Auth store for simple token checking
 const authStore = useAuthStore()
 
+// Track when we've detected invalid tokens (reactive state)
+const hasInvalidTokens = ref(false)
+
 // Simple, fast token check - no complex async logic or race conditions
 const needsLogin = computed(() => {
   // Wait for auth store to be ready
   if (!authStore.isInitialized || !authStore.user?.slug) {
     return false // Show loading instead of connect button until we're sure
+  }
+
+  // If we've detected invalid tokens, show connect button
+  if (hasInvalidTokens.value) {
+    return true
   }
 
   // Simple sync check: do we have any Matrix tokens stored?
@@ -449,38 +457,86 @@ watch(() => props.inlineRoomId, async (newRoomId, oldRoomId) => {
 // Actions
 const connectToMatrix = async () => {
   logger.debug('🔗 User requested Matrix connection')
+
+  // Show loading feedback
+  $q.loading.show({ message: 'Connecting to Matrix...' })
+
   try {
     // Clear any residual encryption skipped state first
     matrixEncryptionState.clearEncryptionSkipped()
 
     // Try to restore from stored session first (Element Web pattern)
     let client = await matrixClientManager.initializeClient()
-    if (!client) {
-      // No stored session - start authentication flow
-      logger.debug('🔗 No stored session found, starting authentication flow')
-      client = await matrixClientManager.startAuthenticationFlow()
-    } else {
-      logger.debug('✅ Restored Matrix session from storage')
-    }
+
     if (client) {
-      // Re-check state after connection - only if we have a room ID
-      if (props.inlineRoomId) {
-        await checkEncryptionState(props.inlineRoomId)
+      logger.debug('✅ Client restored from storage - validating tokens...')
+
+      // Validate that the restored client actually works by making a simple API call
+      try {
+        await client.whoami()
+        logger.debug('✅ Stored tokens are valid and working')
+      } catch (validationError) {
+        logger.warn('⚠️ Stored tokens are invalid/expired:', validationError)
+
+        // Mark tokens as invalid so UI can react
+        hasInvalidTokens.value = true
+
+        // Clear the invalid client and tokens to start fresh
+        await matrixClientManager.clearClient()
+        client = null
       }
-
-      logger.debug('✅ Matrix connected - ready for unencrypted chat')
-
-      // Force reactivity update by checking needsLogin state
-      logger.debug('🔍 Post-connection state:', {
-        needsLogin: needsLogin.value,
-        hasClient: !!matrixClientManager.getClient(),
-        isLoggedIn: matrixClientManager.getClient()?.isLoggedIn(),
-        isReady: matrixClientManager.isReady(),
-        encryptionState: typedEncryptionStatus.value?.state
-      })
     }
+
+    if (!client) {
+      // No stored session or validation failed - start authentication flow
+      logger.debug('🔗 Starting authentication flow (no valid stored session)')
+      $q.loading.show({ message: 'Redirecting to authentication...' })
+
+      // This will redirect the page, so execution stops here
+      await matrixClientManager.startAuthenticationFlow()
+      return
+    }
+
+    // If we get here, we have a valid working client
+    logger.debug('✅ Matrix client ready and validated')
+
+    // Clear invalid token flag since we now have a working client
+    hasInvalidTokens.value = false
+
+    // Re-check state after connection - only if we have a room ID
+    if (props.inlineRoomId) {
+      await checkEncryptionState(props.inlineRoomId)
+    }
+
+    logger.debug('✅ Matrix connected - ready for chat')
+
+    // Force reactivity update by checking needsLogin state
+    logger.debug('🔍 Post-connection state:', {
+      needsLogin: needsLogin.value,
+      hasClient: !!matrixClientManager.getClient(),
+      isLoggedIn: matrixClientManager.getClient()?.isLoggedIn(),
+      isReady: matrixClientManager.isReady(),
+      encryptionState: typedEncryptionStatus.value?.state
+    })
+
+    // Show success feedback
+    $q.notify({
+      type: 'positive',
+      message: 'Connected to Matrix successfully',
+      timeout: 3000
+    })
   } catch (error) {
-    logger.error('Failed to connect to Matrix:', error)
+    logger.error('❌ Failed to connect to Matrix:', error)
+
+    // Show error feedback
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to connect to Matrix',
+      caption: 'Please try again or check your connection',
+      timeout: 5000
+    })
+  } finally {
+    $q.loading.hide()
   }
 }
 
@@ -1342,6 +1398,19 @@ onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
   logger.debug('🔍 Props on mount:', { inlineRoomId: props.inlineRoomId, contextType: props.contextType, mode: props.mode })
   logger.debug('🔍 Debug state:', debugState.value)
+
+  // Check for zombie state: stored tokens but no working client
+  if (authStore.isInitialized && authStore.user?.slug) {
+    const hasStoredTokens = hasStoredMatrixTokens(authStore.user.slug)
+    const hasWorkingClient = matrixClientManager.getClient() !== null
+
+    if (hasStoredTokens && !hasWorkingClient) {
+      logger.debug('🧟 Detected zombie state: stored tokens but no working client')
+      hasInvalidTokens.value = true
+      // Clear invalid tokens to ensure clean state
+      await matrixClientManager.clearClientAndCredentials()
+    }
+  }
 
   // Initialize encryption service if Matrix client is ready
   initializeEncryptionService()

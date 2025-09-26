@@ -318,6 +318,27 @@ export class MatrixClientManager {
   }
 
   /**
+   * Check if client is logged in with valid tokens
+   * Makes a real-time API call to validate tokens are still active
+   * Use this when token validity is critical (e.g., before joining rooms)
+   */
+  public async isValidlyLoggedIn (): Promise<boolean> {
+    // Basic login check first
+    if (!this.client || !this.client.isLoggedIn() || this.isShuttingDown) {
+      return false
+    }
+
+    // Validate tokens with Matrix server
+    try {
+      await this.client.whoami()
+      return true
+    } catch (error) {
+      logger.warn('⚠️ Token validation failed - client is in zombie state:', error)
+      return false
+    }
+  }
+
+  /**
    * Check if crypto is currently initializing
    */
   public isCryptoInitializing (): boolean {
@@ -437,10 +458,16 @@ export class MatrixClientManager {
    * @returns Promise<MatrixClient | null> - client if session restored, null if no session
    */
   public async initializeClient (): Promise<MatrixClient | null> {
-    // Return existing client if already initialized
-    if (this.client && this.client.isLoggedIn() && !this.isShuttingDown) {
-      logger.debug('✅ Matrix client already initialized and ready')
-      return this.client
+    // Return existing client if already initialized and tokens are valid
+    if (this.client && !this.isShuttingDown) {
+      const isValid = await this.isValidlyLoggedIn()
+      if (isValid) {
+        logger.debug('✅ Matrix client already initialized with valid tokens')
+        return this.client
+      } else {
+        logger.debug('🧟 Existing client has invalid tokens, clearing and reinitializing')
+        await this.clearClientAndCredentials()
+      }
     }
 
     // Try to restore from stored session (like Element Web's restoreSessionFromStorage)
