@@ -262,34 +262,15 @@ const $q = useQuasar()
 // Auth store for simple token checking
 const authStore = useAuthStore()
 
-// Check if user needs to login - considers both stored tokens and actual client state
+// Simple, fast token check - no complex async logic or race conditions
 const needsLogin = computed(() => {
   // Wait for auth store to be ready
   if (!authStore.isInitialized || !authStore.user?.slug) {
     return false // Show loading instead of connect button until we're sure
   }
 
-  // First check: do we have any Matrix tokens stored?
-  const hasTokens = hasStoredMatrixTokens(authStore.user.slug)
-
-  // If no tokens at all, definitely need login
-  if (!hasTokens) {
-    return true
-  }
-
-  // If we have tokens, also check if the Matrix client is actually available
-  // This catches cases where tokens exist but are expired/invalid
-  const clientAvailable = matrixClientManager.isClientAvailable()
-  const clientInitializing = matrixClientManager.isClientInitializing()
-
-  // If client is initializing, don't show connect button yet
-  if (clientInitializing) {
-    return false
-  }
-
-  // If we have tokens but client is not available (and not initializing),
-  // it likely means authentication failed - show connect button
-  return !clientAvailable
+  // Simple sync check: do we have any Matrix tokens stored?
+  return !hasStoredMatrixTokens(authStore.user.slug)
 })
 
 // Keep the encryption logic from useMatrixEncryption but override needsLogin
