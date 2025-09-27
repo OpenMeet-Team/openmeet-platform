@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
@@ -76,6 +76,10 @@ const viewMode = ref(props.mode)
 const loading = ref(false)
 const events = ref<CalendarEvent[]>([])
 const loadedExternalEvents = ref<ExternalEvent[]>([])
+
+// Template refs for scrollable containers
+const weekContentRef = ref<HTMLElement>()
+const dayContentRef = ref<HTMLElement>()
 
 // Debouncing for rapid navigation
 let loadEventsTimeout: ReturnType<typeof setTimeout> | null = null
@@ -894,6 +898,10 @@ async function loadEvents () {
     })
   } finally {
     loading.value = false
+    // Auto-scroll to first event after events are loaded
+    if (viewMode.value === 'week' || viewMode.value === 'day') {
+      scrollToFirstEvent()
+    }
   }
 }
 
@@ -956,6 +964,69 @@ function onDateClick (date: string) {
   emit('dateClick', date)
 }
 
+// Scroll to first event in week or day view
+function scrollToFirstEvent () {
+  if (viewMode.value !== 'week' && viewMode.value !== 'day') return
+
+  console.log('scrollToFirstEvent called for view:', viewMode.value)
+
+  nextTick(() => {
+    const currentEvents = events.value
+    console.log('Events found:', currentEvents?.length || 0)
+
+    if (!currentEvents || currentEvents.length === 0) {
+      console.log('No events found, not scrolling')
+      return
+    }
+
+    // Find the earliest event time for today (filter by current date in day view)
+    let earliestTime = null
+    for (const event of currentEvents) {
+      console.log('Event:', event.title, 'Date:', event.date, 'Time:', event.time, 'Current date:', currentDate.value)
+
+      // In day view, only consider events for the current date
+      if (viewMode.value === 'day' && event.date !== currentDate.value) {
+        console.log('Skipping event - wrong date for day view')
+        continue
+      }
+
+      if (event.time && event.time !== 'All Day') {
+        // Handle time formats like "15:30-23:59" or just "15:30"
+        const startTime = event.time.split('-')[0].trim() // Get the start time before the dash
+        const [hours, minutes] = startTime.split(':').map(Number)
+        const timeInMinutes = hours * 60 + minutes
+        console.log('Parsed start time:', startTime, '→', timeInMinutes, 'minutes')
+        if (earliestTime === null || timeInMinutes < earliestTime) {
+          earliestTime = timeInMinutes
+        }
+      }
+    }
+
+    console.log('Earliest time found:', earliestTime)
+
+    if (earliestTime !== null) {
+      // Each hour is 50px, so calculate the scroll position
+      const scrollPosition = Math.floor(earliestTime / 60) * 50 - 100 // Offset by 100px to show some context above
+      console.log('Calculated scroll position:', scrollPosition)
+
+      const container = viewMode.value === 'week' ? weekContentRef.value : dayContentRef.value
+      console.log('Container found:', !!container, 'Type:', viewMode.value)
+
+      if (container) {
+        console.log('Scrolling to position:', Math.max(0, scrollPosition))
+        container.scrollTo({
+          top: Math.max(0, scrollPosition),
+          behavior: 'smooth'
+        })
+      } else {
+        console.log('Container not found!')
+      }
+    } else {
+      console.log('No timed events found, not scrolling')
+    }
+  })
+}
+
 // Format current date for display
 const currentDateLabel = computed(() => {
   // Parse the date string properly (YYYY-MM-DD format)
@@ -989,7 +1060,14 @@ watch(viewMode, (newMode) => {
     // When switching to week view, use the selected date to center the week
     currentDate.value = selectedDate.value
   }
+
+  // Auto-scroll to first event when switching to week or day view
+  if (newMode === 'week' || newMode === 'day') {
+    scrollToFirstEvent()
+  }
 })
+
+// Note: Auto-scroll is now handled in loadEvents() after events are actually loaded
 
 onMounted(() => {
   if (authStore.user) {
@@ -1139,7 +1217,7 @@ onMounted(() => {
         </div>
 
         <!-- Time slots with precise positioning -->
-        <div class="week-content">
+        <div ref="weekContentRef" class="week-content">
           <div class="week-time-grid">
             <!-- Time labels column -->
             <div class="time-labels-column">
@@ -1196,7 +1274,7 @@ onMounted(() => {
         </div>
 
         <!-- Time slots for day with precise positioning -->
-        <div class="day-content">
+        <div ref="dayContentRef" class="day-content">
           <div class="day-time-grid">
             <!-- Time labels column -->
             <div class="time-labels-column">
@@ -1798,6 +1876,15 @@ onMounted(() => {
             border-bottom: 1px solid #f0f0f0;
           }
 
+          // Dark mode - much more subtle borders like month view
+          .body--dark & {
+            border-right-color: rgba(255, 255, 255, 0.06);
+
+            .hour-slot {
+              border-bottom-color: rgba(255, 255, 255, 0.04);
+            }
+          }
+
           .events-overlay {
             position: absolute;
             top: 0;
@@ -1974,6 +2061,13 @@ onMounted(() => {
           .hour-slot {
             height: 50px;
             border-bottom: 1px solid #f0f0f0;
+          }
+
+          // Dark mode - much more subtle borders like month view
+          .body--dark & {
+            .hour-slot {
+              border-bottom-color: rgba(255, 255, 255, 0.04);
+            }
           }
 
           .events-overlay {
