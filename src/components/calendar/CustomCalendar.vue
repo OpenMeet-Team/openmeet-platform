@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
@@ -76,6 +76,10 @@ const viewMode = ref(props.mode)
 const loading = ref(false)
 const events = ref<CalendarEvent[]>([])
 const loadedExternalEvents = ref<ExternalEvent[]>([])
+
+// Template refs for scrollable containers
+const weekContentRef = ref<HTMLElement>()
+const dayContentRef = ref<HTMLElement>()
 
 // Debouncing for rapid navigation
 let loadEventsTimeout: ReturnType<typeof setTimeout> | null = null
@@ -894,6 +898,10 @@ async function loadEvents () {
     })
   } finally {
     loading.value = false
+    // Auto-scroll to first event after events are loaded
+    if (viewMode.value === 'week' || viewMode.value === 'day') {
+      scrollToFirstEvent()
+    }
   }
 }
 
@@ -956,6 +964,69 @@ function onDateClick (date: string) {
   emit('dateClick', date)
 }
 
+// Scroll to first event in week or day view
+function scrollToFirstEvent () {
+  if (viewMode.value !== 'week' && viewMode.value !== 'day') return
+
+  console.log('scrollToFirstEvent called for view:', viewMode.value)
+
+  nextTick(() => {
+    const currentEvents = events.value
+    console.log('Events found:', currentEvents?.length || 0)
+
+    if (!currentEvents || currentEvents.length === 0) {
+      console.log('No events found, not scrolling')
+      return
+    }
+
+    // Find the earliest event time for today (filter by current date in day view)
+    let earliestTime = null
+    for (const event of currentEvents) {
+      console.log('Event:', event.title, 'Date:', event.date, 'Time:', event.time, 'Current date:', currentDate.value)
+
+      // In day view, only consider events for the current date
+      if (viewMode.value === 'day' && event.date !== currentDate.value) {
+        console.log('Skipping event - wrong date for day view')
+        continue
+      }
+
+      if (event.time && event.time !== 'All Day') {
+        // Handle time formats like "15:30-23:59" or just "15:30"
+        const startTime = event.time.split('-')[0].trim() // Get the start time before the dash
+        const [hours, minutes] = startTime.split(':').map(Number)
+        const timeInMinutes = hours * 60 + minutes
+        console.log('Parsed start time:', startTime, '→', timeInMinutes, 'minutes')
+        if (earliestTime === null || timeInMinutes < earliestTime) {
+          earliestTime = timeInMinutes
+        }
+      }
+    }
+
+    console.log('Earliest time found:', earliestTime)
+
+    if (earliestTime !== null) {
+      // Each hour is 50px, so calculate the scroll position
+      const scrollPosition = Math.floor(earliestTime / 60) * 50 - 100 // Offset by 100px to show some context above
+      console.log('Calculated scroll position:', scrollPosition)
+
+      const container = viewMode.value === 'week' ? weekContentRef.value : dayContentRef.value
+      console.log('Container found:', !!container, 'Type:', viewMode.value)
+
+      if (container) {
+        console.log('Scrolling to position:', Math.max(0, scrollPosition))
+        container.scrollTo({
+          top: Math.max(0, scrollPosition),
+          behavior: 'smooth'
+        })
+      } else {
+        console.log('Container not found!')
+      }
+    } else {
+      console.log('No timed events found, not scrolling')
+    }
+  })
+}
+
 // Format current date for display
 const currentDateLabel = computed(() => {
   // Parse the date string properly (YYYY-MM-DD format)
@@ -989,7 +1060,14 @@ watch(viewMode, (newMode) => {
     // When switching to week view, use the selected date to center the week
     currentDate.value = selectedDate.value
   }
+
+  // Auto-scroll to first event when switching to week or day view
+  if (newMode === 'week' || newMode === 'day') {
+    scrollToFirstEvent()
+  }
 })
+
+// Note: Auto-scroll is now handled in loadEvents() after events are actually loaded
 
 onMounted(() => {
   if (authStore.user) {
@@ -1139,7 +1217,7 @@ onMounted(() => {
         </div>
 
         <!-- Time slots with precise positioning -->
-        <div class="week-content">
+        <div ref="weekContentRef" class="week-content">
           <div class="week-time-grid">
             <!-- Time labels column -->
             <div class="time-labels-column">
@@ -1196,7 +1274,7 @@ onMounted(() => {
         </div>
 
         <!-- Time slots for day with precise positioning -->
-        <div class="day-content">
+        <div ref="dayContentRef" class="day-content">
           <div class="day-time-grid">
             <!-- Time labels column -->
             <div class="time-labels-column">
@@ -1293,25 +1371,48 @@ onMounted(() => {
     overflow: hidden;
   }
 
+  // Dark mode overrides
+  .body--dark & {
+    .calendar-container {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
   .month-view {
     display: flex;
     flex-direction: column;
 
     .week-header {
       display: flex;
+      flex-wrap: nowrap; // Ensure no wrapping within header
       background-color: #f5f5f5;
       border-bottom: 1px solid #e0e0e0;
 
       .day-header {
-        flex: 1;
+        flex: 1 1 calc(100% / 7); // Ensure exactly 7 columns
+        min-width: calc(100% / 7); // Force minimum width
+        max-width: calc(100% / 7); // Force maximum width
+        width: calc(100% / 7); // Fixed width for 7 columns
         padding: 8px;
         text-align: center;
         font-weight: 600;
         color: #666;
         border-right: 1px solid #e0e0e0;
+        box-sizing: border-box; // Include padding and border in width calculation
 
         &:last-child {
           border-right: none;
+        }
+      }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .day-header {
+          color: rgba(255, 255, 255, 0.87);
+          border-right-color: rgba(255, 255, 255, 0.12);
         }
       }
     }
@@ -1322,6 +1423,7 @@ onMounted(() => {
 
       .calendar-week {
         display: flex;
+        flex-wrap: nowrap; // Ensure no wrapping within week
         border-bottom: 1px solid #e0e0e0;
         min-height: 80px;
 
@@ -1329,9 +1431,15 @@ onMounted(() => {
           border-bottom: none;
         }
 
+        // Dark mode
+        .body--dark & {
+          border-bottom-color: rgba(255, 255, 255, 0.12);
+        }
+
         .calendar-day {
-          flex: 1;
-          min-width: 0; // Prevent flex items from growing beyond container
+          flex: 1 1 calc(100% / 7); // Ensure exactly 7 columns
+          min-width: calc(100% / 7); // Force minimum width
+          max-width: calc(100% / 7); // Force maximum width
           width: calc(100% / 7); // Fixed width for 7 columns
           min-height: 80px;
           border-right: 1px solid #e0e0e0;
@@ -1340,6 +1448,7 @@ onMounted(() => {
           padding: 4px;
           background: white;
           overflow: hidden; // Prevent content overflow
+          box-sizing: border-box; // Include padding and border in width calculation
 
           &:last-child {
             border-right: none;
@@ -1391,6 +1500,47 @@ onMounted(() => {
             }
           }
 
+          // Dark mode
+          .body--dark & {
+            background: rgba(255, 255, 255, 0.11);
+            border-right-color: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.87);
+
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.08);
+            }
+
+            &.other-month {
+              background-color: rgba(255, 255, 255, 0.01);
+              color: rgba(255, 255, 255, 0.38);
+            }
+
+            &.today {
+              background-color: rgba(25, 118, 210, 0.2);
+
+              .day-number-container .day-number {
+                background-color: #1976d2;
+                color: white;
+              }
+            }
+
+            &.selected {
+              background-color: rgba(255, 152, 0, 0.2);
+              border-color: #ff9800;
+              box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
+
+              .day-number-container .day-number {
+                color: #ff9800;
+                font-weight: 700;
+              }
+
+              &.today .day-number-container .day-number {
+                background-color: #ff9800;
+                color: white;
+              }
+            }
+          }
+
           .day-number-container {
             position: absolute;
             top: 2px;
@@ -1412,6 +1562,25 @@ onMounted(() => {
               font-size: 0.75rem;
               font-weight: 600;
               line-height: 1;
+              color: inherit; // Inherit color from parent
+            }
+
+            // Dark mode
+            .body--dark & {
+              &:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+              }
+
+              .day-number {
+                color: rgba(255, 255, 255, 0.87); // Ensure visibility in dark mode
+              }
+            }
+          }
+
+          // Dark mode - other month day numbers should be dimmed
+          .body--dark &.other-month {
+            .day-number-container .day-number {
+              color: rgba(255, 255, 255, 0.38) !important; // Override the general dark mode color for other-month
             }
           }
 
@@ -1440,6 +1609,21 @@ onMounted(() => {
 
             .q-icon {
               color: #00695c;
+            }
+
+            // Dark mode
+            .body--dark & {
+              background-color: rgba(76, 175, 80, 0.15);
+              border-color: rgba(76, 175, 80, 0.4);
+
+              &:hover {
+                background-color: rgba(76, 175, 80, 0.25);
+                border-color: rgba(76, 175, 80, 0.6);
+              }
+
+              .q-icon {
+                color: #4caf50;
+              }
             }
           }
 
@@ -1471,6 +1655,11 @@ onMounted(() => {
               color: #666;
               text-align: center;
               padding: 1px;
+
+              // Dark mode
+              .body--dark & {
+                color: rgba(255, 255, 255, 0.6);
+              }
             }
           }
         }
@@ -1492,6 +1681,16 @@ onMounted(() => {
       .time-column {
         width: 80px;
         border-right: 1px solid #e0e0e0;
+      }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .time-column {
+          border-right-color: rgba(255, 255, 255, 0.12);
+        }
       }
 
       .day-header {
@@ -1531,6 +1730,36 @@ onMounted(() => {
 
           &:hover {
             background-color: rgba(0, 0, 0, 0.05);
+          }
+        }
+
+        // Dark mode
+        .body--dark & {
+          border-right-color: rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.87);
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+          }
+
+          &.selected {
+            background-color: rgba(255, 152, 0, 0.2);
+            border-bottom-color: #ff9800;
+
+            .day-header-content .day-name {
+              color: #ff9800;
+            }
+
+            .day-header-content .day-number {
+              color: #ff9800;
+              font-weight: 700;
+            }
+          }
+
+          .day-header-content {
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.05);
+            }
           }
         }
 
@@ -1617,6 +1846,20 @@ onMounted(() => {
               width: 100%;
             }
           }
+
+          // Dark mode
+          .body--dark & {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-right-color: rgba(255, 255, 255, 0.12);
+
+            .time-label-row {
+              border-bottom-color: rgba(255, 255, 255, 0.06);
+
+              .time-label {
+                color: rgba(255, 255, 255, 0.7);
+              }
+            }
+          }
         }
 
         .day-column {
@@ -1631,6 +1874,15 @@ onMounted(() => {
           .hour-slot {
             height: 50px;
             border-bottom: 1px solid #f0f0f0;
+          }
+
+          // Dark mode - much more subtle borders like month view
+          .body--dark & {
+            border-right-color: rgba(255, 255, 255, 0.06);
+
+            .hour-slot {
+              border-bottom-color: rgba(255, 255, 255, 0.04);
+            }
           }
 
           .events-overlay {
@@ -1735,6 +1987,26 @@ onMounted(() => {
           }
         }
       }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .day-info {
+          .day-name {
+            color: rgba(255, 255, 255, 0.87);
+          }
+
+          .day-number {
+            color: rgba(255, 255, 255, 0.87);
+
+            &.today {
+              color: #1976d2;
+            }
+          }
+        }
+      }
     }
 
     .day-content {
@@ -1766,6 +2038,20 @@ onMounted(() => {
               width: 100%;
             }
           }
+
+          // Dark mode
+          .body--dark & {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-right-color: rgba(255, 255, 255, 0.12);
+
+            .time-label-row {
+              border-bottom-color: rgba(255, 255, 255, 0.06);
+
+              .time-label {
+                color: rgba(255, 255, 255, 0.7);
+              }
+            }
+          }
         }
 
         .day-column {
@@ -1775,6 +2061,13 @@ onMounted(() => {
           .hour-slot {
             height: 50px;
             border-bottom: 1px solid #f0f0f0;
+          }
+
+          // Dark mode - much more subtle borders like month view
+          .body--dark & {
+            .hour-slot {
+              border-bottom-color: rgba(255, 255, 255, 0.04);
+            }
           }
 
           .events-overlay {
