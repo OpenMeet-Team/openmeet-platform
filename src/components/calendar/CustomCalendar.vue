@@ -1293,25 +1293,48 @@ onMounted(() => {
     overflow: hidden;
   }
 
+  // Dark mode overrides
+  .body--dark & {
+    .calendar-container {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
   .month-view {
     display: flex;
     flex-direction: column;
 
     .week-header {
       display: flex;
+      flex-wrap: nowrap; // Ensure no wrapping within header
       background-color: #f5f5f5;
       border-bottom: 1px solid #e0e0e0;
 
       .day-header {
-        flex: 1;
+        flex: 1 1 calc(100% / 7); // Ensure exactly 7 columns
+        min-width: calc(100% / 7); // Force minimum width
+        max-width: calc(100% / 7); // Force maximum width
+        width: calc(100% / 7); // Fixed width for 7 columns
         padding: 8px;
         text-align: center;
         font-weight: 600;
         color: #666;
         border-right: 1px solid #e0e0e0;
+        box-sizing: border-box; // Include padding and border in width calculation
 
         &:last-child {
           border-right: none;
+        }
+      }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .day-header {
+          color: rgba(255, 255, 255, 0.87);
+          border-right-color: rgba(255, 255, 255, 0.12);
         }
       }
     }
@@ -1322,6 +1345,7 @@ onMounted(() => {
 
       .calendar-week {
         display: flex;
+        flex-wrap: nowrap; // Ensure no wrapping within week
         border-bottom: 1px solid #e0e0e0;
         min-height: 80px;
 
@@ -1329,9 +1353,15 @@ onMounted(() => {
           border-bottom: none;
         }
 
+        // Dark mode
+        .body--dark & {
+          border-bottom-color: rgba(255, 255, 255, 0.12);
+        }
+
         .calendar-day {
-          flex: 1;
-          min-width: 0; // Prevent flex items from growing beyond container
+          flex: 1 1 calc(100% / 7); // Ensure exactly 7 columns
+          min-width: calc(100% / 7); // Force minimum width
+          max-width: calc(100% / 7); // Force maximum width
           width: calc(100% / 7); // Fixed width for 7 columns
           min-height: 80px;
           border-right: 1px solid #e0e0e0;
@@ -1340,6 +1370,7 @@ onMounted(() => {
           padding: 4px;
           background: white;
           overflow: hidden; // Prevent content overflow
+          box-sizing: border-box; // Include padding and border in width calculation
 
           &:last-child {
             border-right: none;
@@ -1391,6 +1422,47 @@ onMounted(() => {
             }
           }
 
+          // Dark mode
+          .body--dark & {
+            background: rgba(255, 255, 255, 0.11);
+            border-right-color: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.87);
+
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.08);
+            }
+
+            &.other-month {
+              background-color: rgba(255, 255, 255, 0.01);
+              color: rgba(255, 255, 255, 0.09);
+            }
+
+            &.today {
+              background-color: rgba(25, 118, 210, 0.2);
+
+              .day-number-container .day-number {
+                background-color: #1976d2;
+                color: white;
+              }
+            }
+
+            &.selected {
+              background-color: rgba(255, 152, 0, 0.2);
+              border-color: #ff9800;
+              box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
+
+              .day-number-container .day-number {
+                color: #ff9800;
+                font-weight: 700;
+              }
+
+              &.today .day-number-container .day-number {
+                background-color: #ff9800;
+                color: white;
+              }
+            }
+          }
+
           .day-number-container {
             position: absolute;
             top: 2px;
@@ -1412,6 +1484,18 @@ onMounted(() => {
               font-size: 0.75rem;
               font-weight: 600;
               line-height: 1;
+              color: inherit; // Inherit color from parent
+            }
+
+            // Dark mode
+            .body--dark & {
+              &:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+              }
+
+              .day-number {
+                color: rgba(255, 255, 255, 0.87); // Ensure visibility in dark mode
+              }
             }
           }
 
@@ -1440,6 +1524,21 @@ onMounted(() => {
 
             .q-icon {
               color: #00695c;
+            }
+
+            // Dark mode
+            .body--dark & {
+              background-color: rgba(76, 175, 80, 0.15);
+              border-color: rgba(76, 175, 80, 0.4);
+
+              &:hover {
+                background-color: rgba(76, 175, 80, 0.25);
+                border-color: rgba(76, 175, 80, 0.6);
+              }
+
+              .q-icon {
+                color: #4caf50;
+              }
             }
           }
 
@@ -1471,6 +1570,11 @@ onMounted(() => {
               color: #666;
               text-align: center;
               padding: 1px;
+
+              // Dark mode
+              .body--dark & {
+                color: rgba(255, 255, 255, 0.6);
+              }
             }
           }
         }
@@ -1492,6 +1596,16 @@ onMounted(() => {
       .time-column {
         width: 80px;
         border-right: 1px solid #e0e0e0;
+      }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .time-column {
+          border-right-color: rgba(255, 255, 255, 0.12);
+        }
       }
 
       .day-header {
@@ -1531,6 +1645,36 @@ onMounted(() => {
 
           &:hover {
             background-color: rgba(0, 0, 0, 0.05);
+          }
+        }
+
+        // Dark mode
+        .body--dark & {
+          border-right-color: rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.87);
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+          }
+
+          &.selected {
+            background-color: rgba(255, 152, 0, 0.2);
+            border-bottom-color: #ff9800;
+
+            .day-header-content .day-name {
+              color: #ff9800;
+            }
+
+            .day-header-content .day-number {
+              color: #ff9800;
+              font-weight: 700;
+            }
+          }
+
+          .day-header-content {
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.05);
+            }
           }
         }
 
@@ -1615,6 +1759,20 @@ onMounted(() => {
               color: #666;
               text-align: right;
               width: 100%;
+            }
+          }
+
+          // Dark mode
+          .body--dark & {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-right-color: rgba(255, 255, 255, 0.12);
+
+            .time-label-row {
+              border-bottom-color: rgba(255, 255, 255, 0.06);
+
+              .time-label {
+                color: rgba(255, 255, 255, 0.7);
+              }
             }
           }
         }
@@ -1735,6 +1893,26 @@ onMounted(() => {
           }
         }
       }
+
+      // Dark mode
+      .body--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+
+        .day-info {
+          .day-name {
+            color: rgba(255, 255, 255, 0.87);
+          }
+
+          .day-number {
+            color: rgba(255, 255, 255, 0.87);
+
+            &.today {
+              color: #1976d2;
+            }
+          }
+        }
+      }
     }
 
     .day-content {
@@ -1764,6 +1942,20 @@ onMounted(() => {
               color: #666;
               text-align: right;
               width: 100%;
+            }
+          }
+
+          // Dark mode
+          .body--dark & {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-right-color: rgba(255, 255, 255, 0.12);
+
+            .time-label-row {
+              border-bottom-color: rgba(255, 255, 255, 0.06);
+
+              .time-label {
+                color: rgba(255, 255, 255, 0.7);
+              }
             }
           }
         }
