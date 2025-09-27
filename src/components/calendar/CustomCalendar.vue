@@ -1434,7 +1434,7 @@ onMounted(() => {
 
             &.other-month {
               background-color: rgba(255, 255, 255, 0.01);
-              color: rgba(255, 255, 255, 0.09);
+              color: rgba(255, 255, 255, 0.38);
             }
 
             &.today {
@@ -1496,6 +1496,13 @@ onMounted(() => {
               .day-number {
                 color: rgba(255, 255, 255, 0.87); // Ensure visibility in dark mode
               }
+            }
+          }
+
+          // Dark mode - other month day numbers should be dimmed
+          .body--dark &.other-month {
+            .day-number-container .day-number {
+              color: rgba(255, 255, 255, 0.38) !important; // Override the general dark mode color for other-month
             }
           }
 
