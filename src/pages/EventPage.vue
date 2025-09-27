@@ -208,18 +208,6 @@
                 </q-item-section>
               </q-item>
 
-              <!-- Map display when event has location -->
-              <q-item v-if="event.lat && event.lon">
-                <q-item-section>
-                  <div class="q-mt-md">
-                    <LeafletMapComponent
-                      disabled
-                      :lat="event.lat"
-                      :lon="event.lon"
-                    />
-                  </div>
-                </q-item-section>
-              </q-item>
             </q-card-section>
           </q-card>
         </div>
@@ -534,8 +522,8 @@
             </q-card-section>
           </q-card>
 
-          <!-- Event Details (Desktop only) -->
-          <q-card class="q-mb-md gt-xs">
+          <!-- Event Details -->
+          <q-card class="q-mb-md">
             <q-card-section>
               <div class="text-h6">Event Details</div>
 
@@ -638,7 +626,7 @@
                 </q-item-section>
               </q-item>
 
-              <!-- Map display when event has location (Desktop) -->
+              <!-- Map display when event has location -->
               <q-item v-if="event.lat && event.lon">
                 <q-item-section>
                   <div class="q-mt-md">
