@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { groupsApi } from '../api/groups'
-import { chatApi } from '../api/chat'
 import { GroupEntity, GroupMemberEntity, GroupPermission, GroupRole, GroupVisibility } from '../types'
 import { useNotification } from '../composables/useNotification'
 import analyticsService from '../services/analyticsService'
@@ -157,111 +156,6 @@ export const useGroupStore = defineStore('group', {
       } catch (err) {
         logger.debug('Group store error:', err)
         error('Failed to remove group member')
-      }
-    },
-
-    /**
-     * Send a message to the group discussion
-     * Uses the new chat API endpoint for better integration with the unified message store
-     */
-    async actionSendGroupDiscussionMessage (message: string): Promise<string | number | undefined> {
-      try {
-        if (this.group?.slug) {
-          logger.debug('Sending discussion message to group:', this.group.slug, message)
-
-          try {
-            // Use the new chatApi endpoint instead of groupsApi
-            const res = await chatApi.sendGroupMessage(this.group.slug, message)
-            logger.debug('Group discussion message sent successfully, ID:', res.data.id)
-
-            // After sending a message, check if we can get the roomId (if not already set)
-            if (!this.group.roomId) {
-              // Slight delay to ensure backend has processed the message
-              logger.debug('Waiting briefly before loading messages to get room ID')
-              await new Promise(resolve => setTimeout(resolve, 500))
-
-              logger.debug('Attempting to load messages to get room ID after sending message')
-              await this.actionGetGroupDiscussionMessages()
-                .then(result => {
-                  logger.debug('Got messages after sending:', result.messages?.length || 0)
-                })
-                .catch(e => console.error('Error getting messages after send:', e))
-            }
-
-            return res.data.id
-          } catch (apiErr) {
-            // Check if this is a permissions error (403)
-            if (apiErr.response && apiErr.response.status === 403) {
-              console.warn('Permission denied when sending message to group discussion')
-              throw new Error('Permission denied: Cannot send messages to this group discussion')
-            }
-
-            // Rethrow other errors
-            throw apiErr
-          }
-        }
-      } catch (err) {
-        console.error('Failed to send group discussion message:', err)
-        error('Failed to send group discussion message')
-        throw err
-      }
-    },
-
-    /**
-     * Get messages for the group discussion
-     * Uses the new chat API endpoint for better integration with the unified message store
-     */
-    async actionGetGroupDiscussionMessages (limit = 50, from?: string) {
-      try {
-        if (this.group?.slug) {
-          logger.debug('Getting group discussion messages for:', this.group.slug)
-
-          // Make the API call using the new chatApi endpoint
-          const res = await chatApi.getGroupMessages(this.group.slug, limit, from)
-
-          logger.debug('Response from getGroupMessages:', {
-            messageCount: res.data.messages?.length || 0,
-            roomId: res.data.roomId,
-            hasFirstMessage: res.data.messages?.length > 0,
-            firstMessageRoomId: res.data.messages?.length > 0 ? res.data.messages[0].room_id : null
-          })
-
-          // Store the roomId in the group object if it's provided
-          if (res.data.roomId && this.group) {
-            logger.debug('Found roomId in API response:', res.data.roomId)
-            this.group.roomId = res.data.roomId
-          }
-
-          // If we have messages but no roomId, try to extract it from the messages
-          if (!this.group.roomId && res.data.messages && res.data.messages.length > 0) {
-            // Check all messages for a roomId or room_id property
-            for (const message of res.data.messages) {
-              // Try both property naming conventions
-              const extractedRoomId = message.roomId || message.room_id
-              if (extractedRoomId) {
-                logger.debug('Extracted roomId from message:', extractedRoomId)
-                this.group.roomId = extractedRoomId
-                break
-              }
-            }
-          }
-
-          return res.data
-        }
-        return { messages: [], end: '' }
-      } catch (err) {
-        console.error('Failed to get group discussion messages:', err)
-
-        // Check for the specific "not implemented" error from the backend
-        if (err.response?.data?.message?.includes('not implemented') ||
-            (typeof err.message === 'string' && err.message.includes('not implemented'))) {
-          logger.debug('Group discussion functionality not implemented yet on the backend')
-          throw new Error('Group discussion functionality not implemented yet')
-        } else {
-          error('Failed to get group discussion messages')
-        }
-
-        return { messages: [], end: '' }
       }
     },
 

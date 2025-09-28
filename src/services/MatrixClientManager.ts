@@ -2397,6 +2397,71 @@ export class MatrixClientManager {
   }
 
   /**
+   * Get or create event room ID using canonical resolution
+   * This provides consistent room resolution without joining the room
+   * Use this method to get the canonical room ID that should be used for an event
+   */
+  public async getOrCreateEventRoom (eventSlug: string): Promise<string> {
+    if (!this.client) {
+      throw new Error('Matrix client not initialized')
+    }
+
+    try {
+      logger.debug('🎯 Getting canonical room ID for event:', eventSlug)
+
+      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
+      if (!tenantId) {
+        throw new Error('Tenant ID not available')
+      }
+
+      // Generate the canonical room alias
+      const { generateEventRoomAlias } = await import('../utils/matrixUtils')
+      const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
+
+      logger.debug('🏠 Generated canonical room alias:', roomAlias)
+
+      try {
+        // First try to resolve existing room
+        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+        logger.debug('✅ Resolved existing room ID:', aliasResult.room_id)
+        return aliasResult.room_id
+      } catch (aliasError: unknown) {
+        const matrixError = aliasError as { errcode?: string }
+        if (matrixError.errcode === 'M_NOT_FOUND') {
+          logger.debug('⚠️ Room does not exist, attempting to create it')
+
+          try {
+            // Try to create the room
+            const createResult = await this.client.createRoom({
+              room_alias_name: `event-${eventSlug}-${tenantId}`,
+              name: `Event: ${eventSlug}`,
+              preset: Preset.PrivateChat,
+              visibility: Visibility.Private
+            })
+
+            logger.debug('✅ Created new room:', createResult.room_id)
+            return createResult.room_id
+          } catch (createError: unknown) {
+            const matrixCreateError = createError as { errcode?: string }
+            if (matrixCreateError.errcode === 'M_ROOM_IN_USE') {
+              // Race condition - someone else created the room, resolve it again
+              logger.debug('🔄 Room was created by another process, resolving again')
+              const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+              logger.debug('✅ Resolved room after race condition:', aliasResult.room_id)
+              return aliasResult.room_id
+            }
+            throw createError
+          }
+        }
+        throw aliasError
+      }
+    } catch (error) {
+      logger.error('❌ Failed to get or create event room:', error)
+      throw error
+    }
+  }
+
+  /**
    * Join an event chat room by event slug using Matrix-native room aliases
    */
   public async joinEventChatRoom (eventSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
@@ -2407,43 +2472,19 @@ export class MatrixClientManager {
     try {
       logger.debug('🎪 Joining event chat room for event:', eventSlug)
 
-      // Matrix-native approach: Use room aliases instead of backend API calls
-      const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-      if (!tenantId) {
-        throw new Error('Tenant ID not available')
-      }
+      // Use canonical room resolution to ensure consistent room ID
+      const roomId = await this.getOrCreateEventRoom(eventSlug)
 
-      // Import room alias utility (assuming it's added to matrixUtils)
-      const { generateEventRoomAlias } = await import('../utils/matrixUtils')
-      const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
-
-      logger.debug('🏠 Generated room alias:', roomAlias)
-
-      // First, ensure the room exists by querying the alias
-      // This will trigger Application Service room creation if the room doesn't exist
-      let roomId: string
-      try {
-        logger.debug('🔍 Resolving room alias to trigger Application Service if needed...')
-        const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
-        roomId = aliasResult.room_id
-        logger.debug('✅ Room alias resolved to room ID:', roomId)
-      } catch (aliasError) {
-        logger.debug('⚠️ Room alias not found, attempting direct join which may trigger creation')
-        // If alias resolution fails, the room might not exist yet
-        // Try direct join which might work if Application Service creates it immediately
-        roomId = roomAlias // Fallback to using alias as room identifier
-      }
-
-      // Now join the room using the resolved room ID or alias
+      // Now join the canonical room
       const room = await this.joinRoom(roomId)
 
-      logger.debug('✅ Joined event chat room via room alias:', roomAlias)
+      logger.debug('✅ Joined event chat room with canonical room ID:', roomId)
       return {
         room,
         roomInfo: {
           matrixRoomId: room.roomId,
-          roomAlias,
-          source: 'matrix-native'
+          canonicalRoomId: roomId,
+          source: 'canonical-resolution'
         }
       }
     } catch (error) {
@@ -2482,6 +2523,18 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('Error checking stored session:', error)
       return false
+    }
+  }
+
+  /**
+   * Get or create a group room and return room info
+   * This is the canonical method for getting consistent group room IDs
+   */
+  public async getOrCreateGroupRoom (groupSlug: string): Promise<{ roomId: string; roomAlias: string }> {
+    const result = await this.joinGroupChatRoom(groupSlug)
+    return {
+      roomId: result.room.roomId,
+      roomAlias: (result.roomInfo as { roomAlias: string }).roomAlias
     }
   }
 
@@ -2530,6 +2583,46 @@ export class MatrixClientManager {
     } catch (error) {
       logger.error('❌ Failed to join group chat room:', error)
       throw error
+    }
+  }
+
+  /**
+   * Check if the user has Matrix credentials
+   */
+  public static hasMatrixAccount (user?: { id?: number; matrixUserId?: string; preferences?: { matrix?: { hasDirectAccess?: boolean } } }): boolean {
+    if (!user?.id) {
+      return false
+    }
+
+    // Check if user has legacy matrix user ID
+    if (user.matrixUserId) {
+      return true
+    }
+
+    // Check if user has matrix preferences indicating they have an account
+    if (user.preferences?.matrix?.hasDirectAccess) {
+      return true
+    }
+
+    // For now, we assume users do have matrix accounts
+    // TODO: Add API endpoint to check matrix handle registry
+    return true
+  }
+
+  /**
+   * Get the user's Matrix ID for display
+   */
+  public static getMatrixUserId (userSlug?: string): string | null {
+    if (!userSlug) {
+      return null
+    }
+
+    try {
+      const { generateMatrixUserId } = require('../utils/matrixUtils')
+      return generateMatrixUserId(userSlug)
+    } catch (error) {
+      logger.error('Failed to generate Matrix user ID:', error)
+      return null
     }
   }
 

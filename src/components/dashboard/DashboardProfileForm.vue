@@ -558,13 +558,12 @@ import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
 import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
-import { useMatrixAccess } from '../../composables/useMatrixAccess'
+import { matrixClientManager, MatrixClientManager } from '../../services/MatrixClientManager'
 import { logger } from '../../utils/logger'
 import getEnv from '../../utils/env'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
-import { matrixClientManager } from '../../services/MatrixClientManager'
 import { MatrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import { MatrixDeviceManager } from '../../services/MatrixDeviceManager'
 
@@ -635,15 +634,10 @@ const cleaningUpDevices = ref(false)
 const settingUpCrossSigning = ref(false)
 const verifyingDevice = ref<string | null>(null)
 
-// Matrix integration
-const {
-  hasMatrixAccount: checkHasMatrixAccount,
-  getMatrixUserId
-} = useMatrixAccess()
-
 // Computed properties for Matrix integration
-const hasMatrixAccount = computed(() => checkHasMatrixAccount())
-const matrixUserId = computed(() => getMatrixUserId())
+const authStore = useAuthStore()
+const hasMatrixAccount = computed(() => MatrixClientManager.hasMatrixAccount(authStore.user))
+const matrixUserId = computed(() => MatrixClientManager.getMatrixUserId(authStore.user?.slug))
 
 // Feature flag for Matrix chat settings visibility (defaults to hidden)
 const isMatrixChatSettingsEnabled = computed(() => {
@@ -738,7 +732,6 @@ const localAvatarUrl = computed(() => {
 
 // Only show Bluesky settings for Bluesky-authenticated users
 const isBlueskyUser = computed(() => {
-  const authStore = useAuthStore()
   return authStore.user.provider === AuthProvidersEnum.bluesky
 })
 

@@ -1,46 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import MatrixNativeChatOrchestrator from '../chat/MatrixNativeChatOrchestrator.vue'
-import getEnv from '../../utils/env'
-import { generateEventRoomAlias } from '../../utils/matrixUtils'
+import { matrixClientManager } from '../../services/MatrixClientManager'
 import { logger } from '../../utils/logger'
 
 const event = computed(() => useEventStore().event)
 
-// Get the Matrix room ID from the event - try different properties
-const matrixRoomId = computed(() => {
-  if (!event.value?.slug) {
-    logger.debug('🔍 No event slug available')
-    return null
-  }
+const matrixRoomId = ref<string | null>(null)
 
-  // First check if we have a cached room ID (efficient)
-  if (event.value.roomId) {
-    logger.debug('✅ Using cached room ID:', event.value.roomId)
-    return event.value.roomId
-  }
+// Load canonical room ID when event changes
+watch(
+  () => event.value?.slug,
+  async (slug) => {
+    if (!slug) {
+      matrixRoomId.value = null
+      return
+    }
 
-  // Fallback: generate room alias dynamically (fresh)
-  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-  if (!tenantId) {
-    console.error('❌ No tenant ID available for room alias generation')
-    return null
-  }
-
-  try {
-    const roomAlias = generateEventRoomAlias(event.value.slug, tenantId)
-
-    logger.debug('🏠 Generated fresh room alias (no cached room ID):', roomAlias)
-    return roomAlias
-  } catch (error) {
-    console.error('❌ Failed to generate room alias:', error)
-    return null
-  }
-})
+    try {
+      matrixRoomId.value = await matrixClientManager.getOrCreateEventRoom(slug)
+    } catch (error) {
+      logger.error('Failed to get canonical room ID:', error)
+      matrixRoomId.value = null
+    }
+  },
+  { immediate: true }
+)
 
 // Permissions for the discussion
 const discussionPermissions = computed(() => {
