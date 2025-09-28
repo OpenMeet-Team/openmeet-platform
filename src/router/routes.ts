@@ -96,8 +96,7 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'AdminPage', component: () => import('pages/admin/AdminPage.vue') },
       { path: 'bluesky-reset', name: 'BlueskyResetPage', component: () => import('pages/admin/BlueskyResetPage.vue') },
       { path: 'chatroom-management', name: 'ChatRoomAdminPage', component: () => import('pages/admin/ChatRoomAdminPage.vue') },
-      { path: 'matrix-test', name: 'MatrixTestPage', component: () => import('pages/admin/MatrixTestPage.vue') },
-      { path: 'matrix-room-fix', name: 'MatrixRoomFixPage', component: () => import('pages/admin/MatrixRoomFixPage.vue') }
+      { path: 'matrix-test', name: 'MatrixTestPage', component: () => import('pages/admin/MatrixTestPage.vue') }
     ],
     meta: { requiresAuth: true }
   },

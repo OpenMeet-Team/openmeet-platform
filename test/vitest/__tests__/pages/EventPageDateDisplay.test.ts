@@ -15,9 +15,7 @@ vi.mock('src/api/events', () => ({
   }
 }))
 vi.mock('src/api/chat', () => ({
-  chatApi: {
-    addMemberToEventDiscussion: vi.fn().mockResolvedValue({ data: { roomId: 'test-room' } })
-  }
+  chatApi: {}
 }))
 vi.mock('../../../../src/composables/useDateFormatting', () => ({
   default: {

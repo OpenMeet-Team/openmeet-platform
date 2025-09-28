@@ -4,7 +4,6 @@ import { useNotification } from '../composables/useNotification'
 import { api } from '../boot/axios'
 import { AxiosError } from 'axios'
 import { eventsApi } from '../api/events'
-import { chatApi } from '../api/chat'
 import { EventSeriesService } from '../services/eventSeriesService'
 import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
@@ -145,171 +144,16 @@ export const useEventStore = defineStore('event', {
       }
     },
 
-    async actionSendEventDiscussionMessage (message: string): Promise<string | number | undefined> {
-      try {
-        if (this.event?.slug) {
-          try {
-            // Use the new chatApi endpoint instead of eventsApi
-            const res = await chatApi.sendEventMessage(this.event.slug, message)
-
-            // After sending a message, check if we can get the roomId
-            if (!this.event.roomId) {
-              // Slight delay to ensure backend has processed the message
-              await new Promise(resolve => setTimeout(resolve, 500))
-
-              await this.actionGetEventDiscussionMessages()
-                .catch(e => logger.error('Error getting messages after send:', e))
-            }
-
-            // If we still don't have a roomId, try to use the message ID as a fallback
-            if (!this.event.roomId && res.data.id) {
-              const parts = String(res.data.id).split(':')
-              if (parts.length > 1) {
-                // Tag as constructed ID for special handling
-                this.event.roomId = `constructed:${res.data.id}`
-              }
-            }
-
-            return res.data.id
-          } catch (apiErr) {
-            // Check if this is a permissions error (403)
-            if (apiErr.response && apiErr.response.status === 403) {
-              logger.warn('Permission denied when sending message to event discussion')
-
-              // Try to get messages anyway - the room might already exist
-              await this.actionGetEventDiscussionMessages().catch(() => {})
-
-              throw new Error('Permission denied: Cannot send messages to this event discussion')
-            }
-
-            // Rethrow other errors
-            throw apiErr
-          }
-        }
-      } catch (err) {
-        logger.error('Failed to send event discussion message:', err)
-        error('Failed to send event discussion message')
-
-        // Rethrow for handling in the component
-        throw err
-      }
-    },
-
-    async actionGetEventDiscussionMessages (limit = 50, from?: string) {
-      try {
-        if (this.event?.slug) {
-          const res = await chatApi.getEventMessages(this.event.slug, limit, from)
-
-          // Store the roomId in the event object if it's provided
-          if (res.data.roomId && this.event) {
-            this.event.roomId = res.data.roomId
-          }
-
-          // If we have messages but no roomId, try to extract it from the messages
-          if (!this.event.roomId && res.data.messages && res.data.messages.length > 0) {
-            // Check all messages for a roomId or room_id property
-            for (const message of res.data.messages) {
-              // Try both property naming conventions
-              const extractedRoomId = message.roomId || message.room_id
-              if (extractedRoomId) {
-                logger.debug('Extracted roomId from message:', extractedRoomId)
-                this.event.roomId = extractedRoomId
-                break
-              }
-            }
-
-            // Skip hardcoded room IDs - we'll fix the actual issue
-
-            // If still no roomId but we have event IDs, try to infer the room
-            if (!this.event.roomId && (res.data.messages[0].event_id || res.data.messages[0].eventId)) {
-              // Parse Matrix event IDs which follow the format '$random:server.domain'
-              const eventId = res.data.messages[0].event_id || res.data.messages[0].eventId
-              const parts = eventId.split(':')
-
-              if (parts.length >= 2) {
-                const serverDomain = parts[parts.length - 1]
-
-                // Create a room ID with the event slug and server domain
-                // This follows the Matrix room ID format '!random:server.domain'
-                const inferredRoomId = `!event_${this.event.slug}:${serverDomain}`
-                logger.debug('Inferring room ID from server domain:', inferredRoomId)
-                this.event.roomId = inferredRoomId
-              }
-            }
-          }
-
-          logger.debug('Current event roomId after processing:', this.event.roomId)
-          return res.data
-        }
-        return { messages: [], end: '' }
-      } catch (err) {
-        logger.error('Error getting event discussion messages:', err)
-        error('Failed to get event discussion messages')
-        return { messages: [], end: '' }
-      }
-    },
-
     async actionJoinEventChatRoom () {
       try {
         if (this.event?.slug) {
           const joinResult = await matrixClientManager.joinEventChatRoom(this.event.slug)
-
-          // Cache the room ID for efficiency
-          if (joinResult.room && this.event) {
-            this.event.roomId = joinResult.room.roomId
-          } else {
-            logger.warn('No room returned from Matrix-native join')
-          }
-
           return joinResult.roomInfo
         }
         return null
       } catch (error) {
         logger.error('Error joining event chat room:', error)
         throw error
-      }
-    },
-
-    async actionAddMemberToEventDiscussion (userSlug: string) {
-      try {
-        if (this.event?.slug) {
-          const response = await chatApi.addMemberToEventDiscussion(this.event.slug, userSlug)
-
-          // Check if the response includes a roomId
-          if (response.data && response.data.roomId && this.event) {
-            this.event.roomId = response.data.roomId
-          } else {
-            logger.warn('No roomId returned from addMemberToEventDiscussion API call')
-          }
-
-          return true
-        }
-        return false
-      } catch (err) {
-        logger.error('Failed to add member to event discussion:', err)
-
-        // Check for permission errors to provide better messaging
-        if (err.response && err.response.status === 403) {
-          error('You don\'t have permission to join this discussion')
-        } else {
-          error('Failed to add member to event discussion')
-        }
-
-        return false
-      }
-    },
-
-    async actionRemoveMemberFromEventDiscussion (userSlug: string) {
-      try {
-        if (this.event?.slug) {
-          await chatApi.removeMemberFromEventDiscussion(this.event.slug, userSlug)
-          return true
-        }
-        return false
-      } catch (err) {
-        logger.debug('Error in event store:', err)
-        error('Failed to remove member from event discussion')
-        return false
       }
     },
 
