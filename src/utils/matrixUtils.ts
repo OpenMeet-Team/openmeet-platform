@@ -13,7 +13,10 @@ export const generateMatrixUserId = (userSlug: string, tenantId?: string): strin
     throw new Error('APP_MATRIX_SERVER_NAME is not configured')
   }
 
-  const actualTenantId = tenantId || getEnv('APP_TENANT_ID') || localStorage.getItem('tenantId') || 'default'
+  const actualTenantId = tenantId || getEnv('APP_TENANT_ID') || localStorage.getItem('tenantId')
+  if (!actualTenantId) {
+    throw new Error('Tenant ID is required but not available from any source')
+  }
   return `@${userSlug}_${actualTenantId}:${serverName}`
 }
 

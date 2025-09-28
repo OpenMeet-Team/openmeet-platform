@@ -81,7 +81,10 @@ export const authApi = {
     if (getEnv('NODE_ENV') !== 'development') {
       throw new Error('Dev login only available in development')
     }
-    const tenantId = getEnv('APP_TENANT_ID') || 'default'
+    const tenantId = getEnv('APP_TENANT_ID')
+    if (!tenantId) {
+      throw new Error('APP_TENANT_ID is required for dev login')
+    }
     return api.post<ApiAuthLoginResponse>(
       `${BASE_URL}/bluesky/dev-login`,
       {

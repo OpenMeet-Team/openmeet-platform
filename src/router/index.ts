@@ -11,7 +11,11 @@ import type { RouteLocationNormalized } from 'vue-router'
  * Context includes entity type, slug, and tenant ID for Matrix room management
  */
 function extractMatrixContext (route: RouteLocationNormalized): string {
-  const tenantId = localStorage.getItem('tenantId') || 'default'
+  const tenantId = localStorage.getItem('tenantId')
+  if (!tenantId) {
+    console.warn('Tenant ID not available for Matrix context extraction')
+    return 'unknown-tenant'
+  }
 
   // Extract entity type and slug from route
   if (route.name?.toString().includes('Group')) {
