@@ -61,6 +61,24 @@ export const generateGroupRoomAlias = (groupSlug: string, tenantId: string): str
 }
 
 /**
+ * Generate a Matrix room alias for a DM between two users
+ * @param userSlug1 First user slug (alphabetically first for consistency)
+ * @param userSlug2 Second user slug (alphabetically second for consistency)
+ * @param tenantId The tenant ID
+ * @returns The Matrix room alias for the DM
+ */
+export const generateDMRoomAlias = (userSlug1: string, userSlug2: string, tenantId: string): string => {
+  const serverName = getEnv('APP_MATRIX_SERVER_NAME') as string
+  if (!serverName) {
+    throw new Error('APP_MATRIX_SERVER_NAME is not configured')
+  }
+
+  // Sort user slugs alphabetically for consistent room aliases regardless of call order
+  const [firstUser, secondUser] = [userSlug1, userSlug2].sort()
+  return `#dm-${firstUser}-${secondUser}-${tenantId}:${serverName}`
+}
+
+/**
  * Interface for parsed Matrix room alias information
  */
 export interface RoomAliasInfo {

@@ -1,30 +1,105 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import MatrixNativeChatOrchestrator from '../chat/MatrixNativeChatOrchestrator.vue'
 import { matrixClientManager } from '../../services/MatrixClientManager'
+import { hasStoredMatrixTokens } from '../../utils/matrixTokenUtils'
 import { logger } from '../../utils/logger'
 
 const event = computed(() => useEventStore().event)
 
 const matrixRoomId = ref<string | null>(null)
+const retryTimer = ref<number | null>(null)
+
+// Check if Matrix client is connected and ready
+const hasMatrixConnection = computed(() => {
+  const authStore = useAuthStore()
+  if (!authStore.isInitialized || !authStore.user?.slug) {
+    logger.debug('Auth store not ready:', {
+      isInitialized: authStore.isInitialized,
+      hasUserSlug: !!authStore.user?.slug
+    })
+    return false
+  }
+
+  // Check both stored tokens AND active client connection
+  const hasTokens = hasStoredMatrixTokens(authStore.user.slug)
+  const hasActiveClient = matrixClientManager.getClient() !== null
+  const isReady = matrixClientManager.isReady()
+
+  // Get more detailed debug info about why isReady might be false
+  const client = matrixClientManager.getClient()
+  const readyDetails = client ? {
+    isLoggedIn: client.isLoggedIn(),
+    syncState: client.getSyncState()
+  } : null
+
+  logger.debug('Matrix connection check:', {
+    userSlug: authStore.user.slug,
+    hasTokens,
+    hasActiveClient,
+    isReady,
+    readyDetails,
+    overall: hasTokens && hasActiveClient && isReady
+  })
+
+  // For room resolution, we can be less strict than full isReady()
+  // We just need client to be logged in, not necessarily fully synced
+  const isLoggedIn = client?.isLoggedIn() ?? false
+  const isFunctional = hasTokens && hasActiveClient && isLoggedIn
+
+  return isFunctional
+})
+
+// Function to attempt room resolution
+const attemptRoomResolution = async (slug: string) => {
+  if (!slug) {
+    matrixRoomId.value = null
+    return
+  }
+
+  // Check if Matrix client is connected and ready
+  if (!hasMatrixConnection.value) {
+    logger.debug('Matrix client not connected, skipping room resolution')
+    matrixRoomId.value = null
+
+    // Retry in 2 seconds to allow for Matrix client initialization
+    if (retryTimer.value) {
+      clearTimeout(retryTimer.value)
+    }
+    retryTimer.value = setTimeout(() => {
+      attemptRoomResolution(slug)
+    }, 2000) as unknown as number
+    return
+  }
+
+  try {
+    // Use the new unified room resolution method
+    matrixRoomId.value = await matrixClientManager.getOrCreateRoom('event', slug)
+    logger.debug('Successfully resolved room ID:', matrixRoomId.value)
+  } catch (error) {
+    logger.error('Failed to get canonical room ID:', error)
+    matrixRoomId.value = null
+  }
+}
 
 // Load canonical room ID when event changes
 watch(
   () => event.value?.slug,
-  async (slug) => {
-    if (!slug) {
-      matrixRoomId.value = null
-      return
+  (slug) => {
+    // Clear any existing retry timer
+    if (retryTimer.value) {
+      clearTimeout(retryTimer.value)
+      retryTimer.value = null
     }
 
-    try {
-      matrixRoomId.value = await matrixClientManager.getOrCreateEventRoom(slug)
-    } catch (error) {
-      logger.error('Failed to get canonical room ID:', error)
+    // Attempt room resolution
+    if (slug) {
+      attemptRoomResolution(slug)
+    } else {
       matrixRoomId.value = null
     }
   },
@@ -86,6 +161,14 @@ onMounted(() => {
   })
 })
 
+onUnmounted(() => {
+  // Clean up retry timer
+  if (retryTimer.value) {
+    clearTimeout(retryTimer.value)
+    retryTimer.value = null
+  }
+})
+
 // Retry functionality now handled internally by MatrixChatInterface
 
 const handleExpandChat = () => {}
@@ -96,9 +179,17 @@ const handleExpandChat = () => {}
   <div class="c-event-matrix-chat-component" v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')">
     <SubtitleComponent label="Chatroom" class="q-mt-lg q-px-md c-event-matrix-chat-component" hide-link />
 
+    <!-- Loading state while resolving room ID (only show if Matrix is connected) -->
+    <div v-if="!matrixRoomId && hasMatrixConnection" class="q-pa-md text-center">
+      <q-spinner size="2rem" />
+      <p class="text-body2 q-mt-sm">Loading chat room...</p>
+    </div>
+
     <!-- Setup orchestrator with single-room mode for focused event chat -->
+    <!-- If no Matrix connection, orchestrator will show connection screen -->
+    <!-- If room ID is loading and Matrix is connected, show above spinner -->
     <MatrixNativeChatOrchestrator
-      v-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')"
+      v-else-if="event && discussionPermissions.canWrite && (event.attendee?.status === 'confirmed' || event.attendee?.status === 'cancelled')"
       context-type="event"
       :context-id="event?.slug ?? ''"
       mode="single-room"

@@ -122,13 +122,19 @@
 
       <!-- Single Room Chat Interface -->
       <MatrixChatInterface
-        v-else
+        v-else-if="inlineRoomId"
         :room-id="inlineRoomId"
         :context-type="contextType === 'all' ? 'direct' : contextType"
         :context-id="contextId"
         :mode="mode === 'single-room' ? 'inline' : mode"
         height="500px"
       />
+
+      <!-- Loading state when room ID is being resolved -->
+      <div v-else class="q-pa-md text-center">
+        <q-spinner size="2rem" />
+        <p class="text-body2 q-mt-sm">Loading chat room...</p>
+      </div>
     </template>
 
     <!-- Fallback State -->
