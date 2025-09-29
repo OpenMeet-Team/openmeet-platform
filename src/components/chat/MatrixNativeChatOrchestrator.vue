@@ -362,6 +362,9 @@ let encryptionResetListener: ((event: CustomEvent) => Promise<void>) | null = nu
 let encryptionSetupListener: ((event: CustomEvent) => Promise<void>) | null = null
 let masRecoveryKeyListener: ((event: CustomEvent) => Promise<void>) | null = null
 let masResetCompletedListener: ((event: CustomEvent) => Promise<void>) | null = null
+let tokenErrorListener: ((event: CustomEvent) => void) | null = null
+let tokenRefreshFailureListener: ((event: CustomEvent) => void) | null = null
+let matrixReadyListener: ((event: CustomEvent) => void) | null = null
 
 // Element Web's simple decision tree - show setup when encryption is needed but not complete
 const shouldShowEncryptionSetup = computed(() => {
@@ -481,6 +484,9 @@ const connectToMatrix = async () => {
       try {
         await client.whoami()
         logger.debug('✅ Stored tokens are valid and working')
+
+        // Clear invalid token flag since stored tokens are working
+        hasInvalidTokens.value = false
       } catch (validationError) {
         logger.warn('⚠️ Stored tokens are invalid/expired:', validationError)
 
@@ -1558,6 +1564,26 @@ onMounted(async () => {
 
   window.addEventListener('mas-reset-completed', masResetCompletedListener as (event: Event) => void)
 
+  // Listen for Matrix token errors and refresh failures
+  tokenErrorListener = (event: CustomEvent) => {
+    logger.debug('🚫 Matrix token error received:', event.detail)
+    hasInvalidTokens.value = true
+  }
+  window.addEventListener('matrix:tokenError', tokenErrorListener as (event: Event) => void)
+
+  tokenRefreshFailureListener = (event: CustomEvent) => {
+    logger.debug('🚫 Matrix token refresh failure received:', event.detail)
+    hasInvalidTokens.value = true
+  }
+  window.addEventListener('matrix:tokenRefreshFailure', tokenRefreshFailureListener as (event: Event) => void)
+
+  matrixReadyListener = (event: CustomEvent) => {
+    logger.debug('✅ Matrix ready event received:', event.detail)
+    // Reset invalid tokens flag since Matrix client is now ready and working
+    hasInvalidTokens.value = false
+  }
+  window.addEventListener('matrix:ready', matrixReadyListener as (event: Event) => void)
+
   // Also check for any previously generated recovery key from MAS flow
   const existingKey = sessionStorage.getItem('mas_generated_recovery_key')
   if (existingKey) {
@@ -1632,6 +1658,15 @@ onUnmounted(() => {
   }
   if (masResetCompletedListener) {
     window.removeEventListener('mas-reset-completed', masResetCompletedListener as (event: Event) => void)
+  }
+  if (tokenErrorListener) {
+    window.removeEventListener('matrix:tokenError', tokenErrorListener as (event: Event) => void)
+  }
+  if (tokenRefreshFailureListener) {
+    window.removeEventListener('matrix:tokenRefreshFailure', tokenRefreshFailureListener as (event: Event) => void)
+  }
+  if (matrixReadyListener) {
+    window.removeEventListener('matrix:ready', matrixReadyListener as (event: Event) => void)
   }
 })
 </script>
