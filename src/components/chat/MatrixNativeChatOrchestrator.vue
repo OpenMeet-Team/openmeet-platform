@@ -122,13 +122,19 @@
 
       <!-- Single Room Chat Interface -->
       <MatrixChatInterface
-        v-else
+        v-else-if="inlineRoomId"
         :room-id="inlineRoomId"
         :context-type="contextType === 'all' ? 'direct' : contextType"
         :context-id="contextId"
         :mode="mode === 'single-room' ? 'inline' : mode"
         height="500px"
       />
+
+      <!-- Loading state when room ID is being resolved -->
+      <div v-else class="q-pa-md text-center">
+        <q-spinner size="2rem" />
+        <p class="text-body2 q-mt-sm">Loading chat room...</p>
+      </div>
     </template>
 
     <!-- Fallback State -->
@@ -503,10 +509,11 @@ const connectToMatrix = async () => {
     // Clear invalid token flag since we now have a working client
     hasInvalidTokens.value = false
 
-    // Re-check state after connection - only if we have a room ID
+    // Re-check state after connection - only for room-specific encryption state
     if (props.inlineRoomId) {
       await checkEncryptionState(props.inlineRoomId)
     }
+    // Note: General chat readiness is now handled by simplified canChat computed property
 
     logger.debug('✅ Matrix connected - ready for chat')
 

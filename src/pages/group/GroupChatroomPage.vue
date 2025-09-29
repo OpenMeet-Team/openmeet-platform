@@ -1,98 +1,75 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useGroupStore } from '../../stores/group-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { GroupPermission } from '../../types'
-import MatrixNativeChatOrchestrator from '../../components/chat/MatrixNativeChatOrchestrator.vue'
+import MatrixChatGateway from '../../components/chat/MatrixChatGateway.vue'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
-import getEnv from '../../utils/env'
-import { generateGroupRoomAlias } from '../../utils/matrixUtils'
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const group = computed(() => groupStore.group)
 
-// Get the Matrix room ID from the group - similar to event logic
-const matrixRoomId = computed(() => {
-  if (!group.value?.slug) {
-    console.log('🔍 No group slug available')
-    return null
-  }
-
-  // First check if we have a cached room ID (efficient)
-  if (group.value.roomId) {
-    console.log('✅ Using cached group room ID:', group.value.roomId)
-    return group.value.roomId
-  }
-
-  // Fallback: generate room alias dynamically (fresh)
-  const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
-  if (!tenantId) {
-    console.error('❌ No tenant ID available for group room alias generation')
-    return null
-  }
-
-  try {
-    const roomAlias = generateGroupRoomAlias(group.value.slug, tenantId)
-    console.log('🏠 Generated fresh group room alias (no cached room ID):', roomAlias)
-    return roomAlias
-  } catch (error) {
-    console.error('❌ Failed to generate group room alias:', error)
-    return null
-  }
-})
-
-// Group chat permissions - similar to EventPage attendee check
-const hasPermission = computed(() => {
-  return group.value && (
+// Group chat permissions
+const groupPermissions = computed(() => {
+  const hasReadPermission = group.value && (
     groupStore.getterIsPublicGroup ||
     (groupStore.getterIsAuthenticatedGroup && authStore.isAuthenticated) ||
     groupStore.getterUserHasPermission(GroupPermission.SeeDiscussions)
   )
+
+  const isGroupMember = (() => {
+    const groupMember = groupStore.getterUserIsGroupMember()
+    return groupMember && groupMember.groupRole &&
+      ['owner', 'admin', 'moderator', 'member'].includes(groupMember.groupRole.name)
+  })()
+
+  return {
+    canRead: !!hasReadPermission,
+    canWrite: !!isGroupMember,
+    canManage: !!groupStore.getterUserHasPermission(GroupPermission.ManageDiscussions)
+  }
 })
 
-// Check if user is actually a group member (not just has permissions)
-const isGroupMember = computed(() => {
+// Access check function for the gateway
+const checkGroupAccess = () => {
   const groupMember = groupStore.getterUserIsGroupMember()
   return groupMember && groupMember.groupRole &&
     ['owner', 'admin', 'moderator', 'member'].includes(groupMember.groupRole.name)
-})
-
-// Group chat initialization is now handled internally by MatrixChatInterface
-
-// Handle expand event to navigate to chats page with focus on current room
-const handleExpandChat = () => {}
-
-// Simplified - MatrixChatInterface handles all initialization internally
-onMounted(() => {
-  console.log('🏗️ GroupChatroomPage mounted for group:', group.value?.slug)
-})
+}
 </script>
 
 <template>
   <div data-cy="group-chatroom-page" class="group-chatroom-page q-pb-xl">
-    <!-- Setup orchestrator with single-room mode for focused group chat -->
-    <MatrixNativeChatOrchestrator
-      v-if="group && hasPermission && isGroupMember"
+    <!-- Full chat access for group members -->
+    <MatrixChatGateway
+      v-if="group && groupPermissions.canWrite && checkGroupAccess()"
       context-type="group"
       :context-id="group.slug"
-      mode="single-room"
-      :inline-room-id="matrixRoomId"
-      :can-open-fullscreen="true"
-      @expand="handleExpandChat"
+      hide-subtitle
     />
 
-    <!-- Permission/eligibility messages only -->
-    <NoContentComponent
-      v-else-if="group && hasPermission && !isGroupMember"
-      label="You need to be a member of this group to access the chatroom"
-      icon="sym_r_group"
-    />
+    <!-- Read-only access message -->
+    <div v-else-if="group && groupPermissions.canRead && !checkGroupAccess()">
+      <NoContentComponent
+        label="You need to be a member of this group to access the chatroom"
+        icon="sym_r_group"
+      />
+    </div>
 
+    <!-- No permission message -->
+    <div v-else-if="group && !groupPermissions.canRead">
+      <NoContentComponent
+        data-cy="no-permission-group-chatroom-page"
+        label="You don't have permission to access this chatroom"
+        icon="sym_r_group"
+      />
+    </div>
+
+    <!-- Group not found -->
     <NoContentComponent
-      data-cy="no-permission-group-chatroom-page"
-      v-else-if="group && !hasPermission"
-      label="You don't have permission to access this chatroom"
+      v-else
+      label="Group not found"
       icon="sym_r_group"
     />
   </div>

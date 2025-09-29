@@ -18,7 +18,18 @@ export function useMatrixEncryption () {
   const clientReadiness = ref(0) // Increment to trigger reactivity
 
   // Computed helpers based on Element Web pattern
-  const canChat = computed(() => encryptionStatus.value?.details.canChat ?? false)
+  // Simplified: if client is logged in and syncing, chat is ready (like Element Web)
+  const canChat = computed(() => {
+    const client = matrixClientManager.getClient()
+    const isLoggedIn = client?.isLoggedIn() ?? false
+    const syncState = client?.getSyncState()
+    const isReady = isLoggedIn && (syncState === 'PREPARED' || syncState === 'SYNCING')
+
+    // Fallback to encryption status if available, but don't require it
+    const encryptionReady = encryptionStatus.value?.details.canChat ?? false
+
+    return isReady || encryptionReady
+  })
 
   // Simple computed that just checks if we have a Matrix connection
   // This is now only used for encryption-specific login needs, not general connection

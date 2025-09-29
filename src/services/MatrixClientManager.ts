@@ -7,14 +7,12 @@ import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { matrixTokenManager } from './MatrixTokenManager'
 import { PlatformTokenRefresher } from './PlatformTokenRefresher'
-// Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 import { matrixDeviceListener } from './MatrixDeviceListener'
 import { Dialog, Notify } from 'quasar'
 import type { MatrixMessageContent } from '../types/matrix'
 import getEnv from '../utils/env'
 import { useAuthStore } from '../stores/auth-store'
-// Config will be accessed via getEnv
 
 // Type definitions for secret storage
 interface SecretStorageKeyInfo {
@@ -1259,6 +1257,18 @@ export class MatrixClientManager {
 
       // All tokens and OIDC metadata are now stored in MatrixTokenManager
 
+      // CRITICAL FIX: Start the Matrix client sync (following Element Web pattern)
+      // This ensures the client transitions from null syncState to 'SYNCING' to 'PREPARED'
+      logger.debug('🔄 Starting Matrix client sync (Element Web pattern)...')
+      await this.client.startClient({
+        initialSyncLimit: 50,
+        includeArchivedRooms: false,
+        lazyLoadMembers: true,
+        pollTimeout: 30000
+      })
+      this.isStarted = true
+      logger.debug('✅ Matrix client sync started - syncState should transition to SYNCING then PREPARED')
+
       return this.client
     } catch (error: unknown) {
       logger.error('❌ Failed to initialize Matrix client:', error)
@@ -2397,26 +2407,43 @@ export class MatrixClientManager {
   }
 
   /**
-   * Get or create event room ID using canonical resolution
-   * This provides consistent room resolution without joining the room
-   * Use this method to get the canonical room ID that should be used for an event
+   * Unified room resolution for events, groups, and DMs using app service pattern
+   * This method uses the app service to create rooms on-demand when joining
+   * @param roomType The type of room ('event', 'group', 'dm')
+   * @param identifier For events/groups: slug, for DMs: comma-separated user slugs (e.g., "user1,user2")
+   * @returns Promise resolving to the room ID
    */
-  public async getOrCreateEventRoom (eventSlug: string): Promise<string> {
+  public async getOrCreateRoom (roomType: 'event' | 'group' | 'dm', identifier: string): Promise<string> {
     if (!this.client) {
       throw new Error('Matrix client not initialized')
     }
 
     try {
-      logger.debug('🎯 Getting canonical room ID for event:', eventSlug)
+      logger.debug(`🎯 Getting canonical room ID for ${roomType}:`, identifier)
 
       const tenantId = (getEnv('APP_TENANT_ID') as string) || localStorage.getItem('tenantId')
       if (!tenantId) {
         throw new Error('Tenant ID not available')
       }
 
-      // Generate the canonical room alias
-      const { generateEventRoomAlias } = await import('../utils/matrixUtils')
-      const roomAlias = generateEventRoomAlias(eventSlug, tenantId)
+      // Generate the appropriate room alias based on type
+      let roomAlias: string
+      if (roomType === 'event') {
+        const { generateEventRoomAlias } = await import('../utils/matrixUtils')
+        roomAlias = generateEventRoomAlias(identifier, tenantId)
+      } else if (roomType === 'group') {
+        const { generateGroupRoomAlias } = await import('../utils/matrixUtils')
+        roomAlias = generateGroupRoomAlias(identifier, tenantId)
+      } else if (roomType === 'dm') {
+        const { generateDMRoomAlias } = await import('../utils/matrixUtils')
+        const [userSlug1, userSlug2] = identifier.split(',')
+        if (!userSlug1 || !userSlug2) {
+          throw new Error('DM identifier must be comma-separated user slugs (e.g., "user1,user2")')
+        }
+        roomAlias = generateDMRoomAlias(userSlug1, userSlug2, tenantId)
+      } else {
+        throw new Error(`Unsupported room type: ${roomType}`)
+      }
 
       logger.debug('🏠 Generated canonical room alias:', roomAlias)
 
@@ -2428,37 +2455,50 @@ export class MatrixClientManager {
       } catch (aliasError: unknown) {
         const matrixError = aliasError as { errcode?: string }
         if (matrixError.errcode === 'M_NOT_FOUND') {
-          logger.debug('⚠️ Room does not exist, attempting to create it')
+          logger.debug('⚠️ Room does not exist, letting app service create it via join')
 
           try {
-            // Try to create the room
-            const createResult = await this.client.createRoom({
-              room_alias_name: `event-${eventSlug}-${tenantId}`,
-              name: `Event: ${eventSlug}`,
-              preset: Preset.PrivateChat,
-              visibility: Visibility.Private
-            })
+            // Let the app service create the room by attempting to join the alias
+            const room = await this.joinRoom(roomAlias)
+            logger.debug('✅ App service created room via join:', room.roomId)
+            return room.roomId
+          } catch (joinError: unknown) {
+            const matrixJoinError = joinError as { errcode?: string; message?: string }
 
-            logger.debug('✅ Created new room:', createResult.room_id)
-            return createResult.room_id
-          } catch (createError: unknown) {
-            const matrixCreateError = createError as { errcode?: string }
-            if (matrixCreateError.errcode === 'M_ROOM_IN_USE') {
-              // Race condition - someone else created the room, resolve it again
-              logger.debug('🔄 Room was created by another process, resolving again')
-              const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
-              logger.debug('✅ Resolved room after race condition:', aliasResult.room_id)
-              return aliasResult.room_id
+            // If join failed, it might be because the room was just created by another process
+            if (matrixJoinError.errcode === 'M_NOT_FOUND') {
+              // Try one more alias resolution in case of race condition
+              try {
+                const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
+                logger.debug('✅ Resolved room after race condition:', aliasResult.room_id)
+                return aliasResult.room_id
+              } catch (finalError) {
+                logger.error('❌ Final resolution attempt failed:', finalError)
+                throw finalError
+              }
             }
-            throw createError
+
+            logger.error('❌ App service room creation failed:', joinError)
+            throw joinError
           }
         }
         throw aliasError
       }
     } catch (error) {
-      logger.error('❌ Failed to get or create event room:', error)
+      logger.error(`❌ Failed to get or create ${roomType} room:`, error)
       throw error
     }
+  }
+
+  /**
+   * Get or create event room ID using canonical resolution
+   * This provides consistent room resolution without joining the room
+   * Use this method to get the canonical room ID that should be used for an event
+   * @deprecated Use getOrCreateRoom('event', eventSlug) instead
+   */
+  public async getOrCreateEventRoom (eventSlug: string): Promise<string> {
+    // Use the new unified method with app service pattern
+    return this.getOrCreateRoom('event', eventSlug)
   }
 
   /**
@@ -2529,6 +2569,7 @@ export class MatrixClientManager {
   /**
    * Get or create a group room and return room info
    * This is the canonical method for getting consistent group room IDs
+   * @deprecated Use getOrCreateRoom('group', groupSlug) instead
    */
   public async getOrCreateGroupRoom (groupSlug: string): Promise<{ roomId: string; roomAlias: string }> {
     const result = await this.joinGroupChatRoom(groupSlug)
@@ -2536,6 +2577,27 @@ export class MatrixClientManager {
       roomId: result.room.roomId,
       roomAlias: (result.roomInfo as { roomAlias: string }).roomAlias
     }
+  }
+
+  /**
+   * Get or create group room ID using unified resolution
+   * @param groupSlug The group slug
+   * @returns Promise resolving to the room ID
+   */
+  public async getOrCreateGroupRoomId (groupSlug: string): Promise<string> {
+    // Use the new unified method with app service pattern
+    return this.getOrCreateRoom('group', groupSlug)
+  }
+
+  /**
+   * Get or create DM room ID using unified resolution
+   * @param userSlug1 First user slug
+   * @param userSlug2 Second user slug
+   * @returns Promise resolving to the room ID
+   */
+  public async getOrCreateDMRoom (userSlug1: string, userSlug2: string): Promise<string> {
+    // Use the new unified method with app service pattern
+    return this.getOrCreateRoom('dm', `${userSlug1},${userSlug2}`)
   }
 
   public async joinGroupChatRoom (groupSlug: string): Promise<{ room: Room; roomInfo: unknown }> {
