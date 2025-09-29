@@ -182,6 +182,34 @@ export const useAuthStore = defineStore('authStore', {
         ulid: this.user.ulid
       })
       analyticsService.trackEvent('user_authorized', { user_id: this.user.id, email: this.user.email, name: this.user.name })
+
+      // Auto-initialize Matrix client if tokens exist for this user
+      this.initializeMatrixIfReady()
+    },
+
+    /**
+     * Initialize Matrix client if stored tokens exist for the current user
+     * This ensures Matrix is ready after login without requiring manual connection
+     */
+    async initializeMatrixIfReady () {
+      if (!this.user?.slug) {
+        return
+      }
+
+      try {
+        // Check if Matrix tokens exist for this user
+        const { hasStoredMatrixTokens } = await import('../utils/matrixTokenUtils')
+        if (!hasStoredMatrixTokens(this.user.slug)) {
+          logger.debug('📱 No stored Matrix tokens found for user after login')
+          return
+        }
+
+        // Initialize Matrix client with existing tokens
+        logger.debug('🚀 User login detected with Matrix tokens - auto-initializing Matrix client')
+        await matrixClientManager.initializeClientWhenReady()
+      } catch (error) {
+        logger.debug('📱 Matrix auto-initialization failed after login:', error)
+      }
     },
     actionClearAuth () {
       this.token = ''

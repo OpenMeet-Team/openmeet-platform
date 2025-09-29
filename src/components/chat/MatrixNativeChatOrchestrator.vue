@@ -509,10 +509,11 @@ const connectToMatrix = async () => {
     // Clear invalid token flag since we now have a working client
     hasInvalidTokens.value = false
 
-    // Re-check state after connection - only if we have a room ID
+    // Re-check state after connection - only for room-specific encryption state
     if (props.inlineRoomId) {
       await checkEncryptionState(props.inlineRoomId)
     }
+    // Note: General chat readiness is now handled by simplified canChat computed property
 
     logger.debug('✅ Matrix connected - ready for chat')
 

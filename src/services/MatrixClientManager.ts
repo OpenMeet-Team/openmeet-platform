@@ -7,14 +7,12 @@ import type { IdTokenClaims } from 'oidc-client-ts'
 import { parseRoomAlias } from '../utils/matrixUtils'
 import { matrixTokenManager } from './MatrixTokenManager'
 import { PlatformTokenRefresher } from './PlatformTokenRefresher'
-// Note: Using inline cryptoCallbacks instead of MatrixSecurityManager for simplicity
 import { logger } from '../utils/logger'
 import { matrixDeviceListener } from './MatrixDeviceListener'
 import { Dialog, Notify } from 'quasar'
 import type { MatrixMessageContent } from '../types/matrix'
 import getEnv from '../utils/env'
 import { useAuthStore } from '../stores/auth-store'
-// Config will be accessed via getEnv
 
 // Type definitions for secret storage
 interface SecretStorageKeyInfo {
@@ -1258,6 +1256,18 @@ export class MatrixClientManager {
       localStorage.setItem('matrix_device_id', deviceId)
 
       // All tokens and OIDC metadata are now stored in MatrixTokenManager
+
+      // CRITICAL FIX: Start the Matrix client sync (following Element Web pattern)
+      // This ensures the client transitions from null syncState to 'SYNCING' to 'PREPARED'
+      logger.debug('🔄 Starting Matrix client sync (Element Web pattern)...')
+      await this.client.startClient({
+        initialSyncLimit: 50,
+        includeArchivedRooms: false,
+        lazyLoadMembers: true,
+        pollTimeout: 30000
+      })
+      this.isStarted = true
+      logger.debug('✅ Matrix client sync started - syncState should transition to SYNCING then PREPARED')
 
       return this.client
     } catch (error: unknown) {
