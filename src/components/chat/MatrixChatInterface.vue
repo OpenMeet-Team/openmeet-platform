@@ -781,6 +781,15 @@ const timelineWithDateSeparators = computed((): (TimelineEventItem | TimelineDat
   return result
 })
 
+// Count only actual chat messages (exclude administrative/system events)
+const actualMessageCount = computed(() => {
+  return timelineEvents.value.filter(event => {
+    const eventType = event.getType()
+    // Only count actual chat messages, not administrative events
+    return eventType === 'm.room.message' || eventType === 'm.room.encrypted'
+  }).length
+})
+
 // Use Matrix client service directly for real Matrix integration
 
 // Refs
@@ -846,7 +855,7 @@ const getRoomStatusText = (): string => {
     return 'Matrix chat unavailable'
   }
 
-  const count = timelineEvents.value.length
+  const count = actualMessageCount.value
   switch (props.contextType) {
     case 'direct': return isConnected.value ? 'Online' : 'Offline'
     case 'group': return `${count} messages`
@@ -1556,7 +1565,10 @@ const handleSyncStateChange = async (state: string, prevState?: string) => {
 
 // Update message count when timeline events change
 watch(timelineEvents, (newEvents) => {
-  messageCount.value = newEvents.length
+  messageCount.value = newEvents.filter(event => {
+    const eventType = event.getType()
+    return eventType === 'm.room.message' || eventType === 'm.room.encrypted'
+  }).length
 }, { immediate: true })
 
 // Send read receipts when message count or connection state changes
