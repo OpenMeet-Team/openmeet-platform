@@ -405,6 +405,14 @@ import { useMatrixTimeline } from '../../composables/useMatrixTimeline'
 declare global {
   interface Window {
     matrixRetryAfter?: number;
+    debugChatState?: {
+      timelineEvents: unknown;
+      isConnected: boolean;
+      currentRoom: unknown;
+      resolvedRoomId: string | null;
+      canPaginateBack: boolean;
+      isTimelineLoading: boolean;
+    };
   }
 }
 
@@ -513,6 +521,8 @@ const isRoomEncrypted = computed(() => {
 // Function to resolve room alias to room ID and join if needed
 // Simple synchronous room lookup - no async operations or auto-joining
 const findJoinedRoom = async () => {
+  logger.debug('🔍 findJoinedRoom called', { roomId: props.roomId })
+
   if (!props.roomId) {
     resolvedRoomId.value = null
     return
@@ -520,6 +530,7 @@ const findJoinedRoom = async () => {
 
   const client = matrixClientManager.getClient()
   if (!client) {
+    logger.debug('⚠️ findJoinedRoom: no client available')
     resolvedRoomId.value = null
     return
   }
@@ -2125,8 +2136,26 @@ onMounted(async () => {
       // Set up Matrix client event listeners (with duplicate protection)
       setupMatrixEventListeners()
 
-      // Timeline initialization is handled by watcher
+      // Ensure we're joined to the room (handles invitations that arrived after last session)
+      // This is idempotent - if already joined, it just returns the room
+      if (props.contextType === 'event' && props.contextId) {
+        try {
+          await matrixClientManager.joinEventChatRoom(props.contextId)
+        } catch (error) {
+          logger.debug('Event room join attempt (may already be in room):', error)
+        }
+      } else if (props.contextType === 'group' && props.contextId) {
+        try {
+          await matrixClientManager.joinGroupChatRoom(props.contextId)
+        } catch (error) {
+          logger.debug('Group room join attempt (may already be in room):', error)
+        }
+      }
+
+      // Resolve room ID to trigger timeline initialization via watcher
       if (props.roomId) {
+        await findJoinedRoom()
+        // Timeline initialization is handled by watcher
         await nextTick()
         await scrollToBottom()
         messagesLoaded = true
