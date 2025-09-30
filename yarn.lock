@@ -531,10 +531,10 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@matrix-org/matrix-sdk-crypto-wasm@^15.0.0":
-  version "15.1.0"
-  resolved "https://registry.npmjs.org/@matrix-org/matrix-sdk-crypto-wasm/-/matrix-sdk-crypto-wasm-15.1.0.tgz"
-  integrity sha512-ZsDdjn46J3+VxsDLmaSODuS+qtGZB/i3Cg9tWL1QPNjvAWzNaTHQ7glleByI2PKVBm83aklfuhGKT2MqE1ZsEA==
+"@matrix-org/matrix-sdk-crypto-wasm@^15.1.0":
+  version "15.3.0"
+  resolved "https://registry.yarnpkg.com/@matrix-org/matrix-sdk-crypto-wasm/-/matrix-sdk-crypto-wasm-15.3.0.tgz#141fd041ae382b793369bcee4394b0b577bdea0c"
+  integrity sha512-QyxHvncvkl7nf+tnn92PjQ54gMNV8hMSpiukiDgNrqF6IYwgySTlcSdkPYdw8QjZJ0NR6fnVrNzMec0OohM3wA==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -4829,13 +4829,13 @@ matrix-events-sdk@0.0.1:
   resolved "https://registry.npmjs.org/matrix-events-sdk/-/matrix-events-sdk-0.0.1.tgz"
   integrity sha512-1QEOsXO+bhyCroIe2/A5OwaxHvBm7EsSQ46DEDn8RBIfQwN5HWBpFvyWWR4QY0KHPPnnJdI99wgRiAl7Ad5qaA==
 
-matrix-js-sdk@^37.12.0:
-  version "37.12.0"
-  resolved "https://registry.npmjs.org/matrix-js-sdk/-/matrix-js-sdk-37.12.0.tgz"
-  integrity sha512-2JSTMtvACE4egrBPp0ZQ7fSxBXcX6xuHcQSjcoBiBxFL7W0SZCl4qsNl30pBshDTe5wARAByzIHEMv6bGVKKNA==
+matrix-js-sdk@^38.2.0:
+  version "38.2.0"
+  resolved "https://registry.yarnpkg.com/matrix-js-sdk/-/matrix-js-sdk-38.2.0.tgz#bcda87ef767897e52afa31465a84b5bdacc80163"
+  integrity sha512-R3jzK8rDGi/3OXOax8jFFyxblCG9KTT5yuXAbvnZCGcpTm8lZ4mHQAn5UydVD8qiyUMNMpaaMd6/k7N+5I/yaQ==
   dependencies:
     "@babel/runtime" "^7.12.5"
-    "@matrix-org/matrix-sdk-crypto-wasm" "^15.0.0"
+    "@matrix-org/matrix-sdk-crypto-wasm" "^15.1.0"
     another-json "^0.2.0"
     bs58 "^6.0.0"
     content-type "^1.0.4"
