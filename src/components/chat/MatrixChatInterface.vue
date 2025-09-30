@@ -405,6 +405,14 @@ import { useMatrixTimeline } from '../../composables/useMatrixTimeline'
 declare global {
   interface Window {
     matrixRetryAfter?: number;
+    debugChatState?: {
+      timelineEvents: unknown;
+      isConnected: boolean;
+      currentRoom: unknown;
+      resolvedRoomId: string | null;
+      canPaginateBack: boolean;
+      isTimelineLoading: boolean;
+    };
   }
 }
 
@@ -513,6 +521,8 @@ const isRoomEncrypted = computed(() => {
 // Function to resolve room alias to room ID and join if needed
 // Simple synchronous room lookup - no async operations or auto-joining
 const findJoinedRoom = async () => {
+  logger.debug('🔍 findJoinedRoom called', { roomId: props.roomId })
+
   if (!props.roomId) {
     resolvedRoomId.value = null
     return
@@ -520,6 +530,7 @@ const findJoinedRoom = async () => {
 
   const client = matrixClientManager.getClient()
   if (!client) {
+    logger.debug('⚠️ findJoinedRoom: no client available')
     resolvedRoomId.value = null
     return
   }
@@ -715,7 +726,31 @@ watch(timelineEvents, (newEvents, oldEvents) => {
 }, { immediate: true })
 
 // Use timeline events directly - reactive reference
-const debugTimelineEvents = computed(() => timelineEvents.value)
+const debugTimelineEvents = computed(() => {
+  const events = timelineEvents.value
+  console.log('🐛 debugTimelineEvents computed:', {
+    eventsLength: events.length,
+    isConnected: isConnected.value,
+    currentRoom: currentRoom.value?.roomId,
+    resolvedRoomId: resolvedRoomId.value,
+    canPaginateBack: canPaginateBack.value,
+    isTimelineLoading: isTimelineLoading.value,
+    firstEventId: events[0]?.getId(),
+    lastEventId: events[events.length - 1]?.getId()
+  })
+  // Also expose to window for debugging
+  if (typeof window !== 'undefined') {
+    window.debugChatState = {
+      timelineEvents: events,
+      isConnected: isConnected.value,
+      currentRoom: currentRoom.value,
+      resolvedRoomId: resolvedRoomId.value,
+      canPaginateBack: canPaginateBack.value,
+      isTimelineLoading: isTimelineLoading.value
+    }
+  }
+  return events
+})
 
 // Timeline with date separators
 interface TimelineItem {
@@ -2101,6 +2136,7 @@ onMounted(async () => {
       // Set up Matrix client event listeners (with duplicate protection)
       setupMatrixEventListeners()
 
+      // Room joining is handled by MatrixChatGateway via getOrCreateRoom
       // Timeline initialization is handled by watcher
       if (props.roomId) {
         await nextTick()

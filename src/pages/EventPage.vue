@@ -1061,9 +1061,12 @@ onMounted(async () => {
       logger.warn('Event has seriesId but no seriesSlug, navigation issues possible')
     }
 
-    // Matrix chat room joining is now handled by EventMatrixChatComponent
-    // This ensures proper separation of concerns and avoids duplicate API calls
-    // console.log('EventPage loaded successfully. Chat functionality handled by EventMatrixChatComponent.')
+    /**
+     * Matrix room joining is delegated to MatrixChatGateway component,
+     * which is rendered within EventMatrixChatComponent on this page.
+     * This ensures consistent room joining logic across all chat contexts
+     * (events, groups, DMs) and proper separation of concerns.
+     */
   } catch (error) {
     logger.error('Error loading event data:', error)
   } finally {
@@ -1099,8 +1102,7 @@ onBeforeRouteUpdate(async (to) => {
         loadSimilarEvents(String(to.params.slug))
       ])
 
-      // Matrix chat room joining is handled by EventMatrixChatComponent
-      // console.log('Route updated to event:', String(to.params.slug))
+      // Matrix room joining is handled by MatrixChatGateway component
     } catch (error) {
       logger.error('Failed to load event:', error)
     } finally {
