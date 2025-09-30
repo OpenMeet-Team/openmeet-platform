@@ -715,7 +715,31 @@ watch(timelineEvents, (newEvents, oldEvents) => {
 }, { immediate: true })
 
 // Use timeline events directly - reactive reference
-const debugTimelineEvents = computed(() => timelineEvents.value)
+const debugTimelineEvents = computed(() => {
+  const events = timelineEvents.value
+  console.log('🐛 debugTimelineEvents computed:', {
+    eventsLength: events.length,
+    isConnected: isConnected.value,
+    currentRoom: currentRoom.value?.roomId,
+    resolvedRoomId: resolvedRoomId.value,
+    canPaginateBack: canPaginateBack.value,
+    isTimelineLoading: isTimelineLoading.value,
+    firstEventId: events[0]?.getId(),
+    lastEventId: events[events.length - 1]?.getId()
+  })
+  // Also expose to window for debugging
+  if (typeof window !== 'undefined') {
+    window.debugChatState = {
+      timelineEvents: events,
+      isConnected: isConnected.value,
+      currentRoom: currentRoom.value,
+      resolvedRoomId: resolvedRoomId.value,
+      canPaginateBack: canPaginateBack.value,
+      isTimelineLoading: isTimelineLoading.value
+    }
+  }
+  return events
+})
 
 // Timeline with date separators
 interface TimelineItem {
