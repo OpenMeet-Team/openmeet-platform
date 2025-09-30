@@ -66,8 +66,6 @@ import NoContentComponent from '../components/global/NoContentComponent.vue'
 import { GroupPermission, GroupRole } from '../types'
 import { useAuthStore } from '../stores/auth-store'
 import { storeToRefs } from 'pinia'
-import { matrixClientManager } from '../services/MatrixClientManager'
-import { logger } from '../utils/logger'
 
 const route = useRoute()
 
@@ -90,45 +88,24 @@ useMeta({
   }
 })
 
+/**
+ * GroupPage - Main group view
+ *
+ * Responsibilities:
+ * - Load group data and metadata
+ * - Display group information and navigation
+ * - Check permissions for group access
+ *
+ * Matrix room joining is delegated to MatrixChatGateway component,
+ * which is rendered in GroupChatroomPage when the user navigates
+ * to the chatroom tab. This ensures consistent room joining logic
+ * across all chat contexts (events, groups, DMs).
+ */
 onMounted(async () => {
   LoadingBar.start()
   try {
-    // First load group data
+    // Load group data - chat room joining is handled by MatrixChatGateway component
     await useGroupStore().actionGetGroup(route.params.slug as string)
-
-    // Then check if user is a member of the group
-    const isMember = useGroupStore().getterUserHasPermission(GroupPermission.SeeGroup)
-    const isAuthenticated = useAuthStore().isFullyAuthenticated
-    const groupSlug = route.params.slug as string
-
-    logger.debug('Group loaded, checking membership status:', {
-      isMember,
-      isAuthenticated,
-      groupSlug
-    })
-
-    // If user is a member and authenticated, join the group chat room
-    if (isMember && isAuthenticated) {
-      try {
-        logger.debug('User is a member of group, joining group chat room')
-        const userSlug = useAuthStore().user?.slug
-
-        if (userSlug) {
-          logger.debug(`Joining chat room for group ${groupSlug} with user ${userSlug} using Matrix-native approach`)
-          const joinResult = await matrixClientManager.joinGroupChatRoom(groupSlug)
-          logger.debug('Group chat room join result:', joinResult.roomInfo)
-
-          if (joinResult.room?.roomId) {
-            logger.debug(`Successfully joined Matrix room for group: ${joinResult.room.roomId}`)
-          }
-        }
-      } catch (err) {
-        // Non-critical error, just log it but don't interrupt page load
-        console.error('Failed to auto-join group chat room:', err)
-      }
-    } else {
-      logger.debug('User is not a member or not authenticated, skipping chat room join')
-    }
   } catch (error) {
     console.error('Error loading group data:', error)
   } finally {

@@ -50,8 +50,21 @@ const hasMatrixConnection = computed(() => {
   return canResolveRooms
 })
 
-// This component now assumes the parent has already checked permissions
-// and will only render this component if the user should see the chat
+/**
+ * MatrixChatGateway - Unified chat room resolution and joining
+ *
+ * This component is responsible for:
+ * 1. Resolving room aliases to room IDs
+ * 2. Joining Matrix rooms (via getOrCreateRoom which calls joinRoom)
+ * 3. Providing the room ID to child chat components
+ *
+ * Parent components (EventMatrixChatComponent, GroupChatroomPage) should:
+ * - Check permissions before rendering this component
+ * - Pass the appropriate contextType and contextId
+ *
+ * This ensures a single, consistent pattern for room joining across
+ * events, groups, and direct messages.
+ */
 
 // Function to attempt room resolution
 const attemptRoomResolution = async (contextId: string) => {
