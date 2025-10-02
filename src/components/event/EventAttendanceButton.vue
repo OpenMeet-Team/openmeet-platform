@@ -68,12 +68,12 @@
     <div v-else-if="!attendee" class="rsvp-button-group">
       <!-- RSVP Instructions -->
       <div class="rsvp-instructions q-mb-sm text-center">
-        <div class="text-body2 text-grey-8 q-mb-xs">
-          <q-icon name="sym_r_person_raised_hand" class="q-mr-xs" />
-          Let the hosts know your plans!
+        <div class="text-h6 text-info q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" size="md" color="info" class="q-mr-xs" />
+          RSVP
         </div>
         <div class="text-caption text-grey-6">
-          Click one of the buttons below to RSVP.
+          Let the hosts know your plans!
         </div>
       </div>
       <q-btn

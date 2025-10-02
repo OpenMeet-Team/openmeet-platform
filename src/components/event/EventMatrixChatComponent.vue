@@ -53,17 +53,29 @@ const checkEventAccess = () => {
     <!-- Read-only access message -->
     <div v-else-if="discussionPermissions.canRead" class="q-mt-lg">
       <SubtitleComponent label="Chatroom" class="q-px-md" hide-link />
-      <q-banner class="bg-info text-white q-mt-md">
-        <p>Chat is only available to confirmed attendees. Please RSVP and get confirmed to participate in the discussion.</p>
+      <q-banner class="bg-info text-white q-mt-md" rounded>
+        <template v-slot:avatar>
+          <q-icon name="sym_r_lock" size="md" />
+        </template>
+        <div class="text-body1">
+          <div class="text-weight-bold q-mb-xs">Chat Locked</div>
+          <div>RSVP above <q-icon name="sym_r_arrow_upward" /> to unlock chat and join the conversation!</div>
+        </div>
       </q-banner>
     </div>
 
     <!-- No access message -->
     <div v-else-if="!useAuthStore().isAuthenticated" class="q-mt-lg">
       <SubtitleComponent label="Chatroom" class="q-px-md" hide-link />
-      <q-banner class="bg-grey-7 text-white q-mt-md">
-        <div>
-          <p>Please <q-btn flat dense no-caps color="white" label="sign in" to="/auth/login" /> to enable chat.</p>
+      <q-banner class="bg-grey-7 text-white q-mt-md" rounded>
+        <template v-slot:avatar>
+          <q-icon name="sym_r_login" size="md" />
+        </template>
+        <div class="text-body1">
+          <div class="text-weight-bold q-mb-xs">Sign In Required</div>
+          <div>
+            Please <q-btn flat dense no-caps color="white" label="sign in" to="/auth/login" class="text-underline" /> to RSVP and access chat.
+          </div>
         </div>
       </q-banner>
     </div>
