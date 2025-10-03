@@ -4,11 +4,11 @@
     <div v-else-if="event" class="row q-col-gutter-md">
       <!-- Main content column -->
       <div class="col-12 col-md-8">
-        <!-- Photo (Mobile: 1st) -->
-        <q-card class="q-mb-md">
+        <!-- Photo (Mobile: 1st) - Only show if event has an actual image -->
+        <q-card v-if="event?.image" class="q-mb-md">
           <q-img
             data-cy="event-image"
-            :src="getImageSrc(event.image)"
+            :src="eventImageSrc"
             :ratio="16/9"
             spinner-color="primary"
             style="min-height: 300px"
@@ -1000,6 +1000,10 @@ const { openDeleteEventDialog, openCancelEventDialog, openRepublishEventDialog }
 const { showContactDialog } = useContactEventOrganizersDialog()
 const event = computed(() => useEventStore().event)
 const errorMessage = computed(() => useEventStore().errorMessage)
+
+// Get the event image source (only used when event actually has an image)
+const eventImageSrc = computed(() => getImageSrc(event.value?.image))
+
 const similarEvents = ref<EventEntity[]>([])
 const similarEventsLoading = ref(false)
 const upcomingOccurrences = ref([])
@@ -1446,8 +1450,10 @@ const handleEditEvent = async () => {
 
       // Navigate to the newly materialized event edit page
       if (materializedEvent && materializedEvent.slug) {
-        // Use window.location for consistent navigation approach
-        window.location.href = `/dashboard/events/${materializedEvent.slug}`
+        await router.push({
+          name: 'DashboardEventPage',
+          params: { slug: materializedEvent.slug }
+        })
       } else {
         console.error('Failed to materialize event occurrence: No slug returned')
       }
