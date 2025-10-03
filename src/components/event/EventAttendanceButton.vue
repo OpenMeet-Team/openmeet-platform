@@ -68,12 +68,12 @@
     <div v-else-if="!attendee" class="rsvp-button-group">
       <!-- RSVP Instructions -->
       <div class="rsvp-instructions q-mb-sm text-center">
-        <div class="text-body2 text-grey-8 q-mb-xs">
-          <q-icon name="sym_r_person_raised_hand" class="q-mr-xs" />
-          Let the hosts know your plans!
+        <div class="text-h6 text-info q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" size="md" color="info" class="q-mr-xs" />
+          RSVP
         </div>
         <div class="text-caption text-grey-6">
-          Click one of the buttons below to RSVP.
+          Let the hosts know your plans!
         </div>
       </div>
       <q-btn
@@ -174,6 +174,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { useQuasar } from 'quasar'
+import { useRouter } from 'vue-router'
 import { useEventStore } from '../../stores/event-store'
 import { useAuthStore } from '../../stores/auth-store'
 import {
@@ -189,6 +190,7 @@ import { eventLoadingState } from '../../utils/eventLoadingState'
 import { logger } from '../../utils/logger'
 
 const $q = useQuasar()
+const router = useRouter()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
 const { goToLogin } = useAuth()
@@ -390,8 +392,8 @@ const handleTemplateAttend = async () => {
         : 'Event scheduled! You are now attending this event.'
     })
 
-    // Navigate to the materialized event using window.location
-    window.location.href = `/events/${materializedEvent.slug}`
+    // Navigate to the materialized event using Vue Router
+    await router.push({ name: 'EventPage', params: { slug: materializedEvent.slug } })
   } catch (error) {
     console.error('Error materializing and attending event:', error)
     $q.notify({
@@ -425,12 +427,11 @@ const handleAttend = async () => {
     const attendee = await eventStore.actionAttendEvent(props.event.slug, { status })
     console.log('Attendance API response:', attendee)
 
-    // Force a refresh of event data to ensure UI reflects the latest state
-    // This is a user-initiated action, so we always want to refresh
+    // actionAttendEvent already updates the store's event.attendee internally
+    // Just update the last check timestamp
     const eventSlug = props.event.slug
     eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
-    await eventStore.actionGetEventBySlug(eventSlug)
-    console.log('Updated event data after attending:', eventStore.event?.attendee?.status)
+    console.log('Updated event attendee status:', eventStore.event?.attendee?.status)
 
     // Emit a custom event to notify other components about the status change
     // Use the actual status from the API response, as it's most up-to-date
@@ -483,10 +484,9 @@ const handleChangeToGoing = async () => {
     console.log('Setting status to:', status)
     await eventStore.actionAttendEvent(props.event.slug, { status })
 
-    // Force a refresh of event data to ensure UI reflects the latest state
+    // actionAttendEvent already updates the store's event.attendee internally
     const eventSlug = props.event.slug
     eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
-    await eventStore.actionGetEventBySlug(eventSlug)
 
     // Emit a custom event to notify other components about the status change
     window.dispatchEvent(new CustomEvent('attendee-status-changed', {
@@ -531,10 +531,9 @@ const handleDecline = async () => {
     // Create attendance record with cancelled status
     await eventStore.actionAttendEvent(props.event.slug, { status: EventAttendeeStatus.Cancelled })
 
-    // Force a refresh of event data to ensure UI reflects the latest state
+    // actionAttendEvent already updates the store's event.attendee internally
     const eventSlug = props.event.slug
     eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
-    await eventStore.actionGetEventBySlug(eventSlug)
 
     // Emit a custom event to notify other components about the status change
     window.dispatchEvent(new CustomEvent('attendee-status-changed', {
@@ -576,6 +575,7 @@ const handleLeave = async () => {
     })
 
     // Call the store action to cancel attendance
+    // This already updates the store's event.attendee internally
     await eventStore.actionCancelAttending(props.event)
 
     // Log the store state immediately after the API call
@@ -584,27 +584,13 @@ const handleLeave = async () => {
       id: eventStore.event?.attendee?.id
     })
 
+    // Update the last check timestamp (no need to refetch the event)
+    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
+
     $q.notify({
       type: 'info',
       message: 'You have left this event'
     })
-
-    // Force a refresh of the event data to ensure we have the latest state
-    console.log('Refreshing event data after cancellation')
-    eventLoadingState.setLastEventAttendanceCheck(eventSlug, Date.now())
-    await eventStore.actionGetEventBySlug(eventSlug)
-
-    // Log the final state after refresh to help diagnose any issues
-    console.log('Final event data after refresh:', {
-      attendeeStatus: eventStore.event?.attendee?.status,
-      attendeeId: eventStore.event?.attendee?.id,
-      hasAttendee: !!eventStore.event?.attendee,
-      buttonShouldShow: !eventStore.event?.attendee || eventStore.event?.attendee?.status === EventAttendeeStatus.Cancelled ? 'Attend' : 'Leave'
-    })
-
-    // Instead of directly modifying props (which Vue warns against),
-    // we'll rely on the event store update and custom event
-    console.log('Skipping direct prop modification to avoid Vue warning about mutating props')
 
     // Emit a custom event that the discussion component can listen for
     // This helps components that don't have direct access to the attendee prop

@@ -126,10 +126,11 @@ describe('EventPageDateDisplay.vue', () => {
     await wrapper.vm.$nextTick()
 
     const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: Europe/Berlin`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
+    // Look for the date in both mobile and desktop Event Details cards
+    const eventDetailsCards = wrapper.findAll('.q-card')
     let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
+    eventDetailsCards.forEach(card => {
+      if (card.html().includes(expectedFormattedDateString)) {
         found = true
       }
     })
@@ -155,10 +156,11 @@ describe('EventPageDateDisplay.vue', () => {
     await wrapper.vm.$nextTick()
 
     const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: America/New_York`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
+    // Look for the date in both mobile and desktop Event Details cards
+    const eventDetailsCards = wrapper.findAll('.q-card')
     let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
+    eventDetailsCards.forEach(card => {
+      if (card.html().includes(expectedFormattedDateString)) {
         found = true
       }
     })
@@ -185,10 +187,11 @@ describe('EventPageDateDisplay.vue', () => {
 
     // Main time should be in user timezone
     const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: America/New_York`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
+    // Look for the date in both mobile and desktop Event Details cards
+    const eventDetailsCards = wrapper.findAll('.q-card')
     let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
+    eventDetailsCards.forEach(card => {
+      if (card.html().includes(expectedFormattedDateString)) {
         found = true
       }
     })
@@ -217,10 +220,11 @@ describe('EventPageDateDisplay.vue', () => {
 
     // Should fall back to event timezone for display
     const expectedFormattedDateString = `Formatted: ${new Date(eventStore.event.startDate).toISOString()} using TZ: America/Chicago`
-    const dateDisplayElements = wrapper.findAll('.text-body2.text-bold')
+    // Look for the date in both mobile and desktop Event Details cards
+    const eventDetailsCards = wrapper.findAll('.q-card')
     let found = false
-    dateDisplayElements.forEach(el => {
-      if (el.text().includes(expectedFormattedDateString)) {
+    eventDetailsCards.forEach(card => {
+      if (card.html().includes(expectedFormattedDateString)) {
         found = true
       }
     })
