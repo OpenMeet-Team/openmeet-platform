@@ -47,92 +47,11 @@
             <div class="text-h6 q-mb-md">Event Actions</div>
             <div class="column q-gutter-md">
               <!-- RSVP SECTION -->
-              <div class="rsvp-section">
-                <!-- Copy all attendance banners and RSVP button here -->
-                <!-- Attendance Confirmed Banner (show if attending) -->
-                <q-banner
-                  v-if="useEventStore().getterUserIsAttendee() && event.attendee?.status === EventAttendeeStatus.Confirmed"
-                  class="attendance-confirmed-banner q-mb-md"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="sym_r_check_circle" size="md" color="positive" />
-                  </template>
-                  <div>
-                    <div class="text-h6 text-positive text-weight-bold">You're Attending!</div>
-                    <div class="text-body2">Chat available below</div>
-                  </div>
-                </q-banner>
-
-                <!-- Pending Approval Banner -->
-                <q-banner
-                  v-if="event.attendee?.status === EventAttendeeStatus.Pending"
-                  class="attendance-pending-banner q-mb-md"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="sym_r_schedule" size="md" color="warning" />
-                  </template>
-                  <div>
-                    <div class="text-h6 text-warning text-weight-bold">Pending Approval</div>
-                    <div class="text-body2">Awaiting organizer approval</div>
-                  </div>
-                </q-banner>
-
-                <!-- Waitlist Banner -->
-                <q-banner
-                  v-if="event.attendee?.status === EventAttendeeStatus.Waitlist"
-                  class="attendance-waitlist-banner q-mb-md"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="sym_r_hourglass_empty" size="md" color="orange" />
-                  </template>
-                  <div>
-                    <div class="text-h6 text-orange text-weight-bold">On Waitlist</div>
-                    <div class="text-body2">You'll be notified if space opens</div>
-                  </div>
-                </q-banner>
-
-                <!-- Rejected Banner -->
-                <q-banner
-                  v-if="event.attendee?.status === EventAttendeeStatus.Rejected"
-                  class="attendance-rejected-banner q-mb-md"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="sym_r_cancel" size="md" color="negative" />
-                  </template>
-                  <div>
-                    <div class="text-h6 text-negative text-weight-bold">Not Approved</div>
-                    <div class="text-body2">Request was not approved</div>
-                  </div>
-                </q-banner>
-
-                <!-- Not Attending Banner -->
-                <q-banner
-                  v-if="event.attendee?.status === EventAttendeeStatus.Cancelled"
-                  class="attendance-cancelled-banner q-mb-md"
-                  rounded
-                >
-                  <template v-slot:avatar>
-                    <q-icon name="sym_r_event_busy" size="md" color="grey-7" />
-                  </template>
-                  <div>
-                    <div class="text-h6 text-grey-8 text-weight-bold">Not Attending</div>
-                    <div class="text-body2">Change your mind?</div>
-                  </div>
-                </q-banner>
-
-                <!-- RSVP Button -->
-                <EventAttendanceButton
-                  :event="event"
-                  :attendee="event.attendee"
-                  :is-template-view="isTemplateView"
-                  :template-date="templateDate"
-                  class="action-button"
-                />
-              </div>
+              <EventRSVPSection
+                :event="event"
+                :is-template-view="isTemplateView"
+                :template-date="templateDate"
+              />
 
               <!-- EVENT STATUS (only show if there's status to display) -->
               <div v-if="event.status === 'cancelled' || isTemplateView">
@@ -499,91 +418,11 @@
               <div class="column q-gutter-md">
 
                 <!-- RSVP SECTION -->
-                <div class="rsvp-section">
-                  <!-- Attendance Confirmed Banner (show if attending) -->
-                  <q-banner
-                    v-if="useEventStore().getterUserIsAttendee() && event.attendee?.status === EventAttendeeStatus.Confirmed"
-                    class="attendance-confirmed-banner q-mb-md"
-                    rounded
-                  >
-                    <template v-slot:avatar>
-                      <q-icon name="sym_r_check_circle" size="md" color="positive" />
-                    </template>
-                    <div>
-                      <div class="text-h6 text-positive text-weight-bold">You're Attending!</div>
-                      <div class="text-body2">Chat available below</div>
-                    </div>
-                  </q-banner>
-
-                  <!-- Pending Approval Banner -->
-                  <q-banner
-                    v-if="event.attendee?.status === EventAttendeeStatus.Pending"
-                    class="attendance-pending-banner q-mb-md"
-                    rounded
-                  >
-                    <template v-slot:avatar>
-                      <q-icon name="sym_r_schedule" size="md" color="warning" />
-                    </template>
-                    <div>
-                      <div class="text-h6 text-warning text-weight-bold">Pending Approval</div>
-                      <div class="text-body2">Awaiting organizer approval</div>
-                    </div>
-                  </q-banner>
-
-                  <!-- Waitlist Banner -->
-                  <q-banner
-                    v-if="event.attendee?.status === EventAttendeeStatus.Waitlist"
-                    class="attendance-waitlist-banner q-mb-md"
-                    rounded
-                  >
-                    <template v-slot:avatar>
-                      <q-icon name="sym_r_hourglass_empty" size="md" color="orange" />
-                    </template>
-                    <div>
-                      <div class="text-h6 text-orange text-weight-bold">On Waitlist</div>
-                      <div class="text-body2">You'll be notified if space opens</div>
-                    </div>
-                  </q-banner>
-
-                  <!-- Rejected Banner -->
-                  <q-banner
-                    v-if="event.attendee?.status === EventAttendeeStatus.Rejected"
-                    class="attendance-rejected-banner q-mb-md"
-                    rounded
-                  >
-                    <template v-slot:avatar>
-                      <q-icon name="sym_r_cancel" size="md" color="negative" />
-                    </template>
-                    <div>
-                      <div class="text-h6 text-negative text-weight-bold">Not Approved</div>
-                      <div class="text-body2">Request was not approved</div>
-                    </div>
-                  </q-banner>
-
-                  <!-- Not Attending Banner -->
-                  <q-banner
-                    v-if="event.attendee?.status === EventAttendeeStatus.Cancelled"
-                    class="attendance-cancelled-banner q-mb-md"
-                    rounded
-                  >
-                    <template v-slot:avatar>
-                      <q-icon name="sym_r_event_busy" size="md" color="grey-7" />
-                    </template>
-                    <div>
-                      <div class="text-h6 text-grey-8 text-weight-bold">Not Attending</div>
-                      <div class="text-body2">Change your mind?</div>
-                    </div>
-                  </q-banner>
-
-                  <!-- RSVP Button -->
-                  <EventAttendanceButton
-                    :event="event"
-                    :attendee="event.attendee"
-                    :is-template-view="isTemplateView"
-                    :template-date="templateDate"
-                    class="action-button"
-                  />
-                </div>
+                <EventRSVPSection
+                  :event="event"
+                  :is-template-view="isTemplateView"
+                  :template-date="templateDate"
+                />
 
                 <!-- EVENT STATUS (only show if there's status to display) -->
                 <div v-if="event.status === 'cancelled' || isTemplateView">
@@ -1116,11 +955,10 @@ import { EventAttendeePermission, EventStatus } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventMatrixChatComponent from '../components/event/EventMatrixChatComponent.vue'
 import {
-  EventEntity,
-  EventAttendeeStatus
+  EventEntity
 } from '../types'
 import { pluralize } from '../utils/stringUtils'
-import EventAttendanceButton from '../components/event/EventAttendanceButton.vue'
+import EventRSVPSection from '../components/event/EventRSVPSection.vue'
 import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthStore } from '../stores/auth-store'
@@ -1759,77 +1597,7 @@ const isOwnerOrAdmin = computed(() => {
   }
 }
 
-.attendance-confirmed-banner {
-  background: linear-gradient(135deg, rgba(96, 203, 164, 0.15) 0%, rgba(96, 203, 164, 0.08) 100%);
-  border-left: 4px solid var(--q-positive);
-
-  :deep(.q-banner__avatar) {
-    color: var(--q-positive);
-  }
-}
-
-.attendance-pending-banner {
-  background: linear-gradient(135deg, rgba(255, 182, 119, 0.15) 0%, rgba(255, 182, 119, 0.08) 100%);
-  border-left: 4px solid var(--q-warning);
-
-  :deep(.q-banner__avatar) {
-    color: var(--q-warning);
-  }
-}
-
-.attendance-waitlist-banner {
-  background: linear-gradient(135deg, rgba(255, 182, 119, 0.12) 0%, rgba(255, 182, 119, 0.06) 100%);
-  border-left: 4px solid var(--q-warning);
-
-  :deep(.q-banner__avatar) {
-    color: var(--q-warning);
-  }
-}
-
-.attendance-rejected-banner {
-  background: linear-gradient(135deg, rgba(253, 167, 204, 0.15) 0%, rgba(253, 167, 204, 0.08) 100%);
-  border-left: 4px solid var(--q-negative);
-
-  :deep(.q-banner__avatar) {
-    color: var(--q-negative);
-  }
-}
-
-.attendance-cancelled-banner {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.04) 100%);
-  border-left: 4px solid var(--q-grey-7);
-
-  :deep(.q-banner__avatar) {
-    color: var(--q-grey-7);
-  }
-}
-
-/* Dark mode adjustments for banners */
-body.body--dark {
-  .rsvp-required-banner {
-    background: linear-gradient(135deg, rgba(34, 178, 218, 0.25) 0%, rgba(34, 178, 218, 0.12) 100%);
-  }
-
-  .attendance-confirmed-banner {
-    background: linear-gradient(135deg, rgba(96, 203, 164, 0.25) 0%, rgba(96, 203, 164, 0.12) 100%);
-  }
-
-  .attendance-pending-banner {
-    background: linear-gradient(135deg, rgba(255, 182, 119, 0.25) 0%, rgba(255, 182, 119, 0.12) 100%);
-  }
-
-  .attendance-waitlist-banner {
-    background: linear-gradient(135deg, rgba(255, 182, 119, 0.2) 0%, rgba(255, 182, 119, 0.1) 100%);
-  }
-
-  .attendance-rejected-banner {
-    background: linear-gradient(135deg, rgba(253, 167, 204, 0.25) 0%, rgba(253, 167, 204, 0.12) 100%);
-  }
-
-  .attendance-cancelled-banner {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
-  }
-}
+/* Banner styles moved to EventAttendanceStatus.vue component */
 
 /* Mobile RSVP card styling */
 @media (max-width: 1023px) {
@@ -1891,25 +1659,6 @@ body.body--dark {
     .series-occurrences {
       .q-list {
         border-radius: 8px;
-      }
-    }
-  }
-
-  /* Make RSVP banners more compact on mobile */
-  .rsvp-section {
-    .q-banner {
-      padding: 12px;
-
-      :deep(.q-banner__avatar) {
-        min-width: 40px;
-      }
-
-      .text-h6 {
-        font-size: 1rem;
-      }
-
-      .text-body2 {
-        font-size: 0.875rem;
       }
     }
   }
