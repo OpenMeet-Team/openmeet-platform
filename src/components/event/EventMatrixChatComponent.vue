@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import MatrixChatGateway from '../chat/MatrixChatGateway.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 
+const route = useRoute()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
 const event = computed(() => eventStore.event)
+
+// Use route parameter for event slug to avoid race conditions
+// When navigating between events or after login, the store might still have old/null event
+// but the route params are always current
+const eventSlug = computed(() => route.params.slug as string)
 
 // Permissions for the discussion
 const discussionPermissions = computed(() => {
@@ -46,7 +53,7 @@ const checkEventAccess = () => {
     <MatrixChatGateway
       v-if="discussionPermissions.canWrite && checkEventAccess()"
       context-type="event"
-      :context-id="event.slug"
+      :context-id="eventSlug"
       subtitle="Chatroom"
     />
 
