@@ -94,9 +94,34 @@ const attemptRoomResolution = async (contextId: string) => {
     connectionError.value = null
     // Use the unified room resolution method - convert 'direct' to 'dm' for the service
     const roomType = props.contextType === 'direct' ? 'dm' : props.contextType
+
+    console.log('🔍 MatrixChatGateway: Attempting room resolution:', {
+      contextType: props.contextType,
+      contextId,
+      roomType,
+      timestamp: new Date().toISOString()
+    })
+
     matrixRoomId.value = await matrixClientManager.getOrCreateRoom(roomType as 'event' | 'group' | 'dm', contextId)
+
+    const client = matrixClientManager.getClient()
+    console.log('✅ MatrixChatGateway: Successfully resolved room:', {
+      contextType: props.contextType,
+      contextId,
+      resolvedRoomId: matrixRoomId.value,
+      matrixUserId: client?.getUserId(),
+      matrixDeviceId: client?.getDeviceId(),
+      timestamp: new Date().toISOString()
+    })
+
     logger.debug('Successfully resolved room ID:', matrixRoomId.value)
   } catch (error) {
+    console.error('❌ MatrixChatGateway: Failed to resolve room:', {
+      contextType: props.contextType,
+      contextId,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    })
     logger.error('Failed to get canonical room ID:', error)
     matrixRoomId.value = null
     connectionError.value = error instanceof Error ? error.message : 'Failed to connect to chat room'

@@ -12,10 +12,20 @@ const eventStore = useEventStore()
 const authStore = useAuthStore()
 const event = computed(() => eventStore.event)
 
-// Use route parameter for event slug to avoid race conditions
-// When navigating between events or after login, the store might still have old/null event
-// but the route params are always current
-const eventSlug = computed(() => route.params.slug as string)
+// Debug logging to track route vs store slug
+const eventSlug = computed(() => {
+  const routeSlug = route.params.slug as string
+  const storeSlug = event.value?.slug
+  console.log('🎯 EventMatrixChatComponent: Event slug resolution:', {
+    routeSlug,
+    storeEventSlug: storeSlug,
+    usingSlug: storeSlug || routeSlug,
+    match: routeSlug === storeSlug,
+    timestamp: new Date().toISOString()
+  })
+  // Using store event slug (original behavior before fix)
+  return storeSlug
+})
 
 // Permissions for the discussion
 const discussionPermissions = computed(() => {
