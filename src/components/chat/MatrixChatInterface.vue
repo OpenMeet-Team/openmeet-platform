@@ -602,9 +602,29 @@ const findJoinedRoom = async () => {
     }
 
     resolvedRoomId.value = room.roomId
+    const debugClient = matrixClientManager.getClient()
+    console.log('💬 MatrixChatInterface: Connected to room:', {
+      contextType: props.contextType,
+      contextId: props.contextId,
+      requestedRoomId: props.roomId,
+      resolvedRoomId: room.roomId,
+      matrixUserId: debugClient?.getUserId(),
+      matrixDeviceId: debugClient?.getDeviceId(),
+      roomMembership: membership,
+      roomName: room.name,
+      timestamp: new Date().toISOString()
+    })
     logger.debug('✅ Found accessible room:', { alias: props.roomId, roomId: room.roomId, membership })
   } else {
     resolvedRoomId.value = null
+    console.log('⚠️ MatrixChatInterface: Room not accessible:', {
+      contextType: props.contextType,
+      contextId: props.contextId,
+      requestedRoomId: props.roomId,
+      hasRoom: !!room,
+      membership,
+      timestamp: new Date().toISOString()
+    })
     logger.debug('⏳ Room not found or accessible:', { roomId: props.roomId, hasRoom: !!room, membership })
   }
 }
@@ -728,15 +748,21 @@ watch(timelineEvents, (newEvents, oldEvents) => {
 // Use timeline events directly - reactive reference
 const debugTimelineEvents = computed(() => {
   const events = timelineEvents.value
-  console.log('🐛 debugTimelineEvents computed:', {
+  const debugClient = matrixClientManager.getClient()
+  console.log('📬 MatrixChatInterface: Timeline events loaded:', {
+    contextType: props.contextType,
+    contextId: props.contextId,
+    matrixUserId: debugClient?.getUserId(),
     eventsLength: events.length,
     isConnected: isConnected.value,
     currentRoom: currentRoom.value?.roomId,
+    roomName: currentRoom.value?.name,
     resolvedRoomId: resolvedRoomId.value,
     canPaginateBack: canPaginateBack.value,
     isTimelineLoading: isTimelineLoading.value,
     firstEventId: events[0]?.getId(),
-    lastEventId: events[events.length - 1]?.getId()
+    lastEventId: events[events.length - 1]?.getId(),
+    timestamp: new Date().toISOString()
   })
   // Also expose to window for debugging
   if (typeof window !== 'undefined') {

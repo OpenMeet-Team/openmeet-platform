@@ -1,14 +1,31 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEventStore } from '../../stores/event-store'
 import { EventAttendeePermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import MatrixChatGateway from '../chat/MatrixChatGateway.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 
+const route = useRoute()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
 const event = computed(() => eventStore.event)
+
+// Debug logging to track route vs store slug
+const eventSlug = computed(() => {
+  const routeSlug = route.params.slug as string
+  const storeSlug = event.value?.slug
+  console.log('🎯 EventMatrixChatComponent: Event slug resolution:', {
+    routeSlug,
+    storeEventSlug: storeSlug,
+    usingSlug: storeSlug || routeSlug,
+    match: routeSlug === storeSlug,
+    timestamp: new Date().toISOString()
+  })
+  // Using store event slug (original behavior before fix)
+  return storeSlug
+})
 
 // Permissions for the discussion
 const discussionPermissions = computed(() => {
@@ -46,7 +63,7 @@ const checkEventAccess = () => {
     <MatrixChatGateway
       v-if="discussionPermissions.canWrite && checkEventAccess()"
       context-type="event"
-      :context-id="event.slug"
+      :context-id="eventSlug"
       subtitle="Chatroom"
     />
 
