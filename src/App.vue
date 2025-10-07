@@ -27,6 +27,25 @@ useMeta({
   }
 })
 
+// Cross-tab auth sync handler - store reference for cleanup
+const authStore = useAuthStore()
+const handleStorageChange = (event: StorageEvent) => {
+  if (event.key === 'token' || event.key === 'refreshToken' || event.key === 'user') {
+    logger.debug('🔄 Storage change detected from another tab, reloading page')
+
+    // If token was removed (logout in another tab), clear auth and reload
+    if (event.key === 'token' && event.newValue === null) {
+      logger.debug('🚪 User logged out in another tab, reloading page')
+      authStore.actionClearAuth()
+      window.location.reload()
+    } else if (event.key === 'token' && event.newValue !== null && event.oldValue === null) {
+      // User logged in on another tab, reload to update UI
+      logger.debug('🔑 User logged in on another tab, reloading page')
+      window.location.reload()
+    }
+  }
+}
+
 onBeforeMount(() => {
   const storedDarkMode = localStorage.getItem('darkMode')
   if (storedDarkMode !== null) {
@@ -38,8 +57,10 @@ onBeforeMount(() => {
 onMounted(async () => {
   try {
     // Initialize auth first
-    const authStore = useAuthStore()
     await authStore.initializeAuth()
+
+    // Set up cross-tab authentication sync
+    window.addEventListener('storage', handleStorageChange)
 
     // Then initialize version checking
     await versionService.initializeVersionChecking()
@@ -100,6 +121,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // Clean up storage event listener
+  window.removeEventListener('storage', handleStorageChange)
   versionService.destroy()
 })
 </script>
