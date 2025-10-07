@@ -14,7 +14,6 @@
           "id": 1,
           "ulid": "1234567890",
           "email": "test@test.com",
-          "zulipUserId": 1,
           "name": "Test User",
           "photo": { "path": "test.jpg" }
         },
@@ -22,7 +21,6 @@
           "id": 1,
           "ulid": "1234567890",
           "email": "test@test.com",
-          "zulipUserId": 1,
           "name": "Test User",
           "photo": { "path": "test.jpg" }
         },
@@ -37,7 +35,6 @@
       "id": 1,
       "ulid": "1234567890",
       "email": "test@test.com",
-      "zulipUserId": 1,
       "name": "Test User",
       "photo": { "path": "test.jpg" }
     },
@@ -45,7 +42,6 @@
       "id": 1,
       "ulid": "1234567890",
       "email": "test@test.com",
-      "zulipUserId": 1,
       "name": "Test User",
       "photo": { "path": "test.jpg" }
     },

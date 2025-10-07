@@ -87,9 +87,6 @@ export interface UserEntity {
   shortId?: string
   // token: string
   // refreshToken: string
-  zulipUserId?: number
-  zulipUsername?: string
-  zulipApiKey?: string
   // Matrix fields - only matrixUserId is needed client-side
   // Server now manages credentials securely
   matrixUserId?: string
