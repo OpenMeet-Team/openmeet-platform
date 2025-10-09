@@ -2450,8 +2450,34 @@ export class MatrixClientManager {
       try {
         // First try to resolve existing room
         const aliasResult = await this.client.getRoomIdForAlias(roomAlias)
-        logger.debug('✅ Resolved existing room ID:', aliasResult.room_id)
-        return aliasResult.room_id
+        const roomId = aliasResult.room_id
+        logger.debug('✅ Resolved existing room ID:', roomId)
+
+        // Check if user is already a member of this room
+        const room = this.client.getRoom(roomId)
+        const membership = room?.getMyMembership()
+
+        if (room && (membership === 'join' || membership === 'invite')) {
+          logger.debug('✅ User already a member of room:', { roomId, membership })
+          return roomId
+        }
+
+        // User is not a member, need to join the room
+        logger.debug('⚠️ User not a member of room, joining:', { roomId, membership })
+        try {
+          const joinedRoom = await this.joinRoom(roomId)
+          logger.debug('✅ Successfully joined existing room:', joinedRoom.roomId)
+          return joinedRoom.roomId
+        } catch (joinError: unknown) {
+          const matrixJoinError = joinError as { errcode?: string; message?: string }
+          // Handle authorization failures gracefully
+          if (matrixJoinError.errcode === 'M_FORBIDDEN') {
+            logger.error('❌ User not authorized to join room:', { roomId, error: matrixJoinError.message })
+            throw new Error('You are not authorized to access this chat room. Please contact an administrator.')
+          }
+          // Re-throw other errors
+          throw joinError
+        }
       } catch (aliasError: unknown) {
         const matrixError = aliasError as { errcode?: string }
         if (matrixError.errcode === 'M_NOT_FOUND') {
