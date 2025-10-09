@@ -117,23 +117,10 @@ const handlePostLoginRedirect = (): void => {
       if (Date.now() - oidcData.timestamp < maxAge) {
         console.log('🔄 OIDC Flow: Continuing OIDC flow after login, redirecting to:', oidcData.returnUrl)
 
-        // Get the user's JWT token to include in the redirect
-        const token = authStore.token
-        if (token) {
-          const url = new URL(oidcData.returnUrl)
-          url.searchParams.set('user_token', token)
-          console.log('🔄 OIDC Flow: Added user token to OIDC redirect')
-
-          // Clear the stored data
-          localStorage.removeItem('oidc_flow_data')
-
-          // Redirect to the OIDC auth endpoint with token
-          window.location.href = url.toString()
-          return
-        }
-
-        // Fallback: redirect without token
+        // Clear the stored data
         localStorage.removeItem('oidc_flow_data')
+
+        // Redirect to the OIDC auth endpoint (uses session cookies for auth)
         window.location.href = oidcData.returnUrl
         return
       } else {

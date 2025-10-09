@@ -134,8 +134,8 @@ describe('Matrix OIDC Flow - Reference Test', () => {
 
     // Step 2: Wait for and handle MAS consent or direct platform return
     cy.url({ timeout: 20000 }).should('satisfy', (url) => {
-      const platformMatch = url.includes('om-platform.ngrok.app') || url.includes('localhost') || url.includes('/groups/')
-      const masMatch = url.includes('om-mas.ngrok.app') || url.includes('mas-dev.openmeet.net')
+      const platformMatch = url.includes('platform.dev.openmeet.net') || url.includes('localhost') || url.includes('/groups/')
+      const masMatch = url.includes('mas.dev.openmeet.net') || url.includes('mas-dev.openmeet.net')
       cy.log(`URL check - Platform: ${platformMatch}, MAS: ${masMatch}, URL: ${url}`)
       return platformMatch || masMatch
     })
@@ -147,7 +147,7 @@ describe('Matrix OIDC Flow - Reference Test', () => {
       cy.log(`Final URL for consent check: ${finalUrl}`)
 
       const isMasConsent = finalUrl.includes('consent') || finalUrl.includes('mas')
-      const isPlatformReturn = finalUrl.includes('/groups/') || finalUrl.includes('om-platform.ngrok.app')
+      const isPlatformReturn = finalUrl.includes('/groups/') || finalUrl.includes('platform.dev.openmeet.net')
 
       if (isMasConsent && !isPlatformReturn) {
         cy.log('🏛️ MAS consent/authorization page detected - handling consent')
@@ -180,7 +180,7 @@ describe('Matrix OIDC Flow - Reference Test', () => {
 
         // Wait for redirect back to platform
         cy.url({ timeout: 20000 }).should('satisfy', (url) => {
-          return url.includes('/groups/') || url.includes('om-platform.ngrok.app')
+          return url.includes('/groups/') || url.includes('platform.dev.openmeet.net')
         })
       } else if (isPlatformReturn) {
         cy.log('⚡ Already back on platform - no consent step needed')
