@@ -43,7 +43,7 @@
 
         <!-- Event Actions - Mobile only (Mobile: 3rd) -->
         <q-card class="q-mb-md lt-md event-actions-mobile">
-          <q-card-section>
+          <q-card-section class="event-actions-content">
             <div class="text-h6 q-mb-md">Event Actions</div>
             <div class="column q-gutter-md">
               <!-- RSVP SECTION -->
@@ -413,7 +413,7 @@
 
           <!-- Event actions card (desktop only - mobile version below) -->
           <q-card class="q-mb-md event-actions-card">
-            <q-card-section>
+            <q-card-section class="event-actions-content">
               <div class="text-h6 q-mb-md">Event Actions</div>
               <div class="column q-gutter-md">
 
@@ -1610,6 +1610,15 @@ const isOwnerOrAdmin = computed(() => {
   .event-actions-card {
     /* Add a subtle highlight to make it stand out on mobile */
     border-top: 3px solid var(--q-info);
+  }
+}
+
+/* Event Actions content - ensure proper width constraints */
+.event-actions-content {
+  /* Ensure all direct children respect the container width */
+  > * {
+    width: 100%;
+    max-width: 100%;
   }
 }
 
