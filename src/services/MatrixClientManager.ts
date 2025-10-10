@@ -662,15 +662,15 @@ export class MatrixClientManager {
       throw new Error('Incomplete session data in storage')
     }
 
-    // Get tokens from MatrixTokenManager
-    const tokenData = await matrixTokenManager.getTokens(userId)
+    // Get the canonical stored device ID for consistent reuse
+    const storedDeviceId = await this.getStoredDeviceId()
+
+    // Get tokens from MatrixTokenManager (per-device storage)
+    const tokenData = await matrixTokenManager.getTokens(userId, storedDeviceId || undefined)
 
     if (!tokenData?.accessToken && !tokenData?.refreshToken) {
       throw new Error('No Matrix tokens found - user needs to authenticate')
     }
-
-    // Get the canonical stored device ID for consistent reuse
-    const storedDeviceId = await this.getStoredDeviceId()
 
     // IMPORTANT: Don't fallback to tokenData.deviceId or legacy deviceId
     // If storedDeviceId is null, we want a NEW device from the server
@@ -1256,13 +1256,13 @@ export class MatrixClientManager {
           deviceId
         })
 
-        // Initialize OIDC configuration in MatrixTokenManager
+        // Initialize OIDC configuration in MatrixTokenManager (per-device storage)
         await matrixTokenManager.initializeOidcConfig(userId, {
           issuer: credentials.oidcIssuer,
           clientId: credentials.oidcClientId,
           redirectUri: credentials.oidcRedirectUri,
           idTokenClaims: credentials.idTokenClaims || {} as IdTokenClaims
-        })
+        }, deviceId)
 
         // Store tokens in unified MatrixTokenManager (only if we have valid tokens)
         if (credentials.accessToken || credentials.refreshToken) {
@@ -1286,7 +1286,7 @@ export class MatrixClientManager {
             oidcClientId: credentials.oidcClientId,
             oidcRedirectUri: credentials.oidcRedirectUri,
             idTokenClaims: credentials.idTokenClaims
-          })
+          }, deviceId)
         } else {
           logger.debug('🔧 Skipping setTokens() call - no valid tokens to store:', {
             hasAccessToken: !!credentials.accessToken,
