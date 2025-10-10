@@ -65,6 +65,9 @@
                     <div class="text-caption">{{ getChatSubtitle(activeChat) }}</div>
                   </div>
 
+                  <!-- Connection Status Indicator -->
+                  <MatrixConnectionStatus :show-text="false" :show-tooltip="true" class="q-mr-sm" />
+
                   <!-- Encryption Status Indicator -->
                   <q-chip
                     v-if="encryptionStatus.isReady"
@@ -195,6 +198,7 @@
           <q-icon name="fas fa-comments" class="q-mr-sm" />
           <div class="text-subtitle1">Discussion</div>
           <q-space />
+          <MatrixConnectionStatus :show-text="false" :show-tooltip="true" />
         </div>
       </div>
       <MatrixChatInterface
@@ -217,6 +221,7 @@ import { matrixEncryptionService } from '../../services/MatrixEncryptionManager'
 import ChatListPanel from './ChatListPanel.vue'
 import ChatInfoPanel from './ChatInfoPanel.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
+import MatrixConnectionStatus from './MatrixConnectionStatus.vue'
 import { logger } from '../../utils/logger'
 
 interface Chat {

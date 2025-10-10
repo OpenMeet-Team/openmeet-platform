@@ -132,6 +132,7 @@
 
       <!-- Loading state when room ID is being resolved -->
       <div v-else class="q-pa-md text-center">
+        <MatrixConnectionStatus :show-text="true" :show-tooltip="true" class="q-mb-md" />
         <q-spinner size="2rem" />
         <p class="text-body2 q-mt-sm">Loading chat room...</p>
       </div>
@@ -235,6 +236,7 @@ import { logger } from '../../utils/logger'
 import { useQuasar } from 'quasar'
 import UnifiedChatComponent from './UnifiedChatComponent.vue'
 import MatrixChatInterface from './MatrixChatInterface.vue'
+import MatrixConnectionStatus from './MatrixConnectionStatus.vue'
 import UnifiedEncryptionBanner from './encryption/UnifiedEncryptionBanner.vue'
 import VerificationNotificationBanner from './verification/VerificationNotificationBanner.vue'
 import DeviceVerificationDialog from './verification/DeviceVerificationDialog.vue'
