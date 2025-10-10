@@ -235,11 +235,34 @@ export class MatrixClientManager {
   // Encryption manager for room key sharing policies
   private encryptionManager: import('./MatrixEncryptionManager').MatrixEncryptionManager | null = null
 
+  // Multi-tab blocking - only one tab can have an active Matrix client
+  private tabLockAbortController: AbortController | null = null
+  private hasTabLock = false
+  private tabLockChecked = false // Track if we've attempted lock acquisition at least once
+  private tabLockRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+  // Per-tab device ID management
+  private deviceLockAcquired = false
+  private claimedDeviceId: string | null = null
+
   public static getInstance (): MatrixClientManager {
     if (!MatrixClientManager.instance) {
       MatrixClientManager.instance = new MatrixClientManager()
     }
     return MatrixClientManager.instance
+  }
+
+  /**
+   * Check if this tab has the Matrix client lock
+   * Returns true if Matrix is active in another tab
+   * Returns false if lock hasn't been checked yet (to avoid showing banner prematurely)
+   */
+  public isTabBlocked (): boolean {
+    // Don't report as blocked until we've actually checked for the lock
+    if (!this.tabLockChecked) {
+      return false
+    }
+    return !this.hasTabLock
   }
 
   /**
@@ -451,11 +474,131 @@ export class MatrixClientManager {
   }
 
   /**
+   * Acquire exclusive tab lock to prevent multiple Matrix clients
+   * Only one tab can have an active Matrix client at a time
+   * @returns Promise<boolean> - true if lock acquired, false if another tab has it
+   */
+  private async acquireTabLock (): Promise<boolean> {
+    // Check if Web Locks API is available
+    if (!navigator.locks) {
+      logger.warn('⚠️ Web Locks API not available, allowing multiple tabs (may cause issues)')
+      this.hasTabLock = true
+      this.tabLockChecked = true
+      return true
+    }
+
+    const lockName = 'matrix_client_active_tab'
+
+    logger.debug('🔒 Attempting to acquire Matrix tab lock:', lockName)
+
+    // Try to acquire the lock without waiting
+    this.tabLockAbortController = new AbortController()
+
+    return new Promise<boolean>((resolve) => {
+      navigator.locks.request(
+        lockName,
+        {
+          ifAvailable: true, // Don't wait, return immediately
+          signal: this.tabLockAbortController!.signal
+        },
+        async (lock) => {
+          if (lock === null) {
+            // Another tab has the lock
+            logger.warn('⚠️ Matrix is already active in another tab')
+            this.hasTabLock = false
+            this.tabLockChecked = true // Mark that we've checked
+
+            this.emitTabBlockedEvent()
+
+            // Set up retry to check if lock becomes available
+            this.scheduleTabLockRetry()
+
+            resolve(false)
+          } else {
+            // We got the lock
+            logger.debug('✅ Acquired Matrix tab lock')
+            this.hasTabLock = true
+            this.tabLockChecked = true // Mark that we've checked
+
+            // Hold the lock until shutdown/abort
+            await new Promise<void>((resolve) => {
+              this.tabLockAbortController?.signal.addEventListener('abort', () => {
+                logger.debug('🔓 Released Matrix tab lock')
+                this.hasTabLock = false
+                resolve()
+              })
+            })
+
+            resolve(true)
+          }
+        }
+      ).catch((error) => {
+        // Lock acquisition failed (probably aborted during shutdown)
+        if (error.name !== 'AbortError') {
+          logger.error('❌ Tab lock acquisition error:', error)
+        }
+        this.hasTabLock = false
+        this.tabLockChecked = true // Mark that we've checked
+        resolve(false)
+      })
+    })
+  }
+
+  /**
+   * Emit event to notify UI that Matrix is blocked by another tab
+   */
+  private emitTabBlockedEvent (): void {
+    window.dispatchEvent(new CustomEvent('matrix:tab-blocked', {
+      detail: {
+        message: 'Matrix chat is active in another tab',
+        timestamp: Date.now()
+      }
+    }))
+  }
+
+  /**
+   * Schedule retry to acquire tab lock (in case primary tab closes)
+   */
+  private scheduleTabLockRetry (): void {
+    // Clear existing timer
+    if (this.tabLockRetryTimer) {
+      clearTimeout(this.tabLockRetryTimer)
+    }
+
+    // Retry after 5 seconds
+    this.tabLockRetryTimer = setTimeout(async () => {
+      logger.debug('🔄 Retrying tab lock acquisition...')
+      const acquired = await this.acquireTabLock()
+
+      if (acquired) {
+        // We got the lock! Try to initialize Matrix client
+        logger.debug('✅ Tab lock acquired on retry, initializing Matrix client')
+
+        // Emit event to notify UI that Matrix is now available
+        window.dispatchEvent(new CustomEvent('matrix:tab-unlocked', {
+          detail: {
+            message: 'Matrix chat is now available in this tab',
+            timestamp: Date.now()
+          }
+        }))
+
+        // Initialize client if we have stored session
+        if (this.hasStoredSession()) {
+          await this.initializeClient()
+        }
+      }
+    }, 5000)
+  }
+
+  /**
    * Initialize Matrix client from stored session (Element Web pattern)
    * Like Element Web's restoreSessionFromStorage() - only restores existing sessions
    * @returns Promise<MatrixClient | null> - client if session restored, null if no session
    */
   public async initializeClient (): Promise<MatrixClient | null> {
+    // Per-tab device IDs allow multiple tabs to run Matrix clients simultaneously
+    logger.debug('📱 Starting Matrix client initialization with per-tab device ID')
+
     // Return existing client if already initialized and tokens are valid
     if (this.client && !this.isShuttingDown) {
       const isValid = await this.isValidlyLoggedIn()
@@ -527,20 +670,36 @@ export class MatrixClientManager {
     }
 
     // Get the canonical stored device ID for consistent reuse
-    const storedDeviceId = this.getStoredDeviceId()
+    const storedDeviceId = await this.getStoredDeviceId()
+
+    // IMPORTANT: Don't fallback to tokenData.deviceId or legacy deviceId
+    // If storedDeviceId is null, we want a NEW device from the server
+    // Otherwise multiple tabs would reuse the same device ID from tokenData
+    const finalDeviceId = storedDeviceId || undefined
 
     logger.debug('🔍 Device ID sources for session restore:', {
       storedDeviceId: storedDeviceId || 'none',
-      tokenManagerDeviceId: tokenData.deviceId || 'none',
-      legacySessionDeviceId: deviceId || 'none',
-      finalDeviceId: storedDeviceId || tokenData.deviceId || deviceId
+      tokenManagerDeviceId: tokenData.deviceId || 'none (IGNORED)',
+      legacySessionDeviceId: deviceId || 'none (IGNORED)',
+      finalDeviceId: finalDeviceId || 'will request new from server'
     })
+
+    // CRITICAL: Validate that tokens match the device we're trying to use
+    // If this tab claimed a different device than what the tokens are for, we need fresh tokens
+    if (storedDeviceId && tokenData.deviceId && storedDeviceId !== tokenData.deviceId) {
+      logger.warn('⚠️ Token/device mismatch detected!', {
+        tabDevice: storedDeviceId,
+        tokenDevice: tokenData.deviceId
+      })
+      logger.warn('🔄 This tab needs fresh tokens for its device - clearing session to trigger OIDC login')
+      throw new Error(`Token device mismatch: tab has ${storedDeviceId} but tokens are for ${tokenData.deviceId}`)
+    }
 
     const credentials = {
       homeserverUrl,
       accessToken: tokenData.accessToken,
       userId,
-      deviceId: storedDeviceId || tokenData.deviceId || deviceId,
+      deviceId: finalDeviceId,
       refreshToken: tokenData.refreshToken,
       oidcIssuer: tokenData.oidcIssuer,
       oidcClientId: tokenData.oidcClientId,
@@ -822,6 +981,12 @@ export class MatrixClientManager {
             continue // Skip token storage - preserve for refresh attempts
           }
 
+          // CRITICAL: Never clear device pool or primary device - needed for multi-tab device reuse
+          if (key.startsWith('matrix_device_pool_') || key.startsWith('matrix_primary_device_id_')) {
+            logger.debug('🔒 Preserving device storage for re-login:', key)
+            continue // Skip device storage - preserve for device reuse across sessions
+          }
+
           // Only clear other Matrix credentials that contain current user identifiers
           if (currentUserId && key.includes(currentUserId)) {
             keysToRemove.push(key)
@@ -913,7 +1078,7 @@ export class MatrixClientManager {
       // Follow Element Web pattern: Always use server-provided device ID (server authority)
       // This prevents conflicts between server authentication and client device expectations
       const serverDeviceId = credentials.deviceId
-      const storedDeviceId = this.getStoredDeviceId()
+      const storedDeviceId = await this.getStoredDeviceId()
 
       if (!serverDeviceId) {
         throw new Error('No device ID provided by Matrix server during authentication.')
@@ -923,7 +1088,7 @@ export class MatrixClientManager {
       logger.debug('🔗 Using server-provided device ID (Element Web pattern):', deviceId)
 
       // Store server device ID for session tracking
-      this.setStoredDeviceId(userId, deviceId)
+      await this.setStoredDeviceId(userId, deviceId)
 
       // Check if this is a new device (different from stored)
       if (storedDeviceId && storedDeviceId !== deviceId) {
@@ -1618,9 +1783,10 @@ export class MatrixClientManager {
   }
 
   /**
-   * Set device ID in localStorage using Matrix user ID to extract stable OpenMeet slug
+   * Set device ID in localStorage and sessionStorage using Matrix user ID to extract stable OpenMeet slug
+   * Uses per-tab device claiming strategy: primary device or pool device
    */
-  private setStoredDeviceId (userId: string, deviceId: string): void {
+  private async setStoredDeviceId (userId: string, deviceId: string): Promise<void> {
     try {
       // Get stable OpenMeet user slug for consistent device storage
       const authStore = useAuthStore()
@@ -1631,16 +1797,77 @@ export class MatrixClientManager {
         return
       }
 
-      const storageKey = `matrix_device_id_${openMeetUserSlug}`
-      localStorage.setItem(storageKey, deviceId)
-      logger.debug('💾 Stored device ID for OpenMeet user:', openMeetUserSlug, 'deviceId:', deviceId)
+      // Store in sessionStorage for this tab
+      sessionStorage.setItem('matrix_tab_device_id', deviceId)
+
+      // Cache the device ID for this session
+      this.deviceLockAcquired = true
+      this.claimedDeviceId = deviceId
+
+      // Check if we have the primary device lock (indicates this is the first/primary tab)
+      const hasPrimaryLock = sessionStorage.getItem('matrix_has_primary_lock') === 'true'
+      const primaryDeviceKey = `matrix_primary_device_id_${openMeetUserSlug}`
+      const existingPrimaryDevice = localStorage.getItem(primaryDeviceKey)
+
+      // Try to acquire primary device lock if we don't have it yet
+      if (!hasPrimaryLock && !existingPrimaryDevice && navigator.locks) {
+        // No existing primary and no lock - try to claim it
+        const claimedPrimary = await new Promise<boolean>((resolve) => {
+          navigator.locks!.request(
+            'matrix_primary_device',
+            { ifAvailable: true },
+            async (lock) => {
+              if (lock === null) {
+                // Another tab claimed it first
+                resolve(false)
+              } else {
+                // We got it - hold indefinitely
+                logger.debug('🔒 Claimed primary device lock during setStoredDeviceId')
+                resolve(true)
+                await new Promise(() => {})
+              }
+            }
+          ).catch(() => resolve(false))
+        })
+
+        if (claimedPrimary) {
+          // Successfully claimed primary lock
+          localStorage.setItem(primaryDeviceKey, deviceId)
+          sessionStorage.setItem('matrix_has_primary_lock', 'true')
+          // Ensure primary device is never in the pool
+          this.removeDeviceFromPool(openMeetUserSlug, deviceId)
+          logger.debug('💾 Stored as NEW primary device:', deviceId)
+        } else {
+          // Another tab claimed primary, store in pool
+          this.addDeviceToPool(openMeetUserSlug, deviceId)
+          logger.debug('💾 Stored device ID in pool (primary taken):', deviceId)
+        }
+      } else if (!existingPrimaryDevice || hasPrimaryLock) {
+        // No lock API, or we already have the lock, or just update existing primary
+        localStorage.setItem(primaryDeviceKey, deviceId)
+        sessionStorage.setItem('matrix_has_primary_lock', 'true')
+        // Ensure primary device is never in the pool
+        this.removeDeviceFromPool(openMeetUserSlug, deviceId)
+        logger.debug('💾 Stored/updated primary device ID:', deviceId)
+      } else {
+        // Primary exists and we don't have the lock
+        // CRITICAL: Don't add the primary device to the pool!
+        if (deviceId !== existingPrimaryDevice) {
+          // This is a different device - store in pool
+          this.addDeviceToPool(openMeetUserSlug, deviceId)
+          logger.debug('💾 Stored device ID in pool:', deviceId)
+        } else {
+          // This IS the primary device - we're just reusing it
+          logger.debug('💾 Device already stored as primary, skipping pool:', deviceId)
+        }
+      }
 
       // Verify storage worked
-      const verification = localStorage.getItem(storageKey)
+      const verification = sessionStorage.getItem('matrix_tab_device_id')
       if (verification === deviceId) {
-        logger.debug('✅ Device ID storage verified for user:', openMeetUserSlug)
+        logger.debug('✅ Device ID storage verified for tab:', deviceId)
       } else {
-        logger.error('❌ Device ID storage verification failed for user:', openMeetUserSlug)
+        logger.error('❌ Device ID storage verification failed for tab')
       }
     } catch (error) {
       logger.warn('⚠️ Failed to store device ID:', error)
@@ -1648,11 +1875,109 @@ export class MatrixClientManager {
   }
 
   /**
-   * Get stored device ID for a user
+   * Get device pool from localStorage
+   */
+  private getDevicePool (openMeetUserSlug: string): string[] {
+    try {
+      const poolKey = `matrix_device_pool_${openMeetUserSlug}`
+      const poolJson = localStorage.getItem(poolKey)
+      return poolJson ? JSON.parse(poolJson) : []
+    } catch (error) {
+      logger.error('❌ Failed to get device pool:', error)
+      return []
+    }
+  }
+
+  /**
+   * Add device to pool
+   */
+  private addDeviceToPool (openMeetUserSlug: string, deviceId: string): void {
+    try {
+      const pool = this.getDevicePool(openMeetUserSlug)
+      if (!pool.includes(deviceId)) {
+        pool.push(deviceId)
+        const poolKey = `matrix_device_pool_${openMeetUserSlug}`
+        localStorage.setItem(poolKey, JSON.stringify(pool))
+        logger.debug('📱 Added device to pool:', deviceId)
+      }
+    } catch (error) {
+      logger.error('❌ Failed to add device to pool:', error)
+    }
+  }
+
+  /**
+   * Remove device from pool
+   */
+  private removeDeviceFromPool (openMeetUserSlug: string, deviceId: string): void {
+    try {
+      const pool = this.getDevicePool(openMeetUserSlug)
+      const filteredPool = pool.filter(id => id !== deviceId)
+      if (filteredPool.length !== pool.length) {
+        const poolKey = `matrix_device_pool_${openMeetUserSlug}`
+        localStorage.setItem(poolKey, JSON.stringify(filteredPool))
+        logger.debug('📱 Removed device from pool:', deviceId)
+      }
+    } catch (error) {
+      logger.error('❌ Failed to remove device from pool:', error)
+    }
+  }
+
+  /**
+   * Try to claim a device from the pool using Web Locks
+   */
+  private async claimDeviceFromPool (openMeetUserSlug: string): Promise<string | null> {
+    const pool = this.getDevicePool(openMeetUserSlug)
+
+    for (const deviceId of pool) {
+      const lockName = `matrix_device_${deviceId}`
+
+      // Try to acquire lock for this device (non-blocking)
+      const claimed = await new Promise<boolean>((resolve) => {
+        if (!navigator.locks) {
+          resolve(true) // No Web Locks API, allow claim
+          return
+        }
+
+        navigator.locks.request(
+          lockName,
+          { ifAvailable: true },
+          async (lock) => {
+            if (lock === null) {
+              // Device is locked by another tab
+              resolve(false)
+            } else {
+              // We got the lock - hold it until page unload
+              logger.debug('🔒 Claimed device from pool:', deviceId)
+              resolve(true)
+
+              // Hold lock indefinitely (released on page unload)
+              await new Promise(() => {})
+            }
+          }
+        ).catch(() => resolve(false))
+      })
+
+      if (claimed) {
+        return deviceId
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Get stored device ID for a user with per-tab device claiming
    * Device IDs should only come from Matrix server or previous storage, never generated client-side
    */
-  private getStoredDeviceId (): string | null {
+  private async getStoredDeviceId (): Promise<string | null> {
     try {
+      // OPTIMIZATION: Return cached device ID if already claimed
+      // This prevents repeated lock acquisition attempts when initializeClient() is called multiple times
+      if (this.deviceLockAcquired && this.claimedDeviceId) {
+        logger.debug('📱 Reusing previously claimed device ID:', this.claimedDeviceId)
+        return this.claimedDeviceId
+      }
+
       // Get stable OpenMeet user slug for consistent device retrieval
       const authStore = useAuthStore()
       const openMeetUserSlug = authStore.getUserSlug
@@ -1662,15 +1987,158 @@ export class MatrixClientManager {
         return null
       }
 
-      const storageKey = `matrix_device_id_${openMeetUserSlug}`
-      const existingDeviceId = localStorage.getItem(storageKey)
+      // Step 1: Check sessionStorage for this tab's device ID
+      // BUT: Verify this tab actually holds a lock for this device (prevents duplicated tab issue)
+      const sessionDeviceId = sessionStorage.getItem('matrix_tab_device_id')
+      if (sessionDeviceId) {
+        // Verify we actually have a lock for this device
+        // If we don't, it means this tab was duplicated and inherited sessionStorage
+        const primaryDeviceKey = `matrix_primary_device_id_${openMeetUserSlug}`
+        const primaryDeviceId = localStorage.getItem(primaryDeviceKey)
 
-      if (existingDeviceId) {
-        logger.debug('📱 Found stored device ID for OpenMeet user:', openMeetUserSlug, 'deviceId:', existingDeviceId)
-        return existingDeviceId
+        // Check if this device IS the primary device (regardless of flag)
+        if (sessionDeviceId === primaryDeviceId) {
+          // This tab thinks it has primary, verify by trying to claim it
+          if (navigator.locks) {
+            const stillHasPrimary = await new Promise<boolean>((resolve) => {
+              navigator.locks!.request(
+                'matrix_primary_device',
+                { ifAvailable: true },
+                async (lock) => {
+                  if (lock === null) {
+                    // Primary is locked by another tab, we lost it
+                    resolve(false)
+                  } else {
+                    // We still have it, hold it indefinitely
+                    resolve(true)
+                    await new Promise(() => {})
+                  }
+                }
+              ).catch(() => resolve(false))
+            })
+
+            if (stillHasPrimary) {
+              logger.debug('📱 Reusing verified primary device from sessionStorage:', sessionDeviceId)
+              sessionStorage.setItem('matrix_has_primary_lock', 'true')
+              this.deviceLockAcquired = true
+              this.claimedDeviceId = sessionDeviceId
+              return sessionDeviceId
+            } else {
+              // Lost primary lock (duplicated tab), clear and reclaim
+              logger.debug('📱 Lost primary lock, clearing stale sessionStorage')
+              sessionStorage.removeItem('matrix_tab_device_id')
+              sessionStorage.removeItem('matrix_has_primary_lock')
+            }
+          } else {
+            // No Web Locks, just trust sessionStorage
+            logger.debug('📱 Reusing tab device ID from sessionStorage (no Web Locks):', sessionDeviceId)
+            sessionStorage.setItem('matrix_has_primary_lock', 'true')
+            this.deviceLockAcquired = true
+            this.claimedDeviceId = sessionDeviceId
+            return sessionDeviceId
+          }
+        } else {
+          // Pool device - try to verify we still have its lock
+          if (navigator.locks) {
+            const stillHasPoolDevice = await new Promise<boolean>((resolve) => {
+              navigator.locks!.request(
+                `matrix_device_${sessionDeviceId}`,
+                { ifAvailable: true },
+                async (lock) => {
+                  if (lock === null) {
+                    // Device locked by another tab
+                    resolve(false)
+                  } else {
+                    // We still have it
+                    resolve(true)
+                    await new Promise(() => {})
+                  }
+                }
+              ).catch(() => resolve(false))
+            })
+
+            if (stillHasPoolDevice) {
+              logger.debug('📱 Reusing verified pool device from sessionStorage:', sessionDeviceId)
+              this.deviceLockAcquired = true
+              this.claimedDeviceId = sessionDeviceId
+              return sessionDeviceId
+            } else {
+              // Lost pool device lock (duplicated tab), clear and reclaim
+              logger.debug('📱 Lost pool device lock, clearing stale sessionStorage')
+              sessionStorage.removeItem('matrix_tab_device_id')
+            }
+          } else {
+            // No Web Locks, just trust sessionStorage
+            logger.debug('📱 Reusing tab device ID from sessionStorage (no Web Locks):', sessionDeviceId)
+            this.deviceLockAcquired = true
+            this.claimedDeviceId = sessionDeviceId
+            return sessionDeviceId
+          }
+        }
       }
 
-      logger.debug('📱 No stored device ID found for OpenMeet user:', openMeetUserSlug)
+      // Step 2: Try to claim primary device using Web Locks
+      const primaryLockName = 'matrix_primary_device'
+      const primaryDeviceKey = `matrix_primary_device_id_${openMeetUserSlug}`
+
+      if (navigator.locks) {
+        const gotPrimaryLock = await new Promise<boolean>((resolve) => {
+          navigator.locks!.request(
+            primaryLockName,
+            { ifAvailable: true },
+            async (lock) => {
+              if (lock === null) {
+                // Primary device locked by another tab
+                resolve(false)
+              } else {
+                // We got the primary device lock
+                const primaryDeviceId = localStorage.getItem(primaryDeviceKey)
+                if (primaryDeviceId) {
+                  sessionStorage.setItem('matrix_tab_device_id', primaryDeviceId)
+                  sessionStorage.setItem('matrix_has_primary_lock', 'true')
+                  logger.debug('📱 Claimed primary device:', primaryDeviceId)
+                }
+                resolve(true)
+
+                // Hold lock indefinitely (released on page unload)
+                await new Promise(() => {})
+              }
+            }
+          ).catch(() => resolve(false))
+        })
+
+        if (gotPrimaryLock) {
+          const primaryDeviceId = localStorage.getItem(primaryDeviceKey)
+          if (primaryDeviceId) {
+            this.deviceLockAcquired = true
+            this.claimedDeviceId = primaryDeviceId
+            return primaryDeviceId
+          }
+        }
+      } else {
+        // No Web Locks API - fall back to primary device
+        const primaryDeviceId = localStorage.getItem(primaryDeviceKey)
+        if (primaryDeviceId) {
+          sessionStorage.setItem('matrix_tab_device_id', primaryDeviceId)
+          sessionStorage.setItem('matrix_has_primary_lock', 'true')
+          this.deviceLockAcquired = true
+          this.claimedDeviceId = primaryDeviceId
+          return primaryDeviceId
+        }
+      }
+
+      // Step 3: Try to claim device from pool
+      const poolDeviceId = await this.claimDeviceFromPool(openMeetUserSlug)
+      if (poolDeviceId) {
+        sessionStorage.setItem('matrix_tab_device_id', poolDeviceId)
+        this.deviceLockAcquired = true
+        this.claimedDeviceId = poolDeviceId
+        return poolDeviceId
+      }
+
+      // Step 4: No available device - will request new one from server
+      logger.debug('📱 No stored device ID available - server will issue new device')
+      // Don't cache null - we want to allow server to provide device ID
       return null
     } catch (error) {
       logger.error('❌ Failed to get stored device ID:', error)
@@ -2120,6 +2588,20 @@ export class MatrixClientManager {
     this.isShuttingDown = true
 
     try {
+      // Release tab lock
+      if (this.tabLockAbortController) {
+        this.tabLockAbortController.abort()
+        this.tabLockAbortController = null
+        logger.debug('🔓 Tab lock released during shutdown')
+      }
+
+      // Clear retry timer
+      if (this.tabLockRetryTimer) {
+        clearTimeout(this.tabLockRetryTimer)
+        this.tabLockRetryTimer = null
+        logger.debug('⏹️ Tab lock retry timer cleared')
+      }
+
       await this.clearClient()
       await this.clearClientAndCredentials()
 
@@ -3068,7 +3550,7 @@ export class MatrixClientManager {
       const redirectUri = `${frontendDomain}${redirectPath}`
 
       // Try to reuse stored device_id to maintain device consistency across sessions
-      const storedDeviceId = this.getStoredDeviceId()
+      const storedDeviceId = await this.getStoredDeviceId()
       if (storedDeviceId) {
         logger.debug('📱 Found stored device_id for reuse:', storedDeviceId)
       } else {
