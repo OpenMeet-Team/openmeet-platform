@@ -43,8 +43,40 @@
               :rules="[(val: string) => !!val || 'Last name is required']"
             />
 
+            <div class="q-mb-md">
+              <div class="text-subtitle2 q-mb-sm">Profile Photo</div>
+              <div class="row items-center q-col-gutter-md">
+                <div class="col-12 col-sm-6">
+                  <UploadComponent
+                    data-cy="profile-photo"
+                    label="Click to upload photo"
+                    :crop-options="{autoZoom: true, aspectRatio: 1}"
+                    @upload="onProfilePhotoSelect"
+                  />
+                </div>
+
+                <div class="col-12 col-sm-6" v-if="localAvatarUrl">
+                  <q-img
+                    :src="localAvatarUrl"
+                    spinner-color="white"
+                    class="rounded-borders"
+                    style="height: 100px; max-width: 100px"
+                  >
+                    <q-btn
+                      data-cy="profile-photo-delete"
+                      color="primary"
+                      size="md"
+                      icon="sym_r_delete"
+                      class="all-pointer-events absolute-top-right"
+                      @click="onProfilePhotoDelete"
+                    />
+                  </q-img>
+                </div>
+              </div>
+            </div>
+
             <div class="bio-editor q-mb-md">
-              <div class="text-subtitle2 q-mb-sm">Your bio <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+              <div class="text-subtitle2 q-mb-sm">Your bio</div>
 
               <q-tabs
                 v-model="bioTab"
@@ -70,6 +102,7 @@
                     hint="Supports Markdown formatting"
                     counter
                     maxlength="1000"
+                    :input-style="{ minHeight: '150px' }"
                     autogrow
                     class="q-mt-sm"
                   />
@@ -89,57 +122,17 @@
                 </q-tab-panel>
               </q-tab-panels>
             </div>
+          </div>
 
-            <q-select
-              data-cy="profile-interests"
-              v-model="form.interests"
-              label="Interests"
-              multiple
-              clearable
-              filled
-              :options="interests"
-              option-label="title"
-              option-value="id"
+          <div class="q-mt-md text-right">
+            <q-btn
+              data-cy="profile-update"
+              no-caps
+              :loading="isLoading"
+              label="Update Profile"
+              type="submit"
+              color="primary"
             />
-          </div>
-        </q-card-section>
-      </q-card>
-
-      <!-- Profile photo section -->
-      <q-card class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_photo_camera" class="q-mr-sm" />
-            Profile Photo
-          </div>
-
-          <div class="row items-center q-col-gutter-md">
-            <div class="col-12 col-sm-6">
-              <UploadComponent
-                data-cy="profile-photo"
-                label="Profile picture"
-                :crop-options="{autoZoom: true, aspectRatio: 1}"
-                @upload="onProfilePhotoSelect"
-              />
-            </div>
-
-            <div class="col-12 col-sm-6" v-if="localAvatarUrl">
-              <q-img
-                :src="localAvatarUrl"
-                spinner-color="white"
-                class="rounded-borders"
-                style="height: 100px; max-width: 100px"
-              >
-                <q-btn
-                  data-cy="profile-photo-delete"
-                  color="primary"
-                  size="md"
-                  icon="sym_r_delete"
-                  class="all-pointer-events absolute-top-right"
-                  @click="onProfilePhotoDelete"
-                />
-              </q-img>
-            </div>
           </div>
         </q-card-section>
       </q-card>
@@ -170,18 +163,6 @@
           </div>
         </q-card-section>
       </q-card>
-
-      <!-- Main profile update button -->
-      <q-card-actions align="right" class="q-mb-lg">
-        <q-btn
-          data-cy="profile-update"
-          no-caps
-          :loading="isLoading"
-          label="Update Profile"
-          type="submit"
-          color="primary"
-        />
-      </q-card-actions>
     </q-form>
 
     <!-- Account password section (only for local email auth users) -->
@@ -388,10 +369,6 @@ const onChangePassword = async () => {
     error('Failed to update password. Please check your current password is correct.')
   }
 }
-
-const interests = computed(() => {
-  return subCategories.value
-})
 
 // For profile form, we only want to show the local photo being edited
 const localAvatarUrl = computed(() => {
