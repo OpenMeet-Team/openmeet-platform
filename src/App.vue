@@ -30,16 +30,17 @@ useMeta({
 // Cross-tab auth sync handler - store reference for cleanup
 const authStore = useAuthStore()
 const handleStorageChange = (event: StorageEvent) => {
-  if (event.key === 'token' || event.key === 'refreshToken' || event.key === 'user') {
-    logger.debug('🔄 Storage change detected from another tab, reloading page')
-
-    // If token was removed (logout in another tab), clear auth and reload
-    if (event.key === 'token' && event.newValue === null) {
+  // Only handle token changes (login/logout in another tab)
+  // Note: Storage events only fire in OTHER tabs, not the tab that made the change
+  if (event.key === 'token') {
+    // Token was removed (logout in another tab)
+    if (event.newValue === null && event.oldValue !== null) {
       logger.debug('🚪 User logged out in another tab, reloading page')
-      authStore.actionClearAuth()
+      // Don't call actionClearAuth() - storage was already cleared by the other tab
+      // Just reload to update UI to logged-out state
       window.location.reload()
-    } else if (event.key === 'token' && event.newValue !== null && event.oldValue === null) {
-      // User logged in on another tab, reload to update UI
+    } else if (event.newValue !== null && event.oldValue === null) {
+      // Token was added (login in another tab)
       logger.debug('🔑 User logged in on another tab, reloading page')
       window.location.reload()
     }

@@ -4,6 +4,7 @@ import { ClientEvent } from 'matrix-js-sdk'
 import { matrixClientManager } from '../../services/MatrixClientManager'
 import { logger } from '../../utils/logger'
 import MatrixNativeChatOrchestrator from './MatrixNativeChatOrchestrator.vue'
+import MatrixConnectionStatus from './MatrixConnectionStatus.vue'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 
 interface Props {
@@ -270,6 +271,7 @@ const handleExpandChat = () => {
 
     <!-- Loading state while resolving room ID (only show if Matrix is connected) -->
     <div v-if="!matrixRoomId && hasMatrixConnection && !connectionError" class="q-pa-md text-center">
+      <MatrixConnectionStatus :show-text="true" :show-tooltip="true" class="q-mb-md" />
       <q-spinner size="2rem" />
       <p class="text-body2 q-mt-sm">Loading chat room...</p>
     </div>

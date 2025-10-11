@@ -15,9 +15,6 @@ import analyticsService from '../services/analyticsService'
 import { matrixClientManager } from '../services/MatrixClientManager'
 import { logger } from '../utils/logger'
 
-// Timer for automatic token refresh
-let refreshTimer: ReturnType<typeof setTimeout> | null = null
-
 export const useAuthStore = defineStore('authStore', {
   state: () => ({
     token: LocalStorage.getItem('token') || '',
@@ -174,37 +171,6 @@ export const useAuthStore = defineStore('authStore', {
     actionSetTokenExpires (tokenExpires: number) {
       this.tokenExpires = tokenExpires
       LocalStorage.setItem('tokenExpires', tokenExpires)
-      this.scheduleTokenRefresh()
-    },
-    scheduleTokenRefresh () {
-      // Clear any existing timer
-      if (refreshTimer) {
-        clearTimeout(refreshTimer)
-        refreshTimer = null
-      }
-
-      const tokenExpires = Number(this.tokenExpires)
-      if (!tokenExpires) return
-
-      const now = Date.now()
-      const refreshBeforeExpiry = 5 * 60 * 1000 // 5 minutes before expiry
-      const refreshIn = tokenExpires - now - refreshBeforeExpiry
-
-      // Only schedule if token hasn't already expired or about to expire
-      if (refreshIn > 0) {
-        logger.debug(`Scheduling token refresh in ${Math.round(refreshIn / 1000 / 60)} minutes`)
-        refreshTimer = setTimeout(async () => {
-          logger.debug('Auto-refreshing token via scheduled timer')
-          try {
-            await this.actionRefreshToken()
-          } catch (error) {
-            logger.error('Scheduled token refresh failed:', error)
-            // Don't clear auth here - let the axios interceptor handle it on next API call
-          }
-        }, refreshIn)
-      } else {
-        logger.debug('Token already expired or expiring soon, will refresh on next API call')
-      }
     },
     actionSetUser (user: ApiAuthUser) {
       this.user = user
@@ -246,12 +212,6 @@ export const useAuthStore = defineStore('authStore', {
       }
     },
     actionClearAuth () {
-      // Clear any scheduled token refresh
-      if (refreshTimer) {
-        clearTimeout(refreshTimer)
-        refreshTimer = null
-      }
-
       this.token = ''
       this.refreshToken = ''
       this.user = {} as UserEntity
@@ -403,8 +363,6 @@ export const useAuthStore = defineStore('authStore', {
             // Validate the token by fetching user data
             const response = await authApi.getMe()
             this.actionSetUser(response.data)
-            // Schedule automatic token refresh
-            this.scheduleTokenRefresh()
           } catch (error) {
             // Don't clear auth on network errors or aborted requests (e.g., during OIDC redirects)
             if (error.code === 'ECONNABORTED' || (error.name === 'AxiosError' && error.message.includes('aborted'))) {

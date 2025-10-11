@@ -39,9 +39,14 @@ class MatrixTokenManager {
 
   /**
    * Get the canonical storage key for a user's tokens
+   * With per-device support to prevent multi-tab token conflicts
    */
-  private getStorageKey (userId: string): string {
+  private getStorageKey (userId: string, deviceId?: string): string {
     const userSlug = this.extractUserSlug(userId)
+    if (deviceId) {
+      return `matrix_session_${userSlug}_${deviceId}`
+    }
+    // Fallback to legacy per-user key for backward compatibility
     return `matrix_session_${userSlug}`
   }
 
@@ -64,12 +69,35 @@ class MatrixTokenManager {
   }
 
   /**
-   * Get stored tokens for a user
+   * Get stored tokens for a user (and optionally specific device)
+   * @param deviceId - Optional device ID for per-device token storage
    */
-  async getTokens (userId: string): Promise<TokenData | null> {
+  async getTokens (userId: string, deviceId?: string): Promise<TokenData | null> {
     try {
-      const storageKey = this.getStorageKey(userId)
-      const storedData = localStorage.getItem(storageKey)
+      const storageKey = this.getStorageKey(userId, deviceId)
+      let storedData = localStorage.getItem(storageKey)
+
+      // MIGRATION: If deviceId provided but no per-device tokens found, try legacy per-user tokens
+      if (!storedData && deviceId) {
+        const legacyKey = this.getStorageKey(userId) // Without deviceId
+        const legacyData = localStorage.getItem(legacyKey)
+
+        if (legacyData) {
+          logger.debug('🔄 MIGRATION: Found legacy per-user tokens, migrating to per-device storage:', {
+            legacyKey,
+            newKey: storageKey,
+            deviceId
+          })
+
+          // Copy legacy tokens to new per-device storage
+          storedData = legacyData
+          localStorage.setItem(storageKey, legacyData)
+
+          // Don't delete legacy key yet - other tabs might still need it
+          // It will naturally be cleaned up when all tabs upgrade
+          logger.debug('✅ MIGRATION: Legacy tokens copied to per-device storage (legacy preserved)')
+        }
+      }
 
       // CRITICAL DEBUG: Check what's actually in localStorage
       logger.debug('🔍 CRITICAL DEBUG - Raw localStorage check:', {
@@ -111,10 +139,11 @@ class MatrixTokenManager {
 
   /**
    * Store tokens for a user (single source of truth)
+   * @param deviceId - Optional device ID for per-device token storage
    */
-  async setTokens (userId: string, tokens: AccessTokens, additionalData?: Partial<TokenData>): Promise<void> {
+  async setTokens (userId: string, tokens: AccessTokens, additionalData?: Partial<TokenData>, deviceId?: string): Promise<void> {
     try {
-      const storageKey = this.getStorageKey(userId)
+      const storageKey = this.getStorageKey(userId, deviceId)
 
       // Warn if we're being called with empty tokens (this shouldn't happen)
       if (!tokens.accessToken && !tokens.refreshToken) {
@@ -136,7 +165,7 @@ class MatrixTokenManager {
       })
 
       // Get existing data to preserve non-token information
-      const existingData = await this.getTokens(userId)
+      const existingData = await this.getTokens(userId, deviceId)
 
       const tokenData: TokenData = {
         // Start with existing data as base
@@ -187,9 +216,10 @@ class MatrixTokenManager {
 
   /**
    * Initialize OIDC configuration for a user
+   * @param deviceId - Optional device ID for per-device token storage
    */
-  async initializeOidcConfig (userId: string, config: OidcConfig): Promise<void> {
-    const tokenData = await this.getTokens(userId)
+  async initializeOidcConfig (userId: string, config: OidcConfig, deviceId?: string): Promise<void> {
+    const tokenData = await this.getTokens(userId, deviceId)
     // Only update if we have actual tokens to preserve
     if (tokenData?.accessToken && tokenData?.refreshToken) {
       await this.setTokens(userId, {
@@ -201,7 +231,7 @@ class MatrixTokenManager {
         oidcClientId: config.clientId,
         oidcRedirectUri: config.redirectUri,
         idTokenClaims: config.idTokenClaims
-      })
+      }, deviceId)
     } else {
       logger.debug('🔧 Skipping OIDC config initialization - no existing tokens to preserve')
     }

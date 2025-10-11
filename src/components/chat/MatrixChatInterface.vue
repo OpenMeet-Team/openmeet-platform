@@ -7,7 +7,10 @@
     >
       <div class="row items-center">
         <div class="col">
-          <div class="text-subtitle1">{{ roomName || 'Chat Room' }}</div>
+          <div class="row items-center q-gutter-sm">
+            <div class="text-subtitle1">{{ roomName || 'Chat Room' }}</div>
+            <MatrixConnectionStatus :show-text="false" :show-tooltip="true" />
+          </div>
           <div class="text-caption">
             {{ getRoomStatusText() }}
           </div>
@@ -399,6 +402,7 @@ import { useAuthStore } from '../../stores/auth-store'
 import getEnv from '../../utils/env'
 import { logger } from '../../utils/logger'
 import EventTile from './EventTile.vue'
+import MatrixConnectionStatus from './MatrixConnectionStatus.vue'
 import { useMatrixTimeline } from '../../composables/useMatrixTimeline'
 
 // Add type declaration for global window property
