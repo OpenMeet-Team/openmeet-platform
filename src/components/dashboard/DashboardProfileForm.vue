@@ -45,8 +45,8 @@
 
             <div class="q-mb-md">
               <div class="text-subtitle2 q-mb-sm">Profile Photo</div>
-              <div class="row items-center q-col-gutter-md">
-                <div class="col-12 col-sm-6">
+              <div class="row items-center no-wrap q-gutter-md">
+                <div class="col">
                   <UploadComponent
                     data-cy="profile-photo"
                     label="Click to upload photo"
@@ -55,12 +55,12 @@
                   />
                 </div>
 
-                <div class="col-12 col-sm-6" v-if="localAvatarUrl">
+                <div v-if="localAvatarUrl" class="col-auto">
                   <q-img
                     :src="localAvatarUrl"
                     spinner-color="white"
                     class="rounded-borders"
-                    style="height: 100px; max-width: 100px"
+                    style="height: 100px; width: 100px"
                   >
                     <q-btn
                       data-cy="profile-photo-delete"
@@ -99,17 +99,17 @@
                     type="textarea"
                     v-model="form.bio"
                     label="Your bio"
-                    hint="Supports Markdown formatting"
                     counter
                     maxlength="1000"
-                    :input-style="{ minHeight: '150px' }"
+                    rows="8"
                     autogrow
                     class="q-mt-sm"
-                  />
-                  <div class="text-caption q-mt-xs">
-                    <span class="text-weight-medium">Markdown tip:</span>
-                    Use **bold**, *italic*, [links](url), and other Markdown syntax
-                  </div>
+                  >
+                    <template v-slot:hint>
+                      Supports Markdown formatting -
+                      <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer" class="text-primary">Learn more</a>
+                    </template>
+                  </q-input>
                 </q-tab-panel>
 
                 <q-tab-panel name="preview" class="q-pa-none">
@@ -124,7 +124,7 @@
             </div>
           </div>
 
-          <div class="q-mt-md text-right">
+          <div class="q-mt-md">
             <q-btn
               data-cy="profile-update"
               no-caps
