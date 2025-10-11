@@ -44,7 +44,7 @@
             />
 
             <div class="q-mb-md">
-              <div class="text-subtitle2 q-mb-sm">Profile Photo</div>
+              <div class="text-subtitle1 text-weight-medium q-mb-sm">Profile Photo</div>
               <div class="row items-center no-wrap q-gutter-md">
                 <div class="col">
                   <UploadComponent
@@ -76,7 +76,7 @@
             </div>
 
             <div class="bio-editor q-mb-md">
-              <div class="text-subtitle2 q-mb-sm">Your bio</div>
+              <div class="text-subtitle1 text-weight-medium q-mb-sm">Your Bio</div>
 
               <q-tabs
                 v-model="bioTab"
@@ -99,17 +99,16 @@
                     type="textarea"
                     v-model="form.bio"
                     label="Your bio"
+                    hint="Supports Markdown formatting"
                     counter
                     maxlength="1000"
                     rows="8"
                     autogrow
                     class="q-mt-sm"
-                  >
-                    <template v-slot:hint>
-                      Supports Markdown formatting -
-                      <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer" class="text-primary">Learn more</a>
-                    </template>
-                  </q-input>
+                  />
+                  <div class="text-caption q-mt-xs">
+                    <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer" class="text-primary">Learn more about Markdown formatting</a>
+                  </div>
                 </q-tab-panel>
 
                 <q-tab-panel name="preview" class="q-pa-none">
