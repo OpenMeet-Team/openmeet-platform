@@ -184,65 +184,60 @@
       </q-card-actions>
     </q-form>
 
-    <!-- Account password section (separate from main profile) -->
-    <q-card class="q-mb-md">
+    <!-- Account password section (only for local email auth users) -->
+    <q-card class="q-mb-md" v-if="isLocalAuthUser" data-cy="profile-password">
       <q-card-section>
-        <q-expansion-item
-          data-cy="profile-password"
-          expand-separator
-          icon="sym_r_vpn_key"
-          label="Change Account Password"
-        >
-          <q-card>
-            <q-card-section>
-              <q-input
-                data-cy="profile-old-password"
-                v-model="form.oldPassword"
-                filled
-                maxlength="255"
-                :type="isPwd ? 'password' : 'text'"
-                label="Current Password"
-              >
-                <template v-slot:append>
-                  <q-icon
-                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                    class="cursor-pointer"
-                    @click="isPwd = !isPwd"
-                  />
-                </template>
-              </q-input>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_vpn_key" class="q-mr-sm" />
+          Change Account Password
+        </div>
 
-              <q-input
-                minlength="8"
-                maxlength="255"
-                data-cy="profile-new-password"
-                v-model="form.password"
-                filled
-                :type="isPwd ? 'password' : 'text'"
-                label="New Password"
-                class="q-mt-md"
-              >
-                <template v-slot:append>
-                  <q-icon
-                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                    class="cursor-pointer"
-                    @click="isPwd = !isPwd"
-                  />
-                </template>
-              </q-input>
+        <div class="q-gutter-md">
+          <q-input
+            data-cy="profile-old-password"
+            v-model="form.oldPassword"
+            filled
+            maxlength="255"
+            :type="isPwd ? 'password' : 'text'"
+            label="Current Password"
+          >
+            <template v-slot:append>
+              <q-icon
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                class="cursor-pointer"
+                @click="isPwd = !isPwd"
+              />
+            </template>
+          </q-input>
 
-              <div class="q-mt-md">
-                <q-btn
-                  data-cy="profile-change-password"
-                  no-caps
-                  label="Change Password"
-                  color="primary"
-                  @click="onChangePassword"
-                />
-              </div>
-            </q-card-section>
-          </q-card>
-        </q-expansion-item>
+          <q-input
+            minlength="8"
+            maxlength="255"
+            data-cy="profile-new-password"
+            v-model="form.password"
+            filled
+            :type="isPwd ? 'password' : 'text'"
+            label="New Password"
+          >
+            <template v-slot:append>
+              <q-icon
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                class="cursor-pointer"
+                @click="isPwd = !isPwd"
+              />
+            </template>
+          </q-input>
+
+          <div>
+            <q-btn
+              data-cy="profile-change-password"
+              no-caps
+              label="Change Password"
+              color="primary"
+              @click="onChangePassword"
+            />
+          </div>
+        </div>
       </q-card-section>
     </q-card>
 
@@ -409,6 +404,11 @@ const localAvatarUrl = computed(() => {
 // Only show Bluesky settings for Bluesky-authenticated users
 const isBlueskyUser = computed(() => {
   return authStore.user.provider === AuthProvidersEnum.bluesky
+})
+
+// Only show password change for local email auth users (not OAuth users)
+const isLocalAuthUser = computed(() => {
+  return !authStore.user.provider || authStore.user.provider === AuthProvidersEnum.email
 })
 
 onMounted(async () => {
