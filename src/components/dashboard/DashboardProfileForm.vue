@@ -80,7 +80,7 @@
                 </q-tab-panel>
 
                 <q-tab-panel name="preview" class="q-pa-none">
-                  <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
+                  <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
                     <q-markdown
                       :src="form.bio || '*No content yet*'"
                       class="text-body1"
@@ -521,6 +521,7 @@ const onDeleteAccount = () => {
     min-height: 100px;
     max-height: 300px;
     overflow-y: auto;
+    background-color: rgba(128, 128, 128, 0.1);
 
     :deep(a) {
       color: var(--q-primary);
@@ -541,7 +542,7 @@ const onDeleteAccount = () => {
     }
 
     :deep(code) {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(128, 128, 128, 0.15);
       padding: 2px 4px;
       border-radius: 4px;
       font-family: monospace;
@@ -551,7 +552,7 @@ const onDeleteAccount = () => {
       border-left: 4px solid var(--q-primary);
       margin-left: 0;
       padding-left: 16px;
-      color: rgba(0, 0, 0, 0.7);
+      opacity: 0.7;
     }
   }
 }
