@@ -16,15 +16,20 @@ const event = computed(() => eventStore.event)
 const eventSlug = computed(() => {
   const routeSlug = route.params.slug as string
   const storeSlug = event.value?.slug
+
+  // FIX: Use route slug as source of truth, fallback to store for backward compat
+  // This prevents race conditions when navigating between events
+  const resolvedSlug = routeSlug || storeSlug
+
   console.log('🎯 EventMatrixChatComponent: Event slug resolution:', {
     routeSlug,
     storeEventSlug: storeSlug,
-    usingSlug: storeSlug || routeSlug,
+    usingSlug: resolvedSlug,
     match: routeSlug === storeSlug,
     timestamp: new Date().toISOString()
   })
-  // Using store event slug (original behavior before fix)
-  return storeSlug
+
+  return resolvedSlug
 })
 
 // Permissions for the discussion

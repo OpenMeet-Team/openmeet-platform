@@ -46,7 +46,8 @@ vi.mock('../../stores/auth-store', () => ({
   useAuthStore: vi.fn(() => ({
     user: { slug: 'test-user', email: 'test@example.com' },
     token: 'valid-token',
-    getUserSlug: 'test-user'
+    getUserSlug: 'test-user',
+    isInitialized: true
   }))
 }))
 
