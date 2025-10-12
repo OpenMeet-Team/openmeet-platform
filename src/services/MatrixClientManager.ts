@@ -925,7 +925,14 @@ export class MatrixClientManager {
   }
 
   /**
-   * Clear and reset the client
+   * Clear and reset the Matrix client (disconnect)
+   *
+   * This stops the Matrix client sync but PRESERVES tokens and device IDs.
+   * Used when:
+   * - User logs out of OpenMeet (Matrix session persists independently)
+   * - Shutting down the client instance
+   *
+   * Tokens and device IDs remain in localStorage for auto-reconnect on next login.
    */
   public async clearClient (): Promise<void> {
     if (this.client) {
@@ -945,7 +952,25 @@ export class MatrixClientManager {
 
   /**
    * Clear client and SDK state when tokens are invalid
-   * NOTE: Preserves token storage (matrix_session_*) to allow refresh attempts
+   *
+   * MATRIX TOKEN CLEARING RULES:
+   * ============================
+   * Matrix tokens are ONLY cleared in these scenarios:
+   *
+   * 1. User explicitly clicks "Clear Matrix Sessions" menu (calls clearAllMatrixData())
+   *    - Clears ALL Matrix data including tokens, devices, and encryption keys
+   *
+   * 2. Token refresh fails during initialization (this method)
+   *    - Clears SDK state but PRESERVES tokens and device IDs
+   *    - Allows retry on next page load
+   *
+   * Matrix tokens are NOT cleared when:
+   * - User logs out of OpenMeet (actionLogout calls clearClient() only)
+   * - Matrix has independent OIDC session from OpenMeet
+   * - Tokens remain valid for auto-reconnect on next OpenMeet login
+   * - Device IDs are ALWAYS preserved for encryption continuity
+   *
+   * NOTE: This method currently PRESERVES token storage (matrix_session_*) to allow refresh attempts
    */
   public async clearClientAndCredentials (): Promise<void> {
     logger.debug('🚫 Clearing Matrix client and stored credentials due to token error')
@@ -3043,31 +3068,55 @@ export class MatrixClientManager {
 
   public hasStoredSession (): boolean {
     try {
-      // Get current OpenMeet user for user-specific storage keys
+      // Check if the CURRENT logged-in user has stored Matrix session tokens
+      // Note: This is only meaningful when a user is logged in to OpenMeet
       const authStore = useAuthStore()
 
-      // Wait for auth store to be initialized before checking sessions
-      if (!authStore.isInitialized) {
-        logger.debug('📱 Auth store not initialized yet, cannot check stored sessions')
+      // After logout or before login, no user = no session to restore
+      if (!authStore.isInitialized || !authStore.getUserSlug) {
         return false
       }
 
       const openMeetUserSlug = authStore.getUserSlug
 
-      if (!openMeetUserSlug) {
-        logger.debug('📱 No user slug available after auth store initialization')
-        return false
+      // Check if we have a primary device ID (most common case)
+      const primaryDeviceKey = `matrix_primary_device_id_${openMeetUserSlug}`
+      const primaryDeviceId = localStorage.getItem(primaryDeviceKey)
+
+      if (primaryDeviceId) {
+        // Check for per-device session tokens (NEW format: matrix_session_{userSlug}_{deviceId})
+        const deviceSessionKey = `matrix_session_${openMeetUserSlug}_${primaryDeviceId}`
+        const deviceSessionData = localStorage.getItem(deviceSessionKey)
+
+        if (deviceSessionData) {
+          logger.debug('📱 Found stored session for primary device:', primaryDeviceId)
+          return true
+        }
       }
 
-      // Check for user-specific session data
-      const sessionKey = `matrix_session_${openMeetUserSlug}`
-      const refreshTokenKey = `matrix_refresh_token_${openMeetUserSlug}`
+      // Check device pool for any available devices with tokens
+      const devicePool = this.getDevicePool(openMeetUserSlug)
+      for (const deviceId of devicePool) {
+        const deviceSessionKey = `matrix_session_${openMeetUserSlug}_${deviceId}`
+        const deviceSessionData = localStorage.getItem(deviceSessionKey)
 
-      const sessionData = localStorage.getItem(sessionKey)
-      const refreshToken = localStorage.getItem(refreshTokenKey)
+        if (deviceSessionData) {
+          logger.debug('📱 Found stored session for pool device:', deviceId)
+          return true
+        }
+      }
 
-      // We need either session data or refresh token to have a valid session
-      return !!(sessionData || refreshToken)
+      // Fall back to legacy per-user storage (OLD format for backward compatibility)
+      const legacySessionKey = `matrix_session_${openMeetUserSlug}`
+      const legacySessionData = localStorage.getItem(legacySessionKey)
+
+      if (legacySessionData) {
+        logger.debug('📱 Found legacy stored session (will be migrated on connect)')
+        return true
+      }
+
+      logger.debug('📱 No stored session found for current user')
+      return false
     } catch (error) {
       logger.error('Error checking stored session:', error)
       return false

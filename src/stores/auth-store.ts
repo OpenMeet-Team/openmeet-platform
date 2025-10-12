@@ -146,11 +146,13 @@ export const useAuthStore = defineStore('authStore', {
     },
     async actionLogout () {
       return authApi.logout().finally(async () => {
-        // Clear Matrix session before clearing OpenMeet auth
+        // RULE: Only stop Matrix client on OpenMeet logout, but keep tokens/device ID
+        // This allows auto-reconnect on next login without re-consenting to MAS auth
+        // Matrix tokens are only cleared when user explicitly clicks "Clear Matrix Sessions"
         try {
-          await matrixClientManager.clearClientAndCredentials()
+          await matrixClientManager.clearClient()
         } catch (error) {
-          logger.warn('Failed to clear Matrix session during logout:', error)
+          logger.warn('Failed to stop Matrix client during logout:', error)
         }
 
         this.actionClearAuth()
