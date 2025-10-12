@@ -43,8 +43,40 @@
               :rules="[(val: string) => !!val || 'Last name is required']"
             />
 
+            <div class="q-mb-md">
+              <div class="text-subtitle1 text-weight-medium q-mb-sm">Profile Photo</div>
+              <div class="row items-center no-wrap q-gutter-md">
+                <div class="col">
+                  <UploadComponent
+                    data-cy="profile-photo"
+                    label="Click to upload photo"
+                    :crop-options="{autoZoom: true, aspectRatio: 1}"
+                    @upload="onProfilePhotoSelect"
+                  />
+                </div>
+
+                <div v-if="localAvatarUrl" class="col-auto">
+                  <q-img
+                    :src="localAvatarUrl"
+                    spinner-color="white"
+                    class="rounded-borders"
+                    style="height: 100px; width: 100px"
+                  >
+                    <q-btn
+                      data-cy="profile-photo-delete"
+                      color="primary"
+                      size="md"
+                      icon="sym_r_delete"
+                      class="all-pointer-events absolute-top-right"
+                      @click="onProfilePhotoDelete"
+                    />
+                  </q-img>
+                </div>
+              </div>
+            </div>
+
             <div class="bio-editor q-mb-md">
-              <div class="text-subtitle2 q-mb-sm">Your bio <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
+              <div class="text-subtitle1 text-weight-medium q-mb-sm">Your Bio</div>
 
               <q-tabs
                 v-model="bioTab"
@@ -70,17 +102,17 @@
                     hint="Supports Markdown formatting"
                     counter
                     maxlength="1000"
+                    rows="8"
                     autogrow
                     class="q-mt-sm"
                   />
                   <div class="text-caption q-mt-xs">
-                    <span class="text-weight-medium">Markdown tip:</span>
-                    Use **bold**, *italic*, [links](url), and other Markdown syntax
+                    <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer" class="text-primary">Learn more about Markdown formatting</a>
                   </div>
                 </q-tab-panel>
 
                 <q-tab-panel name="preview" class="q-pa-none">
-                  <div class="q-pa-md markdown-preview bg-grey-1 rounded-borders q-mt-sm">
+                  <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
                     <q-markdown
                       :src="form.bio || '*No content yet*'"
                       class="text-body1"
@@ -89,57 +121,17 @@
                 </q-tab-panel>
               </q-tab-panels>
             </div>
+          </div>
 
-            <q-select
-              data-cy="profile-interests"
-              v-model="form.interests"
-              label="Interests"
-              multiple
-              clearable
-              filled
-              :options="interests"
-              option-label="title"
-              option-value="id"
+          <div class="q-mt-md">
+            <q-btn
+              data-cy="profile-update"
+              no-caps
+              :loading="isLoading"
+              label="Update Profile"
+              type="submit"
+              color="primary"
             />
-          </div>
-        </q-card-section>
-      </q-card>
-
-      <!-- Profile photo section -->
-      <q-card class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_photo_camera" class="q-mr-sm" />
-            Profile Photo
-          </div>
-
-          <div class="row items-center q-col-gutter-md">
-            <div class="col-12 col-sm-6">
-              <UploadComponent
-                data-cy="profile-photo"
-                label="Profile picture"
-                :crop-options="{autoZoom: true, aspectRatio: 1}"
-                @upload="onProfilePhotoSelect"
-              />
-            </div>
-
-            <div class="col-12 col-sm-6" v-if="localAvatarUrl">
-              <q-img
-                :src="localAvatarUrl"
-                spinner-color="white"
-                class="rounded-borders"
-                style="height: 100px; max-width: 100px"
-              >
-                <q-btn
-                  data-cy="profile-photo-delete"
-                  color="primary"
-                  size="md"
-                  icon="sym_r_delete"
-                  class="all-pointer-events absolute-top-right"
-                  @click="onProfilePhotoDelete"
-                />
-              </q-img>
-            </div>
           </div>
         </q-card-section>
       </q-card>
@@ -170,79 +162,62 @@
           </div>
         </q-card-section>
       </q-card>
-
-      <!-- Main profile update button -->
-      <q-card-actions align="right" class="q-mb-lg">
-        <q-btn
-          data-cy="profile-update"
-          no-caps
-          :loading="isLoading"
-          label="Update Profile"
-          type="submit"
-          color="primary"
-        />
-      </q-card-actions>
     </q-form>
 
-    <!-- Account password section (separate from main profile) -->
-    <q-card class="q-mb-md">
+    <!-- Account password section (only for local email auth users) -->
+    <q-card class="q-mb-md" v-if="isLocalAuthUser" data-cy="profile-password">
       <q-card-section>
-        <q-expansion-item
-          data-cy="profile-password"
-          expand-separator
-          icon="sym_r_vpn_key"
-          label="Change Account Password"
-        >
-          <q-card>
-            <q-card-section>
-              <q-input
-                data-cy="profile-old-password"
-                v-model="form.oldPassword"
-                filled
-                maxlength="255"
-                :type="isPwd ? 'password' : 'text'"
-                label="Current Password"
-              >
-                <template v-slot:append>
-                  <q-icon
-                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                    class="cursor-pointer"
-                    @click="isPwd = !isPwd"
-                  />
-                </template>
-              </q-input>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_vpn_key" class="q-mr-sm" />
+          Change Account Password
+        </div>
 
-              <q-input
-                minlength="8"
-                maxlength="255"
-                data-cy="profile-new-password"
-                v-model="form.password"
-                filled
-                :type="isPwd ? 'password' : 'text'"
-                label="New Password"
-                class="q-mt-md"
-              >
-                <template v-slot:append>
-                  <q-icon
-                    :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
-                    class="cursor-pointer"
-                    @click="isPwd = !isPwd"
-                  />
-                </template>
-              </q-input>
+        <div class="q-gutter-md">
+          <q-input
+            data-cy="profile-old-password"
+            v-model="form.oldPassword"
+            filled
+            maxlength="255"
+            :type="isPwd ? 'password' : 'text'"
+            label="Current Password"
+          >
+            <template v-slot:append>
+              <q-icon
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                class="cursor-pointer"
+                @click="isPwd = !isPwd"
+              />
+            </template>
+          </q-input>
 
-              <div class="q-mt-md">
-                <q-btn
-                  data-cy="profile-change-password"
-                  no-caps
-                  label="Change Password"
-                  color="primary"
-                  @click="onChangePassword"
-                />
-              </div>
-            </q-card-section>
-          </q-card>
-        </q-expansion-item>
+          <q-input
+            minlength="8"
+            maxlength="255"
+            data-cy="profile-new-password"
+            v-model="form.password"
+            filled
+            :type="isPwd ? 'password' : 'text'"
+            label="New Password"
+          >
+            <template v-slot:append>
+              <q-icon
+                :name="isPwd ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                class="cursor-pointer"
+                @click="isPwd = !isPwd"
+              />
+            </template>
+          </q-input>
+
+          <div>
+            <q-btn
+              data-cy="profile-change-password"
+              no-caps
+              label="Change Password"
+              color="primary"
+              @click="onChangePassword"
+            />
+          </div>
+        </div>
       </q-card-section>
     </q-card>
 
@@ -394,10 +369,6 @@ const onChangePassword = async () => {
   }
 }
 
-const interests = computed(() => {
-  return subCategories.value
-})
-
 // For profile form, we only want to show the local photo being edited
 const localAvatarUrl = computed(() => {
   if (form.value?.photo?.path && typeof form.value.photo.path === 'string') {
@@ -409,6 +380,11 @@ const localAvatarUrl = computed(() => {
 // Only show Bluesky settings for Bluesky-authenticated users
 const isBlueskyUser = computed(() => {
   return authStore.user.provider === AuthProvidersEnum.bluesky
+})
+
+// Only show password change for local email auth users (not OAuth users)
+const isLocalAuthUser = computed(() => {
+  return !authStore.user.provider || authStore.user.provider === AuthProvidersEnum.email
 })
 
 onMounted(async () => {
@@ -521,6 +497,7 @@ const onDeleteAccount = () => {
     min-height: 100px;
     max-height: 300px;
     overflow-y: auto;
+    background-color: rgba(128, 128, 128, 0.1);
 
     :deep(a) {
       color: var(--q-primary);
@@ -541,7 +518,7 @@ const onDeleteAccount = () => {
     }
 
     :deep(code) {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(128, 128, 128, 0.15);
       padding: 2px 4px;
       border-radius: 4px;
       font-family: monospace;
@@ -551,7 +528,7 @@ const onDeleteAccount = () => {
       border-left: 4px solid var(--q-primary);
       margin-left: 0;
       padding-left: 16px;
-      color: rgba(0, 0, 0, 0.7);
+      opacity: 0.7;
     }
   }
 }
