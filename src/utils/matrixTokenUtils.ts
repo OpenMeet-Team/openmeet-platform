@@ -22,6 +22,23 @@ export interface StoredTokenData {
 export function hasStoredMatrixTokens (userSlug: string): boolean {
   if (!userSlug) return false
 
+  // Debug: List all matrix_session keys in localStorage
+  const allMatrixKeys: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith('matrix_session_')) {
+      allMatrixKeys.push(key)
+    }
+  }
+
+  console.debug('🔍 hasStoredMatrixTokens check:', {
+    userSlug,
+    deviceKeyPrefix: `matrix_session_${userSlug}_`,
+    legacyKey: `matrix_session_${userSlug}`,
+    allMatrixKeysCount: allMatrixKeys.length
+  })
+  console.debug('📋 All matrix_session keys found:', allMatrixKeys)
+
   // Check new per-device format: matrix_session_{userSlug}_{deviceId}
   // Scan localStorage for any keys matching this pattern
   const deviceKeyPrefix = `matrix_session_${userSlug}_`
@@ -34,6 +51,7 @@ export function hasStoredMatrixTokens (userSlug: string): boolean {
         if (storedData) {
           const tokenData: StoredTokenData = JSON.parse(storedData)
           if (tokenData.accessToken || tokenData.refreshToken) {
+            console.debug('✅ Found tokens in per-device format:', key)
             return true
           }
         }
@@ -50,12 +68,17 @@ export function hasStoredMatrixTokens (userSlug: string): boolean {
   if (legacyData) {
     try {
       const tokenData: StoredTokenData = JSON.parse(legacyData)
-      return !!(tokenData.accessToken || tokenData.refreshToken)
+      const hasTokens = !!(tokenData.accessToken || tokenData.refreshToken)
+      if (hasTokens) {
+        console.debug('✅ Found tokens in legacy format:', legacyKey)
+      }
+      return hasTokens
     } catch {
       return false
     }
   }
 
+  console.debug('❌ No tokens found for user:', userSlug)
   return false
 }
 
