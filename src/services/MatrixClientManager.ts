@@ -646,20 +646,50 @@ export class MatrixClientManager {
       throw new Error('No OpenMeet user logged in for Matrix session restore')
     }
 
-    // Try to get session data from legacy storage first (for migration)
-    const sessionKey = `matrix_session_${openMeetUserSlug}`
-    const sessionDataJson = localStorage.getItem(sessionKey)
+    // Try to find session data - check both per-device and legacy formats
+    let userId: string | undefined
+    let legacyDeviceId: string | undefined
 
-    if (!sessionDataJson) {
-      throw new Error('No Matrix session data found for current user')
+    // First try legacy format (backward compatibility)
+    const legacyKey = `matrix_session_${openMeetUserSlug}`
+    const legacyData = localStorage.getItem(legacyKey)
+
+    if (legacyData) {
+      try {
+        const sessionData = JSON.parse(legacyData)
+        userId = sessionData.userId
+        legacyDeviceId = sessionData.deviceId
+        logger.debug('📱 Found legacy session data for migration')
+      } catch (error) {
+        logger.warn('⚠️ Failed to parse legacy session data:', error)
+      }
     }
 
-    const sessionData = JSON.parse(sessionDataJson)
-    const userId = sessionData.userId
-    const deviceId = sessionData.deviceId
+    // If no legacy data, try to find userId from any per-device token
+    if (!userId) {
+      const deviceKeyPrefix = `matrix_session_${openMeetUserSlug}_`
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(deviceKeyPrefix)) {
+          try {
+            const storedData = localStorage.getItem(key)
+            if (storedData) {
+              const tokenData = JSON.parse(storedData)
+              if (tokenData.userId) {
+                userId = tokenData.userId
+                logger.debug('📱 Found userId from per-device token:', key)
+                break
+              }
+            }
+          } catch (error) {
+            // Continue checking other keys
+          }
+        }
+      }
+    }
 
     if (!userId) {
-      throw new Error('Incomplete session data in storage')
+      throw new Error('No Matrix session data found for current user')
     }
 
     // Get the canonical stored device ID for consistent reuse
@@ -680,7 +710,7 @@ export class MatrixClientManager {
     logger.debug('🔍 Device ID sources for session restore:', {
       storedDeviceId: storedDeviceId || 'none',
       tokenManagerDeviceId: tokenData.deviceId || 'none (IGNORED)',
-      legacySessionDeviceId: deviceId || 'none (IGNORED)',
+      legacySessionDeviceId: legacyDeviceId || 'none (IGNORED)',
       finalDeviceId: finalDeviceId || 'will request new from server'
     })
 
