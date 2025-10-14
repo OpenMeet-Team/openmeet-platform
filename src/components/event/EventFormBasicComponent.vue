@@ -514,6 +514,12 @@ onMounted(() => {
         // Convert YYYY-MM-DD format to ISO string with default time (5:00 PM)
         const dateObj = new Date(props.initialDate + 'T17:00:00')
         eventData.value.startDate = dateObj.toISOString()
+      } else if (!props.editEventSlug) {
+        // For new events without a preselected date, default to tomorrow at 5:00 PM
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        tomorrow.setHours(17, 0, 0, 0)
+        eventData.value.startDate = tomorrow.toISOString()
       }
     })
   ]
