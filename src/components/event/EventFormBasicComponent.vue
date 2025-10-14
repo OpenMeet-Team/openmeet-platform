@@ -255,15 +255,33 @@
             Event Settings
           </div>
 
+          <!-- Bluesky Publishing Toggle (only shown if user has Bluesky connected) -->
+          <div v-if="authStore.getBlueskyDid && authStore.getBlueskyDid !== 'undefined'" class="q-mb-md">
+            <q-checkbox
+              data-cy="event-publish-to-bluesky"
+              v-model="publishToBluesky"
+              label="Publish to Bluesky"
+            />
+            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky">
+              <q-icon name="sym_r_info" size="xs" />
+              Bluesky events must be public. Private and authenticated events cannot be published to Bluesky.
+            </p>
+          </div>
+
           <!-- Event Visibility -->
           <div class="q-mb-md">
             <div class="text-subtitle2 q-mb-sm">Visibility</div>
-            <q-select data-cy="event-visibility" v-model="eventData.visibility" label="Event Viewable By" option-value="value"
-              option-label="label" emit-value map-options :options="[
-                { label: 'The World', value: 'public' },
-                { label: 'Authenticated Users', value: 'authenticated' },
-                { label: 'People You Invite', value: 'private' }
-              ]" filled />
+            <q-select
+              data-cy="event-visibility"
+              v-model="eventData.visibility"
+              label="Event Viewable By"
+              option-value="value"
+              option-label="label"
+              emit-value
+              map-options
+              :options="visibilityOptions"
+              filled
+            />
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
               If private, the event is hidden from search and accessible only by direct link or group members.
             </p>
@@ -272,6 +290,10 @@
             </p>
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Authenticated">
               If authenticated, the event is visible to authenticated users and searchable.
+            </p>
+            <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
+              <q-icon name="sym_r_warning" size="xs" />
+              This event will only be created on OpenMeet (not published to Bluesky) because it is not public.
             </p>
           </div>
 
@@ -331,7 +353,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, nextTick } from 'vue'
+import { onMounted, ref, watch, nextTick, computed } from 'vue'
 import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
@@ -365,6 +387,19 @@ const groupsOptions = ref<GroupEntity[]>([])
 const emit = defineEmits(['created', 'updated', 'close', 'series-created'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
+
+// Bluesky publishing toggle
+const publishToBluesky = ref<boolean>(false)
+
+// Computed visibility options - disable non-public when publishing to Bluesky
+const visibilityOptions = computed(() => {
+  const baseOptions = [
+    { label: 'The World', value: 'public', disable: false },
+    { label: 'Authenticated Users', value: 'authenticated', disable: publishToBluesky.value },
+    { label: 'People You Invite', value: 'private', disable: publishToBluesky.value }
+  ]
+  return baseOptions
+})
 
 // Initialize event data first
 const eventData = ref<EventEntity>({
@@ -476,6 +511,20 @@ watch(() => isRecurring.value, (isEnabled) => {
     }
   }
 })
+
+// Watch publishToBluesky toggle - force public visibility when enabled
+watch(() => publishToBluesky.value, (enabled) => {
+  if (enabled && eventData.value.visibility !== EventVisibility.Public) {
+    eventData.value.visibility = EventVisibility.Public
+  }
+})
+
+// Watch for existing Bluesky events - set toggle to true if editing a Bluesky event
+watch(() => eventData.value.sourceType, (sourceType) => {
+  if (sourceType === 'bluesky') {
+    publishToBluesky.value = true
+  }
+}, { immediate: true })
 
 const onSaveDraft = () => {
   eventData.value.status = EventStatus.Draft
@@ -879,16 +928,32 @@ const addBlueskySourceInfo = (event: EventEntity) => {
   const blueskyDid = authStore.getBlueskyDid
   const blueskyHandle = authStore.getBlueskyHandle
 
-  // Check that DID is not "undefined" string and handle exists
-  if (blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
-    logger.debug('Bluesky user detected, adding source info')
+  logger.debug('addBlueskySourceInfo called', {
+    publishToBluesky: publishToBluesky.value,
+    blueskyDid,
+    blueskyHandle,
+    currentSourceType: event.sourceType,
+    visibility: event.visibility
+  })
+
+  // Only add Bluesky source info if user explicitly wants to publish to Bluesky
+  if (publishToBluesky.value && blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
+    logger.debug('Publishing to Bluesky, adding source info')
     event.sourceType = 'bluesky'
     event.sourceId = blueskyDid
     event.sourceData = {
       handle: blueskyHandle,
       did: blueskyDid
     }
+  } else {
+    // Ensure sourceType is cleared if not publishing to Bluesky
+    logger.debug('NOT publishing to Bluesky, clearing source info')
+    event.sourceType = null
+    event.sourceId = null
+    event.sourceData = null
   }
+
+  logger.debug('After addBlueskySourceInfo', { sourceType: event.sourceType })
 }
 
 // Handle time info updates from the DatetimeComponent
