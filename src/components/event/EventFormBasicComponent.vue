@@ -928,6 +928,14 @@ const addBlueskySourceInfo = (event: EventEntity) => {
   const blueskyDid = authStore.getBlueskyDid
   const blueskyHandle = authStore.getBlueskyHandle
 
+  logger.debug('addBlueskySourceInfo called', {
+    publishToBluesky: publishToBluesky.value,
+    blueskyDid,
+    blueskyHandle,
+    currentSourceType: event.sourceType,
+    visibility: event.visibility
+  })
+
   // Only add Bluesky source info if user explicitly wants to publish to Bluesky
   if (publishToBluesky.value && blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
     logger.debug('Publishing to Bluesky, adding source info')
@@ -937,12 +945,15 @@ const addBlueskySourceInfo = (event: EventEntity) => {
       handle: blueskyHandle,
       did: blueskyDid
     }
-  } else if (!publishToBluesky.value) {
+  } else {
     // Ensure sourceType is cleared if not publishing to Bluesky
+    logger.debug('NOT publishing to Bluesky, clearing source info')
     event.sourceType = null
     event.sourceId = null
     event.sourceData = null
   }
+
+  logger.debug('After addBlueskySourceInfo', { sourceType: event.sourceType })
 }
 
 // Handle time info updates from the DatetimeComponent
