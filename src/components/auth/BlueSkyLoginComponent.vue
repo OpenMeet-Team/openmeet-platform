@@ -69,12 +69,15 @@ const handleBlueskyLogin = async () => {
       persistent: true
     }).onOk(async (handle) => {
       try {
+        // Strip @ prefix if present to accept both formats
+        const cleanHandle = handle.startsWith('@') ? handle.slice(1) : handle
+
         const baseUrl = getEnv('APP_API_URL')
         const tenantId = getEnv('APP_TENANT_ID')
 
         // Get the authorization URL from the backend
         const response = await fetch(
-          `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(handle)}&tenantId=${tenantId}`
+          `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(cleanHandle)}&tenantId=${tenantId}`
         )
         const url = await response.text()
 
