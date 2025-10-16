@@ -952,6 +952,7 @@ import { useNavigation } from '../composables/useNavigation'
 import EventsListComponent from '../components/event/EventsListComponent.vue'
 import { GroupPermission } from '../types/group'
 import { EventAttendeePermission, EventStatus } from '../types/event'
+import { UserRole } from '../types/user'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventMatrixChatComponent from '../components/event/EventMatrixChatComponent.vue'
 import {
@@ -1478,17 +1479,26 @@ const handleEditEvent = async () => {
 
 // Update the isOwnerOrAdmin computed property
 const isOwnerOrAdmin = computed(() => {
-  if (!event.value?.series?.user) return false
-
   const authStore = useAuthStore()
 
-  // Check if user is owner
-  const isOwner = event.value.series.user.id === authStore.getUserId
+  // Check if user has global admin role
+  const isGlobalAdmin = authStore.user?.role?.name === UserRole.Admin
 
-  // Check if user is admin (has manage events permission)
-  const isAdmin = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+  // For series events, check the series owner
+  if (event.value?.series?.user) {
+    const isSeriesOwner = event.value.series.user.id === authStore.getUserId
+    const hasGroupPermission = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+    return isSeriesOwner || isGlobalAdmin || hasGroupPermission
+  }
 
-  return isOwner || isAdmin
+  // For non-series events, check the event owner
+  if (event.value?.user) {
+    const isEventOwner = event.value.user.id === authStore.getUserId
+    const hasGroupPermission = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
+    return isEventOwner || isGlobalAdmin || hasGroupPermission
+  }
+
+  return isGlobalAdmin
 })
 
 </script>
