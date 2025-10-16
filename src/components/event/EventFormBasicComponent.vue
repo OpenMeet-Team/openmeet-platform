@@ -260,11 +260,24 @@
             <q-checkbox
               data-cy="event-publish-to-bluesky"
               v-model="publishToBluesky"
+              :disable="!!eventData.slug"
               label="Publish to Bluesky"
             />
-            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky">
+            <p class="text-caption q-mt-xs q-ml-md text-warning" v-if="!eventData.slug">
+              <q-icon name="sym_r_warning" size="xs" />
+              This choice cannot be changed after the event is created.
+            </p>
+            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky && !eventData.slug">
               <q-icon name="sym_r_info" size="xs" />
-              Bluesky events must be public. Private and authenticated events cannot be published to Bluesky.
+              Bluesky events must be public. The visibility will be locked to "The World".
+            </p>
+            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="eventData.slug && eventData.sourceType === 'bluesky'">
+              <q-icon name="sym_r_info" size="xs" />
+              This event is published to Bluesky and will remain linked to the Bluesky post.
+            </p>
+            <p class="text-caption q-mt-xs q-ml-md text-grey-7" v-if="eventData.slug && eventData.sourceType !== 'bluesky'">
+              <q-icon name="sym_r_info" size="xs" />
+              This is a local-only event.
             </p>
           </div>
 
@@ -280,6 +293,7 @@
               emit-value
               map-options
               :options="visibilityOptions"
+              :disable="publishToBluesky"
               filled
             />
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
