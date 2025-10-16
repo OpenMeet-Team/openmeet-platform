@@ -46,15 +46,21 @@ const handleStorageChange = (event: StorageEvent) => {
     } else if (event.newValue !== null && event.oldValue !== null && event.newValue !== event.oldValue) {
       // Token was refreshed in another tab
       logger.debug('🔄 Token refreshed in another tab, updating local store')
-      // Update the local auth store with the new token value
-      // The store will automatically update from localStorage on next access
-      authStore.$reset() // Reset to reload from localStorage
+      // Update only the token in the store without resetting entire state
+      // This preserves Matrix client state and other per-tab data
+      authStore.actionSetToken(event.newValue)
     }
   }
   // Also sync refresh token changes
-  if (event.key === 'refreshToken' && event.newValue !== event.oldValue) {
+  if (event.key === 'refreshToken' && event.newValue !== null && event.newValue !== event.oldValue) {
     logger.debug('🔄 Refresh token updated in another tab')
-    authStore.$reset() // Reset to reload from localStorage
+    // Update only the refresh token without affecting Matrix state
+    authStore.actionSetRefreshToken(event.newValue)
+  }
+  // Also sync token expiration changes
+  if (event.key === 'tokenExpires' && event.newValue !== null && event.newValue !== event.oldValue) {
+    logger.debug('🔄 Token expiration updated in another tab')
+    authStore.actionSetTokenExpires(Number(event.newValue))
   }
 }
 
