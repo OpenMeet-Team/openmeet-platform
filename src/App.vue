@@ -30,7 +30,7 @@ useMeta({
 // Cross-tab auth sync handler - store reference for cleanup
 const authStore = useAuthStore()
 const handleStorageChange = (event: StorageEvent) => {
-  // Only handle token changes (login/logout in another tab)
+  // Handle token changes (login/logout/refresh in another tab)
   // Note: Storage events only fire in OTHER tabs, not the tab that made the change
   if (event.key === 'token') {
     // Token was removed (logout in another tab)
@@ -43,7 +43,18 @@ const handleStorageChange = (event: StorageEvent) => {
       // Token was added (login in another tab)
       logger.debug('🔑 User logged in on another tab, reloading page')
       window.location.reload()
+    } else if (event.newValue !== null && event.oldValue !== null && event.newValue !== event.oldValue) {
+      // Token was refreshed in another tab
+      logger.debug('🔄 Token refreshed in another tab, updating local store')
+      // Update the local auth store with the new token value
+      // The store will automatically update from localStorage on next access
+      authStore.$reset() // Reset to reload from localStorage
     }
+  }
+  // Also sync refresh token changes
+  if (event.key === 'refreshToken' && event.newValue !== event.oldValue) {
+    logger.debug('🔄 Refresh token updated in another tab')
+    authStore.$reset() // Reset to reload from localStorage
   }
 }
 

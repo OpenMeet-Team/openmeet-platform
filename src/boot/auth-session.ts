@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
 import { ref, readonly } from 'vue'
 import { Router, useRouter } from 'vue-router'
+import { getCrossTabTokenService } from '../services/CrossTabTokenService'
 
 // Create reactive state
 const isRefreshing = ref(false)
@@ -37,15 +38,63 @@ export const createAuthSession = (router: Router) => {
   }
 
   const refreshToken = async () => {
-    // If already refreshing, return the existing promise
+    // If already refreshing in this tab, return the existing promise
     if (isRefreshing.value && refreshPromise.value) {
+      console.log('🔄 [auth-session] Already refreshing in this tab, reusing promise')
       return refreshPromise.value
     }
 
+    const crossTabTokenService = getCrossTabTokenService()
+
+    // Check if another tab is already refreshing
+    if (crossTabTokenService.isAnyTabRefreshing()) {
+      console.log('🔄 [auth-session] Another tab is refreshing, waiting...')
+
+      // Wait for the other tab to complete
+      const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+      if (refreshCompleted && authStore.token) {
+        console.log('✅ [auth-session] Using refreshed token from another tab')
+        return authStore.token
+      }
+
+      // If wait failed or no new token, try to refresh ourselves
+      console.log('⚠️ [auth-session] Other tab refresh timeout or failed, attempting our own refresh')
+    }
+
+    // Try to acquire the refresh lock
+    const lockAcquired = await crossTabTokenService.acquireRefreshLock()
+
+    if (!lockAcquired) {
+      // Another tab got the lock, wait for it
+      console.log('🔄 [auth-session] Another tab acquired lock, waiting...')
+
+      const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+      if (refreshCompleted && authStore.token) {
+        return authStore.token
+      } else {
+        throw new Error('Token refresh failed in another tab')
+      }
+    }
+
+    // We got the lock, proceed with refresh
     isRefreshing.value = true
     refreshPromise.value = authStore.actionRefreshToken()
+      .then((token) => {
+        // Release lock and broadcast success
+        crossTabTokenService.releaseRefreshLock(
+          true,
+          token,
+          authStore.refreshToken,
+          authStore.tokenExpires as number
+        )
+        return token
+      })
       .catch((err) => {
         console.error('Token refresh failed:', err)
+        // Release lock and broadcast failure
+        crossTabTokenService.releaseRefreshLock(false)
         handleAuthError()
         throw err
       })
