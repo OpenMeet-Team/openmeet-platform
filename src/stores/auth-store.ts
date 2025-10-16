@@ -357,9 +357,23 @@ export const useAuthStore = defineStore('authStore', {
           const now = Date.now()
           const tokenExpires = Number(this.tokenExpires)
           if (tokenExpires && now > tokenExpires) {
-            logger.warn('Token has expired, clearing auth')
-            this.actionClearAuth()
-            return
+            logger.warn('Token has expired, attempting refresh')
+            // Try to refresh the token before clearing auth
+            if (this.refreshToken) {
+              try {
+                await this.actionRefreshToken()
+                logger.info('Token refresh successful during initialization')
+                // Token refreshed successfully, continue with validation
+              } catch (refreshError) {
+                logger.error('Token refresh failed during initialization, clearing auth:', refreshError)
+                this.actionClearAuth()
+                return
+              }
+            } else {
+              logger.warn('No refresh token available, clearing auth')
+              this.actionClearAuth()
+              return
+            }
           }
           try {
             // Validate the token by fetching user data

@@ -89,30 +89,43 @@ export default boot(({ app, router }) => {
   // Make authSession available globally
   app.config.globalProperties.$authSession = authSession
 
-  // Enhance router navigation guard
+  // Register router guard for proactive token refresh
+  // This runs BEFORE the main router guards in router/index.ts
   router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 
-    if (to.matched.some(record => record.meta.requiresAuth)) {
-      // Check auth status before proceeding
-      const isAuthenticated = await authSession.checkAuthStatus()
-
-      if (!isAuthenticated) {
-        next({
-          name: 'AuthLoginPage',
-          query: { redirect: to.fullPath }
-        })
-      } else {
-        next()
-      }
-    } else {
-      if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
-        next({ name: 'HomePage' })
-      } else {
-        next()
+    // Proactively check auth status and refresh token if needed (5 min before expiry)
+    if (authStore.isAuthenticated) {
+      try {
+        const isAuthenticated = await authSession.checkAuthStatus()
+        if (!isAuthenticated) {
+          // Token refresh failed, redirect to login
+          next({
+            name: 'AuthLoginPage',
+            query: { redirect: to.fullPath }
+          })
+          return
+        }
+      } catch (error) {
+        console.error('Token refresh failed during navigation:', error)
+        // Continue with navigation - axios interceptor will handle 401s as fallback
       }
     }
+
+    // Check if user is trying to access auth pages while authenticated
+    if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
+      // Allow OIDC flows even when authenticated
+      if (to.query.oidc_flow === 'true') {
+        next()
+      } else {
+        next({ name: 'HomePage' })
+      }
+      return
+    }
+
+    // Let other guards handle the rest
+    next()
   })
 })

@@ -67,7 +67,8 @@ export default route(function (/* { store, ssrContext } */) {
   Router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
-    const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
+    // Note: Token refresh and auth page redirects are handled by auth-session.ts boot file
+    // This guard only handles route-specific auth requirements
 
     // Check for admin routes and prevent access for non-admin users
     if (to.path.startsWith('/admin')) {
@@ -84,24 +85,16 @@ export default route(function (/* { store, ssrContext } */) {
       }
     }
 
+    // Check routes with requiresAuth meta
     if (to.matched.some(record => record.meta.requiresAuth)) {
       if (!authStore.isAuthenticated) {
         next({ name: 'AuthLoginPage', query: { redirect: to.fullPath } })
-      } else {
-        next()
-      }
-    } else {
-      if (authStore.isAuthenticated && authRoutes.includes(to.name as string)) {
-        // Allow OIDC flows even when authenticated
-        if (to.query.oidc_flow === 'true') {
-          next()
-        } else {
-          next({ name: 'HomePage' })
-        }
-      } else {
-        next()
+        return
       }
     }
+
+    // Continue to next guard
+    next()
 
     if (from.name && from.name !== to.name) {
       try {

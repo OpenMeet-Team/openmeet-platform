@@ -53,6 +53,7 @@ export default configure((ctx) => {
       'config',
       'tracing',
       'axios',
+      'auth-session', // Must come after axios since it depends on axios interceptor
       'analytics',
       'global-components',
       'posthog'
