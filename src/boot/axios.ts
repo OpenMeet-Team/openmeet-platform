@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
 import { useVersionErrorHandling } from '../composables/useVersionErrorHandling'
 import getEnv from '../utils/env'
+import { getCrossTabTokenService } from '../services/CrossTabTokenService'
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -17,8 +18,10 @@ const api = axios.create()
 const { error } = useNotification()
 const { handlePotentialVersionError } = useVersionErrorHandling()
 
-// Global refresh state management
-let isRefreshing = false
+// Cross-tab token service instance
+const crossTabTokenService = getCrossTabTokenService()
+
+// Queue for requests waiting for token refresh
 let failedQueue: Array<{
   resolve: (value: unknown) => void
   reject: (reason?: unknown) => void
@@ -89,31 +92,67 @@ export default boot(async ({ app, router }) => {
           return Promise.reject(err)
         }
 
-        // Handle token refresh with deduplication
+        // Handle token refresh with cross-tab coordination
         if (authStore.refreshToken) {
-          if (isRefreshing) {
-            // If refresh is already in progress, queue this request
-            console.log('🔄 Refresh in progress, queueing request for:', originalRequest.url)
-            return new Promise((resolve, reject) => {
-              failedQueue.push({
-                resolve: (token: string) => {
-                  originalRequest.headers.Authorization = `Bearer ${token}`
-                  resolve(api(originalRequest))
-                },
-                reject: (error: unknown) => {
-                  reject(error)
-                }
-              })
-            })
+          // Check if another tab is already refreshing
+          if (crossTabTokenService.isAnyTabRefreshing()) {
+            console.log('🔄 Another tab is refreshing, waiting...')
+
+            // Wait for the other tab to complete
+            const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+            if (refreshCompleted) {
+              // Check if we have new tokens (other tab should have updated localStorage)
+              const updatedToken = authStore.token
+              if (updatedToken && updatedToken !== originalRequest.headers.Authorization?.replace('Bearer ', '')) {
+                console.log('✅ Using refreshed token from another tab')
+                originalRequest.headers.Authorization = `Bearer ${updatedToken}`
+                return api(originalRequest)
+              }
+            }
+
+            // If wait failed or no new token, try to refresh ourselves
+            console.log('⚠️ Other tab refresh timeout or failed, attempting our own refresh')
           }
 
-          // Mark that we're refreshing to prevent concurrent attempts
-          isRefreshing = true
-          console.log('🔄 Starting token refresh...')
+          // Try to acquire the refresh lock
+          const lockAcquired = await crossTabTokenService.acquireRefreshLock()
+
+          if (!lockAcquired) {
+            // Another tab got the lock first, queue this request
+            console.log('🔄 Another tab acquired lock, queueing request for:', originalRequest.url)
+
+            // Wait for refresh to complete
+            const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+            if (refreshCompleted && authStore.token) {
+              originalRequest.headers.Authorization = `Bearer ${authStore.token}`
+              return api(originalRequest)
+            } else {
+              // Refresh failed or timed out
+              authStore.actionClearAuth()
+              error('Your session has expired. Please log in again.')
+              router.push({
+                name: 'AuthLoginPage',
+                query: { redirect: router.currentRoute.value.fullPath }
+              })
+              return Promise.reject(new Error('Token refresh failed'))
+            }
+          }
+
+          console.log('🔄 This tab is refreshing the token...')
 
           try {
             const newToken = await authStore.actionRefreshToken()
-            console.log('✅ Token refresh successful, processing queued requests')
+            console.log('✅ Token refresh successful')
+
+            // Release lock and broadcast success with new tokens
+            crossTabTokenService.releaseRefreshLock(
+              true,
+              newToken,
+              authStore.refreshToken,
+              authStore.tokenExpires as number
+            )
 
             // Process all queued requests with the new token
             processQueue(null, newToken)
@@ -123,6 +162,9 @@ export default boot(async ({ app, router }) => {
             return api(originalRequest)
           } catch (refreshError) {
             console.log('🔴 Token refresh failed:', refreshError)
+
+            // Release lock and broadcast failure
+            crossTabTokenService.releaseRefreshLock(false)
 
             // Process queue with error (this will reject all queued requests)
             processQueue(refreshError, null)
@@ -135,9 +177,6 @@ export default boot(async ({ app, router }) => {
               query: { redirect: router.currentRoute.value.fullPath }
             })
             return Promise.reject(refreshError)
-          } finally {
-            // Reset refresh state
-            isRefreshing = false
           }
         } else if (originalRequest.url.includes('/api/v1/auth/')) {
           // Don't show error for auth-related endpoints

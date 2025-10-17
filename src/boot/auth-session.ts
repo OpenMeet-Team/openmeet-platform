@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth-store'
 import { useNotification } from '../composables/useNotification'
 import { ref, readonly } from 'vue'
 import { Router, useRouter } from 'vue-router'
+import { getCrossTabTokenService } from '../services/CrossTabTokenService'
 
 // Create reactive state
 const isRefreshing = ref(false)
@@ -37,15 +38,63 @@ export const createAuthSession = (router: Router) => {
   }
 
   const refreshToken = async () => {
-    // If already refreshing, return the existing promise
+    // If already refreshing in this tab, return the existing promise
     if (isRefreshing.value && refreshPromise.value) {
+      console.log('🔄 [auth-session] Already refreshing in this tab, reusing promise')
       return refreshPromise.value
     }
 
+    const crossTabTokenService = getCrossTabTokenService()
+
+    // Check if another tab is already refreshing
+    if (crossTabTokenService.isAnyTabRefreshing()) {
+      console.log('🔄 [auth-session] Another tab is refreshing, waiting...')
+
+      // Wait for the other tab to complete
+      const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+      if (refreshCompleted && authStore.token) {
+        console.log('✅ [auth-session] Using refreshed token from another tab')
+        return authStore.token
+      }
+
+      // If wait failed or no new token, try to refresh ourselves
+      console.log('⚠️ [auth-session] Other tab refresh timeout or failed, attempting our own refresh')
+    }
+
+    // Try to acquire the refresh lock
+    const lockAcquired = await crossTabTokenService.acquireRefreshLock()
+
+    if (!lockAcquired) {
+      // Another tab got the lock, wait for it
+      console.log('🔄 [auth-session] Another tab acquired lock, waiting...')
+
+      const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
+
+      if (refreshCompleted && authStore.token) {
+        return authStore.token
+      } else {
+        throw new Error('Token refresh failed in another tab')
+      }
+    }
+
+    // We got the lock, proceed with refresh
     isRefreshing.value = true
     refreshPromise.value = authStore.actionRefreshToken()
+      .then((token) => {
+        // Release lock and broadcast success
+        crossTabTokenService.releaseRefreshLock(
+          true,
+          token,
+          authStore.refreshToken,
+          authStore.tokenExpires as number
+        )
+        return token
+      })
       .catch((err) => {
         console.error('Token refresh failed:', err)
+        // Release lock and broadcast failure
+        crossTabTokenService.releaseRefreshLock(false)
         handleAuthError()
         throw err
       })
@@ -85,15 +134,83 @@ export const useAuthSession = () => {
 export default boot(({ app, router }) => {
   // Create an instance with the router and store it globally
   const authSession = createAuthSession(router)
+  const authStore = useAuthStore()
+  const crossTabTokenService = getCrossTabTokenService()
 
   // Make authSession available globally
   app.config.globalProperties.$authSession = authSession
 
+  // Background token refresh timer
+  // Check every 30 seconds if token needs refresh (2 min before expiry)
+  let refreshIntervalId: ReturnType<typeof setInterval> | null = null
+
+  const startBackgroundRefresh = () => {
+    // Clear any existing interval
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId)
+    }
+
+    refreshIntervalId = setInterval(async () => {
+      // Only run if authenticated
+      if (!authStore.isAuthenticated) {
+        return
+      }
+
+      const tokenExpires = authStore.tokenExpires
+      if (!tokenExpires) {
+        return
+      }
+
+      const now = Date.now()
+      const threshold = 2 * 60 * 1000 // 2 minutes before expiry
+      const timeUntilExpiry = tokenExpires - now
+
+      // Check if token needs refresh
+      if (timeUntilExpiry <= threshold && timeUntilExpiry > 0) {
+        console.log(`⏰ Background refresh triggered: token expires in ${Math.round(timeUntilExpiry / 1000)}s`)
+
+        // Check if another tab is already refreshing
+        if (crossTabTokenService.isAnyTabRefreshing()) {
+          console.log('🔄 Another tab is already refreshing, skipping')
+          return
+        }
+
+        try {
+          await authSession.refreshToken()
+          console.log('✅ Background token refresh successful')
+        } catch (error) {
+          console.error('❌ Background token refresh failed:', error)
+        }
+      } else if (timeUntilExpiry <= 0) {
+        console.warn('⚠️ Token has already expired, clearing interval')
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId)
+          refreshIntervalId = null
+        }
+      }
+    }, 30000) // Check every 30 seconds
+
+    console.log('✅ Background token refresh timer started')
+  }
+
+  // Start background refresh on boot
+  startBackgroundRefresh()
+
+  // Cleanup on app unmount
+  app.unmount = ((originalUnmount) => {
+    return function (this: typeof app) {
+      if (refreshIntervalId) {
+        clearInterval(refreshIntervalId)
+        refreshIntervalId = null
+        console.log('🧹 Background token refresh timer cleared')
+      }
+      return originalUnmount.call(this)
+    }
+  })(app.unmount)
+
   // Register router guard for proactive token refresh
   // This runs BEFORE the main router guards in router/index.ts
   router.beforeEach(async (to, from, next) => {
-    const authStore = useAuthStore()
-
     const authRoutes = ['AuthLoginPage', 'AuthRegisterPage', 'AuthForgotPasswordPage', 'AuthRestorePasswordPage']
 
     // Proactively check auth status and refresh token if needed (5 min before expiry)

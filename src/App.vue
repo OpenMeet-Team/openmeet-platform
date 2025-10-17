@@ -30,7 +30,7 @@ useMeta({
 // Cross-tab auth sync handler - store reference for cleanup
 const authStore = useAuthStore()
 const handleStorageChange = (event: StorageEvent) => {
-  // Only handle token changes (login/logout in another tab)
+  // Handle token changes (login/logout/refresh in another tab)
   // Note: Storage events only fire in OTHER tabs, not the tab that made the change
   if (event.key === 'token') {
     // Token was removed (logout in another tab)
@@ -43,7 +43,27 @@ const handleStorageChange = (event: StorageEvent) => {
       // Token was added (login in another tab)
       logger.debug('🔑 User logged in on another tab, reloading page')
       window.location.reload()
+    } else if (event.newValue !== null && event.oldValue !== null && event.newValue !== event.oldValue) {
+      // Token was refreshed in another tab
+      logger.debug('🔄 Token refreshed in another tab, updating local store')
+      // Update only the token in the store without resetting entire state
+      // This preserves Matrix client state and other per-tab data
+      // Skip localStorage write since it's already there (prevents infinite loop)
+      authStore.actionSetToken(event.newValue, true)
     }
+  }
+  // Also sync refresh token changes
+  if (event.key === 'refreshToken' && event.newValue !== null && event.newValue !== event.oldValue) {
+    logger.debug('🔄 Refresh token updated in another tab')
+    // Update only the refresh token without affecting Matrix state
+    // Skip localStorage write since it's already there (prevents infinite loop)
+    authStore.actionSetRefreshToken(event.newValue, true)
+  }
+  // Also sync token expiration changes
+  if (event.key === 'tokenExpires' && event.newValue !== null && event.newValue !== event.oldValue) {
+    logger.debug('🔄 Token expiration updated in another tab')
+    // Skip localStorage write since it's already there (prevents infinite loop)
+    authStore.actionSetTokenExpires(Number(event.newValue), true)
   }
 }
 
