@@ -162,17 +162,23 @@ export const useAuthStore = defineStore('authStore', {
         logger.error('Logout failed', error)
       })
     },
-    actionSetToken (token: string) {
+    actionSetToken (token: string, skipStorage = false) {
       this.token = token
-      LocalStorage.setItem('token', token)
+      if (!skipStorage) {
+        LocalStorage.setItem('token', token)
+      }
     },
-    actionSetRefreshToken (refreshToken: string) {
+    actionSetRefreshToken (refreshToken: string, skipStorage = false) {
       this.refreshToken = refreshToken
-      LocalStorage.setItem('refreshToken', refreshToken)
+      if (!skipStorage) {
+        LocalStorage.setItem('refreshToken', refreshToken)
+      }
     },
-    actionSetTokenExpires (tokenExpires: number) {
+    actionSetTokenExpires (tokenExpires: number, skipStorage = false) {
       this.tokenExpires = tokenExpires
-      LocalStorage.setItem('tokenExpires', tokenExpires)
+      if (!skipStorage) {
+        LocalStorage.setItem('tokenExpires', tokenExpires)
+      }
     },
     actionSetUser (user: ApiAuthUser) {
       this.user = user

@@ -8,6 +8,7 @@
  */
 
 import { logger } from '../utils/logger'
+import { useAuthStore } from '../stores/auth-store'
 
 interface TokenRefreshMessage {
   type: 'refresh_started' | 'refresh_completed' | 'refresh_failed' | 'tokens_updated'
@@ -164,10 +165,18 @@ export class CrossTabTokenService {
         break
 
       case 'tokens_updated':
-        // New tokens available, update local storage if provided
+        // New tokens available, update auth store immediately
         if (message.token && message.refreshToken) {
-          // The auth store will pick these up via storage events
-          logger.info('📱 New tokens received from another tab')
+          logger.info('📱 New tokens received from another tab, updating store immediately')
+
+          // Update auth store directly for immediate sync
+          // Use skipStorage=true to avoid writing to localStorage (the refreshing tab already did)
+          const authStore = useAuthStore()
+          authStore.actionSetToken(message.token, true)
+          authStore.actionSetRefreshToken(message.refreshToken, true)
+          if (message.tokenExpires) {
+            authStore.actionSetTokenExpires(message.tokenExpires, true)
+          }
         }
         this.isRefreshing = false
         break

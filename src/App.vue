@@ -48,19 +48,22 @@ const handleStorageChange = (event: StorageEvent) => {
       logger.debug('🔄 Token refreshed in another tab, updating local store')
       // Update only the token in the store without resetting entire state
       // This preserves Matrix client state and other per-tab data
-      authStore.actionSetToken(event.newValue)
+      // Skip localStorage write since it's already there (prevents infinite loop)
+      authStore.actionSetToken(event.newValue, true)
     }
   }
   // Also sync refresh token changes
   if (event.key === 'refreshToken' && event.newValue !== null && event.newValue !== event.oldValue) {
     logger.debug('🔄 Refresh token updated in another tab')
     // Update only the refresh token without affecting Matrix state
-    authStore.actionSetRefreshToken(event.newValue)
+    // Skip localStorage write since it's already there (prevents infinite loop)
+    authStore.actionSetRefreshToken(event.newValue, true)
   }
   // Also sync token expiration changes
   if (event.key === 'tokenExpires' && event.newValue !== null && event.newValue !== event.oldValue) {
     logger.debug('🔄 Token expiration updated in another tab')
-    authStore.actionSetTokenExpires(Number(event.newValue))
+    // Skip localStorage write since it's already there (prevents infinite loop)
+    authStore.actionSetTokenExpires(Number(event.newValue), true)
   }
 }
 
