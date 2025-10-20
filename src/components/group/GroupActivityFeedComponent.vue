@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { groupsApi } from '../../api/groups'
 import { ActivityFeedEntity } from '../../types'
 import { formatRelativeTime } from '../../utils/dateUtils'
@@ -26,7 +26,7 @@ onMounted(async () => {
   await fetchActivities()
 })
 
-async function fetchActivities() {
+async function fetchActivities () {
   isLoading.value = true
   error.value = null
   try {
@@ -35,20 +35,21 @@ async function fetchActivities() {
     logger.debug(`Activity feed response: ${response.data.length} items`)
     activities.value = response.data
     hasMore.value = response.data.length === limit
-  } catch (err: any) {
+  } catch (err) {
+    const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
     logger.error('Failed to load activity feed', {
       group: props.groupSlug,
-      status: err?.response?.status,
-      message: err?.response?.data?.message,
+      status: axiosError.response?.status,
+      message: axiosError.response?.data?.message,
       error: err
     })
-    error.value = err?.response?.data?.message || 'Failed to load activity feed'
+    error.value = axiosError.response?.data?.message || 'Failed to load activity feed'
   } finally {
     isLoading.value = false
   }
 }
 
-async function loadMore() {
+async function loadMore () {
   if (isLoadingMore.value || !hasMore.value) return
 
   isLoadingMore.value = true
@@ -66,7 +67,7 @@ async function loadMore() {
     } else {
       hasMore.value = false
     }
-  } catch (err: any) {
+  } catch (err) {
     logger.error('Failed to load more activities', {
       group: props.groupSlug,
       error: err
@@ -76,37 +77,27 @@ async function loadMore() {
   }
 }
 
-function getActivityIcon(activityType: string): string {
+function getActivityIcon (activityType: string): string {
   const icons: Record<string, string> = {
     'member.joined': 'sym_r_person_add',
     'event.created': 'sym_r_celebration',
     'event.rsvp': 'sym_r_check_circle',
-    'group.activity': 'sym_r_pulse_alert',
+    'group.activity': 'sym_r_pulse_alert'
   }
   return icons[activityType] || 'sym_r_notifications'
 }
 
-function getActivityColor(activityType: string): string {
+function getActivityColor (activityType: string): string {
   const colors: Record<string, string> = {
     'member.joined': 'primary',
     'event.created': 'secondary',
     'event.rsvp': 'positive',
-    'group.activity': 'grey-6',
+    'group.activity': 'grey-6'
   }
   return colors[activityType] || 'grey-6'
 }
 
-function getActivityIconBg(activityType: string): string {
-  const bgColors: Record<string, string> = {
-    'member.joined': 'bg-primary-1',
-    'event.created': 'bg-secondary-1',
-    'event.rsvp': 'bg-positive-1',
-    'group.activity': 'bg-grey-3',
-  }
-  return bgColors[activityType] || 'bg-grey-3'
-}
-
-function formatActivityText(activity: ActivityFeedEntity): {
+function formatActivityText (activity: ActivityFeedEntity): {
   text: string
   actorLink?: string
   eventLink?: string
@@ -119,7 +110,7 @@ function formatActivityText(activity: ActivityFeedEntity): {
     }
     return {
       text: `${metadata.actorName} joined the group`,
-      actorLink: metadata.actorSlug,
+      actorLink: metadata.actorSlug
     }
   }
 
@@ -127,7 +118,7 @@ function formatActivityText(activity: ActivityFeedEntity): {
     return {
       text: `${metadata.actorName} created ${metadata.eventName}`,
       actorLink: metadata.actorSlug,
-      eventLink: metadata.eventSlug,
+      eventLink: metadata.eventSlug
     }
   }
 
@@ -135,13 +126,13 @@ function formatActivityText(activity: ActivityFeedEntity): {
     if (aggregatedCount > 1) {
       return {
         text: `${aggregatedCount} people are attending ${metadata.eventName}`,
-        eventLink: metadata.eventSlug,
+        eventLink: metadata.eventSlug
       }
     }
     return {
       text: `${metadata.actorName} is attending ${metadata.eventName}`,
       actorLink: metadata.actorSlug,
-      eventLink: metadata.eventSlug,
+      eventLink: metadata.eventSlug
     }
   }
 
@@ -152,24 +143,24 @@ function formatActivityText(activity: ActivityFeedEntity): {
   return { text: activity.activityType }
 }
 
-function navigateToEvent(activity: ActivityFeedEntity, event: Event) {
+function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
   event.stopPropagation()
   if (activity.metadata.eventSlug) {
     router.push({
       name: 'EventPage',
       params: {
         groupSlug: activity.metadata.groupSlug,
-        slug: activity.metadata.eventSlug,
-      },
+        slug: activity.metadata.eventSlug
+      }
     })
   }
 }
 
-function navigateToActor(actorSlug: string, event: Event) {
+function navigateToActor (actorSlug: string, event: Event) {
   event.stopPropagation()
   router.push({
     name: 'MemberPage',
-    params: { slug: actorSlug },
+    params: { slug: actorSlug }
   })
 }
 </script>
