@@ -3,6 +3,7 @@ import { useGroupStore } from '../../stores/group-store'
 import { computed, onMounted, ref } from 'vue'
 import GroupAboutMembersComponent from '../../components/group/GroupAboutMembersComponent.vue'
 import GroupAboutEventsComponent from '../../components/group/GroupAboutEventsComponent.vue'
+import GroupActivityFeedComponent from '../../components/group/GroupActivityFeedComponent.vue'
 import SubtitleComponent from '../../components/common/SubtitleComponent.vue'
 import { GroupPermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
@@ -44,6 +45,9 @@ onMounted(() => {
 
       <!-- Events List Section -->
       <GroupAboutEventsComponent :events="group.events" />
+
+      <!-- Activity Feed Section -->
+      <GroupActivityFeedComponent :group-slug="group.slug" />
 
     </div>
 
