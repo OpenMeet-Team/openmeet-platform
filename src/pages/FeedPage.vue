@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { useHead } from '@unhead/vue'
+import { useMeta } from 'quasar'
 import SitewideFeedComponent from '../components/activity-feed/SitewideFeedComponent.vue'
 
-useHead({
-  title: 'Activity Feed - OpenMeet',
-  meta: [
-    {
+useMeta({
+  title: 'Activity Feed',
+  meta: {
+    description: {
       name: 'description',
       content: 'Discover what\'s happening across OpenMeet communities. See new groups, upcoming events, and trending activities.'
     }
-  ]
+  }
 })
 </script>
 
