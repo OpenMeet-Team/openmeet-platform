@@ -19,6 +19,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'HomePage', component: () => import('pages/HomePage.vue') },
+      { path: 'feed', name: 'FeedPage', component: () => import('pages/FeedPage.vue') },
       {
         path: 'events',
         children: [
