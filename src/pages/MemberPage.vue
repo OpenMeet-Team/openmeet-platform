@@ -191,7 +191,7 @@ const loadBlueskyEvents = async () => {
                         flat
                         round
                         color="grey-6"
-                        icon="delete"
+                        icon="sym_r_delete"
                         size="sm"
                         :loading="deletingEvent === event.uri"
                         @click="confirmDelete(event)"
@@ -214,7 +214,7 @@ const loadBlueskyEvents = async () => {
                       <div v-for="(loc, index) in event.value?.locations" :key="'loc-' + index">
                         <template v-if="loc.type === 'community.lexicon.location.geo'">
                           <div class="row items-center text-grey-8">
-                            <q-icon name="place" size="18px" class="q-mr-sm" />
+                            <q-icon name="sym_r_place" size="18px" class="q-mr-sm" />
                             <span>{{ loc.description }}</span>
                           </div>
                         </template>
@@ -224,7 +224,7 @@ const loadBlueskyEvents = async () => {
                       <div v-for="(uri, index) in event.value?.uris" :key="'uri-' + index">
                         <div class="row items-center">
                           <q-icon
-                            :name="uri.name === 'Event Image' ? 'image' : 'link'"
+                            :name="uri.name === 'Event Image' ? 'sym_r_image' : 'sym_r_link'"
                             size="18px"
                             class="q-mr-sm text-grey-8"
                           />
