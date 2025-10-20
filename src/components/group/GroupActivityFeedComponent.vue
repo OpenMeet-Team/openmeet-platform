@@ -6,6 +6,7 @@ import { formatRelativeTime } from '../../utils/dateUtils'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
+import { logger } from '../../utils/logger'
 
 interface Props {
   groupSlug: string
@@ -26,11 +27,18 @@ async function fetchActivities() {
   isLoading.value = true
   error.value = null
   try {
+    logger.debug(`Fetching activity feed for group: ${props.groupSlug}`)
     const response = await groupsApi.getFeed(props.groupSlug, { limit: 20 })
+    logger.debug(`Activity feed response: ${response.data.length} items`)
     activities.value = response.data
-  } catch (err) {
-    console.error('Failed to load activity feed:', err)
-    error.value = 'Failed to load activity feed'
+  } catch (err: any) {
+    logger.error('Failed to load activity feed', {
+      group: props.groupSlug,
+      status: err?.response?.status,
+      message: err?.response?.data?.message,
+      error: err
+    })
+    error.value = err?.response?.data?.message || 'Failed to load activity feed'
   } finally {
     isLoading.value = false
   }
