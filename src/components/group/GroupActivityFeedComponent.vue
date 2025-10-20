@@ -97,7 +97,11 @@ function getActivityIcon (activityType: string): string {
     'member.joined': 'sym_r_person_add',
     'event.created': 'sym_r_celebration',
     'event.rsvp': 'sym_r_check_circle',
-    'group.activity': 'sym_r_pulse_alert'
+    'group.activity': 'sym_r_pulse_alert',
+    'group.created': 'sym_r_group_add',
+    'group.updated': 'sym_r_edit',
+    'event.updated': 'sym_r_edit',
+    'group.milestone': 'sym_r_emoji_events'
   }
   return icons[activityType] || 'sym_r_notifications'
 }
@@ -107,7 +111,11 @@ function getActivityColor (activityType: string): string {
     'member.joined': 'primary',
     'event.created': 'secondary',
     'event.rsvp': 'positive',
-    'group.activity': 'grey-6'
+    'group.activity': 'grey-6',
+    'group.created': 'primary',
+    'group.updated': 'info',
+    'event.updated': 'info',
+    'group.milestone': 'warning'
   }
   return colors[activityType] || 'grey-6'
 }
@@ -153,6 +161,29 @@ function formatActivityText (activity: ActivityFeedEntity): {
 
   if (activityType === 'group.activity') {
     return { text: 'Activity in this group' }
+  }
+
+  if (activityType === 'group.created') {
+    return {
+      text: `${metadata.actorName} created this group`,
+      actorLink: metadata.actorSlug
+    }
+  }
+
+  if (activityType === 'group.updated') {
+    return { text: 'Group information updated' }
+  }
+
+  if (activityType === 'event.updated') {
+    return {
+      text: `${metadata.eventName} details updated`,
+      eventLink: metadata.eventSlug
+    }
+  }
+
+  if (activityType === 'group.milestone') {
+    const value = metadata.value || 0
+    return { text: `Reached ${value} members! 🎉` }
   }
 
   return { text: activity.activityType }
@@ -278,6 +309,34 @@ function navigateToActor (actorSlug: string, event: Event) {
                   </span>
                 </template>
 
+                <template v-else-if="activity.activityType === 'group.created'">
+                  <span
+                    class="actor-link"
+                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                  >
+                    {{ activity.metadata.actorName }}
+                  </span>
+                  <span> created this group</span>
+                </template>
+
+                <template v-else-if="activity.activityType === 'group.updated'">
+                  <span>Group information updated</span>
+                </template>
+
+                <template v-else-if="activity.activityType === 'event.updated'">
+                  <span
+                    class="event-link"
+                    @click="navigateToEvent(activity, $event)"
+                  >
+                    {{ activity.metadata.eventName }}
+                  </span>
+                  <span> details updated</span>
+                </template>
+
+                <template v-else-if="activity.activityType === 'group.milestone'">
+                  <span class="milestone-text">🎉 Reached {{ activity.metadata.value }} members!</span>
+                </template>
+
                 <template v-else>
                   <span>{{ formatActivityText(activity).text }}</span>
                 </template>
@@ -359,6 +418,11 @@ function navigateToActor (actorSlug: string, event: Event) {
 
 .aggregated-count {
   font-weight: 600;
+}
+
+.milestone-text {
+  font-weight: 700;
+  font-size: 1.05em;
 }
 
 .load-more-btn {
