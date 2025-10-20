@@ -35,32 +35,34 @@ const sortedEvents = computed(() => {
   <SubtitleComponent class="q-px-md q-mt-lg" label="Upcoming Events" :to="{ name: 'GroupEventsPage' }" />
 
   <q-card flat>
-    <q-list v-if="sortedEvents?.length">
-      <q-item
-        v-for="event in sortedEvents"
-        :key="event.id"
-        clickable
-        @click="navigateToEvent(event)"
-        class="shadow-1 q-mt-md"
-      >
-        <q-item-section avatar>
-          <q-icon name="sym_r_event" color="primary" size="md" />
-        </q-item-section>
-        <q-item-section>
-          <q-item-label>
-            {{ event.name }}
-            <q-badge v-if="event.status === 'cancelled'" color="red" class="q-ml-sm">
-              <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
-              Cancelled
-            </q-badge>
-          </q-item-label>
-          <q-item-label caption>
-            {{ formatDate(event.startDate) }}
-          </q-item-label>
-        </q-item-section>
-      </q-item>
+    <q-list v-if="sortedEvents?.length" padding>
+      <template v-for="(event, index) in sortedEvents" :key="event.id">
+        <q-item
+          clickable
+          @click="navigateToEvent(event)"
+        >
+          <q-item-section avatar>
+            <q-icon name="sym_r_event" color="primary" size="md" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>
+              {{ event.name }}
+              <q-badge v-if="event.status === 'cancelled'" color="red" class="q-ml-sm">
+                <q-icon name="sym_r_cancel" size="xs" class="q-mr-xs" />
+                Cancelled
+              </q-badge>
+            </q-item-label>
+            <q-item-label caption>
+              {{ formatDate(event.startDate) }}
+            </q-item-label>
+          </q-item-section>
+        </q-item>
+        <q-separator v-if="index < sortedEvents.length - 1" :key="`sep-${event.id}`" />
+      </template>
     </q-list>
-    <NoContentComponent v-else icon="sym_r_event_busy" label="No upcoming events" />
+    <q-card-section v-else>
+      <NoContentComponent icon="sym_r_event_busy" label="No upcoming events" />
+    </q-card-section>
   </q-card>
 </template>
 

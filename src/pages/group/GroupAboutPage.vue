@@ -46,13 +46,14 @@ onMounted(() => {
       <!-- Events List Section -->
       <GroupAboutEventsComponent :events="group.events" />
 
-      <!-- Activity Feed Section -->
-      <GroupActivityFeedComponent :group-slug="group.slug" />
-
     </div>
 
-    <!-- Members List -->
+    <!-- Right Column: Activity Feed + Members -->
     <div class="col-12 col-sm-6">
+      <!-- Activity Feed Section (More Prominent) -->
+      <GroupActivityFeedComponent :group-slug="group.slug" />
+
+      <!-- Members List -->
       <GroupAboutMembersComponent />
     </div>
   </div>
