@@ -56,36 +56,54 @@ function getActivityColor(activityType: string): string {
   return colors[activityType] || 'grey-6'
 }
 
-function formatActivityText(activity: ActivityFeedEntity): string {
+function formatActivityText(activity: ActivityFeedEntity): {
+  text: string
+  actorLink?: string
+  eventLink?: string
+} {
   const { activityType, aggregatedCount, metadata } = activity
 
   if (activityType === 'member.joined') {
     if (aggregatedCount > 1) {
-      return `${aggregatedCount} people joined the group`
+      return { text: `${aggregatedCount} people joined the group` }
     }
-    return `${metadata.actorName} joined the group`
+    return {
+      text: `${metadata.actorName} joined the group`,
+      actorLink: metadata.actorSlug,
+    }
   }
 
   if (activityType === 'event.created') {
-    return `${metadata.actorName} created ${metadata.eventName}`
+    return {
+      text: `${metadata.actorName} created ${metadata.eventName}`,
+      actorLink: metadata.actorSlug,
+      eventLink: metadata.eventSlug,
+    }
   }
 
   if (activityType === 'event.rsvp') {
     if (aggregatedCount > 1) {
-      return `${aggregatedCount} people are attending ${metadata.eventName}`
+      return {
+        text: `${aggregatedCount} people are attending ${metadata.eventName}`,
+        eventLink: metadata.eventSlug,
+      }
     }
-    return `${metadata.actorName} is attending ${metadata.eventName}`
+    return {
+      text: `${metadata.actorName} is attending ${metadata.eventName}`,
+      actorLink: metadata.actorSlug,
+      eventLink: metadata.eventSlug,
+    }
   }
 
   if (activityType === 'group.activity') {
-    return 'Activity in this group'
+    return { text: 'Activity in this group' }
   }
 
-  return activity.activityType
+  return { text: activity.activityType }
 }
 
-function navigateToActivity(activity: ActivityFeedEntity) {
-  // Navigate to event if event activity
+function navigateToEvent(activity: ActivityFeedEntity, event: Event) {
+  event.stopPropagation()
   if (activity.metadata.eventSlug) {
     router.push({
       name: 'EventPage',
@@ -97,12 +115,12 @@ function navigateToActivity(activity: ActivityFeedEntity) {
   }
 }
 
-const clickableActivities = computed(() => {
-  return activities.value.filter(a => a.metadata.eventSlug)
-})
-
-function isClickable(activity: ActivityFeedEntity): boolean {
-  return !!activity.metadata.eventSlug
+function navigateToActor(actorSlug: string, event: Event) {
+  event.stopPropagation()
+  router.push({
+    name: 'MemberPage',
+    params: { slug: actorSlug },
+  })
 }
 </script>
 
@@ -123,9 +141,7 @@ function isClickable(activity: ActivityFeedEntity): boolean {
         <q-item
           v-for="activity in activities"
           :key="activity.ulid"
-          :clickable="isClickable(activity)"
-          @click="isClickable(activity) ? navigateToActivity(activity) : undefined"
-          class="shadow-1 q-mt-md"
+          class="shadow-1 q-mt-md activity-item"
         >
           <q-item-section avatar>
             <q-icon
@@ -136,14 +152,69 @@ function isClickable(activity: ActivityFeedEntity): boolean {
           </q-item-section>
           <q-item-section>
             <q-item-label>
-              {{ formatActivityText(activity) }}
+              <template v-if="activity.activityType === 'member.joined' && activity.aggregatedCount === 1">
+                <span
+                  class="actor-link"
+                  @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                >
+                  {{ activity.metadata.actorName }}
+                </span>
+                <span> joined the group</span>
+              </template>
+
+              <template v-else-if="activity.activityType === 'member.joined' && activity.aggregatedCount > 1">
+                <span>{{ activity.aggregatedCount }} people joined the group</span>
+              </template>
+
+              <template v-else-if="activity.activityType === 'event.created'">
+                <span
+                  class="actor-link"
+                  @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                >
+                  {{ activity.metadata.actorName }}
+                </span>
+                <span> created </span>
+                <span
+                  class="event-link"
+                  @click="navigateToEvent(activity, $event)"
+                >
+                  {{ activity.metadata.eventName }}
+                </span>
+              </template>
+
+              <template v-else-if="activity.activityType === 'event.rsvp' && activity.aggregatedCount === 1">
+                <span
+                  class="actor-link"
+                  @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                >
+                  {{ activity.metadata.actorName }}
+                </span>
+                <span> is attending </span>
+                <span
+                  class="event-link"
+                  @click="navigateToEvent(activity, $event)"
+                >
+                  {{ activity.metadata.eventName }}
+                </span>
+              </template>
+
+              <template v-else-if="activity.activityType === 'event.rsvp' && activity.aggregatedCount > 1">
+                <span>{{ activity.aggregatedCount }} people are attending </span>
+                <span
+                  class="event-link"
+                  @click="navigateToEvent(activity, $event)"
+                >
+                  {{ activity.metadata.eventName }}
+                </span>
+              </template>
+
+              <template v-else>
+                <span>{{ formatActivityText(activity).text }}</span>
+              </template>
             </q-item-label>
             <q-item-label caption>
               {{ formatRelativeTime(activity.updatedAt) }}
             </q-item-label>
-          </q-item-section>
-          <q-item-section v-if="isClickable(activity)" side>
-            <q-icon name="sym_r_chevron_right" color="grey-6" />
           </q-item-section>
         </q-item>
       </q-list>
@@ -158,13 +229,26 @@ function isClickable(activity: ActivityFeedEntity): boolean {
 </template>
 
 <style scoped lang="scss">
-.q-item {
+.activity-item {
   border-radius: 8px;
+}
+
+.actor-link,
+.event-link {
+  cursor: pointer;
+  font-weight: 500;
   transition: all 0.2s ease;
 
-  &[clickable="true"]:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-    transform: translateX(4px);
+  &:hover {
+    text-decoration: underline;
   }
+}
+
+.actor-link {
+  color: var(--q-primary);
+}
+
+.event-link {
+  color: var(--q-secondary);
 }
 </style>
