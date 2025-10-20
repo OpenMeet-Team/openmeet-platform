@@ -119,7 +119,7 @@ function formatActivityText (activity: ActivityFeedEntity): {
   groupLink?: string
   eventLink?: string
 } {
-  const { activityType, aggregatedCount, metadata } = activity
+  const { activityType, metadata } = activity
 
   if (activityType === 'group.created') {
     return {
@@ -141,7 +141,7 @@ function formatActivityText (activity: ActivityFeedEntity): {
     // Check if this is an anonymized activity with custom description
     if (metadata.activityDescription) {
       return {
-        text: metadata.activityDescription
+        text: String(metadata.activityDescription)
       }
     }
     // Otherwise show activity in specific group
@@ -160,19 +160,6 @@ function navigateToGroup (groupSlug: string, event: Event) {
     router.push({
       name: 'GroupPage',
       params: { slug: groupSlug }
-    })
-  }
-}
-
-function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
-  event.stopPropagation()
-  if (activity.metadata.eventSlug && activity.metadata.groupSlug) {
-    router.push({
-      name: 'EventPage',
-      params: {
-        groupSlug: activity.metadata.groupSlug,
-        slug: activity.metadata.eventSlug
-      }
     })
   }
 }
