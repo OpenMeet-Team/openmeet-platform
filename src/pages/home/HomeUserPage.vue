@@ -14,6 +14,7 @@ import EventsListComponent from '../../components/event/EventsListComponent.vue'
 import { useEventDialog } from '../../composables/useEventDialog'
 import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarComponent.vue'
 import { EventAttendeeStatus } from '../../types/event'
+import SitewideFeedComponent from '../../components/activity-feed/SitewideFeedComponent.vue'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -349,6 +350,11 @@ const onCalendarDateSelect = () => {
             </q-card>
           </div>
         </div>
+      </div>
+
+      <!-- Recent Activity Section -->
+      <div class="q-mt-xl">
+        <SitewideFeedComponent />
       </div>
     </div>
   </q-page>

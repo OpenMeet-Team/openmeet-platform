@@ -138,6 +138,13 @@ function formatActivityText (activity: ActivityFeedEntity): {
   }
 
   if (activityType === 'group.activity') {
+    // Check if this is an anonymized activity with custom description
+    if (metadata.activityDescription) {
+      return {
+        text: metadata.activityDescription
+      }
+    }
+    // Otherwise show activity in specific group
     return {
       text: `Activity in ${metadata.groupName}`,
       groupLink: metadata.groupSlug

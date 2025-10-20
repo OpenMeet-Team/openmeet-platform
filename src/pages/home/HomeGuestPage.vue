@@ -83,6 +83,11 @@
           layout="grid"
         />
       </div>
+
+      <!-- Recent Activity Section -->
+      <div class="col-12 q-mt-lg">
+        <SitewideFeedComponent />
+      </div>
     </div>
   </q-page>
 </template>
@@ -97,6 +102,7 @@ import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
 import { GroupEntity } from '../../types/group'
 import { EventEntity } from '../../types'
 import EventsListComponent from '../../components/event/EventsListComponent.vue'
+import SitewideFeedComponent from '../../components/activity-feed/SitewideFeedComponent.vue'
 
 const { goToRegister, goToLogin } = useAuth()
 const featuredGroups = computed(() => useHomeStore().guestFeaturedGroups)
