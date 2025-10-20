@@ -36,14 +36,29 @@ async function fetchActivities () {
     activities.value = response.data
     hasMore.value = response.data.length === limit
   } catch (err) {
-    const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
+    const axiosError = err as { response?: { status?: number; data?: { message?: string } }; code?: string; message?: string }
     logger.error('Failed to load activity feed', {
       group: props.groupSlug,
       status: axiosError.response?.status,
-      message: axiosError.response?.data?.message,
+      code: axiosError.code,
+      message: axiosError.response?.data?.message || axiosError.message,
       error: err
     })
-    error.value = axiosError.response?.data?.message || 'Failed to load activity feed'
+
+    // Provide user-friendly error messages
+    if (!axiosError.response) {
+      // Network error - backend not reachable
+      error.value = 'Unable to check activity. Please check your connection.'
+    } else if (axiosError.response.status === 404) {
+      // Group not found or endpoint not found
+      error.value = 'Activity feed is currently unavailable'
+    } else if (axiosError.response.status >= 500) {
+      // Server error
+      error.value = 'Unable to load activity. Please try again later.'
+    } else {
+      // Other errors (4xx)
+      error.value = axiosError.response?.data?.message || 'Unable to load activity feed'
+    }
   } finally {
     isLoading.value = false
   }
@@ -176,8 +191,20 @@ function navigateToActor (actorSlug: string, event: Event) {
         </div>
       </q-card-section>
 
-      <q-card-section v-else-if="error">
-        <div class="text-center text-negative">{{ error }}</div>
+      <q-card-section v-else-if="error" class="error-section">
+        <div class="text-center">
+          <q-icon name="sym_r_error_outline" size="48px" color="grey-6" class="q-mb-sm" />
+          <div class="text-grey-7 q-mb-md">{{ error }}</div>
+          <q-btn
+            flat
+            color="primary"
+            @click="fetchActivities"
+            class="retry-btn"
+          >
+            <q-icon name="sym_r_refresh" class="q-mr-sm" />
+            Try again
+          </q-btn>
+        </div>
       </q-card-section>
 
       <q-list v-else-if="activities.length" class="activity-list" padding>
@@ -343,6 +370,15 @@ function navigateToActor (actorSlug: string, event: Event) {
   color: rgba(0, 0, 0, 0.38);
   font-size: 14px;
   font-style: italic;
+}
+
+.error-section {
+  padding: 48px 24px;
+}
+
+.retry-btn {
+  font-weight: 500;
+  text-transform: none;
 }
 
 // Dark mode support
