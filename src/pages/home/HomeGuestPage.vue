@@ -57,6 +57,11 @@
         </div>
       </div>
 
+      <!-- Recent Activity Section -->
+      <div class="col-12 q-mt-lg">
+        <SitewideFeedComponent />
+      </div>
+
       <!-- Featured Groups Section -->
       <div class="col-12 q-mt-lg">
         <!-- Featured Groups -->
@@ -82,11 +87,6 @@
           empty-message="No events found"
           layout="grid"
         />
-      </div>
-
-      <!-- Recent Activity Section -->
-      <div class="col-12 q-mt-lg">
-        <SitewideFeedComponent />
       </div>
     </div>
   </q-page>
