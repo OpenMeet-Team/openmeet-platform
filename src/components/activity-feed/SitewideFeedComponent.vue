@@ -151,6 +151,15 @@ function formatActivityText (activity: ActivityFeedEntity): {
     }
   }
 
+  if (activityType === 'event.created') {
+    return {
+      text: `${metadata.actorName} created ${metadata.eventName} in ${metadata.groupName}`,
+      actorLink: metadata.actorSlug,
+      groupLink: metadata.groupSlug,
+      eventLink: metadata.eventSlug
+    }
+  }
+
   return { text: activity.activityType }
 }
 
@@ -170,6 +179,19 @@ function navigateToActor (actorSlug: string, event: Event) {
     name: 'MemberPage',
     params: { slug: actorSlug }
   })
+}
+
+function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
+  event.stopPropagation()
+  if (activity.metadata.eventSlug && activity.metadata.groupSlug) {
+    router.push({
+      name: 'EventPage',
+      params: {
+        groupSlug: activity.metadata.groupSlug,
+        slug: activity.metadata.eventSlug
+      }
+    })
+  }
 }
 </script>
 
@@ -237,6 +259,29 @@ function navigateToActor (actorSlug: string, event: Event) {
                     {{ activity.metadata.groupName }}
                   </span>
                   <span class="milestone-text"> reached {{ activity.metadata.value }} members! 🎉</span>
+                </template>
+
+                <template v-else-if="activity.activityType === 'event.created'">
+                  <span
+                    class="actor-link"
+                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                  >
+                    {{ activity.metadata.actorName }}
+                  </span>
+                  <span> created </span>
+                  <span
+                    class="event-link"
+                    @click="navigateToEvent(activity, $event)"
+                  >
+                    {{ activity.metadata.eventName }}
+                  </span>
+                  <span> in </span>
+                  <span
+                    class="group-link"
+                    @click="navigateToGroup(activity.metadata.groupSlug, $event)"
+                  >
+                    {{ activity.metadata.groupName }}
+                  </span>
                 </template>
 
                 <template v-else-if="activity.activityType === 'group.activity'">
