@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
-import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity } from '../types'
+import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity, ActivityFeedEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 
 const createEventApiHeaders = (eventSlug: string) => ({
@@ -62,7 +62,7 @@ export interface EventApiType {
   // New endpoint to get all events in a series
   getEventsBySeries: (seriesSlug: string, query?: { page: number, limit: number }) => Promise<AxiosResponse<EventEntity[]>>
   // Activity feed endpoint
-  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }) => Promise<AxiosResponse<any[]>>
+  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }) => Promise<AxiosResponse<ActivityFeedEntity[]>>
 
   // Admin messaging endpoints
   sendAdminMessage: (slug: string, data: { subject: string, message: string }) => Promise<AxiosResponse<AdminMessageResult>>
@@ -153,5 +153,5 @@ export const eventsApi: EventApiType = {
   contactOrganizers: (slug: string, data: { contactType: string, subject: string, message: string }): Promise<AxiosResponse<AdminMessageResult>> => api.post(`/api/events/${slug}/contact-organizers`, data, createEventApiHeaders(slug)),
 
   // Activity feed endpoint
-  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }): Promise<AxiosResponse<any[]>> => api.get(`/api/events/${eventSlug}/feed`, { params: query })
+  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }): Promise<AxiosResponse<ActivityFeedEntity[]>> => api.get(`/api/events/${eventSlug}/feed`, { params: query })
 }
