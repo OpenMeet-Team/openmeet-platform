@@ -240,13 +240,21 @@ function navigateToActor (actorSlug: string, event: Event) {
                 </template>
 
                 <template v-else-if="activity.activityType === 'group.activity'">
-                  <span>Activity in </span>
-                  <span
-                    class="group-link"
-                    @click="navigateToGroup(activity.metadata.groupSlug, $event)"
-                  >
-                    {{ activity.metadata.groupName }}
-                  </span>
+                  <template v-if="activity.metadata.activityDescription">
+                    <span>{{ activity.metadata.activityDescription }}</span>
+                  </template>
+                  <template v-else-if="activity.metadata.groupName">
+                    <span>Activity in </span>
+                    <span
+                      class="group-link"
+                      @click="navigateToGroup(activity.metadata.groupSlug, $event)"
+                    >
+                      {{ activity.metadata.groupName }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span>Recent activity</span>
+                  </template>
                 </template>
 
                 <template v-else>
