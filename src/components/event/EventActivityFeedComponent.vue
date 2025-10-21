@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { eventsApi } from '../../api/events'
+import { activityFeedApi } from '../../api/activity-feed'
 import { ActivityFeedEntity } from '../../types'
 import { formatRelativeTime } from '../../utils/dateUtils'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger'
+import { useShowActivityFeed } from '../../composables/useFeatureFlag'
 
 interface Props {
   eventSlug: string
-  groupSlug: string
+  groupSlug?: string
 }
 
 const props = defineProps<Props>()
 const router = useRouter()
+const isActivityFeedEnabled = useShowActivityFeed()
 
 const activities = ref<ActivityFeedEntity[]>([])
 const isLoading = ref(false)
@@ -24,7 +26,9 @@ const hasMore = ref(true)
 const limit = 20
 
 onMounted(async () => {
-  await fetchActivities()
+  if (isActivityFeedEnabled.value) {
+    await fetchActivities()
+  }
 })
 
 async function fetchActivities () {
@@ -32,7 +36,7 @@ async function fetchActivities () {
   error.value = null
   try {
     logger.debug(`Fetching activity feed for event: ${props.eventSlug}`)
-    const response = await eventsApi.getFeed(props.groupSlug, props.eventSlug, { limit })
+    const response = await activityFeedApi.getEventFeed(props.eventSlug, { limit })
     logger.debug(`Activity feed response: ${response.data.length} items`)
     activities.value = response.data
     hasMore.value = response.data.length === limit
@@ -71,7 +75,7 @@ async function loadMore () {
   isLoadingMore.value = true
   try {
     logger.debug(`Loading more activities, offset: ${activities.value.length}`)
-    const response = await eventsApi.getFeed(props.groupSlug, props.eventSlug, {
+    const response = await activityFeedApi.getEventFeed(props.eventSlug, {
       limit,
       offset: activities.value.length
     })
@@ -213,7 +217,7 @@ function navigateToActor (actorSlug: string, event: Event) {
 </script>
 
 <template>
-  <div class="activity-feed-container">
+  <div v-if="isActivityFeedEnabled" class="activity-feed-container">
     <SubtitleComponent class="q-px-md" label="Recent Activity" hide-link />
 
     <q-card flat>
@@ -367,7 +371,7 @@ function navigateToActor (actorSlug: string, event: Event) {
         </q-card-section>
 
         <q-card-section v-else-if="activities.length > 0" class="text-center">
-          <div class="end-message">That's all the activity for this group</div>
+          <div class="end-message">That's all the activity for this event</div>
         </q-card-section>
       </q-list>
 
