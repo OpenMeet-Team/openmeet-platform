@@ -152,6 +152,15 @@ function formatActivityText (activity: ActivityFeedEntity): {
   }
 
   if (activityType === 'event.created') {
+    // Handle standalone events (no group)
+    if (!metadata.groupName) {
+      return {
+        text: `${metadata.actorName} created ${metadata.eventName}`,
+        actorLink: metadata.actorSlug,
+        eventLink: metadata.eventSlug
+      }
+    }
+    // Events with groups
     return {
       text: `${metadata.actorName} created ${metadata.eventName} in ${metadata.groupName}`,
       actorLink: metadata.actorSlug,
@@ -183,14 +192,25 @@ function navigateToActor (actorSlug: string, event: Event) {
 
 function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
   event.stopPropagation()
-  if (activity.metadata.eventSlug && activity.metadata.groupSlug) {
-    router.push({
-      name: 'EventPage',
-      params: {
-        groupSlug: activity.metadata.groupSlug,
-        slug: activity.metadata.eventSlug
-      }
-    })
+  if (activity.metadata.eventSlug) {
+    // For events with groups, include the group slug
+    if (activity.metadata.groupSlug) {
+      router.push({
+        name: 'EventPage',
+        params: {
+          groupSlug: activity.metadata.groupSlug,
+          slug: activity.metadata.eventSlug
+        }
+      })
+    } else {
+      // For standalone events, navigate without group slug
+      router.push({
+        name: 'EventPage',
+        params: {
+          slug: activity.metadata.eventSlug
+        }
+      })
+    }
   }
 }
 </script>
@@ -275,13 +295,15 @@ function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
                   >
                     {{ activity.metadata.eventName }}
                   </span>
-                  <span> in </span>
-                  <span
-                    class="group-link"
-                    @click="navigateToGroup(activity.metadata.groupSlug, $event)"
-                  >
-                    {{ activity.metadata.groupName }}
-                  </span>
+                  <template v-if="activity.metadata.groupName">
+                    <span> in </span>
+                    <span
+                      class="group-link"
+                      @click="navigateToGroup(activity.metadata.groupSlug, $event)"
+                    >
+                      {{ activity.metadata.groupName }}
+                    </span>
+                  </template>
                 </template>
 
                 <template v-else-if="activity.activityType === 'group.activity'">
