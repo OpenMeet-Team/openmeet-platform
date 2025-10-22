@@ -405,6 +405,12 @@
 
         <!-- Attendees (Mobile: 6th, Desktop: continues in left column) -->
         <EventAttendeesComponent />
+
+        <!-- Activity Feed -->
+        <EventActivityFeedComponent
+          :event-slug="event.slug"
+          :group-slug="event.group?.slug"
+        />
       </div>
 
       <!-- Sidebar - Desktop only -->
@@ -954,6 +960,7 @@ import { GroupPermission } from '../types/group'
 import { EventAttendeePermission, EventStatus } from '../types/event'
 import EventAttendeesComponent from '../components/event/EventAttendeesComponent.vue'
 import EventMatrixChatComponent from '../components/event/EventMatrixChatComponent.vue'
+import EventActivityFeedComponent from '../components/event/EventActivityFeedComponent.vue'
 import {
   EventEntity
 } from '../types'

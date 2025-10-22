@@ -9,5 +9,5 @@
   "APP_HUBSPOT_FORM_ID": "456",
   "APP_GOOGLE_CLIENT_ID": "789",
   "APP_GITHUB_CLIENT_ID": "135",
-  "APP_POSTHOG_KEY": "790"
+  "APP_POSTHOG_KEY": "phc_YourPostHogProjectAPIKey"
 }

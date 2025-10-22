@@ -27,7 +27,7 @@ const onMemberClick = (member: GroupMemberEntity) => {
 </script>
 
 <template>
-  <q-card flat style="position: sticky; top: 70px;" v-if="group">
+  <q-card flat class="q-mt-lg" v-if="group">
     <q-card-section>
       <SubtitleComponent hide-link label="Organizer" />
       <q-list>

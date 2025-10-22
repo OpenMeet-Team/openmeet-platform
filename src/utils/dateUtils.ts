@@ -33,6 +33,30 @@ export function formatDate (dateString: string, format?: string) {
   return date.formatDate(dateString, format || 'ddd, MMM D, YYYY, HH:mm')
 }
 
+export function formatRelativeTime (dateString: string | Date): string {
+  const now = new Date()
+  const target = new Date(dateString)
+  const differenceMs = now.getTime() - target.getTime()
+
+  if (differenceMs < 0) {
+    return 'just now'
+  }
+
+  const seconds = Math.floor(differenceMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const months = Math.floor(days / 30)
+  const years = Math.floor(days / 365)
+
+  if (seconds < 60) return 'just now'
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
+  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`
+  if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`
+  return `${years} year${years > 1 ? 's' : ''} ago`
+}
+
 export function addToGoogleCalendar (event: EventEntity) {
   // Prepare the event details
   const title = encodeURIComponent(event.name)
