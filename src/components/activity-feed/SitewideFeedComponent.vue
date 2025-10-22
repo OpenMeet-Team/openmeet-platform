@@ -17,7 +17,7 @@ const isLoading = ref(false)
 const isLoadingMore = ref(false)
 const error = ref<string | null>(null)
 const hasMore = ref(true)
-const limit = 20
+const limit = 10
 
 onMounted(async () => {
   if (isActivityFeedEnabled.value) {
