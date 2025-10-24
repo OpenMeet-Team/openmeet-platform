@@ -1,0 +1,111 @@
+name: Update Image Tag (GitOps)
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Service name (api, platform, biz, etc.)'
+        required: true
+        type: string
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment (dev, prod, pr-123, etc.)'
+        required: true
+        type: string
+      ecr_registry:
+        description: 'ECR registry URL'
+        required: true
+        type: string
+      ecr_repository:
+        description: 'ECR repository name'
+        required: true
+        type: string
+      commit_message:
+        description: 'Git commit message'
+        required: false
+        type: string
+        default: 'Update image tag'
+    secrets:
+      GH_PAT:
+        description: 'GitHub PAT with repo access'
+        required: true
+
+jobs:
+  update-gitops:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          repository: OpenMeet-Team/openmeet-infrastructure
+          token: ${{ secrets.GH_PAT }}
+          ref: main
+
+      - name: Update kustomization.yaml with new image tag
+        run: |
+          KUSTOMIZATION_PATH="k8s/environments/${{ inputs.environment }}/kustomization.yaml"
+          IMAGE_FULL="${{ inputs.ecr_registry }}/${{ inputs.ecr_repository }}:${{ inputs.image_tag }}"
+
+          echo "Updating $KUSTOMIZATION_PATH"
+          echo "Service: ${{ inputs.service_name }}"
+          echo "New image: $IMAGE_FULL"
+
+          # Update the image tag in the kustomization file
+          # This uses sed to find the line with the service image and update it
+          sed -i "s|image: .*${{ inputs.ecr_repository }}:.*|image: $IMAGE_FULL|" "$KUSTOMIZATION_PATH"
+
+          # Show the diff
+          git diff "$KUSTOMIZATION_PATH"
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+          KUSTOMIZATION_PATH="k8s/environments/${{ inputs.environment }}/kustomization.yaml"
+
+          git add "$KUSTOMIZATION_PATH"
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit - image tag may already be up to date"
+            exit 0
+          fi
+
+          git commit -m "${{ inputs.commit_message }}"
+
+          # Push with retry logic to handle concurrent updates
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempting to push (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
+
+            if git push origin main; then
+              echo "✅ Successfully pushed changes"
+              exit 0
+            else
+              echo "⚠️  Push failed, pulling and retrying..."
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                # Pull with rebase to get latest changes
+                git pull --rebase origin main
+                sleep $((RETRY_COUNT * 2))  # Exponential backoff
+              fi
+            fi
+          done
+
+          echo "❌ Failed to push after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Trigger ArgoCD sync (optional)
+        if: inputs.environment == 'dev'
+        continue-on-error: true
+        run: |
+          echo "ArgoCD will auto-detect the change within 3 minutes"
+          echo "Or manually sync via UI: https://argocd-dev.openmeet.net"
+          # Future: Could add argocd CLI to trigger immediate sync
