@@ -44,3 +44,20 @@ export interface StoreAuthRestorePasswordRequest {
   hash: string
   password: string
 }
+
+export interface ApiQuickRsvpRequest {
+  name: string
+  email: string
+  eventSlug: string
+}
+
+export interface ApiQuickRsvpResponse {
+  success: boolean
+  message: string
+  verificationCode?: string
+}
+
+export interface ApiVerifyEmailCodeRequest {
+  code: string
+  email: string
+}

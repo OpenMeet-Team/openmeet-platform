@@ -64,7 +64,72 @@
       </q-card-section>
     </q-card>
 
-    <!-- No RSVP yet - Show both options -->
+    <!-- Need to join group before attending - Unauthenticated users -->
+    <q-card
+      v-else-if="!attendee && !authStore.isFullyAuthenticated && requiresGroupMembership"
+      flat
+      bordered
+      class="q-pa-md text-center"
+    >
+      <q-card-section>
+        <q-icon name="sym_r_group" size="md" color="grey-6" class="q-mb-sm" />
+        <div class="text-h6 q-mb-sm">Join {{ event.group?.name }} to RSVP</div>
+        <p class="text-body2 text-grey-7 q-mb-md">
+          This event requires you to be a member of the {{ event.group?.name }} group. Please sign in and join the group to attend.
+        </p>
+        <q-btn
+          color="primary"
+          icon="sym_r_login"
+          @click="goToLogin"
+          label="Sign in to join"
+          no-caps
+          class="full-width"
+        />
+      </q-card-section>
+    </q-card>
+
+    <!-- No RSVP yet - Unauthenticated users on public events -->
+    <div v-else-if="!attendee && !authStore.isFullyAuthenticated && !requiresGroupMembership" class="rsvp-button-group">
+      <!-- RSVP Instructions -->
+      <div class="rsvp-instructions q-mb-sm text-center">
+        <div class="text-h6 text-info q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" size="md" color="info" class="q-mr-xs" />
+          RSVP
+        </div>
+        <div class="text-caption text-grey-6">
+          Let the hosts know your plans!
+        </div>
+      </div>
+
+      <!-- Quick RSVP (Passwordless) -->
+      <q-btn
+        data-cy="event-quick-rsvp-button"
+        color="positive"
+        icon="sym_r_mail"
+        @click="showQuickRsvp = true"
+        label="Quick RSVP (no password)"
+        no-caps
+        class="full-width rsvp-yes-button"
+      />
+
+      <!-- Or Sign In -->
+      <div class="text-center q-my-sm text-caption text-grey-6">
+        or
+      </div>
+
+      <q-btn
+        data-cy="event-signin-rsvp-button"
+        color="primary"
+        icon="sym_r_login"
+        outline
+        @click="goToLogin"
+        label="Sign in to RSVP"
+        no-caps
+        class="full-width"
+      />
+    </div>
+
+    <!-- No RSVP yet - Authenticated users -->
     <div v-else-if="!attendee" class="rsvp-button-group">
       <!-- RSVP Instructions -->
       <div class="rsvp-instructions q-mb-sm text-center">
@@ -169,6 +234,22 @@
       </div>
     </q-btn>
   </div>
+
+  <!-- Quick RSVP Dialog -->
+  <QuickRSVPDialog
+    v-model="showQuickRsvp"
+    :event-slug="event.slug"
+    :event-name="event.name"
+    @success="handleQuickRsvpSuccess"
+  />
+
+  <!-- Verify Email Code Dialog -->
+  <VerifyEmailCodeDialog
+    v-model="showVerifyCode"
+    :email="quickRsvpEmail"
+    :verification-code="quickRsvpCode"
+    @success="handleVerifySuccess"
+  />
 </template>
 
 <script setup lang="ts">
@@ -188,6 +269,8 @@ import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
 import { eventLoadingState } from '../../utils/eventLoadingState'
 import { logger } from '../../utils/logger'
+import QuickRSVPDialog from '../auth/QuickRSVPDialog.vue'
+import VerifyEmailCodeDialog from '../auth/VerifyEmailCodeDialog.vue'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -205,6 +288,12 @@ const props = defineProps<{
 
 const loading = ref(false)
 const initialLoading = ref(true)
+
+// Quick RSVP state
+const showQuickRsvp = ref(false)
+const showVerifyCode = ref(false)
+const quickRsvpEmail = ref('')
+const quickRsvpCode = ref<string | undefined>(undefined)
 
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
@@ -252,6 +341,11 @@ const needsToJoinGroup = computed(() => {
   if (props.event.groupMember.groupRole?.name === 'guest') return true
 
   return false
+})
+
+// Check if event requires group membership (used to hide Quick RSVP for restricted events)
+const requiresGroupMembership = computed(() => {
+  return props.event.requireGroupMembership && props.event.group
 })
 
 // Watch for changes in authentication state
@@ -611,6 +705,20 @@ const handleLeave = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Handle Quick RSVP success - save email and show verification dialog
+const handleQuickRsvpSuccess = (email: string, verificationCode?: string) => {
+  quickRsvpEmail.value = email
+  quickRsvpCode.value = verificationCode
+  showVerifyCode.value = true
+}
+
+// Handle verification success - user is now logged in
+const handleVerifySuccess = () => {
+  // The VerifyEmailCodeDialog handles the login and page reload
+  // No additional action needed here
+  logger.debug('Email verified successfully, user logged in')
 }
 </script>
 
