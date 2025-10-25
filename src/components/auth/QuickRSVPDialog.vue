@@ -79,6 +79,7 @@ const props = defineProps<{
   modelValue: boolean
   eventSlug: string
   eventName: string
+  status?: 'confirmed' | 'cancelled'
 }>()
 
 const emit = defineEmits<{
@@ -115,7 +116,8 @@ const onSubmit = async () => {
     const response = await authApi.quickRsvp({
       name: name.value,
       email: email.value,
-      eventSlug: props.eventSlug
+      eventSlug: props.eventSlug,
+      status: props.status || 'confirmed'
     })
 
     Notify.create({

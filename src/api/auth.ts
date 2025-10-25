@@ -100,6 +100,7 @@ export const authApi = {
     name: string
     email: string
     eventSlug: string
+    status?: 'confirmed' | 'cancelled'
   }): Promise<AxiosResponse<{ success: boolean; message: string; verificationCode?: string }>> =>
     api.post(`${BASE_URL}/quick-rsvp`, data),
 

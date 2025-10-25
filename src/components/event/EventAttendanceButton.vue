@@ -101,31 +101,29 @@
         </div>
       </div>
 
-      <!-- Quick RSVP (Passwordless) -->
+      <!-- Going -->
       <q-btn
-        data-cy="event-quick-rsvp-button"
+        data-cy="event-quick-rsvp-going-button"
         color="positive"
-        icon="sym_r_mail"
-        @click="showQuickRsvp = true"
-        label="Quick RSVP (no password)"
+        icon="sym_r_check_circle"
+        @click="handleQuickRsvpGoing"
+        label="Going"
         no-caps
+        align="left"
         class="full-width rsvp-yes-button"
       />
 
-      <!-- Or Sign In -->
-      <div class="text-center q-my-sm text-caption text-grey-6">
-        or
-      </div>
-
+      <!-- Can't go -->
       <q-btn
-        data-cy="event-signin-rsvp-button"
-        color="primary"
-        icon="sym_r_login"
+        data-cy="event-quick-rsvp-decline-button"
+        color="grey-7"
+        icon="sym_r_cancel"
         outline
-        @click="goToLogin"
-        label="Sign in to RSVP"
+        @click="handleQuickRsvpDecline"
+        label="Can't go"
         no-caps
-        class="full-width"
+        align="left"
+        class="full-width rsvp-no-button"
       />
     </div>
 
@@ -148,6 +146,7 @@
         @click="handleAttend"
         :label="event.requireApproval ? 'Going (pending approval)' : 'Going'"
         no-caps
+        align="left"
         class="full-width rsvp-yes-button"
       />
       <q-btn
@@ -158,6 +157,7 @@
         @click="handleDecline"
         label="Can't go"
         no-caps
+        align="left"
         class="full-width rsvp-no-button"
       />
     </div>
@@ -240,6 +240,7 @@
     v-model="showQuickRsvp"
     :event-slug="event.slug"
     :event-name="event.name"
+    :status="quickRsvpStatus"
     @success="handleQuickRsvpSuccess"
   />
 
@@ -294,6 +295,7 @@ const showQuickRsvp = ref(false)
 const showVerifyCode = ref(false)
 const quickRsvpEmail = ref('')
 const quickRsvpCode = ref<string | undefined>(undefined)
+const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
 
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
@@ -707,6 +709,18 @@ const handleLeave = async () => {
   }
 }
 
+// Handle Quick RSVP Going button
+const handleQuickRsvpGoing = () => {
+  quickRsvpStatus.value = 'confirmed'
+  showQuickRsvp.value = true
+}
+
+// Handle Quick RSVP Decline button
+const handleQuickRsvpDecline = () => {
+  quickRsvpStatus.value = 'cancelled'
+  showQuickRsvp.value = true
+}
+
 // Handle Quick RSVP success - save email and show verification dialog
 const handleQuickRsvpSuccess = (email: string, verificationCode?: string) => {
   quickRsvpEmail.value = email
@@ -734,6 +748,12 @@ const handleVerifySuccess = () => {
   .rsvp-yes-button {
     font-weight: 600;
 
+    // Ensure consistent spacing and alignment
+    :deep(.q-btn__content) {
+      gap: 8px;
+      padding-left: 8px; // Add left padding to match Share/QR buttons
+    }
+
     &:not(.q-btn--outline) {
       background: var(--q-positive);
       color: white;
@@ -752,6 +772,12 @@ const handleVerifySuccess = () => {
 
   .rsvp-no-button {
     font-weight: 500;
+
+    // Ensure consistent spacing and alignment
+    :deep(.q-btn__content) {
+      gap: 8px;
+      padding-left: 8px; // Add left padding to match Share/QR buttons
+    }
 
     &.q-btn--outline {
       border-color: var(--q-grey-7);
