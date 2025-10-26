@@ -12,6 +12,20 @@
       <div v-if="isSuccess" class="text-body1 text-grey-7 q-mb-lg">
         You're now logged in and can access all features!
       </div>
+
+      <!-- Helpful banner for passwordless users -->
+      <q-banner v-if="isSuccess" class="bg-info text-white q-mb-lg" rounded style="max-width: 600px; margin: 0 auto;">
+        <template v-slot:avatar>
+          <q-icon name="sym_r_lightbulb" color="white" />
+        </template>
+        <div class="text-body2">
+          <strong>Tip:</strong> You can log in anytime by requesting a verification code to your email. Want to use a password instead?
+          <router-link :to="{ name: 'ProfilePage' }" class="text-white text-bold" style="text-decoration: underline;">
+            Set one in your profile
+          </router-link>
+        </div>
+      </q-banner>
+
       <div class="row q-gutter-md justify-center">
         <q-btn
           v-if="eventSlug"

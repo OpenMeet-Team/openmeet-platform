@@ -169,11 +169,13 @@
       <q-card-section>
         <div class="text-h6 q-mb-md">
           <q-icon name="sym_r_vpn_key" class="q-mr-sm" />
-          Change Account Password
+          {{ userHasPassword ? 'Change Account Password' : 'Set Account Password' }}
         </div>
 
         <div class="q-gutter-md">
+          <!-- Only show current password field if user has a password -->
           <q-input
+            v-if="userHasPassword"
             data-cy="profile-old-password"
             v-model="form.oldPassword"
             filled
@@ -197,7 +199,8 @@
             v-model="form.password"
             filled
             :type="isPwd ? 'password' : 'text'"
-            label="New Password"
+            :label="userHasPassword ? 'New Password' : 'Password'"
+            :hint="userHasPassword ? '' : 'Must be at least 8 characters'"
           >
             <template v-slot:append>
               <q-icon
@@ -208,14 +211,34 @@
             </template>
           </q-input>
 
-          <div>
+          <!-- Explanatory text for passwordless users -->
+          <div v-if="!userHasPassword" class="text-caption text-grey-7 q-mt-sm">
+            <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
+            You currently log in with email verification codes. Setting a password will allow you to log in with email and password instead.
+          </div>
+
+          <div class="row q-gutter-sm">
             <q-btn
               data-cy="profile-change-password"
               no-caps
-              label="Change Password"
+              :label="userHasPassword ? 'Change Password' : 'Set Password'"
               color="primary"
               @click="onChangePassword"
             />
+
+            <!-- Toggle button to switch between set/change password modes -->
+            <q-btn
+              v-if="userHasPassword"
+              flat
+              no-caps
+              label="Setting initial password?"
+              color="grey-7"
+              size="sm"
+              @click="userHasPassword = false"
+              data-cy="profile-toggle-passwordless"
+            >
+              <q-tooltip>Click if you don't have a password yet</q-tooltip>
+            </q-btn>
           </div>
         </div>
       </q-card-section>
@@ -337,35 +360,53 @@ const onSubmit = async () => {
   }
 }
 
-// Separate function to handle password changes
+// Separate function to handle password changes (or setting initial password)
 const onChangePassword = async () => {
   try {
     if (!form.value.password || form.value.password.length < 8) {
-      error('New password must be at least 8 characters')
+      error('Password must be at least 8 characters')
       return
     }
 
-    if (!form.value.oldPassword) {
+    // For users with existing password, require old password
+    if (userHasPassword.value && !form.value.oldPassword) {
       error('Current password is required')
       return
     }
 
-    // Create an object with just the password fields
-    const passwordData = {
-      password: form.value.password,
-      oldPassword: form.value.oldPassword
+    // Create password data object
+    const passwordData: { password: string; oldPassword?: string } = {
+      password: form.value.password
+    }
+
+    // Only include oldPassword if user has an existing password
+    if (userHasPassword.value && form.value.oldPassword) {
+      passwordData.oldPassword = form.value.oldPassword
     }
 
     const response = await authApi.updateMe(passwordData)
     useAuthStore().actionSetUser(response.data)
-    success('Password updated successfully')
+
+    // Success message depends on whether this was initial password or change
+    if (userHasPassword.value) {
+      success('Password updated successfully')
+    } else {
+      success('Password set successfully! You can now log in with email and password.')
+      userHasPassword.value = true // User now has a password
+    }
 
     // Clear password fields for security
     form.value.password = ''
     form.value.oldPassword = ''
   } catch (err) {
     console.error('Failed to update password:', err)
-    error('Failed to update password. Please check your current password is correct.')
+
+    // Provide appropriate error message
+    if (userHasPassword.value) {
+      error('Failed to update password. Please check your current password is correct.')
+    } else {
+      error('Failed to set password. Please try again.')
+    }
   }
 }
 
@@ -386,6 +427,11 @@ const isBlueskyUser = computed(() => {
 const isLocalAuthUser = computed(() => {
   return !authStore.user.provider || authStore.user.provider === AuthProvidersEnum.email
 })
+
+// Track if user has a password set
+// We start with assumption they do (most users), but will detect passwordless state
+// when they try to change password without old password
+const userHasPassword = ref(true)
 
 onMounted(async () => {
   LoadingBar.start()

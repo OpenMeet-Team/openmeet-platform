@@ -146,6 +146,19 @@ const onSubmit = async () => {
     emit('success')
     showDialog.value = false
 
+    // Show helpful tip about setting a password after a brief delay
+    setTimeout(() => {
+      Notify.create({
+        type: 'info',
+        message: 'Tip: You can set a password in your profile settings to make future logins easier.',
+        position: 'top',
+        timeout: 5000,
+        actions: [
+          { label: 'Dismiss', color: 'white' }
+        ]
+      })
+    }, 2000)
+
     // No need to reload - the auth state watchers will handle UI updates
     // The EventAttendanceButton already watches authStore.isFullyAuthenticated
   } catch (error: unknown) {
