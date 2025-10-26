@@ -6,6 +6,7 @@ import { authApi } from '../../../api/auth'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '../../../stores/auth-store'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 // Mock the authApi
 vi.mock('../../../api/auth', () => ({
@@ -115,7 +116,7 @@ describe('VerifyEmailPage', () => {
 
   describe('Successful Verification', () => {
     it('should successfully verify email and authenticate user', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           token: 'test-token',
           refreshToken: 'test-refresh-token',
@@ -126,7 +127,11 @@ describe('VerifyEmailPage', () => {
             firstName: 'Test',
             lastName: 'User'
           }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.verifyEmailCode).mockResolvedValue(mockResponse)
 
@@ -166,13 +171,17 @@ describe('VerifyEmailPage', () => {
     })
 
     it('should store event slug when provided', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           token: 'test-token',
           refreshToken: 'test-refresh-token',
           tokenExpires: 3600,
           user: { id: '123', email: 'test@example.com' }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.verifyEmailCode).mockResolvedValue(mockResponse)
 
@@ -187,13 +196,17 @@ describe('VerifyEmailPage', () => {
     })
 
     it('should have null event slug when not provided', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           token: 'test-token',
           refreshToken: 'test-refresh-token',
           tokenExpires: 3600,
           user: { id: '123', email: 'test@example.com' }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.verifyEmailCode).mockResolvedValue(mockResponse)
 

@@ -3,6 +3,7 @@ import QuickRSVPDialog from '../QuickRSVPDialog.vue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Quasar, Notify } from 'quasar'
 import { authApi } from '../../../api/auth'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 // Mock the authApi
 vi.mock('../../../api/auth', () => ({
@@ -57,11 +58,15 @@ describe('QuickRSVPDialog', () => {
 
   describe('Form Submission', () => {
     it('should successfully submit Quick RSVP and show success notification', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           message: 'Verification code sent!',
           verificationCode: '123456'
-        }
+        },
+        status: 201,
+        statusText: 'Created',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.quickRsvp).mockResolvedValue(mockResponse)
 
@@ -98,11 +103,15 @@ describe('QuickRSVPDialog', () => {
     })
 
     it('should submit with cancelled status when specified', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           message: 'RSVP updated',
           verificationCode: '123456'
-        }
+        },
+        status: 201,
+        statusText: 'Created',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.quickRsvp).mockResolvedValue(mockResponse)
 
@@ -204,11 +213,15 @@ describe('QuickRSVPDialog', () => {
 
   describe('Dialog Controls', () => {
     it('should close dialog after successful submission', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           message: 'Success',
           verificationCode: '123456'
-        }
+        },
+        status: 201,
+        statusText: 'Created',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.quickRsvp).mockResolvedValue(mockResponse)
 

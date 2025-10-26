@@ -5,6 +5,7 @@ import { Quasar, Notify } from 'quasar'
 import { authApi } from '../../../api/auth'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '../../../stores/auth-store'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 // Mock the authApi
 vi.mock('../../../api/auth', () => ({
@@ -90,7 +91,7 @@ describe('VerifyEmailCodeDialog', () => {
 
   describe('Form Submission', () => {
     it('should successfully verify code and authenticate user', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           token: 'test-token',
           refreshToken: 'test-refresh-token',
@@ -101,7 +102,11 @@ describe('VerifyEmailCodeDialog', () => {
             firstName: 'Test',
             lastName: 'User'
           }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.verifyEmailCode).mockResolvedValue(mockResponse)
 
@@ -225,13 +230,17 @@ describe('VerifyEmailCodeDialog', () => {
     })
 
     it('should close dialog after successful verification', async () => {
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           token: 'test-token',
           refreshToken: 'test-refresh-token',
           tokenExpires: 3600,
           user: { id: '123', email: 'test@example.com' }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as InternalAxiosRequestConfig
       }
       vi.mocked(authApi.verifyEmailCode).mockResolvedValue(mockResponse)
 
