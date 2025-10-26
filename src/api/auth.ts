@@ -108,5 +108,10 @@ export const authApi = {
     code: string
     email: string
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
-    api.post(`${BASE_URL}/verify-email-code`, data, { withCredentials: true })
+    api.post(`${BASE_URL}/verify-email-code`, data, { withCredentials: true }),
+
+  requestLoginCode: (data: {
+    email: string
+  }): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    api.post(`${BASE_URL}/request-login-code`, data)
 }

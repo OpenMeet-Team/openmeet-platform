@@ -5,7 +5,24 @@
       Development Mode
     </q-banner>
 
-    <q-form @submit.prevent="onSubmit" class="q-gutter-md" data-cy="login-form">
+    <!-- Login Mode Tabs -->
+    <q-tabs
+      v-model="loginMode"
+      class="text-grey-7"
+      active-color="primary"
+      indicator-color="primary"
+      dense
+    >
+      <q-tab name="password" label="Password" data-cy="login-password-tab" />
+      <q-tab name="code" label="Email Code" data-cy="login-code-tab" />
+    </q-tabs>
+
+    <q-separator />
+
+    <q-tab-panels v-model="loginMode" animated>
+      <!-- Password Login -->
+      <q-tab-panel name="password">
+        <q-form @submit.prevent="onSubmit" class="q-gutter-md" data-cy="login-form">
 
       <q-card-section>
         <div class="text-h5 text-bold">Login</div>
@@ -61,6 +78,110 @@
         </div>
       </q-card-section>
     </q-form>
+      </q-tab-panel>
+
+      <!-- Passwordless Login (Email Code) -->
+      <q-tab-panel name="code">
+        <q-card-section>
+          <div class="text-h5 text-bold">Login with Email Code</div>
+          <div class="text-caption text-grey-7 q-mt-sm">
+            No password needed - we'll send a code to your email
+          </div>
+        </q-card-section>
+
+        <q-card-section v-if="!codeSent">
+          <q-form @submit.prevent="onRequestCode" class="q-gutter-md">
+            <q-input
+              filled
+              v-model="codeEmail"
+              label="Email"
+              type="email"
+              data-cy="login-code-email"
+              :rules="[(val: string) => !!val || 'Email is required']"
+            />
+
+            <div class="q-mt-md">
+              <q-btn
+                block
+                no-caps
+                rounded
+                class="full-width"
+                label="Send Login Code"
+                :loading="isLoadingCode"
+                type="submit"
+                color="primary"
+                data-cy="login-request-code"
+              />
+            </div>
+
+            <div class="text-grey-6 text-center q-mt-md">
+              No account yet?
+              <router-link class="router-link-inherit text-bold text-primary" :to="{name: 'AuthRegisterPage', query: route.query}">
+                Registration
+              </router-link>
+            </div>
+          </q-form>
+        </q-card-section>
+
+        <q-card-section v-else>
+          <q-form @submit.prevent="onVerifyCode" class="q-gutter-md">
+            <q-banner class="bg-positive text-white q-mb-md" rounded>
+              <template v-slot:avatar>
+                <q-icon name="sym_r_mail" color="white" />
+              </template>
+              Code sent to {{ codeEmail }}
+            </q-banner>
+
+            <q-input
+              filled
+              v-model="loginCode"
+              label="Enter 6-digit code"
+              data-cy="login-code-input"
+              mask="######"
+              unmasked-value
+              :rules="[
+                (val: string) => !!val || 'Code is required',
+                (val: string) => val.length === 6 || 'Code must be 6 digits'
+              ]"
+              autofocus
+              inputmode="numeric"
+            >
+              <template v-slot:prepend>
+                <q-icon name="sym_r_lock" />
+              </template>
+              <template v-slot:hint>
+                Check your email for the 6-digit code
+              </template>
+            </q-input>
+
+            <div class="q-mt-md">
+              <q-btn
+                block
+                no-caps
+                rounded
+                class="full-width"
+                label="Verify & Login"
+                :loading="isLoading"
+                type="submit"
+                color="primary"
+                data-cy="login-verify-code"
+              />
+            </div>
+
+            <div class="text-center q-mt-md">
+              <q-btn
+                flat
+                no-caps
+                label="Use a different email"
+                color="grey-7"
+                @click="resetCodeForm"
+                data-cy="login-reset-code"
+              />
+            </div>
+          </q-form>
+        </q-card-section>
+      </q-tab-panel>
+    </q-tab-panels>
   </q-card>
 </template>
 
@@ -73,17 +194,27 @@ import { useNotification } from '../../composables/useNotification'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
+import { authApi } from '../../api/auth'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+// Password login state
 const email = ref<string>('')
 const password = ref<string>('')
 const isPwd = ref<boolean>(true)
 const isLoading = ref<boolean>(false)
+
+// Passwordless login state
+const loginMode = ref<'password' | 'code'>('password')
+const codeEmail = ref<string>('')
+const loginCode = ref<string>('')
+const codeSent = ref<boolean>(false)
+const isLoadingCode = ref<boolean>(false)
+
 const emits = defineEmits(['login', 'to'])
-const { warning } = useNotification()
+const { warning, success } = useNotification()
 
 const isDev = computed(() => process.env.NODE_ENV === 'development')
 
@@ -166,6 +297,72 @@ const handleOAuthSuccess = () => {
 
   // Check for OIDC flow after successful OAuth login
   handlePostLoginRedirect()
+}
+
+// Passwordless login handlers
+const onRequestCode = async (): Promise<void> => {
+  if (!codeEmail.value || !validateEmail(codeEmail.value)) {
+    warning('Please provide a valid email')
+    return
+  }
+
+  try {
+    isLoadingCode.value = true
+    await authApi.requestLoginCode({ email: codeEmail.value })
+
+    codeSent.value = true
+    success('Login code sent! Check your email.')
+  } catch (error) {
+    console.error('Error requesting login code:', error)
+    warning('Failed to send login code. Please try again.')
+  } finally {
+    isLoadingCode.value = false
+  }
+}
+
+const onVerifyCode = async (): Promise<void> => {
+  if (!loginCode.value || loginCode.value.length !== 6) {
+    warning('Please enter the 6-digit code')
+    return
+  }
+
+  try {
+    isLoading.value = true
+
+    // Store OIDC flow data before login
+    storeOidcFlowData()
+
+    const response = await authApi.verifyEmailCode({
+      code: loginCode.value,
+      email: codeEmail.value
+    })
+
+    // Store auth data (same as password login)
+    authStore.actionSetToken(response.data.token)
+    authStore.actionSetRefreshToken(response.data.refreshToken)
+    authStore.actionSetTokenExpires(response.data.tokenExpires)
+    authStore.actionSetUser(response.data.user)
+
+    // Initialize Matrix if ready
+    await authStore.initializeMatrixIfReady()
+
+    emits('login')
+
+    // Check for OIDC flow after successful login
+    handlePostLoginRedirect()
+  } catch (error) {
+    console.error('Error verifying code:', error)
+    warning('Invalid or expired code. Please try again.')
+    loginCode.value = '' // Clear the code input
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const resetCodeForm = (): void => {
+  codeSent.value = false
+  loginCode.value = ''
+  codeEmail.value = ''
 }
 
 // Store OIDC flow data when component mounts
