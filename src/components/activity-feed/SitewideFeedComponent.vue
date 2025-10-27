@@ -7,10 +7,8 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger'
-import { useShowActivityFeed } from '../../composables/useFeatureFlag'
 
 const router = useRouter()
-const isActivityFeedEnabled = useShowActivityFeed()
 
 const activities = ref<ActivityFeedEntity[]>([])
 const isLoading = ref(false)
@@ -20,9 +18,7 @@ const hasMore = ref(true)
 const limit = 10
 
 onMounted(async () => {
-  if (isActivityFeedEnabled.value) {
-    await fetchActivities()
-  }
+  await fetchActivities()
 })
 
 async function fetchActivities () {
@@ -220,7 +216,7 @@ function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
 </script>
 
 <template>
-  <div v-if="isActivityFeedEnabled" class="sitewide-feed-container">
+  <div class="sitewide-feed-container">
     <SubtitleComponent class="q-px-md" label="Recent Activity" hide-link />
 
     <q-card flat>
