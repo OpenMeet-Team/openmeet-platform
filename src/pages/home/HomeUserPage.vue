@@ -155,11 +155,6 @@ const onCalendarDateSelect = () => {
         </q-card-section>
       </q-card>
 
-      <!-- Recent Activity Section -->
-      <div class="q-mt-lg">
-        <SitewideFeedComponent />
-      </div>
-
       <!-- Main content area -->
       <div class="row q-col-gutter-xl q-mt-md">
         <!-- Left column - Groups -->
@@ -299,6 +294,11 @@ const onCalendarDateSelect = () => {
             </template>
           </EventsListComponent>
         </div>
+      </div>
+
+      <!-- Recent Activity Section -->
+      <div class="q-mt-xl">
+        <SitewideFeedComponent />
       </div>
 
       <!-- Calendar Overview Section -->
