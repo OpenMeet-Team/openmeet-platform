@@ -94,5 +94,24 @@ export const authApi = {
       },
       { withCredentials: true }
     )
-  }
+  },
+
+  quickRsvp: (data: {
+    name: string
+    email: string
+    eventSlug: string
+    status?: 'confirmed' | 'cancelled'
+  }): Promise<AxiosResponse<{ success: boolean; message: string; verificationCode?: string }>> =>
+    api.post(`${BASE_URL}/quick-rsvp`, data),
+
+  verifyEmailCode: (data: {
+    code: string
+    email: string
+  }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/verify-email-code`, data, { withCredentials: true }),
+
+  requestLoginCode: (data: {
+    email: string
+  }): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    api.post(`${BASE_URL}/request-login-code`, data)
 }

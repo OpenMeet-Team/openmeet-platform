@@ -64,7 +64,70 @@
       </q-card-section>
     </q-card>
 
-    <!-- No RSVP yet - Show both options -->
+    <!-- Need to join group before attending - Unauthenticated users -->
+    <q-card
+      v-else-if="!attendee && !authStore.isFullyAuthenticated && requiresGroupMembership"
+      flat
+      bordered
+      class="q-pa-md text-center"
+    >
+      <q-card-section>
+        <q-icon name="sym_r_group" size="md" color="grey-6" class="q-mb-sm" />
+        <div class="text-h6 q-mb-sm">Join {{ event.group?.name }} to RSVP</div>
+        <p class="text-body2 text-grey-7 q-mb-md">
+          This event requires you to be a member of the {{ event.group?.name }} group. Please sign in and join the group to attend.
+        </p>
+        <q-btn
+          color="primary"
+          icon="sym_r_login"
+          @click="goToLogin"
+          label="Sign in to join"
+          no-caps
+          class="full-width"
+        />
+      </q-card-section>
+    </q-card>
+
+    <!-- No RSVP yet - Unauthenticated users on public events -->
+    <div v-else-if="!attendee && !authStore.isFullyAuthenticated && !requiresGroupMembership" class="rsvp-button-group">
+      <!-- RSVP Instructions -->
+      <div class="rsvp-instructions q-mb-sm text-center">
+        <div class="text-h6 text-info q-mb-xs">
+          <q-icon name="sym_r_person_raised_hand" size="md" color="info" class="q-mr-xs" />
+          RSVP
+        </div>
+        <div class="text-caption text-grey-6">
+          Let the hosts know your plans!
+        </div>
+      </div>
+
+      <!-- Going -->
+      <q-btn
+        data-cy="event-quick-rsvp-going-button"
+        color="positive"
+        icon="sym_r_check_circle"
+        @click="handleQuickRsvpGoing"
+        label="Going"
+        no-caps
+        align="left"
+        class="full-width rsvp-yes-button"
+      />
+
+      <!-- Can't go -->
+      <q-btn
+        data-cy="event-quick-rsvp-decline-button"
+        color="grey-7"
+        icon="sym_r_cancel"
+        outline
+        @click="handleQuickRsvpDecline"
+        label="Can't go"
+        no-caps
+        align="left"
+        class="full-width rsvp-no-button"
+      />
+    </div>
+
+    <!-- No RSVP yet - Authenticated users -->
     <div v-else-if="!attendee" class="rsvp-button-group">
       <!-- RSVP Instructions -->
       <div class="rsvp-instructions q-mb-sm text-center">
@@ -83,6 +146,7 @@
         @click="handleAttend"
         :label="event.requireApproval ? 'Going (pending approval)' : 'Going'"
         no-caps
+        align="left"
         class="full-width rsvp-yes-button"
       />
       <q-btn
@@ -93,6 +157,7 @@
         @click="handleDecline"
         label="Can't go"
         no-caps
+        align="left"
         class="full-width rsvp-no-button"
       />
     </div>
@@ -169,6 +234,23 @@
       </div>
     </q-btn>
   </div>
+
+  <!-- Quick RSVP Dialog -->
+  <QuickRSVPDialog
+    v-model="showQuickRsvp"
+    :event-slug="event.slug"
+    :event-name="event.name"
+    :status="quickRsvpStatus"
+    @success="handleQuickRsvpSuccess"
+  />
+
+  <!-- Verify Email Code Dialog -->
+  <VerifyEmailCodeDialog
+    v-model="showVerifyCode"
+    :email="quickRsvpEmail"
+    :verification-code="quickRsvpCode"
+    @success="handleVerifySuccess"
+  />
 </template>
 
 <script setup lang="ts">
@@ -188,6 +270,8 @@ import { useAuth } from '../../composables/useAuth'
 import { useAuthSession } from '../../boot/auth-session'
 import { eventLoadingState } from '../../utils/eventLoadingState'
 import { logger } from '../../utils/logger'
+import QuickRSVPDialog from '../auth/QuickRSVPDialog.vue'
+import VerifyEmailCodeDialog from '../auth/VerifyEmailCodeDialog.vue'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -205,6 +289,13 @@ const props = defineProps<{
 
 const loading = ref(false)
 const initialLoading = ref(true)
+
+// Quick RSVP state
+const showQuickRsvp = ref(false)
+const showVerifyCode = ref(false)
+const quickRsvpEmail = ref('')
+const quickRsvpCode = ref<string | undefined>(undefined)
+const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
 
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
@@ -252,6 +343,11 @@ const needsToJoinGroup = computed(() => {
   if (props.event.groupMember.groupRole?.name === 'guest') return true
 
   return false
+})
+
+// Check if event requires group membership (used to hide Quick RSVP for restricted events)
+const requiresGroupMembership = computed(() => {
+  return props.event.requireGroupMembership && props.event.group
 })
 
 // Watch for changes in authentication state
@@ -612,6 +708,32 @@ const handleLeave = async () => {
     loading.value = false
   }
 }
+
+// Handle Quick RSVP Going button
+const handleQuickRsvpGoing = () => {
+  quickRsvpStatus.value = 'confirmed'
+  showQuickRsvp.value = true
+}
+
+// Handle Quick RSVP Decline button
+const handleQuickRsvpDecline = () => {
+  quickRsvpStatus.value = 'cancelled'
+  showQuickRsvp.value = true
+}
+
+// Handle Quick RSVP success - save email and show verification dialog
+const handleQuickRsvpSuccess = (email: string, verificationCode?: string) => {
+  quickRsvpEmail.value = email
+  quickRsvpCode.value = verificationCode
+  showVerifyCode.value = true
+}
+
+// Handle verification success - user is now logged in
+const handleVerifySuccess = () => {
+  // The VerifyEmailCodeDialog handles the login and page reload
+  // No additional action needed here
+  logger.debug('Email verified successfully, user logged in')
+}
 </script>
 
 <style lang="scss" scoped>
@@ -625,6 +747,12 @@ const handleLeave = async () => {
 
   .rsvp-yes-button {
     font-weight: 600;
+
+    // Ensure consistent spacing and alignment
+    :deep(.q-btn__content) {
+      gap: 8px;
+      padding-left: 8px; // Add left padding to match Share/QR buttons
+    }
 
     &:not(.q-btn--outline) {
       background: var(--q-positive);
@@ -644,6 +772,12 @@ const handleLeave = async () => {
 
   .rsvp-no-button {
     font-weight: 500;
+
+    // Ensure consistent spacing and alignment
+    :deep(.q-btn__content) {
+      gap: 8px;
+      padding-left: 8px; // Add left padding to match Share/QR buttons
+    }
 
     &.q-btn--outline {
       border-color: var(--q-grey-7);

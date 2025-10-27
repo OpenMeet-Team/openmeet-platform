@@ -149,6 +149,11 @@ const routes: RouteRecordRaw[] = [
         path: 'collect-email',
         component: () => import('pages/auth/CollectEmailPage.vue'),
         name: 'AuthCollectEmailPage'
+      },
+      {
+        path: 'verify-email',
+        component: () => import('pages/auth/VerifyEmailPage.vue'),
+        name: 'VerifyEmailPage'
       }
     ],
     meta: { requiresAuth: false }
