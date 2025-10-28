@@ -243,14 +243,6 @@
     :status="quickRsvpStatus"
     @success="handleQuickRsvpSuccess"
   />
-
-  <!-- Verify Email Code Dialog -->
-  <VerifyEmailCodeDialog
-    v-model="showVerifyCode"
-    :email="quickRsvpEmail"
-    :verification-code="quickRsvpCode"
-    @success="handleVerifySuccess"
-  />
 </template>
 
 <script setup lang="ts">
@@ -271,7 +263,6 @@ import { useAuthSession } from '../../boot/auth-session'
 import { eventLoadingState } from '../../utils/eventLoadingState'
 import { logger } from '../../utils/logger'
 import QuickRSVPDialog from '../auth/QuickRSVPDialog.vue'
-import VerifyEmailCodeDialog from '../auth/VerifyEmailCodeDialog.vue'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -292,9 +283,6 @@ const initialLoading = ref(true)
 
 // Quick RSVP state
 const showQuickRsvp = ref(false)
-const showVerifyCode = ref(false)
-const quickRsvpEmail = ref('')
-const quickRsvpCode = ref<string | undefined>(undefined)
 const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
 
 // Helper function to extract error message from API response
@@ -721,18 +709,11 @@ const handleQuickRsvpDecline = () => {
   showQuickRsvp.value = true
 }
 
-// Handle Quick RSVP success - save email and show verification dialog
-const handleQuickRsvpSuccess = (email: string, verificationCode?: string) => {
-  quickRsvpEmail.value = email
-  quickRsvpCode.value = verificationCode
-  showVerifyCode.value = true
-}
-
-// Handle verification success - user is now logged in
-const handleVerifySuccess = () => {
-  // The VerifyEmailCodeDialog handles the login and page reload
-  // No additional action needed here
-  logger.debug('Email verified successfully, user logged in')
+// Handle Quick RSVP success - user has registered and received calendar invite
+const handleQuickRsvpSuccess = () => {
+  // User has successfully registered/logged in via Quick RSVP and RSVP is created
+  // They will receive a calendar invite via email
+  logger.debug('Quick RSVP successful, calendar invite sent')
 }
 </script>
 

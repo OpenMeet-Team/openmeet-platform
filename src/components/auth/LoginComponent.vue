@@ -5,6 +5,17 @@
       Development Mode
     </q-banner>
 
+    <!-- Quick RSVP Context Banner -->
+    <q-banner v-if="isQuickRsvpContext" class="bg-blue-1 text-blue-9" rounded dense>
+      <template v-slot:avatar>
+        <q-icon name="sym_r_celebration" color="blue-9" />
+      </template>
+      <div class="text-weight-medium">Sign in to complete your RSVP</div>
+      <div class="text-caption">
+        Your account already exists. Sign in to confirm your RSVP.
+      </div>
+    </q-banner>
+
     <!-- Login Mode Tabs -->
     <q-tabs
       v-model="loginMode"
@@ -201,17 +212,20 @@ const route = useRoute()
 const router = useRouter()
 
 // Password login state
-const email = ref<string>('')
+const email = ref<string>(route.query.email as string || '')
 const password = ref<string>('')
 const isPwd = ref<boolean>(true)
 const isLoading = ref<boolean>(false)
 
 // Passwordless login state
 const loginMode = ref<'password' | 'code'>('password')
-const codeEmail = ref<string>('')
+const codeEmail = ref<string>(route.query.email as string || '')
 const loginCode = ref<string>('')
 const codeSent = ref<boolean>(false)
 const isLoadingCode = ref<boolean>(false)
+
+// Quick RSVP context
+const isQuickRsvpContext = computed(() => route.query.context === 'quick-rsvp')
 
 const emits = defineEmits(['login', 'to'])
 const { warning, success } = useNotification()
@@ -235,7 +249,7 @@ const storeOidcFlowData = (): void => {
   }
 }
 
-const handlePostLoginRedirect = (): void => {
+const handlePostLoginRedirect = async (): Promise<void> => {
   // Check if there's an OIDC flow to continue
   const oidcDataStr = localStorage.getItem('oidc_flow_data')
 
@@ -264,8 +278,54 @@ const handlePostLoginRedirect = (): void => {
     }
   }
 
+  // Check for RSVP intent (from Quick RSVP flow)
+  const rsvpIntentStr = localStorage.getItem('rsvp_intent')
+
+  if (rsvpIntentStr) {
+    try {
+      const rsvpIntent = JSON.parse(rsvpIntentStr)
+      const maxAge = 5 * 60 * 1000 // 5 minutes
+
+      if (Date.now() - rsvpIntent.timestamp < maxAge) {
+        console.log('🎉 RSVP Intent: Completing RSVP after login for event:', rsvpIntent.eventSlug)
+
+        // Complete the RSVP using the event store
+        const { useEventStore } = await import('../../stores/event-store')
+        const eventStore = useEventStore()
+
+        try {
+          await eventStore.actionAttendEvent(rsvpIntent.eventSlug, {
+            status: rsvpIntent.status
+          })
+
+          // Clean up RSVP intent
+          localStorage.removeItem('rsvp_intent')
+
+          // Redirect back to event page
+          window.location.href = rsvpIntent.returnUrl
+          return
+        } catch (error) {
+          console.error('🎉 RSVP Intent: Error completing RSVP:', error)
+          localStorage.removeItem('rsvp_intent')
+          // Fall through to normal redirect
+        }
+      } else {
+        console.log('🎉 RSVP Intent: RSVP intent expired, clearing')
+        localStorage.removeItem('rsvp_intent')
+      }
+    } catch (error) {
+      console.error('🎉 RSVP Intent: Error parsing RSVP intent:', error)
+      localStorage.removeItem('rsvp_intent')
+    }
+  }
+
   // Normal redirect logic
-  router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
+  const returnUrl = route.query.returnUrl as string
+  if (returnUrl) {
+    window.location.href = returnUrl
+  } else {
+    router.replace((route.query.redirect || (route.path.startsWith('/auth') ? '/' : '')) as string)
+  }
 }
 
 const onSubmit = (): void => {
@@ -312,8 +372,17 @@ const onRequestCode = async (): Promise<void> => {
 
     codeSent.value = true
     success('Login code sent! Check your email.')
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error requesting login code:', error)
+
+    // Check for 404 - user doesn't exist
+    if (error && typeof error === 'object' && 'response' in error) {
+      const apiError = error as { response?: { status?: number } }
+      if (apiError.response?.status === 404) {
+        warning('No account found with this email. Please register first.')
+        return
+      }
+    }
     warning('Failed to send login code. Please try again.')
   } finally {
     isLoadingCode.value = false
