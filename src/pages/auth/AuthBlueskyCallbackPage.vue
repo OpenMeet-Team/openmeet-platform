@@ -105,6 +105,42 @@ onMounted(async () => {
           }
         }
 
+        // Check for RSVP intent after OIDC check
+        const rsvpIntentStr = localStorage.getItem('rsvp_intent')
+
+        if (rsvpIntentStr) {
+          try {
+            const rsvpIntent = JSON.parse(rsvpIntentStr)
+            const maxAge = 5 * 60 * 1000 // 5 minutes
+
+            if (Date.now() - rsvpIntent.timestamp < maxAge) {
+              console.log('🎉 RSVP Intent: Completing RSVP after Bluesky login for event:', rsvpIntent.eventSlug)
+
+              // Complete the RSVP using the event store
+              const { useEventStore } = await import('../../stores/event-store')
+              const eventStore = useEventStore()
+
+              await eventStore.actionAttendEvent(rsvpIntent.eventSlug, {
+                status: rsvpIntent.status
+              })
+
+              // Clean up both RSVP intent and bluesky return URL
+              localStorage.removeItem('rsvp_intent')
+              localStorage.removeItem('bluesky_auth_return_url')
+
+              // Redirect back to event page
+              window.location.href = rsvpIntent.returnUrl
+              return
+            } else {
+              console.log('🎉 RSVP Intent: RSVP intent expired, clearing')
+              localStorage.removeItem('rsvp_intent')
+            }
+          } catch (error) {
+            console.error('🎉 RSVP Intent: Error completing RSVP intent:', error)
+            localStorage.removeItem('rsvp_intent')
+          }
+        }
+
         // Normal redirect: Get the return URL from localStorage, or default to home
         const returnUrl = localStorage.getItem('bluesky_auth_return_url') || '/'
         localStorage.removeItem('bluesky_auth_return_url') // Clean up

@@ -2,6 +2,7 @@
   <q-layout view="hhh LpR ffr">
     <AppHeaderComponent />
     <q-page-container>
+      <VerifyEmailBanner />
       <router-view />
     </q-page-container>
     <AppFooterComponent />
@@ -11,6 +12,7 @@
 <script setup lang="ts">
 import AppHeaderComponent from '../components/header/AppHeaderComponent.vue'
 import AppFooterComponent from '../components/footer/AppFooterComponent.vue'
+import VerifyEmailBanner from '../components/auth/VerifyEmailBanner.vue'
 
 defineOptions({
   name: 'AppLayout'

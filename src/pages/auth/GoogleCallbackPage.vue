@@ -104,6 +104,53 @@ const handleCallback = async () => {
       }
     }
 
+    // Check for RSVP intent after OIDC check
+    const rsvpIntentStr = localStorage.getItem('rsvp_intent')
+
+    if (rsvpIntentStr) {
+      try {
+        const rsvpIntent = JSON.parse(rsvpIntentStr)
+        const maxAge = 5 * 60 * 1000 // 5 minutes
+
+        if (Date.now() - rsvpIntent.timestamp < maxAge) {
+          console.log('🎉 RSVP Intent: Completing RSVP after Google login for event:', rsvpIntent.eventSlug)
+
+          // Complete the RSVP using the event store
+          const { useEventStore } = await import('../../stores/event-store')
+          const eventStore = useEventStore()
+
+          await eventStore.actionAttendEvent(rsvpIntent.eventSlug, {
+            status: rsvpIntent.status
+          })
+
+          // Clean up
+          localStorage.removeItem('rsvp_intent')
+
+          // Show success notification
+          $q.notify({
+            type: 'positive',
+            message: 'Successfully logged in and RSVP\'d to the event!'
+          })
+
+          // Redirect back to event page
+          window.location.href = rsvpIntent.returnUrl
+          return
+        } else {
+          console.log('🎉 RSVP Intent: RSVP intent expired, clearing')
+          localStorage.removeItem('rsvp_intent')
+        }
+      } catch (error) {
+        console.error('🎉 RSVP Intent: Error completing RSVP intent:', error)
+        localStorage.removeItem('rsvp_intent')
+
+        // Show error notification but continue with normal flow
+        $q.notify({
+          type: 'warning',
+          message: 'Logged in successfully, but failed to complete RSVP. Please try again on the event page.'
+        })
+      }
+    }
+
     // Success - show notification and redirect
     $q.notify({
       type: 'positive',
