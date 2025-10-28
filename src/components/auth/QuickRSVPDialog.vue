@@ -120,6 +120,7 @@
 import { ref, watch } from 'vue'
 import { authApi } from '../../api/auth'
 import { Notify } from 'quasar'
+import { useUnverifiedEmail } from '../../composables/useUnverifiedEmail'
 
 const props = defineProps<{
   modelValue: boolean
@@ -130,8 +131,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'success': []
+  'success': [{ status: 'confirmed' | 'cancelled' }]
 }>()
+
+const { setUnverifiedEmail } = useUnverifiedEmail()
 
 type ViewType = 'quick-rsvp' | 'success'
 
@@ -183,11 +186,14 @@ const onSubmit = async () => {
     // Store the submitted email for display in success message
     submittedEmail.value = email.value
 
+    // Store unverified email reactively for verification banner
+    setUnverifiedEmail(email.value)
+
     // Show success view
     currentView.value = 'success'
 
-    // Emit success event (no verification code needed)
-    emit('success')
+    // Emit success event with status for temporary UI update
+    emit('success', { status: props.status || 'confirmed' })
   } catch (error: unknown) {
     console.error('Quick RSVP error:', error)
 

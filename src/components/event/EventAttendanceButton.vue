@@ -40,6 +40,36 @@
       Only organizers can schedule events
     </q-btn>
 
+    <!-- Event has ended - show status or message -->
+    <q-card
+      v-else-if="hasEventEnded"
+      flat
+      bordered
+      class="q-pa-md text-center"
+    >
+      <q-card-section>
+        <q-icon name="sym_r_event_busy" size="md" color="grey-6" class="q-mb-sm" />
+        <div class="text-h6 q-mb-sm">This event has ended</div>
+        <div v-if="attendee" class="text-body2 text-grey-7">
+          <div v-if="attendee.status === EventAttendeeStatus.Confirmed">
+            You marked yourself as <span class="text-weight-bold">Going</span>
+          </div>
+          <div v-else-if="attendee.status === EventAttendeeStatus.Cancelled">
+            You marked yourself as <span class="text-weight-bold">Not Going</span>
+          </div>
+          <div v-else-if="attendee.status === EventAttendeeStatus.Pending">
+            Your RSVP was <span class="text-weight-bold">Pending Approval</span>
+          </div>
+          <div v-else-if="attendee.status === EventAttendeeStatus.Waitlist">
+            You were on the <span class="text-weight-bold">Waitlist</span>
+          </div>
+        </div>
+        <p v-else class="text-body2 text-grey-7">
+          RSVPs are no longer accepted for this event
+        </p>
+      </q-card-section>
+    </q-card>
+
     <!-- Need to join group before attending -->
     <q-card
       v-else-if="!attendee && needsToJoinGroup"
@@ -87,6 +117,43 @@
         />
       </q-card-section>
     </q-card>
+
+    <!-- Temporary "Going" status after Quick RSVP (not persisted) -->
+    <q-btn
+      data-cy="event-temporary-going-status"
+      v-else-if="temporaryRsvpStatus === 'confirmed' && !attendee"
+      color="positive"
+      no-caps
+      class="full-width"
+      disable
+    >
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_check_circle" class="q-mr-xs" />
+          Going
+        </div>
+        <div class="text-caption">Check your email for details</div>
+      </div>
+    </q-btn>
+
+    <!-- Temporary "Can't go" status after Quick RSVP (not persisted) -->
+    <q-btn
+      data-cy="event-temporary-decline-status"
+      v-else-if="temporaryRsvpStatus === 'cancelled' && !attendee"
+      color="grey-7"
+      outline
+      no-caps
+      class="full-width"
+      disable
+    >
+      <div class="column items-center">
+        <div class="text-weight-medium">
+          <q-icon name="sym_r_cancel" class="q-mr-xs" />
+          Can't go
+        </div>
+        <div class="text-caption">You won't be attending</div>
+      </div>
+    </q-btn>
 
     <!-- No RSVP yet - Unauthenticated users on public events -->
     <div v-else-if="!attendee && !authStore.isFullyAuthenticated && !requiresGroupMembership" class="rsvp-button-group">
@@ -285,6 +352,9 @@ const initialLoading = ref(true)
 const showQuickRsvp = ref(false)
 const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
 
+// Temporary RSVP status (not persisted, only for current page view)
+const temporaryRsvpStatus = ref<'confirmed' | 'cancelled' | null>(null)
+
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -336,6 +406,17 @@ const needsToJoinGroup = computed(() => {
 // Check if event requires group membership (used to hide Quick RSVP for restricted events)
 const requiresGroupMembership = computed(() => {
   return props.event.requireGroupMembership && props.event.group
+})
+
+// Check if event has ended (past event)
+const hasEventEnded = computed(() => {
+  // Use endDate if available, otherwise fall back to startDate
+  const dateToCheck = props.event.endDate || props.event.startDate
+  if (!dateToCheck) return false
+
+  const eventDate = new Date(dateToCheck)
+  const now = new Date()
+  return eventDate < now
 })
 
 // Watch for changes in authentication state
@@ -710,10 +791,13 @@ const handleQuickRsvpDecline = () => {
 }
 
 // Handle Quick RSVP success - user has registered and received calendar invite
-const handleQuickRsvpSuccess = () => {
+const handleQuickRsvpSuccess = (data: { status: 'confirmed' | 'cancelled' }) => {
   // User has successfully registered/logged in via Quick RSVP and RSVP is created
   // They will receive a calendar invite via email
   logger.debug('Quick RSVP successful, calendar invite sent')
+
+  // Set temporary RSVP status (survives until page refresh/navigation)
+  temporaryRsvpStatus.value = data.status
 }
 </script>
 
