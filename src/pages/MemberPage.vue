@@ -41,6 +41,28 @@ const isGithubUser = computed(() => profileUser.value?.provider === AuthProvider
 // Profile avatar
 const { avatarUrl } = useAvatarUrl(profileUser)
 
+// Display name - for Bluesky users, prefer resolved handle over firstName
+// Backend resolves DIDs to handles in showProfile and populates preferences.bluesky.handle
+const displayName = computed(() => {
+  if (isBskyUser.value && bskyHandle.value) {
+    // If handle doesn't look like a DID, use it with @ prefix
+    if (!bskyHandle.value.startsWith('did:')) {
+      return `@${bskyHandle.value}`
+    }
+    // If handle is still a DID (resolution failed), try to use firstName if it's not also a DID
+    if (profileUser.value?.firstName && !profileUser.value.firstName.startsWith('did:')) {
+      return profileUser.value.firstName
+    }
+    // Last resort: show the DID
+    return bskyHandle.value
+  }
+
+  // For non-Bluesky users, use firstName + lastName
+  const firstName = profileUser.value?.firstName || ''
+  const lastName = profileUser.value?.lastName || ''
+  return `${firstName} ${lastName}`.trim() || 'Anonymous User'
+})
+
 // Check if this is the current user's profile
 const isOwnProfile = computed(() => {
   return profileUser.value && authStore.user && profileUser.value.id === authStore.user.id
@@ -121,8 +143,8 @@ const loadBlueskyEvents = async () => {
                 <q-avatar size="150px">
                   <img :src="avatarUrl" :alt="`${profileUser.firstName || ''} ${profileUser.lastName || ''}`" />
                 </q-avatar>
-                <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
-                  {{ profileUser.firstName || '' }} {{ profileUser.lastName || '' }}
+                <h4 class="q-mt-md text-h5 text-bold q-mb-xs profile-name">
+                  {{ displayName }}
                 </h4>
                 <div
                   data-cy="user-bio"
@@ -371,6 +393,13 @@ const loadBlueskyEvents = async () => {
 </template>
 
 <style lang="scss" scoped>
+.profile-name {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+}
+
 .event-card {
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;

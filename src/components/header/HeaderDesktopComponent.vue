@@ -8,7 +8,7 @@ import HeaderSearchComponent from './HeaderSearchComponent.vue'
 <template>
   <div class="c-header-desktop-component">
     <div class="xs-hide bg-purple-500 text-white text-uppercase text-body2 text-bold row justify-center q-pa-sm" >
-      This platform is currently in beta. Report issues <a class="text-primary" href="https://github.com/openmeet-team/openmeet-platform/issues" target="_blank">here</a>.
+      This platform is currently in beta. Report issues&nbsp;<a class="text-primary" href="https://github.com/openmeet-team/openmeet-platform/issues" target="_blank">here</a>.
     </div>
     <div class="row justify-end q-py-sm q-px-md" :class="Dark.isActive ? 'bg-dark-page text-white' : 'bg-purple-100'">
       <router-link class="router-link-inherit text-bold q-mr-md no-underline" no-caps :to="{name: 'EventsPage'}">Events</router-link>
