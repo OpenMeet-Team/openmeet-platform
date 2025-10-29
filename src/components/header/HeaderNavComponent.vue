@@ -34,7 +34,7 @@ const openCreateEventForm = () => {
   <div class="c-header-nav-component row q-gutter-sm no-wrap">
     <q-btn data-cy="header-nav-add-group-button" color="primary" icon="sym_r_add_circle" padding="sm" outline no-wrap dense no-caps
       @click="openCreateGroupForm" label="New Group" />
-    <q-btn data-cy="header-nav-add-event-button" color="primary" icon="sym_r_add_circle" padding="xs" outline no-wrap dense no-caps
+    <q-btn data-cy="header-nav-add-event-button" color="primary" icon="sym_r_add_circle" padding="sm" outline no-wrap dense no-caps
       @click="openCreateEventForm" label="New Event" />
   </div>
 </template>
