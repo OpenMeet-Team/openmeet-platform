@@ -34,6 +34,8 @@ const groupMemberships = computed(() =>
 
 // Auth provider flags
 const isBskyUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.bluesky)
+// TODO: For shadow accounts, we need the backend to resolve DIDs to handles
+// Currently shadow accounts may not have preferences.bluesky.handle populated
 const bskyHandle = computed(() => profileUser.value?.preferences?.bluesky?.handle || null)
 const isGoogleUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.github)
@@ -121,7 +123,7 @@ const loadBlueskyEvents = async () => {
                 <q-avatar size="150px">
                   <img :src="avatarUrl" :alt="`${profileUser.firstName || ''} ${profileUser.lastName || ''}`" />
                 </q-avatar>
-                <h4 class="q-mt-md text-h5 text-bold q-mb-xs">
+                <h4 class="q-mt-md text-h5 text-bold q-mb-xs profile-name">
                   {{ profileUser.firstName || '' }} {{ profileUser.lastName || '' }}
                 </h4>
                 <div
@@ -371,6 +373,13 @@ const loadBlueskyEvents = async () => {
 </template>
 
 <style lang="scss" scoped>
+.profile-name {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+}
+
 .event-card {
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
