@@ -1,6 +1,6 @@
 <template>
   <q-card class="register-card q-pa-sm">
-    <q-form @submit="onSubmit" class="q-gutter-md" data-cy="register-form">
+    <q-form @submit="onSubmit" class="q-gutter-md" data-cy="register-form" v-if="!showVerification">
 
       <q-card-section>
         <div class="text-h5 text-bold">Register</div>
@@ -101,6 +101,13 @@
         <BlueSkyLoginComponent class="q-mt-md" @success="emits('register')" />
       </div>
     </q-form>
+
+    <!-- Email Verification Dialog -->
+    <VerifyEmailCodeDialog
+      v-model="showVerification"
+      :email="email"
+      @success="onVerificationSuccess"
+    />
   </q-card>
 </template>
 
@@ -115,6 +122,7 @@ import AuthLoginLinkComponent from '../../components/auth/AuthLoginLinkComponent
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
+import VerifyEmailCodeDialog from './VerifyEmailCodeDialog.vue'
 const emits = defineEmits(['register'])
 const firstName = ref<string>('')
 const lastName = ref<string>('')
@@ -126,6 +134,7 @@ const isConfirmPwd = ref<boolean>(true)
 const accept = ref<boolean>(false)
 const authStore = useAuthStore()
 const isLoading = ref<boolean>(false)
+const showVerification = ref<boolean>(false)
 
 const router = useRouter()
 const route = useRoute()
@@ -141,14 +150,21 @@ const onSubmit = async () => {
     lastName: lastName.value,
     email: email.value,
     password: password.value
-  }).then(() => {
-    emits('register')
-    return router.push((route.query.redirect || '/') as string)
+  }).then((response) => {
+    // Registration succeeded - show verification dialog
+    // Response no longer includes tokens, only a message
+    showVerification.value = true
   }).catch(() => {
     error('Registration failed. Please try again.')
   }).finally(() => {
     isLoading.value = false
   })
+}
+
+const onVerificationSuccess = () => {
+  // Email verified and user logged in
+  emits('register')
+  return router.push((route.query.redirect || '/') as string)
 }
 
 useMeta({
