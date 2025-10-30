@@ -150,7 +150,7 @@ const onSubmit = async () => {
     lastName: lastName.value,
     email: email.value,
     password: password.value
-  }).then((response) => {
+  }).then(() => {
     // Registration succeeded - show verification dialog
     // Response no longer includes tokens, only a message
     showVerification.value = true
