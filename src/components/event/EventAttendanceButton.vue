@@ -350,10 +350,10 @@ const initialLoading = ref(true)
 
 // Quick RSVP state
 const showQuickRsvp = ref(false)
-const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
+const quickRsvpStatus = ref<EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled>(EventAttendeeStatus.Confirmed)
 
 // Temporary RSVP status (not persisted, only for current page view)
-const temporaryRsvpStatus = ref<'confirmed' | 'cancelled' | null>(null)
+const temporaryRsvpStatus = ref<EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled | null>(null)
 
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
@@ -815,18 +815,18 @@ const handleLeave = async () => {
 
 // Handle Quick RSVP Going button
 const handleQuickRsvpGoing = () => {
-  quickRsvpStatus.value = 'confirmed'
+  quickRsvpStatus.value = EventAttendeeStatus.Confirmed
   showQuickRsvp.value = true
 }
 
 // Handle Quick RSVP Decline button
 const handleQuickRsvpDecline = () => {
-  quickRsvpStatus.value = 'cancelled'
+  quickRsvpStatus.value = EventAttendeeStatus.Cancelled
   showQuickRsvp.value = true
 }
 
 // Handle Quick RSVP success - user has registered and received calendar invite
-const handleQuickRsvpSuccess = (data: { status: 'confirmed' | 'cancelled' }) => {
+const handleQuickRsvpSuccess = (data: { status: EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled }) => {
   // User has successfully registered/logged in via Quick RSVP and RSVP is created
   // They will receive a calendar invite via email
   logger.debug('Quick RSVP successful, calendar invite sent')

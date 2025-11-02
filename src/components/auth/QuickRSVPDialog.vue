@@ -24,7 +24,6 @@
         </q-card-actions>
       </div>
 
-
       <!-- Quick RSVP Form View -->
       <div v-else>
         <q-card-section>
@@ -149,6 +148,7 @@ import { ref, watch } from 'vue'
 import { authApi } from '../../api/auth'
 import { Notify } from 'quasar'
 import { useUnverifiedEmail } from '../../composables/useUnverifiedEmail'
+import { EventAttendeeStatus } from '../../types'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
@@ -158,12 +158,12 @@ const props = defineProps<{
   modelValue: boolean
   eventSlug: string
   eventName: string
-  status?: 'confirmed' | 'cancelled'
+  status?: EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'success': [{ status: 'confirmed' | 'cancelled' }]
+  'success': [{ status: EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled }]
 }>()
 
 const { setUnverifiedEmail } = useUnverifiedEmail()
@@ -214,7 +214,7 @@ const onSubmit = async () => {
       name: name.value,
       email: email.value,
       eventSlug: props.eventSlug,
-      status: props.status || 'confirmed'
+      status: props.status || EventAttendeeStatus.Confirmed
     })
 
     // Store the submitted email for display in success message
@@ -227,7 +227,7 @@ const onSubmit = async () => {
     currentView.value = 'success'
 
     // Emit success event with status for temporary UI update
-    emit('success', { status: props.status || 'confirmed' })
+    emit('success', { status: props.status || EventAttendeeStatus.Confirmed })
   } catch (error: unknown) {
     console.error('Quick RSVP error:', error)
 
@@ -242,7 +242,7 @@ const onSubmit = async () => {
 
           // Store dev verification code if available
           if (response.data && 'verificationCode' in response.data) {
-            devVerificationCode.value = (response.data as any).verificationCode
+            devVerificationCode.value = (response.data as { verificationCode: string }).verificationCode
           }
 
           // Close Quick RSVP dialog and show code verification dialog
@@ -252,7 +252,7 @@ const onSubmit = async () => {
           // Store RSVP intent for after verification
           const rsvpIntent = {
             eventSlug: props.eventSlug,
-            status: props.status || 'confirmed',
+            status: props.status || EventAttendeeStatus.Confirmed,
             timestamp: Date.now(),
             returnUrl: window.location.href
           }
@@ -293,7 +293,7 @@ const redirectToLogin = () => {
   // Store RSVP intent in localStorage
   const rsvpIntent = {
     eventSlug: props.eventSlug,
-    status: props.status || 'confirmed',
+    status: props.status || EventAttendeeStatus.Confirmed,
     timestamp: Date.now(),
     returnUrl: window.location.href
   }
@@ -316,7 +316,7 @@ const storeRsvpIntent = () => {
   // Store RSVP intent before OAuth redirect (called on click before button handler)
   const rsvpIntent = {
     eventSlug: props.eventSlug,
-    status: props.status || 'confirmed',
+    status: props.status || EventAttendeeStatus.Confirmed,
     timestamp: Date.now(),
     returnUrl: window.location.href
   }
@@ -336,14 +336,14 @@ const onCodeVerifySuccess = async () => {
 
     console.log('About to call actionAttendEvent...')
     await eventStore.actionAttendEvent(props.eventSlug, {
-      status: props.status || 'confirmed'
+      status: props.status || EventAttendeeStatus.Confirmed
     })
 
     // Clear RSVP intent
     localStorage.removeItem('rsvp_intent')
 
     // Emit success event
-    emit('success', { status: props.status || 'confirmed' })
+    emit('success', { status: props.status || EventAttendeeStatus.Confirmed })
 
     console.log('✅ RSVP completed successfully after code verification')
 
