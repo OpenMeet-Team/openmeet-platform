@@ -6,7 +6,10 @@
       :loading="isLoading"
       :disable="isLoading"
       no-caps
+      outline
+      class="bluesky-button"
       @click="handleBlueskyLogin"
+      style="width: 100%; height: 40px;"
     >
       <template v-slot:default>
         <div class="row items-center no-wrap">
@@ -117,5 +120,23 @@ const handleBlueskyLogin = async () => {
 <style scoped>
 .q-dialog :deep(.q-field) {
   margin: 8px 0;
+}
+
+.bluesky-button {
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  border-color: var(--q-dark-page, #dadce0) !important;
+  color: var(--q-dark-page, #3c4043) !important;
+}
+
+/* Dark mode support */
+.body--dark .bluesky-button {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+
+.bluesky-button:hover {
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.30), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
 }
 </style>

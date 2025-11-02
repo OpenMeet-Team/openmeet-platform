@@ -431,6 +431,41 @@ watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
       hasCheckedAttendance.value = true
       logger.debug('Auth state changed to authenticated, refreshing attendance data')
 
+      // Check for pending RSVP intent from Quick RSVP flow
+      const rsvpIntentStr = localStorage.getItem('rsvp_intent')
+      if (rsvpIntentStr) {
+        try {
+          const rsvpIntent = JSON.parse(rsvpIntentStr)
+          const maxAge = 5 * 60 * 1000 // 5 minutes
+
+          // Only process if intent is for THIS event and not expired
+          if (rsvpIntent.eventSlug === props.event.slug && Date.now() - rsvpIntent.timestamp < maxAge) {
+            logger.debug('🎉 RSVP Intent: Found pending RSVP intent, completing now', rsvpIntent)
+
+            await eventStore.actionAttendEvent(rsvpIntent.eventSlug, {
+              status: rsvpIntent.status
+            })
+
+            logger.debug('✅ RSVP Intent: Completed successfully')
+
+            // Show success notification
+            $q.notify({
+              type: 'positive',
+              message: 'RSVP confirmed!',
+              position: 'top'
+            })
+          } else {
+            logger.debug('🎉 RSVP Intent: Intent expired or for different event, ignoring')
+          }
+
+          // Clear intent regardless
+          localStorage.removeItem('rsvp_intent')
+        } catch (intentError) {
+          logger.error('Failed to process RSVP intent:', intentError)
+          localStorage.removeItem('rsvp_intent')
+        }
+      }
+
       // Always fetch fresh data from server to ensure we have latest attendance status
       await eventStore.actionGetEventBySlug(props.event.slug)
       logger.debug('Updated attendee status after auth change:', eventStore.event?.attendee?.status)

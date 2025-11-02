@@ -24,14 +24,35 @@
         </q-card-actions>
       </div>
 
+
       <!-- Quick RSVP Form View -->
       <div v-else>
         <q-card-section>
-          <div class="text-h5 text-bold">Quick RSVP</div>
-          <div class="text-caption text-grey-7 q-mt-xs">
-            RSVP to {{ eventName }}
+          <div class="text-h5 text-bold">RSVP to {{ eventName }}</div>
+        </q-card-section>
+
+        <!-- Social Login Section -->
+        <q-card-section class="q-pt-none">
+          <div class="text-caption text-grey-7 q-mb-sm">
+            Sign in to get a calendar invite
+          </div>
+          <div @click="storeRsvpIntent">
+            <GoogleLoginComponent @success="handleOAuthSuccess" />
+          </div>
+          <div @click="storeRsvpIntent" class="q-mt-sm">
+            <GithubLoginComponent @success="handleOAuthSuccess" />
+          </div>
+          <div @click="storeRsvpIntent" class="q-mt-sm">
+            <BlueSkyLoginComponent @success="handleOAuthSuccess" />
           </div>
         </q-card-section>
+
+        <!-- Divider -->
+        <div class="row items-center q-px-md q-py-sm">
+          <q-separator class="col" />
+          <div class="text-grey-6 text-caption q-px-md">Or Quick RSVP</div>
+          <q-separator class="col" />
+        </div>
 
         <q-form @submit="onSubmit" class="q-px-md q-pb-md">
           <q-card-section class="q-pt-none">
@@ -40,9 +61,8 @@
               <template v-slot:avatar>
                 <q-icon name="sym_r_celebration" color="blue-9" />
               </template>
-              <div class="text-weight-medium">New to OpenMeet?</div>
               <div class="text-caption">
-                Enter your info to create an account and RSVP in one step!
+                We'll create your account and send you a calendar invite
               </div>
             </q-banner>
 
@@ -114,6 +134,14 @@
       </div>
     </q-card>
   </q-dialog>
+
+  <!-- Verify Email Code Dialog (for existing users) -->
+  <VerifyEmailCodeDialog
+    v-model="showCodeDialog"
+    :email="email"
+    :verification-code="devVerificationCode"
+    @success="onCodeVerifySuccess"
+  />
 </template>
 
 <script setup lang="ts">
@@ -121,6 +149,10 @@ import { ref, watch } from 'vue'
 import { authApi } from '../../api/auth'
 import { Notify } from 'quasar'
 import { useUnverifiedEmail } from '../../composables/useUnverifiedEmail'
+import GoogleLoginComponent from './GoogleLoginComponent.vue'
+import GithubLoginComponent from './GithubLoginComponent.vue'
+import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
+import VerifyEmailCodeDialog from './VerifyEmailCodeDialog.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -142,6 +174,8 @@ type ViewType = 'quick-rsvp' | 'success'
 const showDialog = ref(props.modelValue)
 const currentView = ref<ViewType>('quick-rsvp')
 const loading = ref(false)
+const showCodeDialog = ref(false)
+const devVerificationCode = ref<string | undefined>(undefined)
 
 // Quick RSVP form state
 const name = ref('')
@@ -197,36 +231,42 @@ const onSubmit = async () => {
   } catch (error: unknown) {
     console.error('Quick RSVP error:', error)
 
-    // Check for 409 Conflict (existing user) - Luma-style flow
+    // Check for 409 Conflict (existing user) - Stay in dialog and send code
     if (error && typeof error === 'object' && 'response' in error) {
       const apiError = error as { response?: { status?: number; data?: { message?: string } } }
 
       if (apiError.response?.status === 409) {
-        const errorMessage = apiError.response.data?.message || 'An account with this email already exists. Please sign in to RSVP.'
+        // Send verification code to existing user
+        try {
+          const response = await authApi.requestLoginCode({ email: email.value })
 
-        // Close the dialog
-        showDialog.value = false
+          // Store dev verification code if available
+          if (response.data && 'verificationCode' in response.data) {
+            devVerificationCode.value = (response.data as any).verificationCode
+          }
 
-        // Store RSVP intent for after sign-in
-        const rsvpIntent = {
-          eventSlug: props.eventSlug,
-          status: props.status || 'confirmed',
-          timestamp: Date.now(),
-          returnUrl: window.location.href
+          // Close Quick RSVP dialog and show code verification dialog
+          showDialog.value = false
+          showCodeDialog.value = true
+
+          // Store RSVP intent for after verification
+          const rsvpIntent = {
+            eventSlug: props.eventSlug,
+            status: props.status || 'confirmed',
+            timestamp: Date.now(),
+            returnUrl: window.location.href
+          }
+          localStorage.setItem('rsvp_intent', JSON.stringify(rsvpIntent))
+
+          console.log('🎉 RSVP Intent: Stored for existing user, showing code dialog')
+        } catch (codeError) {
+          console.error('Failed to send verification code:', codeError)
+          Notify.create({
+            type: 'negative',
+            message: 'Failed to send verification code. Please try again.',
+            position: 'top'
+          })
         }
-        localStorage.setItem('rsvp_intent', JSON.stringify(rsvpIntent))
-
-        // Show notification
-        Notify.create({
-          type: 'info',
-          message: errorMessage,
-          position: 'top',
-          timeout: 5000
-        })
-
-        // Redirect to login page with context
-        const loginUrl = `/auth/login?email=${encodeURIComponent(email.value)}&returnUrl=${encodeURIComponent(window.location.href)}&context=quick-rsvp`
-        window.location.href = loginUrl
         return
       }
     }
@@ -269,6 +309,62 @@ const onCancel = () => {
 }
 
 const onClose = () => {
+  showDialog.value = false
+}
+
+const storeRsvpIntent = () => {
+  // Store RSVP intent before OAuth redirect (called on click before button handler)
+  const rsvpIntent = {
+    eventSlug: props.eventSlug,
+    status: props.status || 'confirmed',
+    timestamp: Date.now(),
+    returnUrl: window.location.href
+  }
+  localStorage.setItem('rsvp_intent', JSON.stringify(rsvpIntent))
+  console.log('🎉 RSVP Intent: Stored RSVP intent before OAuth redirect:', rsvpIntent)
+}
+
+const onCodeVerifySuccess = async () => {
+  console.log('🎉 onCodeVerifySuccess called - starting RSVP completion')
+  console.log('Event slug:', props.eventSlug)
+  console.log('Status:', props.status)
+
+  // Code verified and user logged in - now complete RSVP
+  try {
+    const { useEventStore } = await import('../../stores/event-store')
+    const eventStore = useEventStore()
+
+    console.log('About to call actionAttendEvent...')
+    await eventStore.actionAttendEvent(props.eventSlug, {
+      status: props.status || 'confirmed'
+    })
+
+    // Clear RSVP intent
+    localStorage.removeItem('rsvp_intent')
+
+    // Emit success event
+    emit('success', { status: props.status || 'confirmed' })
+
+    console.log('✅ RSVP completed successfully after code verification')
+
+    Notify.create({
+      type: 'positive',
+      message: 'RSVP confirmed!',
+      position: 'top'
+    })
+  } catch (error) {
+    console.error('❌ Failed to complete RSVP after verification:', error)
+    Notify.create({
+      type: 'negative',
+      message: 'Verified but failed to complete RSVP. Please try again.',
+      position: 'top'
+    })
+  }
+}
+
+const handleOAuthSuccess = () => {
+  // OAuth login successful - close dialog
+  // RSVP intent was already stored in storeRsvpIntent
   showDialog.value = false
 }
 </script>
