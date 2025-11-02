@@ -3,6 +3,7 @@ import QuickRSVPDialog from '../QuickRSVPDialog.vue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Quasar, Notify } from 'quasar'
 import { authApi } from '../../../api/auth'
+import { EventAttendeeStatus } from '../../../types'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 // Mock the authApi
@@ -31,7 +32,7 @@ describe('QuickRSVPDialog', () => {
         modelValue: true,
         eventSlug: 'test-event',
         eventName: 'Test Event',
-        status: 'confirmed',
+        status: EventAttendeeStatus.Confirmed,
         ...props
       }
     })

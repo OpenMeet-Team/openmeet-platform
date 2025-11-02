@@ -9,7 +9,7 @@
       @click="handleGoogleLogin"
       no-caps
       outline
-      style="width: 100%; height: 40px; border-color: #dadce0; color: #3c4043;"
+      style="width: 100%; height: 40px;"
     >
       <template v-slot:default>
         <div class="row items-center no-wrap">
@@ -174,6 +174,14 @@ const retryAuth = () => {
   font-family: 'Roboto', sans-serif;
   font-size: 14px;
   font-weight: 500;
+  border-color: var(--q-dark-page, #dadce0) !important;
+  color: var(--q-dark-page, #3c4043) !important;
+}
+
+/* Dark mode support */
+.body--dark .google-button {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
 }
 
 .google-button:hover {

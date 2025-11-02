@@ -350,10 +350,10 @@ const initialLoading = ref(true)
 
 // Quick RSVP state
 const showQuickRsvp = ref(false)
-const quickRsvpStatus = ref<'confirmed' | 'cancelled'>('confirmed')
+const quickRsvpStatus = ref<EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled>(EventAttendeeStatus.Confirmed)
 
 // Temporary RSVP status (not persisted, only for current page view)
-const temporaryRsvpStatus = ref<'confirmed' | 'cancelled' | null>(null)
+const temporaryRsvpStatus = ref<EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled | null>(null)
 
 // Helper function to extract error message from API response
 const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
@@ -430,6 +430,41 @@ watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
       loading.value = true
       hasCheckedAttendance.value = true
       logger.debug('Auth state changed to authenticated, refreshing attendance data')
+
+      // Check for pending RSVP intent from Quick RSVP flow
+      const rsvpIntentStr = localStorage.getItem('rsvp_intent')
+      if (rsvpIntentStr) {
+        try {
+          const rsvpIntent = JSON.parse(rsvpIntentStr)
+          const maxAge = 5 * 60 * 1000 // 5 minutes
+
+          // Only process if intent is for THIS event and not expired
+          if (rsvpIntent.eventSlug === props.event.slug && Date.now() - rsvpIntent.timestamp < maxAge) {
+            logger.debug('🎉 RSVP Intent: Found pending RSVP intent, completing now', rsvpIntent)
+
+            await eventStore.actionAttendEvent(rsvpIntent.eventSlug, {
+              status: rsvpIntent.status
+            })
+
+            logger.debug('✅ RSVP Intent: Completed successfully')
+
+            // Show success notification
+            $q.notify({
+              type: 'positive',
+              message: 'RSVP confirmed!',
+              position: 'top'
+            })
+          } else {
+            logger.debug('🎉 RSVP Intent: Intent expired or for different event, ignoring')
+          }
+
+          // Clear intent regardless
+          localStorage.removeItem('rsvp_intent')
+        } catch (intentError) {
+          logger.error('Failed to process RSVP intent:', intentError)
+          localStorage.removeItem('rsvp_intent')
+        }
+      }
 
       // Always fetch fresh data from server to ensure we have latest attendance status
       await eventStore.actionGetEventBySlug(props.event.slug)
@@ -780,18 +815,18 @@ const handleLeave = async () => {
 
 // Handle Quick RSVP Going button
 const handleQuickRsvpGoing = () => {
-  quickRsvpStatus.value = 'confirmed'
+  quickRsvpStatus.value = EventAttendeeStatus.Confirmed
   showQuickRsvp.value = true
 }
 
 // Handle Quick RSVP Decline button
 const handleQuickRsvpDecline = () => {
-  quickRsvpStatus.value = 'cancelled'
+  quickRsvpStatus.value = EventAttendeeStatus.Cancelled
   showQuickRsvp.value = true
 }
 
 // Handle Quick RSVP success - user has registered and received calendar invite
-const handleQuickRsvpSuccess = (data: { status: 'confirmed' | 'cancelled' }) => {
+const handleQuickRsvpSuccess = (data: { status: EventAttendeeStatus.Confirmed | EventAttendeeStatus.Cancelled }) => {
   // User has successfully registered/logged in via Quick RSVP and RSVP is created
   // They will receive a calendar invite via email
   logger.debug('Quick RSVP successful, calendar invite sent')
