@@ -1,6 +1,33 @@
 <template>
-  <q-dialog v-model="showDialog" persistent>
-    <q-card class="quick-rsvp-card" style="min-width: 400px">
+  <q-dialog
+    v-model="showDialog"
+    persistent
+    :full-width="isMobile"
+    :full-height="isMobile"
+    :transition-show="isMobile ? 'slide-up' : 'scale'"
+    :transition-hide="isMobile ? 'slide-down' : 'scale'"
+  >
+    <q-card
+      :class="{
+        'quick-rsvp-card': !isMobile,
+        'quick-rsvp-mobile': isMobile
+      }"
+    >
+      <!-- Mobile Header Bar -->
+      <q-bar v-if="isMobile && currentView !== 'success'" class="bg-primary text-white">
+        <q-space />
+        <div class="text-weight-medium">RSVP to Event</div>
+        <q-space />
+        <q-btn
+          flat
+          dense
+          round
+          icon="sym_r_close"
+          @click="onCancel"
+          :disable="loading"
+        />
+      </q-bar>
+
       <!-- Success View -->
       <div v-if="currentView === 'success'">
         <q-card-section class="text-center">
@@ -30,11 +57,15 @@
           <div class="text-h5 text-bold">RSVP to {{ eventName }}</div>
         </q-card-section>
 
+        <!-- Section: Using Socials -->
+        <div class="row items-center q-px-md q-py-sm q-mt-sm">
+          <q-separator class="col" />
+          <div class="text-h6 q-px-md">Using Socials</div>
+          <q-separator class="col" />
+        </div>
+
         <!-- Social Login Section -->
-        <q-card-section class="q-pt-none">
-          <div class="text-caption text-grey-7 q-mb-sm">
-            Sign in to get a calendar invite
-          </div>
+        <q-card-section class="q-pt-sm">
           <div @click="storeRsvpIntent">
             <GoogleLoginComponent @success="handleOAuthSuccess" />
           </div>
@@ -46,25 +77,15 @@
           </div>
         </q-card-section>
 
-        <!-- Divider -->
+        <!-- Section: Or Quick RSVP -->
         <div class="row items-center q-px-md q-py-sm">
           <q-separator class="col" />
-          <div class="text-grey-6 text-caption q-px-md">Or Quick RSVP</div>
+          <div class="text-h6 q-px-md">Or Quick RSVP</div>
           <q-separator class="col" />
         </div>
 
         <q-form @submit="onSubmit" class="q-px-md q-pb-md">
           <q-card-section class="q-pt-none">
-            <!-- Callout Box -->
-            <q-banner class="bg-blue-1 text-blue-9 q-mb-md" rounded dense>
-              <template v-slot:avatar>
-                <q-icon name="sym_r_celebration" color="blue-9" />
-              </template>
-              <div class="text-caption">
-                We'll create your account and send you a calendar invite
-              </div>
-            </q-banner>
-
             <q-input
               filled
               v-model="name"
@@ -96,15 +117,11 @@
                 <q-icon name="sym_r_mail" />
               </template>
             </q-input>
-
-            <div class="text-caption text-grey-7 q-mt-md">
-              <q-icon name="sym_r_info" size="xs" class="q-mr-xs" />
-              We'll create your free account and send you a calendar invite.
-            </div>
           </q-card-section>
 
-          <q-card-actions align="right" class="q-px-md q-pb-md">
+          <q-card-actions :align="isMobile ? 'center' : 'right'" class="q-px-md q-pb-md">
             <q-btn
+              v-if="!isMobile"
               flat
               label="Cancel"
               color="grey-7"
@@ -114,21 +131,32 @@
             />
             <q-btn
               type="submit"
-              label="Register & RSVP"
+              :label="isMobile ? 'Register & RSVP' : 'Register & RSVP'"
               color="primary"
               :loading="loading"
+              :class="{ 'full-width': isMobile }"
               data-cy="quick-rsvp-submit"
             />
           </q-card-actions>
         </q-form>
 
-        <!-- Login Link -->
-        <q-separator class="q-mx-md" />
-        <div class="text-center text-body2 q-my-md">
-          Have an account?
-          <a @click="redirectToLogin" class="text-primary cursor-pointer text-weight-bold">
-            Log in
-          </a>
+        <!-- Section: Or Log In -->
+        <div class="row items-center q-px-md q-py-sm">
+          <q-separator class="col" />
+          <div class="text-h6 q-px-md">Or Log In</div>
+          <q-separator class="col" />
+        </div>
+
+        <!-- Login Button -->
+        <div class="text-center q-px-md q-pb-md">
+          <q-btn
+            flat
+            label="I Have an Account"
+            color="primary"
+            @click="redirectToLogin"
+            :class="{ 'full-width': isMobile }"
+            data-cy="quick-rsvp-login"
+          />
         </div>
       </div>
     </q-card>
@@ -144,9 +172,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { authApi } from '../../api/auth'
-import { Notify } from 'quasar'
+import { Notify, useQuasar } from 'quasar'
 import { useUnverifiedEmail } from '../../composables/useUnverifiedEmail'
 import { EventAttendeeStatus } from '../../types'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
@@ -167,8 +195,12 @@ const emit = defineEmits<{
 }>()
 
 const { setUnverifiedEmail } = useUnverifiedEmail()
+const $q = useQuasar()
 
 type ViewType = 'quick-rsvp' | 'success'
+
+// Mobile detection
+const isMobile = computed(() => $q.platform.is.mobile || $q.screen.width < 600)
 
 // Dialog state
 const showDialog = ref(props.modelValue)
@@ -371,7 +403,40 @@ const handleOAuthSuccess = () => {
 
 <style scoped lang="scss">
 .quick-rsvp-card {
+  min-width: 400px;
   max-width: 500px;
+}
+
+.quick-rsvp-mobile {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+
+  // Make content scrollable
+  :deep(.q-card__section) {
+    flex-shrink: 0;
+  }
+
+  // Ensure form can scroll if needed
+  :deep(form) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  // Make buttons stick to bottom on mobile
+  :deep(.q-card__actions) {
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid var(--q-separator-color);
+    z-index: 1;
+  }
 }
 
 .social-login-buttons {
