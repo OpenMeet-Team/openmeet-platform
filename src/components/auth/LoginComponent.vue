@@ -193,6 +193,13 @@
         </q-card-section>
       </q-tab-panel>
     </q-tab-panels>
+
+    <!-- Email Verification Dialog -->
+    <VerifyEmailCodeDialog
+      v-model="showVerificationDialog"
+      :email="email"
+      @success="handleVerificationSuccess"
+    />
   </q-card>
 </template>
 
@@ -205,6 +212,7 @@ import { useNotification } from '../../composables/useNotification'
 import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
+import VerifyEmailCodeDialog from './VerifyEmailCodeDialog.vue'
 import { authApi } from '../../api/auth'
 
 const authStore = useAuthStore()
@@ -216,6 +224,9 @@ const email = ref<string>(route.query.email as string || '')
 const password = ref<string>('')
 const isPwd = ref<boolean>(true)
 const isLoading = ref<boolean>(false)
+
+// Email verification state
+const showVerificationDialog = ref<boolean>(false)
 
 // Passwordless login state
 const loginMode = ref<'password' | 'code'>('password')
@@ -345,7 +356,20 @@ const onSubmit = (): void => {
       handlePostLoginRedirect()
     }).catch(error => {
       console.error('Error logging in:', error)
-      warning('Please provide a valid email and password')
+
+      // Check if this is an unverified email error
+      if (error?.response?.data?.errors?.email_not_verified) {
+        // Show verification code dialog
+        showVerificationDialog.value = true
+        success(error.response.data.errors.email || 'A verification code has been sent to your email.')
+      } else if (error?.response?.data?.errors?.email) {
+        // Show specific error message from API
+        warning(error.response.data.errors.email)
+      } else if (error?.response?.data?.errors?.password) {
+        warning(error.response.data.errors.password)
+      } else {
+        warning('Please provide a valid email and password')
+      }
     }).finally(() => {
       isLoading.value = false
     })
@@ -432,6 +456,12 @@ const resetCodeForm = (): void => {
   codeSent.value = false
   loginCode.value = ''
   codeEmail.value = ''
+}
+
+// Handle successful email verification
+const handleVerificationSuccess = (): void => {
+  emits('login')
+  handlePostLoginRedirect()
 }
 
 // Store OIDC flow data when component mounts

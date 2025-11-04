@@ -4,7 +4,7 @@
       <q-card-section>
         <div class="text-h5 text-bold">Verify Your Email</div>
         <div class="text-caption text-grey-7 q-mt-xs">
-          We sent a 6-digit code to {{ email }}
+          We sent a verification code to {{ email }}
         </div>
       </q-card-section>
 
@@ -15,11 +15,9 @@
             v-model="code"
             label="Verification Code"
             data-cy="verify-code-input"
-            mask="######"
             unmasked-value
             :rules="[
-              (val: string) => !!val || 'Verification code is required',
-              (val: string) => val.length === 6 || 'Code must be 6 digits'
+              (val: string) => !!val || 'Verification code is required'
             ]"
             autofocus
             inputmode="numeric"
@@ -29,7 +27,7 @@
               <q-icon name="sym_r_lock" />
             </template>
             <template v-slot:hint>
-              Enter the 6-digit code from your email
+              Enter the code from your email
             </template>
           </q-input>
 
@@ -115,7 +113,7 @@ const handlePaste = (event: ClipboardEvent) => {
   event.preventDefault()
   const pastedText = event.clipboardData?.getData('text') || ''
   // Extract only digits
-  const digits = pastedText.replace(/\D/g, '').slice(0, 6)
+  const digits = pastedText.replace(/\D/g, '')
   code.value = digits
 }
 
