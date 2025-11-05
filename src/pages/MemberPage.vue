@@ -34,26 +34,35 @@ const groupMemberships = computed(() =>
 
 // Auth provider flags
 const isBskyUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.bluesky)
-const bskyHandle = computed(() => profileUser.value?.preferences?.bluesky?.handle || null)
+
+// Get Bluesky handle - for shadow users, firstName contains the resolved handle
+// For real Bluesky users, firstName is their actual name (preferences.bluesky.handle has their handle)
+const bskyHandle = computed(() => {
+  if (!profileUser.value) return null
+
+  // Shadow users: firstName contains the resolved handle (e.g., "alice.bsky.social")
+  if (profileUser.value.isShadowAccount && profileUser.value.firstName) {
+    return profileUser.value.firstName
+  }
+
+  // Real users: check preferences for handle (legacy)
+  return profileUser.value?.preferences?.bluesky?.handle || null
+})
+
 const isGoogleUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.google)
 const isGithubUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.github)
 
 // Profile avatar
 const { avatarUrl } = useAvatarUrl(profileUser)
 
-// Display name - for Bluesky users, prefer resolved handle over firstName
-// Backend resolves DIDs to handles in showProfile and populates preferences.bluesky.handle
+// Display name - for Bluesky users, show resolved handle
 const displayName = computed(() => {
   if (isBskyUser.value && bskyHandle.value) {
     // If handle doesn't look like a DID, use it with @ prefix
     if (!bskyHandle.value.startsWith('did:')) {
       return `@${bskyHandle.value}`
     }
-    // If handle is still a DID (resolution failed), try to use firstName if it's not also a DID
-    if (profileUser.value?.firstName && !profileUser.value.firstName.startsWith('did:')) {
-      return profileUser.value.firstName
-    }
-    // Last resort: show the DID
+    // If it's still a DID (shouldn't happen with backend resolution), show it without @
     return bskyHandle.value
   }
 

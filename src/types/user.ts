@@ -85,6 +85,7 @@ export interface UserEntity {
   firstName?: string
   lastName?: string
   shortId?: string
+  isShadowAccount?: boolean
   // token: string
   // refreshToken: string
   // Matrix fields - only matrixUserId is needed client-side
