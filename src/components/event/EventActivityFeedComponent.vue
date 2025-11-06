@@ -7,6 +7,7 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger'
+import { useDisplayName } from '../../composables/useDisplayName'
 
 interface Props {
   eventSlug: string
@@ -15,6 +16,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const router = useRouter()
+const { getDisplayName } = useDisplayName()
 
 const activities = ref<ActivityFeedEntity[]>([])
 const isLoading = ref(false)
@@ -203,11 +205,16 @@ function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
   }
 }
 
-function navigateToActor (actorSlug: string, event: Event) {
+function navigateToActor (activity: ActivityFeedEntity & { displayName?: string }, event: Event) {
   event.stopPropagation()
+
+  // Prefer displayName (resolved handle) for cleaner URLs
+  // Falls back to actorSlug for backwards compatibility
+  const identifier = getDisplayName(activity) || activity.metadata.actorSlug
+
   router.push({
     name: 'MemberPage',
-    params: { slug: actorSlug }
+    params: { slug: identifier }
   })
 }
 </script>
@@ -255,9 +262,9 @@ function navigateToActor (actorSlug: string, event: Event) {
                 <template v-if="activity.activityType === 'member.joined' && activity.aggregatedCount === 1">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> joined the group</span>
                 </template>
@@ -270,9 +277,9 @@ function navigateToActor (actorSlug: string, event: Event) {
                 <template v-else-if="activity.activityType === 'event.created'">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> created </span>
                   <span
@@ -286,9 +293,9 @@ function navigateToActor (actorSlug: string, event: Event) {
                 <template v-else-if="activity.activityType === 'event.rsvp' && activity.aggregatedCount === 1">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> is attending </span>
                   <span
@@ -313,9 +320,9 @@ function navigateToActor (actorSlug: string, event: Event) {
                 <template v-else-if="activity.activityType === 'group.created'">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> created this group</span>
                 </template>

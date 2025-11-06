@@ -7,8 +7,10 @@ import SubtitleComponent from '../common/SubtitleComponent.vue'
 import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger'
+import { useDisplayName } from '../../composables/useDisplayName'
 
 const router = useRouter()
+const { getDisplayName } = useDisplayName()
 
 const activities = ref<ActivityFeedEntity[]>([])
 const isLoading = ref(false)
@@ -182,11 +184,16 @@ function navigateToGroup (groupSlug: string, event: Event) {
   }
 }
 
-function navigateToActor (actorSlug: string, event: Event) {
+function navigateToActor (activity: ActivityFeedEntity & { displayName?: string }, event: Event) {
   event.stopPropagation()
+
+  // Prefer displayName (resolved handle) for cleaner URLs
+  // Falls back to actorSlug for backwards compatibility
+  const identifier = getDisplayName(activity) || activity.metadata.actorSlug
+
   router.push({
     name: 'MemberPage',
-    params: { slug: actorSlug }
+    params: { slug: identifier }
   })
 }
 
@@ -258,9 +265,9 @@ function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
                 <template v-if="activity.activityType === 'group.created'">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> created </span>
                   <span
@@ -284,9 +291,9 @@ function navigateToEvent (activity: ActivityFeedEntity, event: Event) {
                 <template v-else-if="activity.activityType === 'event.created'">
                   <span
                     class="actor-link"
-                    @click="navigateToActor(activity.metadata.actorSlug, $event)"
+                    @click="navigateToActor(activity, $event)"
                   >
-                    {{ activity.metadata.actorName }}
+                    {{ getDisplayName(activity) }}
                   </span>
                   <span> created </span>
                   <span
