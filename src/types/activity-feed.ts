@@ -1,3 +1,5 @@
+import { UserEntity } from './user'
+
 export interface ActivityFeedEntity {
   id: number
   ulid: string
@@ -8,6 +10,7 @@ export interface ActivityFeedEntity {
   groupId?: number
   eventId?: number
   actorId?: number
+  actor?: UserEntity
   actorIds: number[]
   visibility: 'public' | 'authenticated' | 'members_only' | 'private'
   aggregatedCount: number

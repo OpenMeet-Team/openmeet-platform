@@ -8,9 +8,11 @@ import NoContentComponent from '../global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger'
 import { useDisplayName } from '../../composables/useDisplayName'
+import { useUserIdentifier } from '../../composables/useUserIdentifier'
 
 const router = useRouter()
 const { getDisplayName } = useDisplayName()
+const { getUserIdentifier } = useUserIdentifier()
 
 const activities = ref<ActivityFeedEntity[]>([])
 const isLoading = ref(false)
@@ -187,9 +189,11 @@ function navigateToGroup (groupSlug: string, event: Event) {
 function navigateToActor (activity: ActivityFeedEntity & { displayName?: string }, event: Event) {
   event.stopPropagation()
 
-  // Prefer displayName (resolved handle) for cleaner URLs
-  // Falls back to actorSlug for backwards compatibility
-  const identifier = getDisplayName(activity) || activity.metadata.actorSlug
+  if (!activity.actor) return
+
+  // Use stable identifier: DID for Bluesky users, slug for others
+  // This ensures URLs remain valid even if handles change
+  const identifier = getUserIdentifier(activity.actor)
 
   router.push({
     name: 'MemberPage',

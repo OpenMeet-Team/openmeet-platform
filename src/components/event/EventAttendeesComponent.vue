@@ -5,7 +5,7 @@
       <q-card-section v-if="event?.attendees?.length">
         <div class="row q-gutter-md">
           <q-item v-for="attendee in event.attendees" :key="attendee.id" clickable class="q-px-sm"
-            @click="router.push({ name: 'MemberPage', params: { slug: attendee.user?.slug } })">
+            @click="router.push({ name: 'MemberPage', params: { slug: getUserIdentifier(attendee.user) } })">
             <q-avatar avatar rounded size="48px">
               <q-img
                 :src="getImageSrc(attendee.user?.photo)"
@@ -42,12 +42,14 @@ import { useRoute, useRouter } from 'vue-router'
 import SubtitleComponent from '../common/SubtitleComponent.vue'
 import { EventAttendeePermission, EventAttendeeRole } from '../../types'
 import { useEventDialog } from '../../composables/useEventDialog'
+import { useUserIdentifier } from '../../composables/useUserIdentifier'
 
 const event = computed(() => useEventStore().event)
 const { goToLogin } = useAuth()
 const { openNoAttendeesRightsDialog } = useEventDialog()
 const route = useRoute()
 const router = useRouter()
+const { getUserIdentifier } = useUserIdentifier()
 
 const onAttendeesClick = () => {
   if (!useAuthStore().isAuthenticated) {
