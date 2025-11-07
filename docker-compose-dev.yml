@@ -28,8 +28,7 @@ services:
     ports:
       - "9005:80"
     volumes:
-      - ./nginx-dev.conf.template:/etc/nginx/templates/default.conf.template
-      - ./docker-entrypoint.sh:/docker-entrypoint.d/40-substitute-env.sh
+      - ./nginx-dev.conf.template:/etc/nginx/templates/default.conf.template:ro
     environment:
       # ===== BACKEND_DOMAIN OPTIONS =====
       # Option 1: Public tunnel (slower, but always works)
@@ -43,7 +42,7 @@ services:
       # ==================================
 
       - QUASAR_DEV_HOST=platform-dev:9005
-      - APP_TENANT_ID=${APP_TENANT_ID}  # Use tenant ID from platform config (.env)
+      - TENANT_ID=${APP_TENANT_ID}  # Map from platform config (.env) to nginx template variable
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Allows nginx to reach host machine
     depends_on:

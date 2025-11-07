@@ -47,12 +47,8 @@ ARG COMMIT_SHA
 # Copy built static files from build stage
 COPY --from=build /usr/src/app/dist/spa /usr/share/nginx/html
 
-# Copy nginx configuration template (envsubst will process it at startup)
-COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
-
-# Copy entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Copy nginx configuration template (nginx will process it automatically via envsubst)
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Create health check endpoint
 RUN echo "healthy" > /usr/share/nginx/html/health
@@ -60,5 +56,6 @@ RUN echo "healthy" > /usr/share/nginx/html/health
 # Expose port 80 (nginx default)
 EXPOSE 80
 
-# Use entrypoint script to substitute env vars and start nginx
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Nginx:alpine automatically processes /etc/nginx/templates/*.template
+# and substitutes environment variables at startup
+CMD ["nginx", "-g", "daemon off;"]
