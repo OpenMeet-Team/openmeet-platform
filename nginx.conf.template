@@ -58,22 +58,19 @@ server {
     # --- Meta Tag Routes (Events & Groups) ---
     # Route bots to API, humans to SPA
     location ~ ^/(events|groups)/[^/]+$ {
+        # Set common headers for all requests
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+        proxy_set_header X-Tenant-Id ${APP_TENANT_ID};  # Pass platform's tenant ID to API
+
         # If bot: proxy to API for meta tags
         if ($is_bot) {
-            # Proxy to API service
-            # Local/Dev: http://api-dev.openmeet.net (via FRP)
-            # K8s: http://api (Kubernetes service DNS)
-            # Set via BACKEND_DOMAIN env var in ConfigMap
             # Rewrite to /api/meta prefix (API has global /api prefix)
             rewrite ^(.*)$ /api/meta$1 break;
             proxy_pass ${BACKEND_DOMAIN};
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header User-Agent $http_user_agent;
-            proxy_set_header X-Tenant-Id ${APP_TENANT_ID};  # Pass platform's tenant ID to API
-            add_header Vary "User-Agent" always;
         }
 
         # Humans: serve SPA (Vue Router handles the route)
