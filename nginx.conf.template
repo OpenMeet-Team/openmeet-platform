@@ -66,17 +66,15 @@ server {
         proxy_set_header User-Agent $http_user_agent;
         proxy_set_header X-Tenant-Id ${APP_TENANT_ID};  # Pass platform's tenant ID to API
 
-        # If bot: proxy to API for meta tags
+        # If bot: proxy to API for meta tags (proxy_pass stops processing)
         if ($is_bot) {
             # Rewrite to /api/meta prefix (API has global /api prefix)
             rewrite ^(.*)$ /api/meta$1 break;
             proxy_pass ${BACKEND_DOMAIN};
         }
 
-        # Humans: serve SPA (Vue Router handles the route)
-        if ($is_bot = 0) {
-            try_files $uri /index.html;
-        }
+        # Default for humans: serve SPA (Vue Router handles the route)
+        try_files $uri /index.html;
     }
 
     # --- Static Assets ---
