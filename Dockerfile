@@ -39,17 +39,23 @@ RUN echo "$APP_VERSION" > /usr/src/app/dist/spa/app-version.txt && \
 # Remove devDependencies
 RUN npm prune --omit=dev
 
-# ---- Release ----
-FROM base AS release
+# ---- Release with Nginx ----
+FROM nginx:1.25-alpine AS release
 ARG APP_VERSION
 ARG COMMIT_SHA
-COPY --from=dependencies /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
-COPY docker-entrypoint.sh /
-RUN chmod +x /docker-entrypoint.sh
 
-RUN npm install -g @quasar/cli
+# Copy built static files from build stage
+COPY --from=build /usr/src/app/dist/spa /usr/share/nginx/html
 
-EXPOSE 9005
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD [ "quasar", "serve", "--history", "--port", "9005", "./dist/spa" ]
+# Copy nginx configuration template (nginx will process it automatically via envsubst)
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Create health check endpoint
+RUN echo "healthy" > /usr/share/nginx/html/health
+
+# Expose port 80 (nginx default)
+EXPOSE 80
+
+# Nginx:alpine automatically processes /etc/nginx/templates/*.template
+# and substitutes environment variables at startup
+CMD ["nginx", "-g", "daemon off;"]

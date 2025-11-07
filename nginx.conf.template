@@ -1,0 +1,120 @@
+# OpenMeet Platform Nginx Configuration
+# Bot Detection & Meta Tag Routing
+# See design-notes/link-preview-meta-tags.md for architecture details
+
+# Detect common bots/crawlers via User-Agent
+map $http_user_agent $is_bot {
+    default 0;
+
+    # Social Media Crawlers
+    ~*facebookexternalhit 1;
+    ~*facebook 1;
+    ~*twitterbot 1;
+    ~*twitter 1;
+    ~*discordbot 1;
+    ~*discord 1;
+    ~*slackbot 1;
+    ~*slack 1;
+    ~*whatsapp 1;
+    ~*telegram 1;
+
+    # Link Preview Services
+    ~*linkedinbot 1;
+    ~*pinterestbot 1;
+    ~*redditbot 1;
+    ~*tumblr 1;
+    ~*skypeuripreview 1;
+    ~*vkshare 1;
+
+    # Search Engine Bots
+    ~*googlebot 1;
+    ~*bingbot 1;
+    ~*slurp 1;  # Yahoo
+    ~*duckduckbot 1;
+    ~*baiduspider 1;
+    ~*yandexbot 1;
+    ~*applebot 1;
+
+    # General Crawlers
+    ~*bot 1;
+    ~*crawler 1;
+    ~*spider 1;
+    ~*archiveorg 1;
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    # Root directory for static files
+    root /usr/share/nginx/html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+    # --- Meta Tag Routes (Events & Groups) ---
+    # Route bots to API, humans to SPA
+    location ~ ^/(events|groups)/[^/]+$ {
+        # If bot: proxy to API for meta tags
+        if ($is_bot) {
+            # Proxy to API service
+            # Local/Dev: http://api-dev.openmeet.net (via FRP)
+            # K8s: http://api (Kubernetes service DNS)
+            # Set via BACKEND_DOMAIN env var in ConfigMap
+            # Rewrite to /api/meta prefix (API has global /api prefix)
+            rewrite ^(.*)$ /api/meta$1 break;
+            proxy_pass ${BACKEND_DOMAIN};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header User-Agent $http_user_agent;
+            proxy_set_header X-Tenant-Id ${APP_TENANT_ID};  # Pass platform's tenant ID to API
+            add_header Vary "User-Agent" always;
+        }
+
+        # Humans: serve SPA (Vue Router handles the route)
+        if ($is_bot = 0) {
+            try_files $uri /index.html;
+        }
+    }
+
+    # --- Static Assets ---
+    # Cache static assets aggressively
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location /icons/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location /fonts/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # --- SPA Fallback ---
+    # All other routes: serve index.html for Vue Router
+    location / {
+        try_files $uri /index.html;
+
+        # Don't cache index.html (allows deployments without cache busting)
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # --- Health Check ---
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
