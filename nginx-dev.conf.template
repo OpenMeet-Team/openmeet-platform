@@ -66,7 +66,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
-        proxy_set_header X-Tenant-Id ${TENANT_ID};  # Pass platform's tenant ID to API
+        proxy_set_header X-Tenant-Id ${APP_TENANT_ID};  # Pass platform's tenant ID to API
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
