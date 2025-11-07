@@ -1,0 +1,115 @@
+# OpenMeet Platform Nginx Configuration - DEVELOPMENT
+# Bot Detection & Meta Tag Routing with Quasar Dev Server Proxy
+# See design-notes/link-preview-meta-tags.md for architecture details
+
+# Detect common bots/crawlers via User-Agent
+map $http_user_agent $is_bot {
+    default 0;
+
+    # Social Media Crawlers
+    ~*facebookexternalhit 1;
+    ~*facebook 1;
+    ~*twitterbot 1;
+    ~*twitter 1;
+    ~*discordbot 1;
+    ~*discord 1;
+    ~*slackbot 1;
+    ~*slack 1;
+    ~*whatsapp 1;
+    ~*telegram 1;
+
+    # Link Preview Services
+    ~*linkedinbot 1;
+    ~*pinterestbot 1;
+    ~*redditbot 1;
+    ~*tumblr 1;
+    ~*skypeuripreview 1;
+    ~*vkshare 1;
+
+    # Search Engine Bots
+    ~*googlebot 1;
+    ~*bingbot 1;
+    ~*slurp 1;  # Yahoo
+    ~*duckduckbot 1;
+    ~*baiduspider 1;
+    ~*yandexbot 1;
+    ~*applebot 1;
+
+    # General Crawlers
+    ~*bot 1;
+    ~*crawler 1;
+    ~*spider 1;
+    ~*archiveorg 1;
+}
+
+# Upstream to Quasar dev server (hot reload support)
+upstream quasar_dev {
+    server ${QUASAR_DEV_HOST};
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+    # --- Meta Tag Routes (Events & Groups) ---
+    # Route bots to API, humans to Quasar dev
+    location ~ ^/(events|groups)/[^/]+$ {
+        # Set common headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+        proxy_set_header X-Tenant-Id ${TENANT_ID};  # Pass platform's tenant ID to API
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_cache_bypass $http_upgrade;
+
+        # If bot: proxy to API for meta tags
+        if ($is_bot) {
+            # Proxy to API service
+            # Options (set via BACKEND_DOMAIN env var):
+            #   - https://api.dev.openmeet.net (public tunnel)
+            #   - http://host.docker.internal:3000 (API on host)
+            #   - http://api:3000 (API in docker via api-network)
+            rewrite ^(.*)$ /api/meta$1 break;
+            proxy_pass ${BACKEND_DOMAIN};
+        }
+
+        # Humans: proxy to Quasar dev (SPA with hot reload)
+        if ($is_bot = 0) {
+            proxy_pass http://quasar_dev;
+        }
+    }
+
+    # --- All Other Routes ---
+    # Proxy everything else to Quasar dev server (hot reload, WebSocket support)
+    location / {
+        proxy_pass http://quasar_dev;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # Disable cache for dev
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # --- Health Check ---
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}

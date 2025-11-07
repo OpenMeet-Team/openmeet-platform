@@ -39,17 +39,26 @@ RUN echo "$APP_VERSION" > /usr/src/app/dist/spa/app-version.txt && \
 # Remove devDependencies
 RUN npm prune --omit=dev
 
-# ---- Release ----
-FROM base AS release
+# ---- Release with Nginx ----
+FROM nginx:1.25-alpine AS release
 ARG APP_VERSION
 ARG COMMIT_SHA
-COPY --from=dependencies /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
-COPY docker-entrypoint.sh /
+
+# Copy built static files from build stage
+COPY --from=build /usr/src/app/dist/spa /usr/share/nginx/html
+
+# Copy nginx configuration template (envsubst will process it at startup)
+COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-RUN npm install -g @quasar/cli
+# Create health check endpoint
+RUN echo "healthy" > /usr/share/nginx/html/health
 
-EXPOSE 9005
+# Expose port 80 (nginx default)
+EXPOSE 80
+
+# Use entrypoint script to substitute env vars and start nginx
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD [ "quasar", "serve", "--history", "--port", "9005", "./dist/spa" ]

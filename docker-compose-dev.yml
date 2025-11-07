@@ -1,26 +1,57 @@
 # to run in development use this command
-# `` sudo docker-compose -f docker-compose-dev.yml up --build ``
+# `` docker-compose -f docker-compose-dev.yml up ``
+# Access via: http://localhost:9005
 
-version: '3.8'
+# version: '3.8'
 
 services:
-  platform:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: platform
-    hostname: platform
-    env_file:
-      - .env
-    ports:
-      - 9005:9005
+  # Quasar dev server with hot reload (internal service)
+  platform-dev:
+    image: node:22.18.0-alpine
+    container_name: platform-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes:
-      - ./src/:/app/src/
+      - .:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    env_file:
+      - .env  # Load .env to get APP_DEV_SERVER_PORT
+    environment:
+      - NODE_ENV=development
     networks:
-      - platform-network
+      - api-network
+
+  # Nginx with bot detection (k8s-like entry point)
+  platform-nginx:
+    image: nginx:1.25-alpine
+    container_name: platform-nginx
+    ports:
+      - "9005:80"
+    volumes:
+      - ./nginx-dev.conf.template:/etc/nginx/templates/default.conf.template
+      - ./docker-entrypoint.sh:/docker-entrypoint.d/40-substitute-env.sh
+    environment:
+      # ===== BACKEND_DOMAIN OPTIONS =====
+      # Option 1: Public tunnel (slower, but always works)
+      # - BACKEND_DOMAIN=https://api.dev.openmeet.net
+
+      # Option 2: Direct to API on host via docker network (if API running via npm run dev)
+      # - BACKEND_DOMAIN=http://host.docker.internal:3000
+
+      # Option 3: Direct to API container via shared network (RECOMMENDED for dev)
+      - BACKEND_DOMAIN=http://api:3000
+      # ==================================
+
+      - QUASAR_DEV_HOST=platform-dev:9005
+      - APP_TENANT_ID=${APP_TENANT_ID}  # Use tenant ID from platform config (.env)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows nginx to reach host machine
+    depends_on:
+      - platform-dev
+    networks:
+      - api-network
 
 networks:
-  platform-network:
-    driver: bridge
-
-
+  api-network:
+    name: api-network  # Join the network created by API's docker-compose-dev.yml
+    external: true
