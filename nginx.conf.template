@@ -117,7 +117,6 @@ map $http_user_agent $is_bot {
 
     # Apple
     ~*applebot 1;
-    ~*apple 1;
 
     # Other Search Engines
     ~*seznambot 1;
@@ -194,7 +193,7 @@ map $http_user_agent $is_bot {
     # ============================================================
 
     ~*archive\.org 1;
-    ~*archive 1;
+    ~*ia_archiver 1;
     ~*wayback 1;
     ~*httrack 1;
     ~*wget 1;
