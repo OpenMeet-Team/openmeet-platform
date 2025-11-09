@@ -29,7 +29,9 @@ export const createAuthSession = (router: Router) => {
         await refreshToken()
       } catch (err) {
         console.error('Failed to refresh token:', err)
-        handleAuthError()
+        // Don't call handleAuthError() here - let the router guard decide
+        // whether to redirect based on if the destination route is public or private
+        authStore.actionClearAuth()
         return false
       }
     }
@@ -95,7 +97,9 @@ export const createAuthSession = (router: Router) => {
         console.error('Token refresh failed:', err)
         // Release lock and broadcast failure
         crossTabTokenService.releaseRefreshLock(false)
-        handleAuthError()
+        // Don't call handleAuthError() here - let the router guard decide
+        // whether to redirect based on if the destination route is public or private
+        authStore.actionClearAuth()
         throw err
       })
       .finally(() => {
@@ -218,12 +222,17 @@ export default boot(({ app, router }) => {
       try {
         const isAuthenticated = await authSession.checkAuthStatus()
         if (!isAuthenticated) {
-          // Token refresh failed, redirect to login
-          next({
-            name: 'AuthLoginPage',
-            query: { redirect: to.fullPath }
-          })
-          return
+          // Token refresh failed
+          // Only redirect to login if the destination route requires authentication
+          if (to.matched.some(record => record.meta.requiresAuth)) {
+            next({
+              name: 'AuthLoginPage',
+              query: { redirect: to.fullPath }
+            })
+            return
+          }
+          // For public routes, allow navigation even with expired token
+          // The axios interceptor will handle 401s if the user tries to access protected endpoints
         }
       } catch (error) {
         console.error('Token refresh failed during navigation:', error)
