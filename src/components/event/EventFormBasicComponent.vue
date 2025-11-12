@@ -45,7 +45,10 @@
                 <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
                   v-model="eventData.endDate" :showTimeZone=false :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                   @update:time-info="handleEndTimeInfo"
-                  reactive-rules :rules="[(val: string) => !!val || 'Date is required']">
+                  reactive-rules :rules="[
+                    (val: string) => !!val || 'Date is required',
+                    (val: string) => new Date(val) > new Date(eventData.startDate) || 'End time must be after start time'
+                  ]">
                   <template v-slot:hint>
                     <div class="text-bold">
                       {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
@@ -684,6 +687,16 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
+  // Validate end date is after start date if both are present
+  if (eventData.value.startDate && eventData.value.endDate) {
+    const startMs = new Date(eventData.value.startDate).getTime()
+    const endMs = new Date(eventData.value.endDate).getTime()
+    if (endMs <= startMs) {
+      error('End time must be after start time')
+      return
+    }
+  }
+
   logger.debug('FINAL EVENT DATA:', {
     startDate: eventData.value.startDate,
     timeZone: eventData.value.timeZone,
