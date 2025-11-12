@@ -12,7 +12,8 @@ export function getHumanReadableDateDifference (startDate: string | Date, endDat
   const differenceMs = end.getTime() - start.getTime() // Use getTime() for a more accurate difference
 
   if (differenceMs < 0) {
-    return 'Just seconds'
+    const hours = Math.floor(Math.abs(differenceMs) / (1000 * 60 * 60))
+    return `ERROR: End is ${hours} hour${hours !== 1 ? 's' : ''} before start`
   }
 
   const seconds = Math.floor(differenceMs / 1000)
