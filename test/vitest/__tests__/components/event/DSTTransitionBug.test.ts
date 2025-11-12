@@ -26,7 +26,7 @@ describe('DST Transition Bug - Issue #281', () => {
 
     // Nov 12, 2025 6:00 PM Pacific = 2025-11-13T02:00:00.000Z (PST is UTC-8)
     const startDateISO = '2025-11-13T02:00:00.000Z' // 6pm PST = 2am UTC next day
-    const endDateISO = '2025-11-13T05:00:00.000Z'   // 9pm PST = 5am UTC next day
+    const endDateISO = '2025-11-13T05:00:00.000Z' // 9pm PST = 5am UTC next day
 
     console.log('=== DST Transition Test ===')
     console.log('Event scheduled for Nov 12, 2025 (AFTER DST ended on Nov 2)')
@@ -86,7 +86,7 @@ describe('DST Transition Bug - Issue #281', () => {
 
     // If we had the corrupted times, they would look like this:
     const corruptedStartISO = '2025-11-13T03:00:00.000Z' // 7pm PST = 3am UTC
-    const corruptedEndISO = '2025-11-12T17:00:00.000Z'   // 9am PST = 5pm UTC PREVIOUS day
+    const corruptedEndISO = '2025-11-12T17:00:00.000Z' // 9am PST = 5pm UTC PREVIOUS day
 
     const corruptedStart = new Date(corruptedStartISO)
     const corruptedEnd = new Date(corruptedEndISO)
