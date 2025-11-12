@@ -215,6 +215,11 @@ server {
     listen 80;
     server_name _;
 
+    # Increase buffer size for long URLs (Bluesky OAuth callback with JWT tokens)
+    # Default: 4 8k (32KB total)
+    # New: 4 32k (128KB total) - handles OAuth callbacks with full user data
+    large_client_header_buffers 4 32k;
+
     # Root directory for static files
     root /usr/share/nginx/html;
 
