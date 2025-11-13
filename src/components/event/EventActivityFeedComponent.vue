@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { activityFeedApi } from '../../api/activity-feed'
 import { ActivityFeedEntity } from '../../types'
 import { formatRelativeTime } from '../../utils/dateUtils'
@@ -28,6 +28,13 @@ const hasMore = ref(true)
 const limit = 10
 
 onMounted(async () => {
+  await fetchActivities()
+})
+
+watch(() => props.eventSlug, async () => {
+  activities.value = []
+  hasMore.value = true
+  error.value = null
   await fetchActivities()
 })
 
