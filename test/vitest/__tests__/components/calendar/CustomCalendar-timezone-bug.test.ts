@@ -28,7 +28,7 @@ describe('CustomCalendar - Timezone Display Bug (Issue #281)', () => {
         ulid: 'crmc-november-meeting',
         name: 'CRMC Monthly Meeting',
         startDate: '2025-11-13T02:00:00.000Z', // 6pm PST Nov 12
-        endDate: '2025-11-13T05:00:00.000Z',   // 9pm PST Nov 12
+        endDate: '2025-11-13T05:00:00.000Z', // 9pm PST Nov 12
         isAllDay: false,
         timeZone: 'America/Vancouver'
       }
@@ -185,11 +185,11 @@ describe('CustomCalendar - Timezone Display Bug (Issue #281)', () => {
 
   describe('Proposed Fix', () => {
     // Helper function that should replace the buggy code
-    function getEventDateInTimezone(startDate: string, timeZone: string): string {
+    function getEventDateInTimezone (startDate: string, timeZone: string): string {
       return formatInTimeZone(new Date(startDate), timeZone, 'yyyy-MM-dd')
     }
 
-    function getEventTimeDisplay(
+    function getEventTimeDisplay (
       startDate: string,
       endDate: string | undefined,
       timeZone: string,
