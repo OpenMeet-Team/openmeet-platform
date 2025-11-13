@@ -5,7 +5,25 @@ import { Quasar } from 'quasar'
 import CustomCalendar from '../../../../../src/components/calendar/CustomCalendar.vue'
 import { useAuthStore } from '../../../../../src/stores/auth-store'
 import { EventStatus } from '../../../../../src/types/event'
-import * as calendarApi from '../../../../../src/api/calendar'
+import type { UserEntity } from '../../../../../src/types/user'
+
+// Type for accessing internal component data in tests
+interface CalendarEvent {
+  id: string
+  title: string
+  date: string
+  time?: string
+  startDateTime?: string
+  endDateTime?: string
+  timeZone?: string
+  type: string
+  bgColor: string
+}
+
+interface CalendarComponentInstance {
+  events: CalendarEvent[]
+  calendarGrid: Array<Array<{ date: string; events: CalendarEvent[] }>>
+}
 
 // Mock the calendar API to prevent network calls
 vi.mock('../../../../../src/api/calendar', () => ({
@@ -42,7 +60,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       id: 1,
       email: 'test@example.com',
       name: 'Test User'
-    } as any
+    } as UserEntity
   })
 
   describe('Group Events Display with Timezones', () => {
@@ -56,7 +74,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
           slug: 'crmc-monthly-meeting-november',
           name: 'CRMC Monthly Meeting',
           startDate: '2025-11-13T02:00:00.000Z', // 6pm PST Nov 12 = 2am UTC Nov 13
-          endDate: '2025-11-13T05:00:00.000Z',   // 9pm PST Nov 12 = 5am UTC Nov 13
+          endDate: '2025-11-13T05:00:00.000Z', // 9pm PST Nov 12 = 5am UTC Nov 13
           timeZone: 'America/Vancouver',
           isAllDay: false,
           status: EventStatus.Published
@@ -89,7 +107,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       console.log('\n=== IMPLEMENTATION TEST: Wednesday Event Display ===')
 
       // Check that the component's events array has the correct date
-      const events = (wrapper.vm as any).events
+      const events = (wrapper.vm as CalendarComponentInstance).events
       expect(events).toBeDefined()
       expect(events.length).toBeGreaterThan(0)
 
@@ -122,7 +140,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
           slug: 'october-meeting',
           name: 'October Meeting',
           startDate: '2025-10-09T02:00:00.000Z', // 7pm PDT Oct 8 = 2am UTC Oct 9
-          endDate: '2025-10-09T04:00:00.000Z',   // 9pm PDT Oct 8 = 4am UTC Oct 9
+          endDate: '2025-10-09T04:00:00.000Z', // 9pm PDT Oct 8 = 4am UTC Oct 9
           timeZone: 'America/Vancouver',
           isAllDay: false,
           status: EventStatus.Published
@@ -151,7 +169,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       await flushPromises()
       await wrapper.vm.$nextTick()
 
-      const events = (wrapper.vm as any).events
+      const events = (wrapper.vm as CalendarComponentInstance).events
       const event = events[0]
 
       console.log('\n=== PDT Event Test ===')
@@ -202,7 +220,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       await wrapper.vm.$nextTick()
       await wrapper.vm.$nextTick()
 
-      const events = (wrapper.vm as any).events
+      const events = (wrapper.vm as CalendarComponentInstance).events
       const event = events[0]
 
       console.log('\n=== All-Day Event Test ===')
@@ -224,7 +242,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
           slug: 'utc-event',
           name: 'UTC Event',
           startDate: '2025-11-12T14:00:00.000Z', // 2pm UTC
-          endDate: '2025-11-12T16:00:00.000Z',   // 4pm UTC
+          endDate: '2025-11-12T16:00:00.000Z', // 4pm UTC
           // No timeZone field - should fallback to UTC
           isAllDay: false,
           status: EventStatus.Published
@@ -253,7 +271,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       await wrapper.vm.$nextTick()
       await wrapper.vm.$nextTick()
 
-      const events = (wrapper.vm as any).events
+      const events = (wrapper.vm as CalendarComponentInstance).events
       const event = events[0]
 
       console.log('\n=== UTC Fallback Test ===')
@@ -308,7 +326,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       await wrapper.vm.$nextTick()
 
       // Get the calendar grid
-      const calendarGrid = (wrapper.vm as any).calendarGrid
+      const calendarGrid = (wrapper.vm as CalendarComponentInstance).calendarGrid
 
       console.log('\n=== Calendar Grid Test ===')
       console.log('Looking for event on Nov 12...')
@@ -355,7 +373,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
           slug: 'crmc-monthly-meeting-november',
           name: 'CRMC Monthly Meeting',
           startDate: '2025-11-13T02:00:00.000Z', // 6pm PST Wednesday Nov 12
-          endDate: '2025-11-13T05:00:00.000Z',   // 9pm PST Wednesday Nov 12
+          endDate: '2025-11-13T05:00:00.000Z', // 9pm PST Wednesday Nov 12
           timeZone: 'America/Vancouver',
           isAllDay: false,
           status: EventStatus.Published
@@ -384,7 +402,7 @@ describe('CustomCalendar Component - Timezone Implementation Test', () => {
       await wrapper.vm.$nextTick()
       await wrapper.vm.$nextTick()
 
-      const events = (wrapper.vm as any).events
+      const events = (wrapper.vm as CalendarComponentInstance).events
       const event = events[0]
 
       console.log('\n=== BUG REPRODUCTION TEST ===')
