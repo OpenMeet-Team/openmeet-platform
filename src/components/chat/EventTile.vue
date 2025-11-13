@@ -521,4 +521,20 @@ const getSenderColor = (userId: string): string => {
     background: rgba(255, 193, 7, 0.2);
   }
 }
+
+/* Link Styling - Issue #283 */
+/* Fix link visibility in own messages (blue background needs contrast) */
+/* Use white with underline for clean readability */
+.own-message-body :deep(a) {
+  color: #FFFFFF !important; /* White for maximum readability */
+  text-decoration: underline !important;
+  text-decoration-color: #60CBA4 !important; /* $green underline */
+  text-decoration-thickness: 2px !important;
+}
+
+.own-message-body :deep(a:hover) {
+  color: #EEEDFB !important; /* $purple-100 on hover */
+  text-decoration-color: #FFB677 !important; /* $orange underline on hover */
+  text-decoration-thickness: 2px !important;
+}
 </style>
