@@ -940,19 +940,28 @@ body.body--dark {
   }
 }
 
-/* Links in messages */
+/* Links in messages - Issue #283 */
+/* Default link styling for messages from others (gray background) */
 :deep(a) {
-  color: #1976d2;
-  text-decoration: none;
+  color: #1E1A43; /* $purple-600 - darkest purple for strong contrast on gray */
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
 }
 
 :deep(a:hover) {
-  text-decoration: underline;
+  color: #4238A6; /* $purple-500 on hover */
+  text-decoration-thickness: 2px;
 }
 
 @media (prefers-color-scheme: dark) {
   :deep(a) {
-    color: #64b5f6;
+    color: #22B2DA; /* $blue for better contrast in dark mode */
+    font-weight: 600;
+  }
+
+  :deep(a:hover) {
+    color: #60CBA4; /* $green on hover */
   }
 }
 </style>
