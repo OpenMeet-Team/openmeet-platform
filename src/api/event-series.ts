@@ -151,23 +151,40 @@ export const eventSeriesApi: EventSeriesApiType = {
     api.patch(`/api/event-series/${seriesSlug}/template`, updates),
 
   previewOccurrences: (data: OccurrencePreviewDto): Promise<AxiosResponse<EventOccurrence[]>> => {
+    // Build recurrence rule - only include properties that are actually present
+    const recurrenceRule: any = {
+      frequency: data.recurrenceRule?.frequency || 'WEEKLY',
+      interval: data.recurrenceRule?.interval || 1,
+    }
+
+    // CRITICAL: Only add byweekday if it's actually present in the input
+    // DO NOT default to ['TU'] - this causes monthly bymonthday patterns to fail
+    if (Array.isArray(data.recurrenceRule?.byweekday) && data.recurrenceRule.byweekday.length > 0) {
+      recurrenceRule.byweekday = [...data.recurrenceRule.byweekday]
+    }
+
+    // Add other optional properties only if present
+    if (Array.isArray(data.recurrenceRule?.bymonthday) && data.recurrenceRule.bymonthday.length > 0) {
+      recurrenceRule.bymonthday = [...data.recurrenceRule.bymonthday]
+    }
+
+    if (Array.isArray(data.recurrenceRule?.bysetpos) && data.recurrenceRule.bysetpos.length > 0) {
+      recurrenceRule.bysetpos = [...data.recurrenceRule.bysetpos]
+    }
+
+    // Final safety check: NEVER send both bymonthday and byweekday together
+    if (recurrenceRule.bymonthday && recurrenceRule.byweekday) {
+      console.warn('[API] Both bymonthday and byweekday present - removing byweekday to prevent RRule AND logic')
+      delete recurrenceRule.byweekday
+      delete recurrenceRule.bysetpos
+    }
+
     // Create a clean, serialized copy of the data
     const serializedData = {
       startDate: data.startDate,
       timeZone: data.timeZone,
       count: data.count || 5,
-      // Ensure the recurrenceRule is a plain object with primitive values
-      recurrenceRule: {
-        frequency: data.recurrenceRule?.frequency || 'WEEKLY',
-        interval: data.recurrenceRule?.interval || 1,
-        // Create a new array with primitive string values, not proxy objects
-        byweekday: Array.isArray(data.recurrenceRule?.byweekday)
-          ? [...data.recurrenceRule.byweekday]
-          : ['TU'],
-        // Add other properties if needed and explicitly present
-        ...(data.recurrenceRule?.bymonthday ? { bymonthday: [...data.recurrenceRule.bymonthday] } : {}),
-        ...(data.recurrenceRule?.bysetpos ? { bysetpos: [...data.recurrenceRule.bysetpos] } : {})
-      }
+      recurrenceRule
     }
 
     // Set explicit content-type to ensure proper serialization

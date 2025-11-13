@@ -413,6 +413,16 @@ const refreshOccurrencesPreview = async () => {
         recurrenceRule: rule.value
       }))
 
+      // CRITICAL SAFETY CHECK: If bymonthday is present, remove byweekday
+      // This prevents RRule from interpreting them as AND logic
+      if (staticData.recurrenceRule.bymonthday && staticData.recurrenceRule.byweekday) {
+        console.warn('[PREVIEW] Removing byweekday from payload because bymonthday is present')
+        console.warn('[PREVIEW] Before:', JSON.stringify(staticData.recurrenceRule))
+        delete staticData.recurrenceRule.byweekday
+        delete staticData.recurrenceRule.bysetpos
+        console.warn('[PREVIEW] After:', JSON.stringify(staticData.recurrenceRule))
+      }
+
       // Log the final data that will be sent
       console.log('Final serialized data to send:', staticData)
 

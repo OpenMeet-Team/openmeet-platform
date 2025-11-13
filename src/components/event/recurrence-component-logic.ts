@@ -98,10 +98,10 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           // Use the day of month from the start date
           result.bymonthday = [startDateObject.value.getDate()]
 
-          // Ensure we don't have byweekday set when using bymonthday
-          if (result.byweekday) {
-            delete result.byweekday
-          }
+          // CRITICAL: When using day-of-month, we must NOT include byweekday
+          // Delete all weekday-related fields to prevent them from being sent to API
+          delete result.byweekday
+          delete result.bysetpos
         } else if (monthlyRepeatType.value === 'dayOfWeek') {
           // For monthly by-weekday patterns with nth occurrence (e.g., 2nd Wednesday),
           // we need to combine byweekday with bysetpos
@@ -115,10 +115,8 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           // Set bysetpos for the position (1st, 2nd, 3rd, etc.)
           result.bysetpos = [position]
 
-          // Ensure we don't have bymonthday set
-          if (result.bymonthday) {
-            delete result.bymonthday
-          }
+          // CRITICAL: When using day-of-week, we must NOT include bymonthday
+          delete result.bymonthday
         }
       }
 
@@ -141,6 +139,30 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       // Mark weekly rules with byweekday as having user-explicit day selection
       if (frequency.value === 'WEEKLY' && props.startDate && result.byweekday && result.byweekday.length > 0) {
         result._userExplicitSelection = true
+      }
+
+      // FINAL SAFETY CHECK: Never send both bymonthday and byweekday together
+      // This can cause RRule to interpret them as AND (both conditions must be met)
+      if (result.bymonthday && result.bymonthday.length > 0 && result.byweekday && result.byweekday.length > 0) {
+        console.warn('[RECURRENCE RULE] Both bymonthday and byweekday are set! This will cause incorrect results.')
+        console.warn('[RECURRENCE RULE] Frequency:', frequency.value, 'MonthlyRepeatType:', monthlyRepeatType.value)
+        console.warn('[RECURRENCE RULE] Full result object:', JSON.stringify(result))
+        console.warn('[RECURRENCE RULE] Removing byweekday to prevent RRule AND logic bug')
+        delete result.byweekday
+        delete result.bysetpos
+      }
+
+      // DEBUG: Log what we're returning for MONTHLY patterns
+      if (frequency.value === 'MONTHLY') {
+        console.log('[RULE COMPUTED] Returning rule for MONTHLY:', {
+          frequency: result.frequency,
+          monthlyRepeatType: monthlyRepeatType.value,
+          bymonthday: result.bymonthday,
+          byweekday: result.byweekday,
+          bysetpos: result.bysetpos,
+          hasWeekday: !!result.byweekday,
+          hasMonthday: !!result.bymonthday
+        })
       }
 
       return result
@@ -437,6 +459,33 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
     watch(() => props.startDate, () => {
       if (props.startDate) {
         initializeTimezoneAndDay()
+      }
+    })
+
+    // Watch for frequency changes to clear stale data
+    watch(frequency, (newFreq, oldFreq) => {
+      // When switching to MONTHLY, clear all stale weekly selections
+      if (newFreq === 'MONTHLY' && props.startDate) {
+        const timeZoneToUse = timezone.value || dateFormatting.getUserTimezone()
+        const startDateDate = new Date(props.startDate)
+        const { dayCode } = RecurrenceService.getDayOfWeekInTimezone(startDateDate, timeZoneToUse)
+
+        // CRITICAL: Clear selectedDays from WEEKLY mode to prevent them from leaking into MONTHLY
+        if (selectedDays.value.length > 0) {
+          console.log(`[FREQUENCY CHANGE] Clearing selectedDays (was: ${selectedDays.value}) when switching to MONTHLY`)
+          selectedDays.value = []
+        }
+
+        // Reset monthlyWeekday to match the actual start date, not the weekly selection
+        if (dayCode) {
+          monthlyWeekday.value = dayCode
+          console.log(`[FREQUENCY CHANGE] Switched to MONTHLY, reset monthlyWeekday to ${dayCode} from start date`)
+        }
+      }
+
+      // When switching FROM monthly to another frequency, clear monthly-specific values
+      if (oldFreq === 'MONTHLY' && newFreq !== 'MONTHLY') {
+        console.log(`[FREQUENCY CHANGE] Switching from MONTHLY to ${newFreq}, will reinitialize days from start date`)
       }
     })
 
