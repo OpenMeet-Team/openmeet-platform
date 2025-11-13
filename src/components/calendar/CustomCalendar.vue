@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
+import { formatInTimeZone } from 'date-fns-tz'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
 import { useHomeStore } from '../../stores/home-store'
@@ -15,6 +16,7 @@ interface GroupEvent {
   endDate?: string
   isAllDay?: boolean
   status?: string
+  timeZone?: string
 }
 
 interface CalendarEvent {
@@ -24,6 +26,7 @@ interface CalendarEvent {
   time?: string
   startDateTime?: string
   endDateTime?: string
+  timeZone?: string
   type: 'attending' | 'hosting' | 'external-event' | 'external-conflict' | 'cancelled'
   bgColor: string
   textColor?: string
@@ -266,6 +269,32 @@ function formatDateString (date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+// Helper function to extract date from UTC string with timezone conversion
+function getEventDateInTimezone (startDate: string, timeZone?: string): string {
+  const tz = timeZone || 'UTC'
+  return formatInTimeZone(new Date(startDate), tz, 'yyyy-MM-dd')
+}
+
+// Helper function to format time with timezone awareness
+function getEventTimeDisplay (
+  startDate: string,
+  endDate: string | undefined,
+  timeZone: string | undefined,
+  isAllDay: boolean
+): string | undefined {
+  if (isAllDay) return undefined
+
+  const tz = timeZone || 'UTC'
+  const startTime = formatInTimeZone(new Date(startDate), tz, 'HH:mm')
+
+  if (endDate) {
+    const endTime = formatInTimeZone(new Date(endDate), tz, 'HH:mm')
+    return `${startTime}-${endTime}`
+  }
+
+  return startTime
+}
+
 // Helper function to expand multi-day events into daily instances
 function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, viewEnd?: string): CalendarEvent[] {
   const expandedEvents: CalendarEvent[] = []
@@ -278,7 +307,12 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
     }
 
     // If the event has no end date or is the same day, just add it as-is
-    if (!event.endDateTime || event.date === formatDateString(new Date(event.endDateTime))) {
+    // Use timezone-aware date extraction for comparison
+    const eventEndDate = event.endDateTime
+      ? (event.timeZone ? getEventDateInTimezone(event.endDateTime, event.timeZone) : formatDateString(new Date(event.endDateTime)))
+      : event.date
+
+    if (!event.endDateTime || event.date === eventEndDate) {
       expandedEvents.push(event)
       continue
     }
@@ -622,16 +656,18 @@ async function loadEvents () {
     }
 
     // Helper function to check if an event intersects with the current view period
-    const eventIntersectsView = (event: { startDate: string, endDate?: string }) => {
+    const eventIntersectsView = (event: { startDate: string, endDate?: string, timeZone?: string }) => {
+      // Use timezone-aware date extraction
+      const eventDate = getEventDateInTimezone(event.startDate, event.timeZone)
+
       if (viewMode.value === 'month') {
-        // For month view, use the original logic
-        const eventDate = event.startDate.split('T')[0]
         return eventDate >= start && eventDate <= end
       }
 
       // For week and day views, check if event intersects with the visible period
-      const eventStart = new Date(event.startDate.split('T')[0])
-      const eventEnd = event.endDate ? new Date(event.endDate.split('T')[0]) : eventStart
+      const eventStart = new Date(eventDate)
+      const eventEndDate = event.endDate ? getEventDateInTimezone(event.endDate, event.timeZone) : eventDate
+      const eventEnd = new Date(eventEndDate)
       const viewStartDate = new Date(viewStart)
       const viewEndDate = new Date(viewEnd)
 
@@ -646,24 +682,23 @@ async function loadEvents () {
       const filteredGroupEvents = props.groupEvents.filter(eventIntersectsView)
 
       mainEvents = filteredGroupEvents.map(event => {
-        const startTime = new Date(event.startDate)
-        const endTime = event.endDate ? new Date(event.endDate) : startTime
-
-        // Format time display with end time if available
-        const timeDisplay = event.isAllDay
-          ? undefined
-          : event.endDate
-            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        // Use timezone-aware date and time extraction
+        const timeDisplay = getEventTimeDisplay(
+          event.startDate,
+          event.endDate,
+          event.timeZone,
+          event.isAllDay || false
+        )
 
         const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `group-${event.ulid}`,
           title: event.name,
-          date: event.startDate.split('T')[0],
+          date: getEventDateInTimezone(event.startDate, event.timeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
+          timeZone: event.timeZone,
           type: isCancelled ? 'cancelled' : 'attending',
           bgColor: isCancelled ? '#f44336' : '#1976d2', // Red for cancelled, blue for normal
           textColor: '#ffffff',
@@ -691,24 +726,23 @@ async function loadEvents () {
       })
 
       const attendingEvents: CalendarEvent[] = filteredUpcomingEvents.map(event => {
-        const startTime = new Date(event.startDate)
-        const endTime = event.endDate ? new Date(event.endDate) : startTime
-
-        // Format time display with end time if available
-        const timeDisplay = event.isAllDay
-          ? undefined
-          : event.endDate
-            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        // Use timezone-aware date and time extraction
+        const timeDisplay = getEventTimeDisplay(
+          event.startDate,
+          event.endDate,
+          event.timeZone,
+          event.isAllDay || false
+        )
 
         const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `attending-${event.ulid}`,
           title: event.name,
-          date: event.startDate.split('T')[0],
+          date: getEventDateInTimezone(event.startDate, event.timeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
+          timeZone: event.timeZone,
           type: isCancelled ? 'cancelled' : 'attending',
           bgColor: isCancelled ? '#f44336' : '#1976d2', // Red for cancelled, blue for normal
           textColor: '#ffffff',
@@ -727,24 +761,23 @@ async function loadEvents () {
       const filteredHostedEvents = rawHostedEvents.filter(eventIntersectsView)
 
       const hostedEvents: CalendarEvent[] = filteredHostedEvents.map(event => {
-        const startTime = new Date(event.startDate)
-        const endTime = event.endDate ? new Date(event.endDate) : startTime
-
-        // Format time display with end time if available
-        const timeDisplay = event.isAllDay
-          ? undefined
-          : event.endDate
-            ? `${startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}-${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-            : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        // Use timezone-aware date and time extraction
+        const timeDisplay = getEventTimeDisplay(
+          event.startDate,
+          event.endDate,
+          event.timeZone,
+          event.isAllDay || false
+        )
 
         const isCancelled = event.status === EventStatus.Cancelled
         return {
           id: `hosted-${event.ulid}`,
           title: `${event.name} (hosting)`,
-          date: event.startDate.split('T')[0],
+          date: getEventDateInTimezone(event.startDate, event.timeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
+          timeZone: event.timeZone,
           type: isCancelled ? 'cancelled' : 'hosting',
           bgColor: isCancelled ? '#f44336' : '#2e7d32', // Red for cancelled, green for normal
           textColor: '#ffffff',
