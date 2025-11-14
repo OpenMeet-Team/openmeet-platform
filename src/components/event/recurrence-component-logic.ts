@@ -3,6 +3,7 @@ import { RecurrenceService } from '../../services/recurrenceService'
 import { RecurrenceRule } from '../../types/event'
 import { formatInTimeZone } from 'date-fns-tz'
 import dateFormatting from '../../composables/useDateFormatting'
+import logger from '../../utils/logger'
 
 // Interface for component props
 export interface RecurrenceComponentProps {
@@ -86,10 +87,10 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
             )
             if (dayCode) {
               result.byweekday = [dayCode]
-              console.log('Auto-set weekly byweekday from start date:', dayCode)
+              logger.debug('[RULE] Auto-set weekly byweekday from start date:', dayCode)
             }
           } catch (e) {
-            console.error('Error getting day of week for auto-setting byweekday:', e)
+            logger.error('[RULE] Error getting day of week for auto-setting byweekday:', e)
           }
         }
       } else if (frequency.value === 'MONTHLY') {
@@ -144,17 +145,17 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
       // FINAL SAFETY CHECK: Never send both bymonthday and byweekday together
       // This can cause RRule to interpret them as AND (both conditions must be met)
       if (result.bymonthday && result.bymonthday.length > 0 && result.byweekday && result.byweekday.length > 0) {
-        console.warn('[RECURRENCE RULE] Both bymonthday and byweekday are set! This will cause incorrect results.')
-        console.warn('[RECURRENCE RULE] Frequency:', frequency.value, 'MonthlyRepeatType:', monthlyRepeatType.value)
-        console.warn('[RECURRENCE RULE] Full result object:', JSON.stringify(result))
-        console.warn('[RECURRENCE RULE] Removing byweekday to prevent RRule AND logic bug')
+        logger.warn('[RULE] Both bymonthday and byweekday are set! This will cause incorrect results.')
+        logger.warn('[RULE] Frequency:', frequency.value, 'MonthlyRepeatType:', monthlyRepeatType.value)
+        logger.warn('[RULE] Full result object:', JSON.stringify(result))
+        logger.warn('[RULE] Removing byweekday to prevent RRule AND logic bug')
         delete result.byweekday
         delete result.bysetpos
       }
 
       // DEBUG: Log what we're returning for MONTHLY patterns
       if (frequency.value === 'MONTHLY') {
-        console.log('[RULE COMPUTED] Returning rule for MONTHLY:', {
+        logger.debug('[RULE] Returning rule for MONTHLY:', {
           frequency: result.frequency,
           monthlyRepeatType: monthlyRepeatType.value,
           bymonthday: result.bymonthday,
@@ -167,7 +168,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
       return result
     } catch (e) {
-      console.error('Error in rule computed property:', e)
+      logger.error('[RULE] Error in rule computed property:', e)
       return {
         frequency: 'WEEKLY',
         timeZone: timezone.value || dateFormatting.getUserTimezone()
@@ -293,7 +294,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
               monthlyPosition.value = String(props.modelValue.bysetpos)
             } else {
               // Default to first occurrence if bysetpos is not usable
-              console.warn('MONTHLY dayOfWeek pattern missing or invalid bysetpos, defaulting monthlyPosition to 1')
+              logger.warn('[RULE] MONTHLY dayOfWeek pattern missing or invalid bysetpos, defaulting monthlyPosition to 1')
               monthlyPosition.value = '1'
             }
           }
@@ -381,7 +382,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
           monthlyPosition.value = positionValue
         }
       } catch (error) {
-        console.error('Error initializing day of week for recurrence:', error)
+        logger.error('[INIT] Error initializing day of week for recurrence:', error)
 
         // Use a more robust fallback approach
         try {
@@ -417,7 +418,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
             monthlyWeekday.value = weekdayValue
           }
         } catch (fallbackError) {
-          console.error('Fallback day calculation also failed:', fallbackError)
+          logger.error('[INIT] Fallback day calculation also failed:', fallbackError)
 
           // Ultimate fallback - use UTC day as last resort
           const newDate = new Date(props.startDate)
@@ -472,20 +473,20 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
 
         // CRITICAL: Clear selectedDays from WEEKLY mode to prevent them from leaking into MONTHLY
         if (selectedDays.value.length > 0) {
-          console.log(`[FREQUENCY CHANGE] Clearing selectedDays (was: ${selectedDays.value}) when switching to MONTHLY`)
+          logger.debug(`[FREQUENCY CHANGE] Clearing selectedDays (was: ${selectedDays.value}) when switching to MONTHLY`)
           selectedDays.value = []
         }
 
         // Reset monthlyWeekday to match the actual start date, not the weekly selection
         if (dayCode) {
           monthlyWeekday.value = dayCode
-          console.log(`[FREQUENCY CHANGE] Switched to MONTHLY, reset monthlyWeekday to ${dayCode} from start date`)
+          logger.debug(`[FREQUENCY CHANGE] Switched to MONTHLY, reset monthlyWeekday to ${dayCode} from start date`)
         }
       }
 
       // When switching FROM monthly to another frequency, clear monthly-specific values
       if (oldFreq === 'MONTHLY' && newFreq !== 'MONTHLY') {
-        console.log(`[FREQUENCY CHANGE] Switching from MONTHLY to ${newFreq}, will reinitialize days from start date`)
+        logger.debug(`[FREQUENCY CHANGE] Switching from MONTHLY to ${newFreq}, will reinitialize days from start date`)
       }
     })
 
@@ -511,7 +512,7 @@ export function useRecurrenceLogic (props: RecurrenceComponentProps, emit: EmitF
         // RRule bysetpos uses 1, 2, 3, 4. Capping at 4.
         monthlyPosition.value = String(Math.min(NthOccurrence, 4))
 
-        console.log(`Monthly repeat type set to 'dayOfWeek'. Derived from startDate (${props.startDate}): monthlyWeekday=${monthlyWeekday.value}, monthlyPosition=${monthlyPosition.value}`)
+        logger.debug(`[MONTHLY] Monthly repeat type set to 'dayOfWeek'. Derived from startDate (${props.startDate}): monthlyWeekday=${monthlyWeekday.value}, monthlyPosition=${monthlyPosition.value}`)
       }
     }, { immediate: false })
   }

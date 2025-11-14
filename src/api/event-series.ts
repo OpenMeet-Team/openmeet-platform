@@ -2,6 +2,7 @@ import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { EventEntity } from '../types'
 import { EventOccurrence, EventSeriesEntity } from '../types/event-series'
+import logger from '../utils/logger'
 
 export interface TemplateEventDto {
   startDate: string
@@ -152,13 +153,13 @@ export const eventSeriesApi: EventSeriesApiType = {
 
   previewOccurrences: (data: OccurrencePreviewDto): Promise<AxiosResponse<EventOccurrence[]>> => {
     // Build recurrence rule - only include properties that are actually present
+    // The rule computed property guarantees no bymonthday/byweekday conflicts
     const recurrenceRule: Partial<RecurrenceRuleDto> = {
       frequency: data.recurrenceRule?.frequency || 'WEEKLY',
       interval: data.recurrenceRule?.interval || 1
     }
 
-    // CRITICAL: Only add byweekday if it's actually present in the input
-    // DO NOT default to ['TU'] - this causes monthly bymonthday patterns to fail
+    // Only add byweekday if it's actually present in the input
     if (Array.isArray(data.recurrenceRule?.byweekday) && data.recurrenceRule.byweekday.length > 0) {
       recurrenceRule.byweekday = [...data.recurrenceRule.byweekday]
     }
@@ -172,12 +173,7 @@ export const eventSeriesApi: EventSeriesApiType = {
       recurrenceRule.bysetpos = [...data.recurrenceRule.bysetpos]
     }
 
-    // Final safety check: NEVER send both bymonthday and byweekday together
-    if (recurrenceRule.bymonthday && recurrenceRule.byweekday) {
-      console.warn('[API] Both bymonthday and byweekday present - removing byweekday to prevent RRule AND logic')
-      delete recurrenceRule.byweekday
-      delete recurrenceRule.bysetpos
-    }
+    logger.debug('[API] Sending recurrence rule:', recurrenceRule)
 
     // Create a clean, serialized copy of the data
     const serializedData = {
