@@ -348,7 +348,7 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
         // For day view, only include the specific day being viewed
         if (viewStart === viewEnd) {
           // Day view - only include the exact day
-          if (formatDateString(currentDate) !== viewStart) {
+          if (formatDateString(currentDate, eventTimeZone) !== viewStart) {
             currentDate.setDate(currentDate.getDate() + 1)
             dayIndex++
             actualDayIndex++
@@ -635,20 +635,24 @@ async function loadEvents () {
     }
 
     // Helper function to check if an event intersects with the current view period
-    const eventIntersectsView = (event: { startDate: string, endDate?: string }) => {
+    const eventIntersectsView = (event: { startDate: string, endDate?: string, timeZone?: string }) => {
+      const eventTimeZone = event.timeZone || 'UTC'
+
       if (viewMode.value === 'month') {
-        // For month view, use the original logic
-        const eventDate = event.startDate.split('T')[0]
-        return eventDate >= start && eventDate <= end
+        // For month view, use timezone-aware date extraction
+        const eventDateStr = formatDateString(new Date(event.startDate), eventTimeZone)
+        return eventDateStr >= start && eventDateStr <= end
       }
 
       // For week and day views, check if event intersects with the visible period
-      const eventStart = new Date(event.startDate.split('T')[0])
-      const eventEnd = event.endDate ? new Date(event.endDate.split('T')[0]) : eventStart
-      const viewStartDate = new Date(viewStart)
-      const viewEndDate = new Date(viewEnd)
+      // Use timezone-aware date extraction to get the correct date in the event's timezone
+      const eventStartDate = formatDateString(new Date(event.startDate), eventTimeZone)
+      const eventEndDate = event.endDate
+        ? formatDateString(new Date(event.endDate), eventTimeZone)
+        : eventStartDate
 
-      return eventStart <= viewEndDate && eventEnd >= viewStartDate
+      // Compare date strings directly (YYYY-MM-DD format ensures correct comparison)
+      return eventStartDate <= viewEnd && eventEndDate >= viewStart
     }
 
     let mainEvents: CalendarEvent[] = []
