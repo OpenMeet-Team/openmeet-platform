@@ -152,9 +152,9 @@ export const eventSeriesApi: EventSeriesApiType = {
 
   previewOccurrences: (data: OccurrencePreviewDto): Promise<AxiosResponse<EventOccurrence[]>> => {
     // Build recurrence rule - only include properties that are actually present
-    const recurrenceRule: any = {
+    const recurrenceRule: Partial<RecurrenceRuleDto> = {
       frequency: data.recurrenceRule?.frequency || 'WEEKLY',
-      interval: data.recurrenceRule?.interval || 1,
+      interval: data.recurrenceRule?.interval || 1
     }
 
     // CRITICAL: Only add byweekday if it's actually present in the input
