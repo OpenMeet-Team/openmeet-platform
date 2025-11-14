@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
+import { formatInTimeZone } from 'date-fns-tz'
 import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
 import { useHomeStore } from '../../stores/home-store'
@@ -15,6 +16,7 @@ interface GroupEvent {
   endDate?: string
   isAllDay?: boolean
   status?: string
+  timeZone?: string
 }
 
 interface CalendarEvent {
@@ -32,6 +34,7 @@ interface CalendarEvent {
   location?: string
   description?: string
   isCancelled?: boolean
+  timeZone?: string
 }
 
 interface Props {
@@ -261,8 +264,14 @@ const weekGrid = computed(() => {
 // Time slots for day/week view (24 hours: 12 AM to 11 PM)
 const timeSlots = Array.from({ length: 24 }, (_, i) => i)
 
-// Helper function to format date as YYYY-MM-DD in local timezone
-function formatDateString (date: Date): string {
+// Helper function to format date as YYYY-MM-DD in specified timezone (or browser local timezone)
+// This ensures we extract the date in the event's timezone, not the browser's timezone
+function formatDateString (date: Date, timeZone?: string): string {
+  if (timeZone) {
+    // Use timezone-aware formatting to get the date in the event's timezone
+    return formatInTimeZone(date, timeZone, 'yyyy-MM-dd')
+  }
+  // Fallback to local timezone for backward compatibility
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
@@ -277,8 +286,12 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
       continue
     }
 
+    // Determine the timezone for this event (fall back to UTC if not specified)
+    const eventTimeZone = event.timeZone || 'UTC'
+
     // If the event has no end date or is the same day, just add it as-is
-    if (!event.endDateTime || event.date === formatDateString(new Date(event.endDateTime))) {
+    // Use timezone-aware comparison to correctly detect multi-day events
+    if (!event.endDateTime || event.date === formatDateString(new Date(event.endDateTime), eventTimeZone)) {
       expandedEvents.push(event)
       continue
     }
@@ -325,7 +338,7 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
 
     // eslint-disable-next-line no-unmodified-loop-condition
     while (currentDate <= endDate) {
-      const currentDateStr = formatDateString(currentDate)
+      const currentDateStr = formatDateString(currentDate, eventTimeZone)
 
       // Skip if we've gone past the end date (for safety)
       if (currentDate > endDate) break
@@ -335,7 +348,7 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
         // For day view, only include the specific day being viewed
         if (viewStart === viewEnd) {
           // Day view - only include the exact day
-          if (formatDateString(currentDate) !== viewStart) {
+          if (formatDateString(currentDate, eventTimeZone) !== viewStart) {
             currentDate.setDate(currentDate.getDate() + 1)
             dayIndex++
             actualDayIndex++
@@ -359,7 +372,7 @@ function expandMultiDayEvents (events: CalendarEvent[], viewStart?: string, view
 
       // Determine if this is the first or last day of the event
       const isFirstDayOfEvent = actualDayIndex === 0
-      const isLastDayOfEvent = formatDateString(currentDate) === formatDateString(endDate)
+      const isLastDayOfEvent = formatDateString(currentDate, eventTimeZone) === formatDateString(endDate, eventTimeZone)
       const isFirstDayInView = shouldLimitToView && viewStartDate ? currentDate >= viewStartDate && isFirstDayOfEvent : isFirstDayOfEvent
       const isLastDayInView = shouldLimitToView && viewEndDate ? currentDate <= viewEndDate && isLastDayOfEvent : isLastDayOfEvent
 
@@ -622,20 +635,24 @@ async function loadEvents () {
     }
 
     // Helper function to check if an event intersects with the current view period
-    const eventIntersectsView = (event: { startDate: string, endDate?: string }) => {
+    const eventIntersectsView = (event: { startDate: string, endDate?: string, timeZone?: string }) => {
+      const eventTimeZone = event.timeZone || 'UTC'
+
       if (viewMode.value === 'month') {
-        // For month view, use the original logic
-        const eventDate = event.startDate.split('T')[0]
-        return eventDate >= start && eventDate <= end
+        // For month view, use timezone-aware date extraction
+        const eventDateStr = formatDateString(new Date(event.startDate), eventTimeZone)
+        return eventDateStr >= start && eventDateStr <= end
       }
 
       // For week and day views, check if event intersects with the visible period
-      const eventStart = new Date(event.startDate.split('T')[0])
-      const eventEnd = event.endDate ? new Date(event.endDate.split('T')[0]) : eventStart
-      const viewStartDate = new Date(viewStart)
-      const viewEndDate = new Date(viewEnd)
+      // Use timezone-aware date extraction to get the correct date in the event's timezone
+      const eventStartDate = formatDateString(new Date(event.startDate), eventTimeZone)
+      const eventEndDate = event.endDate
+        ? formatDateString(new Date(event.endDate), eventTimeZone)
+        : eventStartDate
 
-      return eventStart <= viewEndDate && eventEnd >= viewStartDate
+      // Compare date strings directly (YYYY-MM-DD format ensures correct comparison)
+      return eventStartDate <= viewEnd && eventEndDate >= viewStart
     }
 
     let mainEvents: CalendarEvent[] = []
@@ -657,10 +674,11 @@ async function loadEvents () {
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
         const isCancelled = event.status === EventStatus.Cancelled
+        const eventTimeZone = event.timeZone || 'UTC'
         return {
           id: `group-${event.ulid}`,
           title: event.name,
-          date: event.startDate.split('T')[0],
+          date: formatDateString(new Date(event.startDate), eventTimeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
@@ -669,7 +687,8 @@ async function loadEvents () {
           textColor: '#ffffff',
           slug: event.slug,
           isAllDay: event.isAllDay || false,
-          isCancelled
+          isCancelled,
+          timeZone: eventTimeZone
         }
       })
     } else if (authStore.user) {
@@ -702,10 +721,11 @@ async function loadEvents () {
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
         const isCancelled = event.status === EventStatus.Cancelled
+        const eventTimeZone = event.timeZone || 'UTC'
         return {
           id: `attending-${event.ulid}`,
           title: event.name,
-          date: event.startDate.split('T')[0],
+          date: formatDateString(new Date(event.startDate), eventTimeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
@@ -714,7 +734,8 @@ async function loadEvents () {
           textColor: '#ffffff',
           slug: event.slug,
           isAllDay: event.isAllDay || false,
-          isCancelled
+          isCancelled,
+          timeZone: eventTimeZone
         }
       })
 
@@ -738,10 +759,11 @@ async function loadEvents () {
             : startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
         const isCancelled = event.status === EventStatus.Cancelled
+        const eventTimeZone = event.timeZone || 'UTC'
         return {
           id: `hosted-${event.ulid}`,
           title: `${event.name} (hosting)`,
-          date: event.startDate.split('T')[0],
+          date: formatDateString(new Date(event.startDate), eventTimeZone),
           time: timeDisplay,
           startDateTime: event.startDate,
           endDateTime: event.endDate || event.startDate,
@@ -750,7 +772,8 @@ async function loadEvents () {
           textColor: '#ffffff',
           slug: event.slug,
           isAllDay: event.isAllDay || false,
-          isCancelled
+          isCancelled,
+          timeZone: eventTimeZone
         }
       })
 
@@ -803,10 +826,13 @@ async function loadEvents () {
         const eventData = event as unknown as Record<string, unknown>
         const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
 
+        // External events typically use UTC timezone
+        const externalEventTimeZone = 'UTC'
+
         return {
           id: `external-${event.id}`,
           title: String(possibleTitle),
-          date: formatDateString(startTime),
+          date: formatDateString(startTime, externalEventTimeZone),
           time: timeDisplay,
           startDateTime: event.startTime,
           endDateTime: event.endTime || event.startTime,
@@ -815,7 +841,8 @@ async function loadEvents () {
           textColor: '#fff',
           isAllDay: event.isAllDay,
           location: event.location,
-          description: event.description
+          description: event.description,
+          timeZone: externalEventTimeZone
         }
       })
 
@@ -854,10 +881,13 @@ async function loadEvents () {
             const eventData = event as unknown as Record<string, unknown>
             const possibleTitle = eventData.summary || eventData.title || eventData.name || eventData.subject || 'External Event'
 
+            // External events typically use UTC timezone
+            const externalEventTimeZone = 'UTC'
+
             return {
               id: `external-${event.id}`,
               title: String(possibleTitle),
-              date: formatDateString(startTime),
+              date: formatDateString(startTime, externalEventTimeZone),
               time: timeDisplay,
               startDateTime: event.startTime,
               endDateTime: event.endTime || event.startTime,
@@ -866,7 +896,8 @@ async function loadEvents () {
               textColor: '#fff',
               isAllDay: event.isAllDay,
               location: event.location,
-              description: event.description
+              description: event.description,
+              timeZone: externalEventTimeZone
             }
           })
 
