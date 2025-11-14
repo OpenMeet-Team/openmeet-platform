@@ -262,6 +262,7 @@ import { EventSeriesService } from '../../services/eventSeriesService'
 import { eventSeriesApi } from '../../api/event-series'
 import { ref } from 'vue'
 import { useDateFormatting } from '../../composables/useDateFormatting'
+import logger from '../../utils/logger'
 
 // Define props in a standard way
 const props = defineProps({
@@ -341,7 +342,7 @@ const formatOccurrenceDate = (date: Date | string): string => {
       timezone.value
     )
   } catch (error) {
-    console.error('Error formatting occurrence date:', error)
+    logger.error('Error formatting occurrence date:', error)
     return String(date)
   }
 }
@@ -356,7 +357,7 @@ const formatWeekday = (date: Date | string): string => {
       timezone.value
     )
   } catch (error) {
-    console.error('Error formatting weekday:', error)
+    logger.error('Error formatting weekday:', error)
     return ''
   }
 }
@@ -381,7 +382,7 @@ const refreshOccurrencesPreview = async () => {
 
     // If we're editing an existing series, use the getOccurrences API
     if (props.seriesSlug) {
-      console.log('Using getOccurrences API for existing series:', props.seriesSlug)
+      logger.debug('[PREVIEW] Using getOccurrences API for existing series:', props.seriesSlug)
       // Get occurrences from the API
       const response = await EventSeriesService.getOccurrences(props.seriesSlug, 5, false)
       upcomingOccurrences.value = response.map(occurrence => ({
@@ -393,7 +394,7 @@ const refreshOccurrencesPreview = async () => {
       // For new series, we need to handle this differently
 
       // Create a clean representation of the current rule
-      console.log('Building recurrence rule structure based on current form values:', {
+      logger.debug('[PREVIEW] Building recurrence rule structure based on current form values:', {
         frequency: frequency.value,
         monthlyRepeatType: monthlyRepeatType.value,
         selectedDays: selectedDays.value,
@@ -402,10 +403,11 @@ const refreshOccurrencesPreview = async () => {
       })
 
       // Use the computed rule value directly since it already combines all state
-      console.log('Current computed rule value:', JSON.stringify(rule.value))
+      logger.debug('[PREVIEW] Current computed rule value:', JSON.stringify(rule.value))
 
       // Create a clean serialized object for API using the computed rule which has
       // the current form state properly combined
+      // The rule computed property guarantees no bymonthday/byweekday conflicts
       const staticData = JSON.parse(JSON.stringify({
         startDate: props.startDate,
         timeZone: timezone.value,
@@ -414,13 +416,13 @@ const refreshOccurrencesPreview = async () => {
       }))
 
       // Log the final data that will be sent
-      console.log('Final serialized data to send:', staticData)
+      logger.debug('[PREVIEW] Final serialized data to send:', staticData)
 
       // No need for separate plainPreviewDto variable
       const plainPreviewDto = staticData
 
       // Add debug logging to ensure recurrenceRule is being sent as an object
-      console.log('Preview DTO prepared:', {
+      logger.debug('[PREVIEW] DTO prepared:', {
         startDate: plainPreviewDto.startDate,
         timeZone: plainPreviewDto.timeZone,
         count: plainPreviewDto.count,
@@ -437,16 +439,16 @@ const refreshOccurrencesPreview = async () => {
         materialized: false
       })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-      console.log('Received occurrences from temporary series API:', upcomingOccurrences.value)
+      logger.debug('[PREVIEW] Received occurrences from temporary series API:', upcomingOccurrences.value)
     }
 
     // If no occurrences returned or generated, show a message
     if (upcomingOccurrences.value.length === 0) {
-      console.warn('No upcoming occurrences found for the current recurrence settings')
+      logger.warn('[PREVIEW] No upcoming occurrences found for the current recurrence settings')
       occurrencePreviewError.value = 'No occurrences found. Try adjusting your recurrence settings.'
     }
   } catch (error) {
-    console.error('Error previewing occurrences:', error)
+    logger.error('[PREVIEW] Error previewing occurrences:', error)
     occurrencePreviewError.value = 'Failed to generate occurrence preview: ' + error.message
   } finally {
     isLoadingOccurrences.value = false

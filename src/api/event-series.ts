@@ -2,6 +2,7 @@ import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { EventEntity } from '../types'
 import { EventOccurrence, EventSeriesEntity } from '../types/event-series'
+import logger from '../utils/logger'
 
 export interface TemplateEventDto {
   startDate: string
@@ -151,23 +152,35 @@ export const eventSeriesApi: EventSeriesApiType = {
     api.patch(`/api/event-series/${seriesSlug}/template`, updates),
 
   previewOccurrences: (data: OccurrencePreviewDto): Promise<AxiosResponse<EventOccurrence[]>> => {
+    // Build recurrence rule - only include properties that are actually present
+    // The rule computed property guarantees no bymonthday/byweekday conflicts
+    const recurrenceRule: Partial<RecurrenceRuleDto> = {
+      frequency: data.recurrenceRule?.frequency || 'WEEKLY',
+      interval: data.recurrenceRule?.interval || 1
+    }
+
+    // Only add byweekday if it's actually present in the input
+    if (Array.isArray(data.recurrenceRule?.byweekday) && data.recurrenceRule.byweekday.length > 0) {
+      recurrenceRule.byweekday = [...data.recurrenceRule.byweekday]
+    }
+
+    // Add other optional properties only if present
+    if (Array.isArray(data.recurrenceRule?.bymonthday) && data.recurrenceRule.bymonthday.length > 0) {
+      recurrenceRule.bymonthday = [...data.recurrenceRule.bymonthday]
+    }
+
+    if (Array.isArray(data.recurrenceRule?.bysetpos) && data.recurrenceRule.bysetpos.length > 0) {
+      recurrenceRule.bysetpos = [...data.recurrenceRule.bysetpos]
+    }
+
+    logger.debug('[API] Sending recurrence rule:', recurrenceRule)
+
     // Create a clean, serialized copy of the data
     const serializedData = {
       startDate: data.startDate,
       timeZone: data.timeZone,
       count: data.count || 5,
-      // Ensure the recurrenceRule is a plain object with primitive values
-      recurrenceRule: {
-        frequency: data.recurrenceRule?.frequency || 'WEEKLY',
-        interval: data.recurrenceRule?.interval || 1,
-        // Create a new array with primitive string values, not proxy objects
-        byweekday: Array.isArray(data.recurrenceRule?.byweekday)
-          ? [...data.recurrenceRule.byweekday]
-          : ['TU'],
-        // Add other properties if needed and explicitly present
-        ...(data.recurrenceRule?.bymonthday ? { bymonthday: [...data.recurrenceRule.bymonthday] } : {}),
-        ...(data.recurrenceRule?.bysetpos ? { bysetpos: [...data.recurrenceRule.bysetpos] } : {})
-      }
+      recurrenceRule
     }
 
     // Set explicit content-type to ensure proper serialization
