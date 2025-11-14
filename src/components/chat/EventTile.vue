@@ -289,8 +289,9 @@ const shouldDisplayEvent = computed(() => {
     return true
   }
 
-  // Display message events, state events we care about, and encrypted events
-  return isMessageEvent.value || isStateEvent.value || isEncryptedEvent.value
+  // Display message events and encrypted events only
+  // State events (joins, leaves, etc.) are now hidden for cleaner chat UX
+  return isMessageEvent.value || isEncryptedEvent.value
 })
 
 // State event text generation
