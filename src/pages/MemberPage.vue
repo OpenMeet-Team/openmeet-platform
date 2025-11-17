@@ -196,7 +196,7 @@ const loadBlueskyEvents = async () => {
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-bluesky" color="primary" size="2rem" />
-                <h6 class="q-mt-sm q-mb-none">Bluesky User</h6>
+                <h6 class="q-mt-sm q-mb-none">AT Protocol User</h6>
                 <div class="text-body2 q-mt-sm" v-if="bskyHandle">
                   <a
                     :href="`https://bsky.app/profile/${bskyHandle}`"
@@ -211,7 +211,7 @@ const loadBlueskyEvents = async () => {
 
             <!-- Add Bluesky Events Section (only shown if this is the user's own profile) -->
             <q-card-section v-if="blueskyEvents?.length > 0 && isOwnProfile">
-              <div class="text-h6 q-mb-md">Events on Bluesky</div>
+              <div class="text-h6 q-mb-md">AT Protocol Events</div>
               <div class="q-gutter-y-md">
                 <q-card flat bordered v-for="event in blueskyEvents" :key="event.uri" class="event-card">
                   <q-card-section>

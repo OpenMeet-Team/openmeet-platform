@@ -48,10 +48,10 @@ const $q = useQuasar()
 
 const buttonText = computed(() => {
   const textMap = {
-    join_with: 'Join with Bluesky',
-    signin_with: 'Sign in with Bluesky',
-    signup_with: 'Sign up with Bluesky',
-    continue_with: 'Continue with Bluesky'
+    join_with: 'Join with AT Protocol',
+    signin_with: 'Sign in with AT Protocol',
+    signup_with: 'Sign in with AT Protocol',
+    continue_with: 'Continue with AT Protocol'
   }
   return textMap[props.text]
 })
@@ -62,8 +62,8 @@ const handleBlueskyLogin = async () => {
 
     // Open a dialog to get the Bluesky handle
     $q.dialog({
-      title: 'Enter your Bluesky handle',
-      message: 'Please enter your Bluesky handle (e.g., alice.bsky.social)',
+      title: 'Enter your AT Protocol handle',
+      message: 'Please enter your AT Protocol handle (e.g., alice.bsky.social)',
       prompt: {
         model: '',
         type: 'text'
@@ -109,7 +109,7 @@ const handleBlueskyLogin = async () => {
     console.error('Bluesky auth error:', error)
     $q.notify({
       type: 'negative',
-      message: 'Bluesky authentication failed'
+      message: 'AT Protocol authentication failed'
     })
     isLoading.value = false
   }

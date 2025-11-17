@@ -141,7 +141,7 @@
         <q-card-section>
           <div class="text-h6 q-mb-md">
             <q-icon name="sym_r_cloud" class="q-mr-sm" />
-            Bluesky Settings
+            AT Protocol Settings
           </div>
           <div class="q-gutter-y-md">
             <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
@@ -156,7 +156,7 @@
 
             <q-toggle
               v-model="form.preferences.bluesky.connected"
-              label="Use Bluesky as event source"
+              label="Use AT Protocol as event source"
               @update:model-value="onBlueskyConnectionToggle"
             />
           </div>
