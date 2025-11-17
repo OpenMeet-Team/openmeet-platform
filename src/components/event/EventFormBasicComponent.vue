@@ -264,7 +264,7 @@
               data-cy="event-publish-to-bluesky"
               v-model="publishToBluesky"
               :disable="!!eventData.slug"
-              label="Publish to Bluesky"
+              label="Publish to AT Protocol"
             />
             <p class="text-caption q-mt-xs q-ml-md text-warning" v-if="!eventData.slug">
               <q-icon name="sym_r_warning" size="xs" />
