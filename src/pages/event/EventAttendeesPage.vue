@@ -125,7 +125,6 @@ import { useEventStore } from '../../stores/event-store'
 import { eventsApi } from '../../api'
 import { EventAttendeeEntity, EventAttendeePermission, EventAttendeeStatus } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
-import { useAuthStore } from '../../stores/auth-store'
 import SpinnerComponent from '../../components/common/SpinnerComponent.vue'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import MenuItemComponent from '../../components/common/MenuItemComponent.vue'
@@ -268,7 +267,7 @@ onMounted(() => {
   LoadingBar.start()
   isLoading.value = true
   useEventStore().actionGetEventBySlug(route.params.slug as string).then(() => {
-    if (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || useEventStore().getterUserIsAttendee()) {
+    if (useEventStore().getterIsPublicEvent || useEventStore().getterIsAuthenticatedEvent || useEventStore().getterUserIsAttendee()) {
       loadAttendees().finally(() => {
         LoadingBar.stop()
         isMounted.value = true
