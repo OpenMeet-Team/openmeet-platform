@@ -300,13 +300,13 @@
               filled
             />
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
-              If private, the event is hidden from search and accessible only by direct link or group members.
+              Private events are hidden from search and accessible only by direct link or group members.
             </p>
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Public">
-              If public, the event is visible to everyone and searchable.
+              Public events are visible to everyone and appear in search results.
             </p>
-            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Authenticated">
-              If authenticated, the event is visible to authenticated users and searchable.
+            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Unlisted">
+              Unlisted events are hidden from search but anyone with the link can view them.
             </p>
             <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
               <q-icon name="sym_r_warning" size="xs" />
@@ -412,7 +412,7 @@ const publishToBluesky = ref<boolean>(false)
 const visibilityOptions = computed(() => {
   const baseOptions = [
     { label: 'The World', value: 'public', disable: false },
-    { label: 'Authenticated Users', value: 'authenticated', disable: publishToBluesky.value },
+    { label: 'Anyone with Link', value: 'unlisted', disable: publishToBluesky.value },
     { label: 'People You Invite', value: 'private', disable: publishToBluesky.value }
   ]
   return baseOptions

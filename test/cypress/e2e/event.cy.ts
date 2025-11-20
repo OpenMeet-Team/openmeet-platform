@@ -69,7 +69,7 @@ describe('EventPage', () => {
         statusCode: 200,
         body: {
           ...event,
-          visibility: EventVisibility.Authenticated
+          visibility: EventVisibility.Unlisted
         } as EventEntity
       }).as('getEvent')
 

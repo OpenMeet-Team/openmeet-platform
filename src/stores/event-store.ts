@@ -35,7 +35,7 @@ export const useEventStore = defineStore('event', {
       return state.event?.visibility === EventVisibility.Private
     },
     getterIsAuthenticatedEvent: (state) => {
-      return state.event?.visibility === EventVisibility.Authenticated
+      return state.event?.visibility === EventVisibility.Unlisted
     }
   },
 

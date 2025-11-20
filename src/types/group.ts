@@ -3,10 +3,10 @@ import { MatrixMessage } from './matrix'
 import { UserEntity } from './user'
 import { EventEntity } from './event'
 
-export type GroupVisibilityType = 'public' | 'authenticated' | 'private'
+export type GroupVisibilityType = 'public' | 'unlisted' | 'private'
 export enum GroupVisibility {
   Public = 'public',
-  Authenticated = 'authenticated',
+  Unlisted = 'unlisted',
   Private = 'private'
 }
 

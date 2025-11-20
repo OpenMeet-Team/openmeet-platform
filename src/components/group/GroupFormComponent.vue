@@ -109,17 +109,17 @@
           <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value"
             option-label="label" emit-value map-options :options="[
               { label: 'The World', value: 'public' },
-              { label: 'Authenticated Users', value: 'authenticated' },
+              { label: 'Anyone with Link', value: 'unlisted' },
               { label: 'Private Group', value: 'private' }
             ]" filled />
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Private">
-            Only invited members can view and join this group. Not found in search and membership available only with group invite.
+            Private groups are hidden from search and only invited members can view and join.
           </p>
-          <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Authenticated">
-            Only logged-in users can view and join. Found in search for authenticated users.
+          <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Unlisted">
+            Unlisted groups are hidden from search but anyone with the link can view and join.
           </p>
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Public">
-            Anyone can view and join this group. Found in search.
+            Public groups are visible to everyone and appear in search results.
           </p>
         </div>
 

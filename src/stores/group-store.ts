@@ -33,7 +33,7 @@ export const useGroupStore = defineStore('group', {
       return state.group?.visibility === GroupVisibility.Private
     },
     getterIsAuthenticatedGroup: (state) => {
-      return state.group?.visibility === GroupVisibility.Authenticated
+      return state.group?.visibility === GroupVisibility.Unlisted
     },
     getterIsPermissionError: (state) => {
       return state.errorCode === 403
