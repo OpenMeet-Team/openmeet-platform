@@ -52,7 +52,10 @@ const router = useRouter()
 const { getUserIdentifier } = useUserIdentifier()
 
 const onAttendeesClick = () => {
-  if (!useAuthStore().isAuthenticated) {
+  // Allow viewing attendees for public and authenticated events without login
+  if (useEventStore().getterIsPublicEvent || useEventStore().getterIsAuthenticatedEvent) {
+    router.push({ name: 'EventAttendeesPage', params: { slug: route.params.slug } })
+  } else if (!useAuthStore().isAuthenticated) {
     goToLogin()
   } else if (!useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)) {
     openNoAttendeesRightsDialog()
@@ -62,6 +65,6 @@ const onAttendeesClick = () => {
 }
 
 const hasPermissions = computed(() => {
-  return (useEventStore().getterIsPublicEvent || (useEventStore().getterIsAuthenticatedEvent && useAuthStore().isAuthenticated) || (useEventStore().getterUserIsAttendee() && useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)))
+  return (useEventStore().getterIsPublicEvent || useEventStore().getterIsAuthenticatedEvent || (useEventStore().getterUserIsAttendee() && useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)))
 })
 </script>
