@@ -873,7 +873,7 @@
     <NoContentComponent
       data-cy="event-not-found"
       v-if="errorMessage"
-      label="Event not found"
+      :label="errorMessage"
       icon="sym_r_error"
       @click="router.push({ name: 'EventsPage' })"
       button-label="Go to events"
