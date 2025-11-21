@@ -30,7 +30,7 @@ export enum EventAttendeePermission {
 
 export enum EventVisibility {
   Public = 'public',
-  Authenticated = 'authenticated',
+  Unlisted = 'unlisted',
   Private = 'private'
 }
 

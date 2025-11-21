@@ -159,7 +159,7 @@ describe('GroupPage', () => {
         statusCode: 200,
         body: {
           ...group,
-          visibility: GroupVisibility.Authenticated
+          visibility: GroupVisibility.Unlisted
         } as GroupEntity
       }).as('getGroup')
 
