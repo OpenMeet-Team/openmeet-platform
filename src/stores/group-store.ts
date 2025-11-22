@@ -105,14 +105,11 @@ export const useGroupStore = defineStore('group', {
         const res = await groupsApi.join(slug)
         if (this.group) {
           if (res.data.groupRole.name !== GroupRole.Guest) {
-            if (this.group.groupMembers?.find(m => m.id === res.data.id)) {
+            if (!this.group.groupMembers?.find(m => m.id === res.data.id)) {
               this.group.groupMembers = this.group.groupMembers ? [...this.group.groupMembers, res.data] : [res.data]
             }
           }
           this.group.groupMember = res.data
-
-          // Refresh group data to ensure we have the latest permissions and state
-          await this.actionGetGroup(slug)
         }
         analyticsService.trackEvent('group_joined', { group_id: this.group?.id, name: this.group?.name })
       } catch (err) {
