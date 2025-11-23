@@ -308,6 +308,10 @@
             <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Unlisted">
               Unlisted events are hidden from search but anyone with the link can view them.
             </p>
+            <p class="text-caption q-mt-sm text-info">
+              <q-icon name="sym_r_info" size="xs" />
+              Private events with invitations launching soon. Use "Anyone with Link" for now.
+            </p>
             <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
               <q-icon name="sym_r_warning" size="xs" />
               This event will only be created on OpenMeet (not published to Bluesky) because it is not public.
@@ -413,7 +417,7 @@ const visibilityOptions = computed(() => {
   const baseOptions = [
     { label: 'The World', value: 'public', disable: false },
     { label: 'Anyone with Link', value: 'unlisted', disable: publishToBluesky.value },
-    { label: 'People You Invite', value: 'private', disable: publishToBluesky.value }
+    { label: 'People You Invite - Coming soon!', value: 'private', disable: true }
   ]
   return baseOptions
 })
