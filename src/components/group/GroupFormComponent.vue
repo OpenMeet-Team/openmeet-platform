@@ -108,9 +108,9 @@
           <div class="text-subtitle2 q-mb-sm">Visibility</div>
           <q-select data-cy="group-visibility" v-model="group.visibility" label="Group Viewable By" option-value="value"
             option-label="label" emit-value map-options :options="[
-              { label: 'The World', value: 'public' },
-              { label: 'Anyone with Link', value: 'unlisted' },
-              { label: 'Private Group', value: 'private' }
+              { label: 'The World', value: 'public', disable: false },
+              { label: 'Anyone with Link', value: 'unlisted', disable: false },
+              { label: 'Private Group - Coming soon!', value: 'private', disable: true }
             ]" filled />
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Private">
             Private groups are hidden from search and only invited members can view and join.
@@ -120,6 +120,10 @@
           </p>
           <p class="text-caption q-mt-sm" v-if="group.visibility === GroupVisibility.Public">
             Public groups are visible to everyone and appear in search results.
+          </p>
+          <p class="text-caption q-mt-sm text-info">
+            <q-icon name="sym_r_info" size="xs" />
+            Private groups with invitations launching soon. Use "Anyone with Link" for now.
           </p>
         </div>
 
@@ -163,7 +167,7 @@ const group = ref<GroupEntity>({
   location: '',
   requireApproval: true,
   status: GroupStatus.Draft,
-  visibility: GroupVisibility.Private
+  visibility: GroupVisibility.Public
 })
 
 const loading = ref(false)
