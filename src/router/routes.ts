@@ -60,7 +60,8 @@ const routes: RouteRecordRaw[] = [
       },
       { path: 'members/:slug([^/]+)', name: 'MemberPage', component: () => import('pages/MemberPage.vue') },
       { path: 'privacy', name: 'PrivacyPolicyPage', component: () => import('pages/PrivacyPolicyPage.vue') },
-      { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') }
+      { path: 'terms', name: 'TermsOfServicePage', component: () => import('pages/TermsOfServicePage.vue') },
+      { path: 'support/thank-you', name: 'SupportThankYouPage', component: () => import('pages/SupportThankYouPage.vue') }
     ],
     meta: { requiresAuth: false }
   },
