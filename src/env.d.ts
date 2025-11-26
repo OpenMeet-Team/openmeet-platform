@@ -18,6 +18,7 @@ interface AppConfig {
   APP_VERSION?: string
   APP_GOOGLE_CLIENT_ID?: string
   APP_GITHUB_CLIENT_ID?: string
+  APP_SUPPORT_URL?: string
   [key: string]: string | undefined
 }
 

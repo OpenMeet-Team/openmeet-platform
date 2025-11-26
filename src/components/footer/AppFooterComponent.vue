@@ -16,6 +16,7 @@
             <MenuItemComponent label="About Us" @click="openSocialLink('https://biz.openmeet.net/about')"/>
             <MenuItemComponent label="Groups" @click="navigateTo('/groups')"/>
             <MenuItemComponent label="Events" @click="navigateTo('/events')"/>
+            <MenuItemComponent v-if="supportUrl" label="Support Us" @click="navigateTo('/support')"/>
           </q-list>
         </div>
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
@@ -53,6 +54,7 @@ import HeaderLogoComponent from '../header/HeaderLogoComponent.vue'
 const router = useRouter()
 
 const currentYear = computed(() => new Date().getFullYear())
+const supportUrl = computed(() => window.APP_CONFIG?.APP_SUPPORT_URL)
 
 const openSocialLink = (link: string) => {
   window.open(link, '_blank')
