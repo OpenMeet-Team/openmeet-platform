@@ -4,7 +4,7 @@
       <div class="col-12 col-md-8 col-lg-6">
         <q-card flat class="text-center q-pa-lg">
           <q-card-section>
-            <q-icon name="favorite" color="pink" size="64px" class="q-mb-md" />
+            <q-icon name="sym_r_favorite" color="pink" size="64px" class="q-mb-md" />
             <h1 class="text-h4 q-mb-md">Thank You for Supporting OpenMeet!</h1>
             <p class="text-body1 text-grey-8 q-mb-lg">
               Your contribution helps keep OpenMeet free for communities everywhere.

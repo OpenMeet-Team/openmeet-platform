@@ -16,7 +16,7 @@
             <MenuItemComponent label="About Us" @click="openSocialLink('https://biz.openmeet.net/about')"/>
             <MenuItemComponent label="Groups" @click="navigateTo('/groups')"/>
             <MenuItemComponent label="Events" @click="navigateTo('/events')"/>
-            <MenuItemComponent v-if="supportUrl" label="Support Us" @click="openSocialLink(supportUrl)"/>
+            <MenuItemComponent v-if="supportUrl" label="Support Us" @click="navigateTo('/support')"/>
           </q-list>
         </div>
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
