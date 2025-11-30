@@ -757,9 +757,11 @@ const onSubmit = async () => {
       // This is the standard single event path
       await createOrUpdateSingleEvent(event)
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to create/update event:', err)
-    error('Failed to create event')
+    const axiosError = err as { response?: { data?: { message?: string } } }
+    const errorMessage = axiosError.response?.data?.message || 'Failed to create event'
+    error(errorMessage)
   }
 }
 
@@ -809,9 +811,11 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
         source: event.sourceType || 'web'
       })
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to create/update single event:', err)
-    error('Failed to create/update event')
+    const axiosError = err as { response?: { data?: { message?: string } } }
+    const errorMessage = axiosError.response?.data?.message || 'Failed to create/update event'
+    error(errorMessage)
     throw err
   }
 }
