@@ -79,6 +79,14 @@ const formatSeriesSlug = (slug: string): string => {
           <q-icon name="sym_r_event_repeat" size="xs" class="q-mr-xs" />
           {{ event.series?.name || formatSeriesSlug(event.seriesSlug) }}
         </q-badge>
+        <q-badge
+          v-if="event.attendeesCount"
+          color="purple"
+          class="q-ml-sm"
+        >
+          <q-icon name="sym_r_people" size="xs" class="q-mr-xs" />
+          {{ event.attendeesCount }} attending
+        </q-badge>
       </div>
       <div
         v-if="event.group"
@@ -169,7 +177,8 @@ const formatSeriesSlug = (slug: string): string => {
 .badges-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 @media (max-width: 700px) {
