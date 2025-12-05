@@ -251,30 +251,32 @@ export const useAuthStore = defineStore('authStore', {
         const token = params.get('token')
         const refreshToken = params.get('refreshToken')
         const tokenExpires = params.get('tokenExpires')
-        const userParam = params.get('user')
         const profileParam = params.get('profile')
 
-        if (!token || !refreshToken || !tokenExpires || !userParam || !profileParam) {
+        if (!token || !refreshToken || !tokenExpires || !profileParam) {
           logger.error('Missing required parameters')
           return false
-        }
-
-        const decodedUserParam = atob(userParam)
-        const user = JSON.parse(decodedUserParam)
-        // Check for null/undefined email and convert to empty string to avoid issues
-        if (user.email === null || user.email === undefined || user.email === 'null') {
-          user.email = ''
         }
 
         const decodedProfileParam = atob(profileParam)
         const profile = JSON.parse(decodedProfileParam)
 
+        // Set tokens first so we can make authenticated API calls
         this.actionSetToken(token)
         this.actionSetRefreshToken(refreshToken)
         this.actionSetTokenExpires(Number(tokenExpires))
-        this.actionSetUser(user)
 
-        const did = user.socialId
+        // Fetch full user profile from API (same pattern as Google/Github login)
+        const meResponse = await authApi.getMe()
+        if (!meResponse.data) {
+          logger.error('Failed to fetch user profile')
+          return false
+        }
+
+        const user = meResponse.data
+
+        // Set Bluesky identifiers from profile
+        const did = profile.did
         if (did && profile.handle) {
           this.actionSetBlueskyIdentifiers(did, profile.handle)
         } else {
@@ -290,7 +292,7 @@ export const useAuthStore = defineStore('authStore', {
           preferences: {
             ...user.preferences,
             bluesky: {
-              did: user.socialId,
+              did: profile.did,
               handle: profile.handle,
               connected: true,
               autoPost: false,
@@ -318,17 +320,11 @@ export const useAuthStore = defineStore('authStore', {
 
         // Use socialId directly from user object
         const did = user.socialId
-        // Dev login: Setting Bluesky identifiers
-
-        if (did) {
-          this.actionSetBlueskyIdentifiers(did, credentials.identifier)
-        }
 
         const params = new URLSearchParams({
           token,
           refreshToken,
           tokenExpires: tokenExpires.toString(),
-          user: btoa(JSON.stringify(user)),
           profile: btoa(JSON.stringify({
             did,
             handle: credentials.identifier,
