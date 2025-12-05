@@ -82,10 +82,17 @@ const handleBlueskyLogin = async () => {
         const response = await fetch(
           `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(cleanHandle)}&tenantId=${tenantId}`
         )
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Auth URL request failed:', response.status, errorText)
+          throw new Error(`Failed to get authorization URL: ${response.status}`)
+        }
+
         const url = await response.text()
 
-        if (!url) {
-          throw new Error('No authorization URL received')
+        if (!url || !url.startsWith('http')) {
+          throw new Error('Invalid authorization URL received')
         }
 
         // Redirect to Bluesky auth in the same window
