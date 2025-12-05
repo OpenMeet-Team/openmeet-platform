@@ -26,6 +26,7 @@ const profileUser = computed(() => profileStore.user)
 const interests = computed(() => profileUser.value?.interests || [])
 const ownedGroups = computed(() => profileUser.value?.groups || [])
 const organizedEvents = computed(() => profileUser.value?.events || [])
+const attendingEvents = computed(() => profileUser.value?.attendingEvents || [])
 const groupMemberships = computed(() =>
   profileUser.value?.groupMembers?.filter(
     (member) => member.groupRole?.name !== 'owner'
@@ -367,6 +368,22 @@ const loadBlueskyEvents = async () => {
               />
               <EventsItemComponent
                 v-for="event in organizedEvents"
+                :key="event.id"
+                :event="event"
+              />
+            </q-card-section>
+          </q-card>
+
+          <!-- Attending Events -->
+          <q-card flat bordered class="q-mb-lg" v-if="attendingEvents?.length">
+            <q-card-section>
+              <SubtitleComponent
+                :count="attendingEvents.length"
+                hide-link
+                label="Attending Events"
+              />
+              <EventsItemComponent
+                v-for="event in attendingEvents"
                 :key="event.id"
                 :event="event"
               />

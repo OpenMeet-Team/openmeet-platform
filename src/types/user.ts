@@ -74,6 +74,10 @@ export interface Profile {
   interests?: SubCategoryEntity[]
 }
 
+export interface AttendingEvent extends EventEntity {
+  attendeeStatus?: string
+}
+
 export interface UserEntity {
   id: number
   ulid: string
@@ -96,6 +100,7 @@ export interface UserEntity {
   role?: UserRoleEntity
   groups?: GroupEntity[]
   events?: EventEntity[]
+  attendingEvents?: AttendingEvent[]
   groupMembers?: GroupMemberEntity[]
   interests?: SubCategoryEntity[]
   preferences?: UserPreferences
