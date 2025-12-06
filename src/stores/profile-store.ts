@@ -1,21 +1,22 @@
 import { defineStore } from 'pinia'
 import { usersApi } from '../api'
-import { UserEntity } from '../types'
+import { ProfileSummaryEntity } from '../types'
 
 export const useProfileStore = defineStore('profile', {
   state: () => ({
-    user: null as UserEntity | null,
+    profile: null as ProfileSummaryEntity | null,
     isLoading: false
   }),
 
   actions: {
-    actionGetMemberProfile (slug: string) {
+    async actionGetProfileSummary (slug: string) {
       this.isLoading = true
-      return usersApi.getMemberProfile(slug).then(user => {
-        this.user = user.data
-      }).finally(() => {
+      try {
+        const response = await usersApi.getProfileSummary(slug)
+        this.profile = response.data
+      } finally {
         this.isLoading = false
-      })
+      }
     }
   }
 })

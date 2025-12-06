@@ -105,3 +105,30 @@ export interface UserEntity {
   interests?: SubCategoryEntity[]
   preferences?: UserPreferences
 }
+
+// ======= Profile Summary =======
+export interface ProfileCounts {
+  organizedEvents: number
+  attendingEvents: number
+  ownedGroups: number
+  groupMemberships: number
+}
+
+export interface ProfileSummaryEntity {
+  id: number
+  slug: string
+  firstName?: string
+  lastName?: string
+  bio?: string
+  photo?: { id: string; path: string }
+  provider?: string
+  socialId?: string
+  isShadowAccount?: boolean
+  preferences?: UserPreferences
+  counts: ProfileCounts
+  interests: SubCategoryEntity[]
+  organizedEvents: EventEntity[]
+  attendingEvents: AttendingEvent[]
+  ownedGroups: GroupEntity[]
+  groupMemberships: GroupMemberEntity[]
+}

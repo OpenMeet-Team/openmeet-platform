@@ -1,5 +1,5 @@
 import { api } from '../boot/axios'
-import { EventEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity, ActivityFeedEntity } from '../types'
+import { EventEntity, GroupEntity, GroupMemberEntity, GroupPaginationEntity, ActivityFeedEntity, DashboardGroupsSummaryEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 import { AxiosResponse } from 'axios'
 
@@ -33,5 +33,6 @@ export const groupsApi = {
   sendAdminMessage: (slug: string, data: { subject: string, message: string, targetUserIds?: number[] }): Promise<AxiosResponse<{ success: boolean, deliveredCount: number, failedCount: number, messageId: string }>> => api.post(`/api/groups/${slug}/admin-message`, data, createGroupApiHeaders(slug)),
   previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string, targetUserIds?: number[] }): Promise<AxiosResponse<{ message: string }>> => api.post(`/api/groups/${slug}/admin-message/preview`, data, createGroupApiHeaders(slug)),
   contactAdmins: (slug: string, data: { subject: string, message: string, contactType: 'question' | 'report' | 'feedback' }): Promise<AxiosResponse<{ success: boolean, deliveredCount: number, failedCount: number, messageId: string }>> => api.post(`/api/groups/${slug}/contact-admins`, data, createGroupApiHeaders(slug)),
-  getFeed: (slug: string, params?: { limit?: number, offset?: number, visibility?: string[] }): Promise<AxiosResponse<ActivityFeedEntity[]>> => api.get(`/api/groups/${slug}/feed`, { ...createGroupApiHeaders(slug), params })
+  getFeed: (slug: string, params?: { limit?: number, offset?: number, visibility?: string[] }): Promise<AxiosResponse<ActivityFeedEntity[]>> => api.get(`/api/groups/${slug}/feed`, { ...createGroupApiHeaders(slug), params }),
+  getDashboardSummary: (): Promise<AxiosResponse<DashboardGroupsSummaryEntity>> => api.get<DashboardGroupsSummaryEntity>('/api/groups/dashboard/summary')
 }
