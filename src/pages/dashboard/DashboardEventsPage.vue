@@ -38,10 +38,20 @@
 
       <!-- Hosting This Week -->
       <template v-if="summary?.hostingThisWeek?.length">
-        <div class="text-h6 q-mb-sm flex items-center">
-          <q-icon name="sym_r_calendar_today" class="q-mr-sm" color="primary" />
-          Hosting This Week
-          <q-badge color="primary" class="q-ml-sm">{{ summary.hostingThisWeek.length }}</q-badge>
+        <div class="text-h6 q-mb-sm flex items-center justify-between">
+          <div class="flex items-center">
+            <q-icon name="sym_r_calendar_today" class="q-mr-sm" color="primary" />
+            Hosting This Week
+            <q-badge color="primary" class="q-ml-sm">{{ summary.hostingThisWeek.length }}</q-badge>
+          </div>
+          <q-btn
+            flat
+            no-caps
+            color="primary"
+            label="View all"
+            icon-right="sym_r_arrow_forward"
+            @click="viewAllHosting"
+          />
         </div>
         <div class="q-mb-lg">
           <EventsItemComponent
