@@ -54,6 +54,12 @@ export interface EventApiType {
   getAttendees: (slug: string, query: { page: number, limit: number }) => Promise<AxiosResponse<EventAttendeePaginationEntity>>
   getDashboardEvents: () => Promise<AxiosResponse<EventEntity[]>>
   getDashboardSummary: () => Promise<AxiosResponse<DashboardSummaryEntity>>
+  getDashboardEventsPaginated: (params: { page?: number, limit?: number, tab?: 'hosting' | 'attending' | 'past' }) => Promise<AxiosResponse<{
+    data: EventEntity[],
+    total: number,
+    page: number,
+    totalPages: number
+  }>>
   topics: (slug: string) => Promise<AxiosResponse<EventEntity>>
   joinEventChat: (slug: string) => Promise<AxiosResponse<{ matrixRoomId: string }>>
   getICalendar: (slug: string) => Promise<AxiosResponse<string>>
@@ -118,6 +124,12 @@ export const eventsApi: EventApiType = {
   edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/edit`, createEventApiHeaders(slug)),
   getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
   getDashboardSummary: (): Promise<AxiosResponse<DashboardSummaryEntity>> => api.get<DashboardSummaryEntity>('/api/events/dashboard/summary'),
+  getDashboardEventsPaginated: (params: { page?: number, limit?: number, tab?: 'hosting' | 'attending' | 'past' }) => api.get<{
+    data: EventEntity[],
+    total: number,
+    page: number,
+    totalPages: number
+  }>('/api/events/dashboard', { params }),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
   joinEventChat: (slug: string): Promise<AxiosResponse<{ matrixRoomId: string }>> => api.post(`/api/chat/event/${slug}/join`, {}),
   getICalendar: (slug: string): Promise<AxiosResponse<string>> => api.get(`/api/events/${slug}/calendar`, {

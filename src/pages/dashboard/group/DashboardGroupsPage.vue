@@ -33,46 +33,60 @@
 
       <!-- Groups You Lead -->
       <template v-if="summary.leadingGroups.length > 0">
-        <div class="text-h6 q-mb-md">Groups You Lead</div>
-        <div class="column q-gutter-y-md q-mb-lg">
+        <div class="text-h6 q-mb-sm flex items-center justify-between">
+          <div class="flex items-center">
+            <q-icon name="sym_r_shield_person" class="q-mr-sm" color="primary" />
+            Groups You Lead
+            <q-badge v-if="moreLeadingCount > 0" color="grey-6" class="q-ml-sm">
+              {{ moreLeadingCount }} more
+            </q-badge>
+          </div>
+          <q-btn
+            v-if="moreLeadingCount > 0"
+            flat
+            no-caps
+            color="primary"
+            label="View all"
+            icon-right="sym_r_arrow_forward"
+            @click="viewAllLeadingGroups"
+          />
+        </div>
+        <div class="q-mb-lg">
           <GroupsItemComponent
             v-for="group in summary.leadingGroups"
             :key="group.id"
             :group="group"
             layout="list"
-            class="col-12"
-          />
-        </div>
-        <div v-if="summary.counts.leading > summary.leadingGroups.length" class="q-mb-lg">
-          <q-btn
-            flat
-            no-caps
-            color="primary"
-            :label="`View all ${summary.counts.leading} groups you lead`"
-            @click="viewAllLeadingGroups"
           />
         </div>
       </template>
 
       <!-- Groups You're In -->
       <template v-if="summary.memberGroups.length > 0">
-        <div class="text-h6 q-mb-md">Groups You're In</div>
-        <div class="column q-gutter-y-md q-mb-lg">
+        <div class="text-h6 q-mb-sm flex items-center justify-between">
+          <div class="flex items-center">
+            <q-icon name="sym_r_group" class="q-mr-sm" color="secondary" />
+            Groups You're In
+            <q-badge v-if="moreMemberCount > 0" color="grey-6" class="q-ml-sm">
+              {{ moreMemberCount }} more
+            </q-badge>
+          </div>
+          <q-btn
+            v-if="moreMemberCount > 0"
+            flat
+            no-caps
+            color="primary"
+            label="View all"
+            icon-right="sym_r_arrow_forward"
+            @click="viewAllMemberGroups"
+          />
+        </div>
+        <div class="q-mb-lg">
           <GroupsItemComponent
             v-for="group in summary.memberGroups"
             :key="group.id"
             :group="group"
             layout="list"
-            class="col-12"
-          />
-        </div>
-        <div v-if="summary.counts.member > summary.memberGroups.length" class="q-mb-lg">
-          <q-btn
-            flat
-            no-caps
-            color="primary"
-            :label="`View all ${summary.counts.member} groups`"
-            @click="viewAllMemberGroups"
           />
         </div>
       </template>
@@ -93,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRouter } from 'vue-router'
 import { groupsApi } from '../../../api/groups'
@@ -106,6 +120,17 @@ import NoContentComponent from '../../../components/global/NoContentComponent.vu
 const router = useRouter()
 const isLoading = ref<boolean>(false)
 const summary = ref<DashboardGroupsSummaryEntity | null>(null)
+
+// Computed values for "more" counts
+const moreLeadingCount = computed(() => {
+  if (!summary.value) return 0
+  return Math.max(0, summary.value.counts.leading - summary.value.leadingGroups.length)
+})
+
+const moreMemberCount = computed(() => {
+  if (!summary.value) return 0
+  return Math.max(0, summary.value.counts.member - summary.value.memberGroups.length)
+})
 
 useMeta({
   title: 'Your Groups'
@@ -132,11 +157,11 @@ const onAddNewGroup = () => {
 }
 
 const viewAllLeadingGroups = () => {
-  router.push({ name: 'GroupsPage', query: { role: 'leader' } })
+  router.push({ name: 'DashboardMyGroupsPage', query: { role: 'leader' } })
 }
 
 const viewAllMemberGroups = () => {
-  router.push({ name: 'GroupsPage', query: { role: 'member' } })
+  router.push({ name: 'DashboardMyGroupsPage', query: { role: 'member' } })
 }
 </script>
 
