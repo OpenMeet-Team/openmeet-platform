@@ -50,8 +50,9 @@ export const useDashboardStore = defineStore('dashboard', {
       this.errorMessage = null
 
       try {
-        const response = await eventsApi.getDashboardEvents()
-        this.events = response.data
+        // Use paginated API and extract data array
+        const response = await eventsApi.getDashboardEventsPaginated({ limit: 100 })
+        this.events = response.data.data
       } catch (err) {
         this.handleAxiosError(err as AxiosError)
       } finally {

@@ -38,10 +38,20 @@
 
       <!-- Hosting This Week -->
       <template v-if="summary?.hostingThisWeek?.length">
-        <div class="text-h6 q-mb-sm flex items-center">
-          <q-icon name="sym_r_calendar_today" class="q-mr-sm" color="primary" />
-          Hosting This Week
-          <q-badge color="primary" class="q-ml-sm">{{ summary.hostingThisWeek.length }}</q-badge>
+        <div class="text-h6 q-mb-sm flex items-center justify-between">
+          <div class="flex items-center">
+            <q-icon name="sym_r_calendar_today" class="q-mr-sm" color="primary" />
+            Hosting This Week
+            <q-badge color="primary" class="q-ml-sm">{{ summary.hostingThisWeek.length }}</q-badge>
+          </div>
+          <q-btn
+            flat
+            no-caps
+            color="primary"
+            label="View all"
+            icon-right="sym_r_arrow_forward"
+            @click="viewAllHosting"
+          />
         </div>
         <div class="q-mb-lg">
           <EventsItemComponent
@@ -133,7 +143,7 @@
         <q-card-section class="row items-center q-pb-none">
           <div class="text-h6">Past Events</div>
           <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
+          <q-btn icon="sym_r_close" flat round dense v-close-popup />
         </q-card-section>
         <q-card-section class="q-pt-none">
           <div v-if="loadingPast" class="text-center q-pa-xl">
@@ -219,12 +229,8 @@ watch(showPastEvents, async (isOpen) => {
   if (isOpen && pastEvents.value.length === 0) {
     loadingPast.value = true
     try {
-      // For now, use the legacy endpoint and filter client-side
-      // TODO: Create a dedicated past events endpoint with pagination
-      const res = await eventsApi.getDashboardEvents()
-      pastEvents.value = res.data
-        .filter(event => event.startDate && new Date(event.startDate) < new Date())
-        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+      const res = await eventsApi.getDashboardEventsPaginated({ tab: 'past', limit: 50 })
+      pastEvents.value = res.data.data
     } finally {
       loadingPast.value = false
     }
@@ -236,13 +242,11 @@ const onAddNewEvent = () => {
 }
 
 const viewAllHosting = () => {
-  // TODO: Navigate to paginated hosting events view
-  router.push({ name: 'EventsPage', query: { hosting: 'true' } })
+  router.push({ name: 'DashboardMyEventsPage', query: { tab: 'hosting' } })
 }
 
 const viewAllAttending = () => {
-  // TODO: Navigate to paginated attending events view
-  router.push({ name: 'EventsPage', query: { attending: 'true' } })
+  router.push({ name: 'DashboardMyEventsPage', query: { tab: 'attending' } })
 }
 </script>
 
