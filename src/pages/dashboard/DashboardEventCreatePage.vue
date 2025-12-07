@@ -5,6 +5,7 @@
     <EventFormComponent class="col"
       :group="preselectedGroup"
       :initial-date="route.query.date as string"
+      :duplicate-event-slug="route.query.duplicate as string"
       @created="onEventCreated"
       @series-created="handleSeriesCreated"
       @close="onClose" />

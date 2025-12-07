@@ -119,6 +119,20 @@
                       @click="handleEditEvent"
                     />
                     <MenuItemComponent
+                      label="Duplicate event"
+                      icon="sym_r_content_copy"
+                      v-if="
+                        useEventStore().getterUserHasPermission(
+                          EventAttendeePermission.ManageEvent
+                        ) ||
+                        isOwnerOrAdmin ||
+                        useEventStore().getterGroupMemberHasPermission(
+                          GroupPermission.ManageEvents
+                        )
+                      "
+                      @click="handleDuplicateEvent"
+                    />
+                    <MenuItemComponent
                       label="Manage attendees"
                       icon="sym_r_people"
                       v-if="
@@ -494,6 +508,20 @@
                           )
                         "
                         @click="handleEditEvent"
+                      />
+                      <MenuItemComponent
+                        label="Duplicate event"
+                        icon="sym_r_content_copy"
+                        v-if="
+                          useEventStore().getterUserHasPermission(
+                            EventAttendeePermission.ManageEvent
+                          ) ||
+                          isOwnerOrAdmin ||
+                          useEventStore().getterGroupMemberHasPermission(
+                            GroupPermission.ManageEvents
+                          )
+                        "
+                        @click="handleDuplicateEvent"
                       />
                       <MenuItemComponent
                         label="Manage attendees"
@@ -1479,6 +1507,15 @@ const handleEditEvent = async () => {
     router.push({
       name: 'DashboardEventPage',
       params: { slug: event.value?.slug }
+    })
+  }
+}
+
+const handleDuplicateEvent = () => {
+  if (event.value?.slug) {
+    router.push({
+      name: 'DashboardEventCreatePage',
+      query: { duplicate: event.value.slug }
     })
   }
 }

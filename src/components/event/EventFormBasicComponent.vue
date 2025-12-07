@@ -624,6 +624,45 @@ onMounted(() => {
   }).finally(() => {
     isLoading.value = false
   })
+
+  // Load event to duplicate if duplicateEventSlug is provided
+  if (props.duplicateEventSlug) {
+    promises.push(
+      eventsApi.getBySlug(props.duplicateEventSlug).then(res => {
+        const sourceEvent = res.data
+
+        // Copy fields that should be duplicated
+        eventData.value = {
+          ...eventData.value,
+          name: sourceEvent.name + ' (Copy)',
+          description: sourceEvent.description,
+          location: sourceEvent.location,
+          locationOnline: sourceEvent.locationOnline,
+          lat: sourceEvent.lat,
+          lon: sourceEvent.lon,
+          type: sourceEvent.type,
+          image: sourceEvent.image,
+          categories: sourceEvent.categories,
+          maxAttendees: sourceEvent.maxAttendees,
+          visibility: sourceEvent.visibility,
+          requireApproval: sourceEvent.requireApproval,
+          approvalQuestion: sourceEvent.approvalQuestion,
+          allowWaitlist: sourceEvent.allowWaitlist,
+          requireGroupMembership: sourceEvent.requireGroupMembership,
+          group: sourceEvent.group?.id as unknown as GroupEntity,
+          timeZone: sourceEvent.timeZone || dateFormatting.getUserTimezone()
+        }
+
+        // Show notification after promises resolve
+        setTimeout(() => {
+          success('Event details copied. Please set a new date and time.')
+        }, 100)
+      }).catch(err => {
+        console.error('Failed to load event to duplicate:', err)
+        error('Failed to load event for duplication')
+      })
+    )
+  }
 })
 
 // Function to load series data including recurrence rule
@@ -684,7 +723,7 @@ const loadSeriesInformation = async (seriesSlug: string): Promise<void> => {
   }
 }
 
-interface Props { editEventSlug?: string, group?: GroupEntity, initialDate?: string }
+interface Props { editEventSlug?: string, duplicateEventSlug?: string, group?: GroupEntity, initialDate?: string }
 
 const props = withDefaults(defineProps<Props>(), {
   editEventSlug: undefined
