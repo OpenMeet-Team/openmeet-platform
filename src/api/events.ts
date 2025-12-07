@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
-import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity, ActivityFeedEntity } from '../types'
+import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity, ActivityFeedEntity, DashboardSummaryEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
 
 const createEventApiHeaders = (eventSlug: string) => ({
@@ -53,6 +53,7 @@ export interface EventApiType {
   similarEvents: (slug: string) => Promise<AxiosResponse<EventEntity[]>>
   getAttendees: (slug: string, query: { page: number, limit: number }) => Promise<AxiosResponse<EventAttendeePaginationEntity>>
   getDashboardEvents: () => Promise<AxiosResponse<EventEntity[]>>
+  getDashboardSummary: () => Promise<AxiosResponse<DashboardSummaryEntity>>
   topics: (slug: string) => Promise<AxiosResponse<EventEntity>>
   joinEventChat: (slug: string) => Promise<AxiosResponse<{ matrixRoomId: string }>>
   getICalendar: (slug: string) => Promise<AxiosResponse<string>>
@@ -116,6 +117,7 @@ export const eventsApi: EventApiType = {
   getAttendees: (slug: string, query: { page: number, limit: number }): Promise<AxiosResponse<EventAttendeePaginationEntity>> => api.get<EventAttendeePaginationEntity>(`/api/events/${slug}/attendees`, { params: query, ...createEventApiHeaders(slug) }),
   edit: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/edit`, createEventApiHeaders(slug)),
   getDashboardEvents: (): Promise<AxiosResponse<EventEntity[]>> => api.get<EventEntity[]>('/api/events/dashboard'),
+  getDashboardSummary: (): Promise<AxiosResponse<DashboardSummaryEntity>> => api.get<DashboardSummaryEntity>('/api/events/dashboard/summary'),
   topics: (slug: string): Promise<AxiosResponse<EventEntity>> => api.get<EventEntity>(`/api/events/${slug}/topics`, createEventApiHeaders(slug)),
   joinEventChat: (slug: string): Promise<AxiosResponse<{ matrixRoomId: string }>> => api.post(`/api/chat/event/${slug}/join`, {}),
   getICalendar: (slug: string): Promise<AxiosResponse<string>> => api.get(`/api/events/${slug}/calendar`, {

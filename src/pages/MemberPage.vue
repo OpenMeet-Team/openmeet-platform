@@ -20,40 +20,53 @@ const profileStore = useProfileStore()
 const authStore = useAuthStore()
 
 // The active profile being viewed
-const profileUser = computed(() => profileStore.user)
+const profile = computed(() => profileStore.profile)
 
 // Computed properties for the profile
-const interests = computed(() => profileUser.value?.interests || [])
-const ownedGroups = computed(() => profileUser.value?.groups || [])
-const organizedEvents = computed(() => profileUser.value?.events || [])
-const attendingEvents = computed(() => profileUser.value?.attendingEvents || [])
-const groupMemberships = computed(() =>
-  profileUser.value?.groupMembers?.filter(
-    (member) => member.groupRole?.name !== 'owner'
-  ) || []
-)
+const interests = computed(() => profile.value?.interests || [])
+const ownedGroups = computed(() => profile.value?.ownedGroups || [])
+const organizedEvents = computed(() => profile.value?.organizedEvents || [])
+const attendingEvents = computed(() => profile.value?.attendingEvents || [])
+const groupMemberships = computed(() => profile.value?.groupMemberships || [])
+const counts = computed(() => profile.value?.counts)
+const hasActivity = computed(() => {
+  if (!counts.value) return false
+  return counts.value.organizedEvents > 0 ||
+    counts.value.attendingEvents > 0 ||
+    counts.value.ownedGroups > 0 ||
+    counts.value.groupMemberships > 0
+})
 
 // Auth provider flags
-const isBskyUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.bluesky)
+const isBskyUser = computed(() => profile.value?.provider === AuthProvidersEnum.bluesky)
 
 // Get Bluesky handle - for shadow users, firstName contains the resolved handle
-// For real Bluesky users, firstName is their actual name (preferences.bluesky.handle has their handle)
 const bskyHandle = computed(() => {
-  if (!profileUser.value) return null
+  if (!profile.value) return null
 
   // Shadow users: firstName contains the resolved handle (e.g., "alice.bsky.social")
-  if (profileUser.value.isShadowAccount && profileUser.value.firstName) {
-    return profileUser.value.firstName
+  if (profile.value.isShadowAccount && profile.value.firstName) {
+    return profile.value.firstName
   }
 
   // Real users: check preferences for handle (legacy)
-  return profileUser.value?.preferences?.bluesky?.handle || null
+  return profile.value?.preferences?.bluesky?.handle || null
 })
 
-const isGoogleUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.google)
-const isGithubUser = computed(() => profileUser.value?.provider === AuthProvidersEnum.github)
+const isGoogleUser = computed(() => profile.value?.provider === AuthProvidersEnum.google)
+const isGithubUser = computed(() => profile.value?.provider === AuthProvidersEnum.github)
 
-// Profile avatar
+// Profile avatar - create a computed ref for useAvatarUrl
+// Cast to UserEntity since we only use photo and preferences fields
+const profileUser = computed(() => {
+  if (!profile.value) return null
+  return {
+    photo: profile.value.photo ? { path: profile.value.photo.path } : undefined,
+    firstName: profile.value.firstName,
+    lastName: profile.value.lastName,
+    preferences: profile.value.preferences
+  } as unknown as import('../types').UserEntity
+})
 const { avatarUrl } = useAvatarUrl(profileUser)
 
 // Display name - for Bluesky users, show resolved handle
@@ -68,14 +81,14 @@ const displayName = computed(() => {
   }
 
   // For non-Bluesky users, use firstName + lastName
-  const firstName = profileUser.value?.firstName || ''
-  const lastName = profileUser.value?.lastName || ''
+  const firstName = profile.value?.firstName || ''
+  const lastName = profile.value?.lastName || ''
   return `${firstName} ${lastName}`.trim() || 'Anonymous User'
 })
 
 // Check if this is the current user's profile
 const isOwnProfile = computed(() => {
-  return profileUser.value && authStore.user && profileUser.value.id === authStore.user.id
+  return profile.value && authStore.user && profile.value.id === authStore.user.id
 })
 
 // Bluesky events
@@ -119,7 +132,7 @@ const deleteEvent = async () => {
 onMounted(async () => {
   LoadingBar.start()
   await Promise.all([
-    profileStore.actionGetMemberProfile(route.params.slug as string),
+    profileStore.actionGetProfileSummary(route.params.slug as string),
     // Fetch Bluesky events if this is a Bluesky user and it's the current user viewing their own profile
     isBskyUser.value && isOwnProfile.value && authStore.getBlueskyDid
       ? loadBlueskyEvents() : Promise.resolve()
@@ -143,15 +156,15 @@ const loadBlueskyEvents = async () => {
   <q-page padding class="q-pb-xl q-mx-auto" style="max-width: 1201px">
     <SpinnerComponent v-if="profileStore.isLoading" />
 
-    <div v-if="!profileStore.isLoading && profileUser">
+    <div v-if="!profileStore.isLoading && profile">
       <div class="row q-col-gutter-md">
         <div class="col-12 col-sm-4">
           <!-- User Info -->
-          <q-card flat bordered v-if="profileUser">
+          <q-card flat bordered v-if="profile">
             <q-card-section>
               <div class="text-center">
                 <q-avatar size="150px">
-                  <img :src="avatarUrl" :alt="`${profileUser.firstName || ''} ${profileUser.lastName || ''}`" />
+                  <img :src="avatarUrl" :alt="`${profile.firstName || ''} ${profile.lastName || ''}`" />
                 </q-avatar>
                 <h4 class="q-mt-md text-h5 text-bold q-mb-xs profile-name">
                   {{ displayName }}
@@ -161,14 +174,33 @@ const loadBlueskyEvents = async () => {
                   class="text-body1 q-mt-md bio-content"
                 >
                   <q-markdown
-                    v-if="profileUser.bio"
-                    :src="profileUser.bio"
+                    v-if="profile.bio"
+                    :src="profile.bio"
                   />
                   <div v-else class="text-grey-6 text-italic">No bio provided</div>
                 </div>
               </div>
             </q-card-section>
           </q-card>
+
+          <!-- Stats Summary - clean text style -->
+          <div v-if="counts && hasActivity" class="text-body2 text-grey-7 q-mt-md text-center summary-line">
+            <span v-if="counts.organizedEvents > 0">
+              <strong class="text-primary">{{ counts.organizedEvents }}</strong> organized
+            </span>
+            <span v-if="counts.organizedEvents > 0 && counts.attendingEvents > 0" class="separator">·</span>
+            <span v-if="counts.attendingEvents > 0">
+              <strong class="text-secondary">{{ counts.attendingEvents }}</strong> attending
+            </span>
+            <span v-if="(counts.organizedEvents > 0 || counts.attendingEvents > 0) && counts.ownedGroups > 0" class="separator">·</span>
+            <span v-if="counts.ownedGroups > 0">
+              <strong>{{ counts.ownedGroups }}</strong> groups
+            </span>
+            <span v-if="(counts.organizedEvents > 0 || counts.attendingEvents > 0 || counts.ownedGroups > 0) && counts.groupMemberships > 0" class="separator">·</span>
+            <span v-if="counts.groupMemberships > 0">
+              <strong>{{ counts.groupMemberships }}</strong> memberships
+            </span>
+          </div>
 
           <!-- Edit Profile Link (only shown if viewing your own profile) -->
           <q-card
@@ -179,10 +211,10 @@ const loadBlueskyEvents = async () => {
           >
             <q-card-section horizontal>
               <q-avatar size="50px" class="q-mr-md">
-                <img :src="avatarUrl" :alt="profileUser?.name || ''" />
+                <img :src="avatarUrl" :alt="displayName" />
               </q-avatar>
               <div class="column">
-                <div class="text-bold">{{ profileUser?.name || '' }}</div>
+                <div class="text-bold">{{ displayName }}</div>
                 <router-link
                   :to="{ name: 'DashboardProfilePage' }"
                   class="router-link-inherit"
@@ -193,7 +225,7 @@ const loadBlueskyEvents = async () => {
           </q-card>
 
           <!-- Bluesky Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isBskyUser && profileUser">
+          <q-card flat bordered class="q-mt-md" v-if="isBskyUser && profile">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-bluesky" color="primary" size="2rem" />
@@ -298,7 +330,7 @@ const loadBlueskyEvents = async () => {
             </q-dialog>
           </q-card>
           <!-- Google Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser && profileUser">
+          <q-card flat bordered class="q-mt-md" v-if="isGoogleUser && profile">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-google" color="primary" size="2rem" />
@@ -307,14 +339,14 @@ const loadBlueskyEvents = async () => {
             </q-card-section>
           </q-card>
           <!-- Github Info -->
-          <q-card flat bordered class="q-mt-md" v-if="isGithubUser && profileUser">
+          <q-card flat bordered class="q-mt-md" v-if="isGithubUser && profile">
             <q-card-section>
               <div class="text-center">
                 <q-icon name="fa-brands fa-github" color="primary" size="2rem" />
                 <h6 class="q-mt-sm q-mb-none">Github User</h6>
-                <h6 class="q-mt-sm q-mb-none" v-if="profileUser.socialId">
-                  <a :href="`https://github.com/${profileUser.socialId}`" target="_blank" class="text-primary">
-                    {{ profileUser.name }}
+                <h6 class="q-mt-sm q-mb-none" v-if="profile.socialId">
+                  <a :href="`https://github.com/${profile.socialId}`" target="_blank" class="text-primary">
+                    {{ displayName }}
                   </a>
                 </h6>
               </div>
@@ -347,7 +379,7 @@ const loadBlueskyEvents = async () => {
           <q-card flat bordered class="q-mb-lg" v-if="ownedGroups?.length">
             <q-card-section>
               <GroupsListComponent
-                label="Owned Groups"
+                :label="counts && counts.ownedGroups > ownedGroups.length ? `Owned Groups (showing ${ownedGroups.length} of ${counts.ownedGroups})` : 'Owned Groups'"
                 :groups="ownedGroups"
                 :show-pagination="false"
                 :current-page="1"
@@ -362,9 +394,9 @@ const loadBlueskyEvents = async () => {
           <q-card flat bordered class="q-mb-lg" v-if="organizedEvents?.length">
             <q-card-section>
               <SubtitleComponent
-                :count="organizedEvents.length"
+                :count="counts?.organizedEvents || organizedEvents.length"
                 hide-link
-                label="Organized Events"
+                :label="counts && counts.organizedEvents > organizedEvents.length ? `Organized Events (showing ${organizedEvents.length})` : 'Organized Events'"
               />
               <EventsItemComponent
                 v-for="event in organizedEvents"
@@ -378,9 +410,9 @@ const loadBlueskyEvents = async () => {
           <q-card flat bordered class="q-mb-lg" v-if="attendingEvents?.length">
             <q-card-section>
               <SubtitleComponent
-                :count="attendingEvents.length"
+                :count="counts?.attendingEvents || attendingEvents.length"
                 hide-link
-                label="Attending Events"
+                :label="counts && counts.attendingEvents > attendingEvents.length ? `Attending Events (showing ${attendingEvents.length})` : 'Attending Events'"
               />
               <EventsItemComponent
                 v-for="event in attendingEvents"
@@ -394,9 +426,9 @@ const loadBlueskyEvents = async () => {
           <q-card flat bordered class="q-mb-lg" v-if="groupMemberships?.length">
             <q-card-section>
               <SubtitleComponent
-                :count="groupMemberships.length"
+                :count="counts?.groupMemberships || groupMemberships.length"
                 hide-link
-                label="Group Memberships"
+                :label="counts && counts.groupMemberships > groupMemberships.length ? `Group Memberships (showing ${groupMemberships.length})` : 'Group Memberships'"
               />
               <GroupsItemComponent
                 v-for="groupMember in groupMemberships"
@@ -424,6 +456,13 @@ const loadBlueskyEvents = async () => {
   overflow-wrap: break-word;
   word-break: break-word;
   max-width: 100%;
+}
+
+.summary-line {
+  .separator {
+    margin: 0 0.5rem;
+    color: #ccc;
+  }
 }
 
 .event-card {

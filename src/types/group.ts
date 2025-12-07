@@ -106,3 +106,15 @@ export enum GroupPermission {
 }
 
 export interface GroupPaginationEntity extends Pagination<GroupEntity> {}
+
+// ======= Dashboard Summary =======
+export interface DashboardGroupCounts {
+  leading: number
+  member: number
+}
+
+export interface DashboardGroupsSummaryEntity {
+  counts: DashboardGroupCounts
+  leadingGroups: GroupEntity[]
+  memberGroups: GroupEntity[]
+}

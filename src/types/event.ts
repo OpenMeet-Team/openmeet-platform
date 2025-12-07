@@ -207,3 +207,17 @@ export interface EventEntity {
 // ======= Pagination Entities =======
 export interface EventPaginationEntity extends Pagination<EventEntity> {}
 export interface EventAttendeePaginationEntity extends Pagination<EventAttendeeEntity> {}
+
+// ======= Dashboard Summary =======
+export interface DashboardEventCounts {
+  hostingUpcoming: number
+  attendingUpcoming: number
+  past: number
+}
+
+export interface DashboardSummaryEntity {
+  counts: DashboardEventCounts
+  hostingThisWeek: EventEntity[]
+  hostingLater: EventEntity[]
+  attendingSoon: EventEntity[]
+}
