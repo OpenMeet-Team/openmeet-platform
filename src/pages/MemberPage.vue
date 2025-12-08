@@ -386,6 +386,9 @@ const loadBlueskyEvents = async () => {
                 :loading="profileStore.isLoading"
                 empty-message="There are no groups yet."
                 layout="grid"
+                :hide-link="!isOwnProfile"
+                :to="{ name: 'DashboardMyGroupsPage', query: { role: 'leader' } }"
+                link-text="See all"
               />
             </q-card-section>
           </q-card>
@@ -395,7 +398,8 @@ const loadBlueskyEvents = async () => {
             <q-card-section>
               <SubtitleComponent
                 :count="counts?.organizedEvents || organizedEvents.length"
-                hide-link
+                :hide-link="!isOwnProfile"
+                :to="{ name: 'DashboardMyEventsPage', query: { tab: 'hosting' } }"
                 :label="counts && counts.organizedEvents > organizedEvents.length ? `Organized Events (showing ${organizedEvents.length})` : 'Organized Events'"
               />
               <EventsItemComponent
@@ -411,7 +415,8 @@ const loadBlueskyEvents = async () => {
             <q-card-section>
               <SubtitleComponent
                 :count="counts?.attendingEvents || attendingEvents.length"
-                hide-link
+                :hide-link="!isOwnProfile"
+                :to="{ name: 'DashboardMyEventsPage', query: { tab: 'attending' } }"
                 :label="counts && counts.attendingEvents > attendingEvents.length ? `Attending Events (showing ${attendingEvents.length})` : 'Attending Events'"
               />
               <EventsItemComponent
@@ -427,7 +432,8 @@ const loadBlueskyEvents = async () => {
             <q-card-section>
               <SubtitleComponent
                 :count="counts?.groupMemberships || groupMemberships.length"
-                hide-link
+                :hide-link="!isOwnProfile"
+                :to="{ name: 'DashboardMyGroupsPage', query: { role: 'member' } }"
                 :label="counts && counts.groupMemberships > groupMemberships.length ? `Group Memberships (showing ${groupMemberships.length})` : 'Group Memberships'"
               />
               <GroupsItemComponent
