@@ -304,7 +304,7 @@
       <q-card>
         <q-card-section class="row items-center">
           <q-space />
-          <q-btn icon="sym_r_close" flat round dense v-close-popup />
+          <q-btn icon="sym_r_close" flat round dense v-close-popup aria-label="Close image modal" />
         </q-card-section>
         <q-card-section class="q-pa-none flex flex-center">
           <img :src="imageModalSrc" style="max-width: 100%; max-height: 90vh;" />

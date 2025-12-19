@@ -206,7 +206,7 @@
         <div class="text-subtitle2 q-mb-sm">
           <div class="row items-center justify-between">
             <span>Upcoming Occurrences Preview</span>
-            <q-btn flat dense size="sm" icon="sym_r_refresh" color="primary" @click="refreshOccurrencesPreview" />
+            <q-btn flat dense size="sm" icon="sym_r_refresh" color="primary" @click="refreshOccurrencesPreview" aria-label="Refresh upcoming occurrences" />
           </div>
         </div>
 

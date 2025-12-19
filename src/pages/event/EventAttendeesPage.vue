@@ -84,7 +84,7 @@
             </q-item-section>
 
             <q-item-section side v-if="canManageAttendees">
-              <q-btn :disable="!canManageAttendees" round flat no-caps color="primary" icon="sym_r_more_vert">
+              <q-btn :disable="!canManageAttendees" round flat no-caps color="primary" icon="sym_r_more_vert" aria-label="More actions" aria-haspopup="true">
                 <q-menu>
                   <MenuItemComponent v-if="canManageAttendees" @click="editAttendee(attendee)" label="Edit attendance"
                     icon="sym_r_edit" />

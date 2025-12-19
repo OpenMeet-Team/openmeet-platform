@@ -10,7 +10,7 @@
             QR Code
           </q-card-section>
           <q-card-actions align="center" class="justify-center">
-            <q-btn flat icon="sym_r_close" color="primary" @click="showQRCodePopup = false" />
+            <q-btn flat icon="sym_r_close" color="primary" @click="showQRCodePopup = false" aria-label="Close QR dialog" />
           </q-card-actions>
         </div>
 
@@ -24,13 +24,13 @@
           <q-btn label="Copy link" color="primary" class="q-mt-md center" @click="copyToClipboard" />
 
           <!-- Share Buttons Section -->
-          <div class="q-mt-md flex justify-center">
-            <q-btn icon="fab fa-facebook" color="blue" flat @click="shareOnPlatform('facebook')" />
-            <q-btn icon="fab fa-twitter" color="blue" flat @click="shareOnPlatform('twitter')" />
-            <q-btn icon="fab fa-linkedin" color="blue" flat @click="shareOnPlatform('linkedin')" />
-            <q-btn icon="fab fa-whatsapp" color="green" flat @click="shareOnPlatform('whatsapp')" />
-            <q-btn icon="fas fa-envelope" color="red" flat @click="shareOnPlatform('email')" />
-          </div>
+            <div class="q-mt-md flex justify-center">
+            <q-btn icon="fab fa-facebook" color="blue" flat aria-label="Share on Facebook" @click="shareOnPlatform('facebook')" />
+            <q-btn icon="fab fa-twitter" color="blue" flat aria-label="Share on Twitter" @click="shareOnPlatform('twitter')" />
+            <q-btn icon="fab fa-linkedin" color="blue" flat aria-label="Share on LinkedIn" @click="shareOnPlatform('linkedin')" />
+            <q-btn icon="fab fa-whatsapp" color="green" flat aria-label="Share on WhatsApp" @click="shareOnPlatform('whatsapp')" />
+            <q-btn icon="fas fa-envelope" color="red" flat aria-label="Share via Email" @click="shareOnPlatform('email')" />
+            </div>
         </q-card-section>
       </q-card>
     </q-dialog>
