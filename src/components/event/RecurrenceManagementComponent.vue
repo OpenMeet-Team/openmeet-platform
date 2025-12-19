@@ -89,11 +89,11 @@
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side>
-                    <q-btn v-if="!occurrence.isExcluded" flat round color="negative" icon="sym_r_event_busy"
+                    <q-btn v-if="!occurrence.isExcluded" flat round color="negative" icon="sym_r_event_busy" aria-label="Exclude this occurrence"
                           @click="excludeOccurrence(occurrence.date)">
                       <q-tooltip>Exclude this occurrence</q-tooltip>
                     </q-btn>
-                    <q-btn v-else flat round color="positive" icon="sym_r_event_available"
+                    <q-btn v-else flat round color="positive" icon="sym_r_event_available" aria-label="Include this occurrence"
                           @click="includeOccurrence(occurrence.date)">
                       <q-tooltip>Include this occurrence</q-tooltip>
                     </q-btn>
@@ -180,7 +180,7 @@
                   <q-item-label>{{ formatExclusionDate(date) }}</q-item-label>
                 </q-item-section>
                 <q-item-section side>
-                  <q-btn flat round color="negative" icon="sym_r_delete"
+                  <q-btn flat round color="negative" icon="sym_r_delete" aria-label="Remove exclusion"
                         @click="confirmRemoveExclusion(date)">
                     <q-tooltip>Remove exclusion</q-tooltip>
                   </q-btn>

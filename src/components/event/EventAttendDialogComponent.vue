@@ -87,8 +87,8 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
 <!--      </q-card-section>-->
 
 <!--      <q-card-section>-->
-<!--        <q-btn label="Add to Google Calendar" color="primary" icon="event" @click="addToGoogleCalendar(event)" />-->
-<!--        <q-btn label="Add to Outlook" color="primary" icon="event" @click="addToOutlookCalendar(event)" />-->
+<!--        <q-btn label="Add to Google Calendar" color="primary" icon="event" aria-label="Add to Google Calendar" @click="addToGoogleCalendar(event)" />-->
+<!--        <q-btn label="Add to Outlook" color="primary" icon="event" aria-label="Add to Outlook Calendar" @click="addToOutlookCalendar(event)" />-->
 <!--      </q-card-section>-->
 
 <!--      <q-card-actions align="right">-->
