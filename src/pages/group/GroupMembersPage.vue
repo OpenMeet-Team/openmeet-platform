@@ -1,10 +1,10 @@
 <template>
-  <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page q-pb-xl">
+  <div v-if="group" style="max-width: 800px; margin: 0 auto;" class="c-group-members-page q-pb-xl">
     <SpinnerComponent v-if="isLoading"/>
     <div data-cy="group-members-page" v-if="!isLoading && group && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
-        <div class="col-12 col-sm-8">
+        <div class="col-12 col-sm-6">
           <q-input
             v-model="searchQuery"
             label="Search members"
@@ -12,7 +12,18 @@
           />
         </div>
 
-        <div class="col-12 col-sm-4">
+        <div class="col-12 col-sm-3">
+          <q-select
+            v-model="sortMode"
+            :options="sortOptions"
+            map-options
+            emit-value
+            label="Sort by"
+            outlined
+          />
+        </div>
+
+        <div class="col-12 col-sm-3">
           <q-select
             v-model="roleFilter"
             :options="roleOptions"
@@ -77,6 +88,7 @@ const groupMembers = computed(() => useGroupStore().group?.groupMembers)
 const isLoading = ref<boolean>(false)
 const searchQuery = ref('')
 const roleFilter = ref<GroupRole | ''>('')
+const sortMode = ref<'firstName' | 'lastName' | ''>('')
 
 const { navigateToMember, navigateToChat } = useNavigation()
 const { openGroupMemberRoleDialog, openGroupMemberDeleteDialog } = useGroupDialog()
@@ -90,12 +102,24 @@ const roleOptions = [
   { label: 'Guest', value: 'guest' }
 ]
 
+const sortOptions = [
+  { label: 'First Name', value: 'firstName' },
+  { label: 'Last Name', value: 'lastName' }
+]
+
 const filteredMembers = computed(() => {
   return groupMembers.value?.filter(member => {
     const nameMatch = member.user?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
     const roleMatch = !roleFilter.value || member.groupRole.name.toLowerCase() === roleFilter.value.toLowerCase()
 
     return nameMatch && roleMatch
+  }).sort((a, b) => {
+    if (sortMode.value === 'lastName') {
+      return a.user?.lastName?.localeCompare(b.user?.lastName || '') || 0
+    } else if (sortMode.value === 'firstName') {
+      return a.user?.firstName?.localeCompare(b.user?.firstName || '') || 0
+    }
+    return 0
   })
 })
 
