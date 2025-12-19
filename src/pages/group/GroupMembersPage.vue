@@ -1,5 +1,5 @@
 <template>
-  <div v-if="group" style="max-width: 800px; margin: 0 auto;" class="c-group-members-page q-pb-xl">
+  <div v-if="group" style="max-width: 600px; margin: 0 auto;" class="c-group-members-page q-pb-xl">
     <SpinnerComponent v-if="isLoading"/>
     <div data-cy="group-members-page" v-if="!isLoading && group && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
