@@ -88,7 +88,7 @@ const groupMembers = computed(() => useGroupStore().group?.groupMembers)
 const isLoading = ref<boolean>(false)
 const searchQuery = ref('')
 const roleFilter = ref<GroupRole | ''>('')
-const sortMode = ref<'firstName' | 'lastName' | ''>('')
+const sortMode = ref<'firstName' | 'lastName' >('lastName')
 
 const { navigateToMember, navigateToChat } = useNavigation()
 const { openGroupMemberRoleDialog, openGroupMemberDeleteDialog } = useGroupDialog()
@@ -114,12 +114,9 @@ const filteredMembers = computed(() => {
 
     return nameMatch && roleMatch
   }).sort((a, b) => {
-    if (sortMode.value === 'lastName') {
-      return a.user?.lastName?.localeCompare(b.user?.lastName || '') || 0
-    } else if (sortMode.value === 'firstName') {
-      return a.user?.firstName?.localeCompare(b.user?.firstName || '') || 0
-    }
-    return 0
+    // Sort by selected sort mode
+    const key = sortMode.value
+    return a.user?.[key]?.localeCompare(b.user?.[key] || '') || 0
   })
 })
 
