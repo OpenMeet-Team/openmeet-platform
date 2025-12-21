@@ -1,5 +1,5 @@
 <template>
-  <q-avatar class="cursor-pointer" v-if="useAuthStore().isAuthenticated">
+  <q-avatar class="cursor-pointer" v-if="useAuthStore().isAuthenticated" aria-haspopup="menu">
     <template v-if="avatarUrl">
       <img data-cy="header-profile-avatar" :src="avatarUrl" alt="avatar">
     </template>

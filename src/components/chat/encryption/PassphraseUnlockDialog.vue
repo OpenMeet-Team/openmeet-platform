@@ -9,7 +9,7 @@
         <button
           class="close-button"
           @click="handleCancel"
-          aria-label="Close"
+          aria-label="Close Unlock Encryption dialog"
         >
           <XIcon class="close-icon" />
         </button>

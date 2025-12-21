@@ -4,7 +4,7 @@
       <q-card-section class="row items-center">
         <div class="text-h6">Split Recurring Series</div>
         <q-space />
-        <q-btn icon="sym_r_close" flat round dense v-close-popup aria-label="Close dialog" />
+        <q-btn icon="sym_r_close" flat round dense v-close-popup aria-label="Close Split Recurring Series dialog" />
       </q-card-section>
 
       <q-card-section>

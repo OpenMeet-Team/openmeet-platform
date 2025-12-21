@@ -6,6 +6,7 @@
     dense
     icon="sym_r_notifications"
     class="notifications-dropdown q-mr-md"
+    aria-haspopup="menu"
   >
     <q-badge
       v-if="unreadCount > 0"
