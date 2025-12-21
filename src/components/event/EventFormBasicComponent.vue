@@ -360,6 +360,27 @@
         </q-card-section>
       </q-card>
 
+      <!-- Notification Settings (only shown when editing an event) -->
+      <q-card class="q-mb-md" v-if="eventData.slug">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="sym_r_notifications" class="q-mr-sm" />
+            Update Notifications
+          </div>
+
+          <div>
+            <q-checkbox
+              data-cy="event-notify-attendees"
+              v-model="sendNotifications"
+              label="Notify attendees of this change"
+            />
+            <p class="text-caption q-mt-xs q-ml-md" data-cy="event-notify-attendees-hint">
+              Send email to RSVPed attendees about this update
+            </p>
+          </div>
+        </q-card-section>
+      </q-card>
+
       <!-- Action buttons -->
       <div class="row justify-end q-gutter-md">
         <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
@@ -411,6 +432,9 @@ const isLoading = ref<boolean>(false)
 
 // Bluesky publishing toggle
 const publishToBluesky = ref<boolean>(false)
+
+// Notification toggle (for event updates only)
+const sendNotifications = ref<boolean>(false)
 
 // Computed visibility options - disable non-public when publishing to Bluesky
 const visibilityOptions = computed(() => {
@@ -811,7 +835,13 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
     // If updating an existing event
     if (event.slug) {
-      const res = await eventsApi.update(event.slug, event)
+      // Add sendNotifications parameter to the update payload
+      const updatePayload = {
+        ...event,
+        sendNotifications: sendNotifications.value
+      }
+
+      const res = await eventsApi.update(event.slug, updatePayload)
       createdEvent = res.data
 
       // Ensure the status is preserved for correct navigation
@@ -888,7 +918,11 @@ const createEventSeries = async (event: EventEntity) => {
     if (event.seriesSlug) {
       logger.debug(`Event is already part of series ${event.seriesSlug}. Skipping series creation.`)
       // Just update the existing event and return
-      const updateResponse = await eventsApi.update(event.slug, event)
+      const updatePayload = {
+        ...event,
+        sendNotifications: sendNotifications.value
+      }
+      const updateResponse = await eventsApi.update(event.slug, updatePayload)
       emit('updated', updateResponse.data)
       success('Event updated successfully')
       return
@@ -900,7 +934,11 @@ const createEventSeries = async (event: EventEntity) => {
     // 2. Only create a new event when we're not in edit mode (new event creation)
     if (event.slug) {
       // Update the existing event first
-      const updateResponse = await eventsApi.update(event.slug, event)
+      const updatePayload = {
+        ...event,
+        sendNotifications: sendNotifications.value
+      }
+      const updateResponse = await eventsApi.update(event.slug, updatePayload)
       templateEvent = updateResponse.data
       logger.debug('Updated existing event to use as template:', templateEvent)
     } else {
@@ -1197,7 +1235,9 @@ const startDateInputRef = ref()
 defineExpose({
   eventData,
   setEndDate,
-  refreshOccurrencesPreview
+  refreshOccurrencesPreview,
+  sendNotifications,
+  onPublish
   // Add more helpers as needed
 })
 </script>
