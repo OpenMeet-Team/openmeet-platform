@@ -116,7 +116,14 @@ const filteredMembers = computed(() => {
   }).sort((a, b) => {
     // Sort by selected sort mode
     const key = sortMode.value
-    return a.user?.[key]?.localeCompare(b.user?.[key] || '') || 0
+    const aSortValue = a.user?.[key]
+    const bSortValue = b.user?.[key]
+
+    if (!aSortValue && !bSortValue) return 0
+    if (!aSortValue) return 1
+    if (!bSortValue) return -1
+
+    return aSortValue.localeCompare(bSortValue)
   })
 })
 
