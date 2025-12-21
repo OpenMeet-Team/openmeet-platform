@@ -138,6 +138,7 @@
 
                   <q-item-section side>
                     <q-btn v-if="canMaterializeEvents && !occurrence.materialized && !isPastDate(occurrence.date)" round flat icon="sym_r_add_to_photos"
+                      :aria-label="`Create event for ${formatDate(occurrence.date)}`"
                            @click.stop="materializeOccurrence(occurrence.date)" />
                   </q-item-section>
                 </q-item>
@@ -204,7 +205,7 @@
                   </q-item-section>
 
                   <q-item-section side>
-                    <q-btn v-if="canMaterializeEvents && !occurrence.materialized" round flat icon="sym_r_add_to_photos"
+                    <q-btn v-if="canMaterializeEvents && !occurrence.materialized" round flat icon="sym_r_add_to_photos" :aria-label="`Create event for ${formatDate(occurrence.date)}`"
                            @click.stop="materializeOccurrence(occurrence.date)" />
                   </q-item-section>
                 </q-item>

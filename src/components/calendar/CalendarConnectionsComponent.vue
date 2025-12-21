@@ -494,7 +494,7 @@ const createIcalSource = async () => {
           <q-icon name="sym_r_calendar_month" size="md" color="primary" class="q-mr-sm" />
           <div class="text-h6">Add iCal Calendar</div>
           <q-space />
-          <q-btn flat round dense icon="sym_r_close" @click="showIcalDialog = false" />
+          <q-btn flat round dense icon="sym_r_close" aria-label="Close iCal dialog" @click="showIcalDialog = false" />
         </q-card-section>
 
         <q-card-section>
