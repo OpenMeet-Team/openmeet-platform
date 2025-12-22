@@ -1,78 +1,14 @@
 # OpenMeet Platform
 
-## The Free, Open-Source Alternative to Meetup
-
-OpenMeet is a **free event platform** for community organizers. Think of it as Meetup without the fees—completely free for groups of any size.
+The frontend web application for [OpenMeet](https://platform.openmeet.net) — a **free, open-source event platform** for community organizers. Think Meetup, but free for communities and open source.
 
 **Live now:** [platform.openmeet.net](https://platform.openmeet.net)
 
-### Why OpenMeet?
-
-| Meetup | OpenMeet |
-|--------|----------|
-| $200+/year organizer fees | **Free forever** |
-| Owns your data | **You own your data** |
-| Proprietary platform | **Open source** — self-host or use ours |
-| Centralized | **AT Protocol integration** — events sync to your data store |
-
-### Who Uses OpenMeet?
-
-| Use Case | Example |
-|----------|---------|
-| Local interest groups | Book clubs, running groups, photography meetups |
-| Tech communities | Developer meetups, open source gatherings |
-| AT Protocol enthusiasts | Events on the decentralized social web |
-| Meetup refugees | Organizers tired of paying for basic features |
-
-**Common pain points we solve:**
-- Meetup's organizer fees are too expensive for small groups
-- Don't want to be marketed at or have data sold
-- Want to own your data, not be locked into a platform
-
----
-
-## Features
-
-### Events
-- Create one-time or recurring events with date, time, location
-- RSVP management with confirmed/waitlist status
-- Capacity limits with automatic waitlisting
-- Quick RSVP — guests can RSVP with just email, no account required
-- Calendar invites sent automatically
-
-### Groups
-- Create communities around shared interests
-- Group membership management
-- Public or unlisted visibility
-- Group chat via Matrix integration
-
-### Communication
-- Real-time chat rooms for groups and events
-- Direct messages to organizers
-- Email outreach to members and attendees
-- Notification controls
-
-### Authentication
-- Email/password or passwordless login (6-digit codes)
-- OAuth: Google, GitHub
-- **AT Protocol** — sign in with your Bluesky or other AT Protocol account
-
-### AT Protocol Integration
-- Sign in with your Bluesky or other AT Protocol account
-- Events and RSVPs sync to your Personal Data Server (PDS)
-- Activity visible on the decentralized social web
-- Export your data anytime
-
-### Coming Soon
-- **Private groups and events** — invite-only communities (in development)
-- **Waitlist promotion** — automatic spot offers when someone cancels
-- **Guest +1** — bring friends to events
+**[What is OpenMeet? →](https://github.com/OpenMeet-Team/openmeet-api/blob/main/ROADMAP.md)** — Features, roadmap, and how to contribute
 
 ---
 
 ## Tech Stack
-
-OpenMeet Platform is the frontend web application, built with:
 
 - **[Vue 3](https://vuejs.org/)** + **[Quasar Framework](https://quasar.dev/)** — Responsive Material Design UI
 - **[Pinia](https://pinia.vuejs.org/)** — State management
@@ -90,10 +26,10 @@ OpenMeet Platform is the frontend web application, built with:
 
 ---
 
-## Getting Started
+## Development
 
 ### Prerequisites
-- Node.js (v22)
+- Node.js v22+
 - npm (>= 6.13.4)
 
 ### Install Dependencies
@@ -114,7 +50,7 @@ Key configuration in `public/config.json`:
 - `APP_TENANT_ID`: Your tenant identifier
 - `APP_TENANT_NAME`: Your organization/community name
 
-### Development
+### Local Development
 
 **Option 1: npm (simplest)**
 ```bash
@@ -124,7 +60,7 @@ npm run dev
 **Option 2: Docker Compose (with nginx, closer to production)**
 ```bash
 # Requires API running on api-network (see openmeet-api)
-docker-compose -f docker-compose-dev.yml up
+docker compose -f docker-compose-dev.yml up
 # Access via http://localhost:9005
 ```
 
@@ -172,12 +108,16 @@ We welcome contributions! Here's how to get started:
 
 See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the people who have helped build OpenMeet.
 
-### Community
+---
+
+## Community
 
 - **OpenMeet:** [OpenMeet Guides Group](https://platform.openmeet.net/groups/openmeet-guides-gy5j8w) — Community meetups
 - **Discord:** [discord.gg/eQcYADgnrc](https://discord.gg/eQcYADgnrc)
 - **Bluesky:** [@openmeet.net](https://bsky.app/profile/openmeet.net)
 
-### Support OpenMeet
+---
+
+## Support OpenMeet
 
 OpenMeet is free for community groups, funded by the community. Help cover hosting costs (~$350/month) at [platform.openmeet.net/support](https://platform.openmeet.net/support).
