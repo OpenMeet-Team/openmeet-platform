@@ -115,8 +115,17 @@ Key configuration in `public/config.json`:
 - `APP_TENANT_NAME`: Your organization/community name
 
 ### Development
+
+**Option 1: npm (simplest)**
 ```bash
 npm run dev
+```
+
+**Option 2: Docker Compose (with nginx, closer to production)**
+```bash
+# Requires API running on api-network (see openmeet-api)
+docker-compose -f docker-compose-dev.yml up
+# Access via http://localhost:9005
 ```
 
 ### Testing
@@ -125,18 +134,14 @@ npm run dev
 npm run test:unit:ci
 ```
 
-> **Note:** Cypress E2E tests are currently out of date and will mostly fail. We're working on updating them. Unit tests are reliable.
+> **Note:** Cypress E2E tests are currently out of date and will mostly fail. Unit tests are reliable.
 
 ### Build for Production
 ```bash
 npm run build
 ```
 
-### Docker
-```bash
-docker build -t openmeet-platform .
-docker run -p 80:80 openmeet-platform
-```
+> **Note:** Production Docker images are built by CI/CD (GitHub Actions). The Dockerfile is not typically used for local development.
 
 ---
 
@@ -169,6 +174,7 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the people who have helped build Open
 
 ### Community
 
+- **OpenMeet:** [OpenMeet Guides Group](https://platform.openmeet.net/groups/openmeet-guides-gy5j8w) — Community meetups
 - **Discord:** [discord.gg/eQcYADgnrc](https://discord.gg/eQcYADgnrc)
 - **Bluesky:** [@openmeet.net](https://bsky.app/profile/openmeet.net)
 
