@@ -153,3 +153,7 @@ For more information about the Quasar Framework, check out:
 ## Contributing
 
 We welcome contributions to OpenMeet! Please feel free to submit issues and pull requests.
+
+Check out our [good first issues](https://github.com/OpenMeet-Team/openmeet-platform/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) to get started, or join us on [Discord](https://discord.gg/eQcYADgnrc).
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of people who have helped build OpenMeet.
