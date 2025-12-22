@@ -1,8 +1,11 @@
 # OpenMeet Platform
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 The frontend web application for [OpenMeet](https://platform.openmeet.net) — a **free, open-source event platform** for community organizers. Think Meetup, but free for communities and open source.
 
-**Live now:** [platform.openmeet.net](https://platform.openmeet.net)
+- **Live:** [platform.openmeet.net](https://platform.openmeet.net)
+- **Survey (preview):** [survey.openmeet.net](https://survey.openmeet.net) — AT Protocol-native polling
 
 **[What is OpenMeet? →](https://github.com/OpenMeet-Team/openmeet-api/blob/main/ROADMAP.md)** — Features, roadmap, and how to contribute
 
@@ -70,14 +73,14 @@ docker compose -f docker-compose-dev.yml up
 npm run test:unit:ci
 ```
 
-> **Note:** Cypress E2E tests are currently out of date and will mostly fail. Unit tests are reliable.
+> **Note:** Cypress E2E tests are currently out of date and will mostly fail. Unit tests are reliable. *Would **love** some help here if you'd like to contribute!*
 
 ### Build for Production
 ```bash
 npm run build
 ```
 
-> **Note:** Production Docker images are built by CI/CD (GitHub Actions). The Dockerfile is not typically used for local development.
+> **Note:** Production Docker images are built by CI/CD (GitHub Actions), so look there if in doubt.
 
 ---
 
@@ -121,3 +124,9 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the people who have helped build Open
 ## Support OpenMeet
 
 OpenMeet is free for community groups, funded by the community. Help cover hosting costs (~$350/month) at [platform.openmeet.net/support](https://platform.openmeet.net/support).
+
+---
+
+## License
+
+[Apache 2.0](LICENSE)
