@@ -1,0 +1,25 @@
+{
+  "_comment": "Production config example - copy to config.json and fill in real values",
+
+  "APP_API_URL": "https://api.yourdomain.com",
+  "APP_TENANT_ID": "your-tenant-id",
+  "APP_TENANT_NAME": "Your Community Name",
+  "APP_TENANT_DESCRIPTION": "A community for...",
+  "APP_TENANT_IMAGE": "/path/to/logo.png",
+  "NODE_ENV": "production",
+
+  "_oauth_comment": "OAuth provider client IDs (get from provider developer consoles)",
+  "APP_GOOGLE_CLIENT_ID": "your-google-client-id.apps.googleusercontent.com",
+  "APP_GITHUB_CLIENT_ID": "your-github-client-id",
+
+  "_analytics_comment": "Analytics and support integrations",
+  "APP_POSTHOG_KEY": "phc_your-posthog-project-key",
+  "APP_HUBSPOT_PORTAL_ID": "your-hubspot-portal-id",
+  "APP_HUBSPOT_FORM_ID": "your-hubspot-form-id",
+  "APP_SUPPORT_URL": "https://your-stripe-or-support-link",
+
+  "_matrix_comment": "Matrix chat integration (optional)",
+  "APP_MAS_URL": "https://mas.yourdomain.com",
+  "APP_MATRIX_HOMESERVER_URL": "https://matrix.yourdomain.com",
+  "APP_MATRIX_SERVER_NAME": "yourdomain.com"
+}

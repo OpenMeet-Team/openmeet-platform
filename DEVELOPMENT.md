@@ -85,6 +85,12 @@ The browser fetches this at runtime. Default values work out of the box with loc
 
 > **Important:** The browser calls the API directly, so always use `localhost:3000` (not Docker hostnames like `api:3000`).
 
+For production deployments, see `public/config.production.example.json` which includes additional options:
+- OAuth providers (Google, GitHub)
+- Analytics (PostHog, HubSpot)
+- Matrix chat integration
+- Support/billing links
+
 ### .env (Build-time / Test Config)
 
 Default values work out of the box:
