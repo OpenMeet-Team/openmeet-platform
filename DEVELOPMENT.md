@@ -2,9 +2,42 @@
 
 This guide explains how to run the OpenMeet Platform (frontend) locally for development.
 
-## Quick Start (Using Dev API)
+## Prerequisites
 
-The fastest way to get started - uses the remote dev API so you don't need to run the backend locally.
+- Node.js v22+ (required by matrix-js-sdk)
+- npm (>= 6.13.4)
+- Docker & Docker Compose (optional, for production-like setup)
+
+## Quick Start (npm dev - Recommended)
+
+The simplest way to get started. Works with local API or remote dev API.
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Copy environment files
+cp .env.example .env
+cp public/config.example.json public/config.json
+
+# 3. Start the dev server
+npm run dev
+# Opens browser at http://localhost:9005
+```
+
+The default config points to `http://localhost:3000` (local API) with tenant ID `testing`.
+
+**To use remote dev API instead**, edit `public/config.json`:
+```json
+{
+  "APP_API_URL": "https://api-dev.openmeet.net",
+  "APP_TENANT_ID": "testing"
+}
+```
+
+## Quick Start (Docker Compose)
+
+Runs with nginx reverse proxy (closer to production). Requires local API running.
 
 ```bash
 # 1. Install dependencies first (prevents Docker permission issues)
@@ -14,39 +47,18 @@ npm install
 cp .env.example .env
 cp public/config.example.json public/config.json
 
-# 3. Update public/config.json with your tenant:
-#    "APP_API_URL": "https://api.dev.openmeet.net"
-#    "APP_TENANT_ID": "your-tenant-id"  # Get from your team
+# 3. Ensure API is running (in openmeet-api directory):
+cd ../openmeet-api
+docker compose -f docker-compose-dev.yml up -d
+cd ../openmeet-platform
 
-# 4. Start the dev server
-npm run dev
-# Opens browser at http://localhost:9005
-```
-
-## Quick Start (Full Stack with Docker)
-
-If you're running the API locally via openmeet-api's docker-compose:
-
-```bash
-# 1. Install dependencies first
-npm install
-
-# 2. Copy environment files
-cp .env.example .env
-cp public/config.example.json public/config.json
-
-# 3. Update public/config.json for local API:
-#    "APP_API_URL": "http://localhost:3000"
-#    "APP_TENANT_ID": "your-tenant-id"  # Get from your team
-
-# 4. Ensure API is running (in openmeet-api directory):
-# docker compose -f docker-compose-dev.yml up -d
-
-# 5. Start platform with Docker (nginx + dev server)
+# 4. Start platform with Docker
 docker compose -f docker-compose-dev.yml up
 
 # Access via http://localhost:9005
 ```
+
+> **Note:** You may see `Error: spawn xdg-open ENOENT` in the logs - this is harmless. The container is trying to open a browser, which isn't possible in Docker.
 
 ## Configuration
 
@@ -59,30 +71,36 @@ The platform uses two configuration mechanisms:
 
 ### public/config.json (Runtime Config)
 
+The browser fetches this at runtime. Default values work out of the box with local API:
+
 ```json
 {
-  "APP_API_URL": "https://api.dev.openmeet.net",
-  "APP_TENANT_ID": "your-tenant-id",
-  "APP_TENANT_NAME": "Your Tenant Name",
-  "APP_TENANT_DESCRIPTION": "Development tenant",
+  "APP_API_URL": "http://localhost:3000",
+  "APP_TENANT_ID": "testing",
+  "APP_TENANT_NAME": "OpenMeet Dev",
+  "APP_TENANT_DESCRIPTION": "Development environment",
   "NODE_ENV": "development"
 }
 ```
 
+> **Important:** The browser calls the API directly, so always use `localhost:3000` (not Docker hostnames like `api:3000`).
+
 ### .env (Build-time / Test Config)
+
+Default values work out of the box:
 
 ```bash
 # Dev server
-APP_DEV_SERVER_OPEN=true
+APP_DEV_SERVER_OPEN=true    # Opens browser automatically
 APP_DEV_SERVER_PORT=9005
 
 # Tenant (must match public/config.json)
-APP_TENANT_ID=your-tenant-id
+APP_TENANT_ID=testing
 
 # Testing credentials (for Cypress e2e tests)
 APP_TESTING_USER_EMAIL=test@openmeet.net
 APP_TESTING_USER_PASSWORD=your-test-password
-APP_TESTING_API_URL=https://api.dev.openmeet.net
+APP_TESTING_API_URL=http://localhost:3000
 ```
 
 ## Development Commands
@@ -119,32 +137,40 @@ The `docker-compose-dev.yml` runs two services:
 | `platform-dev` | Quasar dev server (internal, port 9005) |
 | `platform-nginx` | Nginx reverse proxy with bot detection |
 
-### Connecting to Local API
+### Connecting to Different APIs
 
-The nginx proxy can route API requests to different backends. Edit `docker-compose-dev.yml`:
+The nginx proxy routes to different backends via BACKEND_DOMAIN in `docker-compose-dev.yml`:
 
 ```yaml
 environment:
-  # Option 1: Remote dev API (default)
-  - BACKEND_DOMAIN=https://api.dev.openmeet.net
+  # Option 1: API container on shared network (DEFAULT - requires local API)
+  - BACKEND_DOMAIN=http://api:3000
 
-  # Option 2: Local API on host (npm run start:dev)
+  # Option 2: Remote dev API (no local API needed)
+  # - BACKEND_DOMAIN=https://api.dev.openmeet.net
+
+  # Option 3: Local API on host via npm (not Docker)
   # - BACKEND_DOMAIN=http://host.docker.internal:3000
-
-  # Option 3: API container on shared network (recommended)
-  # - BACKEND_DOMAIN=http://api:3000
 ```
 
 ### Network Requirements
 
-If using Option 3 (shared network with API), the api-network must exist:
+The default config (Option 1) uses the `api-network` Docker network shared with openmeet-api:
 
 ```bash
-# This network is created by openmeet-api's docker-compose
-docker network create api-network  # Or start API first
+# Start API first (creates the network automatically)
+cd ../openmeet-api
+docker compose -f docker-compose-dev.yml up -d
+
+# Or create network manually if needed
+docker network create api-network
 ```
 
 ## Troubleshooting
+
+### "xdg-open ENOENT" error in Docker
+
+This error is harmless - the container tries to open a browser (due to `APP_DEV_SERVER_OPEN=true`) but can't. The dev server still works fine at http://localhost:9005.
 
 ### "api-network not found"
 
@@ -223,8 +249,8 @@ test/
 
 ## Useful Links
 
-- **Dev Platform:** https://platform.dev.openmeet.net
-- **Dev API Docs:** https://api.dev.openmeet.net/docs
+- **Platform:** https://platform.openmeet.net
+- **API Docs:** https://api.openmeet.net/docs
 - **Quasar Docs:** https://quasar.dev
 - **Vue 3 Docs:** https://vuejs.org
 - **Pinia Docs:** https://pinia.vuejs.org
