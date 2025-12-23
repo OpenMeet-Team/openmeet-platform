@@ -4,7 +4,7 @@
     <div data-cy="group-members-page" v-if="!isLoading && group && hasPermission">
       <SubtitleComponent class="q-mt-md" label="All group members" :count="group.groupMembers?.length" hide-link />
       <div class="row q-col-gutter-md q-mb-md">
-        <div class="col-12 col-sm-8">
+        <div class="col-12 col-sm-6">
           <q-input
             v-model="searchQuery"
             label="Search members"
@@ -12,7 +12,18 @@
           />
         </div>
 
-        <div class="col-12 col-sm-4">
+        <div class="col-12 col-sm-3">
+          <q-select
+            v-model="sortMode"
+            :options="sortOptions"
+            map-options
+            emit-value
+            label="Sort by"
+            outlined
+          />
+        </div>
+
+        <div class="col-12 col-sm-3">
           <q-select
             v-model="roleFilter"
             :options="roleOptions"
@@ -77,6 +88,7 @@ const groupMembers = computed(() => useGroupStore().group?.groupMembers)
 const isLoading = ref<boolean>(false)
 const searchQuery = ref('')
 const roleFilter = ref<GroupRole | ''>('')
+const sortMode = ref<'firstName' | 'lastName' >('lastName')
 
 const { navigateToMember, navigateToChat } = useNavigation()
 const { openGroupMemberRoleDialog, openGroupMemberDeleteDialog } = useGroupDialog()
@@ -90,12 +102,28 @@ const roleOptions = [
   { label: 'Guest', value: 'guest' }
 ]
 
+const sortOptions = [
+  { label: 'First Name', value: 'firstName' },
+  { label: 'Last Name', value: 'lastName' }
+]
+
 const filteredMembers = computed(() => {
   return groupMembers.value?.filter(member => {
     const nameMatch = member.user?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
     const roleMatch = !roleFilter.value || member.groupRole.name.toLowerCase() === roleFilter.value.toLowerCase()
 
     return nameMatch && roleMatch
+  }).sort((a, b) => {
+    // Sort by selected sort mode
+    const key = sortMode.value
+    const aSortValue = a.user?.[key]
+    const bSortValue = b.user?.[key]
+
+    if (!aSortValue && !bSortValue) return 0
+    if (!aSortValue) return 1
+    if (!bSortValue) return -1
+
+    return aSortValue.localeCompare(bSortValue)
   })
 })
 
