@@ -91,6 +91,7 @@
           icon="sym_r_settings"
           size="sm"
           class="q-px-sm"
+          aria-haspopup="menu"
         >
           <q-menu>
             <q-list style="min-width: 150px">

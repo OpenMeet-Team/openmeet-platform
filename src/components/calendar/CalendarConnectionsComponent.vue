@@ -421,6 +421,7 @@ const createIcalSource = async () => {
               :loading="syncing[source.ulid]"
               @click="syncCalendar(source)"
               :disable="!source.isActive"
+              aria-label="Sync calendar now"
             >
               <q-tooltip>Sync Now</q-tooltip>
             </q-btn>
@@ -434,6 +435,7 @@ const createIcalSource = async () => {
               :loading="testing[source.ulid]"
               @click="testConnection(source)"
               :disable="!source.isActive"
+              aria-label="Test calendar connection"
             >
               <q-tooltip>Test Connection</q-tooltip>
             </q-btn>
@@ -445,6 +447,7 @@ const createIcalSource = async () => {
               icon="sym_r_delete"
               color="negative"
               @click="disconnectCalendar(source)"
+              aria-label="Disconnect calendar"
             >
               <q-tooltip>Disconnect</q-tooltip>
             </q-btn>

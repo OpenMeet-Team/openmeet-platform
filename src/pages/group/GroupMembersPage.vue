@@ -50,7 +50,7 @@
           <q-item-section top side>
           <div class="text-grey-8 q-gutter-xs">
             <q-btn color="primary" :disable="member.user.slug === useAuthStore().user?.slug" size="md" @click="navigateToChat({ user: member.user.slug })" round flat icon="sym_r_chat" :aria-label="'Message ' + (member.user?.name || member.user?.slug)" />
-            <q-btn color="primary" size="md" round flat icon="sym_r_more_vert" :disable="!(useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers) && member.groupRole.name !== GroupRole.Owner)" :aria-label="'Open actions for ' + (member.user?.name || member.user?.slug)">
+            <q-btn color="primary" size="md" round flat icon="sym_r_more_vert" aria-haspopup="menu" :disable="!(useGroupStore().getterUserHasPermission(GroupPermission.ManageMembers) && member.groupRole.name !== GroupRole.Owner)" :aria-label="'Open actions for ' + (member.user?.name || member.user?.slug)">
               <q-menu>
                 <q-list>
                   <!-- <MenuItemComponent v-if="member.groupRole.name === GroupRole.Guest" label="Approve" @click="openGroupMemberRoleDialog(group, member)" icon="sym_r_check"/> -->

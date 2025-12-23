@@ -19,6 +19,7 @@
           icon="sym_r_more_vert"
           flat
           round
+          aria-haspopup="menu"
         >
           <q-menu>
             <q-list style="min-width: 180px">

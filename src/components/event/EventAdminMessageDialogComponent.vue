@@ -4,7 +4,7 @@
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">Send Message to Event Attendees</div>
         <q-space />
-        <q-btn icon="sym_r_close" flat round dense v-close-popup aria-label="Close dialog" />
+        <q-btn icon="sym_r_close" flat round dense v-close-popup :aria-label="event ? `Close dialog for ${event.name}` : 'Close dialog'" />
       </q-card-section>
 
       <q-card-section>
