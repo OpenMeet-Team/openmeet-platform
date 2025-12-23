@@ -35,56 +35,15 @@ The frontend web application for [OpenMeet](https://platform.openmeet.net) — a
 - Node.js v22+
 - npm (>= 6.13.4)
 
-### Install Dependencies
-```bash
-npm install
-```
+### Local Setup
 
-### Configuration
+See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for complete instructions including:
+- Quick start (npm or Docker Compose)
+- Configuration (.env and config.json)
+- Running with openmeet-api
+- Testing and troubleshooting
 
-Copy environment files:
-```bash
-cp .env.example .env
-cp public/config.example.json public/config.json
-```
-
-Key configuration in `public/config.json`:
-- `APP_API_URL`: Backend API URL
-- `APP_TENANT_ID`: Your tenant identifier
-- `APP_TENANT_NAME`: Your organization/community name
-
-### Local Development
-
-**Option 1: npm (simplest)**
-```bash
-npm run dev
-```
-
-**Option 2: Docker Compose (with nginx, closer to production)**
-```bash
-# Requires API running on api-network (see openmeet-api)
-docker compose -f docker-compose-dev.yml up
-# Access via http://localhost:9005
-```
-
-### Testing
-```bash
-# Unit tests
-npm run test:unit:ci
-```
-
-> **Note:** Cypress E2E tests are currently out of date and will mostly fail. Unit tests are reliable. *Would **love** some help here if you'd like to contribute!*
-
-### Build for Production
-```bash
-npm run build
-```
-
-> **Note:** Production Docker images are built by CI/CD (GitHub Actions), so look there if in doubt.
-
----
-
-## Project Structure
+### Project Structure
 
 ```
 src/
