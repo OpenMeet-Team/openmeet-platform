@@ -164,11 +164,11 @@ describe('GroupFormComponent.vue', () => {
       expect(wrapper.html()).toContain('Visibility')
       expect(wrapper.html()).toContain('Group Viewable By')
 
-      // Check that the group has the default private visibility setting
-      expect(wrapper.vm.group.visibility).toBe('private')
+      // Check that the group has the default public visibility setting
+      expect(wrapper.vm.group.visibility).toBe('public')
 
-      // Check that visibility description is shown for private groups
-      expect(wrapper.html()).toContain('Only invited members can view')
+      // Check that visibility description is shown for public groups
+      expect(wrapper.html()).toContain('The World')
     })
 
     it.skip('should show correct description for each visibility option - skipped: complex UI interaction', async () => {
@@ -203,8 +203,8 @@ describe('GroupFormComponent.vue', () => {
 
       const locationComponent = wrapper.findComponent('[data-cy="group-location"]')
       const mockLocation = {
-        lat: '40.7128',
-        lon: '-74.0060',
+        lat: 40.7128,
+        lon: -74.0060,
         location: 'New York, NY'
       }
 
@@ -250,7 +250,7 @@ describe('GroupFormComponent.vue', () => {
         description: 'Test Description',
         categories: [1, 2],
         status: GroupStatus.Published,
-        visibility: GroupVisibility.Private,
+        visibility: GroupVisibility.Public,
         requireApproval: true
       }))
 
