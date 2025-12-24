@@ -112,9 +112,9 @@ watch(showDialog, (newVal) => {
 const handlePaste = (event: ClipboardEvent) => {
   event.preventDefault()
   const pastedText = event.clipboardData?.getData('text') || ''
-  // Extract only digits
+  // Extract only digits and limit to 6 characters
   const digits = pastedText.replace(/\D/g, '')
-  code.value = digits
+  code.value = digits.slice(0, 6)
 }
 
 const onSubmit = async () => {

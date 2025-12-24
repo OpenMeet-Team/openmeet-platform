@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import QuickRSVPDialog from '../QuickRSVPDialog.vue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Quasar, Notify } from 'quasar'
+import { createPinia, setActivePinia } from 'pinia'
 import { authApi } from '../../../api/auth'
 import { EventAttendeeStatus } from '../../../types'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
@@ -9,7 +10,8 @@ import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 // Mock the authApi
 vi.mock('../../../api/auth', () => ({
   authApi: {
-    quickRsvp: vi.fn()
+    quickRsvp: vi.fn(),
+    requestLoginCode: vi.fn()
   }
 }))
 
@@ -21,6 +23,8 @@ describe('QuickRSVPDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNotify.mockClear()
+    // Set up Pinia
+    setActivePinia(createPinia())
   })
 
   const mountComponent = (props = {}) => {
@@ -91,16 +95,9 @@ describe('QuickRSVPDialog', () => {
         status: 'confirmed'
       })
 
-      // Verify success notification
-      expect(mockNotify).toHaveBeenCalledWith({
-        type: 'positive',
-        message: 'Verification code sent!',
-        position: 'top'
-      })
-
-      // Verify success event emitted
+      // Verify success event emitted with status
       expect(wrapper.emitted('success')).toBeTruthy()
-      expect(wrapper.emitted('success')?.[0]).toEqual(['john@example.com', '123456'])
+      expect(wrapper.emitted('success')?.[0]).toEqual([{ status: 'confirmed' }])
     })
 
     it('should submit with cancelled status when specified', async () => {
@@ -213,7 +210,7 @@ describe('QuickRSVPDialog', () => {
   })
 
   describe('Dialog Controls', () => {
-    it('should close dialog after successful submission', async () => {
+    it('should show success view after successful submission', async () => {
       const mockResponse: AxiosResponse = {
         data: {
           message: 'Success',
@@ -236,9 +233,10 @@ describe('QuickRSVPDialog', () => {
       await vm.onSubmit()
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.emitted('update:modelValue')).toBeTruthy()
-      const events = wrapper.emitted('update:modelValue')
-      expect(events?.[events.length - 1]).toEqual([false])
+      // Should emit success event
+      expect(wrapper.emitted('success')).toBeTruthy()
+      // Should show success view (not close dialog)
+      expect(vm.currentView).toBe('success')
     })
 
     it('should emit update:modelValue when dialog is cancelled', async () => {

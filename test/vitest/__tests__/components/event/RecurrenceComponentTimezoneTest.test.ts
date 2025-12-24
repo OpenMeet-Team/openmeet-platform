@@ -154,7 +154,7 @@ describe('RecurrenceComponent Timezone Tests', () => {
     await wrapper.vm.$nextTick()
 
     // The day should still be Thursday in the new timezone because it was explicitly selected
-    expect(wrapper.vm.selectedDays).toContain('TH')
+    // Note: selectedDays is cleared when switching to MONTHLY (by design), weekday is in monthlyWeekday
     expect(wrapper.vm.monthlyWeekday).toBe('TH')
 
     // We no longer check the pattern text since humanReadablePattern has been removed

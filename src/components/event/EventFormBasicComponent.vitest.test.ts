@@ -241,14 +241,15 @@ describe('EventFormBasicComponent.vue - Initial Field Population and Date/Time E
     }
   })
 
-  it('should populate start date with today and time with 5:00 PM by default', async () => {
+  it('should populate start date with tomorrow and time with 5:00 PM by default', async () => {
     const startDateComponent = wrapper.findAllComponents(DatetimeComponent).at(0)
     expect(startDateComponent).toBeTruthy()
     await nextTickPromise()
-    const today = new Date()
-    const yyyy = today.getFullYear()
-    const mm = String(today.getMonth() + 1).padStart(2, '0')
-    const dd = String(today.getDate()).padStart(2, '0')
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const yyyy = tomorrow.getFullYear()
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0')
+    const dd = String(tomorrow.getDate()).padStart(2, '0')
     const expectedDate = `${yyyy}-${mm}-${dd}`
     expect(startDateComponent.vm.localDate).toBe(expectedDate)
     expect(startDateComponent.vm.localTime).toBe('5:00 PM')
