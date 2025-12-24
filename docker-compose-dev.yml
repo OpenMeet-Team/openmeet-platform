@@ -18,7 +18,7 @@
 services:
   # Quasar dev server with hot reload (internal service)
   platform-dev:
-    image: node:22.18.0-alpine
+    image: node:24-alpine
     container_name: platform-dev
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
