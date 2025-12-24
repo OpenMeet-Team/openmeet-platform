@@ -46,6 +46,11 @@ class VersionService {
   }
 
   public async checkForUpdates (): Promise<boolean> {
+    // Skip version checking in development mode
+    if (import.meta.env.DEV) {
+      return false
+    }
+
     if (this.isChecking.value) {
       return this.isUpdateAvailable.value
     }
@@ -149,7 +154,13 @@ class VersionService {
   }
 
   public async initializeVersionChecking (): Promise<void> {
-    console.log('Initializing version checking service')
+    // Skip version checking in development mode
+    if (import.meta.env.DEV) {
+      console.log('Version checking disabled in development mode')
+      return
+    }
+
+    console.log('Initializing version checking service (production mode)')
 
     await this.checkForUpdates()
 

@@ -1,8 +1,19 @@
-# to run in development use this command
-# `` docker-compose -f docker-compose-dev.yml up ``
-# Access via: http://localhost:9005
-
-# version: '3.8'
+# OpenMeet Platform - Local Development with Docker
+# ==================================================
+#
+# Quick start:
+#   docker compose -f docker-compose-dev.yml up
+#   Open http://localhost:9005
+#
+# To use remote dev API (no local API needed):
+#   BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
+#
+# This runs:
+#   - Quasar dev server with hot reload
+#   - Nginx reverse proxy (similar to production)
+#
+# By default, connects to local API in Docker on shared api-network.
+# See BACKEND_DOMAIN options below for other configurations.
 
 services:
   # Quasar dev server with hot reload (internal service)
@@ -13,15 +24,15 @@ services:
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes:
       - .:/app
-      - /app/node_modules  # Prevent overwriting node_modules
+      - /app/node_modules  # Prevent overwriting host node_modules
     env_file:
-      - .env  # Load .env to get APP_DEV_SERVER_PORT
+      - .env
     environment:
       - NODE_ENV=development
     networks:
       - api-network
 
-  # Nginx with bot detection (k8s-like entry point)
+  # Nginx with bot detection (production-like entry point)
   platform-nginx:
     image: nginx:1.25-alpine
     container_name: platform-nginx
@@ -30,19 +41,13 @@ services:
     volumes:
       - ./nginx-dev.conf.template:/etc/nginx/templates/default.conf.template:ro
     environment:
-      # ===== BACKEND_DOMAIN OPTIONS =====
-      # Option 1: Public tunnel (slower, but always works)
-      # - BACKEND_DOMAIN=https://api.dev.openmeet.net
-
-      # Option 2: Direct to API on host via docker network (if API running via npm run dev)
-      # - BACKEND_DOMAIN=http://host.docker.internal:3000
-
-      # Option 3: Direct to API container via shared network (RECOMMENDED for dev)
-      - BACKEND_DOMAIN=http://api:3000
-      # ==================================
-
+      # BACKEND_DOMAIN: Where nginx proxies API requests for bot detection
+      # Default: local API in Docker. Override with env var:
+      #   BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose ...
+      #   BACKEND_DOMAIN=http://host.docker.internal:3000 docker compose ...
+      - BACKEND_DOMAIN=${BACKEND_DOMAIN:-http://api:3000}
       - QUASAR_DEV_HOST=platform-dev:9005
-      - APP_TENANT_ID=${APP_TENANT_ID}  # Pass through from platform config (.env)
+      - APP_TENANT_ID=${APP_TENANT_ID}
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Allows nginx to reach host machine
     depends_on:
@@ -51,6 +56,8 @@ services:
       - api-network
 
 networks:
+  # Shared network with openmeet-api (must exist)
+  # Create if needed: docker network create api-network
   api-network:
-    name: api-network  # Join the network created by API's docker-compose-dev.yml
+    name: api-network
     external: true
