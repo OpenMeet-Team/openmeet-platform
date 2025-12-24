@@ -37,7 +37,7 @@ The default config points to `http://localhost:3000` (local API) with tenant ID 
 
 ## Quick Start (Docker Compose)
 
-Runs with nginx reverse proxy (closer to production). Requires local API running.
+Runs with nginx reverse proxy (closer to production).
 
 ```bash
 # 1. Install dependencies first (prevents Docker permission issues)
@@ -47,15 +47,18 @@ npm install
 cp .env.example .env
 cp public/config.example.json public/config.json
 
-# 3. Ensure API is running (in openmeet-api directory):
-cd ../openmeet-api
-docker compose -f docker-compose-dev.yml up -d
-cd ../openmeet-platform
+# 3. Create the shared network (if not already created by API)
+docker network create api-network 2>/dev/null || true
 
 # 4. Start platform with Docker
 docker compose -f docker-compose-dev.yml up
 
 # Access via http://localhost:9005
+```
+
+**To use remote dev API** (no local API needed):
+```bash
+BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
 ```
 
 > **Note:** You may see `Error: spawn xdg-open ENOENT` in the logs - this is harmless. The container is trying to open a browser, which isn't possible in Docker.
@@ -145,30 +148,24 @@ The `docker-compose-dev.yml` runs two services:
 
 ### Connecting to Different APIs
 
-The nginx proxy routes to different backends via BACKEND_DOMAIN in `docker-compose-dev.yml`:
+Override `BACKEND_DOMAIN` to route nginx to different API backends:
 
-```yaml
-environment:
-  # Option 1: API container on shared network (DEFAULT - requires local API)
-  - BACKEND_DOMAIN=http://api:3000
+```bash
+# Default: Local API in Docker (requires openmeet-api running)
+docker compose -f docker-compose-dev.yml up
 
-  # Option 2: Remote dev API (no local API needed)
-  # - BACKEND_DOMAIN=https://api.dev.openmeet.net
+# Remote dev API (no local API needed)
+BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
 
-  # Option 3: Local API on host via npm (not Docker)
-  # - BACKEND_DOMAIN=http://host.docker.internal:3000
+# Local API on host via npm (API running with `npm run start:dev`)
+BACKEND_DOMAIN=http://host.docker.internal:3000 docker compose -f docker-compose-dev.yml up
 ```
 
 ### Network Requirements
 
-The default config (Option 1) uses the `api-network` Docker network shared with openmeet-api:
+The Docker setup uses a shared `api-network`. Create it if not already created by openmeet-api:
 
 ```bash
-# Start API first (creates the network automatically)
-cd ../openmeet-api
-docker compose -f docker-compose-dev.yml up -d
-
-# Or create network manually if needed
 docker network create api-network
 ```
 
@@ -178,21 +175,15 @@ docker network create api-network
 
 This error is harmless - the container tries to open a browser (due to `APP_DEV_SERVER_OPEN=true`) but can't. The dev server still works fine at http://localhost:9005.
 
-### "api-network not found"
+### "network api-network not found"
 
-The platform's Docker setup expects the API to be running (which creates the network):
+Create the shared network:
 
 ```bash
-# Option A: Start API first
-cd ../openmeet-api
-docker compose -f docker-compose-dev.yml up -d
-
-# Option B: Create network manually
 docker network create api-network
-
-# Option C: Just use npm run dev (no Docker needed)
-npm run dev
 ```
+
+Or just use `npm run dev` instead (no Docker needed).
 
 ### Hot reload not working
 

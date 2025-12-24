@@ -5,6 +5,9 @@
 #   docker compose -f docker-compose-dev.yml up
 #   Open http://localhost:9005
 #
+# To use remote dev API (no local API needed):
+#   BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
+#
 # This runs:
 #   - Quasar dev server with hot reload
 #   - Nginx reverse proxy (similar to production)
@@ -38,20 +41,11 @@ services:
     volumes:
       - ./nginx-dev.conf.template:/etc/nginx/templates/default.conf.template:ro
     environment:
-      # ============================================
-      # BACKEND_DOMAIN - Choose one option:
-      # ============================================
-      #
-      # Option 1: Remote dev API (no local API needed)
-      # - BACKEND_DOMAIN=https://api.dev.openmeet.net
-      #
-      # Option 2: Local API running on host via npm (port 3000)
-      # - BACKEND_DOMAIN=http://host.docker.internal:3000
-      #
-      # Option 3: Local API in Docker on shared network (DEFAULT)
-      - BACKEND_DOMAIN=http://api:3000
-      #
-      # ============================================
+      # BACKEND_DOMAIN: Where nginx proxies API requests for bot detection
+      # Default: local API in Docker. Override with env var:
+      #   BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose ...
+      #   BACKEND_DOMAIN=http://host.docker.internal:3000 docker compose ...
+      - BACKEND_DOMAIN=${BACKEND_DOMAIN:-http://api:3000}
       - QUASAR_DEV_HOST=platform-dev:9005
       - APP_TENANT_ID=${APP_TENANT_ID}
     extra_hosts:
@@ -62,9 +56,8 @@ services:
       - api-network
 
 networks:
-  # Shared network - works standalone or with openmeet-api
-  # If openmeet-api created api-network first, this joins it
-  # If standalone, creates a new api-network
+  # Shared network with openmeet-api (must exist)
+  # Create if needed: docker network create api-network
   api-network:
     name: api-network
-    driver: bridge
+    external: true
