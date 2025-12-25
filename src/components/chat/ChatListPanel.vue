@@ -92,6 +92,7 @@
           size="sm"
           class="q-px-sm"
           aria-haspopup="menu"
+          aria-label="Chat settings"
         >
           <q-menu>
             <q-list style="min-width: 150px">

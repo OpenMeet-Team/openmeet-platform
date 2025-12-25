@@ -10,7 +10,7 @@
         <!-- Month navigation -->
         <div class="row items-center justify-between q-mb-md">
           <q-btn icon="sym_r_chevron_left" flat dense round @click="previousMonth" :aria-label="`Previous month, ${currentMonthName} ${currentYear}`" />
-          <span class="text-subtitle1" aria-label="Current month and year">{{ currentMonthName }} {{ currentYear }}</span>
+          <span class="text-subtitle1">{{ currentMonthName }} {{ currentYear }}</span>
           <q-btn icon="sym_r_chevron_right" flat dense round @click="nextMonth" :aria-label="`Next month, ${currentMonthName} ${currentYear}`" />
         </div>
 
