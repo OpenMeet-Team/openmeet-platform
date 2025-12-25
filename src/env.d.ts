@@ -19,7 +19,10 @@ interface AppConfig {
   APP_GOOGLE_CLIENT_ID?: string
   APP_GITHUB_CLIENT_ID?: string
   APP_SUPPORT_URL?: string
-  [key: string]: string | undefined
+  APP_POSTHOG_KEY?: string
+  // SEO: set to false in prod to allow indexing (blocks by default)
+  APP_NOINDEX?: boolean
+  [key: string]: string | boolean | undefined
 }
 
 // Global window extensions for Matrix integration

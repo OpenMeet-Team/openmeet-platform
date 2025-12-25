@@ -1,5 +1,16 @@
 import { boot } from 'quasar/wrappers'
 
+/**
+ * Add noindex meta tag to prevent search engine indexing.
+ * Used for dev/staging environments.
+ */
+function addNoindexMeta () {
+  const meta = document.createElement('meta')
+  meta.name = 'robots'
+  meta.content = 'noindex, nofollow'
+  document.head.appendChild(meta)
+}
+
 export default boot(async () => {
   try {
     const response = await fetch('/config.json')
@@ -7,6 +18,12 @@ export default boot(async () => {
       throw new Error('Failed to load config')
     }
     window.APP_CONFIG = await response.json()
+
+    // Block search engine indexing unless explicitly allowed.
+    // Prod should set APP_NOINDEX: false in config.json to allow indexing.
+    if (window.APP_CONFIG?.APP_NOINDEX !== false) {
+      addNoindexMeta()
+    }
 
     // Store tenant ID in localStorage for WebSocket connections
     if (window.APP_CONFIG?.APP_TENANT_ID) {
@@ -25,6 +42,10 @@ export default boot(async () => {
     }
   } catch (error) {
     console.error('Failed to load configuration:', error)
+
+    // Block indexing when config fails to load (fail-safe)
+    addNoindexMeta()
+
     // Fallback values
     window.APP_CONFIG = {
       APP_TENANT_DESCRIPTION: 'Building communities',
