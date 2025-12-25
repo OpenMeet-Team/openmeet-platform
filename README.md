@@ -11,6 +11,22 @@ The frontend web application for [OpenMeet](https://platform.openmeet.net) — a
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" width="32%" alt="Dashboard - Your groups and events at a glance" />
+  <img src="docs/screenshots/events-list.png" width="32%" alt="Events - Search and filter local events" />
+  <img src="docs/screenshots/groups-list.png" width="32%" alt="Groups - Discover communities near you" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/group-detail.png" width="32%" alt="Group detail - Community page with members and description" />
+  <img src="docs/screenshots/event-series.png" width="32%" alt="Event series - Recurring events with attendees and map" />
+  <img src="docs/screenshots/event-detail.png" width="32%" alt="Event detail - RSVP, chat, activity feed, and upcoming dates" />
+</p>
+
+---
+
 ## Tech Stack
 
 - **[Vue 3](https://vuejs.org/)** + **[Quasar Framework](https://quasar.dev/)** — Responsive Material Design UI
