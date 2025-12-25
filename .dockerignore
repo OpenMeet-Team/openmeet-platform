@@ -1,0 +1,43 @@
+# Dependencies - installed fresh in container
+node_modules
+
+# Build outputs
+dist
+.quasar
+
+# Git
+.git
+.gitignore
+
+# Test artifacts
+coverage
+test/cypress/videos
+test/cypress/screenshots
+test/cypress/downloads
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment files (should not be in image)
+.env
+.env.*
+!.env.example
+
+# Development files
+*.log
+npm-debug.log*
+
+# Docker files (not needed in image)
+docker-compose*.yml
+Dockerfile*
+
+# Documentation
+*.md
+!README.md
+
+# Local development
+.DS_Store
+Thumbs.db
