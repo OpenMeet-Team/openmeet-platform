@@ -20,6 +20,7 @@
           flat
           round
           aria-haspopup="menu"
+          aria-label="Chat options"
         >
           <q-menu>
             <q-list style="min-width: 180px">
