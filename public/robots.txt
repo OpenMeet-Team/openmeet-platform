@@ -1,0 +1,8 @@
+# OpenMeet Platform robots.txt
+# https://platform.openmeet.net
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.openmeet.net/sitemap.xml
