@@ -4,5 +4,6 @@
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://www.openmeet.net/sitemap.xml
+# Sitemaps
+Sitemap: https://platform.openmeet.net/sitemap.xml
+Sitemap: https://www.openmeet.net/sitemap-index.xml
