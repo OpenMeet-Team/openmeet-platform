@@ -198,7 +198,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import { useNotification } from '../../composables/useNotification'
 import { AddressLocation, OSMLocationSuggestion } from '../../types'
@@ -588,9 +588,9 @@ const getLocationIconColor = () => {
 }
 
 // Initialize component
+
 onMounted(() => {
   loadRecentLocations()
-
   // Set initial location if provided
   if (props.location) {
     currentLocation.value = {
@@ -600,6 +600,18 @@ onMounted(() => {
     }
   }
 })
+
+// Watch for prop changes after mount and update currentLocation accordingly
+watch(
+  () => [props.location, props.lat, props.lon],
+  ([newLocation, newLat, newLon]) => {
+    currentLocation.value = {
+      location: newLocation ? String(newLocation) : '',
+      lat: Number(newLat) || 0,
+      lon: Number(newLon) || 0
+    }
+  }
+)
 </script>
 
 <style scoped>
