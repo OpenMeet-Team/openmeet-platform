@@ -1,0 +1,14 @@
+{
+  "name": "openmeet-platform",
+  "version": "0.2.1",
+  "description": "OpenMeet frontend platform for community event management and real-time chat",
+  "author": "OpenMeet Team <openmeet@openmeet.net>",
+  "private": true,
+  "dependencies": {
+    "@aashu-dubey/capacitor-statusbar-safe-area": "^4.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  }
+}

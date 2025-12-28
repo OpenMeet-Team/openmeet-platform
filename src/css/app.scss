@@ -6,6 +6,27 @@ body {
   @extend .bg-white;
 }
 
+// Safe area insets for mobile (notches, status bar, navigation buttons)
+// Uses CSS environment variables with fallbacks for Android
+// The --safe-area-* custom properties are set by capacitor boot file
+.q-header {
+  padding-top: var(--safe-area-top, env(safe-area-inset-top, 0px));
+}
+
+.q-footer {
+  padding-bottom: var(--safe-area-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+.q-drawer {
+  padding-top: var(--safe-area-top, env(safe-area-inset-top, 0px));
+  padding-bottom: var(--safe-area-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+.q-layout {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
 // Quasar Card
 .q-card {
   border-radius: 10px;

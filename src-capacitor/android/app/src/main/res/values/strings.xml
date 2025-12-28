@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenMeet</string>
+    <string name="title_activity_main">OpenMeet</string>
+    <string name="package_name">net.openmeet.platform</string>
+    <string name="custom_url_scheme">net.openmeet.platform</string>
+</resources>
