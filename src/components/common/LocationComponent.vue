@@ -588,9 +588,9 @@ const getLocationIconColor = () => {
 }
 
 // Initialize component
-
 onMounted(() => {
   loadRecentLocations()
+
   // Set initial location if provided
   if (props.location) {
     currentLocation.value = {
