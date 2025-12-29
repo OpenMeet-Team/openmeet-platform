@@ -1,0 +1,15 @@
+{
+  "appId": "net.openmeet.platform",
+  "appName": "OpenMeet",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#ffffff"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#ffffff"
+    }
+  }
+}

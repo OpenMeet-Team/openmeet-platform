@@ -56,7 +56,8 @@ export default configure((ctx) => {
       'auth-session', // Must come after axios since it depends on axios interceptor
       'analytics',
       'global-components',
-      'posthog'
+      'posthog',
+      'capacitor'
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css

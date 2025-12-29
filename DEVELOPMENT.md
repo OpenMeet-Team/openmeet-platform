@@ -244,6 +244,61 @@ test/
 └── cypress/         # E2E and component tests
 ```
 
+## Building Android App (Capacitor)
+
+The platform can be built as a native Android app using Capacitor.
+
+### Prerequisites
+
+1. **Java JDK 17 or 21** (not newer - Java 25+ breaks Android Studio)
+   ```bash
+   sudo apt install openjdk-21-jdk
+   ```
+
+2. **Android Studio** - Download from [developer.android.com/studio](https://developer.android.com/studio)
+
+3. **Environment variables** (add to `~/.bashrc` or `~/.zshrc`):
+   ```bash
+   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+   export ANDROID_HOME="$HOME/Android/Sdk"
+   export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+   ```
+
+### Building the App
+
+```bash
+# 1. Build the Quasar app for Android
+npx quasar build -m capacitor -T android
+
+# 2. Open in Android Studio
+cd src-capacitor
+npx cap open android
+```
+
+From Android Studio, click the green play button to run on an emulator or connected device.
+
+### Alternative: Install directly to device
+
+```bash
+# Connect device via USB with debugging enabled
+cd src-capacitor/android
+./gradlew installDebug
+```
+
+### Troubleshooting
+
+**"SDK location not found"** - Create `src-capacitor/android/local.properties`:
+```
+sdk.dir=/home/YOUR_USERNAME/Android/Sdk
+```
+
+**"Security Manager not supported"** - You have Java 25+. Install JDK 17 or 21 instead.
+
+**"No JRE found"** - Set `STUDIO_JDK` before running Android Studio:
+```bash
+STUDIO_JDK=$JAVA_HOME ./studio.sh
+```
+
 ## Useful Links
 
 - **Platform:** https://platform.openmeet.net

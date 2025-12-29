@@ -1,0 +1,20 @@
+{
+  "APP_TENANT_DESCRIPTION": "Openmeet is a billionaire-proof platform for sharing events and creating communities. Let's get together more.",
+  "APP_TENANT_NAME": "OpenMeet",
+  "APP_TENANT_IMAGE": "/openmeet/openmeet-logo.png",
+
+  "APP_API_URL": "https://api.openmeet.net",
+  "APP_MATRIX_HOMESERVER_URL": "https://matrix.openmeet.net",
+  "APP_MATRIX_SERVER_NAME": "matrix.openmeet.net",
+  "APP_MAS_URL": "https://mas.openmeet.net",
+  "APP_MAS_SCOPES": "openid urn:matrix:org.matrix.msc2967.client:api:*",
+  "APP_MAS_REDIRECT_PATH": "/auth/matrix/callback",
+  "APP_TENANT_ID": "lsdfaopkljdfs",
+  "NODE_ENV": "production",
+  "APP_HUBSPOT_PORTAL_ID": "47380304",
+  "APP_HUBSPOT_FORM_ID": "7aa8f331-96a9-48ec-a787-0c894dc5f85e",
+  "APP_GOOGLE_CLIENT_ID": "721803341071-dpuqf93q2am0r430vqmifhuf6brcj1g2.apps.googleusercontent.com",
+  "APP_GITHUB_CLIENT_ID": "Ov23li54Pi2QcT3YZ5eT",
+  "APP_POSTHOG_KEY": "phc_McFLdS6nzSUcxCNzDYobMUN614VvA2m3uh3HrwGzj2T",
+  "APP_SUPPORT_URL": "https://buy.stripe.com/28o3fE4E51bIcNyfZ0"
+}
