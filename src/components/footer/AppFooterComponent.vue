@@ -1,5 +1,5 @@
 <template>
-  <q-footer bordered class="bg-purple-600 text-white" style="z-index: auto;">
+  <FooterWrapperComponent>
     <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row q-py-lg">
         <div class="col-12 col-md-4 q-pb-md q-pa-sm">
@@ -40,12 +40,13 @@
         </div>
       </div>
     </q-toolbar>
-  </q-footer>
+  </FooterWrapperComponent>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import FooterWrapperComponent from './FooterWrapperComponent.vue'
 import FooterHubspotComponent from '../footer/FooterHubspotComponent.vue'
 import MenuItemComponent from '../common/MenuItemComponent.vue'
 import ShareComponent from '../common/ShareComponent.vue'
@@ -67,14 +68,4 @@ const navigateTo = (route: string) => {
 </script>
 
 <style scoped>
-.q-footer {
-  padding-top: 20px;
-  padding-bottom: 20px;
-}
-
-@media (max-width: 599px) {
-  .q-footer {
-    text-align: center;
-  }
-}
 </style>

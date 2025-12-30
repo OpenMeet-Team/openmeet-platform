@@ -27,6 +27,11 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+// Quasar notifications at bottom need safe area padding
+.q-notifications__list--bottom {
+  padding-bottom: var(--safe-area-bottom, env(safe-area-inset-bottom, 0px));
+}
+
 // Quasar Card
 .q-card {
   border-radius: 10px;
