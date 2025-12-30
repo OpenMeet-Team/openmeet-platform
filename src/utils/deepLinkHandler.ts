@@ -53,40 +53,55 @@ export function parseDeepLink (url: string): DeepLinkResult | null {
 }
 
 /**
- * Check if a URL path is an OAuth callback route.
+ * Check if a URL's domain is valid for deep link handling.
  *
- * @param path The URL path to check
- * @returns true if the path is an OAuth callback route
- */
-export function isOAuthCallbackPath (path: string): boolean {
-  const oauthCallbackPaths = [
-    '/auth/google/callback',
-    '/auth/github/callback',
-    '/auth/bluesky/callback',
-    '/auth/matrix/callback',
-    '/auth/calendar/callback'
-  ]
-
-  return oauthCallbackPaths.includes(path)
-}
-
-/**
- * Check if a URL matches the current app's domain.
+ * Domain validation is based on APP_CONFIG.APP_VALID_DEEP_LINK_DOMAINS.
+ * This is important in Capacitor apps where window.location.origin is
+ * 'https://localhost', so we cannot use it for validation.
  *
- * This is domain-agnostic to support multi-tenant deployments where
- * users may have their own custom domains. We validate against
- * window.location.origin to ensure the deep link is for this app instance.
+ * The function matches domains as suffixes, so configuring "openmeet.net"
+ * will match "platform.openmeet.net", "platform.dev.openmeet.net", etc.
+ *
+ * Fallback: If APP_VALID_DEEP_LINK_DOMAINS is not configured, falls back
+ * to the domain from APP_API_URL.
  *
  * @param url The URL to check
- * @returns true if the URL matches the current app's domain
+ * @returns true if the URL's domain is in the allowed list
  */
 export function isValidDeepLinkDomain (url: string): boolean {
   try {
     const parsed = new URL(url)
-    const currentOrigin = new URL(window.location.origin)
+    const hostname = parsed.hostname.toLowerCase()
 
-    // Match if the hostname matches the current app's hostname
-    return parsed.hostname === currentOrigin.hostname
+    // Get allowed domains from config
+    const config = window.APP_CONFIG
+    if (!config) {
+      return false
+    }
+
+    let allowedDomains = config.APP_VALID_DEEP_LINK_DOMAINS
+
+    // Fallback to API URL domain if no explicit domains configured
+    if (!allowedDomains || allowedDomains.length === 0) {
+      if (config.APP_API_URL) {
+        try {
+          const apiUrl = new URL(config.APP_API_URL)
+          allowedDomains = [apiUrl.hostname]
+        } catch {
+          return false
+        }
+      } else {
+        return false
+      }
+    }
+
+    // Check if hostname matches any allowed domain
+    // Match exact domain or as a subdomain suffix (e.g., "platform.openmeet.net" matches "openmeet.net")
+    return allowedDomains.some(domain => {
+      const normalizedDomain = domain.toLowerCase()
+      return hostname === normalizedDomain ||
+             hostname.endsWith('.' + normalizedDomain)
+    })
   } catch {
     return false
   }

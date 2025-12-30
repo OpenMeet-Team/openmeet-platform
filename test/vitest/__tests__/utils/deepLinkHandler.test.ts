@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   parseDeepLink,
-  isOAuthCallbackPath,
   isValidDeepLinkDomain
 } from '../../../../src/utils/deepLinkHandler'
 
@@ -130,81 +129,119 @@ describe('parseDeepLink', () => {
   })
 })
 
-describe('isOAuthCallbackPath', () => {
-  it('should return true for Google OAuth callback', () => {
-    expect(isOAuthCallbackPath('/auth/google/callback')).toBe(true)
-  })
-
-  it('should return true for GitHub OAuth callback', () => {
-    expect(isOAuthCallbackPath('/auth/github/callback')).toBe(true)
-  })
-
-  it('should return true for Bluesky OAuth callback', () => {
-    expect(isOAuthCallbackPath('/auth/bluesky/callback')).toBe(true)
-  })
-
-  it('should return true for Matrix callback', () => {
-    expect(isOAuthCallbackPath('/auth/matrix/callback')).toBe(true)
-  })
-
-  it('should return true for Calendar callback', () => {
-    expect(isOAuthCallbackPath('/auth/calendar/callback')).toBe(true)
-  })
-
-  it('should return false for non-OAuth paths', () => {
-    expect(isOAuthCallbackPath('/events')).toBe(false)
-    expect(isOAuthCallbackPath('/auth/login')).toBe(false)
-    expect(isOAuthCallbackPath('/groups/my-group')).toBe(false)
-  })
-})
-
 describe('isValidDeepLinkDomain', () => {
-  // Mock window.location for these tests
-  const originalLocation = window.location
+  // Store original APP_CONFIG
+  const originalAppConfig = window.APP_CONFIG
 
   beforeEach(() => {
-    // Reset to a known state
-    Object.defineProperty(window, 'location', {
-      value: { origin: 'https://platform.example.com' },
-      writable: true
-    })
+    // Reset APP_CONFIG for each test
+    window.APP_CONFIG = undefined
   })
 
   afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true
+    // Restore original config
+    window.APP_CONFIG = originalAppConfig
+  })
+
+  describe('with APP_VALID_DEEP_LINK_DOMAINS configured', () => {
+    it('should return true when URL matches configured domain exactly', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['example.com']
+      }
+
+      expect(isValidDeepLinkDomain('https://example.com/auth/callback')).toBe(true)
+    })
+
+    it('should return true when URL is a subdomain of configured domain', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+      }
+
+      // Should match subdomains like platform.openmeet.net, platform.dev.openmeet.net
+      expect(isValidDeepLinkDomain('https://platform.openmeet.net/auth/callback')).toBe(true)
+      expect(isValidDeepLinkDomain('https://platform.dev.openmeet.net/auth/callback')).toBe(true)
+      expect(isValidDeepLinkDomain('https://api.openmeet.net/auth/callback')).toBe(true)
+    })
+
+    it('should return true when URL matches any of multiple configured domains', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net', 'mycompany.com']
+      }
+
+      expect(isValidDeepLinkDomain('https://platform.openmeet.net/auth/callback')).toBe(true)
+      expect(isValidDeepLinkDomain('https://events.mycompany.com/auth/callback')).toBe(true)
+    })
+
+    it('should return false when URL does not match any configured domain', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+      }
+
+      expect(isValidDeepLinkDomain('https://evil.com/auth/callback')).toBe(false)
+      expect(isValidDeepLinkDomain('https://openmeet.net.evil.com/auth/callback')).toBe(false)
+    })
+
+    it('should not match partial domain names (security)', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+      }
+
+      // Should NOT match 'fakeopenmeet.net' - domain must end with '.openmeet.net' or be exactly 'openmeet.net'
+      expect(isValidDeepLinkDomain('https://fakeopenmeet.net/auth/callback')).toBe(false)
+      expect(isValidDeepLinkDomain('https://not-openmeet.net/auth/callback')).toBe(false)
     })
   })
 
-  it('should return true when URL matches current app domain', () => {
-    expect(isValidDeepLinkDomain('https://platform.example.com/events')).toBe(true)
-    expect(isValidDeepLinkDomain('https://platform.example.com/auth/google/callback')).toBe(true)
-  })
+  describe('fallback to APP_API_URL when no domains configured', () => {
+    it('should use domain from APP_API_URL as fallback', () => {
+      window.APP_CONFIG = {
+        APP_API_URL: 'https://api.openmeet.net'
+      }
 
-  it('should return false when URL does not match current app domain', () => {
-    expect(isValidDeepLinkDomain('https://other-site.com/events')).toBe(false)
-    expect(isValidDeepLinkDomain('https://evil.com/callback')).toBe(false)
-  })
-
-  it('should work with different tenant domains', () => {
-    // Simulate a different tenant
-    Object.defineProperty(window, 'location', {
-      value: { origin: 'https://events.mycompany.com' },
-      writable: true
+      // Should accept the API domain
+      expect(isValidDeepLinkDomain('https://api.openmeet.net/auth/callback')).toBe(true)
     })
 
-    expect(isValidDeepLinkDomain('https://events.mycompany.com/auth/callback')).toBe(true)
-    expect(isValidDeepLinkDomain('https://platform.openmeet.net/auth/callback')).toBe(false)
+    it('should reject URLs from other domains when using API URL fallback', () => {
+      window.APP_CONFIG = {
+        APP_API_URL: 'https://api.openmeet.net'
+      }
+
+      expect(isValidDeepLinkDomain('https://evil.com/auth/callback')).toBe(false)
+    })
   })
 
-  it('should return false for invalid URLs', () => {
-    expect(isValidDeepLinkDomain('not-a-url')).toBe(false)
-    expect(isValidDeepLinkDomain('')).toBe(false)
-  })
+  describe('edge cases', () => {
+    it('should return false when no config is available', () => {
+      window.APP_CONFIG = undefined
 
-  it('should be case-insensitive for hostname comparison', () => {
-    // Note: URL parsing normalizes hostnames to lowercase
-    expect(isValidDeepLinkDomain('https://PLATFORM.EXAMPLE.COM/events')).toBe(true)
+      expect(isValidDeepLinkDomain('https://example.com/auth/callback')).toBe(false)
+    })
+
+    it('should return false for invalid URLs', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+      }
+
+      expect(isValidDeepLinkDomain('not-a-url')).toBe(false)
+      expect(isValidDeepLinkDomain('')).toBe(false)
+    })
+
+    it('should be case-insensitive for hostname comparison', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+      }
+
+      // URL parsing normalizes hostnames to lowercase
+      expect(isValidDeepLinkDomain('https://PLATFORM.OPENMEET.NET/events')).toBe(true)
+    })
+
+    it('should handle empty domains array', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: []
+      }
+
+      expect(isValidDeepLinkDomain('https://example.com/auth/callback')).toBe(false)
+    })
   })
 })

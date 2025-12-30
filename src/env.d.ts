@@ -22,7 +22,10 @@ interface AppConfig {
   APP_POSTHOG_KEY?: string
   // SEO: set to false in prod to allow indexing (blocks by default)
   APP_NOINDEX?: boolean
-  [key: string]: string | boolean | undefined
+  // Valid domains for deep links (OAuth callbacks in native apps)
+  // Matches domain exactly or as suffix (e.g., "openmeet.net" matches "platform.openmeet.net")
+  APP_VALID_DEEP_LINK_DOMAINS?: string[]
+  [key: string]: string | string[] | boolean | undefined
 }
 
 // Global window extensions for Matrix integration
