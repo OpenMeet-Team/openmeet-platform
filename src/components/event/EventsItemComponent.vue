@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { EventEntity } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
-import { useNavigation } from '../../composables/useNavigation'
 import { formatDate } from '../../utils/dateUtils'
 import { getSourceColor } from '../../utils/eventUtils'
 
@@ -11,7 +10,6 @@ interface Props {
 }
 
 defineProps<Props>()
-const { navigateToEvent, navigateToGroup } = useNavigation()
 
 /**
  * Format a series slug to be more readable
@@ -26,26 +24,29 @@ const formatSeriesSlug = (slug: string): string => {
 </script>
 
 <template>
-  <div class="event-item" :class="layout" data-cy="events-item">
+  <article class="event-item" :class="layout" data-cy="events-item">
     <div class="event-image-container">
-      <q-img
-        loading="lazy"
-        class="cursor-pointer event-image"
-        @click="navigateToEvent(event)"
-        :src="getImageSrc(event.image)"
-        :ratio="16 / 9"
-        style="min-height: 150px"
-        spinner-color="primary"
-      />
+      <router-link :to="{ name: 'EventPage', params: { slug: event.slug } }">
+        <q-img
+          loading="lazy"
+          class="event-image"
+          :src="getImageSrc(event.image)"
+          :ratio="16 / 9"
+          :alt="event.name"
+          style="min-height: 150px"
+          spinner-color="primary"
+        />
+      </router-link>
     </div>
 
     <div class="event-content">
-      <div
-        class="text-subtitle1 text-bold cursor-pointer"
-        @click="navigateToEvent(event)"
+      <router-link
+        :to="{ name: 'EventPage', params: { slug: event.slug } }"
+        class="text-subtitle1 text-bold"
+        style="color: inherit; text-decoration: none;"
       >
         {{ event.name }}
-      </div>
+      </router-link>
       <div class="text-caption">{{ formatDate(event.startDate) }}</div>
       <div class="text-caption">{{ event.location }}</div>
       <div class="text-caption badges-container">
@@ -88,15 +89,16 @@ const formatSeriesSlug = (slug: string): string => {
           {{ event.attendeesCount }} attending
         </q-badge>
       </div>
-      <div
+      <router-link
         v-if="event.group"
-        class="text-caption cursor-pointer"
-        @click="navigateToGroup(event.group)"
+        :to="{ name: 'GroupPage', params: { slug: event.group.slug } }"
+        class="text-caption"
+        style="color: inherit; text-decoration: none;"
       >
         {{ event.group.name }}
-      </div>
+      </router-link>
     </div>
-  </div>
+  </article>
 </template>
 
 <style lang="scss" scoped>

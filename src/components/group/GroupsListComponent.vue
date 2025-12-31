@@ -74,17 +74,17 @@ const onPageChange = (page: number) => {
 
     <template v-else>
       <!-- Groups Grid/List -->
-      <div :class="[
+      <ul :class="[
         'groups-container',
         { 'groups-grid': layout === 'grid' }
       ]" v-if="groups?.length">
-        <GroupsItemComponent
-          v-for="group in groups"
-          :key="group.id"
-          :group="group"
-          :layout="layout"
-        />
-      </div>
+        <li v-for="group in groups" :key="group.id">
+          <GroupsItemComponent
+            :group="group"
+            :layout="layout"
+          />
+        </li>
+      </ul>
 
       <!-- Empty State -->
       <NoContentComponent
@@ -106,6 +106,9 @@ const onPageChange = (page: number) => {
 
 <style lang="scss" scoped>
 .groups-container {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   &.groups-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

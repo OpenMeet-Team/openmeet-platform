@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { GroupEntity } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
-import { useNavigation } from '../../composables/useNavigation'
 import { computed } from 'vue'
 
 interface Props {
@@ -15,32 +14,34 @@ const memberText = computed(() => {
   return props.group.groupMembersCount === 1 ? 'member' : 'members'
 })
 
-const { navigateToGroup } = useNavigation()
 </script>
 
 <template>
-  <div class="group-item" :class="layout" data-cy="group-item">
+  <article class="group-item" :class="layout" data-cy="group-item">
     <!-- Group Image -->
     <div class="group-image-container">
-      <q-img data-cy="group-item-image"
-        :src="getImageSrc(group.image)"
-        class="cursor-pointer group-image"
-        @click="navigateToGroup(group)"
-        :ratio="16 / 9"
-        style="min-height: 150px"
-        spinner-color="primary"
-        loading="lazy"
-      />
+      <router-link :to="{ name: 'GroupPage', params: { slug: group.slug } }">
+        <q-img data-cy="group-item-image"
+          :src="getImageSrc(group.image)"
+          class="group-image"
+          :ratio="16 / 9"
+          :alt="group.name"
+          style="min-height: 150px"
+          spinner-color="primary"
+          loading="lazy"
+        />
+      </router-link>
     </div>
 
     <!-- Group Info -->
     <div class="group-content">
-      <div
-        class="text-h5 cursor-pointer"
-        @click="navigateToGroup(group)"
+      <router-link
+        :to="{ name: 'GroupPage', params: { slug: group.slug } }"
+        class="text-h5"
+        style="color: inherit; text-decoration: none;"
       >
         {{ group.name }}
-      </div>
+      </router-link>
 
       <!-- Categories -->
       <div v-if="group.categories" class="text-body1">
@@ -63,7 +64,7 @@ const { navigateToGroup } = useNavigation()
         <q-badge v-if="group.visibility" :class="[group.groupMembersCount ? 'q-ml-sm' : '']">{{ group.visibility }}</q-badge>
       </div>
     </div>
-  </div>
+  </article>
 </template>
 
 <style lang="scss" scoped>
@@ -71,7 +72,7 @@ const { navigateToGroup } = useNavigation()
   margin-bottom: 16px;
 
   &:last-child {
-    margin-bottom: 0;
+    margin-bottom: 16;
   }
 
   &.grid {
