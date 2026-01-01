@@ -129,6 +129,42 @@ describe('parseDeepLink', () => {
   })
 })
 
+describe('parseDeepLink with custom URL scheme', () => {
+  it('should parse custom scheme OAuth callback URL with single slash', () => {
+    const result = parseDeepLink('net.openmeet.platform:/auth/google/callback?token=abc123')
+
+    expect(result).not.toBeNull()
+    expect(result?.path).toBe('/auth/google/callback')
+    expect(result?.query.token).toBe('abc123')
+  })
+
+  it('should parse custom scheme OAuth callback URL with double slash', () => {
+    const result = parseDeepLink('net.openmeet.platform://auth/google/callback?token=abc123')
+
+    expect(result).not.toBeNull()
+    expect(result?.path).toBe('/auth/google/callback')
+    expect(result?.query.token).toBe('abc123')
+  })
+
+  it('should parse GitHub OAuth callback with custom scheme', () => {
+    const result = parseDeepLink('net.openmeet.platform:/auth/github/callback?code=ghcode&state=xyz')
+
+    expect(result).not.toBeNull()
+    expect(result?.path).toBe('/auth/github/callback')
+    expect(result?.query.code).toBe('ghcode')
+    expect(result?.query.state).toBe('xyz')
+  })
+
+  it('should parse Bluesky OAuth callback with custom scheme', () => {
+    const result = parseDeepLink('net.openmeet.platform:/auth/bluesky/callback?code=bskycode&state=abc')
+
+    expect(result).not.toBeNull()
+    expect(result?.path).toBe('/auth/bluesky/callback')
+    expect(result?.query.code).toBe('bskycode')
+    expect(result?.query.state).toBe('abc')
+  })
+})
+
 describe('isValidDeepLinkDomain', () => {
   // Store original APP_CONFIG
   const originalAppConfig = window.APP_CONFIG
@@ -242,6 +278,71 @@ describe('isValidDeepLinkDomain', () => {
       }
 
       expect(isValidDeepLinkDomain('https://example.com/auth/callback')).toBe(false)
+    })
+  })
+
+  describe('custom URL scheme (OAuth mobile)', () => {
+    it('should return true for custom scheme URLs with single slash', () => {
+      // Custom scheme should be accepted when configured
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net'],
+        APP_CUSTOM_URL_SCHEME: 'net.openmeet.platform'
+      }
+
+      expect(isValidDeepLinkDomain('net.openmeet.platform:/auth/google/callback?token=abc')).toBe(true)
+      expect(isValidDeepLinkDomain('net.openmeet.platform:/auth/github/callback?token=abc')).toBe(true)
+      expect(isValidDeepLinkDomain('net.openmeet.platform:/auth/bluesky/callback?token=abc')).toBe(true)
+    })
+
+    it('should return true for custom scheme URLs with double slash', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net'],
+        APP_CUSTOM_URL_SCHEME: 'net.openmeet.platform'
+      }
+
+      expect(isValidDeepLinkDomain('net.openmeet.platform://auth/google/callback?token=abc')).toBe(true)
+    })
+
+    it('should return false for custom scheme when not configured', () => {
+      // Custom scheme should NOT be accepted if not configured (security)
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net']
+        // No APP_CUSTOM_URL_SCHEME configured
+      }
+
+      expect(isValidDeepLinkDomain('net.openmeet.platform:/auth/callback?token=abc')).toBe(false)
+    })
+
+    it('should reject other custom schemes (security)', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net'],
+        APP_CUSTOM_URL_SCHEME: 'net.openmeet.platform'
+      }
+
+      expect(isValidDeepLinkDomain('malicious.scheme:/auth/callback?token=abc')).toBe(false)
+      expect(isValidDeepLinkDomain('net.openmeet.platform.fake:/auth/callback')).toBe(false)
+      expect(isValidDeepLinkDomain('com.openmeet.platform:/auth/callback')).toBe(false)
+    })
+
+    it('should reject variations of the custom scheme (security)', () => {
+      window.APP_CONFIG = {
+        APP_VALID_DEEP_LINK_DOMAINS: ['openmeet.net'],
+        APP_CUSTOM_URL_SCHEME: 'net.openmeet.platform'
+      }
+
+      // Must be exactly net.openmeet.platform, not variations
+      expect(isValidDeepLinkDomain('net.openmeet.platforms:/auth/callback')).toBe(false)
+      expect(isValidDeepLinkDomain('xnet.openmeet.platform:/auth/callback')).toBe(false)
+    })
+
+    it('should work with different custom schemes for other deployments', () => {
+      // Configurable for multi-tenant/forked deployments
+      window.APP_CONFIG = {
+        APP_CUSTOM_URL_SCHEME: 'com.mycompany.events'
+      }
+
+      expect(isValidDeepLinkDomain('com.mycompany.events:/auth/callback?token=abc')).toBe(true)
+      expect(isValidDeepLinkDomain('net.openmeet.platform:/auth/callback?token=abc')).toBe(false)
     })
   })
 })

@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
+import { Capacitor } from '@capacitor/core'
 import getEnv from '../../utils/env'
 
 type LoginText = 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
@@ -78,10 +79,18 @@ const handleBlueskyLogin = async () => {
         const baseUrl = getEnv('APP_API_URL')
         const tenantId = getEnv('APP_TENANT_ID')
 
+        // Build authorize URL with platform parameter for mobile apps
+        const authorizeUrl = new URL(`${baseUrl}/api/v1/auth/bluesky/authorize`)
+        authorizeUrl.searchParams.set('handle', cleanHandle)
+        authorizeUrl.searchParams.set('tenantId', tenantId as string)
+
+        // Add platform parameter for mobile apps (used for custom URL scheme redirect)
+        if (Capacitor.isNativePlatform()) {
+          authorizeUrl.searchParams.set('platform', Capacitor.getPlatform())
+        }
+
         // Get the authorization URL from the backend
-        const response = await fetch(
-          `${baseUrl}/api/v1/auth/bluesky/authorize?handle=${encodeURIComponent(cleanHandle)}&tenantId=${tenantId}`
-        )
+        const response = await fetch(authorizeUrl.toString())
 
         if (!response.ok) {
           const errorText = await response.text()

@@ -28,6 +28,7 @@ import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../../stores/auth-store'
 import getEnv from '../../utils/env'
+import { buildOAuthRedirectUri, buildOAuthState, isNativePlatform } from '../../utils/oauthRedirectUri'
 
 const props = withDefaults(defineProps<{
   text?: 'join_with' | 'signin_with' | 'signup_with' | 'continue_with'
@@ -54,12 +55,15 @@ const handleGithubLogin = async () => {
   try {
     isLoading.value = true
 
-    // GitHub OAuth configuration
-    const redirectUri = `${window.location.origin}/auth/github/callback`
+    // Build redirect URI based on platform (web vs mobile)
+    // On mobile: redirects to API which redirects to custom URL scheme
+    // On web: redirects to frontend callback page
+    const redirectUri = buildOAuthRedirectUri('github')
 
-    // Generate random state for security
-    const state = Math.random().toString(36).substring(7)
-    sessionStorage.setItem('github_oauth_state', state)
+    // Always use buildOAuthState which includes tenantId + platform
+    // Server-side OAuth flow requires tenantId in state for all platforms
+    const isMobile = isNativePlatform()
+    const state = buildOAuthState()
 
     // Construct GitHub OAuth URL with state parameter
     const githubUrl = new URL('https://github.com/login/oauth/authorize')
@@ -68,7 +72,13 @@ const handleGithubLogin = async () => {
     githubUrl.searchParams.append('state', state)
     githubUrl.searchParams.append('scope', 'user:email') // Add required scopes
 
-    // Open popup
+    // On mobile, use direct redirect since popups don't work well
+    if (isMobile) {
+      window.location.href = githubUrl.toString()
+      return
+    }
+
+    // On web, use popup for better UX
     const width = 600
     const height = 700
     const left = window.screenX + (window.outerWidth - width) / 2
@@ -132,7 +142,6 @@ const handleGithubLogin = async () => {
     })
   } finally {
     isLoading.value = false
-    sessionStorage.removeItem('github_oauth_state')
   }
 }
 </script>

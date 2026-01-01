@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "net.openmeet.platform",
+    "sha256_cert_fingerprints": ["37:50:BB:D0:33:B6:BD:40:F4:DE:E2:BA:5F:DE:EB:FB:B6:7E:71:27:2E:55:BA:0C:8D:2A:C1:39:D5:20:D0:C8"]
+  }
+}]

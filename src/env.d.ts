@@ -25,6 +25,9 @@ interface AppConfig {
   // Valid domains for deep links (OAuth callbacks in native apps)
   // Matches domain exactly or as suffix (e.g., "openmeet.net" matches "platform.openmeet.net")
   APP_VALID_DEEP_LINK_DOMAINS?: string[]
+  // Custom URL scheme for mobile OAuth callbacks (e.g., "net.openmeet.platform")
+  // Must match the scheme registered in AndroidManifest.xml and iOS Info.plist
+  APP_CUSTOM_URL_SCHEME?: string
   [key: string]: string | string[] | boolean | undefined
 }
 
