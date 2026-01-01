@@ -72,7 +72,7 @@ const memberText = computed(() => {
   margin-bottom: 16px;
 
   &:last-child {
-    margin-bottom: 16;
+    margin-bottom: 16px;
   }
 
   &.grid {
