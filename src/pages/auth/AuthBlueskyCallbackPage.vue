@@ -21,10 +21,12 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth-store'
 import { useSocialAuthError } from '../../composables/useSocialAuthError'
 import SocialAuthError from '../../components/auth/SocialAuthError.vue'
 
+const route = useRoute()
 const authStore = useAuthStore()
 const {
   error,
@@ -55,7 +57,29 @@ const handleUseEmailLogin = () => {
 onMounted(async () => {
   try {
     console.log('AuthBlueskyCallbackPage mounted')
-    const params = new URLSearchParams(window.location.search)
+
+    // Use route.query for Capacitor deep links (Vue Router passes query as object)
+    // Fall back to window.location.search for web browser navigation
+    let params: URLSearchParams
+    if (Object.keys(route.query).length > 0) {
+      // Capacitor deep link: convert route.query object to URLSearchParams
+      params = new URLSearchParams()
+      for (const [key, value] of Object.entries(route.query)) {
+        if (typeof value === 'string') {
+          params.set(key, value)
+        }
+      }
+      console.log('Using route.query (Capacitor deep link)')
+    } else {
+      // Web browser: use window.location.search
+      params = new URLSearchParams(window.location.search)
+      console.log('Using window.location.search (web browser)')
+    }
+
+    console.log('Params - token:', params.get('token') ? 'present' : 'missing')
+    console.log('Params - refreshToken:', params.get('refreshToken') ? 'present' : 'missing')
+    console.log('Params - tokenExpires:', params.get('tokenExpires'))
+    console.log('Params - profile:', params.get('profile') ? `present (${params.get('profile')?.length} chars)` : 'missing')
     const success = await authStore.handleBlueskyCallback(params)
 
     console.log('AuthBlueskyCallbackPage success', success)

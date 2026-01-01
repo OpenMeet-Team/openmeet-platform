@@ -58,6 +58,7 @@ import { useQuasar } from 'quasar'
 import { useSocialAuthError } from '../../composables/useSocialAuthError'
 import SocialAuthError from './SocialAuthError.vue'
 import getEnv from '../../utils/env'
+import { buildOAuthRedirectUri, buildOAuthState } from '../../utils/oauthRedirectUri'
 
 const googleClientId = getEnv('APP_GOOGLE_CLIENT_ID') as string
 
@@ -103,8 +104,11 @@ const handleGoogleLogin = () => {
     isLoading.value = true
     error.value = null
 
-    // Google OAuth2 redirect URL (no popup needed)
-    const redirectUri = `${window.location.origin}/auth/google/callback`
+    // Build redirect URI based on platform (web vs mobile)
+    // On mobile: redirects to API which redirects to custom URL scheme
+    // On web: redirects to frontend callback page
+    const redirectUri = buildOAuthRedirectUri('google')
+
     const googleUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
 
     googleUrl.searchParams.append('client_id', googleClientId)
@@ -113,6 +117,8 @@ const handleGoogleLogin = () => {
     googleUrl.searchParams.append('scope', 'openid email profile')
     googleUrl.searchParams.append('access_type', 'offline')
     googleUrl.searchParams.append('prompt', 'select_account')
+    // State contains tenantId + platform (for mobile OAuth) + nonce (for CSRF)
+    googleUrl.searchParams.append('state', buildOAuthState())
 
     // Redirect to Google (no popup)
     window.location.href = googleUrl.toString()

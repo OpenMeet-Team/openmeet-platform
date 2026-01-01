@@ -45,21 +45,43 @@ const isPopup = computed(() => !!window.opener)
 
 const handleCallback = async () => {
   try {
+    // Check for tokens from server-side OAuth flow (new pattern for mobile)
+    const token = route.query.token as string
+    const refreshToken = route.query.refreshToken as string
+    const tokenExpires = route.query.tokenExpires as string
+
+    // Check for code from client-side OAuth flow (web popup pattern)
     const code = route.query.code as string
     const returnedState = route.query.state as string
-    const originalState = sessionStorage.getItem('github_oauth_state')
 
-    if (!code) {
-      throw new Error('No authorization code received')
+    // Server-side flow: tokens already in URL from API redirect
+    if (token && refreshToken) {
+      authStore.actionSetToken(token)
+      authStore.actionSetRefreshToken(refreshToken)
+      if (tokenExpires) {
+        authStore.actionSetTokenExpires(parseInt(tokenExpires, 10))
+      }
+
+      // Fetch user data with the new token
+      const { authApi } = await import('../../api/auth')
+      const meResponse = await authApi.getMe()
+      if (meResponse.data) {
+        authStore.actionSetUser(meResponse.data)
+      }
+    } else if (code) {
+      // Client-side flow: verify state and exchange code
+      const originalState = sessionStorage.getItem('github_oauth_state')
+
+      // Verify state parameter (only for client-side flow)
+      if (returnedState !== originalState) {
+        throw new Error('Invalid state parameter')
+      }
+
+      // Authenticate with GitHub
+      await authStore.actionGithubLogin(code)
+    } else {
+      throw new Error('No authorization code or token received')
     }
-
-    // Verify state parameter
-    if (returnedState !== originalState) {
-      throw new Error('Invalid state parameter')
-    }
-
-    // Authenticate with GitHub
-    await authStore.actionGithubLogin(code)
 
     // Check for OIDC flow continuation first
     const oidcDataStr = localStorage.getItem('oidc_flow_data')

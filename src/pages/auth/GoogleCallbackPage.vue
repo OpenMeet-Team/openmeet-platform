@@ -43,6 +43,12 @@ const {
 
 const handleCallback = async () => {
   try {
+    // Check for tokens from server-side OAuth flow (new pattern)
+    const token = route.query.token as string
+    const refreshToken = route.query.refreshToken as string
+    const tokenExpires = route.query.tokenExpires as string
+
+    // Check for code from client-side OAuth flow (legacy pattern)
     const code = route.query.code as string
     const state = route.query.state as string
     const errorParam = route.query.error as string
@@ -52,22 +58,35 @@ const handleCallback = async () => {
       throw new Error(`Google OAuth error: ${errorParam}`)
     }
 
-    if (!code) {
-      throw new Error('No authorization code received')
+    // Server-side flow: tokens already in URL from API redirect
+    if (token && refreshToken) {
+      authStore.actionSetToken(token)
+      authStore.actionSetRefreshToken(refreshToken)
+      if (tokenExpires) {
+        authStore.actionSetTokenExpires(parseInt(tokenExpires, 10))
+      }
+
+      // Fetch user data with the new token
+      const meResponse = await authApi.getMe()
+      if (meResponse.data) {
+        authStore.actionSetUser(meResponse.data)
+      }
+    } else if (code) {
+      // Client-side flow: exchange code for tokens via API
+      const response = await authApi.googleOAuth2Login({
+        code,
+        redirectUri: window.location.origin + '/auth/google/callback',
+        state
+      })
+
+      // Update auth store with the response
+      authStore.actionSetToken(response.data.token)
+      authStore.actionSetRefreshToken(response.data.refreshToken)
+      authStore.actionSetTokenExpires(response.data.tokenExpires)
+      authStore.actionSetUser(response.data.user)
+    } else {
+      throw new Error('No authorization code or token received')
     }
-
-    // Call OAuth2 endpoint
-    const response = await authApi.googleOAuth2Login({
-      code,
-      redirectUri: window.location.origin + '/auth/google/callback',
-      state
-    })
-
-    // Update auth store with the response
-    authStore.actionSetToken(response.data.token)
-    authStore.actionSetRefreshToken(response.data.refreshToken)
-    authStore.actionSetTokenExpires(response.data.tokenExpires)
-    authStore.actionSetUser(response.data.user)
 
     // Check for OIDC flow continuation first
     const oidcDataStr = localStorage.getItem('oidc_flow_data')
