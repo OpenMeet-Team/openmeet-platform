@@ -75,20 +75,20 @@ const onPageChange = (page: number) => {
 
     <template v-else>
       <!-- Events Grid/List -->
-      <div
+      <ul
         :class="[
           'events-container',
           { 'events-grid': layout === 'grid' }
         ]"
         v-if="events?.length"
       >
-        <EventsItemComponent
-          v-for="event in events"
-          :key="event.id"
-          :event="event"
-          :layout="layout"
-        />
-      </div>
+        <li v-for="event in events" :key="event.id">
+          <EventsItemComponent
+            :event="event"
+            :layout="layout"
+          />
+        </li>
+      </ul>
 
       <!-- Empty State -->
       <slot name="empty" v-if="!events?.length">
@@ -111,6 +111,9 @@ const onPageChange = (page: number) => {
 
 <style lang="scss" scoped>
 .events-container {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   &.events-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
