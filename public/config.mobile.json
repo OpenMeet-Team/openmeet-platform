@@ -15,6 +15,7 @@
   "APP_HUBSPOT_FORM_ID": "7aa8f331-96a9-48ec-a787-0c894dc5f85e",
   "APP_GOOGLE_CLIENT_ID": "721803341071-dpuqf93q2am0r430vqmifhuf6brcj1g2.apps.googleusercontent.com",
   "APP_GITHUB_CLIENT_ID": "Ov23li54Pi2QcT3YZ5eT",
-  "APP_POSTHOG_KEY": "phc_McFLdS6nzSUcxCNzDYobMUN614VvA2m3uh3HrwGzj2T",
-  "APP_SUPPORT_URL": "https://buy.stripe.com/28o3fE4E51bIcNyfZ0"
+  "APP_SUPPORT_URL": "https://buy.stripe.com/28o3fE4E51bIcNyfZ0",
+  "APP_VALID_DEEP_LINK_DOMAINS": ["openmeet.net"],
+  "APP_CUSTOM_URL_SCHEME": "net.openmeet.platform"
 }

@@ -46,6 +46,14 @@
                 <data android:scheme="https" android:host="platform-dev.openmeet.net" />
             </intent-filter>
 
+            <!-- Custom URL scheme for OAuth callbacks (net.openmeet.platform:/auth/*) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="net.openmeet.platform" />
+            </intent-filter>
+
         </activity>
 
         <provider
