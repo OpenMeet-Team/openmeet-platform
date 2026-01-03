@@ -310,6 +310,91 @@ export JAVA_HOME=/home/YOUR_USERNAME/android-studio/jbr
 
 **"Security Manager not supported"** - Your system Java is too new. Use Android Studio's bundled JRE instead (see above).
 
+## Production Release Build (Android)
+
+Build a signed AAB for Google Play Store release.
+
+### Prerequisites
+
+1. **Android Studio** with bundled JRE (Java 21)
+2. **Keystore** configured in `src-capacitor/android/keystore.properties`
+3. **Google Play Console** access for upload
+
+### Step-by-Step Release Process
+
+```bash
+# 1. Set JAVA_HOME to Android Studio's bundled JRE
+export JAVA_HOME=~/android-studio/jbr
+
+# 2. Switch config to production API
+cp public/config.mobile.json public/config.json
+
+# Verify it points to prod (not dev):
+cat public/config.json | grep APP_API_URL
+# Should show: "APP_API_URL": "https://api.openmeet.net"
+
+# 3. Build web assets for Android
+npx quasar build -m capacitor -T android
+
+# 4. Build signed AAB
+cd src-capacitor/android
+./gradlew bundleRelease
+
+# 5. Locate the signed AAB
+ls -la app/build/outputs/bundle/release/app-release.aab
+```
+
+### Upload to Google Play
+
+1. Go to [Google Play Console](https://play.google.com/console)
+2. Select **OpenMeet** app
+3. Navigate to **Release** → **Production** (or Testing track)
+4. Click **Create new release**
+5. Upload `app-release.aab`
+6. Add release notes
+7. Review and roll out
+
+### Version Management
+
+Update version in `src-capacitor/android/app/build.gradle` before each release:
+
+```gradle
+defaultConfig {
+    versionCode 3        // Increment for each upload (must be unique)
+    versionName "1.0.2"  // User-visible version
+}
+```
+
+### Config Files Reference
+
+| File | Points To | Use For |
+|------|-----------|---------|
+| `public/config.json` | Current active config | Runtime |
+| `public/config.mobile.json` | `api.openmeet.net` (prod) | Production releases |
+| `public/config.example.json` | `localhost:3000` | Local development |
+
+### Post-Release Cleanup
+
+After building, restore dev config if continuing development:
+
+```bash
+cp public/config.example.json public/config.json
+```
+
+### Troubleshooting
+
+**"Keystore not found"** - Check `src-capacitor/android/keystore.properties` has correct absolute path to your keystore:
+```properties
+storeFile=/path/to/your/android-app-signing.jks
+```
+
+**"Unsigned APK"** - Ensure `keystore.properties` exists and has valid credentials.
+
+**Build fails with memory error** - Increase Gradle heap in `gradle.properties`:
+```properties
+org.gradle.jvmargs=-Xmx2048m
+```
+
 ## Useful Links
 
 - **Platform:** https://platform.openmeet.net
