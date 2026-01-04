@@ -15,21 +15,15 @@ export function useNavigation () {
       return
     }
 
-    // Always navigate to the public event page when an event is published or cancelled
-    // Cancelled events should be viewable by the public, not editable
-    if (event.status === 'published' || event.status === 'cancelled') {
-      console.log('Event is published or cancelled, redirecting to public event page')
-      router.push({ name: 'EventPage', params: { slug: event.slug } })
+    // Draft events always go to edit page (they can't be viewed publicly)
+    if (event.status === 'draft') {
+      console.log('Event is draft, redirecting to edit page')
+      router.push({ name: 'DashboardEventPage', params: { slug: event.slug } })
       return
     }
 
-    // For non-published events (draft, pending), check if we're in dashboard context
-    const currentPath = router.currentRoute.value.path
-    const isDashboardContext = currentPath.includes('/dashboard')
-
-    // Navigate based on context
-    const routeName = isDashboardContext ? 'DashboardEventPage' : 'EventPage'
-    router.push({ name: routeName, params: { slug: event.slug } })
+    // Published and cancelled events go to public view page
+    router.push({ name: 'EventPage', params: { slug: event.slug } })
   }
 
   const navigateToMember = (user: UserEntity | string) => {

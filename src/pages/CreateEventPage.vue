@@ -1,5 +1,5 @@
 <template>
-  <q-page padding class="q-mx-auto q-px-xl" style="max-width: 600px;">
+  <q-page padding class="q-mx-auto q-px-md q-px-lg-xl" style="max-width: 1200px;">
     <div class="row items-center q-mb-lg">
       <q-btn
         flat
@@ -56,7 +56,12 @@ onMounted(async () => {
 const onEventCreated = (event: EventEntity) => {
   console.log('Event created, navigating to:', event)
   if (event && event.slug) {
-    router.push({ name: 'EventPage', params: { slug: event.slug } })
+    // Drafts go to edit page, published events go to view page
+    if (event.status === 'draft') {
+      router.push({ name: 'DashboardEventPage', params: { slug: event.slug } })
+    } else {
+      router.push({ name: 'EventPage', params: { slug: event.slug } })
+    }
   } else {
     console.error('Cannot navigate: event is missing slug property', event)
   }

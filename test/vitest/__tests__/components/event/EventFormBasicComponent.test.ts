@@ -329,3 +329,136 @@ describe('EventFormBasicComponent - Start Date Entry (Timezone: EST)', () => {
     expect(localDateString).toBe('2025-05-21')
   })
 })
+
+// Tests for responsive layout and accessibility
+describe('EventFormBasicComponent - Layout and Accessibility', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should have a responsive grid layout with row wrapper', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Check for the main responsive row container
+    const formContent = wrapper.find('[data-cy="event-form"]')
+    expect(formContent.exists()).toBe(true)
+
+    // Should have a row with gutter for the two-column layout
+    const responsiveRow = wrapper.find('.row.q-col-gutter-lg')
+    expect(responsiveRow.exists()).toBe(true)
+  })
+
+  it('should place Basic Information card in left column (col-lg-7)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find the left column with Basic Information
+    const leftColumn = wrapper.find('.col-lg-7')
+    expect(leftColumn.exists()).toBe(true)
+
+    // Basic Information card should be in this column
+    const basicInfoCard = leftColumn.find('[data-cy="basic-info-card"]')
+    expect(basicInfoCard.exists()).toBe(true)
+  })
+
+  it('should place Event Settings and Categories cards in right column (col-lg-5)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find the right column
+    const rightColumn = wrapper.find('.col-lg-5')
+    expect(rightColumn.exists()).toBe(true)
+
+    // Event Settings card should be in this column
+    const settingsCard = rightColumn.find('[data-cy="event-settings-card"]')
+    expect(settingsCard.exists()).toBe(true)
+
+    // Categories card should be in this column
+    const categoriesCard = rightColumn.find('[data-cy="categories-card"]')
+    expect(categoriesCard.exists()).toBe(true)
+  })
+
+  it('should have cards with role="group" and aria-labelledby attributes', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Check Basic Information card has proper ARIA attributes
+    const basicInfoCard = wrapper.find('[data-cy="basic-info-card"]')
+    expect(basicInfoCard.exists()).toBe(true)
+    expect(basicInfoCard.attributes('role')).toBe('group')
+    expect(basicInfoCard.attributes('aria-labelledby')).toBe('basic-info-heading')
+
+    // Check Event Settings card
+    const settingsCard = wrapper.find('[data-cy="event-settings-card"]')
+    expect(settingsCard.exists()).toBe(true)
+    expect(settingsCard.attributes('role')).toBe('group')
+    expect(settingsCard.attributes('aria-labelledby')).toBe('event-settings-heading')
+
+    // Check Categories card
+    const categoriesCard = wrapper.find('[data-cy="categories-card"]')
+    expect(categoriesCard.exists()).toBe(true)
+    expect(categoriesCard.attributes('role')).toBe('group')
+    expect(categoriesCard.attributes('aria-labelledby')).toBe('categories-heading')
+
+    // Check Location card
+    const locationCard = wrapper.find('[data-cy="location-card"]')
+    expect(locationCard.exists()).toBe(true)
+    expect(locationCard.attributes('role')).toBe('group')
+    expect(locationCard.attributes('aria-labelledby')).toBe('location-heading')
+  })
+
+  it('should have aria-hidden="true" on decorative icons', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find all q-icon elements in card headers (decorative icons)
+    const cardHeaders = wrapper.findAll('.text-h6 .q-icon')
+
+    // Each decorative icon should have aria-hidden="true"
+    cardHeaders.forEach((icon) => {
+      expect(icon.attributes('aria-hidden')).toBe('true')
+    })
+
+    // At minimum we should have icons for: Basic Info, Location, Categories, Event Settings
+    expect(cardHeaders.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('should stack columns on mobile (col-12 on all columns)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Both columns should have col-12 for mobile stacking
+    const leftColumn = wrapper.find('.col-12.col-lg-7')
+    expect(leftColumn.exists()).toBe(true)
+
+    const rightColumn = wrapper.find('.col-12.col-lg-5')
+    expect(rightColumn.exists()).toBe(true)
+  })
+})

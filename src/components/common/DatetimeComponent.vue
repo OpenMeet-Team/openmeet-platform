@@ -35,7 +35,6 @@
         v-model="localTime"
         label="Time"
         placeholder="e.g. 5:00 AM or 17:00"
-        style="width: 110px; min-width: 110px"
         @update:model-value="onTimeInputChange"
         @blur="updateTime"
         @keyup.enter="updateTime"
@@ -619,15 +618,30 @@ defineExpose({
   align-items: flex-end;
   gap: 12px;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 .date-input {
   flex: 2 1 220px;
   min-width: 180px;
 }
 .time-input {
-  flex: 1 1 110px;
-  min-width: 90px;
-  max-width: 140px;
+  flex: 1 1 120px;
+  min-width: 100px;
+  max-width: 160px;
+}
+
+/* Mobile: stack date and time vertically */
+@media (max-width: 480px) {
+  .datetime-fields-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .date-input,
+  .time-input {
+    flex: 1 1 auto;
+    min-width: 100%;
+    max-width: 100%;
+  }
 }
 .q-input {
   transition: all 0.3s ease;
