@@ -208,8 +208,8 @@ describe('GroupFormComponent - Usability Issues', () => {
       const visibilitySelect = wrapper.find('[data-cy="group-visibility"]')
       expect(visibilitySelect.exists()).toBe(true)
 
-      // Check that the default is public (The World)
-      expect(wrapper.html()).toContain('The World')
+      // Check that the default is public
+      expect(wrapper.vm.group.visibility).toBe('public')
     })
 
     it('should show improved visibility descriptions', async () => {
@@ -218,7 +218,7 @@ describe('GroupFormComponent - Usability Issues', () => {
 
       // Test that visibility section exists with some description
       expect(wrapper.html()).toContain('Visibility')
-      expect(wrapper.html()).toContain('The World')
+      expect(wrapper.html()).toContain('Public groups are visible to everyone')
 
       // For additional validation, we could test changing visibility
       // but the key improvement was updating the description text which is now done

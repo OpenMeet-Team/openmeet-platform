@@ -356,7 +356,7 @@ describe('EventFormBasicComponent - Layout and Accessibility', () => {
     expect(formContent.exists()).toBe(true)
 
     // Should have a row with gutter for the two-column layout
-    const responsiveRow = wrapper.find('.row.q-col-gutter-lg')
+    const responsiveRow = wrapper.find('.row.q-col-gutter-md')
     expect(responsiveRow.exists()).toBe(true)
   })
 

@@ -1,10 +1,10 @@
 <template>
   <div class="c-event-form-basic-component">
     <SpinnerComponent v-if="isLoading" class="c-event-form-basic-component" />
-    <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="!isLoading">
+    <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" v-if="!isLoading">
 
       <!-- Responsive Two-Column Layout -->
-      <div class="row q-col-gutter-lg">
+      <div class="row q-col-gutter-md">
         <!-- Left Column: Basic Information -->
         <div class="col-12 col-lg-7">
           <!-- Basic Information Card -->
@@ -26,7 +26,7 @@
 
               <!-- Event Date and Time -->
               <div class="q-mb-md">
-                <div class="text-subtitle2 q-mb-sm">Date and Time</div>
+                <div class="text-subtitle2 q-mb-sm q-pl-sm">Date and Time</div>
 
                 <!-- Event Start Date -->
                 <div>
@@ -61,7 +61,7 @@
 
                 <!-- Recurrence Component with Series Creation -->
                 <div v-if="eventData.startDate" class="q-mt-md">
-                  <div class="text-subtitle2 q-mb-sm">Recurrence</div>
+                  <div class="text-subtitle2 q-mb-sm q-pl-sm">Recurrence</div>
 
                   <q-checkbox
                     data-cy="event-recurring-toggle"
@@ -215,7 +215,7 @@
 
               <!-- Attendee Settings -->
               <q-separator spaced />
-              <div class="text-subtitle2 q-my-sm">Attendee Settings</div>
+              <div class="text-subtitle2 q-my-sm q-pl-sm">Attendee Settings</div>
 
               <div class="q-mb-md">
                 <!-- Max Attendees -->
@@ -241,7 +241,7 @@
 
               <!-- Approval Settings -->
               <q-separator spaced />
-              <div class="text-subtitle2 q-my-sm">Approval Settings</div>
+              <div class="text-subtitle2 q-my-sm q-pl-sm">Approval Settings</div>
 
               <div>
                 <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"

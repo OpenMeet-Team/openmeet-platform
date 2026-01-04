@@ -1,5 +1,5 @@
 <template>
-  <q-page data-cy="dashboard-event-page" padding class="c-dashboard-event-page q-pb-xl q-px-md q-px-lg-xl q-mx-auto" style="max-width: 1200px;">
+  <q-page data-cy="dashboard-event-page" padding class="c-dashboard-event-page q-pb-xl q-mx-auto" style="max-width: 1200px;">
     <div class="q-mx-auto">
       <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event" />
 
