@@ -194,6 +194,39 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Inline map preview (desktop only, lg+ breakpoint) -->
+    <div
+      v-if="shouldShowInlineMap"
+      data-cy="inline-map-preview"
+      class="inline-map-preview gt-md q-mt-sm"
+      aria-label="Location preview map"
+      aria-live="polite"
+      tabindex="0"
+      role="img"
+    >
+      <LeafletMapComponent
+        :lat="currentLocation.lat"
+        :lon="currentLocation.lon"
+        :disabled="true"
+        :zoom="14"
+      />
+    </div>
+
+    <!-- Placeholder when showInlineMap is true but no coordinates -->
+    <div
+      v-else-if="showInlineMap && !hasValidCoordinates"
+      data-cy="inline-map-preview"
+      class="inline-map-placeholder gt-md q-mt-sm"
+      aria-label="Location preview map"
+      aria-live="polite"
+      tabindex="0"
+    >
+      <div class="placeholder-content">
+        <q-icon name="sym_r_map" size="48px" color="grey-5" aria-hidden="true" />
+        <div class="text-grey-6 q-mt-sm">Select a location to see map preview</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -219,12 +252,24 @@ interface Props {
   outlined?: boolean
   clearable?: boolean
   hideSearchIcon?: boolean
+  showInlineMap?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   filled: true,
   hideSearchIcon: false,
-  clearable: true
+  clearable: true,
+  showInlineMap: false
+})
+
+// Computed property to determine if inline map preview should be shown
+const shouldShowInlineMap = computed(() => {
+  return props.showInlineMap && hasValidCoordinates.value
+})
+
+// Check if we have valid coordinates for the map
+const hasValidCoordinates = computed(() => {
+  return currentLocation.value.lat !== 0 || currentLocation.value.lon !== 0
 })
 
 const emit = defineEmits(['update:model-value'])
@@ -656,5 +701,36 @@ watch(
   :deep(.q-dark) &:hover {
     background-color: rgba(255, 255, 255, 0.1);
   }
+}
+
+/* Inline map preview styles */
+.inline-map-preview {
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+
+  :deep(.q-dark) & {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.inline-map-placeholder {
+  height: 200px;
+  border-radius: 8px;
+  border: 1px dashed #e0e0e0;
+  background-color: rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  :deep(.q-dark) & {
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+}
+
+.placeholder-content {
+  text-align: center;
 }
 </style>
