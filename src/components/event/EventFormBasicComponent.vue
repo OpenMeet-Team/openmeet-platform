@@ -42,20 +42,19 @@
                   <q-checkbox data-cy="event-set-end-time" class="q-mt-md" v-model="hasEndDate"
                     @update:model-value="setEndDate" label="Set an end time..." />
 
-                  <div v-if="hasEndDate">
+                  <div v-if="hasEndDate" data-cy="end-date-wrapper" :class="{ 'q-field--error': endDateError }">
                     <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
                       v-model="eventData.endDate" :showTimeZone=false :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
-                      @update:time-info="handleEndTimeInfo"
-                      reactive-rules :rules="[
-                        (val: string) => !!val || 'Date is required',
-                        (val: string) => new Date(val) > new Date(eventData.startDate) || 'End time must be after start time'
-                      ]">
+                      @update:time-info="handleEndTimeInfo">
                       <template v-slot:hint>
                         <div class="text-bold">
                           {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
                         </div>
                       </template>
                     </DatetimeComponent>
+                    <div v-if="endDateError" data-cy="end-date-error" class="text-negative text-caption q-mt-xs">
+                      {{ endDateError }}
+                    </div>
                   </div>
 
                 </template>
@@ -516,6 +515,9 @@ const displayedEndTime = ref<string>('')
 // --- NEW: Local state for end date checkbox ---
 const hasEndDate = ref(!!eventData.value.endDate)
 
+// End date validation error state
+const endDateError = ref<string>('')
+
 // Reference to recurrence component for accessing occurrence preview
 const recurrenceComponentRef = ref<InstanceType<typeof RecurrenceComponentType> | null>(null)
 
@@ -596,13 +598,52 @@ watch(() => eventData.value.sourceType, (sourceType) => {
   }
 }, { immediate: true })
 
-const onSaveDraft = () => {
+// Watch for end date changes to validate against start date
+watch([() => eventData.value.endDate, () => eventData.value.startDate], ([newEndDate, newStartDate]) => {
+  // Only validate if both dates are set and hasEndDate is enabled
+  if (hasEndDate.value && newEndDate && newStartDate) {
+    const startMs = new Date(newStartDate).getTime()
+    const endMs = new Date(newEndDate).getTime()
+    if (endMs <= startMs) {
+      endDateError.value = 'End time must be after start time'
+    } else {
+      endDateError.value = ''
+    }
+  } else {
+    endDateError.value = ''
+  }
+})
+
+/**
+ * Scrolls to and focuses the first form field with an error.
+ * Called when form validation fails to help the user find the error.
+ */
+const scrollToFirstError = () => {
+  const firstError = document.querySelector('.q-field--error')
+  if (firstError) {
+    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const input = firstError.querySelector('input, textarea') as HTMLElement | null
+    input?.focus()
+  }
+}
+
+const onSaveDraft = async () => {
   pendingSubmitAction.value = 'draft'
+  const isValid = await formRef.value?.validate()
+  if (!isValid) {
+    scrollToFirstError()
+    return
+  }
   formRef.value?.submit()
 }
 
-const onPublish = () => {
+const onPublish = async () => {
   pendingSubmitAction.value = 'publish'
+  const isValid = await formRef.value?.validate()
+  if (!isValid) {
+    scrollToFirstError()
+    return
+  }
   formRef.value?.submit()
 }
 
@@ -1274,8 +1315,9 @@ defineExpose({
   setEndDate,
   refreshOccurrencesPreview,
   sendNotifications,
-  onPublish
-  // Add more helpers as needed
+  onPublish,
+  scrollToFirstError,
+  endDateError
 })
 </script>
 
