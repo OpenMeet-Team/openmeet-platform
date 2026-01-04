@@ -462,3 +462,50 @@ describe('EventFormBasicComponent - Layout and Accessibility', () => {
     expect(rightColumn.exists()).toBe(true)
   })
 })
+
+// Bug fix: Save as Draft button should remain visible after validation failure
+describe('EventFormBasicComponent - Save as Draft Button Bug Fix', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should keep Save as Draft button visible when Publish is clicked but validation fails', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM
+    await vi.runAllTimersAsync()
+
+    // Initially, the Save as Draft button should be visible (status is undefined/draft)
+    const saveDraftButtonBefore = wrapper.find('[data-cy="event-save-draft"]')
+    expect(saveDraftButtonBefore.exists()).toBe(true)
+
+    // Leave the title empty (which is required) to cause validation failure
+    vm.eventData.name = ''
+    await vm.$nextTick()
+
+    // Click the Publish button - this should trigger validation
+    const publishButton = wrapper.find('[data-cy="event-publish"]')
+    expect(publishButton.exists()).toBe(true)
+    await publishButton.trigger('click')
+    await vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    // After validation failure, the Save as Draft button should STILL be visible
+    // Bug: currently it disappears because status gets set to 'published' before validation
+    const saveDraftButtonAfter = wrapper.find('[data-cy="event-save-draft"]')
+    expect(saveDraftButtonAfter.exists()).toBe(true)
+
+    // The status should NOT be 'published' after a validation failure
+    expect(vm.eventData.status).not.toBe(EventStatus.Published)
+  })
+})

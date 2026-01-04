@@ -7,6 +7,7 @@
         icon="sym_r_arrow_back"
         @click="onClose"
         class="q-mr-md"
+        aria-label="Go back"
       />
       <div class="text-h4 text-bold">Create New Event</div>
     </div>

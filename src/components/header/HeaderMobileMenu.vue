@@ -63,7 +63,7 @@ const signUp = () => {
     dense
     round
     icon="sym_r_menu"
-    aria-label="Menu"
+    aria-label="Open navigation menu"
     @click="toggleRightDrawer"
     class="lt-md"
     data-cy="header-mobile-menu"

@@ -36,6 +36,7 @@
           @click="useCurrentLocation"
           :loading="geoLoading"
           class="q-mr-xs"
+          aria-label="Use current location"
         >
           <q-tooltip>Use current location</q-tooltip>
         </q-btn>
@@ -46,6 +47,7 @@
           icon="sym_r_map"
           @click="openMapDialog"
           class="q-mr-xs"
+          aria-label="Select location on map"
         >
           <q-tooltip>Select on map</q-tooltip>
         </q-btn>
@@ -56,6 +58,7 @@
           round
           icon="sym_r_close"
           @click="onClear"
+          aria-label="Clear location"
         >
           <q-tooltip>Clear location</q-tooltip>
         </q-btn>

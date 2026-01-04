@@ -324,18 +324,16 @@
           <div id="description-heading" class="text-h6 q-mb-md">
             <q-icon name="sym_r_description" class="q-mr-sm" aria-hidden="true" />
             Event Description
-            <span class="text-caption text-grey-7">(Supports Markdown)</span>
           </div>
 
           <q-tabs
             v-model="descriptionTab"
-            class="text-primary"
-            active-color="primary"
+            no-caps
+            align="left"
             indicator-color="primary"
-            narrow-indicator
           >
-            <q-tab name="edit" label="Edit" />
-            <q-tab name="preview" label="Preview" />
+            <q-tab name="edit" label="Edit" icon="sym_r_edit" />
+            <q-tab name="preview" label="Preview" icon="sym_r_visibility" />
           </q-tabs>
 
           <q-separator />
@@ -348,17 +346,15 @@
                 type="textarea"
                 v-model="eventData.description"
                 label="Event description"
-                hint="Supports Markdown formatting"
                 counter
                 maxlength="2000"
                 autogrow
                 input-style="min-height: 80px"
                 class="q-mt-sm"
-                :rules="[]"
+                :rules="[(val: string) => !!val && val.trim().length > 0 || 'Description is required']"
               />
-              <div class="text-caption q-mt-xs">
-                <span class="text-weight-medium">Markdown tip:</span>
-                Use **bold**, *italic*, [links](url), and other Markdown syntax
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Supports <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener">Markdown</a>: **bold**, *italic*, [links](url), - bullets
               </div>
             </q-tab-panel>
 
@@ -399,7 +395,7 @@
       <div class="row justify-center q-gutter-md q-mt-md">
         <q-btn data-cy="event-cancel" no-caps outline label="Cancel" @click="$emit('close')" />
         <q-btn data-cy="event-save-draft" no-caps outline label="Save as draft"
-          v-if="!eventData.status || eventData.status !== 'published'" @click="onSaveDraft" />
+          v-if="canSaveAsDraft" @click="onSaveDraft" />
         <q-btn data-cy="event-publish" no-caps color="primary" :label="isRecurring ? 'Publish Series' : 'Publish'"
           @click="onPublish" />
       </div>
@@ -498,6 +494,21 @@ const seriesFormData = ref({
 // Tab for description editor (edit/preview)
 const descriptionTab = ref('edit')
 
+// Track the intended submit action to avoid setting status before validation
+const pendingSubmitAction = ref<'publish' | 'draft' | null>(null)
+
+// Track the original event status from server (not affected by form interactions)
+// This determines if Save as Draft button should be shown
+const originalEventStatus = ref<EventStatus | null>(null)
+
+// Computed property to determine if Save as Draft should be shown
+// Based on original status, not current in-flight status
+const canSaveAsDraft = computed(() => {
+  // Can save as draft if this is a new event OR was originally a draft
+  // Cannot save as draft if event was already published
+  return !originalEventStatus.value || originalEventStatus.value !== EventStatus.Published
+})
+
 // Store the displayed start and end times
 const displayedStartTime = ref<string>('')
 const displayedEndTime = ref<string>('')
@@ -586,12 +597,12 @@ watch(() => eventData.value.sourceType, (sourceType) => {
 }, { immediate: true })
 
 const onSaveDraft = () => {
-  eventData.value.status = EventStatus.Draft
+  pendingSubmitAction.value = 'draft'
   formRef.value?.submit()
 }
 
 const onPublish = () => {
-  eventData.value.status = EventStatus.Published
+  pendingSubmitAction.value = 'publish'
   formRef.value?.submit()
 }
 
@@ -636,6 +647,8 @@ onMounted(() => {
     promises.push(
       eventsApi.edit(props.editEventSlug).then(res => {
         eventData.value = res.data
+        // Track original status to determine if Save as Draft should be shown
+        originalEventStatus.value = res.data.status || null
       })
     )
   }
@@ -768,6 +781,16 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
+  // Apply the status based on the pending action (publish or draft)
+  // This ensures status is only set AFTER form validation passes
+  if (pendingSubmitAction.value === 'publish') {
+    eventData.value.status = EventStatus.Published
+  } else if (pendingSubmitAction.value === 'draft') {
+    eventData.value.status = EventStatus.Draft
+  }
+  // Reset the pending action
+  pendingSubmitAction.value = null
+
   // Validate end date is after start date if both are present
   if (eventData.value.startDate && eventData.value.endDate) {
     const startMs = new Date(eventData.value.startDate).getTime()
