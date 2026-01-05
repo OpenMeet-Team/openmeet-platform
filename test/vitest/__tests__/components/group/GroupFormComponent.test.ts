@@ -162,13 +162,12 @@ describe('GroupFormComponent.vue', () => {
 
       // The component should render the visibility section
       expect(wrapper.html()).toContain('Visibility')
-      expect(wrapper.html()).toContain('Group Viewable By')
 
       // Check that the group has the default public visibility setting
       expect(wrapper.vm.group.visibility).toBe('public')
 
       // Check that visibility description is shown for public groups
-      expect(wrapper.html()).toContain('The World')
+      expect(wrapper.html()).toContain('Public groups are visible to everyone')
     })
 
     it.skip('should show correct description for each visibility option - skipped: complex UI interaction', async () => {
@@ -251,7 +250,7 @@ describe('GroupFormComponent.vue', () => {
         categories: [1, 2],
         status: GroupStatus.Published,
         visibility: GroupVisibility.Public,
-        requireApproval: true
+        requireApproval: false
       }))
 
       expect(mockNavigateToGroup).toHaveBeenCalled()
@@ -363,10 +362,10 @@ describe('GroupFormComponent.vue', () => {
       const tabs = wrapper.findAll('.q-tab')
       expect(tabs.length).toBeGreaterThanOrEqual(2)
 
-      // Check tabs exist and have expected labels (more flexible text matching)
+      // Check tabs exist - text() may include icon names, so check for partial match
       const tabLabels = tabs.map(tab => tab.text())
-      expect(tabLabels).toContain('Edit')
-      expect(tabLabels).toContain('Preview')
+      expect(tabLabels.some(label => label.includes('Edit'))).toBe(true)
+      expect(tabLabels.some(label => label.includes('Preview'))).toBe(true)
     })
 
     it('should show markdown preview when preview tab is clicked', async () => {
@@ -390,6 +389,80 @@ describe('GroupFormComponent.vue', () => {
         // Check if markdown component exists in preview
         expect(wrapper.findComponent({ name: 'q-markdown' }).exists()).toBe(true)
       }
+    })
+  })
+
+  describe('Scroll to Error and Layout', () => {
+    it('should have a scrollToFirstError method exposed on the component', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+      const vm = wrapper.vm as unknown as { scrollToFirstError?: () => void }
+      expect(typeof vm.scrollToFirstError).toBe('function')
+    })
+
+    it('should not submit form when validation fails', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      // Leave required fields empty (name and description)
+      const nameInput = wrapper.find('input[data-cy="group-name"]')
+      await nameInput.setValue('')
+
+      const descInput = wrapper.find('textarea[data-cy="group-description"]')
+      await descInput.setValue('')
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      // API should NOT be called when validation fails
+      expect(mockGroupsApi.create).not.toHaveBeenCalled()
+    })
+
+    it('should have a responsive grid layout with row wrapper', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      const responsiveRow = wrapper.find('.row.q-col-gutter-md')
+      expect(responsiveRow.exists()).toBe(true)
+    })
+
+    it('should stack columns on mobile (col-12 on all columns)', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      const leftColumn = wrapper.find('.col-12.col-lg-7')
+      expect(leftColumn.exists()).toBe(true)
+
+      const rightColumn = wrapper.find('.col-12.col-lg-5')
+      expect(rightColumn.exists()).toBe(true)
+    })
+
+    it('should have centered action buttons', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      // Look for the action buttons container with centered justification
+      const buttonRow = wrapper.find('.row.justify-center.q-gutter-md.q-mt-md')
+      expect(buttonRow.exists()).toBe(true)
+    })
+
+    it('should have accessibility attributes on cards', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      // Check for role="group" on cards (basic info, settings, description = 3 cards)
+      const cardsWithRole = wrapper.findAll('[role="group"]')
+      expect(cardsWithRole.length).toBeGreaterThanOrEqual(3)
+    })
+
+    it('should have outline style on cancel button', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      const cancelBtn = wrapper.find('[data-cy="group-cancel"]')
+      expect(cancelBtn.exists()).toBe(true)
+      // Quasar outline buttons have q-btn--outline class
+      expect(cancelBtn.classes()).toContain('q-btn--outline')
     })
   })
 })

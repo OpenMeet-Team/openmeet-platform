@@ -329,3 +329,398 @@ describe('EventFormBasicComponent - Start Date Entry (Timezone: EST)', () => {
     expect(localDateString).toBe('2025-05-21')
   })
 })
+
+// Tests for responsive layout and accessibility
+describe('EventFormBasicComponent - Layout and Accessibility', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should have a responsive grid layout with row wrapper', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Check for the main responsive row container
+    const formContent = wrapper.find('[data-cy="event-form"]')
+    expect(formContent.exists()).toBe(true)
+
+    // Should have a row with gutter for the two-column layout
+    const responsiveRow = wrapper.find('.row.q-col-gutter-md')
+    expect(responsiveRow.exists()).toBe(true)
+  })
+
+  it('should place Basic Information card in left column (col-lg-7)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find the left column with Basic Information
+    const leftColumn = wrapper.find('.col-lg-7')
+    expect(leftColumn.exists()).toBe(true)
+
+    // Basic Information card should be in this column
+    const basicInfoCard = leftColumn.find('[data-cy="basic-info-card"]')
+    expect(basicInfoCard.exists()).toBe(true)
+  })
+
+  it('should place Event Settings and Categories cards in right column (col-lg-5)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find the right column
+    const rightColumn = wrapper.find('.col-lg-5')
+    expect(rightColumn.exists()).toBe(true)
+
+    // Event Settings card should be in this column
+    const settingsCard = rightColumn.find('[data-cy="event-settings-card"]')
+    expect(settingsCard.exists()).toBe(true)
+
+    // Categories should be present somewhere on the form
+    const categoriesSelect = wrapper.find('[data-cy="event-categories"]')
+    expect(categoriesSelect.exists()).toBe(true)
+  })
+
+  it('should have cards with role="group" and aria-labelledby attributes', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Check Basic Information card has proper ARIA attributes
+    const basicInfoCard = wrapper.find('[data-cy="basic-info-card"]')
+    expect(basicInfoCard.exists()).toBe(true)
+    expect(basicInfoCard.attributes('role')).toBe('group')
+    expect(basicInfoCard.attributes('aria-labelledby')).toBe('basic-info-heading')
+
+    // Check Event Settings card
+    const settingsCard = wrapper.find('[data-cy="event-settings-card"]')
+    expect(settingsCard.exists()).toBe(true)
+    expect(settingsCard.attributes('role')).toBe('group')
+    expect(settingsCard.attributes('aria-labelledby')).toBe('event-settings-heading')
+
+    // Categories is now part of Basic Information card (no separate card)
+    const categoriesSelect = wrapper.find('[data-cy="event-categories"]')
+    expect(categoriesSelect.exists()).toBe(true)
+
+    // Check Location card
+    const locationCard = wrapper.find('[data-cy="location-card"]')
+    expect(locationCard.exists()).toBe(true)
+    expect(locationCard.attributes('role')).toBe('group')
+    expect(locationCard.attributes('aria-labelledby')).toBe('location-heading')
+  })
+
+  it('should have aria-hidden="true" on decorative icons', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Find all q-icon elements in card headers (decorative icons)
+    const cardHeaders = wrapper.findAll('.text-h6 .q-icon')
+
+    // Each decorative icon should have aria-hidden="true"
+    cardHeaders.forEach((icon) => {
+      expect(icon.attributes('aria-hidden')).toBe('true')
+    })
+
+    // At minimum we should have icons for: Basic Info, Location, Categories, Event Settings
+    expect(cardHeaders.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('should stack columns on mobile (col-12 on all columns)', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // Both columns should have col-12 for mobile stacking
+    const leftColumn = wrapper.find('.col-12.col-lg-7')
+    expect(leftColumn.exists()).toBe(true)
+
+    const rightColumn = wrapper.find('.col-12.col-lg-5')
+    expect(rightColumn.exists()).toBe(true)
+  })
+})
+
+// Scroll-to-error functionality for form validation failures
+describe('EventFormBasicComponent - Scroll to Error on Validation Failure', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should have a scrollToFirstError method exposed on the component', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // The component should expose a scrollToFirstError method
+    const vm = wrapper.vm as unknown as { scrollToFirstError?: () => void }
+    expect(typeof vm.scrollToFirstError).toBe('function')
+  })
+
+  it('should not submit form when validation fails on publish', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM
+    await vi.runAllTimersAsync()
+
+    // Leave required fields empty to cause validation failure
+    vm.eventData.name = ''
+    vm.eventData.description = ''
+    await vm.$nextTick()
+
+    // Click publish - this should trigger validation failure
+    await vm.onPublish()
+    await vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    // The API should NOT have been called since validation failed
+    expect(typedEventsApi.create).not.toHaveBeenCalled()
+  })
+
+  it('should not call scrollToFirstError when validation passes', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM & { scrollToFirstError: () => void }
+    await vi.runAllTimersAsync()
+
+    // Spy on the scrollToFirstError method
+    const scrollSpy = vi.spyOn(vm, 'scrollToFirstError')
+
+    // Fill in all required fields
+    vm.eventData.name = 'Valid Event Name'
+    vm.eventData.description = 'Valid description'
+    vm.eventData.startDate = '2025-02-20T17:00:00.000Z'
+    await vm.$nextTick()
+
+    // Click publish - validation should pass
+    await vm.onPublish()
+    await vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    // scrollToFirstError should NOT be called when validation passes
+    expect(scrollSpy).not.toHaveBeenCalled()
+  })
+})
+
+// End date validation error display
+describe('EventFormBasicComponent - End Date Validation Error Display', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should have endDateError ref exposed on the component', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    await vi.runAllTimersAsync()
+
+    // The component should expose an endDateError ref
+    const vm = wrapper.vm as unknown as { endDateError?: string }
+    expect(vm.endDateError).toBeDefined()
+    expect(typeof vm.endDateError).toBe('string')
+  })
+
+  it('should show error when end date is before start date', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM & { endDateError: string }
+    await vi.runAllTimersAsync()
+
+    // Set up a valid start date
+    vm.eventData.startDate = '2025-02-20T17:00:00.000Z'
+    vm.eventData.timeZone = 'America/New_York'
+    await vm.$nextTick()
+
+    // Enable end date
+    vm.setEndDate(true)
+    await vm.$nextTick()
+
+    // Set end date BEFORE start date (invalid)
+    vm.eventData.endDate = '2025-02-20T16:00:00.000Z' // 1 hour before start
+    await vm.$nextTick()
+
+    // The endDateError should be set
+    expect(vm.endDateError).toBe('End time must be after start time')
+  })
+
+  it('should clear error when end date is after start date', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM & { endDateError: string }
+    await vi.runAllTimersAsync()
+
+    // Set up a valid start date
+    vm.eventData.startDate = '2025-02-20T17:00:00.000Z'
+    vm.eventData.timeZone = 'America/New_York'
+    await vm.$nextTick()
+
+    // Enable end date
+    vm.setEndDate(true)
+    await vm.$nextTick()
+
+    // First set invalid end date
+    vm.eventData.endDate = '2025-02-20T16:00:00.000Z'
+    await vm.$nextTick()
+    expect(vm.endDateError).toBe('End time must be after start time')
+
+    // Now fix it - set end date AFTER start date
+    vm.eventData.endDate = '2025-02-20T18:00:00.000Z' // 1 hour after start
+    await vm.$nextTick()
+
+    // The error should be cleared
+    expect(vm.endDateError).toBe('')
+  })
+
+  it('should render error message with q-field--error class for scrollToFirstError to find', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM & { endDateError: string }
+    await vi.runAllTimersAsync()
+
+    // Set up dates with end before start
+    vm.eventData.startDate = '2025-02-20T17:00:00.000Z'
+    vm.eventData.timeZone = 'America/New_York'
+    await vm.$nextTick()
+
+    vm.setEndDate(true)
+    await vm.$nextTick()
+
+    vm.eventData.endDate = '2025-02-20T16:00:00.000Z'
+    await vm.$nextTick()
+
+    // The end date wrapper should have q-field--error class
+    const endDateWrapper = wrapper.find('[data-cy="end-date-wrapper"]')
+    expect(endDateWrapper.exists()).toBe(true)
+    expect(endDateWrapper.classes()).toContain('q-field--error')
+
+    // The error message should be visible in red
+    const errorMessage = wrapper.find('[data-cy="end-date-error"]')
+    expect(errorMessage.exists()).toBe(true)
+    expect(errorMessage.text()).toContain('End time must be after start time')
+  })
+
+  it('should not have q-field--error class when end date is valid', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM & { endDateError: string }
+    await vi.runAllTimersAsync()
+
+    // Set up valid dates (end after start)
+    vm.eventData.startDate = '2025-02-20T17:00:00.000Z'
+    vm.eventData.timeZone = 'America/New_York'
+    await vm.$nextTick()
+
+    vm.setEndDate(true)
+    await vm.$nextTick()
+
+    vm.eventData.endDate = '2025-02-20T18:00:00.000Z' // Valid: after start
+    await vm.$nextTick()
+
+    // The end date wrapper should NOT have q-field--error class
+    const endDateWrapper = wrapper.find('[data-cy="end-date-wrapper"]')
+    expect(endDateWrapper.exists()).toBe(true)
+    expect(endDateWrapper.classes()).not.toContain('q-field--error')
+
+    // No error message should be visible
+    const errorMessage = wrapper.find('[data-cy="end-date-error"]')
+    expect(errorMessage.exists()).toBe(false)
+  })
+})
+
+// Bug fix: Save as Draft button should remain visible after validation failure
+describe('EventFormBasicComponent - Save as Draft Button Bug Fix', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    typedEventsApi.create.mockResolvedValue({
+      data: { slug: 'test-event', name: 'Test Event' } as EventEntity,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      config: { headers: new Headers() }
+    })
+  })
+
+  it('should keep Save as Draft button visible when Publish is clicked but validation fails', async () => {
+    const mountOptions = {
+      global: { stubs: { 'q-markdown': true, 'vue-router': true } }
+    }
+    const wrapper = mount(EventFormBasicComponent, mountOptions)
+    const vm = wrapper.vm as unknown as EventFormBasicComponentVM
+    await vi.runAllTimersAsync()
+
+    // Initially, the Save as Draft button should be visible (status is undefined/draft)
+    const saveDraftButtonBefore = wrapper.find('[data-cy="event-save-draft"]')
+    expect(saveDraftButtonBefore.exists()).toBe(true)
+
+    // Leave the title empty (which is required) to cause validation failure
+    vm.eventData.name = ''
+    await vm.$nextTick()
+
+    // Click the Publish button - this should trigger validation
+    const publishButton = wrapper.find('[data-cy="event-publish"]')
+    expect(publishButton.exists()).toBe(true)
+    await publishButton.trigger('click')
+    await vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    // After validation failure, the Save as Draft button should STILL be visible
+    // Bug: currently it disappears because status gets set to 'published' before validation
+    const saveDraftButtonAfter = wrapper.find('[data-cy="event-save-draft"]')
+    expect(saveDraftButtonAfter.exists()).toBe(true)
+
+    // The status should NOT be 'published' after a validation failure
+    expect(vm.eventData.status).not.toBe(EventStatus.Published)
+  })
+})

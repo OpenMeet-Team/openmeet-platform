@@ -1,5 +1,5 @@
 <template>
-  <q-page padding class="c-dashboard-group-create-page q-mx-auto q-px-xl" style="max-width: 600px;">
+  <q-page padding class="c-dashboard-group-create-page q-mx-auto" style="max-width: 1200px;">
     <div class="row items-center q-mb-lg">
       <q-btn
         flat
@@ -7,6 +7,7 @@
         icon="sym_r_arrow_back"
         @click="onClose"
         class="q-mr-md"
+        aria-label="Go back"
       />
       <div class="text-h4 text-bold">Create New Group</div>
     </div>
@@ -65,15 +66,5 @@ const onClose = () => {
 </script>
 
 <style scoped>
-/* Mobile responsive improvements */
-@media (max-width: 768px) {
-  .q-page {
-    padding: 16px !important;
-  }
-
-  .q-px-xl {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-  }
-}
+/* Page styling handled by q-page padding */
 </style>

@@ -1,221 +1,272 @@
 <template>
   <div class="c-event-form-basic-component">
     <SpinnerComponent v-if="isLoading" class="c-event-form-basic-component" />
-    <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" class="q-gutter-md" v-if="!isLoading">
+    <q-form data-cy="event-form" ref="formRef" @submit="onSubmit" v-if="!isLoading">
 
-      <!-- Basic Information Card -->
-      <q-card class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_event" class="q-mr-sm" />
-            Basic Information
-          </div>
+      <!-- Responsive Two-Column Layout -->
+      <div class="row q-col-gutter-md">
+        <!-- Left Column: Basic Information -->
+        <div class="col-12 col-lg-7">
+          <!-- Basic Information Card -->
+          <q-card class="q-mb-md" data-cy="basic-info-card" role="group" aria-labelledby="basic-info-heading">
+            <q-card-section>
+              <div id="basic-info-heading" class="text-h6 q-mb-md">
+                <q-icon name="sym_r_event" class="q-mr-sm" aria-hidden="true" />
+                Basic Information
+              </div>
 
-          <!-- Event Name -->
-          <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title" filled maxlength="80" counter
-            :rules="[(val: string) => !!val || 'Title is required']" class="q-mb-md" />
+              <!-- Event Name -->
+              <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title *" filled maxlength="80" counter
+                :rules="[(val: string) => !!val || 'Title is required']" class="q-mb-md" />
 
-          <!-- Event Group -->
-          <div v-if="groupsOptions && groupsOptions.length" class="q-mb-md">
-            <div class="text-subtitle2 q-mb-sm">Group Association</div>
-            <q-select data-cy="event-group" :readonly="!!eventData.id" v-model="eventData.group"
-              :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
-              label="Group" />
-          </div>
+              <!-- Event Group -->
+              <q-select v-if="groupsOptions && groupsOptions.length" data-cy="event-group" :readonly="!!eventData.id" v-model="eventData.group"
+                :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
+                label="Group" class="q-mb-md" />
 
-          <!-- Event Date and Time -->
-          <div class="q-mb-md">
-            <div class="text-subtitle2 q-mb-sm">Date and Time</div>
+              <!-- Event Categories -->
+              <q-select data-cy="event-categories" v-model="eventData.categories" :options="categoryOptions"
+                filled multiple use-chips option-value="id" option-label="name" label="Categories" class="q-mb-md" />
 
-            <!-- Event Start Date -->
-            <div>
-              <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
-                ref="startDateInputRef"
-                v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
-                @update:time-info="handleStartTimeInfo"
-                reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
-            </div>
+              <!-- Event Date and Time -->
+              <div class="q-mb-md">
+                <div class="text-subtitle2 q-mb-sm q-pl-sm">Date and Time</div>
 
-            <!-- Event End Date -->
-            <template v-if="eventData.startDate">
-              <q-checkbox data-cy="event-set-end-time" class="q-mt-md" v-model="hasEndDate"
-                @update:model-value="setEndDate" label="Set an end time..." />
+                <!-- Event Start Date -->
+                <div>
+                  <DatetimeComponent data-cy="event-start-date" required label="Starting date and time *"
+                    ref="startDateInputRef"
+                    v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                    @update:time-info="handleStartTimeInfo"
+                    reactive-rules :rules="[(val: string) => !!val || 'Date is required']" />
+                </div>
 
-              <div v-if="hasEndDate">
-                <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
-                  v-model="eventData.endDate" :showTimeZone=false :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
-                  @update:time-info="handleEndTimeInfo"
-                  reactive-rules :rules="[
-                    (val: string) => !!val || 'Date is required',
-                    (val: string) => new Date(val) > new Date(eventData.startDate) || 'End time must be after start time'
-                  ]">
-                  <template v-slot:hint>
-                    <div class="text-bold">
-                      {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+                <!-- Event End Date -->
+                <template v-if="eventData.startDate">
+                  <q-checkbox data-cy="event-set-end-time" class="q-mt-md" v-model="hasEndDate"
+                    @update:model-value="setEndDate" label="Set an end time..." />
+
+                  <div v-if="hasEndDate" data-cy="end-date-wrapper" :class="{ 'q-field--error': endDateError }">
+                    <DatetimeComponent data-cy="event-end-date" label="Ending date and time"
+                      v-model="eventData.endDate" :showTimeZone=false :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
+                      @update:time-info="handleEndTimeInfo">
+                      <template v-slot:hint>
+                        <div class="text-bold">
+                          {{ getHumanReadableDateDifference(eventData.startDate, eventData.endDate) }}
+                        </div>
+                      </template>
+                    </DatetimeComponent>
+                    <div v-if="endDateError" data-cy="end-date-error" class="text-negative text-caption q-mt-xs">
+                      {{ endDateError }}
+                    </div>
+                  </div>
+
+                </template>
+
+                <!-- Recurrence Component with Series Creation -->
+                <div v-if="eventData.startDate" class="q-mt-md">
+                  <div class="text-subtitle2 q-mb-sm q-pl-sm">Recurrence</div>
+
+                  <q-checkbox
+                    data-cy="event-recurring-toggle"
+                    v-model="isRecurring"
+                    label="Make this a recurring event"
+                    :disable="!!eventData.seriesSlug"
+                    @click="onRecurrenceToggleClick"
+                  />
+
+                  <!-- Add warning message when event is part of a series -->
+                  <div v-if="eventData.seriesSlug" class="text-caption text-negative q-mt-xs">
+                    <q-icon name="sym_r_warning" size="xs" class="q-mr-xs" aria-hidden="true" />
+                    This event is already part of a series and cannot be made recurring again.
+                  </div>
+
+                  <!-- Series Options shown when recurrence is enabled -->
+                  <template v-if="isRecurring">
+                    <div class="q-pa-md q-mt-sm rounded-borders recurrence-container">
+                      <!-- Info about event series -->
+                      <div v-if="!eventData.seriesSlug" class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                        <q-icon name="sym_r_info" class="q-mr-xs" color="info" aria-hidden="true" />
+                        This will create an event series. All events in the series will share the same basic information.
+                      </div>
+
+                      <!-- Info about existing event series -->
+                      <div v-else class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
+                        <q-icon name="sym_r_info" class="q-mr-xs" color="info" aria-hidden="true" />
+                        This event is part of an existing series. Editing the recurrence pattern will affect all future events in the series.
+                      </div>
+
+                      <!-- Series Name -->
+                      <q-input
+                        data-cy="series-name-input"
+                        v-model="seriesFormData.name"
+                        label="Series Title"
+                        filled
+                        maxlength="80"
+                        counter
+                        class="q-mb-md"
+                        :readonly="!!eventData.seriesSlug"
+                        :rules="[(val) => !!val || 'Series title is required']"
+                      />
+
+                      <!-- Series Description -->
+                      <q-input
+                        data-cy="series-description-input"
+                        v-model="seriesFormData.description"
+                        label="Series Description (optional)"
+                        filled
+                        type="textarea"
+                        autogrow
+                        class="q-mb-md"
+                        :readonly="!!eventData.seriesSlug"
+                      />
+
+                      <!-- Recurrence Pattern -->
+                      <RecurrenceComponent
+                        ref="recurrenceComponentRef"
+                        v-model="recurrenceRule"
+                        :is-recurring="true"
+                        v-model:time-zone="eventData.timeZone"
+                        :start-date="eventData.startDate"
+                        :hide-toggle="true"
+                        :series-slug="eventData.seriesSlug"
+                        @update:start-date="updateStartDate"
+                        @update:model-value="handleRecurrenceRuleUpdate"
+                      />
+
+                      <!-- Show the series information when viewing a series event -->
+                      <div v-if="eventData.seriesSlug" class="text-caption q-mt-md q-pa-sm rounded-borders recurrence-info">
+                        <q-icon name="sym_r_info" class="q-mr-xs" color="info" aria-hidden="true" />
+                        This event is part of the series "<strong>{{ seriesFormData.name }}</strong>".
+                        Any changes to the recurrence pattern will affect all future events in the series.
+                      </div>
                     </div>
                   </template>
-                </DatetimeComponent>
-              </div>
-
-            </template>
-
-            <!-- Recurrence Component with Series Creation -->
-            <div v-if="eventData.startDate" class="q-mt-md">
-              <div class="text-subtitle2 q-mb-sm">Recurrence</div>
-
-              <q-checkbox
-                data-cy="event-recurring-toggle"
-                v-model="isRecurring"
-                label="Make this a recurring event"
-                :disable="!!eventData.seriesSlug"
-                @click="onRecurrenceToggleClick"
-              />
-
-              <!-- Add warning message when event is part of a series -->
-              <div v-if="eventData.seriesSlug" class="text-caption text-negative q-mt-xs">
-                <q-icon name="sym_r_warning" size="xs" class="q-mr-xs" />
-                This event is already part of a series and cannot be made recurring again.
-              </div>
-
-              <!-- Series Options shown when recurrence is enabled -->
-              <template v-if="isRecurring">
-                <div class="q-pa-md q-mt-sm rounded-borders recurrence-container">
-                  <!-- Info about event series -->
-                  <div v-if="!eventData.seriesSlug" class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
-                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
-                    This will create an event series. All events in the series will share the same basic information.
-                  </div>
-
-                  <!-- Info about existing event series -->
-                  <div v-else class="text-body2 q-mb-md q-pa-sm rounded-borders recurrence-info">
-                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
-                    This event is part of an existing series. Editing the recurrence pattern will affect all future events in the series.
-                  </div>
-
-                  <!-- Series Name -->
-                  <q-input
-                    data-cy="series-name-input"
-                    v-model="seriesFormData.name"
-                    label="Series Title"
-                    filled
-                    maxlength="80"
-                    counter
-                    class="q-mb-md"
-                    :readonly="!!eventData.seriesSlug"
-                    :rules="[(val) => !!val || 'Series title is required']"
-                  />
-
-                  <!-- Series Description -->
-                  <q-input
-                    data-cy="series-description-input"
-                    v-model="seriesFormData.description"
-                    label="Series Description (optional)"
-                    filled
-                    type="textarea"
-                    autogrow
-                    class="q-mb-md"
-                    :readonly="!!eventData.seriesSlug"
-                  />
-
-                  <!-- Recurrence Pattern -->
-                  <RecurrenceComponent
-                    ref="recurrenceComponentRef"
-                    v-model="recurrenceRule"
-                    :is-recurring="true"
-                    v-model:time-zone="eventData.timeZone"
-                    :start-date="eventData.startDate"
-                    :hide-toggle="true"
-                    :series-slug="eventData.seriesSlug"
-                    @update:start-date="updateStartDate"
-                    @update:model-value="handleRecurrenceRuleUpdate"
-                  />
-
-                  <!-- Show the series information when viewing a series event -->
-                  <div v-if="eventData.seriesSlug" class="text-caption q-mt-md q-pa-sm rounded-borders recurrence-info">
-                    <q-icon name="sym_r_info" class="q-mr-xs" color="info" />
-                    This event is part of the series "<strong>{{ seriesFormData.name }}</strong>".
-                    Any changes to the recurrence pattern will affect all future events in the series.
-                  </div>
                 </div>
-              </template>
-            </div>
-          </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
 
-          <!-- Section Separator (between Recurrence and Image) -->
-          <q-separator class="q-my-md" v-if="isRecurring" />
-
-          <!-- Event Image -->
-          <div class="q-mb-md">
-            <div class="text-subtitle2 q-mb-sm">Event Image</div>
-
-            <div class="row items-center q-col-gutter-md">
-              <div class="col-12 col-sm-6">
-                <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" />
+        <!-- Right Column: Event Settings and Categories -->
+        <div class="col-12 col-lg-5">
+          <!-- Event Settings Card -->
+          <q-card class="q-mb-md" data-cy="event-settings-card" role="group" aria-labelledby="event-settings-heading">
+            <q-card-section>
+              <div id="event-settings-heading" class="text-h6 q-mb-md">
+                <q-icon name="sym_r_settings" class="q-mr-sm" aria-hidden="true" />
+                Event Settings
               </div>
 
-              <div class="col-12 col-sm-6" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path">
-                <q-img ratio="16/9" :src="eventData.image.path" spinner-color="white"
-                  class="rounded-borders" style="height: 120px; max-width: 220px" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Event Description (Markdown) -->
-          <div class="q-mt-lg">
-            <div class="text-subtitle2 q-mb-sm">Event Description <span class="text-caption text-grey-7">(Supports Markdown)</span></div>
-
-            <q-tabs
-              v-model="descriptionTab"
-              class="text-primary"
-              active-color="primary"
-              indicator-color="primary"
-              narrow-indicator
-            >
-              <q-tab name="edit" label="Edit" />
-              <q-tab name="preview" label="Preview" />
-            </q-tabs>
-
-            <q-separator />
-
-            <q-tab-panels v-model="descriptionTab" animated>
-              <q-tab-panel name="edit" class="q-pa-none">
-                <q-input
-                  data-cy="event-description"
-                  filled
-                  type="textarea"
-                  v-model="eventData.description"
-                  label="Event description"
-                  hint="Supports Markdown formatting"
-                  counter
-                  maxlength="2000"
-                  autogrow
-                  class="q-mt-sm"
-                  :rules="[val => !!val || 'Description is required']"
+              <!-- Bluesky Publishing Toggle (only shown if user has Bluesky connected) -->
+              <div v-if="authStore.getBlueskyDid && authStore.getBlueskyDid !== 'undefined'" class="q-mb-md">
+                <q-toggle
+                  data-cy="event-publish-to-bluesky"
+                  v-model="publishToBluesky"
+                  :disable="!!eventData.slug"
+                  label="Publish to AT Protocol"
                 />
-                <div class="text-caption q-mt-xs">
-                  <span class="text-weight-medium">Markdown tip:</span>
-                  Use **bold**, *italic*, [links](url), and other Markdown syntax
-                </div>
-              </q-tab-panel>
+                <p class="text-caption q-mt-xs q-ml-md text-warning" v-if="!eventData.slug">
+                  <q-icon name="sym_r_warning" size="xs" aria-hidden="true" />
+                  This choice cannot be changed after the event is created.
+                </p>
+                <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky && !eventData.slug">
+                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
+                  Bluesky events must be public. The visibility will be locked to "Public".
+                </p>
+                <p class="text-caption q-mt-xs q-ml-md text-info" v-if="eventData.slug && eventData.sourceType === 'bluesky'">
+                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
+                  This event is published to Bluesky and will remain linked to the Bluesky post.
+                </p>
+                <p class="text-caption q-mt-xs q-ml-md text-grey-7" v-if="eventData.slug && eventData.sourceType !== 'bluesky'">
+                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
+                  This is a local-only event.
+                </p>
+              </div>
 
-              <q-tab-panel name="preview" class="q-pa-none">
-                <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
-                  <q-markdown
-                    :src="eventData.description || '*No content yet*'"
-                    class="text-body1 description-preview"
-                  />
-                </div>
-              </q-tab-panel>
-            </q-tab-panels>
-          </div>
-        </q-card-section>
-      </q-card>
+              <!-- Event Visibility -->
+              <div class="q-mb-md">
+                <q-select
+                  data-cy="event-visibility"
+                  v-model="eventData.visibility"
+                  label="Visibility"
+                  option-value="value"
+                  option-label="label"
+                  emit-value
+                  map-options
+                  :options="visibilityOptions"
+                  :disable="publishToBluesky"
+                  filled
+                />
+                <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
+                  Private events are hidden from search and accessible only by direct link or group members.
+                </p>
+                <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Public">
+                  Public events are visible to everyone and appear in search results.
+                </p>
+                <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Unlisted">
+                  Unlisted events are hidden from search but anyone with the link can view them.
+                </p>
+                <p class="text-caption q-mt-sm text-info">
+                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
+                  Private events with invitations launching soon. Use "Unlisted" for now.
+                </p>
+                <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
+                  <q-icon name="sym_r_warning" size="xs" aria-hidden="true" />
+                  This event will only be created on OpenMeet (not published to Bluesky) because it is not public.
+                </p>
+              </div>
 
-      <!-- Event Type and Location -->
-      <q-card class="q-mb-md">
+              <!-- Attendee Settings -->
+              <q-separator spaced />
+              <div class="text-subtitle2 q-my-sm q-pl-sm">Attendee Settings</div>
+
+              <div class="q-mb-md">
+                <!-- Max Attendees -->
+                <q-toggle data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
+                  @update:model-value="eventData.maxAttendees = Number($event)" label="Limit number of attendees?" />
+                <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees"
+                  v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled type="number" class="q-mt-sm" :rules="[
+                    (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
+                  ]" />
+                <!-- Event Waitlist -->
+                <div class="q-mt-sm">
+                  <q-toggle v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
+                    @update:model-value="eventData.allowWaitlist = $event" label="Enable waitlist?" />
+                </div>
+              </div>
+
+              <!-- Group Membership -->
+              <div class="q-mb-md" v-if="eventData.group">
+                <q-toggle data-cy="event-require-group-membership"
+                  :model-value="!!eventData.requireGroupMembership"
+                  @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
+              </div>
+
+              <!-- Approval Settings -->
+              <q-separator spaced />
+              <div class="text-subtitle2 q-my-sm q-pl-sm">Approval Settings</div>
+
+              <div>
+                <q-toggle data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
+                  @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
+
+                <!-- If require approval, show approval question -->
+                <q-input type="textarea" counter maxlength="255" v-if="eventData.requireApproval"
+                  data-cy="event-approval-question" v-model="eventData.approvalQuestion" label="Approval Question"
+                  filled class="q-mt-sm" />
+              </div>
+            </q-card-section>
+          </q-card>
+
+        </div>
+      </div>
+
+      <!-- Full Width: Location Card -->
+      <q-card class="q-mb-md" data-cy="location-card" role="group" aria-labelledby="location-heading">
         <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_location_on" class="q-mr-sm" />
+          <div id="location-heading" class="text-h6 q-mb-md">
+            <q-icon name="sym_r_location_on" class="q-mr-sm" aria-hidden="true" />
             Event Type & Location
           </div>
 
@@ -234,137 +285,91 @@
           <LocationComponent data-cy="event-location" :location="eventData.location as string"
             :lat="eventData.lat as number" :lon="eventData.lon as number"
             v-if="eventData.type && ['in-person', 'hybrid'].includes(eventData.type)" @update:model-value="onUpdateLocation"
-            label="Address or location" class="q-mt-md" />
+            label="Address or location" class="q-mt-md" :show-inline-map="true" />
         </q-card-section>
       </q-card>
 
-      <!-- Event Category -->
-      <q-card class="q-mb-md">
+      <!-- Full Width: Image Card -->
+      <q-card class="q-mb-md" data-cy="image-card" role="group" aria-labelledby="image-heading">
         <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_category" class="q-mr-sm" />
-            Categories
-          </div>
-          <q-select data-cy="event-categories" v-model="eventData.categories" :options="categoryOptions"
-            filled multiple use-chips option-value="id" option-label="name" label="Event Categories" />
-        </q-card-section>
-      </q-card>
-
-      <!-- Event Settings -->
-      <q-card class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_settings" class="q-mr-sm" />
-            Event Settings
+          <div id="image-heading" class="text-h6 q-mb-md">
+            <q-icon name="sym_r_image" class="q-mr-sm" aria-hidden="true" />
+            Event Image
           </div>
 
-          <!-- Bluesky Publishing Toggle (only shown if user has Bluesky connected) -->
-          <div v-if="authStore.getBlueskyDid && authStore.getBlueskyDid !== 'undefined'" class="q-mb-md">
-            <q-checkbox
-              data-cy="event-publish-to-bluesky"
-              v-model="publishToBluesky"
-              :disable="!!eventData.slug"
-              label="Publish to AT Protocol"
-            />
-            <p class="text-caption q-mt-xs q-ml-md text-warning" v-if="!eventData.slug">
-              <q-icon name="sym_r_warning" size="xs" />
-              This choice cannot be changed after the event is created.
-            </p>
-            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky && !eventData.slug">
-              <q-icon name="sym_r_info" size="xs" />
-              Bluesky events must be public. The visibility will be locked to "The World".
-            </p>
-            <p class="text-caption q-mt-xs q-ml-md text-info" v-if="eventData.slug && eventData.sourceType === 'bluesky'">
-              <q-icon name="sym_r_info" size="xs" />
-              This event is published to Bluesky and will remain linked to the Bluesky post.
-            </p>
-            <p class="text-caption q-mt-xs q-ml-md text-grey-7" v-if="eventData.slug && eventData.sourceType !== 'bluesky'">
-              <q-icon name="sym_r_info" size="xs" />
-              This is a local-only event.
-            </p>
-          </div>
+          <div class="row items-center q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" />
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Recommended: 1920x1080 pixels (16:9 ratio). Images will be cropped to fit.
+              </div>
+            </div>
 
-          <!-- Event Visibility -->
-          <div class="q-mb-md">
-            <div class="text-subtitle2 q-mb-sm">Visibility</div>
-            <q-select
-              data-cy="event-visibility"
-              v-model="eventData.visibility"
-              label="Event Viewable By"
-              option-value="value"
-              option-label="label"
-              emit-value
-              map-options
-              :options="visibilityOptions"
-              :disable="publishToBluesky"
-              filled
-            />
-            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
-              Private events are hidden from search and accessible only by direct link or group members.
-            </p>
-            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Public">
-              Public events are visible to everyone and appear in search results.
-            </p>
-            <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Unlisted">
-              Unlisted events are hidden from search but anyone with the link can view them.
-            </p>
-            <p class="text-caption q-mt-sm text-info">
-              <q-icon name="sym_r_info" size="xs" />
-              Private events with invitations launching soon. Use "Anyone with Link" for now.
-            </p>
-            <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
-              <q-icon name="sym_r_warning" size="xs" />
-              This event will only be created on OpenMeet (not published to Bluesky) because it is not public.
-            </p>
-          </div>
-
-          <!-- Attendee Settings -->
-          <q-separator spaced />
-          <div class="text-subtitle2 q-my-sm">Attendee Settings</div>
-
-          <div class="q-mb-md">
-            <!-- Max Attendees -->
-            <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
-              @update:model-value="eventData.maxAttendees = Number($event)" label="Limit number of attendees?" />
-            <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees"
-              v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled type="number" class="q-mt-sm" :rules="[
-                (val: number) => val > 0 || 'Maximum attendees must be greater than 0',
-              ]" />
-            <!-- Event Waitlist -->
-            <div class="q-mt-sm">
-              <q-checkbox v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
-                @update:model-value="eventData.allowWaitlist = $event" label="Enable waitlist?" />
+            <div class="col-12 col-sm-6" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path">
+              <q-img ratio="16/9" :src="eventData.image.path" spinner-color="white"
+                class="rounded-borders" style="height: 120px; max-width: 220px" />
             </div>
           </div>
+        </q-card-section>
+      </q-card>
 
-          <!-- Group Membership -->
-          <div class="q-mb-md" v-if="eventData.group">
-            <q-checkbox data-cy="event-require-group-membership"
-              :model-value="!!eventData.requireGroupMembership"
-              @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
+      <!-- Full Width: Description Card -->
+      <q-card class="q-mb-md" data-cy="description-card" role="group" aria-labelledby="description-heading">
+        <q-card-section>
+          <div id="description-heading" class="text-h6 q-mb-md">
+            <q-icon name="sym_r_description" class="q-mr-sm" aria-hidden="true" />
+            Event Description
           </div>
 
-          <!-- Approval Settings -->
-          <q-separator spaced />
-          <div class="text-subtitle2 q-my-sm">Approval Settings</div>
+          <q-tabs
+            v-model="descriptionTab"
+            no-caps
+            align="left"
+            indicator-color="primary"
+          >
+            <q-tab name="edit" label="Edit" icon="sym_r_edit" />
+            <q-tab name="preview" label="Preview" icon="sym_r_visibility" />
+          </q-tabs>
 
-          <div>
-            <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
-              @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
+          <q-separator />
 
-            <!-- If require approval, show approval question -->
-            <q-input type="textarea" counter maxlength="255" v-if="eventData.requireApproval"
-              data-cy="event-approval-question" v-model="eventData.approvalQuestion" label="Approval Question"
-              filled class="q-mt-sm" />
-          </div>
+          <q-tab-panels v-model="descriptionTab" animated>
+            <q-tab-panel name="edit" class="q-pa-none">
+              <q-input
+                data-cy="event-description"
+                filled
+                type="textarea"
+                v-model="eventData.description"
+                label="Event description *"
+                counter
+                maxlength="2000"
+                autogrow
+                input-style="min-height: 80px"
+                class="q-mt-sm"
+                :rules="[(val: string) => !!val && val.trim().length > 0 || 'Description is required']"
+              />
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Supports <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener">Markdown</a>: **bold**, *italic*, [links](url), - bullets
+              </div>
+            </q-tab-panel>
+
+            <q-tab-panel name="preview" class="q-pa-none">
+              <div class="q-pa-md markdown-preview rounded-borders q-mt-sm">
+                <q-markdown
+                  :src="eventData.description || '*No content yet*'"
+                  class="text-body1 description-preview"
+                />
+              </div>
+            </q-tab-panel>
+          </q-tab-panels>
         </q-card-section>
       </q-card>
 
       <!-- Notification Settings (only shown when editing an event) -->
-      <q-card class="q-mb-md" v-if="eventData.slug">
+      <q-card class="q-mb-md" v-if="eventData.slug" data-cy="notifications-card" role="group" aria-labelledby="notifications-heading">
         <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_notifications" class="q-mr-sm" />
+          <div id="notifications-heading" class="text-h6 q-mb-md">
+            <q-icon name="sym_r_notifications" class="q-mr-sm" aria-hidden="true" />
             Update Notifications
           </div>
 
@@ -382,11 +387,11 @@
       </q-card>
 
       <!-- Action buttons -->
-      <div class="row justify-end q-gutter-md">
-        <q-btn data-cy="event-cancel" no-caps flat label="Cancel" @click="$emit('close')" />
-        <q-btn data-cy="event-save-draft" no-caps label="Save as draft"
-          v-if="!eventData.status || eventData.status !== 'published'" color="secondary" @click="onSaveDraft" />
-        <q-btn data-cy="event-publish" no-caps :label="isRecurring ? 'Publish Series' : 'Publish'" color="primary"
+      <div class="row justify-center q-gutter-md q-mt-md">
+        <q-btn data-cy="event-cancel" no-caps outline label="Cancel" @click="$emit('close')" />
+        <q-btn data-cy="event-save-draft" no-caps outline label="Save as draft"
+          v-if="canSaveAsDraft" @click="onSaveDraft" />
+        <q-btn data-cy="event-publish" no-caps color="primary" :label="isRecurring ? 'Publish Series' : 'Publish'"
           @click="onPublish" />
       </div>
     </q-form>
@@ -439,9 +444,9 @@ const sendNotifications = ref<boolean>(false)
 // Computed visibility options - disable non-public when publishing to Bluesky
 const visibilityOptions = computed(() => {
   const baseOptions = [
-    { label: 'The World', value: 'public', disable: false },
-    { label: 'Anyone with Link', value: 'unlisted', disable: publishToBluesky.value },
-    { label: 'People You Invite - Coming soon!', value: 'private', disable: true }
+    { label: 'Public', value: 'public', disable: false },
+    { label: 'Unlisted', value: 'unlisted', disable: publishToBluesky.value },
+    { label: 'Private (Coming soon)', value: 'private', disable: true }
   ]
   return baseOptions
 })
@@ -484,12 +489,30 @@ const seriesFormData = ref({
 // Tab for description editor (edit/preview)
 const descriptionTab = ref('edit')
 
+// Track the intended submit action to avoid setting status before validation
+const pendingSubmitAction = ref<'publish' | 'draft' | null>(null)
+
+// Track the original event status from server (not affected by form interactions)
+// This determines if Save as Draft button should be shown
+const originalEventStatus = ref<EventStatus | null>(null)
+
+// Computed property to determine if Save as Draft should be shown
+// Based on original status, not current in-flight status
+const canSaveAsDraft = computed(() => {
+  // Can save as draft if this is a new event OR was originally a draft
+  // Cannot save as draft if event was already published
+  return !originalEventStatus.value || originalEventStatus.value !== EventStatus.Published
+})
+
 // Store the displayed start and end times
 const displayedStartTime = ref<string>('')
 const displayedEndTime = ref<string>('')
 
 // --- NEW: Local state for end date checkbox ---
 const hasEndDate = ref(!!eventData.value.endDate)
+
+// End date validation error state
+const endDateError = ref<string>('')
 
 // Reference to recurrence component for accessing occurrence preview
 const recurrenceComponentRef = ref<InstanceType<typeof RecurrenceComponentType> | null>(null)
@@ -571,13 +594,52 @@ watch(() => eventData.value.sourceType, (sourceType) => {
   }
 }, { immediate: true })
 
-const onSaveDraft = () => {
-  eventData.value.status = EventStatus.Draft
+// Watch for end date changes to validate against start date
+watch([() => eventData.value.endDate, () => eventData.value.startDate], ([newEndDate, newStartDate]) => {
+  // Only validate if both dates are set and hasEndDate is enabled
+  if (hasEndDate.value && newEndDate && newStartDate) {
+    const startMs = new Date(newStartDate).getTime()
+    const endMs = new Date(newEndDate).getTime()
+    if (endMs <= startMs) {
+      endDateError.value = 'End time must be after start time'
+    } else {
+      endDateError.value = ''
+    }
+  } else {
+    endDateError.value = ''
+  }
+})
+
+/**
+ * Scrolls to and focuses the first form field with an error.
+ * Called when form validation fails to help the user find the error.
+ */
+const scrollToFirstError = () => {
+  const firstError = document.querySelector('.q-field--error')
+  if (firstError) {
+    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const input = firstError.querySelector('input, textarea') as HTMLElement | null
+    input?.focus()
+  }
+}
+
+const onSaveDraft = async () => {
+  pendingSubmitAction.value = 'draft'
+  const isValid = await formRef.value?.validate()
+  if (!isValid) {
+    scrollToFirstError()
+    return
+  }
   formRef.value?.submit()
 }
 
-const onPublish = () => {
-  eventData.value.status = EventStatus.Published
+const onPublish = async () => {
+  pendingSubmitAction.value = 'publish'
+  const isValid = await formRef.value?.validate()
+  if (!isValid) {
+    scrollToFirstError()
+    return
+  }
   formRef.value?.submit()
 }
 
@@ -622,6 +684,8 @@ onMounted(() => {
     promises.push(
       eventsApi.edit(props.editEventSlug).then(res => {
         eventData.value = res.data
+        // Track original status to determine if Save as Draft should be shown
+        originalEventStatus.value = res.data.status || null
       })
     )
   }
@@ -754,6 +818,16 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const onSubmit = async () => {
+  // Apply the status based on the pending action (publish or draft)
+  // This ensures status is only set AFTER form validation passes
+  if (pendingSubmitAction.value === 'publish') {
+    eventData.value.status = EventStatus.Published
+  } else if (pendingSubmitAction.value === 'draft') {
+    eventData.value.status = EventStatus.Draft
+  }
+  // Reset the pending action
+  pendingSubmitAction.value = null
+
   // Validate end date is after start date if both are present
   if (eventData.value.startDate && eventData.value.endDate) {
     const startMs = new Date(eventData.value.startDate).getTime()
@@ -1237,14 +1311,15 @@ defineExpose({
   setEndDate,
   refreshOccurrencesPreview,
   sendNotifications,
-  onPublish
-  // Add more helpers as needed
+  onPublish,
+  scrollToFirstError,
+  endDateError
 })
 </script>
 
 <style scoped lang="scss">
 .c-event-form-basic-component {
-  max-width: 900px;
+  max-width: 1200px;
 }
 
 .markdown-preview {

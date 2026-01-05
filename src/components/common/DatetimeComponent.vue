@@ -1,5 +1,6 @@
 <template>
   <div data-cy="datetime-component">
+    <div v-if="label" class="text-subtitle2 q-mb-sm q-pl-sm">{{ label }}</div>
     <div class="datetime-fields-row">
       <!-- Date input -->
       <q-input
@@ -35,7 +36,6 @@
         v-model="localTime"
         label="Time"
         placeholder="e.g. 5:00 AM or 17:00"
-        style="width: 110px; min-width: 110px"
         @update:model-value="onTimeInputChange"
         @blur="updateTime"
         @keyup.enter="updateTime"
@@ -538,8 +538,30 @@ function finishDateEditing () {
   // Canonicalize/parse the date input (editableDate) and update localDate
   if (!editableDate.value) return
   try {
-    const input = editableDate.value.trim()
+    let input = editableDate.value.trim()
     logger.debug('[DatetimeComponent] finishDateEditing - Raw input:', input)
+
+    // Normalize common month name variations to standard 3-letter abbreviations
+    const monthNormalizations: Record<string, string> = {
+      sept: 'Sep',
+      january: 'Jan',
+      february: 'Feb',
+      march: 'Mar',
+      april: 'Apr',
+      june: 'Jun',
+      july: 'Jul',
+      august: 'Aug',
+      september: 'Sep',
+      october: 'Oct',
+      november: 'Nov',
+      december: 'Dec'
+    }
+    for (const [variant, standard] of Object.entries(monthNormalizations)) {
+      const regex = new RegExp(`\\b${variant}\\b`, 'gi')
+      input = input.replace(regex, standard)
+    }
+    logger.debug('[DatetimeComponent] finishDateEditing - Normalized input:', input)
+
     let parsedDate = null
     const dateFormats = [
       'yyyy-MM-dd', 'MM/dd/yyyy', 'MMM d, yyyy', 'MMMM d, yyyy', 'MMM d', 'MMMM d', 'M/d/yyyy', 'M/d', 'd MMM yyyy', 'd MMM', 'MM/dd', 'M/d', 'MMM d', 'MMMM d'
@@ -619,15 +641,30 @@ defineExpose({
   align-items: flex-end;
   gap: 12px;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 .date-input {
   flex: 2 1 220px;
   min-width: 180px;
 }
 .time-input {
-  flex: 1 1 110px;
-  min-width: 90px;
-  max-width: 140px;
+  flex: 1 1 120px;
+  min-width: 100px;
+  max-width: 160px;
+}
+
+/* Mobile: stack date and time vertically */
+@media (max-width: 480px) {
+  .datetime-fields-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .date-input,
+  .time-input {
+    flex: 1 1 auto;
+    min-width: 100%;
+    max-width: 100%;
+  }
 }
 .q-input {
   transition: all 0.3s ease;

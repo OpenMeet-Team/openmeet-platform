@@ -1,15 +1,13 @@
 <template>
-  <q-page data-cy="dashboard-event-page" padding class="c-dashboard-event-page q-pb-xl">
-    <div class="q-mx-auto" style="max-width: 1024px">
+  <q-page data-cy="dashboard-event-page" padding class="c-dashboard-event-page q-pb-xl q-mx-auto" style="max-width: 1200px;">
+    <div class="q-mx-auto">
       <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Edit Event" />
 
-      <div class="row justify-center">
-        <EventFormBasicComponent class="q-mt-md col" style="max-width: 500px"
-          @updated="navigateToEvent($event)"
-          @created="navigateToEvent($event)"
-          :edit-event-slug="route.params.slug as string"
-          @close="router.push({ name: 'DashboardEventsPage' })" />
-      </div>
+      <EventFormBasicComponent class="q-mt-md"
+        @updated="navigateToEvent($event)"
+        @created="navigateToEvent($event)"
+        :edit-event-slug="route.params.slug as string"
+        @close="router.push({ name: 'DashboardEventsPage' })" />
     </div>
   </q-page>
 </template>
