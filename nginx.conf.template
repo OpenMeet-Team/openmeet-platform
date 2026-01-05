@@ -2,6 +2,23 @@
 # Bot Detection & Meta Tag Routing
 # See design-notes/link-preview-meta-tags.md for architecture details
 
+# X-Robots-Tag header for search engine indexing control
+# Uses APP_NOINDEX env var (same as client-side config.json pattern)
+# Default: noindex (safe for dev/staging) - protects non-prod from being indexed
+# Prod sets APP_NOINDEX=false to allow indexing
+# Using geo to create a constant variable from the env var
+geo $app_noindex {
+    default "${APP_NOINDEX}";
+}
+
+# Map APP_NOINDEX value to X-Robots-Tag header value
+# If APP_NOINDEX is "false", no header (allows indexing)
+# Otherwise, add noindex header (blocks indexing)
+map $app_noindex $robots_header {
+    "false"  "";
+    default  "noindex, nofollow";
+}
+
 # Detect common bots/crawlers via User-Agent
 # Updated 2025-11-08: Expanded to 100+ patterns for comprehensive coverage
 # See: https://github.com/monperrus/crawler-user-agents
@@ -229,6 +246,17 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
+    # X-Robots-Tag header for search engine indexing control
+    # Value is set by $robots_header variable (mapped from APP_NOINDEX env var)
+    # Empty value = no header added = allows indexing
+    add_header X-Robots-Tag $robots_header;
+
+    # Trailing slash redirect - avoid duplicate content issues
+    # Redirects /events/ to /events (301 permanent redirect)
+    location ~ ^(.+)/$ {
+        return 301 $scheme://$http_host$1$is_args$args;
+    }
+
     # --- Meta Tag Routes (Events & Groups) ---
     # Route bots to API, humans to SPA
     location ~ ^/(events|groups)/[^/]+$ {
@@ -256,18 +284,21 @@ server {
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Robots-Tag $robots_header;
         try_files $uri =404;
     }
 
     location /icons/ {
         expires 1y;
         add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Robots-Tag $robots_header;
         try_files $uri =404;
     }
 
     location /fonts/ {
         expires 1y;
         add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Robots-Tag $robots_header;
         try_files $uri =404;
     }
 
@@ -278,6 +309,8 @@ server {
 
         # Don't cache index.html (allows deployments without cache busting)
         add_header Cache-Control "no-cache, must-revalidate";
+        # X-Robots-Tag (must repeat here since add_header above clears inheritance)
+        add_header X-Robots-Tag $robots_header;
     }
 
     # --- Health Check ---

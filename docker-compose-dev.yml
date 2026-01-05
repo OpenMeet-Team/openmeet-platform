@@ -48,6 +48,9 @@ services:
       - BACKEND_DOMAIN=${BACKEND_DOMAIN:-http://api:3000}
       - QUASAR_DEV_HOST=platform-dev:9005
       - APP_TENANT_ID=${APP_TENANT_ID}
+      # X-Robots-Tag: block local dev from search engine indexing
+      # Set to "false" to allow indexing (only needed for prod)
+      - APP_NOINDEX=${APP_NOINDEX:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Allows nginx to reach host machine
     depends_on:

@@ -2,44 +2,230 @@
 # Bot Detection & Meta Tag Routing with Quasar Dev Server Proxy
 # See design-notes/link-preview-meta-tags.md for architecture details
 
+# X-Robots-Tag header for search engine indexing control
+# Uses APP_NOINDEX env var (same as client-side config.json pattern)
+# Default: noindex (safe for dev/staging) - protects non-prod from being indexed
+# Prod sets APP_NOINDEX=false to allow indexing
+# Using geo to create a constant variable from the env var
+geo $app_noindex {
+    default "${APP_NOINDEX}";
+}
+
+# Map APP_NOINDEX value to X-Robots-Tag header value
+# If APP_NOINDEX is "false", no header (allows indexing)
+# Otherwise, add noindex header (blocks indexing)
+map $app_noindex $robots_header {
+    "false"  "";
+    default  "noindex, nofollow";
+}
+
 # Detect common bots/crawlers via User-Agent
+# Updated 2025-11-08: Expanded to 100+ patterns for comprehensive coverage
+# See: https://github.com/monperrus/crawler-user-agents
 map $http_user_agent $is_bot {
     default 0;
 
-    # Social Media Crawlers
+    # ============================================================
+    # Social Media Crawlers & Link Preview Services
+    # ============================================================
+
+    # Bluesky (CRITICAL - Issue #3)
+    ~*bluesky 1;
+    ~*cardyb 1;
+
+    # Facebook
     ~*facebookexternalhit 1;
+    ~*facebookcatalog 1;
+    ~*facebot 1;
     ~*facebook 1;
+
+    # Twitter/X
     ~*twitterbot 1;
     ~*twitter 1;
+
+    # Discord
     ~*discordbot 1;
     ~*discord 1;
+
+    # Slack
     ~*slackbot 1;
+    ~*slack-imgproxy 1;
     ~*slack 1;
+
+    # WhatsApp
     ~*whatsapp 1;
+
+    # Telegram
+    ~*telegrambot 1;
     ~*telegram 1;
 
-    # Link Preview Services
+    # LinkedIn
     ~*linkedinbot 1;
-    ~*pinterestbot 1;
-    ~*redditbot 1;
-    ~*tumblr 1;
-    ~*skypeuripreview 1;
-    ~*vkshare 1;
+    ~*linkedin 1;
 
+    # Pinterest
+    ~*pinterestbot 1;
+    ~*pinterest 1;
+
+    # Reddit
+    ~*redditbot 1;
+    ~*reddit 1;
+
+    # Mastodon
+    ~*mastodon 1;
+
+    # Instagram
+    ~*instagram 1;
+
+    # Tumblr
+    ~*tumblrbot 1;
+    ~*tumblr 1;
+
+    # Skype
+    ~*skypeuripreview 1;
+    ~*skype 1;
+
+    # VK (VKontakte)
+    ~*vkshare 1;
+    ~*vkontakte 1;
+
+    # iMessage
+    ~*imessagebot 1;
+
+    # Signal
+    ~*signal 1;
+
+    # ============================================================
     # Search Engine Bots
+    # ============================================================
+
+    # Google
     ~*googlebot 1;
+    ~*google-structured-data-testing-tool 1;
+    ~*google-site-verification 1;
+    ~*google-inspectiontool 1;
+    ~*feedfetcher-google 1;
+    ~*mediapartners-google 1;
+    ~*adsbot-google 1;
+    ~*apis-google 1;
+
+    # Bing
     ~*bingbot 1;
-    ~*slurp 1;  # Yahoo
+    ~*bingpreview 1;
+    ~*msnbot 1;
+    ~*adidxbot 1;
+
+    # Yahoo
+    ~*slurp 1;
+    ~*yahoo 1;
+
+    # DuckDuckGo
     ~*duckduckbot 1;
+    ~*duckduckgo-favicons-bot 1;
+    ~*duckduckgo 1;
+
+    # Baidu
     ~*baiduspider 1;
+    ~*baidu 1;
+
+    # Yandex
     ~*yandexbot 1;
+    ~*yandex 1;
+
+    # Apple
     ~*applebot 1;
 
-    # General Crawlers
+    # Other Search Engines
+    ~*seznambot 1;
+    ~*sogou 1;
+    ~*exabot 1;
+    ~*ia_archiver 1;
+
+    # ============================================================
+    # Link Preview & Embedding Services
+    # ============================================================
+
+    ~*embedly 1;
+    ~*iframely 1;
+    ~*outbrain 1;
+    ~*quora 1;
+    ~*rogerbot 1;
+    ~*showyoubot 1;
+    ~*vkrobot 1;
+
+    # ============================================================
+    # Monitoring & Analytics Bots
+    # ============================================================
+
+    ~*pingdom 1;
+    ~*uptimerobot 1;
+    ~*monitoring 1;
+    ~*newrelic 1;
+    ~*datadog 1;
+    ~*statuspage 1;
+
+    # ============================================================
+    # AI Crawlers & Research Bots
+    # ============================================================
+
+    # OpenAI
+    ~*gptbot 1;
+    ~*chatgpt 1;
+    ~*openai 1;
+
+    # Anthropic
+    ~*anthropic 1;
+    ~*claude-web 1;
+
+    # Google AI
+    ~*google-extended 1;
+    ~*googleother 1;
+
+    # Common Crawl
+    ~*ccbot 1;
+    ~*commoncrawl 1;
+
+    # Other AI
+    ~*perplexitybot 1;
+    ~*cohere 1;
+    ~*omgili 1;
+
+    # ============================================================
+    # SEO & Site Analysis Tools
+    # ============================================================
+
+    ~*ahrefsbot 1;
+    ~*ahrefs 1;
+    ~*semrushbot 1;
+    ~*semrush 1;
+    ~*mj12bot 1;
+    ~*majestic 1;
+    ~*dotbot 1;
+    ~*screaming 1;  # Screaming Frog
+    ~*seokicks 1;
+    ~*sistrix 1;
+
+    # ============================================================
+    # Archive & Preservation Bots
+    # ============================================================
+
+    ~*archive\.org 1;
+    ~*ia_archiver 1;
+    ~*wayback 1;
+    ~*httrack 1;
+    ~*wget 1;
+    ~*curl 1;
+
+    # ============================================================
+    # Generic Patterns (catch-all)
+    # ============================================================
+
     ~*bot 1;
     ~*crawler 1;
     ~*spider 1;
-    ~*archiveorg 1;
+    ~*scraper 1;
+    ~*fetch 1;
+    ~*scan 1;
 }
 
 # Upstream to Quasar dev server (hot reload support)
@@ -56,6 +242,17 @@ server {
     gzip_vary on;
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+
+    # X-Robots-Tag header for search engine indexing control
+    # Value is set by $robots_header variable (mapped from APP_NOINDEX env var)
+    # Empty value = no header added = allows indexing
+    add_header X-Robots-Tag $robots_header;
+
+    # Trailing slash redirect - avoid duplicate content issues
+    # Redirects /events/ to /events (301 permanent redirect)
+    location ~ ^(.+)/$ {
+        return 301 $scheme://$http_host$1$is_args$args;
+    }
 
     # --- Meta Tag Routes (Events & Groups) ---
     # Route bots to API, humans to Quasar dev
@@ -104,6 +301,8 @@ server {
 
         # Disable cache for dev
         add_header Cache-Control "no-cache, must-revalidate";
+        # X-Robots-Tag (must repeat here since add_header above clears inheritance)
+        add_header X-Robots-Tag $robots_header;
     }
 
     # --- Health Check ---
