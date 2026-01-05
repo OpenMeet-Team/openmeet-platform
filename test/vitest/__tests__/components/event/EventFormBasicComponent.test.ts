@@ -391,9 +391,9 @@ describe('EventFormBasicComponent - Layout and Accessibility', () => {
     const settingsCard = rightColumn.find('[data-cy="event-settings-card"]')
     expect(settingsCard.exists()).toBe(true)
 
-    // Categories card should be in this column
-    const categoriesCard = rightColumn.find('[data-cy="categories-card"]')
-    expect(categoriesCard.exists()).toBe(true)
+    // Categories should be present somewhere on the form
+    const categoriesSelect = wrapper.find('[data-cy="event-categories"]')
+    expect(categoriesSelect.exists()).toBe(true)
   })
 
   it('should have cards with role="group" and aria-labelledby attributes', async () => {
@@ -415,11 +415,9 @@ describe('EventFormBasicComponent - Layout and Accessibility', () => {
     expect(settingsCard.attributes('role')).toBe('group')
     expect(settingsCard.attributes('aria-labelledby')).toBe('event-settings-heading')
 
-    // Check Categories card
-    const categoriesCard = wrapper.find('[data-cy="categories-card"]')
-    expect(categoriesCard.exists()).toBe(true)
-    expect(categoriesCard.attributes('role')).toBe('group')
-    expect(categoriesCard.attributes('aria-labelledby')).toBe('categories-heading')
+    // Categories is now part of Basic Information card (no separate card)
+    const categoriesSelect = wrapper.find('[data-cy="event-categories"]')
+    expect(categoriesSelect.exists()).toBe(true)
 
     // Check Location card
     const locationCard = wrapper.find('[data-cy="location-card"]')

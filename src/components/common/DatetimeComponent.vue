@@ -1,5 +1,6 @@
 <template>
   <div data-cy="datetime-component">
+    <div v-if="label" class="text-subtitle2 q-mb-sm q-pl-sm">{{ label }}</div>
     <div class="datetime-fields-row">
       <!-- Date input -->
       <q-input
@@ -537,8 +538,30 @@ function finishDateEditing () {
   // Canonicalize/parse the date input (editableDate) and update localDate
   if (!editableDate.value) return
   try {
-    const input = editableDate.value.trim()
+    let input = editableDate.value.trim()
     logger.debug('[DatetimeComponent] finishDateEditing - Raw input:', input)
+
+    // Normalize common month name variations to standard 3-letter abbreviations
+    const monthNormalizations: Record<string, string> = {
+      sept: 'Sep',
+      january: 'Jan',
+      february: 'Feb',
+      march: 'Mar',
+      april: 'Apr',
+      june: 'Jun',
+      july: 'Jul',
+      august: 'Aug',
+      september: 'Sep',
+      october: 'Oct',
+      november: 'Nov',
+      december: 'Dec'
+    }
+    for (const [variant, standard] of Object.entries(monthNormalizations)) {
+      const regex = new RegExp(`\\b${variant}\\b`, 'gi')
+      input = input.replace(regex, standard)
+    }
+    logger.debug('[DatetimeComponent] finishDateEditing - Normalized input:', input)
+
     let parsedDate = null
     const dateFormats = [
       'yyyy-MM-dd', 'MM/dd/yyyy', 'MMM d, yyyy', 'MMMM d, yyyy', 'MMM d', 'MMMM d', 'M/d/yyyy', 'M/d', 'd MMM yyyy', 'd MMM', 'MM/dd', 'M/d', 'MMM d', 'MMMM d'

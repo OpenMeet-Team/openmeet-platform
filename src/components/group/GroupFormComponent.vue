@@ -14,7 +14,7 @@
               </div>
 
               <!-- Group Name -->
-              <q-input data-cy="group-name" filled v-model="group.name" label="Group Name" counter maxlength="60"
+              <q-input data-cy="group-name" filled v-model="group.name" label="Group Name *" counter maxlength="60"
                 :rules="[(val: string) => !!val || 'Group name is required']" class="q-mb-md" />
 
               <!-- Group Categories -->
@@ -28,23 +28,6 @@
                 <LocationComponent data-cy="group-location" :location="group.location as string" :lat="group.lat as number"
                   :lon="group.lon as number" @update:model-value="onUpdateLocation" label="Group Address or location"
                   placeholder="Enter address or location" />
-              </div>
-
-              <!-- Group Image -->
-              <div class="q-mb-md">
-                <div class="text-subtitle2 q-mb-sm q-pl-sm">Group Image</div>
-
-                <div class="row items-center q-col-gutter-md">
-                  <div class="col-12 col-sm-6">
-                    <UploadComponent label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
-                      @upload="onGroupImageSelect" />
-                  </div>
-
-                  <div class="col-12 col-sm-6" v-if="group && group.image && group.image.path">
-                    <q-img ratio="3/2" :src="group.image.path" spinner-color="white"
-                      class="rounded-borders" style="height: 120px; max-width: 180px" />
-                  </div>
-                </div>
               </div>
             </q-card-section>
           </q-card>
@@ -61,7 +44,6 @@
 
               <!-- Group Visibility -->
               <div class="q-mb-md">
-                <div class="text-subtitle2 q-mb-sm q-pl-sm">Visibility</div>
                 <q-select data-cy="group-visibility" v-model="group.visibility" label="Visibility" option-value="value"
                   option-label="label" emit-value map-options :options="[
                     { label: 'Public', value: 'public', disable: false },
@@ -93,6 +75,31 @@
         </div>
       </div>
 
+      <!-- Full Width: Group Image Card -->
+      <q-card class="q-mb-md" data-cy="image-card" role="group" aria-labelledby="image-heading">
+        <q-card-section>
+          <div id="image-heading" class="text-h6 q-mb-md">
+            <q-icon name="sym_r_image" class="q-mr-sm" aria-hidden="true" />
+            Group Image
+          </div>
+
+          <div class="row items-center q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <UploadComponent data-cy="group-image" label="Group image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }"
+                @upload="onGroupImageSelect" />
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Recommended: 1920x1080 pixels (16:9 ratio). Images will be cropped to fit.
+              </div>
+            </div>
+
+            <div class="col-12 col-sm-6" v-if="group && group.image && group.image.path">
+              <q-img ratio="16/9" :src="group.image.path" spinner-color="white"
+                class="rounded-borders" style="height: 120px; max-width: 220px" />
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+
       <!-- Full Width: Group Description Card -->
       <q-card class="q-mb-md" role="group" aria-labelledby="description-heading">
         <q-card-section>
@@ -120,7 +127,7 @@
                 filled
                 type="textarea"
                 v-model="group.description"
-                label="Group description"
+                label="Group description *"
                 counter
                 maxlength="2000"
                 autogrow

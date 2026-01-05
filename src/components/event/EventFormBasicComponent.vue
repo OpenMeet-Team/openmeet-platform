@@ -16,7 +16,7 @@
               </div>
 
               <!-- Event Name -->
-              <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title" filled maxlength="80" counter
+              <q-input data-cy="event-name-input" v-model="eventData.name" label="Event Title *" filled maxlength="80" counter
                 :rules="[(val: string) => !!val || 'Title is required']" class="q-mb-md" />
 
               <!-- Event Group -->
@@ -24,13 +24,17 @@
                 :options="groupsOptions" filled option-value="id" option-label="name" map-options emit-value clearable
                 label="Group" class="q-mb-md" />
 
+              <!-- Event Categories -->
+              <q-select data-cy="event-categories" v-model="eventData.categories" :options="categoryOptions"
+                filled multiple use-chips option-value="id" option-label="name" label="Categories" class="q-mb-md" />
+
               <!-- Event Date and Time -->
               <div class="q-mb-md">
                 <div class="text-subtitle2 q-mb-sm q-pl-sm">Date and Time</div>
 
                 <!-- Event Start Date -->
                 <div>
-                  <DatetimeComponent data-cy="event-start-date" required label="Starting date and time"
+                  <DatetimeComponent data-cy="event-start-date" required label="Starting date and time *"
                     ref="startDateInputRef"
                     v-model="eventData.startDate" :timeZone="eventData.timeZone" @update:timeZone="eventData.timeZone = $event"
                     @update:time-info="handleStartTimeInfo"
@@ -156,7 +160,7 @@
 
               <!-- Bluesky Publishing Toggle (only shown if user has Bluesky connected) -->
               <div v-if="authStore.getBlueskyDid && authStore.getBlueskyDid !== 'undefined'" class="q-mb-md">
-                <q-checkbox
+                <q-toggle
                   data-cy="event-publish-to-bluesky"
                   v-model="publishToBluesky"
                   :disable="!!eventData.slug"
@@ -219,7 +223,7 @@
 
               <div class="q-mb-md">
                 <!-- Max Attendees -->
-                <q-checkbox data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
+                <q-toggle data-cy="event-max-attendees" :model-value="!!eventData.maxAttendees"
                   @update:model-value="eventData.maxAttendees = Number($event)" label="Limit number of attendees?" />
                 <q-input data-cy="event-max-attendees-input" v-if="eventData.maxAttendees"
                   v-model.number="eventData.maxAttendees" label="Maximum Attendees" filled type="number" class="q-mt-sm" :rules="[
@@ -227,14 +231,14 @@
                   ]" />
                 <!-- Event Waitlist -->
                 <div class="q-mt-sm">
-                  <q-checkbox v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
+                  <q-toggle v-if="eventData.maxAttendees" data-cy="event-waitlist" :model-value="!!eventData.allowWaitlist"
                     @update:model-value="eventData.allowWaitlist = $event" label="Enable waitlist?" />
                 </div>
               </div>
 
               <!-- Group Membership -->
               <div class="q-mb-md" v-if="eventData.group">
-                <q-checkbox data-cy="event-require-group-membership"
+                <q-toggle data-cy="event-require-group-membership"
                   :model-value="!!eventData.requireGroupMembership"
                   @update:model-value="eventData.requireGroupMembership = $event" label="Require group membership?" />
               </div>
@@ -244,7 +248,7 @@
               <div class="text-subtitle2 q-my-sm q-pl-sm">Approval Settings</div>
 
               <div>
-                <q-checkbox data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
+                <q-toggle data-cy="event-require-approval" :model-value="!!eventData.requireApproval"
                   @update:model-value="eventData.requireApproval = $event" label="Require approval for attendance?" />
 
                 <!-- If require approval, show approval question -->
@@ -255,17 +259,6 @@
             </q-card-section>
           </q-card>
 
-          <!-- Categories Card -->
-          <q-card class="q-mb-md" data-cy="categories-card" role="group" aria-labelledby="categories-heading">
-            <q-card-section>
-              <div id="categories-heading" class="text-h6 q-mb-md">
-                <q-icon name="sym_r_category" class="q-mr-sm" aria-hidden="true" />
-                Categories
-              </div>
-              <q-select data-cy="event-categories" v-model="eventData.categories" :options="categoryOptions"
-                filled multiple use-chips option-value="id" option-label="name" label="Event Categories" />
-            </q-card-section>
-          </q-card>
         </div>
       </div>
 
@@ -307,6 +300,9 @@
           <div class="row items-center q-col-gutter-md">
             <div class="col-12 col-sm-6">
               <UploadComponent data-cy="event-image" label="Event image" :crop-options="{ autoZoom: true, aspectRatio: 16 / 9 }" @upload="onEventImageSelect" />
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Recommended: 1920x1080 pixels (16:9 ratio). Images will be cropped to fit.
+              </div>
             </div>
 
             <div class="col-12 col-sm-6" v-if="eventData && eventData.image && typeof eventData.image === 'object' && eventData.image.path">
@@ -344,7 +340,7 @@
                 filled
                 type="textarea"
                 v-model="eventData.description"
-                label="Event description"
+                label="Event description *"
                 counter
                 maxlength="2000"
                 autogrow
