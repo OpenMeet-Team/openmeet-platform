@@ -4,7 +4,7 @@ import { installRouter } from '../../install-router'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { useNavigation } from '../../../../src/composables/useNavigation'
-import { GroupEntity, GroupVisibility, GroupStatus, EventEntity, EventStatus } from '../../../../src/types'
+import { GroupEntity, GroupVisibility, GroupStatus, EventEntity, EventStatus, UserEntity } from '../../../../src/types'
 
 installQuasarPlugin()
 installRouter({
@@ -170,7 +170,6 @@ describe('useNavigation', () => {
         })
       }
     })
-
   })
 
   describe('navigateToEvent', () => {
@@ -292,7 +291,7 @@ describe('useNavigation', () => {
       const router = wrapper.router
       const routerPush = vi.spyOn(router, 'push')
 
-      navigation!.navigateToMember({ slug: 'user-object-slug' } as { slug: string })
+      navigation!.navigateToMember({ slug: 'user-object-slug' } as unknown as UserEntity)
       await flushPromises()
 
       expect(routerPush).toHaveBeenCalledWith({

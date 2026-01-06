@@ -1,16 +1,8 @@
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { GroupEntity, EventEntity, UserEntity } from '../types'
 
 export function useNavigation () {
   const router = useRouter()
-  const route = useRoute()
-
-  /**
-   * Check if the current route is within the dashboard context
-   */
-  const isInDashboardContext = (): boolean => {
-    return route.path.startsWith('/dashboard')
-  }
 
   const navigateToGroup = (group: GroupEntity) => {
     // After creating/updating a group, always navigate to the public view page
