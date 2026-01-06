@@ -83,6 +83,9 @@
                   label="URL Slug"
                   hint="Lowercase letters, numbers, and hyphens only (3-100 characters)"
                   :rules="slugRules"
+                  :error="!!slugError"
+                  :error-message="slugError || undefined"
+                  @update:model-value="slugError = null"
                   class="q-mb-sm"
                 />
                 <p class="text-caption q-mt-xs text-grey-7">
@@ -213,6 +216,7 @@ const group = ref<GroupEntity>({
 })
 
 const loading = ref(false)
+const slugError = ref<string | null>(null)
 
 const onUpdateLocation = (address: { lat: number, lon: number, location: string }) => {
   group.value.lat = address.lat
@@ -344,9 +348,28 @@ const onSubmit = async () => {
       emit('created', res.data)
       analyticsService.trackEvent('group_created', { group_id: res.data.id, name: res.data.name })
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.log(err)
-    error('Failed to create a group')
+    // Handle specific error types
+    const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
+    if (axiosError.response?.status === 409) {
+      // Slug conflict - set field error and show notification
+      const errorMessage = axiosError.response.data?.message || 'This URL slug is already in use'
+      slugError.value = errorMessage
+      error(errorMessage + '. Please choose a different one.')
+      // Scroll to the slug field
+      await nextTick()
+      const slugField = document.querySelector('[data-cy="group-slug"]')
+      slugField?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else if (axiosError.response?.status === 422) {
+      // Validation error
+      error(axiosError.response.data?.message || 'Please check the form for validation errors.')
+    } else if (axiosError.response?.status === 403) {
+      // Forbidden - not authorized
+      error('You do not have permission to update this group.')
+    } else {
+      error(props.editGroupSlug ? 'Failed to update group' : 'Failed to create a group')
+    }
   } finally {
     Loading.hide()
   }

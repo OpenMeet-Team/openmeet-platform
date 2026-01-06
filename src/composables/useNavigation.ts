@@ -13,13 +13,9 @@ export function useNavigation () {
   }
 
   const navigateToGroup = (group: GroupEntity) => {
-    // When navigating from dashboard context, stay in dashboard and use replace
-    // to avoid back-button issues when slug changes
-    if (isInDashboardContext()) {
-      router.replace({ name: 'DashboardGroupPage', params: { slug: group.slug } })
-    } else {
-      router.push({ name: 'GroupPage', params: { slug: group.slug } })
-    }
+    // After creating/updating a group, always navigate to the public view page
+    // so the user can see the result of their changes
+    router.push({ name: 'GroupPage', params: { slug: group.slug } })
   }
 
   const navigateToEvent = (event: EventEntity) => {

@@ -69,7 +69,7 @@ describe('useNavigation', () => {
       })
     })
 
-    it('should navigate to DashboardGroupPage when on dashboard route', async () => {
+    it('should navigate to GroupPage (not DashboardGroupPage) when on dashboard route', async () => {
       let navigation: ReturnType<typeof useNavigation>
 
       const TestComponent = createTestComponent(() => {
@@ -82,24 +82,25 @@ describe('useNavigation', () => {
 
       // Get the router mock from wrapper
       const router = wrapper.router
-      const routerReplace = vi.spyOn(router, 'replace')
+      const routerPush = vi.spyOn(router, 'push')
 
       // Simulate being on a dashboard route
       await router.push({ path: '/dashboard/groups/original-group' })
       await flushPromises()
+      routerPush.mockClear()
 
       // Navigate to group with new slug
       navigation!.navigateToGroup(mockGroup)
       await flushPromises()
 
-      // Should use replace to navigate to DashboardGroupPage (to avoid back-button issues)
-      expect(routerReplace).toHaveBeenCalledWith({
-        name: 'DashboardGroupPage',
+      // Should navigate to public GroupPage so user can see their changes
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'GroupPage',
         params: { slug: 'test-group' }
       })
     })
 
-    it('should use router.replace for dashboard navigation to avoid back-button issues', async () => {
+    it('should navigate to public group page after update (even from dashboard)', async () => {
       let navigation: ReturnType<typeof useNavigation>
 
       const TestComponent = createTestComponent(() => {
@@ -111,7 +112,6 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      const routerReplace = vi.spyOn(router, 'replace')
       const routerPush = vi.spyOn(router, 'push')
 
       // Simulate being on a dashboard group edit route
@@ -119,57 +119,20 @@ describe('useNavigation', () => {
       await flushPromises()
 
       // Clear call counts after setup
-      routerReplace.mockClear()
       routerPush.mockClear()
 
-      // Navigate to updated group
+      // Navigate to updated group - should go to public view page
       navigation!.navigateToGroup({ ...mockGroup, slug: 'new-slug' })
       await flushPromises()
 
-      // Should use replace, not push
-      expect(routerReplace).toHaveBeenCalled()
-      // push should not be called for dashboard navigation
-      expect(routerPush).not.toHaveBeenCalled()
-    })
-
-    it('should detect dashboard context from various dashboard paths', async () => {
-      let navigation: ReturnType<typeof useNavigation>
-
-      const TestComponent = createTestComponent(() => {
-        navigation = useNavigation()
-        return {}
+      // Should navigate to public GroupPage so user can see their changes
+      expect(routerPush).toHaveBeenCalledWith({
+        name: 'GroupPage',
+        params: { slug: 'new-slug' }
       })
-
-      const wrapper = mount(TestComponent)
-      await flushPromises()
-
-      const router = wrapper.router
-      const routerReplace = vi.spyOn(router, 'replace')
-
-      // Test different dashboard paths
-      const dashboardPaths = [
-        '/dashboard/groups/test-group',
-        '/dashboard/groups/create',
-        '/dashboard/events',
-        '/dashboard'
-      ]
-
-      for (const path of dashboardPaths) {
-        await router.push({ path })
-        await flushPromises()
-        routerReplace.mockClear()
-
-        navigation!.navigateToGroup(mockGroup)
-        await flushPromises()
-
-        expect(routerReplace).toHaveBeenCalledWith({
-          name: 'DashboardGroupPage',
-          params: { slug: 'test-group' }
-        })
-      }
     })
 
-    it('should navigate to public page from non-dashboard routes', async () => {
+    it('should always navigate to public GroupPage regardless of current context', async () => {
       let navigation: ReturnType<typeof useNavigation>
 
       const TestComponent = createTestComponent(() => {
@@ -183,15 +146,17 @@ describe('useNavigation', () => {
       const router = wrapper.router
       const routerPush = vi.spyOn(router, 'push')
 
-      // Test different non-dashboard paths
-      const publicPaths = [
+      // Test from various paths - all should go to public GroupPage
+      const testPaths = [
+        '/dashboard/groups/test-group',
+        '/dashboard/groups/create',
+        '/dashboard/events',
+        '/dashboard',
         '/groups/some-group',
-        '/events',
-        '/',
-        '/members/user'
+        '/'
       ]
 
-      for (const path of publicPaths) {
+      for (const path of testPaths) {
         await router.push({ path })
         await flushPromises()
         routerPush.mockClear()
@@ -205,6 +170,7 @@ describe('useNavigation', () => {
         })
       }
     })
+
   })
 
   describe('navigateToEvent', () => {
