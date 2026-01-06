@@ -41,7 +41,6 @@ describe('useNavigation', () => {
 
     it('should navigate to public GroupPage when not on dashboard route', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -53,7 +52,7 @@ describe('useNavigation', () => {
 
       // Get the router mock from wrapper
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       // Simulate being on a non-dashboard route
       await router.push({ path: '/groups/some-group' })
@@ -72,7 +71,6 @@ describe('useNavigation', () => {
 
     it('should navigate to DashboardGroupPage when on dashboard route', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerReplace: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -84,7 +82,7 @@ describe('useNavigation', () => {
 
       // Get the router mock from wrapper
       const router = wrapper.router
-      routerReplace = vi.spyOn(router, 'replace')
+      const routerReplace = vi.spyOn(router, 'replace')
 
       // Simulate being on a dashboard route
       await router.push({ path: '/dashboard/groups/original-group' })
@@ -103,8 +101,6 @@ describe('useNavigation', () => {
 
     it('should use router.replace for dashboard navigation to avoid back-button issues', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerReplace: ReturnType<typeof vi.fn>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -115,8 +111,8 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerReplace = vi.spyOn(router, 'replace')
-      routerPush = vi.spyOn(router, 'push')
+      const routerReplace = vi.spyOn(router, 'replace')
+      const routerPush = vi.spyOn(router, 'push')
 
       // Simulate being on a dashboard group edit route
       await router.push({ path: '/dashboard/groups/old-slug' })
@@ -138,7 +134,6 @@ describe('useNavigation', () => {
 
     it('should detect dashboard context from various dashboard paths', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerReplace: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -149,7 +144,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerReplace = vi.spyOn(router, 'replace')
+      const routerReplace = vi.spyOn(router, 'replace')
 
       // Test different dashboard paths
       const dashboardPaths = [
@@ -176,7 +171,6 @@ describe('useNavigation', () => {
 
     it('should navigate to public page from non-dashboard routes', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -187,7 +181,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       // Test different non-dashboard paths
       const publicPaths = [
@@ -216,7 +210,6 @@ describe('useNavigation', () => {
   describe('navigateToEvent', () => {
     it('should navigate to EventPage for published events', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -227,7 +220,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       const mockEvent: Partial<EventEntity> = {
         slug: 'test-event',
@@ -245,7 +238,6 @@ describe('useNavigation', () => {
 
     it('should navigate to DashboardEventPage for draft events', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -256,7 +248,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       const mockEvent: Partial<EventEntity> = {
         slug: 'draft-event',
@@ -274,7 +266,6 @@ describe('useNavigation', () => {
 
     it('should not navigate if event is null or has no slug', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -285,7 +276,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       // Test null event
       navigation!.navigateToEvent(null as unknown as EventEntity)
@@ -300,7 +291,6 @@ describe('useNavigation', () => {
   describe('navigateToMember', () => {
     it('should navigate to MemberPage with slug string', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -311,7 +301,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       navigation!.navigateToMember('user-slug')
       await flushPromises()
@@ -324,7 +314,6 @@ describe('useNavigation', () => {
 
     it('should navigate to MemberPage with UserEntity object', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -335,9 +324,9 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
-      navigation!.navigateToMember({ slug: 'user-object-slug' } as any)
+      navigation!.navigateToMember({ slug: 'user-object-slug' } as { slug: string })
       await flushPromises()
 
       expect(routerPush).toHaveBeenCalledWith({
@@ -350,7 +339,6 @@ describe('useNavigation', () => {
   describe('navigateToChat', () => {
     it('should navigate to DashboardChatsPage with query params', async () => {
       let navigation: ReturnType<typeof useNavigation>
-      let routerPush: ReturnType<typeof vi.fn>
 
       const TestComponent = createTestComponent(() => {
         navigation = useNavigation()
@@ -361,7 +349,7 @@ describe('useNavigation', () => {
       await flushPromises()
 
       const router = wrapper.router
-      routerPush = vi.spyOn(router, 'push')
+      const routerPush = vi.spyOn(router, 'push')
 
       navigation!.navigateToChat({ user: 'user123', chat: 'chat456' })
       await flushPromises()
