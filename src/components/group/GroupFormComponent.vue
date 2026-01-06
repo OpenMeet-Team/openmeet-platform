@@ -70,6 +70,29 @@
               <div class="text-subtitle2 q-my-sm q-pl-sm">Membership Settings</div>
 
               <q-toggle :value="true" v-model="group.requireApproval">Require approval for new group members</q-toggle>
+
+              <!-- Group URL / Slug (Edit mode only) -->
+              <template v-if="props.editGroupSlug">
+                <q-separator spaced />
+                <div class="text-subtitle2 q-my-sm q-pl-sm">Group URL</div>
+
+                <q-input
+                  data-cy="group-slug"
+                  filled
+                  v-model="group.slug"
+                  label="URL Slug"
+                  hint="Lowercase letters, numbers, and hyphens only (3-100 characters)"
+                  :rules="slugRules"
+                  class="q-mb-sm"
+                />
+                <p class="text-caption q-mt-xs text-grey-7">
+                  Preview: openmeet.net/groups/{{ group.slug || 'your-group-name' }}
+                </p>
+                <p class="text-caption q-mt-xs text-warning">
+                  <q-icon name="sym_r_warning" size="xs" aria-hidden="true" />
+                  Changing the URL will break existing bookmarks and shared links.
+                </p>
+              </template>
             </q-card-section>
           </q-card>
         </div>
@@ -214,6 +237,14 @@ const { error } = useNotification()
 const emit = defineEmits(['created', 'updated', 'close'])
 const { navigateToGroup } = useNavigation()
 
+// Slug validation rules (matches API validation)
+// Regex: /^[a-z0-9][a-z0-9-]{1,98}[a-z0-9]$/ - 3-100 chars, lowercase alphanumeric and hyphens, cannot start/end with hyphen
+const slugRules = [
+  (val: string) => !val || val.length >= 3 || 'Slug must be at least 3 characters',
+  (val: string) => !val || val.length <= 100 || 'Slug must be at most 100 characters',
+  (val: string) => !val || /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{1,2}$/.test(val) || 'Slug must contain only lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen'
+]
+
 onMounted(async () => {
   try {
     LoadingBar.start()
@@ -294,7 +325,15 @@ const onSubmit = async () => {
 
   Loading.show()
   try {
-    if (groupPayload.slug) {
+    // In edit mode, use the original slug from props to identify the group
+    // (the user may have changed the slug in the form)
+    if (props.editGroupSlug) {
+      const res = await groupsApi.update(props.editGroupSlug, groupPayload)
+      emit('updated', res.data)
+      navigateToGroup(res.data)
+      analyticsService.trackEvent('group_updated', { group_id: res.data.id, name: res.data.name })
+    } else if (groupPayload.slug) {
+      // Legacy path for any edge case where slug exists but no editGroupSlug prop
       const res = await groupsApi.update(groupPayload.slug, groupPayload)
       emit('updated', res.data)
       navigateToGroup(res.data)

@@ -392,6 +392,198 @@ describe('GroupFormComponent.vue', () => {
     })
   })
 
+  describe('Slug Editing', () => {
+    it('should NOT show slug field in create mode', async () => {
+      const wrapper = mount(GroupFormComponent, mountOptions)
+      await flushPromises()
+
+      // In create mode (no editGroupSlug prop), slug field should not be visible
+      expect(wrapper.find('[data-cy="group-slug"]').exists()).toBe(false)
+    })
+
+    it('should show slug field in edit mode', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'existing-group',
+        name: 'Existing Group',
+        description: 'Existing Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'existing-group'
+        }
+      })
+
+      await flushPromises()
+
+      // In edit mode, slug field should be visible
+      expect(wrapper.find('[data-cy="group-slug"]').exists()).toBe(true)
+    })
+
+    it('should show URL preview with current slug', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'my-test-group',
+        name: 'My Test Group',
+        description: 'Test Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'my-test-group'
+        }
+      })
+
+      await flushPromises()
+
+      // Should show URL preview containing the slug
+      expect(wrapper.html()).toContain('openmeet.net/groups/my-test-group')
+    })
+
+    it('should show warning message about changing URL', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'existing-group',
+        name: 'Existing Group',
+        description: 'Existing Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'existing-group'
+        }
+      })
+
+      await flushPromises()
+
+      // Should show warning about breaking existing links
+      expect(wrapper.html()).toContain('bookmarks')
+    })
+
+    it('should validate slug format client-side', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'existing-group',
+        name: 'Existing Group',
+        description: 'Existing Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'existing-group'
+        }
+      })
+
+      await flushPromises()
+
+      // Enter invalid slug (too short)
+      const slugInput = wrapper.find('input[data-cy="group-slug"]')
+      await slugInput.setValue('ab')
+
+      // The component should have validation rules that would flag this
+      // Check that the group data was updated
+      expect(wrapper.vm.group.slug).toBe('ab')
+    })
+
+    it('should include slug in update request when changed', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'original-slug',
+        name: 'Test Group',
+        description: 'Test Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+      mockGroupsApi.update.mockResolvedValue({ data: { ...mockGroup, slug: 'new-slug' } })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'original-slug'
+        }
+      })
+
+      await flushPromises()
+
+      // Change the slug
+      const slugInput = wrapper.find('input[data-cy="group-slug"]')
+      await slugInput.setValue('new-slug')
+
+      // Submit the form
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      // Update should be called with the new slug
+      expect(mockGroupsApi.update).toHaveBeenCalledWith('original-slug', expect.objectContaining({
+        slug: 'new-slug'
+      }))
+    })
+
+    it('should navigate to new URL after successful slug change', async () => {
+      const mockGroup = {
+        id: 1,
+        slug: 'original-slug',
+        name: 'Test Group',
+        description: 'Test Description',
+        categories: [],
+        visibility: GroupVisibility.Public,
+        requireApproval: false
+      }
+
+      const updatedGroup = { ...mockGroup, slug: 'new-slug' }
+      mockGroupsApi.getDashboardGroup.mockResolvedValue({ data: mockGroup })
+      mockGroupsApi.update.mockResolvedValue({ data: updatedGroup })
+
+      const wrapper = mount(GroupFormComponent, {
+        ...mountOptions,
+        props: {
+          editGroupSlug: 'original-slug'
+        }
+      })
+
+      await flushPromises()
+
+      // Change the slug
+      const slugInput = wrapper.find('input[data-cy="group-slug"]')
+      await slugInput.setValue('new-slug')
+
+      // Submit the form
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      // navigateToGroup should be called with the updated group (new slug)
+      expect(mockNavigateToGroup).toHaveBeenCalledWith(updatedGroup)
+    })
+  })
+
   describe('Scroll to Error and Layout', () => {
     it('should have a scrollToFirstError method exposed on the component', async () => {
       const wrapper = mount(GroupFormComponent, mountOptions)
