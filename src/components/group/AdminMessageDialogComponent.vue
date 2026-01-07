@@ -1,6 +1,6 @@
 <template>
   <q-dialog ref="dialogRef" @hide="onDialogHide" persistent>
-    <q-card style="min-width: 600px; max-width: 800px">
+    <q-card class="admin-message-dialog">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">Send Message to Group Members</div>
         <q-space />
@@ -113,7 +113,7 @@
             label="Preview & Test"
             class="q-mt-md"
           >
-            <q-card flat class="q-pa-md bg-grey-1">
+            <q-card flat class="q-pa-md" :class="$q.dark.isActive ? 'bg-dark' : 'bg-grey-1'">
               <div class="text-body2 q-mb-md">
                 Send a test email to yourself to preview how the message will look.
               </div>
@@ -379,6 +379,15 @@ const onSubmit = () => {
 </script>
 
 <style scoped lang="scss">
+.admin-message-dialog {
+  width: 100%;
+  max-width: 800px;
+
+  @media (min-width: 600px) {
+    min-width: 600px;
+  }
+}
+
 .q-expansion-item {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
