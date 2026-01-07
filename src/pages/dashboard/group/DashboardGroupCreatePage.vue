@@ -59,6 +59,9 @@ const onClose = () => {
   const redirect = route.query.redirect as string
   if (redirect) {
     router.push(redirect)
+  } else if (window.history.length > 1) {
+    // Use browser history to go back to where user came from
+    router.back()
   } else {
     router.push({ name: 'DashboardGroupsPage' })
   }

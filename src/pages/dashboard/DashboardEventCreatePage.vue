@@ -1,6 +1,6 @@
 <template>
   <q-page padding class="q-mx-auto q-px-md q-px-lg-xl" style="max-width: 1200px;">
-    <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event" />
+    <DashboardTitle defaultBack label="Create New Event" />
 
     <EventFormComponent class="col"
       :group="preselectedGroup"
@@ -73,6 +73,11 @@ const handleSeriesCreated = (series: EventSeriesEntity) => {
 
 // Handle when user closes/cancels the form
 const onClose = () => {
-  router.push({ name: 'DashboardEventsPage' })
+  // Use browser history to go back to where user came from
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({ name: 'DashboardEventsPage' })
+  }
 }
 </script>
