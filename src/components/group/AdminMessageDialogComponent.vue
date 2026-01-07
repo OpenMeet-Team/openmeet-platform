@@ -161,7 +161,7 @@
 
   <!-- Success Dialog -->
   <q-dialog v-model="showSuccessDialog">
-    <q-card style="min-width: 400px">
+    <q-card class="admin-message-success-dialog">
       <q-card-section class="row items-center">
         <q-avatar icon="sym_r_check_circle" color="positive" text-color="white" />
         <span class="q-ml-sm text-h6">Message Sent Successfully!</span>
@@ -389,7 +389,12 @@ const onSubmit = () => {
 }
 
 .q-expansion-item {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--q-separator, #e0e0e0);
   border-radius: 4px;
+}
+
+.admin-message-success-dialog {
+  width: 100%;
+  max-width: 400px;
 }
 </style>
