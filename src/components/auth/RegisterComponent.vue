@@ -26,6 +26,7 @@
           v-model="fullName"
           data-cy="register-full-name"
           label="Your name"
+          placeholder="e.g., Jane Doe"
           :rules="[
               (val: string) => !!val || 'Name is required',
             ]"
