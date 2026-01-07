@@ -202,6 +202,10 @@ export interface EventEntity {
   resources?: string
   color?: string
   conferenceData?: Record<string, unknown>
+
+  // Timestamp fields
+  createdAt?: string
+  updatedAt?: string
 }
 
 // ======= Pagination Entities =======

@@ -7,6 +7,7 @@ import { useHomeStore } from '../../stores/home-store'
 import NoContentComponent from '../../components/global/NoContentComponent.vue'
 import { useRouter } from 'vue-router'
 import { getImageSrc } from '../../utils/imageUtils'
+import { formatRelativeTime } from '../../utils/dateUtils'
 import { useNavigation } from '../../composables/useNavigation'
 import { GroupEntity, EventEntity } from '../../types'
 import GroupsListComponent from '../../components/group/GroupsListComponent.vue'
@@ -15,6 +16,8 @@ import { useEventDialog } from '../../composables/useEventDialog'
 import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarComponent.vue'
 import { EventAttendeeStatus } from '../../types/event'
 import SitewideFeedComponent from '../../components/activity-feed/SitewideFeedComponent.vue'
+import { eventsApi } from '../../api/events'
+import { useNotification } from '../../composables/useNotification'
 
 const userOrganizedGroups = computed(
   () => useHomeStore().userOrganizedGroups ?? []
@@ -36,6 +39,21 @@ const $q = useQuasar()
 
 const { navigateToEvent } = useNavigation()
 const { goToCreateEvent } = useEventDialog()
+const { success } = useNotification()
+
+const onDeleteDraft = (event: EventEntity) => {
+  $q.dialog({
+    title: 'Delete Draft',
+    message: `Are you sure you want to delete the draft '${event.name}'? This action cannot be undone.`,
+    cancel: true,
+    persistent: true
+  }).onOk(() => {
+    eventsApi.delete(event.slug).then(() => {
+      success('Draft deleted!')
+      useHomeStore().actionGetUserHomeState()
+    })
+  })
+}
 
 onMounted(() => {
   LoadingBar.start()
@@ -245,8 +263,8 @@ const onCalendarDateSelect = () => {
               hide-link
             />
             <q-card flat bordered class="q-mb-md">
-              <q-card-section v-if="userRecentEventDrafts?.length">
-                <q-list>
+              <q-card-section v-if="userRecentEventDrafts?.length" class="q-pa-sm">
+                <q-list separator>
                   <q-item
                     data-cy="home-user-recent-event-drafts-item-component"
                     clickable
@@ -254,16 +272,39 @@ const onCalendarDateSelect = () => {
                     v-for="event in userRecentEventDrafts"
                     :key="event.id"
                     @click="navigateToEvent(event)"
+                    class="draft-item"
                   >
-                    <q-item-section thumbnail>
-                      <q-img :src="getImageSrc(event.image)" />
+                    <q-item-section avatar>
+                      <q-avatar rounded size="56px">
+                        <q-img :src="getImageSrc(event.image)" :ratio="1" />
+                      </q-avatar>
                     </q-item-section>
                     <q-item-section>
-                      <q-item-label>{{ event.name }}</q-item-label>
-                      <q-item-label caption>{{
-                        event.group?.name
-                      }}</q-item-label>
-                      <q-item-label caption>draft</q-item-label>
+                      <q-item-label class="text-weight-medium">{{ event.name }}</q-item-label>
+                      <q-item-label caption v-if="event.group?.name">
+                        {{ event.group.name }}
+                      </q-item-label>
+                      <q-item-label caption>
+                        <q-badge color="orange" text-color="white" class="q-mr-sm">
+                          Draft
+                        </q-badge>
+                        <span :class="$q.dark.isActive ? 'text-grey-5' : 'text-grey-7'">
+                          Updated {{ formatRelativeTime(event.updatedAt || event.createdAt || event.startDate) }}
+                        </span>
+                      </q-item-label>
+                    </q-item-section>
+                    <q-item-section side>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        icon="sym_r_delete"
+                        color="negative"
+                        aria-label="Delete draft"
+                        @click.stop="onDeleteDraft(event)"
+                      >
+                        <q-tooltip>Delete draft</q-tooltip>
+                      </q-btn>
                     </q-item-section>
                   </q-item>
                 </q-list>
