@@ -6,10 +6,6 @@ import HeaderSearchComponent from './HeaderSearchComponent.vue'
 
 <template>
   <div class="c-header-mobile-component">
-    <div class="xs-hide bg-dark-page text-white text-uppercase text-body2 text-bold row justify-center q-pa-sm" >
-      This platform is currently in beta. Report issues&nbsp;<a class="text-primary" href="https://github.com/openmeet-team/openmeet-platform/issues" target="_blank">here</a>.
-    </div>
-
     <q-toolbar>
       <HeaderLogoComponent/>
 

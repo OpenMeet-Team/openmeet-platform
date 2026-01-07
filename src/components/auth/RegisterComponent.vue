@@ -1,29 +1,33 @@
 <template>
   <q-card class="register-card q-pa-sm">
+    <q-card-section>
+      <div class="text-h5 text-bold">Create your account</div>
+      <div class="text-body2 text-grey-7 q-mt-xs">Join thousands of community organizers</div>
+    </q-card-section>
+
+    <!-- OAuth options first -->
+    <q-card-section class="q-pt-none" v-if="!showVerification">
+      <GoogleLoginComponent @success="emits('register')" />
+      <BlueSkyLoginComponent class="q-mt-sm" @success="emits('register')" />
+      <GithubLoginComponent class="q-mt-sm" @success="emits('register')" />
+    </q-card-section>
+
+    <!-- Divider -->
+    <div class="row items-center q-px-md q-my-sm" v-if="!showVerification">
+      <div class="col"><q-separator /></div>
+      <div class="col-auto q-px-md text-grey-6 text-caption">or use email</div>
+      <div class="col"><q-separator /></div>
+    </div>
+
     <q-form @submit="onSubmit" class="q-gutter-md" data-cy="register-form" v-if="!showVerification">
-
-      <q-card-section>
-        <div class="text-h5 text-bold">Register</div>
-      </q-card-section>
-
-      <q-card-section>
+      <q-card-section class="q-pt-none">
         <q-input
           filled
-          v-model="firstName"
-          data-cy="register-first-name"
-          label="First name"
+          v-model="fullName"
+          data-cy="register-full-name"
+          label="Your name"
           :rules="[
-              (val: string) => !!val || 'First name name is required',
-            ]"
-        />
-
-        <q-input
-          filled
-          v-model="lastName"
-          data-cy="register-last-name"
-          label="Last name"
-          :rules="[
-              (val: string) => !!val || 'Last name is required',
+              (val: string) => !!val || 'Name is required',
             ]"
         />
 
@@ -94,12 +98,6 @@
       <q-card-actions align="right">
         <q-btn no-caps label="Register" data-cy="register-submit" class="full-width" rounded :loading="isLoading" type="submit" color="primary"/>
       </q-card-actions>
-
-      <div class="text-grey-6">
-        <GoogleLoginComponent class="q-mt-md" @success="emits('register')" />
-        <GithubLoginComponent class="q-mt-md" @success="emits('register')" />
-        <BlueSkyLoginComponent class="q-mt-md" @success="emits('register')" />
-      </div>
     </q-form>
 
     <!-- Email Verification Dialog -->
@@ -123,9 +121,9 @@ import GoogleLoginComponent from './GoogleLoginComponent.vue'
 import GithubLoginComponent from './GithubLoginComponent.vue'
 import BlueSkyLoginComponent from './BlueSkyLoginComponent.vue'
 import VerifyEmailCodeDialog from './VerifyEmailCodeDialog.vue'
+
 const emits = defineEmits(['register'])
-const firstName = ref<string>('')
-const lastName = ref<string>('')
+const fullName = ref<string>('')
 const email = ref<string>('')
 const password = ref<string>('')
 const confirmPassword = ref<string>('')
@@ -140,14 +138,27 @@ const router = useRouter()
 const route = useRoute()
 const { error, warning } = useNotification()
 
+// Split full name into first and last name for the backend
+const splitName = (name: string): { firstName: string; lastName: string } => {
+  const trimmed = name.trim()
+  const parts = trimmed.split(/\s+/)
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' }
+  }
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(' ')
+  return { firstName, lastName }
+}
+
 const onSubmit = async () => {
   if (!accept.value) return warning('Please accept our terms')
 
   isLoading.value = true
+  const { firstName, lastName } = splitName(fullName.value)
 
   return authStore.actionRegister({
-    firstName: firstName.value,
-    lastName: lastName.value,
+    firstName,
+    lastName,
     email: email.value,
     password: password.value
   }).then(() => {
