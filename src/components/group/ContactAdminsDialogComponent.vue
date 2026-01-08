@@ -1,6 +1,6 @@
 <template>
   <q-dialog ref="dialogRef" @hide="onDialogHide" persistent>
-    <q-card style="min-width: 600px; max-width: 800px">
+    <q-card class="contact-admins-dialog">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">Contact Group Admins</div>
         <q-space />
@@ -143,3 +143,14 @@ const onSubmit = async () => {
   }
 }
 </script>
+
+<style scoped lang="scss">
+.contact-admins-dialog {
+  width: 100%;
+  max-width: 800px;
+
+  @media (min-width: 600px) {
+    min-width: 600px;
+  }
+}
+</style>

@@ -40,10 +40,6 @@ const onMemberClick = (member: GroupMemberEntity) => {
             </q-item-section>
             <q-item-section>
               <q-item-label class="cursor-pointer text-body1" @click="navigateToMember(group.createdBy)">{{ group.createdBy?.name }}</q-item-label>
-              <div>
-                <q-btn size="sm" icon="sym_r_mail" flat no-caps color="primary" padding="none" v-if="useGroupStore().getterUserHasPermission(GroupPermission.MessageMember)" :aria-label="`Message ${group.createdBy?.name || 'member'}`"
-                  :to="{ name: 'DashboardChatsPage', query: { member: group.createdBy?.shortId } }" label="Message" />
-              </div>
             </q-item-section>
           </template>
         </q-item>
