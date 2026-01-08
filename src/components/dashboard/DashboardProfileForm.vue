@@ -40,7 +40,6 @@
               filled
               v-model="form.lastName"
               label="Last Name"
-              :rules="[(val: string) => !!val || 'Last name is required']"
             />
 
             <div class="q-mb-md">
