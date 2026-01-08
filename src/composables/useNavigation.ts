@@ -1,8 +1,20 @@
-import { useRouter } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { GroupEntity, EventEntity, UserEntity } from '../types'
 
 export function useNavigation () {
   const router = useRouter()
+
+  /**
+   * Navigate back using browser history, or to fallback route if no history.
+   * @param fallbackRoute - Route to navigate to if no browser history exists
+   */
+  const goBack = (fallbackRoute: RouteLocationRaw) => {
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      router.push(fallbackRoute)
+    }
+  }
 
   const navigateToGroup = (group: GroupEntity) => {
     // After creating/updating a group, always navigate to the public view page
@@ -34,6 +46,7 @@ export function useNavigation () {
   }
 
   return {
+    goBack,
     navigateToGroup,
     navigateToEvent,
     navigateToMember,

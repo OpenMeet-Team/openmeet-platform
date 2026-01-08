@@ -1,6 +1,6 @@
 <template>
   <q-page padding class="q-mx-auto q-px-md q-px-lg-xl" style="max-width: 1200px;">
-    <DashboardTitle :backTo="{ name: 'DashboardEventsPage' }" label="Create New Event" />
+    <DashboardTitle defaultBack label="Create New Event" />
 
     <EventFormComponent class="col"
       :group="preselectedGroup"
@@ -20,9 +20,11 @@ import { EventSeriesEntity } from '../../types/event-series'
 import { EventEntity, GroupEntity } from '../../types'
 import { ref, onMounted } from 'vue'
 import { groupsApi } from '../../api/groups'
+import { useNavigation } from '../../composables/useNavigation'
 
 const router = useRouter()
 const route = useRoute()
+const { goBack } = useNavigation()
 const preselectedGroup = ref<GroupEntity | undefined>()
 
 // Load preselected group if groupSlug is provided in query
@@ -73,6 +75,6 @@ const handleSeriesCreated = (series: EventSeriesEntity) => {
 
 // Handle when user closes/cancels the form
 const onClose = () => {
-  router.push({ name: 'DashboardEventsPage' })
+  goBack({ name: 'DashboardEventsPage' })
 }
 </script>

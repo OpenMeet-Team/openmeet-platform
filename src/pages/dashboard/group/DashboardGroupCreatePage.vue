@@ -26,9 +26,11 @@ import GroupFormComponent from '../../../components/group/GroupFormComponent.vue
 import { useRouter, useRoute } from 'vue-router'
 import { GroupEntity } from '../../../types'
 import { useMeta } from 'quasar'
+import { useNavigation } from '../../../composables/useNavigation'
 
 const router = useRouter()
 const route = useRoute()
+const { goBack } = useNavigation()
 
 useMeta({
   title: 'Create Group'
@@ -60,7 +62,7 @@ const onClose = () => {
   if (redirect) {
     router.push(redirect)
   } else {
-    router.push({ name: 'DashboardGroupsPage' })
+    goBack({ name: 'DashboardGroupsPage' })
   }
 }
 </script>

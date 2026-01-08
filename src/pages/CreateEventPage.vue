@@ -31,9 +31,11 @@ import { EventEntity, GroupEntity } from '../types'
 import { ref, onMounted } from 'vue'
 import { groupsApi } from '../api/groups'
 import { useMeta } from 'quasar'
+import { useNavigation } from '../composables/useNavigation'
 
 const router = useRouter()
 const route = useRoute()
+const { goBack } = useNavigation()
 const preselectedGroup = ref<GroupEntity | undefined>()
 
 useMeta({
@@ -89,7 +91,7 @@ const onClose = () => {
   if (redirect) {
     router.push(redirect)
   } else {
-    router.push({ name: 'HomePage' })
+    goBack({ name: 'HomePage' })
   }
 }
 </script>
