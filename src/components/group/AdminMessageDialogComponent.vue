@@ -389,7 +389,7 @@ const onSubmit = () => {
 }
 
 .q-expansion-item {
-  border: 1px solid var(--q-separator, #e0e0e0);
+  border: 1px solid var(--q-separator-color, #e0e0e0);
   border-radius: 4px;
 }
 
