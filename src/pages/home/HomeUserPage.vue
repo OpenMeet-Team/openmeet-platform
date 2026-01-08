@@ -39,7 +39,7 @@ const $q = useQuasar()
 
 const { navigateToEvent } = useNavigation()
 const { goToCreateEvent } = useEventDialog()
-const { success } = useNotification()
+const { success, error } = useNotification()
 
 const onDeleteDraft = (event: EventEntity) => {
   $q.dialog({
@@ -47,11 +47,15 @@ const onDeleteDraft = (event: EventEntity) => {
     message: `Are you sure you want to delete the draft '${event.name}'? This action cannot be undone.`,
     cancel: true,
     persistent: true
-  }).onOk(() => {
-    eventsApi.delete(event.slug).then(() => {
+  }).onOk(async () => {
+    try {
+      await eventsApi.delete(event.slug)
       success('Draft deleted!')
       useHomeStore().actionGetUserHomeState()
-    })
+    } catch (err) {
+      console.error('Failed to delete draft:', err)
+      error('Failed to delete draft. Please try again.')
+    }
   })
 }
 

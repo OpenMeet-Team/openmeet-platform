@@ -15,7 +15,6 @@
       </DashboardTitle>
 
       <EventFormBasicComponent class="q-mt-md"
-        ref="eventFormRef"
         @updated="navigateToEvent($event)"
         @created="navigateToEvent($event)"
         :edit-event-slug="route.params.slug as string"
@@ -40,9 +39,8 @@ const { navigateToEvent } = useNavigation()
 const router = useRouter()
 const route = useRoute()
 const $q = useQuasar()
-const { success } = useNotification()
+const { success, error } = useNotification()
 
-const eventFormRef = ref<InstanceType<typeof EventFormBasicComponent> | null>(null)
 const eventData = ref<EventEntity | null>(null)
 
 const isDraft = computed(() => {
@@ -90,6 +88,7 @@ const onDeleteDraft = () => {
       goBack()
     } catch (err) {
       console.error('Failed to delete draft:', err)
+      error('Failed to delete draft. Please try again.')
     }
   })
 }
