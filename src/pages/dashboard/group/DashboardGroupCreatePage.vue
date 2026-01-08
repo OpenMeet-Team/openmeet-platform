@@ -26,9 +26,11 @@ import GroupFormComponent from '../../../components/group/GroupFormComponent.vue
 import { useRouter, useRoute } from 'vue-router'
 import { GroupEntity } from '../../../types'
 import { useMeta } from 'quasar'
+import { useNavigation } from '../../../composables/useNavigation'
 
 const router = useRouter()
 const route = useRoute()
+const { goBack } = useNavigation()
 
 useMeta({
   title: 'Create Group'
@@ -59,11 +61,8 @@ const onClose = () => {
   const redirect = route.query.redirect as string
   if (redirect) {
     router.push(redirect)
-  } else if (window.history.length > 1) {
-    // Use browser history to go back to where user came from
-    router.back()
   } else {
-    router.push({ name: 'DashboardGroupsPage' })
+    goBack({ name: 'DashboardGroupsPage' })
   }
 }
 </script>

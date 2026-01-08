@@ -20,9 +20,11 @@ import { EventSeriesEntity } from '../../types/event-series'
 import { EventEntity, GroupEntity } from '../../types'
 import { ref, onMounted } from 'vue'
 import { groupsApi } from '../../api/groups'
+import { useNavigation } from '../../composables/useNavigation'
 
 const router = useRouter()
 const route = useRoute()
+const { goBack } = useNavigation()
 const preselectedGroup = ref<GroupEntity | undefined>()
 
 // Load preselected group if groupSlug is provided in query
@@ -73,11 +75,6 @@ const handleSeriesCreated = (series: EventSeriesEntity) => {
 
 // Handle when user closes/cancels the form
 const onClose = () => {
-  // Use browser history to go back to where user came from
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.push({ name: 'DashboardEventsPage' })
-  }
+  goBack({ name: 'DashboardEventsPage' })
 }
 </script>

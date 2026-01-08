@@ -8,20 +8,16 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import DashboardTitle from 'components/dashboard/DashboardTitle.vue'
 import GroupFormComponent from 'src/components/group/GroupFormComponent.vue'
+import { useNavigation } from '../../../composables/useNavigation'
 
 const route = useRoute()
-const router = useRouter()
+const { goBack } = useNavigation()
 
 // Handle when user closes/cancels the form
 const onClose = () => {
-  // Use browser history to go back to where user came from
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.push({ name: 'DashboardGroupsPage' })
-  }
+  goBack({ name: 'DashboardGroupsPage' })
 }
 </script>
