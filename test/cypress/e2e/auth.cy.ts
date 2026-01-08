@@ -29,8 +29,7 @@ describe('Auth', () => {
     it('should register', () => {
       cy.visit('/auth/register').then(() => {
         cy.dataCy('register-form').should('be.visible')
-        cy.dataCy('register-first-name').should('be.visible').type('John')
-        cy.dataCy('register-last-name').should('be.visible').type('Doe')
+        cy.dataCy('register-full-name').should('be.visible').type('John Doe')
         cy.dataCy('register-email').should('be.visible').type(Cypress.env('APP_TESTING_USER_EMAIL'))
         cy.dataCy('register-password').should('be.visible').type('12345678')
         cy.dataCy('register-confirm-password').should('be.visible').type('12345678')

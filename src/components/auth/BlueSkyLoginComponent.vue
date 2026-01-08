@@ -49,10 +49,10 @@ const $q = useQuasar()
 
 const buttonText = computed(() => {
   const textMap = {
-    join_with: 'Join with AT Protocol',
-    signin_with: 'Sign in with AT Protocol',
-    signup_with: 'Sign in with AT Protocol',
-    continue_with: 'Continue with AT Protocol'
+    join_with: 'Continue with AT Protocol or Bluesky',
+    signin_with: 'Sign in with AT Protocol or Bluesky',
+    signup_with: 'Sign up with AT Protocol or Bluesky',
+    continue_with: 'Continue with AT Protocol or Bluesky'
   }
   return textMap[props.text]
 })

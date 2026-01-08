@@ -16,30 +16,39 @@ import UnifiedCalendarComponent from '../../components/calendar/UnifiedCalendarC
 import { EventAttendeeStatus } from '../../types/event'
 import SitewideFeedComponent from '../../components/activity-feed/SitewideFeedComponent.vue'
 
+const authStore = useAuthStore()
+const homeStore = useHomeStore()
+
 const userOrganizedGroups = computed(
-  () => useHomeStore().userOrganizedGroups ?? []
+  () => homeStore.userOrganizedGroups ?? []
 )
-const userNextHostedEvent = computed(() => useHomeStore().userNextHostedEvent)
+const userNextHostedEvent = computed(() => homeStore.userNextHostedEvent)
 const userRecentEventDrafts = computed(
-  () => useHomeStore().userRecentEventDrafts
+  () => homeStore.userRecentEventDrafts
 )
 const userUpcomingEvents = computed(() => {
-  const events = useHomeStore().userUpcomingEvents || []
+  const events = homeStore.userUpcomingEvents || []
   // Filter out events where user has cancelled their RSVP
   return events.filter(event => {
     return !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
   })
 })
-const userMemberGroups = computed(() => useHomeStore().userMemberGroups)
+const userMemberGroups = computed(() => homeStore.userMemberGroups)
 const router = useRouter()
 const $q = useQuasar()
+
+// Personalized stats
+const firstName = computed(() => authStore.getUser?.firstName || 'there')
+const hostingCount = computed(() => userNextHostedEvent.value ? 1 : 0)
+const attendingCount = computed(() => userUpcomingEvents.value?.length || 0)
+const groupCount = computed(() => (userOrganizedGroups.value?.length || 0) + (userMemberGroups.value?.length || 0))
 
 const { navigateToEvent } = useNavigation()
 const { goToCreateEvent } = useEventDialog()
 
 onMounted(() => {
   LoadingBar.start()
-  useHomeStore().actionGetUserHomeState().finally(LoadingBar.stop)
+  homeStore.actionGetUserHomeState().finally(LoadingBar.stop)
 })
 
 const onCreateEvent = (group: GroupEntity) => {
@@ -78,55 +87,25 @@ const onCalendarDateSelect = () => {
 <template>
   <q-page padding data-cy="home-user-page">
     <div>
-      <!-- Introduction to OpenMeet -->
+      <!-- Personalized Dashboard Header -->
       <q-card flat bordered class="q-mb-md" :class="$q.dark.isActive ? 'bg-purple-600' : 'bg-purple-100'">
         <q-card-section>
-          <div class="text-h5 q-mb-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Welcome to OpenMeet, {{ useAuthStore().getUser.firstName || 'there' }}!</div>
-          <p :class="$q.dark.isActive ? 'text-white' : ''">
-            OpenMeet is a platform that helps you connect with like-minded people through
-            groups and events. Create your own groups, organize events, or join existing
-            communities to expand your network and share your interests.
-          </p>
-          <p class="q-mt-md" :class="$q.dark.isActive ? 'text-white' : ''">
-            Get started by:
-          </p>
-          <div class="row q-col-gutter-md q-mt-sm">
-            <!-- Browse actions in purple-300 -->
-            <div class="col-auto">
-              <q-btn
-                :color="$q.dark.isActive ? 'purple-200' : 'purple-300'"
-                to="/groups"
-                label="Browse Groups"
-                icon="sym_r_group"
-                no-caps
-                unelevated
-                class="q-px-md"
-              />
+          <div class="row items-center justify-between">
+            <div>
+              <div class="text-h5" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">
+                Welcome back, {{ firstName }}!
+              </div>
+              <div class="text-body2 q-mt-xs" :class="$q.dark.isActive ? 'text-purple-100' : 'text-grey-7'">
+                <strong :class="$q.dark.isActive ? 'text-white' : 'text-purple-400'">{{ hostingCount }}</strong> hosting
+                <span class="q-mx-xs">·</span>
+                <strong :class="$q.dark.isActive ? 'text-white' : 'text-purple-400'">{{ attendingCount }}</strong> attending
+                <span class="q-mx-xs">·</span>
+                <strong :class="$q.dark.isActive ? 'text-white' : 'text-purple-400'">{{ groupCount }}</strong> groups
+              </div>
             </div>
-            <div class="col-auto">
-              <q-btn
-                :color="$q.dark.isActive ? 'purple-200' : 'purple-300'"
-                to="/events"
-                label="Browse Events"
-                icon="sym_r_event"
-                no-caps
-                unelevated
-                class="q-px-md"
-              />
-            </div>
-
-            <!-- Create actions in purple-400 -->
-            <div class="col-auto">
-              <q-btn
-                :color="$q.dark.isActive ? 'purple-300' : 'purple-400'"
-                icon="sym_r_add_circle"
-                label="Create Group"
-                no-caps
-                unelevated
-                class="q-px-md"
-                @click="router.push({ name: 'DashboardGroupCreatePage' })"
-              />
-            </div>
+          </div>
+          <div class="row q-col-gutter-md q-mt-md">
+            <!-- Primary action -->
             <div class="col-auto">
               <q-btn
                 :color="$q.dark.isActive ? 'purple-300' : 'purple-400'"
@@ -138,17 +117,35 @@ const onCalendarDateSelect = () => {
                 @click="goToCreateEvent()"
               />
             </div>
-
-            <!-- Profile action in purple-200 -->
+            <!-- Secondary action -->
             <div class="col-auto">
               <q-btn
-                :color="$q.dark.isActive ? 'purple-400' : 'purple-200'"
-                to="/dashboard/profile"
-                label="Update Profile"
-                icon="sym_r_settings"
+                outline
+                :color="$q.dark.isActive ? 'purple-200' : 'purple-400'"
+                icon="sym_r_group_add"
+                label="Create Group"
                 no-caps
-                unelevated
                 class="q-px-md"
+                @click="router.push({ name: 'DashboardGroupCreatePage' })"
+              />
+            </div>
+            <!-- Tertiary actions -->
+            <div class="col-auto">
+              <q-btn
+                flat
+                :color="$q.dark.isActive ? 'purple-100' : 'grey-7'"
+                to="/groups"
+                label="Browse Groups"
+                no-caps
+              />
+            </div>
+            <div class="col-auto">
+              <q-btn
+                flat
+                :color="$q.dark.isActive ? 'purple-100' : 'grey-7'"
+                to="/events"
+                label="Browse Events"
+                no-caps
               />
             </div>
           </div>
@@ -278,7 +275,7 @@ const onCalendarDateSelect = () => {
             label="Events you're attending"
             :show-pagination="false"
             :current-page="1"
-            :loading="useHomeStore().loading"
+            :loading="homeStore.loading"
             empty-message="No events found"
             layout="list"
             :hide-link="true"
@@ -318,44 +315,6 @@ const onCalendarDateSelect = () => {
         </q-card>
       </div>
 
-      <!-- Quick actions section -->
-      <div class="q-mt-xl">
-        <div class="text-h5 text-bold q-mb-md q-px-md" :class="$q.dark.isActive ? 'text-purple-200' : 'text-purple-400'">Quick Actions</div>
-        <div class="row q-col-gutter-md">
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'GroupsPage' })">
-              <q-card-section>
-                <q-icon name="sym_r_group" size="3rem" :color="$q.dark.isActive ? 'purple-200' : 'purple-300'" />
-                <div class="text-h6 q-mt-sm">Find Groups</div>
-              </q-card-section>
-            </q-card>
-          </div>
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'EventsPage' })">
-              <q-card-section>
-                <q-icon name="sym_r_event" size="3rem" :color="$q.dark.isActive ? 'purple-200' : 'purple-300'" />
-                <div class="text-h6 q-mt-sm">Discover Events</div>
-              </q-card-section>
-            </q-card>
-          </div>
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="router.push({ name: 'DashboardGroupCreatePage' })">
-              <q-card-section>
-                <q-icon name="sym_r_add_circle" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
-                <div class="text-h6 q-mt-sm">Create Group</div>
-              </q-card-section>
-            </q-card>
-          </div>
-          <div class="col-12 col-sm-6 col-md-3">
-            <q-card flat bordered class="text-center" clickable @click="goToCreateEvent()">
-              <q-card-section>
-                <q-icon name="sym_r_edit_calendar" size="3rem" :color="$q.dark.isActive ? 'purple-300' : 'purple-400'" />
-                <div class="text-h6 q-mt-sm">Create Event</div>
-              </q-card-section>
-            </q-card>
-          </div>
-        </div>
-      </div>
     </div>
   </q-page>
 </template>

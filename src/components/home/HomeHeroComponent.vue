@@ -16,12 +16,12 @@
         </div>
       </div>
       <div class="hero-content text-center">
-        <h1 class="text-h3 q-mb-md text-white">Welcome to OpenMeet</h1>
-        <p class="text-h6 text-white">Your Community, Your Privacy, Your Power</p>
+        <h1 class="text-h3 q-mb-md text-white">Free Events for Real Communities</h1>
+        <p class="text-h6 text-white">The open-source Meetup alternative. No fees. No ads.</p>
         <q-btn
           rounded
           color="purple-300"
-          label="Join Now"
+          label="Start for Free"
           @click="onJoinNowClick"
           class="q-mt-md"
           size="lg"
