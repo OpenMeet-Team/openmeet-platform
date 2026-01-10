@@ -76,9 +76,17 @@ src/
 
 ---
 
-## Contributing
+## Getting Involved
 
-We welcome contributions! Here's how to get started:
+We need help beyond code! The platform especially needs:
+
+| Area | How You Can Help |
+|------|------------------|
+| **UX/Design** | Improve user flows, accessibility, and visual design |
+| **Feature Ideas** | [Open an issue](https://github.com/OpenMeet-Team/openmeet-platform/issues/new) with feature requests |
+| **Development** | Pick up issues — see [good first issues](https://github.com/OpenMeet-Team/openmeet-platform/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
+
+### Contributing Code
 
 1. Check out our [good first issues](https://github.com/OpenMeet-Team/openmeet-platform/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 2. Fork the repo and create a feature branch
