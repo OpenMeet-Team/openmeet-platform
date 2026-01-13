@@ -13,7 +13,7 @@
           <div class="text-h6 q-mb-md">Quick Links</div>
           <q-list dense>
             <MenuItemComponent label="Home" @click="navigateTo('/')"/>
-            <MenuItemComponent label="About Us" @click="openSocialLink('https://biz.openmeet.net/about')"/>
+            <MenuItemComponent label="About Us" @click="openSocialLink('https://openmeet.net/about')"/>
             <MenuItemComponent label="Groups" @click="navigateTo('/groups')"/>
             <MenuItemComponent label="Events" @click="navigateTo('/events')"/>
             <MenuItemComponent v-if="supportUrl" label="Support Us" @click="navigateTo('/support')"/>
@@ -31,7 +31,7 @@
     <q-toolbar style="max-width: 1201px" class="q-mx-auto">
       <div class="col row items-center justify-between q-py-sm">
         <div class="text-left">
-          <div class="text-body2">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://biz.openmeet.net">OpenMeet</a>. All rights reserved.</div>
+          <div class="text-body2">© {{ currentYear }} <a target="_blank" style="color: inherit" href="https://openmeet.net">OpenMeet</a>. All rights reserved.</div>
           <VersionComponent/>
         </div>
         <div>

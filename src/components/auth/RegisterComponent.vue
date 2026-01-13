@@ -88,7 +88,7 @@
           <q-toggle v-model="accept"
                     data-cy="register-accept"
                     :rules="[(val: boolean) => val || 'To continue, please check the box to accept the terms and conditions.']"/>
-          I accept the <a href="https://biz.openmeet.net/terms" target="_blank" class="q-ml-xs text-primary router-link-inherit">terms</a>.
+          I accept the <a href="https://openmeet.net/terms" target="_blank" class="q-ml-xs text-primary router-link-inherit">terms</a>.
         </div>
 
         <div class="text-grey-6">
