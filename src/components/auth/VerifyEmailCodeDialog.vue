@@ -78,6 +78,7 @@ const props = defineProps<{
   modelValue: boolean
   email: string
   verificationCode?: string // For development/testing
+  context?: 'login' | 'account-merge' // Context for verification
 }>()
 
 const emit = defineEmits<{
@@ -123,7 +124,8 @@ const onSubmit = async () => {
   try {
     const response = await authApi.verifyEmailCode({
       code: code.value,
-      email: props.email
+      email: props.email,
+      context: props.context
     })
 
     // Store auth data (same as regular login)
@@ -135,27 +137,34 @@ const onSubmit = async () => {
     // Initialize Matrix if ready (matching other login flows)
     await authStore.initializeMatrixIfReady()
 
+    // Adjust success message based on context
+    const successMessage = props.context === 'account-merge'
+      ? 'Accounts merged successfully! You are now signed in.'
+      : 'Email verified! You are now signed in.'
+
     Notify.create({
       type: 'positive',
-      message: 'Email verified! You are now signed in.',
+      message: successMessage,
       position: 'top'
     })
 
     emit('success')
     showDialog.value = false
 
-    // Show helpful tip about setting a password after a brief delay
-    setTimeout(() => {
-      Notify.create({
-        type: 'info',
-        message: 'Tip: You can set a password in your profile settings to make future logins easier.',
-        position: 'top',
-        timeout: 5000,
-        actions: [
-          { label: 'Dismiss', color: 'white' }
-        ]
-      })
-    }, 2000)
+    // Show helpful tip about setting a password after a brief delay (only for non-merge)
+    if (props.context !== 'account-merge') {
+      setTimeout(() => {
+        Notify.create({
+          type: 'info',
+          message: 'Tip: You can set a password in your profile settings to make future logins easier.',
+          position: 'top',
+          timeout: 5000,
+          actions: [
+            { label: 'Dismiss', color: 'white' }
+          ]
+        })
+      }, 2000)
+    }
 
     // No need to reload - the auth state watchers will handle UI updates
     // The EventAttendanceButton already watches authStore.isFullyAuthenticated

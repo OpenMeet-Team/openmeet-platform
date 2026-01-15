@@ -107,6 +107,7 @@ export const authApi = {
   verifyEmailCode: (data: {
     code: string
     email: string
+    context?: 'login' | 'account-merge'
   }): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
     api.post(`${BASE_URL}/verify-email-code`, data, { withCredentials: true }),
 
