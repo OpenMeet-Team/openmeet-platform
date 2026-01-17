@@ -37,6 +37,16 @@ const userIdentifier = computed(() => {
         <q-item-label class="text-bold cursor-pointer"><router-link class="router-link-inherit" :to="{ name: 'MemberPage', params: { slug: userIdentifier } }">{{ event.user.name }}</router-link></q-item-label>
       </div>
     </div>
+    <!-- Fallback for events where the creator's account was deleted -->
+    <div v-else class="row items-center q-py-sm q-px-md">
+      <q-avatar size="48px" color="grey-4" class="q-mr-md">
+        <q-icon name="sym_r_person_off" color="grey-7" size="24px" />
+      </q-avatar>
+      <div>
+        <q-item-label>Hosted by</q-item-label>
+        <q-item-label class="text-grey-7">Former member</q-item-label>
+      </div>
+    </div>
 </template>
 
 <style scoped lang="scss">
