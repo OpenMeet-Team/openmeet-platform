@@ -42,6 +42,16 @@ const onMemberClick = (member: GroupMemberEntity) => {
               <q-item-label class="cursor-pointer text-body1" @click="navigateToMember(group.createdBy)">{{ group.createdBy?.name }}</q-item-label>
             </q-item-section>
           </template>
+          <template v-else>
+            <q-item-section avatar>
+              <q-avatar color="grey-4">
+                <q-icon name="sym_r_person_off" color="grey-7" />
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-body1 text-grey-7">Former member</q-item-label>
+            </q-item-section>
+          </template>
         </q-item>
       </q-list>
     </q-card-section>

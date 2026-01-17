@@ -65,7 +65,11 @@ const isGroupMember = computed(() => useGroupStore().getterUserIsGroupMember())
           </div>
           <div class="row items-start q-mt-xs" v-if="group.createdBy">
             <q-icon size="sm" left name="sym_r_person" class="text-purple-300"/>
-            <div class="text-body1 cursor-pointer">Organized by <span class="router-link-inherit" v-if="group.createdBy" @click.stop="navigateToMember(group.createdBy)">{{ group.createdBy.name }}</span></div>
+            <div class="text-body1 cursor-pointer">Organized by <span class="router-link-inherit" @click.stop="navigateToMember(group.createdBy)">{{ group.createdBy.name }}</span></div>
+          </div>
+          <div class="row items-start q-mt-xs" v-else>
+            <q-icon size="sm" left name="sym_r_person_off" class="text-grey-5"/>
+            <div class="text-body1 text-grey-7">Organized by former member</div>
           </div>
         </q-card-section>
 

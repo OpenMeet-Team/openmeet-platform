@@ -46,6 +46,10 @@
               <div class="text-subtitle2">Created by</div>
               <div>{{ eventSeries.user.firstName }} {{ eventSeries.user.lastName }}</div>
             </div>
+            <div class="col-12 col-md-6" v-else>
+              <div class="text-subtitle2">Created by</div>
+              <div class="text-grey-7">Former member</div>
+            </div>
 
             <!-- Recurrence pattern -->
             <div class="col-12">
