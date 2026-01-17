@@ -277,6 +277,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Dialog, LoadingBar } from 'quasar'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
@@ -289,6 +290,7 @@ import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
 
+const router = useRouter()
 const { error, success } = useNotification()
 
 const form = ref<Profile>({
@@ -530,7 +532,10 @@ const onDeleteAccount = () => {
       color: 'negative'
     }
   }).onOk(() => {
-    authApi.deleteMe().then(() => useAuthStore().actionLogout())
+    authApi.deleteMe().then(async () => {
+      await useAuthStore().actionLogout()
+      router.push('/')
+    })
   })
 }
 
