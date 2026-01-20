@@ -7,7 +7,7 @@ import { Quasar, QInput, QIcon } from 'quasar'
 describe('DatetimeComponent', () => {
   it('should emit a valid ISO date on mount when given empty modelValue', async () => {
     const emittedValues: string[] = []
-    const wrapper = mount(DatetimeComponent, {
+    mount(DatetimeComponent, {
       global: {
         plugins: [Quasar],
         stubs: { QInput, QIcon }
