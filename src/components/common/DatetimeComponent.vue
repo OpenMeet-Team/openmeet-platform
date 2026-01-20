@@ -192,6 +192,8 @@ function initializeFromISO () {
     localTime.value = '5:00 PM'
     editableDate.value = format(new Date(), 'EEE, MMM d, yyyy')
     logger.debug(`[DatetimeComponent]   No isoDate, defaulted localDate: "${localDate.value}", localTime: "${localTime.value}"]`)
+    // Emit the default value so parent forms receive a valid date on mount
+    updateModelValue()
     return
   }
 
