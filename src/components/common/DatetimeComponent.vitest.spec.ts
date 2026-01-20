@@ -5,6 +5,44 @@ import { nextTick } from 'vue'
 import { Quasar, QInput, QIcon } from 'quasar'
 
 describe('DatetimeComponent', () => {
+  it('should emit a valid ISO date on mount when given empty modelValue', async () => {
+    const emittedValues: string[] = []
+    mount(DatetimeComponent, {
+      global: {
+        plugins: [Quasar],
+        stubs: { QInput, QIcon }
+      },
+      props: {
+        modelValue: '',
+        timeZone: 'UTC',
+        required: true,
+        'onUpdate:model-value': (value: string) => {
+          emittedValues.push(value)
+        }
+      }
+    })
+    await nextTick()
+
+    // Component should have emitted a valid ISO date string on mount
+    expect(emittedValues.length).toBeGreaterThan(0)
+    const emittedValue = emittedValues[0]
+
+    // Verify it's a valid ISO 8601 date string
+    expect(emittedValue).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+    const parsedDate = new Date(emittedValue)
+    expect(parsedDate.toString()).not.toBe('Invalid Date')
+
+    // Verify it's based on today's date with default 5:00 PM
+    const today = new Date()
+    const emittedDate = new Date(emittedValue)
+    expect(emittedDate.getUTCFullYear()).toBe(today.getFullYear())
+    expect(emittedDate.getUTCMonth()).toBe(today.getMonth())
+    expect(emittedDate.getUTCDate()).toBe(today.getDate())
+    // Default time is 5:00 PM (17:00) in UTC
+    expect(emittedDate.getUTCHours()).toBe(17)
+    expect(emittedDate.getUTCMinutes()).toBe(0)
+  })
+
   it('should populate date with today and time with 5:00 PM by default', async () => {
     const wrapper = mount(DatetimeComponent, {
       global: {
