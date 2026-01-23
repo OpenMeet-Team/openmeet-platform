@@ -88,8 +88,8 @@ describe('AtprotoIdentityCard', () => {
       const identity = createMockIdentity({ did: 'did:plc:z72i7hdynmk6r22z27h6tvur' })
       const wrapper = mountComponent({ identity })
 
-      // Should show truncated version (first 12 chars + ... + last 3 chars)
-      expect(wrapper.text()).toMatch(/did:plc:z72i\.\.\.vur/)
+      // Should show truncated version (first 20 chars + ... + last 6 chars)
+      expect(wrapper.text()).toMatch(/did:plc:z72i7hdynmk6\.\.\.h6tvur/)
     })
 
     it('should have copy button for DID', () => {
@@ -187,9 +187,30 @@ describe('AtprotoIdentityCard', () => {
 
       // Should show DID but not handle
       expect(wrapper.text()).toContain('did:plc')
-      // View profile link should not be present without handle
+      // View profile link should exist and use DID as fallback
       const link = wrapper.find('[data-cy="bluesky-profile-link"]')
-      expect(link.exists()).toBe(false)
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('href')).toBe('https://bsky.app/profile/did:plc:z72i7hdynmk6r22z27h6tvur')
+    })
+  })
+
+  describe('Copy handle', () => {
+    it('should have copy button for handle', () => {
+      const identity = createMockIdentity({ handle: 'alice.opnmt.me' })
+      const wrapper = mountComponent({ identity })
+
+      const copyBtn = wrapper.find('[data-cy="copy-handle-btn"]')
+      expect(copyBtn.exists()).toBe(true)
+    })
+
+    it('should copy handle to clipboard when copy button clicked', async () => {
+      const identity = createMockIdentity({ handle: 'alice.opnmt.me' })
+      const wrapper = mountComponent({ identity })
+
+      const copyBtn = wrapper.find('[data-cy="copy-handle-btn"]')
+      await copyBtn.trigger('click')
+
+      expect(copyToClipboard).toHaveBeenCalledWith('alice.opnmt.me')
     })
   })
 })

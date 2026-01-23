@@ -48,7 +48,20 @@
           <!-- Handle -->
           <div v-if="identity.handle" class="row items-center">
             <div class="text-subtitle2 text-grey-7 col-3">Handle</div>
-            <div class="col text-body1 text-weight-medium">@{{ identity.handle }}</div>
+            <div class="col row items-center no-wrap">
+              <span class="text-body1 text-weight-medium q-mr-sm">@{{ identity.handle }}</span>
+              <q-btn
+                data-cy="copy-handle-btn"
+                flat
+                round
+                dense
+                size="sm"
+                icon="sym_r_content_copy"
+                @click="copyHandle"
+              >
+                <q-tooltip>Copy handle</q-tooltip>
+              </q-btn>
+            </div>
           </div>
 
           <!-- DID -->
@@ -85,7 +98,7 @@
           </div>
 
           <!-- View on Bluesky link -->
-          <div v-if="identity.handle" class="q-mt-md">
+          <div class="q-mt-md">
             <a
               data-cy="bluesky-profile-link"
               :href="blueskyProfileUrl"
@@ -121,9 +134,9 @@ defineEmits<{
 const truncatedDid = computed(() => {
   if (!props.identity?.did) return ''
   const did = props.identity.did
-  if (did.length <= 20) return did
-  // Show first 12 chars and last 3 chars
-  return `${did.slice(0, 12)}...${did.slice(-3)}`
+  if (did.length <= 30) return did
+  // Show first 20 chars and last 6 chars for better readability
+  return `${did.slice(0, 20)}...${did.slice(-6)}`
 })
 
 const statusText = computed(() => {
@@ -145,8 +158,10 @@ const statusColor = computed(() => {
 })
 
 const blueskyProfileUrl = computed(() => {
-  if (!props.identity?.handle) return ''
-  return `https://bsky.app/profile/${props.identity.handle}`
+  // Prefer handle, fall back to DID
+  const identifier = props.identity?.handle || props.identity?.did
+  if (!identifier) return ''
+  return `https://bsky.app/profile/${identifier}`
 })
 
 const copyDid = async () => {
@@ -163,6 +178,25 @@ const copyDid = async () => {
     Notify.create({
       type: 'negative',
       message: 'Failed to copy DID',
+      position: 'top'
+    })
+  }
+}
+
+const copyHandle = async () => {
+  if (!props.identity?.handle) return
+  try {
+    await copyToClipboard(props.identity.handle)
+    Notify.create({
+      type: 'positive',
+      message: 'Handle copied to clipboard',
+      position: 'top'
+    })
+  } catch (err) {
+    console.error('Failed to copy handle:', err)
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to copy handle',
       position: 'top'
     })
   }
