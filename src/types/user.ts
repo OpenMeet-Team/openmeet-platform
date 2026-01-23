@@ -1,6 +1,7 @@
 import { AuthProvidersEnum, FileEntity, SubCategoryEntity } from './model'
 import { GroupEntity, GroupMemberEntity } from './group'
 import { EventEntity } from './event'
+import type { AtprotoIdentityDto } from './atproto'
 
 export enum UserRole {
   Admin = 'admin',
@@ -104,6 +105,8 @@ export interface UserEntity {
   groupMembers?: GroupMemberEntity[]
   interests?: SubCategoryEntity[]
   preferences?: UserPreferences
+  /** AT Protocol identity (from /auth/me response) */
+  atprotoIdentity?: AtprotoIdentityDto | null
 }
 
 // ======= Profile Summary =======
