@@ -135,18 +135,14 @@
         </q-card-section>
       </q-card>
 
-      <!-- Bluesky integration section - only shown for Bluesky users -->
+      <!-- AT Protocol event source toggle - only shown for Bluesky users -->
       <q-card class="q-mb-md" data-cy="profile-bluesky" v-if="isBlueskyUser">
         <q-card-section>
           <div class="text-h6 q-mb-md">
             <q-icon name="sym_r_cloud" class="q-mr-sm" />
-            AT Protocol Settings
+            AT Protocol Event Source
           </div>
           <div class="q-gutter-y-md">
-            <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
-              Connected as: {{ form.preferences.bluesky.handle }}
-            </div>
-
             <!-- Display error message if there are Bluesky connection issues -->
             <div v-if="blueskyErrorMessage" class="text-negative q-mb-md">
               <q-icon name="sym_r_error" size="sm" class="q-mr-xs" />
@@ -163,9 +159,9 @@
       </q-card>
     </q-form>
 
-    <!-- AT Protocol Identity section - shown for all users except Bluesky (who have their own section) -->
+    <!-- AT Protocol Identity section - shown for users with identity OR non-Bluesky users who can create one -->
     <AtprotoIdentityCard
-      v-if="!isBlueskyUser"
+      v-if="atprotoIdentity || !isBlueskyUser"
       :identity="atprotoIdentity"
       :loading="atprotoLoading"
       @create="onCreateAtprotoIdentity"
