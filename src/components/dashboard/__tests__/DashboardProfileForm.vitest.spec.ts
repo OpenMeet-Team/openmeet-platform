@@ -1,6 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Quasar, Dialog, LoadingBar, Notify } from 'quasar'
+import { Quasar, LoadingBar } from 'quasar'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '../../../stores/auth-store'
 import DashboardProfileForm from '../DashboardProfileForm.vue'
@@ -135,6 +135,7 @@ describe('DashboardProfileForm', () => {
         },
         atprotoIdentity
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     const wrapper = mount(DashboardProfileForm, {
