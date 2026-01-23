@@ -135,18 +135,14 @@
         </q-card-section>
       </q-card>
 
-      <!-- Bluesky integration section - only shown for Bluesky users -->
+      <!-- AT Protocol event source toggle - only shown for Bluesky users -->
       <q-card class="q-mb-md" data-cy="profile-bluesky" v-if="isBlueskyUser">
         <q-card-section>
           <div class="text-h6 q-mb-md">
             <q-icon name="sym_r_cloud" class="q-mr-sm" />
-            AT Protocol Settings
+            AT Protocol Event Source
           </div>
           <div class="q-gutter-y-md">
-            <div class="text-subtitle2" v-if="form.preferences?.bluesky?.handle">
-              Connected as: {{ form.preferences.bluesky.handle }}
-            </div>
-
             <!-- Display error message if there are Bluesky connection issues -->
             <div v-if="blueskyErrorMessage" class="text-negative q-mb-md">
               <q-icon name="sym_r_error" size="sm" class="q-mr-xs" />
@@ -162,6 +158,16 @@
         </q-card-section>
       </q-card>
     </q-form>
+
+    <!-- AT Protocol Identity section - shown for users with identity OR non-Bluesky users who can create one -->
+    <AtprotoIdentityCard
+      v-if="atprotoIdentity || !isBlueskyUser"
+      :identity="atprotoIdentity"
+      :loading="atprotoLoading"
+      @create="onCreateAtprotoIdentity"
+      data-cy="profile-atproto-identity"
+      class="q-mb-md"
+    />
 
     <!-- Account password section (only for local email auth users) -->
     <q-card class="q-mb-md" v-if="isLocalAuthUser" data-cy="profile-password">
@@ -289,6 +295,9 @@ import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
+import AtprotoIdentityCard from '../atproto/AtprotoIdentityCard.vue'
+import { atprotoApi } from '../../api/atproto'
+import type { AtprotoIdentityDto } from '../../types/atproto'
 
 const router = useRouter()
 const { error, success } = useNotification()
@@ -316,6 +325,10 @@ const subCategories = ref<SubCategoryEntity[]>([])
 const isPwd = ref(true)
 const isLoading = ref(false)
 const bioTab = ref('edit') // Tab for bio editor (edit/preview)
+
+// AT Protocol identity state
+const atprotoIdentity = ref<AtprotoIdentityDto | null>(null)
+const atprotoLoading = ref(false)
 
 const authStore = useAuthStore()
 
@@ -434,6 +447,21 @@ const isLocalAuthUser = computed(() => {
 // when they try to change password without old password
 const userHasPassword = ref(true)
 
+// Create AT Protocol identity
+const onCreateAtprotoIdentity = async () => {
+  try {
+    atprotoLoading.value = true
+    const response = await atprotoApi.createIdentity()
+    atprotoIdentity.value = response.data
+    success('AT Protocol identity created successfully')
+  } catch (err) {
+    console.error('Failed to create AT Protocol identity:', err)
+    error('Failed to create AT Protocol identity')
+  } finally {
+    atprotoLoading.value = false
+  }
+}
+
 onMounted(async () => {
   LoadingBar.start()
 
@@ -459,6 +487,13 @@ onMounted(async () => {
           avatar: userData.preferences?.bluesky?.avatar || null
         }
       }
+    }
+
+    // Load AT Protocol identity from user data (included in /auth/me response)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userDataWithIdentity = userRes.data as any
+    if (userDataWithIdentity.atprotoIdentity) {
+      atprotoIdentity.value = userDataWithIdentity.atprotoIdentity
     }
   } catch (err) {
     console.error('Failed to load profile data:', err)
