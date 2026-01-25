@@ -33,6 +33,7 @@ vi.mock('vue-router', () => ({
   useRoute: () => mockRoute
 }))
 
+
 // Mock APIs
 vi.mock('src/api/groups', () => ({
   groupsApi: {
@@ -64,7 +65,8 @@ vi.mock('src/services/analyticsService', () => ({
 // Mock navigation composable
 vi.mock('src/composables/useNavigation', () => ({
   useNavigation: () => ({
-    navigateToGroup: vi.fn()
+    navigateToGroup: vi.fn(),
+    goBack: (fallback: { name: string }) => mockRouter.push(fallback)
   })
 }))
 
