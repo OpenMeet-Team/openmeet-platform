@@ -33,7 +33,6 @@ vi.mock('vue-router', () => ({
   useRoute: () => mockRoute
 }))
 
-
 // Mock APIs
 vi.mock('src/api/groups', () => ({
   groupsApi: {
