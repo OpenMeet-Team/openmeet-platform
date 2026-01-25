@@ -18,3 +18,12 @@ export interface AtprotoIdentityDto {
   /** When the identity was last updated */
   updatedAt: Date
 }
+
+/**
+ * AT Protocol Identity Recovery Status
+ * Indicates if an existing account can be recovered
+ */
+export interface AtprotoRecoveryStatusDto {
+  /** Whether the user has an existing AT Protocol account that can be recovered */
+  hasExistingAccount: boolean
+}

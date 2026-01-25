@@ -164,7 +164,10 @@
       v-if="atprotoIdentity || !isBlueskyUser"
       :identity="atprotoIdentity"
       :loading="atprotoLoading"
+      :recovery-status="recoveryStatus"
+      :recovering="recovering"
       @create="onCreateAtprotoIdentity"
+      @recover="onRecoverAtprotoIdentity"
       data-cy="profile-atproto-identity"
       class="q-mb-md"
     />
@@ -297,7 +300,7 @@ import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
 import AtprotoIdentityCard from '../atproto/AtprotoIdentityCard.vue'
 import { atprotoApi } from '../../api/atproto'
-import type { AtprotoIdentityDto } from '../../types/atproto'
+import type { AtprotoIdentityDto, AtprotoRecoveryStatusDto } from '../../types/atproto'
 
 const router = useRouter()
 const { error, success } = useNotification()
@@ -329,6 +332,8 @@ const bioTab = ref('edit') // Tab for bio editor (edit/preview)
 // AT Protocol identity state
 const atprotoIdentity = ref<AtprotoIdentityDto | null>(null)
 const atprotoLoading = ref(false)
+const recoveryStatus = ref<AtprotoRecoveryStatusDto | null>(null)
+const recovering = ref(false)
 
 const authStore = useAuthStore()
 
@@ -462,6 +467,34 @@ const onCreateAtprotoIdentity = async () => {
   }
 }
 
+// Check AT Protocol recovery status
+const checkRecoveryStatus = async () => {
+  try {
+    const response = await atprotoApi.getRecoveryStatus()
+    recoveryStatus.value = response.data
+  } catch (err) {
+    console.error('Failed to check recovery status:', err)
+    // Silent fail - just means no recovery available
+    recoveryStatus.value = { hasExistingAccount: false }
+  }
+}
+
+// Recover existing AT Protocol identity as custodial
+const onRecoverAtprotoIdentity = async () => {
+  try {
+    recovering.value = true
+    const response = await atprotoApi.recoverAsCustodial()
+    atprotoIdentity.value = response.data
+    recoveryStatus.value = null // Clear recovery status after successful recovery
+    success('AT Protocol identity recovered successfully')
+  } catch (err) {
+    console.error('Failed to recover AT Protocol identity:', err)
+    error('Failed to recover AT Protocol identity')
+  } finally {
+    recovering.value = false
+  }
+}
+
 onMounted(async () => {
   LoadingBar.start()
 
@@ -494,6 +527,9 @@ onMounted(async () => {
     const userDataWithIdentity = userRes.data as any
     if (userDataWithIdentity.atprotoIdentity) {
       atprotoIdentity.value = userDataWithIdentity.atprotoIdentity
+    } else {
+      // No identity - check if recovery is available
+      await checkRecoveryStatus()
     }
   } catch (err) {
     console.error('Failed to load profile data:', err)
