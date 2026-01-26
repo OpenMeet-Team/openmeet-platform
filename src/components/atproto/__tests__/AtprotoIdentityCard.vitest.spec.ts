@@ -45,6 +45,8 @@ describe('AtprotoIdentityCard', () => {
       props: {
         identity: null,
         loading: false,
+        recoveryStatus: null,
+        recovering: false,
         ...props
       }
     })
@@ -211,6 +213,74 @@ describe('AtprotoIdentityCard', () => {
       await copyBtn.trigger('click')
 
       expect(copyToClipboard).toHaveBeenCalledWith('alice.opnmt.me')
+    })
+  })
+
+  describe('Recovery flow', () => {
+    it('should show recovery banner when hasExistingAccount is true', () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: true }
+      })
+
+      expect(wrapper.text()).toContain('We found an existing AT Protocol account')
+    })
+
+    it('should show "Let OpenMeet manage it" button when recovery is available', () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: true }
+      })
+
+      const button = wrapper.find('[data-cy="recover-identity-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Let OpenMeet manage it')
+    })
+
+    it('should emit recover event when recover button is clicked', async () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: true }
+      })
+
+      const button = wrapper.find('[data-cy="recover-identity-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('recover')).toBeTruthy()
+    })
+
+    it('should show "Create New Identity" as secondary option when recovery is available', () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: true }
+      })
+
+      const button = wrapper.find('[data-cy="create-identity-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Create New Identity')
+    })
+
+    it('should not show recovery banner when hasExistingAccount is false', () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: false }
+      })
+
+      expect(wrapper.text()).not.toContain('We found an existing AT Protocol account')
+    })
+
+    it('should disable buttons when recovering is true', () => {
+      const wrapper = mountComponent({
+        identity: null,
+        recoveryStatus: { hasExistingAccount: true },
+        recovering: true
+      })
+
+      const recoverBtn = wrapper.find('[data-cy="recover-identity-btn"]')
+      const createBtn = wrapper.find('[data-cy="create-identity-btn"]')
+
+      expect(recoverBtn.attributes('disabled')).toBeDefined()
+      expect(createBtn.attributes('disabled')).toBeDefined()
     })
   })
 })

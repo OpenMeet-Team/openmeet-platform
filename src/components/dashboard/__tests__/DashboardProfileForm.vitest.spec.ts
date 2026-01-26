@@ -65,7 +65,7 @@ vi.mock('vue-router', () => ({
 const AtprotoIdentityCardStub = {
   name: 'AtprotoIdentityCard',
   template: '<div data-cy="profile-atproto-identity">AtprotoIdentityCard stub</div>',
-  props: ['identity', 'loading']
+  props: ['identity', 'loading', 'recoveryStatus', 'recovering']
 }
 
 const CalendarConnectionsComponentStub = {

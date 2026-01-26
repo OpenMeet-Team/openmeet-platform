@@ -21,15 +21,49 @@
             No AT Protocol identity linked to your account
           </q-banner>
         </div>
-        <q-btn
-          data-cy="create-identity-btn"
-          color="primary"
-          no-caps
-          @click="$emit('create')"
-        >
-          <q-icon name="sym_r_add" class="q-mr-sm" />
-          Create AT Protocol Identity
-        </q-btn>
+
+        <!-- Recovery available banner -->
+        <div v-if="recoveryStatus?.hasExistingAccount" class="q-mb-md" data-cy="recovery-banner">
+          <q-banner class="bg-green-1 text-dark" rounded>
+            <template v-slot:avatar>
+              <q-icon name="sym_r_cloud_download" color="positive" />
+            </template>
+            <div class="text-body2">
+              We found an existing AT Protocol account linked to your email.
+              You can recover it or create a new one.
+            </div>
+          </q-banner>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="q-gutter-sm">
+          <!-- Recover button (shown if recovery available) -->
+          <q-btn
+            v-if="recoveryStatus?.hasExistingAccount"
+            data-cy="recover-identity-btn"
+            color="positive"
+            no-caps
+            :loading="recovering"
+            :disable="recovering"
+            @click="$emit('recover')"
+          >
+            <q-icon name="sym_r_cloud_download" class="q-mr-sm" />
+            Let OpenMeet manage it
+          </q-btn>
+
+          <!-- Create button -->
+          <q-btn
+            data-cy="create-identity-btn"
+            :color="recoveryStatus?.hasExistingAccount ? 'grey-7' : 'primary'"
+            :outline="recoveryStatus?.hasExistingAccount"
+            no-caps
+            :disable="recovering"
+            @click="$emit('create')"
+          >
+            <q-icon name="sym_r_add" class="q-mr-sm" />
+            {{ recoveryStatus?.hasExistingAccount ? 'Create New Identity' : 'Create AT Protocol Identity' }}
+          </q-btn>
+        </div>
       </template>
 
       <!-- Identity exists -->
@@ -119,16 +153,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { copyToClipboard, Notify } from 'quasar'
-import type { AtprotoIdentityDto } from '../../types/atproto'
+import type { AtprotoIdentityDto, AtprotoRecoveryStatusDto } from '../../types/atproto'
 
 const props = defineProps<{
   identity: AtprotoIdentityDto | null
   loading: boolean
+  recoveryStatus: AtprotoRecoveryStatusDto | null
+  recovering: boolean
 }>()
 
 // eslint-disable-next-line func-call-spacing
 defineEmits<{
   (e: 'create'): void
+  (e: 'recover'): void
 }>()
 
 const truncatedDid = computed(() => {
