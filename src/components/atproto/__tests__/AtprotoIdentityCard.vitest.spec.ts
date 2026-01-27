@@ -283,4 +283,416 @@ describe('AtprotoIdentityCard', () => {
       expect(createBtn.attributes('disabled')).toBeDefined()
     })
   })
+
+  describe('Take ownership flow', () => {
+    it('should show "Take Ownership" button for custodial identity on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Take Ownership')
+    })
+
+    it('should NOT show "Take Ownership" button for non-custodial identity', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+
+    it('should NOT show "Take Ownership" button for external PDS identity', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+
+    it('should emit initiate-take-ownership event when "Take Ownership" button is clicked', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="take-ownership-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('initiate-take-ownership')).toBeTruthy()
+    })
+
+    it('should show instructions when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      expect(wrapper.text()).toContain('Check your email')
+      expect(wrapper.text()).toContain('user@example.com')
+    })
+
+    it('should show password reset form with submit button when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Check that form elements exist
+      expect(wrapper.find('[data-cy="password-reset-token"]').exists()).toBe(true)
+      expect(wrapper.find('[data-cy="password-reset-password"]').exists()).toBe(true)
+      expect(wrapper.find('[data-cy="password-reset-confirm"]').exists()).toBe(true)
+
+      // Check submit button exists
+      const button = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Set Password')
+    })
+
+    it('should emit reset-password event when form is submitted with valid data', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Access internal state directly (Quasar components don't fully render in tests)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      vm.resetToken = 'ABC123'
+      vm.resetPassword = 'newpassword123'
+      vm.resetPasswordConfirm = 'newpassword123'
+      await wrapper.vm.$nextTick()
+
+      const button = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('reset-password')).toBeTruthy()
+      expect(wrapper.emitted('reset-password')![0]).toEqual([{
+        token: 'ABC123',
+        password: 'newpassword123'
+      }])
+    })
+
+    it('should hide "Take Ownership" button when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      const button = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+
+    it('should show cancel button when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      const button = wrapper.find('[data-cy="cancel-take-ownership-btn"]')
+      expect(button.exists()).toBe(true)
+    })
+
+    it('should emit cancel-take-ownership event when cancel button is clicked', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      const button = wrapper.find('[data-cy="cancel-take-ownership-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('cancel-take-ownership')).toBeTruthy()
+    })
+
+    it('should disable submit button when resettingPassword is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com',
+        resettingPassword: true
+      })
+
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      expect(submitBtn.attributes('disabled')).toBeDefined()
+    })
+  })
+
+  describe('Password reset form in take ownership flow', () => {
+    it('should show password reset form when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Should have token input
+      const tokenInput = wrapper.find('[data-cy="password-reset-token"]')
+      expect(tokenInput.exists()).toBe(true)
+
+      // Should have password input
+      const passwordInput = wrapper.find('[data-cy="password-reset-password"]')
+      expect(passwordInput.exists()).toBe(true)
+
+      // Should have confirm password input
+      const confirmInput = wrapper.find('[data-cy="password-reset-confirm"]')
+      expect(confirmInput.exists()).toBe(true)
+    })
+
+    it('should have token input with proper label', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Check the token input exists (Quasar internal structure is not fully rendered in tests)
+      const tokenWrapper = wrapper.find('[data-cy="password-reset-token"]')
+      expect(tokenWrapper.exists()).toBe(true)
+      // Check label is present in component
+      expect(wrapper.text()).toContain('Reset Code')
+    })
+
+    it('should have password inputs with proper labels', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Check password inputs exist
+      const passwordWrapper = wrapper.find('[data-cy="password-reset-password"]')
+      const confirmWrapper = wrapper.find('[data-cy="password-reset-confirm"]')
+      expect(passwordWrapper.exists()).toBe(true)
+      expect(confirmWrapper.exists()).toBe(true)
+      // Check labels are present
+      expect(wrapper.text()).toContain('New Password')
+      expect(wrapper.text()).toContain('Confirm Password')
+    })
+
+    it('should show submit button for password reset', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      expect(submitBtn.exists()).toBe(true)
+      expect(submitBtn.text()).toContain('Set Password')
+    })
+
+    it('should emit reset-password event with token and password when form is submitted', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Access internal state directly (Quasar components don't fully render in tests)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      vm.resetToken = 'ABC123'
+      vm.resetPassword = 'newpassword123'
+      vm.resetPasswordConfirm = 'newpassword123'
+      await wrapper.vm.$nextTick()
+
+      // Submit the form
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      await submitBtn.trigger('click')
+
+      expect(wrapper.emitted('reset-password')).toBeTruthy()
+      expect(wrapper.emitted('reset-password')![0]).toEqual([{
+        token: 'ABC123',
+        password: 'newpassword123'
+      }])
+    })
+
+    it('should show validation error if passwords do not match', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Access internal state directly (Quasar components don't fully render in tests)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      vm.resetToken = 'ABC123'
+      vm.resetPassword = 'password1'
+      vm.resetPasswordConfirm = 'password2'
+      await wrapper.vm.$nextTick()
+
+      // Try to submit
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      await submitBtn.trigger('click')
+      await wrapper.vm.$nextTick()
+
+      // Should show error and not emit
+      expect(vm.validationErrors.confirm).toBe('Passwords do not match')
+      expect(wrapper.emitted('reset-password')).toBeFalsy()
+    })
+
+    it('should show validation error if password is too short', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Access internal state directly (Quasar components don't fully render in tests)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      vm.resetToken = 'ABC123'
+      vm.resetPassword = 'short'
+      vm.resetPasswordConfirm = 'short'
+      await wrapper.vm.$nextTick()
+
+      // Try to submit
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      await submitBtn.trigger('click')
+      await wrapper.vm.$nextTick()
+
+      // Should show error and not emit
+      expect(vm.validationErrors.password).toContain('at least 8 characters')
+      expect(wrapper.emitted('reset-password')).toBeFalsy()
+    })
+
+    it('should show validation error if token is empty', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Access internal state directly (Quasar components don't fully render in tests)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Don't set token, just password
+      vm.resetPassword = 'newpassword123'
+      vm.resetPasswordConfirm = 'newpassword123'
+      await wrapper.vm.$nextTick()
+
+      // Try to submit
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      await submitBtn.trigger('click')
+      await wrapper.vm.$nextTick()
+
+      // Should show error and not emit
+      expect(vm.validationErrors.token).toBe('Token is required')
+      expect(wrapper.emitted('reset-password')).toBeFalsy()
+    })
+
+    it('should disable submit button when resettingPassword is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com',
+        resettingPassword: true
+      })
+
+      const submitBtn = wrapper.find('[data-cy="submit-password-reset-btn"]')
+      expect(submitBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('should show password reset error when provided', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com',
+        passwordResetError: 'Invalid token'
+      })
+
+      expect(wrapper.text()).toContain('Invalid token')
+    })
+  })
 })

@@ -166,8 +166,17 @@
       :loading="atprotoLoading"
       :recovery-status="recoveryStatus"
       :recovering="recovering"
+      :take-ownership-pending="takeOwnershipPending"
+      :take-ownership-email="takeOwnershipEmail"
+      :taking-ownership="takingOwnership"
+      :resetting-password="resettingPassword"
+      :password-reset-error="passwordResetError"
       @create="onCreateAtprotoIdentity"
       @recover="onRecoverAtprotoIdentity"
+      @initiate-take-ownership="onInitiateTakeOwnership"
+      @complete-take-ownership="onCompleteTakeOwnership"
+      @cancel-take-ownership="onCancelTakeOwnership"
+      @reset-password="onResetPdsPassword"
       data-cy="profile-atproto-identity"
       class="q-mb-md"
     />
@@ -335,6 +344,13 @@ const atprotoLoading = ref(false)
 const recoveryStatus = ref<AtprotoRecoveryStatusDto | null>(null)
 const recovering = ref(false)
 
+// Take ownership state
+const takeOwnershipPending = ref(false)
+const takeOwnershipEmail = ref('')
+const takingOwnership = ref(false)
+const resettingPassword = ref(false)
+const passwordResetError = ref('')
+
 const authStore = useAuthStore()
 
 // Main profile form submission - handles basic profile data only (not passwords)
@@ -492,6 +508,77 @@ const onRecoverAtprotoIdentity = async () => {
     error('Failed to recover AT Protocol identity')
   } finally {
     recovering.value = false
+  }
+}
+
+// Initiate take ownership - sends password reset email
+const onInitiateTakeOwnership = async () => {
+  try {
+    takingOwnership.value = true
+    const response = await atprotoApi.initiateTakeOwnership()
+    takeOwnershipEmail.value = response.data.email
+    takeOwnershipPending.value = true
+    success('Password reset email sent')
+  } catch (err) {
+    console.error('Failed to initiate take ownership:', err)
+    error('Failed to send password reset email')
+  } finally {
+    takingOwnership.value = false
+  }
+}
+
+// Complete take ownership - marks identity as non-custodial
+const onCompleteTakeOwnership = async () => {
+  try {
+    takingOwnership.value = true
+    await atprotoApi.completeTakeOwnership()
+    // Refresh identity to show updated status
+    const response = await atprotoApi.getIdentity()
+    atprotoIdentity.value = response.data
+    takeOwnershipPending.value = false
+    takeOwnershipEmail.value = ''
+    success('You now have full ownership of your AT Protocol identity')
+  } catch (err) {
+    console.error('Failed to complete take ownership:', err)
+    error('Failed to complete ownership transfer. Make sure you have set your password.')
+  } finally {
+    takingOwnership.value = false
+  }
+}
+
+// Cancel take ownership flow
+const onCancelTakeOwnership = () => {
+  takeOwnershipPending.value = false
+  takeOwnershipEmail.value = ''
+  passwordResetError.value = ''
+}
+
+// Reset PDS password and complete take ownership
+const onResetPdsPassword = async (payload: { token: string; password: string }) => {
+  try {
+    resettingPassword.value = true
+    passwordResetError.value = ''
+
+    // First reset the password on the PDS
+    await atprotoApi.resetPdsPassword(payload.token, payload.password)
+
+    // Then mark the identity as non-custodial
+    await atprotoApi.completeTakeOwnership()
+
+    // Refresh identity to show updated status
+    const response = await atprotoApi.getIdentity()
+    atprotoIdentity.value = response.data
+    takeOwnershipPending.value = false
+    takeOwnershipEmail.value = ''
+    success('Password set! You now have full ownership of your AT Protocol identity')
+  } catch (err) {
+    console.error('Failed to reset PDS password:', err)
+    // Extract error message from response if available
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorMessage = (err as any)?.response?.data?.message || 'Invalid token or password reset failed. Please try again.'
+    passwordResetError.value = errorMessage
+  } finally {
+    resettingPassword.value = false
   }
 }
 

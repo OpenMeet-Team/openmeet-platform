@@ -27,3 +27,11 @@ export interface AtprotoRecoveryStatusDto {
   /** Whether the user has an existing AT Protocol account that can be recovered */
   hasExistingAccount: boolean
 }
+
+/**
+ * Response from initiating take ownership flow
+ */
+export interface TakeOwnershipInitiateResponseDto {
+  /** The email address where the password reset was sent */
+  email: string
+}
