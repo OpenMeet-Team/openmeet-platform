@@ -360,7 +360,7 @@ const passwordResetError = ref('')
 // Handle change state
 const updatingHandle = ref(false)
 const handleError = ref('')
-const handleDomain = ref('.opnmt.me') // TODO: get from config
+const handleDomain = computed(() => atprotoIdentity.value?.validHandleDomains?.[0] || '')
 
 // Link external account state
 const linking = ref(false)

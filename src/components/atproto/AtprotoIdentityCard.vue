@@ -270,8 +270,8 @@
               </div>
             </div>
 
-            <!-- Handle change section (only when not in take ownership flow) -->
-            <template v-if="!takeOwnershipPending">
+            <!-- Handle change section (only when not in take ownership flow and domain is configured) -->
+            <template v-if="!takeOwnershipPending && handleDomain">
               <q-separator class="q-my-md" />
 
               <div class="q-mt-md">
@@ -304,7 +304,7 @@
                     @keyup.escape="cancelEditingHandle"
                   >
                     <template v-slot:append>
-                      <span class="text-grey-7 text-body2">{{ handleDomain || '.opnmt.me' }}</span>
+                      <span class="text-grey-7 text-body2">{{ handleDomain }}</span>
                     </template>
                   </q-input>
 
@@ -420,8 +420,8 @@ const newHandle = ref('')
 const startEditingHandle = () => {
   // Pre-fill with current handle's local part
   const currentHandle = props.identity?.handle || ''
-  const domain = props.handleDomain || '.opnmt.me'
-  if (currentHandle.endsWith(domain)) {
+  const domain = props.handleDomain || ''
+  if (domain && currentHandle.endsWith(domain)) {
     newHandle.value = currentHandle.slice(0, -domain.length)
   } else {
     newHandle.value = ''
@@ -435,9 +435,9 @@ const cancelEditingHandle = () => {
 }
 
 const submitHandleChange = () => {
-  if (!newHandle.value.trim()) return
+  if (!newHandle.value.trim() || !props.handleDomain) return
 
-  const domain = props.handleDomain || '.opnmt.me'
+  const domain = props.handleDomain
   let handle = newHandle.value.trim()
 
   // Add domain if not already present
