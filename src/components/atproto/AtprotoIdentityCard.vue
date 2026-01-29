@@ -144,6 +144,127 @@
               <q-icon name="sym_r_open_in_new" size="xs" class="q-ml-xs" />
             </a>
           </div>
+
+          <!-- Take ownership section for custodial identities on our PDS -->
+          <template v-if="identity.isCustodial && identity.isOurPds">
+            <q-separator class="q-my-md" />
+
+            <!-- Normal state: show Take Ownership button -->
+            <div v-if="!takeOwnershipPending" class="q-mt-md">
+              <q-btn
+                data-cy="take-ownership-btn"
+                color="secondary"
+                no-caps
+                outline
+                @click="$emit('initiate-take-ownership')"
+              >
+                <q-icon name="sym_r_key" class="q-mr-sm" />
+                Take Ownership
+              </q-btn>
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Set your own password to manage this identity directly
+              </div>
+            </div>
+
+            <!-- Pending state: show instructions and password reset form -->
+            <div v-else class="q-mt-md">
+              <q-banner class="bg-blue-1 text-dark q-mb-md" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="sym_r_mail" color="primary" />
+                </template>
+                <div class="text-body2">
+                  Check your email at <strong>{{ takeOwnershipEmail }}</strong> for a password reset code.
+                  Enter the code and your new password below.
+                </div>
+              </q-banner>
+
+              <!-- Password reset error -->
+              <div v-if="passwordResetError" class="q-mb-md">
+                <q-banner class="bg-red-1 text-dark" rounded data-cy="password-reset-error">
+                  <template v-slot:avatar>
+                    <q-icon name="sym_r_error" color="negative" />
+                  </template>
+                  {{ passwordResetError }}
+                </q-banner>
+              </div>
+
+              <!-- Password reset form -->
+              <div class="q-gutter-md q-mb-md">
+                <q-input
+                  data-cy="password-reset-token"
+                  v-model="resetToken"
+                  label="Reset Code"
+                  hint="Enter the code from your email"
+                  filled
+                  inputmode="numeric"
+                  :error="!!validationErrors.token"
+                  :error-message="validationErrors.token"
+                />
+
+                <q-input
+                  data-cy="password-reset-password"
+                  v-model="resetPassword"
+                  label="New Password"
+                  hint="Must be at least 8 characters"
+                  filled
+                  :type="showPassword ? 'text' : 'password'"
+                  :error="!!validationErrors.password"
+                  :error-message="validationErrors.password"
+                >
+                  <template v-slot:append>
+                    <q-icon
+                      :name="showPassword ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                      class="cursor-pointer"
+                      @click="showPassword = !showPassword"
+                    />
+                  </template>
+                </q-input>
+
+                <q-input
+                  data-cy="password-reset-confirm"
+                  v-model="resetPasswordConfirm"
+                  label="Confirm Password"
+                  filled
+                  :type="showPassword ? 'text' : 'password'"
+                  :error="!!validationErrors.confirm"
+                  :error-message="validationErrors.confirm"
+                >
+                  <template v-slot:append>
+                    <q-icon
+                      :name="showPassword ? 'sym_r_visibility_off' : 'sym_r_visibility'"
+                      class="cursor-pointer"
+                      @click="showPassword = !showPassword"
+                    />
+                  </template>
+                </q-input>
+              </div>
+
+              <div class="q-gutter-sm">
+                <q-btn
+                  data-cy="submit-password-reset-btn"
+                  color="primary"
+                  no-caps
+                  :loading="resettingPassword"
+                  :disable="resettingPassword"
+                  @click="submitPasswordReset"
+                >
+                  <q-icon name="sym_r_check" class="q-mr-sm" />
+                  Set Password & Complete
+                </q-btn>
+
+                <q-btn
+                  data-cy="cancel-take-ownership-btn"
+                  flat
+                  no-caps
+                  color="grey-7"
+                  :disable="resettingPassword"
+                  @click="$emit('cancel-take-ownership')"
+                >
+                  Cancel
+                </q-btn>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
     </q-card-section>
@@ -151,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import { copyToClipboard, Notify } from 'quasar'
 import type { AtprotoIdentityDto, AtprotoRecoveryStatusDto } from '../../types/atproto'
 
@@ -160,13 +281,85 @@ const props = defineProps<{
   loading: boolean
   recoveryStatus: AtprotoRecoveryStatusDto | null
   recovering: boolean
+  takeOwnershipPending?: boolean
+  takeOwnershipEmail?: string
+  takingOwnership?: boolean
+  resettingPassword?: boolean
+  passwordResetError?: string
 }>()
 
 // eslint-disable-next-line func-call-spacing
-defineEmits<{
+const emit = defineEmits<{
   (e: 'create'): void
   (e: 'recover'): void
+  (e: 'initiate-take-ownership'): void
+  (e: 'complete-take-ownership'): void
+  (e: 'cancel-take-ownership'): void
+  (e: 'reset-password', payload: { token: string; password: string }): void
 }>()
+
+// Password reset form state
+const resetToken = ref('')
+const resetPassword = ref('')
+const resetPasswordConfirm = ref('')
+const showPassword = ref(false)
+const validationErrors = reactive({
+  token: '',
+  password: '',
+  confirm: ''
+})
+
+// Clear form when takeOwnershipPending changes to false
+watch(() => props.takeOwnershipPending, (pending) => {
+  if (!pending) {
+    resetToken.value = ''
+    resetPassword.value = ''
+    resetPasswordConfirm.value = ''
+    validationErrors.token = ''
+    validationErrors.password = ''
+    validationErrors.confirm = ''
+  }
+})
+
+const validateForm = (): boolean => {
+  let valid = true
+
+  // Clear previous errors
+  validationErrors.token = ''
+  validationErrors.password = ''
+  validationErrors.confirm = ''
+
+  // Validate token
+  if (!resetToken.value.trim()) {
+    validationErrors.token = 'Token is required'
+    valid = false
+  }
+
+  // Validate password length
+  if (resetPassword.value.length < 8) {
+    validationErrors.password = 'Password must be at least 8 characters'
+    valid = false
+  }
+
+  // Validate passwords match
+  if (resetPassword.value !== resetPasswordConfirm.value) {
+    validationErrors.confirm = 'Passwords do not match'
+    valid = false
+  }
+
+  return valid
+}
+
+const submitPasswordReset = () => {
+  if (!validateForm()) {
+    return
+  }
+
+  emit('reset-password', {
+    token: resetToken.value.trim(),
+    password: resetPassword.value
+  })
+}
 
 const truncatedDid = computed(() => {
   if (!props.identity?.did) return ''
