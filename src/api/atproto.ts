@@ -51,5 +51,24 @@ export const atprotoApi = {
    * @returns Success status
    */
   resetPdsPassword: (token: string, password: string): Promise<AxiosResponse<{ success: boolean }>> =>
-    api.post(`${BASE_URL}/identity/reset-pds-password`, { token, password })
+    api.post(`${BASE_URL}/identity/reset-pds-password`, { token, password }),
+
+  /**
+   * Update the handle for the current user's AT Protocol identity
+   * Only works for identities hosted on OpenMeet's PDS
+   * @param handle - The new handle (must end with allowed domain, e.g., .opnmt.me)
+   * @returns Updated identity
+   */
+  updateHandle: (handle: string): Promise<AxiosResponse<AtprotoIdentityDto>> =>
+    api.post(`${BASE_URL}/identity/update-handle`, { handle }),
+
+  /**
+   * Initiate linking an external AT Protocol account
+   * Returns a URL to redirect the user to for OAuth authorization
+   * @param handle - The AT Protocol handle to link (e.g., "alice.bsky.social")
+   * @param platform - Optional platform hint for redirect (android, ios, web)
+   * @returns OAuth authorization URL
+   */
+  linkIdentity: (handle: string, platform?: 'android' | 'ios' | 'web'): Promise<AxiosResponse<{ authUrl: string }>> =>
+    api.post('/api/v1/auth/bluesky/link', { handle, platform })
 }

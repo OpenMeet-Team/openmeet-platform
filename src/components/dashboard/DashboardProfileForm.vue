@@ -171,12 +171,18 @@
       :taking-ownership="takingOwnership"
       :resetting-password="resettingPassword"
       :password-reset-error="passwordResetError"
+      :updating-handle="updatingHandle"
+      :handle-error="handleError"
+      :handle-domain="handleDomain"
+      :linking="linking"
       @create="onCreateAtprotoIdentity"
       @recover="onRecoverAtprotoIdentity"
       @initiate-take-ownership="onInitiateTakeOwnership"
       @complete-take-ownership="onCompleteTakeOwnership"
       @cancel-take-ownership="onCancelTakeOwnership"
       @reset-password="onResetPdsPassword"
+      @update-handle="onUpdateHandle"
+      @link="onLinkIdentity"
       data-cy="profile-atproto-identity"
       class="q-mb-md"
     />
@@ -350,6 +356,14 @@ const takeOwnershipEmail = ref('')
 const takingOwnership = ref(false)
 const resettingPassword = ref(false)
 const passwordResetError = ref('')
+
+// Handle change state
+const updatingHandle = ref(false)
+const handleError = ref('')
+const handleDomain = ref('.opnmt.me') // TODO: get from config
+
+// Link external account state
+const linking = ref(false)
 
 const authStore = useAuthStore()
 
@@ -570,7 +584,11 @@ const onResetPdsPassword = async (payload: { token: string; password: string }) 
     atprotoIdentity.value = response.data
     takeOwnershipPending.value = false
     takeOwnershipEmail.value = ''
-    success('Password set! You now have full ownership of your AT Protocol identity')
+    success('Password set! Connecting your account...')
+
+    // Auto-redirect to OAuth to complete the flow
+    // This establishes the session so the user can publish
+    await onLinkIdentity()
   } catch (err) {
     console.error('Failed to reset PDS password:', err)
     // Extract error message from response if available
@@ -579,6 +597,50 @@ const onResetPdsPassword = async (payload: { token: string; password: string }) 
     passwordResetError.value = errorMessage
   } finally {
     resettingPassword.value = false
+  }
+}
+
+// Update AT Protocol handle
+const onUpdateHandle = async (handle: string) => {
+  try {
+    updatingHandle.value = true
+    handleError.value = ''
+    const response = await atprotoApi.updateHandle(handle)
+    atprotoIdentity.value = response.data
+    success('Handle updated successfully')
+  } catch (err) {
+    console.error('Failed to update handle:', err)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorMessage = (err as any)?.response?.data?.message || 'Failed to update handle'
+    handleError.value = errorMessage
+    error(errorMessage)
+  } finally {
+    updatingHandle.value = false
+  }
+}
+
+// Link external AT Protocol account
+const onLinkIdentity = async () => {
+  try {
+    linking.value = true
+
+    // Use the current identity's handle if available, otherwise prompt
+    const handle = atprotoIdentity.value?.handle
+    if (!handle) {
+      error('No handle available for linking')
+      return
+    }
+
+    const response = await atprotoApi.linkIdentity(handle, 'web')
+    // Redirect to OAuth authorization URL
+    window.location.href = response.data.authUrl
+  } catch (err) {
+    console.error('Failed to initiate link:', err)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorMessage = (err as any)?.response?.data?.message || 'Failed to initiate account linking'
+    error(errorMessage)
+  } finally {
+    linking.value = false
   }
 }
 
