@@ -149,8 +149,16 @@
           <template v-if="identity.isCustodial && identity.isOurPds">
             <q-separator class="q-my-md" />
 
-            <!-- Normal state: show Take Ownership button -->
+            <!-- Normal state: show Take Ownership button with pre-flow instructions -->
             <div v-if="!takeOwnershipPending" class="q-mt-md">
+              <div class="text-body2 text-grey-8 q-mb-md">
+                Taking ownership lets you manage this identity directly. You'll:
+                <ol class="q-pl-md q-my-sm">
+                  <li>Receive a password reset email</li>
+                  <li>Set your own password</li>
+                  <li>Sign in to continue publishing events</li>
+                </ol>
+              </div>
               <q-btn
                 data-cy="take-ownership-btn"
                 color="secondary"
@@ -161,9 +169,6 @@
                 <q-icon name="sym_r_key" class="q-mr-sm" />
                 Take Ownership
               </q-btn>
-              <div class="text-caption text-grey-7 q-mt-xs">
-                Set your own password to manage this identity directly
-              </div>
             </div>
 
             <!-- Pending state: show instructions and password reset form -->
@@ -264,6 +269,99 @@
                 </q-btn>
               </div>
             </div>
+
+            <!-- Handle change section (only when not in take ownership flow) -->
+            <template v-if="!takeOwnershipPending">
+              <q-separator class="q-my-md" />
+
+              <div class="q-mt-md">
+                <div class="text-subtitle2 text-grey-7 q-mb-sm">Change Handle</div>
+
+                <div v-if="!editingHandle" class="row items-center q-gutter-sm">
+                  <q-btn
+                    data-cy="edit-handle-btn"
+                    color="primary"
+                    no-caps
+                    outline
+                    size="sm"
+                    @click="startEditingHandle"
+                  >
+                    <q-icon name="sym_r_edit" class="q-mr-sm" size="xs" />
+                    Change Handle
+                  </q-btn>
+                </div>
+
+                <div v-else class="q-gutter-sm">
+                  <q-input
+                    data-cy="new-handle-input"
+                    v-model="newHandle"
+                    label="Username"
+                    filled
+                    dense
+                    :error="!!handleError"
+                    :error-message="handleError"
+                    @keyup.enter="submitHandleChange"
+                    @keyup.escape="cancelEditingHandle"
+                  >
+                    <template v-slot:append>
+                      <span class="text-grey-7 text-body2">{{ handleDomain || '.opnmt.me' }}</span>
+                    </template>
+                  </q-input>
+
+                  <div class="q-gutter-sm">
+                    <q-btn
+                      data-cy="submit-handle-btn"
+                      color="primary"
+                      no-caps
+                      size="sm"
+                      :loading="updatingHandle"
+                      :disable="updatingHandle || !newHandle.trim()"
+                      @click="submitHandleChange"
+                    >
+                      Save
+                    </q-btn>
+                    <q-btn
+                      data-cy="cancel-handle-btn"
+                      flat
+                      no-caps
+                      size="sm"
+                      color="grey-7"
+                      :disable="updatingHandle"
+                      @click="cancelEditingHandle"
+                    >
+                      Cancel
+                    </q-btn>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <!-- Link external account for post-ownership users without active session -->
+          <template v-if="!identity.isCustodial && !identity.hasActiveSession">
+            <q-separator class="q-my-md" />
+
+            <div class="q-mt-md">
+              <q-banner class="bg-orange-1 text-dark q-mb-md" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="sym_r_link_off" color="warning" />
+                </template>
+                <div class="text-body2">
+                  Your AT Protocol session has expired. Link your account again to enable publishing.
+                </div>
+              </q-banner>
+
+              <q-btn
+                data-cy="relink-identity-btn"
+                color="primary"
+                no-caps
+                :loading="linking"
+                @click="startLinking"
+              >
+                <q-icon name="sym_r_link" class="q-mr-sm" />
+                Re-link Account
+              </q-btn>
+            </div>
           </template>
         </div>
       </template>
@@ -286,6 +384,10 @@ const props = defineProps<{
   takingOwnership?: boolean
   resettingPassword?: boolean
   passwordResetError?: string
+  updatingHandle?: boolean
+  handleError?: string
+  handleDomain?: string
+  linking?: boolean
 }>()
 
 // eslint-disable-next-line func-call-spacing
@@ -296,6 +398,8 @@ const emit = defineEmits<{
   (e: 'complete-take-ownership'): void
   (e: 'cancel-take-ownership'): void
   (e: 'reset-password', payload: { token: string; password: string }): void
+  (e: 'update-handle', handle: string): void
+  (e: 'link'): void
 }>()
 
 // Password reset form state
@@ -308,6 +412,54 @@ const validationErrors = reactive({
   password: '',
   confirm: ''
 })
+
+// Handle change state
+const editingHandle = ref(false)
+const newHandle = ref('')
+
+const startEditingHandle = () => {
+  // Pre-fill with current handle's local part
+  const currentHandle = props.identity?.handle || ''
+  const domain = props.handleDomain || '.opnmt.me'
+  if (currentHandle.endsWith(domain)) {
+    newHandle.value = currentHandle.slice(0, -domain.length)
+  } else {
+    newHandle.value = ''
+  }
+  editingHandle.value = true
+}
+
+const cancelEditingHandle = () => {
+  editingHandle.value = false
+  newHandle.value = ''
+}
+
+const submitHandleChange = () => {
+  if (!newHandle.value.trim()) return
+
+  const domain = props.handleDomain || '.opnmt.me'
+  let handle = newHandle.value.trim()
+
+  // Add domain if not already present
+  if (!handle.endsWith(domain)) {
+    handle = handle + domain
+  }
+
+  emit('update-handle', handle)
+}
+
+// Reset handle editing state when handle updates successfully
+watch(() => props.identity?.handle, () => {
+  if (!props.updatingHandle) {
+    editingHandle.value = false
+    newHandle.value = ''
+  }
+})
+
+// Link external account
+const startLinking = () => {
+  emit('link')
+}
 
 // Clear form when takeOwnershipPending changes to false
 watch(() => props.takeOwnershipPending, (pending) => {
@@ -371,20 +523,24 @@ const truncatedDid = computed(() => {
 
 const statusText = computed(() => {
   if (!props.identity) return ''
+  // Custodial identities show custody status
   if (props.identity.isCustodial) {
     return 'Managed by OpenMeet'
   }
-  if (props.identity.isOurPds) {
-    return 'Self-managed'
+  // Non-custodial identities show session state
+  if (props.identity.hasActiveSession) {
+    return 'Connected'
   }
-  return 'Self-managed (external PDS)'
+  return 'Needs authentication'
 })
 
 const statusColor = computed(() => {
   if (!props.identity) return 'grey'
+  // Custodial identities use primary color
   if (props.identity.isCustodial) return 'primary'
-  if (props.identity.isOurPds) return 'positive'
-  return 'orange'
+  // Non-custodial: green if connected, warning if needs auth
+  if (props.identity.hasActiveSession) return 'positive'
+  return 'warning'
 })
 
 const blueskyProfileUrl = computed(() => {

@@ -32,6 +32,7 @@ describe('AtprotoIdentityCard', () => {
     pdsUrl: 'https://pds.openmeet.net',
     isCustodial: true,
     isOurPds: true,
+    hasActiveSession: false,
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
     ...overrides
@@ -131,28 +132,43 @@ describe('AtprotoIdentityCard', () => {
   })
 
   describe('When identity is self-managed (our PDS)', () => {
-    it('should show "Self-managed" status', () => {
+    it('should show session-based status for non-custodial identity', () => {
+      // Non-custodial identity without active session shows "Needs authentication"
       const identity = createMockIdentity({
         isCustodial: false,
-        isOurPds: true
+        isOurPds: true,
+        hasActiveSession: false
       })
       const wrapper = mountComponent({ identity })
 
-      expect(wrapper.text()).toContain('Self-managed')
-      expect(wrapper.text()).not.toContain('external PDS')
+      expect(wrapper.text()).toContain('Needs authentication')
+    })
+
+    it('should show "Connected" when hasActiveSession is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Connected')
     })
   })
 
   describe('When identity is on external PDS', () => {
-    it('should show "Self-managed (external PDS)" status', () => {
+    it('should show session-based status for external PDS identity', () => {
+      // External PDS identities also show session-based status
       const identity = createMockIdentity({
         isCustodial: false,
         isOurPds: false,
-        pdsUrl: 'https://bsky.social'
+        pdsUrl: 'https://bsky.social',
+        hasActiveSession: false
       })
       const wrapper = mountComponent({ identity })
 
-      expect(wrapper.text()).toContain('Self-managed (external PDS)')
+      // Non-custodial without session shows "Needs authentication"
+      expect(wrapper.text()).toContain('Needs authentication')
     })
 
     it('should show info message about external PDS limitations', () => {
@@ -693,6 +709,124 @@ describe('AtprotoIdentityCard', () => {
       })
 
       expect(wrapper.text()).toContain('Invalid token')
+    })
+  })
+
+  describe('Pre-flow instructions for take ownership', () => {
+    it('should show explanatory text before take ownership button', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      // Should show the pre-flow instructions
+      expect(wrapper.text()).toContain('Taking ownership lets you manage this identity directly')
+    })
+
+    it('should show step 1: password reset email', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Receive a password reset email')
+    })
+
+    it('should show step 2: set password', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Set your own password')
+    })
+
+    it('should show step 3: sign in to continue', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Sign in to continue publishing')
+    })
+
+    it('should NOT show pre-flow instructions when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      // Should not show the pre-flow instructions when in the middle of the flow
+      expect(wrapper.text()).not.toContain('Taking ownership lets you manage this identity directly')
+    })
+  })
+
+  describe('Status display with session state', () => {
+    it('should show "Connected" status when hasActiveSession is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Connected')
+    })
+
+    it('should show "Needs authentication" status when hasActiveSession is false for non-custodial', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      expect(wrapper.text()).toContain('Needs authentication')
+    })
+
+    it('should show "Managed by OpenMeet" status for custodial identity regardless of session', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        hasActiveSession: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      // Custodial identities always show "Managed by OpenMeet"
+      expect(wrapper.text()).toContain('Managed by OpenMeet')
+    })
+
+    it('should use green color for Connected status', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const chip = wrapper.find('.q-chip')
+      expect(chip.classes()).toContain('bg-positive')
+    })
+
+    it('should use warning color for Needs authentication status', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      const chip = wrapper.find('.q-chip')
+      expect(chip.classes()).toContain('bg-warning')
     })
   })
 })

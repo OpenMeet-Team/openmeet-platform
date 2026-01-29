@@ -13,6 +13,8 @@ export interface AtprotoIdentityDto {
   isCustodial: boolean
   /** Whether hosted on OpenMeet's PDS */
   isOurPds: boolean
+  /** Whether this identity has an active session for publishing */
+  hasActiveSession: boolean
   /** When the identity was created */
   createdAt: Date
   /** When the identity was last updated */

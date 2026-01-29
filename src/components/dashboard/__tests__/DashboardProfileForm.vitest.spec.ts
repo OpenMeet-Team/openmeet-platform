@@ -38,7 +38,12 @@ vi.mock('../../../api/subcategories', () => ({
 
 vi.mock('../../../api/atproto', () => ({
   atprotoApi: {
-    createIdentity: vi.fn().mockResolvedValue({ data: {} })
+    createIdentity: vi.fn().mockResolvedValue({ data: {} }),
+    getRecoveryStatus: vi.fn().mockResolvedValue({ data: { hasExistingAccount: false } }),
+    resetPdsPassword: vi.fn().mockResolvedValue({}),
+    completeTakeOwnership: vi.fn().mockResolvedValue({}),
+    getIdentity: vi.fn().mockResolvedValue({ data: {} }),
+    linkIdentity: vi.fn().mockResolvedValue({ data: { authUrl: 'https://pds.example.com/oauth' } })
   }
 }))
 
@@ -94,6 +99,7 @@ describe('DashboardProfileForm', () => {
     pdsUrl: 'https://bsky.social',
     isCustodial: false,
     isOurPds: false,
+    hasActiveSession: false,
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
     ...overrides
@@ -223,6 +229,54 @@ describe('DashboardProfileForm', () => {
 
       const blueskySection = wrapper.find('[data-cy="profile-bluesky"]')
       expect(blueskySection.exists()).toBe(false)
+    })
+  })
+
+  describe('Take ownership flow auto-redirect', () => {
+    it('should auto-redirect to OAuth after password reset completes', async () => {
+      // This test verifies that onResetPdsPassword calls onLinkIdentity after success
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: createMockAtprotoIdentity({
+          isCustodial: true,
+          isOurPds: true,
+          handle: 'alice.opnmt.me'
+        })
+      })
+
+      // Access the component's internal methods
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Mock the atproto API methods
+      const { atprotoApi } = await import('../../../api/atproto')
+      vi.mocked(atprotoApi).resetPdsPassword = vi.fn().mockResolvedValue({})
+      vi.mocked(atprotoApi).completeTakeOwnership = vi.fn().mockResolvedValue({})
+      vi.mocked(atprotoApi).getIdentity = vi.fn().mockResolvedValue({
+        data: createMockAtprotoIdentity({
+          isCustodial: false,
+          isOurPds: true,
+          handle: 'alice.opnmt.me',
+          hasActiveSession: false
+        })
+      })
+      vi.mocked(atprotoApi).linkIdentity = vi.fn().mockResolvedValue({
+        data: { authUrl: 'https://pds.example.com/oauth/authorize' }
+      })
+
+      // Set up takeOwnershipPending state
+      vm.takeOwnershipPending = true
+      vm.atprotoIdentity = createMockAtprotoIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        handle: 'alice.opnmt.me'
+      })
+
+      // Call the password reset handler
+      await vm.onResetPdsPassword({ token: 'ABC123', password: 'newpassword123' })
+
+      // Verify linkIdentity was called to initiate OAuth
+      expect(vi.mocked(atprotoApi).linkIdentity).toHaveBeenCalledWith('alice.opnmt.me', 'web')
     })
   })
 })
