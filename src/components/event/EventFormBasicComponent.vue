@@ -182,6 +182,22 @@
                   <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
                   This is a local-only event.
                 </p>
+
+                <!-- AT Protocol Orphan State Warning -->
+                <q-banner
+                  v-if="publishToBluesky && isAtprotoOrphanState"
+                  data-cy="atproto-orphan-warning"
+                  class="bg-orange-1 text-dark q-mt-sm"
+                  rounded
+                >
+                  <template v-slot:avatar>
+                    <q-icon name="sym_r_link_off" color="warning" />
+                  </template>
+                  <div class="text-body2">
+                    Your AT Protocol session has expired. Publishing to AT Protocol will not work until you
+                    <router-link to="/dashboard/profile" class="text-primary">reconnect your account</router-link>.
+                  </div>
+                </q-banner>
               </div>
 
               <!-- Event Visibility -->
@@ -502,6 +518,16 @@ const canSaveAsDraft = computed(() => {
   // Can save as draft if this is a new event OR was originally a draft
   // Cannot save as draft if event was already published
   return !originalEventStatus.value || originalEventStatus.value !== EventStatus.Published
+})
+
+// Computed property to detect AT Protocol orphan state
+// User is in orphan state when they have taken ownership of their identity
+// but haven't completed OAuth linking (no active session)
+const isAtprotoOrphanState = computed(() => {
+  const identity = authStore.user?.atprotoIdentity
+  if (!identity) return false
+  // Orphan state: non-custodial (user took ownership) AND no active session
+  return !identity.isCustodial && !identity.hasActiveSession
 })
 
 // Store the displayed start and end times
