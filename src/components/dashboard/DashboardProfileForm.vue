@@ -135,28 +135,6 @@
         </q-card-section>
       </q-card>
 
-      <!-- AT Protocol event source toggle - only shown for Bluesky users -->
-      <q-card class="q-mb-md" data-cy="profile-bluesky" v-if="isBlueskyUser">
-        <q-card-section>
-          <div class="text-h6 q-mb-md">
-            <q-icon name="sym_r_cloud" class="q-mr-sm" />
-            AT Protocol Event Source
-          </div>
-          <div class="q-gutter-y-md">
-            <!-- Display error message if there are Bluesky connection issues -->
-            <div v-if="blueskyErrorMessage" class="text-negative q-mb-md">
-              <q-icon name="sym_r_error" size="sm" class="q-mr-xs" />
-              {{ blueskyErrorMessage }}
-            </div>
-
-            <q-toggle
-              v-model="form.preferences.bluesky.connected"
-              label="Use AT Protocol as event source"
-              @update:model-value="onBlueskyConnectionToggle"
-            />
-          </div>
-        </q-card-section>
-      </q-card>
     </q-form>
 
     <!-- AT Protocol Identity section - shown for users with identity OR non-Bluesky users who can create one -->
@@ -309,7 +287,6 @@ import { FileEntity, SubCategoryEntity, AuthProvidersEnum } from '../../types'
 import { useNotification } from '../../composables/useNotification'
 import UploadComponent from '../../components/common/UploadComponent.vue'
 import { subcategoriesApi } from '../../api/subcategories'
-import { useBlueskyConnection } from '../../composables/useBlueskyConnection'
 import { Profile } from '../../types/user'
 import { getImageSrc } from '../../utils/imageUtils'
 import CalendarConnectionsComponent from '../calendar/CalendarConnectionsComponent.vue'
@@ -718,25 +695,6 @@ const openChangeEmailDialog = () => {
   }).onOk((val: string) => {
     form.value.email = val
   })
-}
-
-const { toggleConnection } = useBlueskyConnection()
-const blueskyErrorMessage = ref<string | null>(null)
-
-const onBlueskyConnectionToggle = async (enabled: boolean) => {
-  const success = await toggleConnection(enabled)
-  if (!success) {
-    // Reset the toggle to the previous state if the operation failed
-    form.value.preferences.bluesky.connected = !enabled
-  } else {
-    form.value.preferences.bluesky.connected = enabled
-    if (enabled) {
-      form.value.preferences.bluesky.connectedAt = new Date()
-      form.value.preferences.bluesky.disconnectedAt = null
-    } else {
-      form.value.preferences.bluesky.disconnectedAt = new Date()
-    }
-  }
 }
 
 const onDeleteAccount = () => {

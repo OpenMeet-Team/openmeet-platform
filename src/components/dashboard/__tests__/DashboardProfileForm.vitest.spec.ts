@@ -47,12 +47,6 @@ vi.mock('../../../api/atproto', () => ({
   }
 }))
 
-vi.mock('../../../composables/useBlueskyConnection', () => ({
-  useBlueskyConnection: () => ({
-    toggleConnection: vi.fn().mockResolvedValue(true)
-  })
-}))
-
 vi.mock('../../../composables/useNotification', () => ({
   useNotification: () => ({
     error: vi.fn(),
@@ -207,28 +201,6 @@ describe('DashboardProfileForm', () => {
 
       const identityCard = wrapper.find('[data-cy="profile-atproto-identity"]')
       expect(identityCard.exists()).toBe(false)
-    })
-  })
-
-  describe('Bluesky settings section', () => {
-    it('should show Bluesky settings for Bluesky users', async () => {
-      const wrapper = await mountComponent({
-        provider: AuthProvidersEnum.bluesky,
-        atprotoIdentity: createMockAtprotoIdentity()
-      })
-
-      const blueskySection = wrapper.find('[data-cy="profile-bluesky"]')
-      expect(blueskySection.exists()).toBe(true)
-    })
-
-    it('should NOT show Bluesky settings for email users', async () => {
-      const wrapper = await mountComponent({
-        provider: AuthProvidersEnum.email,
-        atprotoIdentity: null
-      })
-
-      const blueskySection = wrapper.find('[data-cy="profile-bluesky"]')
-      expect(blueskySection.exists()).toBe(false)
     })
   })
 
