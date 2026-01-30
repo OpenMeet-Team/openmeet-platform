@@ -380,6 +380,19 @@
                     />
                     {{ event.sourceType }}
                   </q-badge>
+                  <a
+                    v-if="event.atprotoUri"
+                    :href="'https://pds.ls/' + event.atprotoUri"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="q-ml-sm"
+                    title="View on AT Protocol"
+                  >
+                    <q-badge color="blue">
+                      <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
+                      Published
+                    </q-badge>
+                  </a>
                 </div>
                 <q-btn
                   v-if="event.locationOnline"
@@ -771,6 +784,19 @@
                       />
                       {{ event.sourceType }}
                     </q-badge>
+                    <a
+                      v-if="event.atprotoUri"
+                      :href="'https://pds.ls/' + event.atprotoUri"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="q-ml-sm"
+                      title="View on AT Protocol"
+                    >
+                      <q-badge color="blue">
+                        <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
+                        Published
+                      </q-badge>
+                    </a>
                   </div>
                   <q-btn
                     v-if="event.locationOnline"

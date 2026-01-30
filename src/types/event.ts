@@ -114,6 +114,7 @@ export interface EventAttendeeEntity {
   role: EventAttendeeRoleEntity;
   status: EventAttendeeStatus;
   approvalAnswer?: string;
+  atprotoUri?: string; // AT Protocol URI if RSVP published to PDS
   createdAt?: string;
   updatedAt?: string;
 }
@@ -177,6 +178,9 @@ export interface EventEntity {
   sourceUrl?: string
   lastSyncedAt?: string
   sourceData?: Record<string, unknown>
+
+  // AT Protocol fields
+  atprotoUri?: string
 
   // Series reference - replaces recurrence fields
   seriesId?: number
