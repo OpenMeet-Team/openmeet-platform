@@ -158,32 +158,6 @@
                 Event Settings
               </div>
 
-              <!-- Bluesky Publishing Toggle (only shown if user has Bluesky connected) -->
-              <div v-if="authStore.getBlueskyDid && authStore.getBlueskyDid !== 'undefined'" class="q-mb-md">
-                <q-toggle
-                  data-cy="event-publish-to-bluesky"
-                  v-model="publishToBluesky"
-                  :disable="!!eventData.slug"
-                  label="Publish to AT Protocol"
-                />
-                <p class="text-caption q-mt-xs q-ml-md text-warning" v-if="!eventData.slug">
-                  <q-icon name="sym_r_warning" size="xs" aria-hidden="true" />
-                  This choice cannot be changed after the event is created.
-                </p>
-                <p class="text-caption q-mt-xs q-ml-md text-info" v-if="publishToBluesky && !eventData.slug">
-                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
-                  Bluesky events must be public. The visibility will be locked to "Public".
-                </p>
-                <p class="text-caption q-mt-xs q-ml-md text-info" v-if="eventData.slug && eventData.sourceType === 'bluesky'">
-                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
-                  This event is published to Bluesky and will remain linked to the Bluesky post.
-                </p>
-                <p class="text-caption q-mt-xs q-ml-md text-grey-7" v-if="eventData.slug && eventData.sourceType !== 'bluesky'">
-                  <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
-                  This is a local-only event.
-                </p>
-              </div>
-
               <!-- Event Visibility -->
               <div class="q-mb-md">
                 <q-select
@@ -195,7 +169,6 @@
                   emit-value
                   map-options
                   :options="visibilityOptions"
-                  :disable="publishToBluesky"
                   filled
                 />
                 <p class="text-caption q-mt-sm" v-if="eventData.visibility === EventVisibility.Private">
@@ -211,9 +184,9 @@
                   <q-icon name="sym_r_info" size="xs" aria-hidden="true" />
                   Private events with invitations launching soon. Use "Unlisted" for now.
                 </p>
-                <p class="text-caption q-mt-sm text-warning" v-if="publishToBluesky && eventData.visibility !== EventVisibility.Public">
-                  <q-icon name="sym_r_warning" size="xs" aria-hidden="true" />
-                  This event will only be created on OpenMeet (not published to Bluesky) because it is not public.
+                <p class="text-caption q-mt-sm text-info" v-if="eventData.visibility === EventVisibility.Public && authStore.getBlueskyDid">
+                  <q-icon name="fa-solid fa-at" size="xs" aria-hidden="true" />
+                  Public events are automatically published to AT Protocol.
                 </p>
               </div>
 
@@ -423,7 +396,7 @@ import { logger } from '../../utils/logger'
 import { fromZonedTime, toZonedTime } from 'date-fns-tz' // formatInTimeZone moved to RecurrenceComponent
 import type RecurrenceComponentType from './recurrence-component-shim'
 
-const { success, error } = useNotification()
+const { success, error, info } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
   eventData.value.image = file
 }
@@ -435,21 +408,15 @@ const emit = defineEmits(['created', 'updated', 'close', 'series-created'])
 const formRef = ref<QForm | null>(null)
 const isLoading = ref<boolean>(false)
 
-// Bluesky publishing toggle
-const publishToBluesky = ref<boolean>(false)
-
 // Notification toggle (for event updates only)
 const sendNotifications = ref<boolean>(false)
 
 // Computed visibility options - disable non-public when publishing to Bluesky
-const visibilityOptions = computed(() => {
-  const baseOptions = [
-    { label: 'Public', value: 'public', disable: false },
-    { label: 'Unlisted', value: 'unlisted', disable: publishToBluesky.value },
-    { label: 'Private (Coming soon)', value: 'private', disable: true }
-  ]
-  return baseOptions
-})
+const visibilityOptions = [
+  { label: 'Public', value: 'public', disable: false },
+  { label: 'Unlisted', value: 'unlisted', disable: false },
+  { label: 'Private (Coming soon)', value: 'private', disable: true }
+]
 
 // Initialize event data first
 const eventData = ref<EventEntity>({
@@ -579,20 +546,6 @@ watch(() => isRecurring.value, (isEnabled) => {
     }
   }
 })
-
-// Watch publishToBluesky toggle - force public visibility when enabled
-watch(() => publishToBluesky.value, (enabled) => {
-  if (enabled && eventData.value.visibility !== EventVisibility.Public) {
-    eventData.value.visibility = EventVisibility.Public
-  }
-})
-
-// Watch for existing Bluesky events - set toggle to true if editing a Bluesky event
-watch(() => eventData.value.sourceType, (sourceType) => {
-  if (sourceType === 'bluesky') {
-    publishToBluesky.value = true
-  }
-}, { immediate: true })
 
 // Watch for end date changes to validate against start date
 watch([() => eventData.value.endDate, () => eventData.value.startDate], ([newEndDate, newStartDate]) => {
@@ -902,6 +855,21 @@ const onSubmit = async () => {
   }
 }
 
+// Extended response type that may include needsOAuthLink
+interface EventApiResponse extends EventEntity {
+  needsOAuthLink?: boolean
+}
+
+// Helper to check and show OAuth link prompt if needed
+const checkAndShowOAuthLinkPrompt = (response: EventApiResponse) => {
+  if (response.needsOAuthLink === true) {
+    info(
+      'Your event was saved but could not be published to AT Protocol. Link your Bluesky account in Settings to enable publishing.',
+      'AT Protocol Link Required'
+    )
+  }
+}
+
 // Function to handle creating or updating a single event
 const createOrUpdateSingleEvent = async (event: EventEntity) => {
   try {
@@ -926,15 +894,14 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
       emit('updated', createdEvent)
       success('Event updated successfully')
+      // Check if AT Protocol OAuth link is needed
+      checkAndShowOAuthLinkPrompt(createdEvent as EventApiResponse)
       analyticsService.trackEvent('event_updated', {
         event_id: createdEvent.id,
         name: createdEvent.name
       })
     } else {
       // Creating a new event
-      // Add Bluesky source info if user has Bluesky connected
-      addBlueskySourceInfo(event)
-
       // Create event in our system
       const res = await eventsApi.create(event)
       createdEvent = res.data
@@ -948,6 +915,8 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
       logger.debug('Created event response:', createdEvent)
       emit('created', createdEvent)
       success('Event created successfully')
+      // Check if AT Protocol OAuth link is needed
+      checkAndShowOAuthLinkPrompt(createdEvent as EventApiResponse)
       analyticsService.trackEvent('event_created', {
         event_id: createdEvent.id,
         name: createdEvent.name,
@@ -983,9 +952,6 @@ const createEventSeries = async (event: EventEntity) => {
     // Debug log the mapped rule
     logger.debug('Mapped recurrence rule for series API:', JSON.stringify(mappedRule))
 
-    // Add Bluesky info to event data
-    addBlueskySourceInfo(event)
-
     let templateEvent
 
     // Check if this event is already part of a series to prevent duplicate creation
@@ -999,6 +965,8 @@ const createEventSeries = async (event: EventEntity) => {
       const updateResponse = await eventsApi.update(event.slug, updatePayload)
       emit('updated', updateResponse.data)
       success('Event updated successfully')
+      // Check if AT Protocol OAuth link is needed
+      checkAndShowOAuthLinkPrompt(updateResponse.data as EventApiResponse)
       return
     }
 
@@ -1014,11 +982,15 @@ const createEventSeries = async (event: EventEntity) => {
       }
       const updateResponse = await eventsApi.update(event.slug, updatePayload)
       templateEvent = updateResponse.data
+      // Check if AT Protocol OAuth link is needed for the template event
+      checkAndShowOAuthLinkPrompt(templateEvent as EventApiResponse)
       logger.debug('Updated existing event to use as template:', templateEvent)
     } else {
       // Create a new template event
       const eventResponse = await eventsApi.create(event)
       templateEvent = eventResponse.data
+      // Check if AT Protocol OAuth link is needed for the template event
+      checkAndShowOAuthLinkPrompt(templateEvent as EventApiResponse)
       logger.debug('Created template event:', templateEvent)
     }
 
@@ -1107,39 +1079,6 @@ const createEventSeries = async (event: EventEntity) => {
     error('Failed to create event series')
     throw err
   }
-}
-
-// Helper to add Bluesky source information
-const addBlueskySourceInfo = (event: EventEntity) => {
-  const blueskyDid = authStore.getBlueskyDid
-  const blueskyHandle = authStore.getBlueskyHandle
-
-  logger.debug('addBlueskySourceInfo called', {
-    publishToBluesky: publishToBluesky.value,
-    blueskyDid,
-    blueskyHandle,
-    currentSourceType: event.sourceType,
-    visibility: event.visibility
-  })
-
-  // Only add Bluesky source info if user explicitly wants to publish to Bluesky
-  if (publishToBluesky.value && blueskyHandle && blueskyDid && blueskyDid !== 'undefined') {
-    logger.debug('Publishing to Bluesky, adding source info')
-    event.sourceType = 'bluesky'
-    event.sourceId = blueskyDid
-    event.sourceData = {
-      handle: blueskyHandle,
-      did: blueskyDid
-    }
-  } else {
-    // Ensure sourceType is cleared if not publishing to Bluesky
-    logger.debug('NOT publishing to Bluesky, clearing source info')
-    event.sourceType = null
-    event.sourceId = null
-    event.sourceData = null
-  }
-
-  logger.debug('After addBlueskySourceInfo', { sourceType: event.sourceType })
 }
 
 // Handle time info updates from the DatetimeComponent

@@ -63,6 +63,7 @@ const formatSeriesSlug = (slug: string): string => {
           v-if="event.sourceType"
           :color="getSourceColor(event.sourceType)"
           class="q-ml-sm"
+          data-cy="event-source-badge"
         >
           <q-icon
             v-if="event.sourceType === 'bluesky'"
@@ -71,6 +72,19 @@ const formatSeriesSlug = (slug: string): string => {
             class="q-mr-xs"
           />
           {{ event.sourceType }}
+        </q-badge>
+        <q-badge
+          v-if="event.atprotoUri"
+          color="blue"
+          class="q-ml-sm"
+          data-cy="event-atproto-badge"
+        >
+          <q-icon
+            name="fa-solid fa-at"
+            size="xs"
+            class="q-mr-xs"
+          />
+          Published
         </q-badge>
         <q-badge
           v-if="event.seriesSlug"

@@ -16,6 +16,17 @@
               />
               <q-badge floating color="teal" v-if="attendee.role && attendee.role.name !== EventAttendeeRole.Participant">{{ attendee.role.name }}</q-badge>
             </q-avatar>
+            <a
+              v-if="attendee.atprotoUri"
+              :href="'https://pds.ls/' + attendee.atprotoUri"
+              target="_blank"
+              rel="noopener noreferrer"
+              @click.stop
+              title="View RSVP on AT Protocol"
+              class="atproto-link"
+            >
+              <q-icon name="fa-solid fa-at" size="xs" color="blue" />
+            </a>
           </q-item>
         </div>
       </q-card-section>
@@ -68,3 +79,14 @@ const hasPermissions = computed(() => {
   return (useEventStore().getterIsPublicEvent || useEventStore().getterIsAuthenticatedEvent || (useEventStore().getterUserIsAttendee() && useEventStore().getterUserHasPermission(EventAttendeePermission.ViewEvent)))
 })
 </script>
+
+<style scoped>
+.atproto-link {
+  margin-left: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.atproto-link:hover {
+  opacity: 1;
+}
+</style>
