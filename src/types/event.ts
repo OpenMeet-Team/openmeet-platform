@@ -177,6 +177,7 @@ export interface EventEntity {
   sourceUrl?: string
   lastSyncedAt?: string
   sourceData?: Record<string, unknown>
+  atprotoUri?: string | null
 
   // Series reference - replaces recurrence fields
   seriesId?: number

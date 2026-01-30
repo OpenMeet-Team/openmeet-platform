@@ -73,6 +73,15 @@ const formatSeriesSlug = (slug: string): string => {
           {{ event.sourceType }}
         </q-badge>
         <q-badge
+          v-if="event.atprotoUri"
+          color="cyan-8"
+          class="q-ml-sm"
+          data-cy="event-atproto-badge"
+        >
+          <q-icon name="fa-brands fa-bluesky" size="xs" class="q-mr-xs" />
+          Published
+        </q-badge>
+        <q-badge
           v-if="event.seriesSlug"
           color="teal"
           class="q-ml-sm"
