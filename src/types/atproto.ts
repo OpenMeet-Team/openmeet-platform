@@ -15,6 +15,8 @@ export interface AtprotoIdentityDto {
   isOurPds: boolean
   /** Whether this identity has an active session for publishing */
   hasActiveSession: boolean
+  /** Valid handle domains for this PDS (e.g., [".bsky.dev.openmeet.net"]) */
+  validHandleDomains: string[]
   /** When the identity was created */
   createdAt: Date
   /** When the identity was last updated */

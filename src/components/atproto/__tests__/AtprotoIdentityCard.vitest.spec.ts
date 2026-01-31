@@ -33,6 +33,7 @@ describe('AtprotoIdentityCard', () => {
     isCustodial: true,
     isOurPds: true,
     hasActiveSession: false,
+    validHandleDomains: ['.opnmt.me'],
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
     ...overrides
@@ -712,49 +713,19 @@ describe('AtprotoIdentityCard', () => {
     })
   })
 
-  describe('Pre-flow instructions for take ownership', () => {
-    it('should show explanatory text before take ownership button', () => {
+  describe('Options section for custodial identity', () => {
+    it('should show options section with Take Ownership button', () => {
       const identity = createMockIdentity({
         isCustodial: true,
         isOurPds: true
       })
       const wrapper = mountComponent({ identity })
 
-      // Should show the pre-flow instructions
-      expect(wrapper.text()).toContain('Taking ownership lets you manage this identity directly')
+      const takeOwnershipBtn = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(takeOwnershipBtn.exists()).toBe(true)
     })
 
-    it('should show step 1: password reset email', () => {
-      const identity = createMockIdentity({
-        isCustodial: true,
-        isOurPds: true
-      })
-      const wrapper = mountComponent({ identity })
-
-      expect(wrapper.text()).toContain('Receive a password reset email')
-    })
-
-    it('should show step 2: set password', () => {
-      const identity = createMockIdentity({
-        isCustodial: true,
-        isOurPds: true
-      })
-      const wrapper = mountComponent({ identity })
-
-      expect(wrapper.text()).toContain('Set your own password')
-    })
-
-    it('should show step 3: sign in to continue', () => {
-      const identity = createMockIdentity({
-        isCustodial: true,
-        isOurPds: true
-      })
-      const wrapper = mountComponent({ identity })
-
-      expect(wrapper.text()).toContain('Sign in to continue publishing')
-    })
-
-    it('should NOT show pre-flow instructions when takeOwnershipPending is true', () => {
+    it('should NOT show options section when takeOwnershipPending is true', () => {
       const identity = createMockIdentity({
         isCustodial: true,
         isOurPds: true
@@ -765,8 +736,9 @@ describe('AtprotoIdentityCard', () => {
         takeOwnershipEmail: 'user@example.com'
       })
 
-      // Should not show the pre-flow instructions when in the middle of the flow
-      expect(wrapper.text()).not.toContain('Taking ownership lets you manage this identity directly')
+      // Take Ownership button should be hidden during the flow
+      const takeOwnershipBtn = wrapper.find('[data-cy="take-ownership-btn"]')
+      expect(takeOwnershipBtn.exists()).toBe(false)
     })
   })
 
@@ -827,6 +799,184 @@ describe('AtprotoIdentityCard', () => {
 
       const chip = wrapper.find('.q-chip')
       expect(chip.classes()).toContain('bg-warning')
+    })
+  })
+
+  describe('Connect AT Protocol Account button - No Identity State', () => {
+    it('should show connect button when no identity exists', () => {
+      const wrapper = mountComponent({ identity: null })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      expect(button.exists()).toBe(true)
+    })
+
+    it('should emit link event when connect button is clicked', async () => {
+      const wrapper = mountComponent({ identity: null })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('link')).toBeTruthy()
+    })
+
+    it('should show both Create and Connect buttons when no identity exists', () => {
+      const wrapper = mountComponent({ identity: null })
+
+      const createBtn = wrapper.find('[data-cy="create-identity-btn"]')
+      const connectBtn = wrapper.find('[data-cy="connect-atproto-btn"]')
+
+      expect(createBtn.exists()).toBe(true)
+      expect(connectBtn.exists()).toBe(true)
+    })
+  })
+
+  describe('Connect AT Protocol Account button - Custodial User State', () => {
+    it('should show connect button for custodial identity on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      expect(button.exists()).toBe(true)
+    })
+
+    it('should emit link event when connect button is clicked for custodial user', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('link')).toBeTruthy()
+    })
+
+    it('should show both Take Ownership and Connect buttons for custodial identity', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const takeOwnershipBtn = wrapper.find('[data-cy="take-ownership-btn"]')
+      const connectBtn = wrapper.find('[data-cy="connect-atproto-btn"]')
+
+      expect(takeOwnershipBtn.exists()).toBe(true)
+      expect(connectBtn.exists()).toBe(true)
+    })
+
+    it('should NOT show Connect button when takeOwnershipPending is true', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true
+      })
+      const wrapper = mountComponent({
+        identity,
+        takeOwnershipPending: true,
+        takeOwnershipEmail: 'user@example.com'
+      })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+  })
+
+  describe('Inline handle editing', () => {
+    it('should show edit icon next to handle for custodial identity on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        handle: 'alice.opnmt.me'
+      })
+      const wrapper = mountComponent({ identity })
+
+      const editIcon = wrapper.find('[data-cy="inline-edit-handle-btn"]')
+      expect(editIcon.exists()).toBe(true)
+    })
+
+    it('should show edit icon next to handle for linked identity on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true,
+        handle: 'alice.opnmt.me'
+      })
+      const wrapper = mountComponent({ identity })
+
+      const editIcon = wrapper.find('[data-cy="inline-edit-handle-btn"]')
+      expect(editIcon.exists()).toBe(true)
+    })
+
+    it('should NOT show edit icon for linked identity on external PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: false,
+        hasActiveSession: true,
+        handle: 'alice.bsky.social'
+      })
+      const wrapper = mountComponent({ identity })
+
+      const editIcon = wrapper.find('[data-cy="inline-edit-handle-btn"]')
+      expect(editIcon.exists()).toBe(false)
+    })
+
+    it('should start handle editing when edit icon is clicked', async () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        handle: 'alice.opnmt.me'
+      })
+      const wrapper = mountComponent({ identity })
+
+      const editIcon = wrapper.find('[data-cy="inline-edit-handle-btn"]')
+      await editIcon.trigger('click')
+
+      // Should show the new handle input
+      const input = wrapper.find('[data-cy="new-handle-input"]')
+      expect(input.exists()).toBe(true)
+    })
+
+    it('should NOT show standalone Change Handle section anymore', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        handle: 'alice.opnmt.me'
+      })
+      const wrapper = mountComponent({ identity })
+
+      // The old standalone edit button should not exist
+      const oldEditBtn = wrapper.find('[data-cy="edit-handle-btn"]')
+      expect(oldEditBtn.exists()).toBe(false)
+    })
+  })
+
+  describe('Connect AT Protocol Account button - NOT shown for linked users', () => {
+    it('should NOT show Connect button for linked identity on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+
+    it('should NOT show Connect button for linked identity on external PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: false,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-atproto-btn"]')
+      expect(button.exists()).toBe(false)
     })
   })
 })
