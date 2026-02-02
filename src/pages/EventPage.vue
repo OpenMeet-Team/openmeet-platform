@@ -380,6 +380,27 @@
                     />
                     {{ event.sourceType }}
                   </q-badge>
+                  <q-badge
+                    v-if="canPublish"
+                    :color="publishStatus === 'syncing' ? 'grey' : publishStatus === 'error' ? 'negative' : 'warning'"
+                    class="q-ml-sm cursor-pointer"
+                    data-cy="publish-atproto-chip"
+                    :clickable="publishStatus !== 'syncing'"
+                    @click.stop.prevent="handlePublish"
+                  >
+                    <q-spinner-dots
+                      v-if="publishStatus === 'syncing'"
+                      size="xs"
+                      class="q-mr-xs"
+                    />
+                    <q-icon
+                      v-else
+                      :name="publishStatus === 'error' ? 'sym_r_error' : 'sym_r_cloud_off'"
+                      size="xs"
+                      class="q-mr-xs"
+                    />
+                    {{ publishStatus === 'syncing' ? 'Publishing...' : publishStatus === 'error' ? 'Publish failed' : 'Not published' }}
+                  </q-badge>
                   <a
                     v-if="event.atprotoUri"
                     :href="'https://pds.ls/' + event.atprotoUri"
@@ -784,6 +805,27 @@
                       />
                       {{ event.sourceType }}
                     </q-badge>
+                    <q-badge
+                      v-if="canPublish"
+                      :color="publishStatus === 'syncing' ? 'grey' : publishStatus === 'error' ? 'negative' : 'warning'"
+                      class="q-ml-sm cursor-pointer"
+                      data-cy="publish-atproto-chip"
+                      :clickable="publishStatus !== 'syncing'"
+                      @click.stop.prevent="handlePublish"
+                    >
+                      <q-spinner-dots
+                        v-if="publishStatus === 'syncing'"
+                        size="xs"
+                        class="q-mr-xs"
+                      />
+                      <q-icon
+                        v-else
+                        :name="publishStatus === 'error' ? 'sym_r_error' : 'sym_r_cloud_off'"
+                        size="xs"
+                        class="q-mr-xs"
+                      />
+                      {{ publishStatus === 'syncing' ? 'Publishing...' : publishStatus === 'error' ? 'Publish failed' : 'Not published' }}
+                    </q-badge>
                     <a
                       v-if="event.atprotoUri"
                       :href="'https://pds.ls/' + event.atprotoUri"
@@ -1024,6 +1066,36 @@ import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
+
+// AT Protocol publishing state
+const publishStatus = ref<'idle' | 'syncing' | 'error'>('idle')
+
+const canPublish = computed(() => {
+  const authStore = useAuthStore()
+  const hasActiveSession = authStore.user?.atprotoIdentity?.hasActiveSession === true
+  const notAlreadyPublished = !event.value?.atprotoUri
+  const notImported = !event.value?.sourceType
+  return hasActiveSession && notAlreadyPublished && notImported
+})
+
+const handlePublish = async () => {
+  if (publishStatus.value === 'syncing' || !event.value) return
+
+  publishStatus.value = 'syncing'
+  try {
+    const response = await eventsApi.syncAtproto(event.value.slug)
+    // Update the event in the store with the new atprotoUri
+    useEventStore().event = response.data
+    publishStatus.value = 'idle'
+    $q.notify({ type: 'positive', message: 'Event published to AT Protocol' })
+  } catch (error) {
+    publishStatus.value = 'error'
+    $q.notify({ type: 'negative', message: 'Failed to publish event' })
+    setTimeout(() => {
+      publishStatus.value = 'idle'
+    }, 3000)
+  }
+}
 import dateFormatting from '../composables/useDateFormatting'
 import { eventLoadingState } from '../utils/eventLoadingState'
 import { useContactEventOrganizersDialog } from '../composables/useContactEventOrganizersDialog'

@@ -76,6 +76,9 @@ export interface EventApiType {
   previewAdminMessage: (slug: string, data: { subject: string, message: string, testEmail: string }) => Promise<AxiosResponse<{ message: string }>>
   contactOrganizers: (slug: string, data: { contactType: string, subject: string, message: string }) => Promise<AxiosResponse<AdminMessageResult>>
 
+  // AT Protocol sync
+  syncAtproto: (slug: string) => Promise<AxiosResponse<EventEntity>>
+
   // Recurrence-related methods (deprecated)
   /**
    * @deprecated Use eventSeriesApi.getOccurrences instead
@@ -167,5 +170,8 @@ export const eventsApi: EventApiType = {
   contactOrganizers: (slug: string, data: { contactType: string, subject: string, message: string }): Promise<AxiosResponse<AdminMessageResult>> => api.post(`/api/events/${slug}/contact-organizers`, data, createEventApiHeaders(slug)),
 
   // Activity feed endpoint
-  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }): Promise<AxiosResponse<ActivityFeedEntity[]>> => api.get(`/api/events/${eventSlug}/feed`, { params: query })
+  getFeed: (groupSlug: string, eventSlug: string, query?: { limit?: number, offset?: number }): Promise<AxiosResponse<ActivityFeedEntity[]>> => api.get(`/api/events/${eventSlug}/feed`, { params: query }),
+
+  // AT Protocol sync
+  syncAtproto: (slug: string): Promise<AxiosResponse<EventEntity>> => api.post(`/api/events/${slug}/sync-atproto`, {}, createEventApiHeaders(slug))
 }

@@ -1,15 +1,60 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import { EventEntity } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
 import { formatDate } from '../../utils/dateUtils'
 import { getSourceColor } from '../../utils/eventUtils'
+import { useAuthStore } from '../../stores/auth-store'
+import { eventsApi } from '../../api/events'
 
 interface Props {
   event: EventEntity;
   layout?: 'grid' | 'list';
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+const emit = defineEmits<{
+  synced: [event: EventEntity]
+}>()
+
+const authStore = useAuthStore()
+
+// Sync state: 'idle' | 'syncing' | 'error'
+const syncStatus = ref<'idle' | 'syncing' | 'error'>('idle')
+
+/**
+ * Check if the publish chip should be shown
+ * Conditions:
+ * - Event has no atprotoUri (not already published)
+ * - Event has no sourceType (not imported from external source)
+ * - User has active ATProto session
+ */
+const canPublish = computed(() => {
+  const hasActiveSession = authStore.user?.atprotoIdentity?.hasActiveSession === true
+  const notAlreadyPublished = !props.event.atprotoUri
+  const notImported = !props.event.sourceType
+  return hasActiveSession && notAlreadyPublished && notImported
+})
+
+/**
+ * Handle the publish button click
+ */
+const handlePublish = async () => {
+  if (syncStatus.value === 'syncing') return
+
+  syncStatus.value = 'syncing'
+  try {
+    const response = await eventsApi.syncAtproto(props.event.slug)
+    emit('synced', response.data)
+    syncStatus.value = 'idle'
+  } catch (error) {
+    syncStatus.value = 'error'
+    // Reset to idle after a brief delay to show the error
+    setTimeout(() => {
+      syncStatus.value = 'idle'
+    }, 3000)
+  }
+}
 
 /**
  * Format a series slug to be more readable
@@ -72,6 +117,27 @@ const formatSeriesSlug = (slug: string): string => {
             class="q-mr-xs"
           />
           {{ event.sourceType }}
+        </q-badge>
+        <q-badge
+          v-if="canPublish"
+          :color="syncStatus === 'syncing' ? 'grey' : syncStatus === 'error' ? 'negative' : 'warning'"
+          class="q-ml-sm cursor-pointer"
+          data-cy="publish-atproto-chip"
+          :clickable="syncStatus !== 'syncing'"
+          @click.stop.prevent="handlePublish"
+        >
+          <q-spinner-dots
+            v-if="syncStatus === 'syncing'"
+            size="xs"
+            class="q-mr-xs"
+          />
+          <q-icon
+            v-else
+            :name="syncStatus === 'error' ? 'sym_r_error' : 'sym_r_cloud_off'"
+            size="xs"
+            class="q-mr-xs"
+          />
+          {{ syncStatus === 'syncing' ? 'Publishing...' : syncStatus === 'error' ? 'Publish failed' : 'Not published' }}
         </q-badge>
         <q-badge
           v-if="event.atprotoUri"
