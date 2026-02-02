@@ -128,14 +128,14 @@
           <div v-else-if="editingHandle" class="row items-center">
             <div class="text-subtitle2 text-grey-7 col-3">Handle</div>
             <div class="col">
-              <div class="row items-center q-gutter-sm">
+              <div class="column q-gutter-y-sm">
                 <q-input
                   data-cy="new-handle-input"
                   v-model="newHandle"
                   label="Username"
                   filled
                   dense
-                  class="col"
+                  class="full-width"
                   :error="!!handleError"
                   :error-message="handleError"
                   @keyup.enter="submitHandleChange"
@@ -145,28 +145,30 @@
                     <span class="text-grey-7 text-body2">{{ handleDomain || '.opnmt.me' }}</span>
                   </template>
                 </q-input>
-                <q-btn
-                  data-cy="submit-handle-btn"
-                  color="primary"
-                  no-caps
-                  size="sm"
-                  :loading="updatingHandle"
-                  :disable="updatingHandle || !newHandle.trim()"
-                  @click="submitHandleChange"
-                >
-                  Save
-                </q-btn>
-                <q-btn
-                  data-cy="cancel-handle-btn"
-                  flat
-                  no-caps
-                  size="sm"
-                  color="grey-7"
-                  :disable="updatingHandle"
-                  @click="cancelEditingHandle"
-                >
-                  Cancel
-                </q-btn>
+                <div class="row q-gutter-x-sm">
+                  <q-btn
+                    data-cy="submit-handle-btn"
+                    color="primary"
+                    no-caps
+                    size="sm"
+                    :loading="updatingHandle"
+                    :disable="updatingHandle || !newHandle.trim()"
+                    @click="submitHandleChange"
+                  >
+                    Save
+                  </q-btn>
+                  <q-btn
+                    data-cy="cancel-handle-btn"
+                    flat
+                    no-caps
+                    size="sm"
+                    color="grey-7"
+                    :disable="updatingHandle"
+                    @click="cancelEditingHandle"
+                  >
+                    Cancel
+                  </q-btn>
+                </div>
               </div>
             </div>
           </div>
