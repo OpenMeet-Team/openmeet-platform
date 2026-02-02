@@ -94,6 +94,7 @@ describe('DashboardProfileForm', () => {
     isCustodial: false,
     isOurPds: false,
     hasActiveSession: false,
+    validHandleDomains: ['.bsky.social'],
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
     ...overrides
