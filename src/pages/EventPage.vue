@@ -368,19 +368,6 @@
                 <div class="row items-center">
                   <q-item-label>{{ event.type }} event</q-item-label>
                   <q-badge
-                    v-if="event.sourceType"
-                    :color="getSourceColor(event.sourceType)"
-                    class="q-ml-sm"
-                  >
-                    <q-icon
-                      v-if="event.sourceType === 'bluesky'"
-                      name="fa-brands fa-bluesky"
-                      size="xs"
-                      class="q-mr-xs"
-                    />
-                    {{ event.sourceType }}
-                  </q-badge>
-                  <q-badge
                     v-if="showNotPublishedBadge"
                     color="grey"
                     class="q-ml-sm"
@@ -393,19 +380,6 @@
                     />
                     Not published
                   </q-badge>
-                  <a
-                    v-if="event.atprotoUri"
-                    :href="'https://pds.ls/' + event.atprotoUri"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="q-ml-sm"
-                    title="View on AT Protocol"
-                  >
-                    <q-badge color="blue">
-                      <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
-                      Published
-                    </q-badge>
-                  </a>
                 </div>
                 <q-btn
                   v-if="event.locationOnline"
@@ -435,6 +409,22 @@
                     :lon="event.lon"
                   />
                 </div>
+              </q-item-section>
+            </q-item>
+
+            <!-- AT Protocol link -->
+            <q-item v-if="isOnAtproto">
+              <q-item-section>
+                <a
+                  :href="pdsLsUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="atproto-link text-caption"
+                  title="View on AT Protocol"
+                >
+                  <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
+                  View on AT Protocol
+                </a>
               </q-item-section>
             </q-item>
           </q-card-section>
@@ -785,19 +775,6 @@
                   <div class="row items-center">
                     <q-item-label>{{ event.type }} event</q-item-label>
                     <q-badge
-                      v-if="event.sourceType"
-                      :color="getSourceColor(event.sourceType)"
-                      class="q-ml-sm"
-                    >
-                      <q-icon
-                        v-if="event.sourceType === 'bluesky'"
-                        name="fa-brands fa-bluesky"
-                        size="xs"
-                        class="q-mr-xs"
-                      />
-                      {{ event.sourceType }}
-                    </q-badge>
-                    <q-badge
                       v-if="showNotPublishedBadge"
                       color="grey"
                       class="q-ml-sm"
@@ -810,19 +787,6 @@
                       />
                       Not published
                     </q-badge>
-                    <a
-                      v-if="event.atprotoUri"
-                      :href="'https://pds.ls/' + event.atprotoUri"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="q-ml-sm"
-                      title="View on AT Protocol"
-                    >
-                      <q-badge color="blue">
-                        <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
-                        Published
-                      </q-badge>
-                    </a>
                   </div>
                   <q-btn
                     v-if="event.locationOnline"
@@ -852,6 +816,22 @@
                       :lon="event.lon"
                     />
                   </div>
+                </q-item-section>
+              </q-item>
+
+              <!-- AT Protocol link -->
+              <q-item v-if="isOnAtproto">
+                <q-item-section>
+                  <a
+                    :href="pdsLsUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="atproto-link text-caption"
+                    title="View on AT Protocol"
+                  >
+                    <q-icon name="fa-solid fa-at" size="xs" class="q-mr-xs" />
+                    View on AT Protocol
+                  </a>
                 </q-item-section>
               </q-item>
             </q-card-section>
@@ -1046,7 +1026,6 @@ import {
 } from '../types'
 import { pluralize } from '../utils/stringUtils'
 import EventRSVPSection from '../components/event/EventRSVPSection.vue'
-import { getSourceColor } from '../utils/eventUtils'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthStore } from '../stores/auth-store'
 import { EventSeriesService } from '../services/eventSeriesService'
@@ -1058,6 +1037,35 @@ const showNotPublishedBadge = computed(() => {
   const notAlreadyPublished = !event.value?.atprotoUri
   const notImported = !event.value?.sourceType
   return hasActiveSession && notAlreadyPublished && notImported
+})
+
+/**
+ * Check if this event exists on AT Protocol.
+ * True if either published by OpenMeet or imported from Bluesky.
+ */
+const isOnAtproto = computed(() => {
+  return !!event.value?.atprotoUri || event.value?.sourceType === 'bluesky'
+})
+
+/**
+ * Get the AT Protocol URI for this event.
+ */
+const eventAtprotoUri = computed(() => {
+  if (event.value?.atprotoUri) {
+    return event.value.atprotoUri
+  }
+  if (event.value?.sourceType === 'bluesky' && event.value?.sourceId) {
+    return event.value.sourceId
+  }
+  return null
+})
+
+/**
+ * Get the pds.ls URL for viewing this event's AT Protocol record.
+ */
+const pdsLsUrl = computed(() => {
+  if (!eventAtprotoUri.value) return null
+  return `https://pds.ls/${eventAtprotoUri.value}`
 })
 import dateFormatting from '../composables/useDateFormatting'
 import { eventLoadingState } from '../utils/eventLoadingState'
@@ -1599,6 +1607,16 @@ const isOwnerOrAdmin = computed(() => {
 </script>
 
 <style scoped lang="scss">
+.atproto-link {
+  color: #1185fe;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
 .bio-content {
   max-width: 100%;
 
