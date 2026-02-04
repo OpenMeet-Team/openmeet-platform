@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { EventEntity } from '../../types'
 import { getImageSrc } from '../../utils/imageUtils'
 import { formatDate } from '../../utils/dateUtils'
-import { getSourceColor } from '../../utils/eventUtils'
 import { useAuthStore } from '../../stores/auth-store'
 
 interface Props {
@@ -16,18 +15,48 @@ const props = defineProps<Props>()
 const authStore = useAuthStore()
 
 /**
+ * Check if this event exists on AT Protocol.
+ * This is true if either:
+ * - atprotoUri: Event was published to AT Protocol by OpenMeet
+ * - sourceType === 'bluesky': Event was imported from AT Protocol
+ */
+const isOnAtproto = computed(() => {
+  return !!props.event.atprotoUri || props.event.sourceType === 'bluesky'
+})
+
+/**
+ * Get the AT Protocol URI for this event, if available.
+ * Used to link to pds.ls for viewing the record.
+ */
+const atprotoUri = computed(() => {
+  if (props.event.atprotoUri) {
+    return props.event.atprotoUri
+  }
+  if (props.event.sourceType === 'bluesky' && props.event.sourceId) {
+    return props.event.sourceId
+  }
+  return null
+})
+
+/**
+ * Get the pds.ls URL for viewing this event's AT Protocol record.
+ */
+const pdsLsUrl = computed(() => {
+  if (!atprotoUri.value) return null
+  // pds.ls expects the at:// URI as a path
+  return `https://pds.ls/${atprotoUri.value}`
+})
+
+/**
  * Check if the "Not published" badge should be shown.
  * This is a status indicator only - no click action.
  * Conditions:
- * - Event has no atprotoUri (not already published)
- * - Event has no sourceType (not imported from external source)
+ * - Event is not on AT Protocol (neither published nor imported)
  * - User has active ATProto session (so they understand what this means)
  */
 const showNotPublishedBadge = computed(() => {
   const hasActiveSession = authStore.user?.atprotoIdentity?.hasActiveSession === true
-  const notAlreadyPublished = !props.event.atprotoUri
-  const notImported = !props.event.sourceType
-  return hasActiveSession && notAlreadyPublished && notImported
+  return hasActiveSession && !isOnAtproto.value
 })
 
 /**
@@ -79,20 +108,6 @@ const formatSeriesSlug = (slug: string): string => {
           Cancelled
         </q-badge>
         <q-badge
-          v-if="event.sourceType"
-          :color="getSourceColor(event.sourceType)"
-          class="q-ml-sm"
-          data-cy="event-source-badge"
-        >
-          <q-icon
-            v-if="event.sourceType === 'bluesky'"
-            name="fa-brands fa-bluesky"
-            size="xs"
-            class="q-mr-xs"
-          />
-          {{ event.sourceType }}
-        </q-badge>
-        <q-badge
           v-if="showNotPublishedBadge"
           color="grey"
           class="q-ml-sm"
@@ -105,19 +120,20 @@ const formatSeriesSlug = (slug: string): string => {
           />
           Not published
         </q-badge>
-        <q-badge
-          v-if="event.atprotoUri"
-          color="blue"
-          class="q-ml-sm"
-          data-cy="event-atproto-badge"
+        <a
+          v-if="pdsLsUrl"
+          :href="pdsLsUrl"
+          target="_blank"
+          rel="noopener"
+          class="atproto-link q-ml-sm"
+          data-cy="event-atproto-link"
+          title="View on AT Protocol"
         >
           <q-icon
             name="fa-solid fa-at"
             size="xs"
-            class="q-mr-xs"
           />
-          Published
-        </q-badge>
+        </a>
         <q-badge
           v-if="event.seriesSlug"
           color="teal"
@@ -227,6 +243,16 @@ const formatSeriesSlug = (slug: string): string => {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.atproto-link {
+  color: #1185fe;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 700px) {

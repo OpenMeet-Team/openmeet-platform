@@ -48,8 +48,8 @@ describe('EventsItemComponent.vue', () => {
     vi.clearAllMocks()
   })
 
-  describe('AT Protocol Published Badge', () => {
-    it('displays AT Protocol badge when atprotoUri is present', () => {
+  describe('AT Protocol Link', () => {
+    it('displays AT Protocol link when atprotoUri is present', () => {
       const event = createMockEvent({
         atprotoUri: 'at://did:plc:abc123/community.openmeet.event/xyz789'
       })
@@ -71,12 +71,13 @@ describe('EventsItemComponent.vue', () => {
         }
       })
 
-      // Find the AT Protocol badge by data-cy attribute
-      const atprotoBadge = wrapper.find('[data-cy="event-atproto-badge"]')
-      expect(atprotoBadge.exists()).toBe(true)
+      // Find the AT Protocol link by data-cy attribute
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(true)
+      expect(atprotoLink.attributes('href')).toBe('https://pds.ls/at://did:plc:abc123/community.openmeet.event/xyz789')
     })
 
-    it('does not display AT Protocol badge when atprotoUri is null', () => {
+    it('does not display AT Protocol link when atprotoUri is null', () => {
       const event = createMockEvent({
         atprotoUri: undefined
       })
@@ -98,11 +99,11 @@ describe('EventsItemComponent.vue', () => {
         }
       })
 
-      const atprotoBadge = wrapper.find('[data-cy="event-atproto-badge"]')
-      expect(atprotoBadge.exists()).toBe(false)
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(false)
     })
 
-    it('does not display AT Protocol badge when atprotoUri is empty string', () => {
+    it('does not display AT Protocol link when atprotoUri is empty string', () => {
       const event = createMockEvent({
         atprotoUri: ''
       })
@@ -124,15 +125,12 @@ describe('EventsItemComponent.vue', () => {
         }
       })
 
-      const atprotoBadge = wrapper.find('[data-cy="event-atproto-badge"]')
-      expect(atprotoBadge.exists()).toBe(false)
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(false)
     })
 
-    it('displays both sourceType bluesky badge and atprotoUri badge when both are present', () => {
-      // An event could be imported FROM bluesky (sourceType) AND published TO AT Protocol (atprotoUri)
-      // These are different concepts that can coexist
+    it('displays AT Protocol link for events with atprotoUri', () => {
       const event = createMockEvent({
-        sourceType: 'bluesky',
         atprotoUri: 'at://did:plc:abc123/community.openmeet.event/xyz789'
       })
 
@@ -153,15 +151,40 @@ describe('EventsItemComponent.vue', () => {
         }
       })
 
-      // Both badges should be present
-      const atprotoBadge = wrapper.find('[data-cy="event-atproto-badge"]')
-      const sourceTypeBadge = wrapper.find('[data-cy="event-source-badge"]')
-
-      expect(atprotoBadge.exists()).toBe(true)
-      expect(sourceTypeBadge.exists()).toBe(true)
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(true)
+      expect(atprotoLink.attributes('href')).toBe('https://pds.ls/at://did:plc:abc123/community.openmeet.event/xyz789')
     })
 
-    it('displays AT Protocol badge with @ icon', () => {
+    it('displays AT Protocol link for imported bluesky events using sourceId', () => {
+      const event = createMockEvent({
+        sourceType: 'bluesky',
+        sourceId: 'at://did:plc:imported123/app.bsky.feed.post/abc789'
+      })
+
+      const wrapper = shallowMount(EventsItemComponent, {
+        props: { event },
+        global: {
+          stubs: {
+            'router-link': {
+              template: '<a><slot /></a>'
+            },
+            'q-img': true,
+            'q-badge': {
+              template: '<span class="q-badge" :color="$attrs.color"><slot /></span>',
+              inheritAttrs: true
+            },
+            'q-icon': true
+          }
+        }
+      })
+
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(true)
+      expect(atprotoLink.attributes('href')).toBe('https://pds.ls/at://did:plc:imported123/app.bsky.feed.post/abc789')
+    })
+
+    it('displays AT Protocol link with @ icon', () => {
       const event = createMockEvent({
         atprotoUri: 'at://did:plc:abc123/community.openmeet.event/xyz789'
       })
@@ -185,11 +208,11 @@ describe('EventsItemComponent.vue', () => {
         }
       })
 
-      const atprotoBadge = wrapper.find('[data-cy="event-atproto-badge"]')
-      expect(atprotoBadge.exists()).toBe(true)
+      const atprotoLink = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(atprotoLink.exists()).toBe(true)
 
-      // Check for the @ icon within the badge (fa-at for AT Protocol)
-      const icon = atprotoBadge.find('[data-icon="fa-solid fa-at"]')
+      // Check for the @ icon within the link (fa-at for AT Protocol)
+      const icon = atprotoLink.find('[data-icon="fa-solid fa-at"]')
       expect(icon.exists()).toBe(true)
     })
   })
