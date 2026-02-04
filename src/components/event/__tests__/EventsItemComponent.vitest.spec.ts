@@ -254,8 +254,8 @@ describe('EventsItemComponent', () => {
     })
   })
 
-  describe('"Published" badge visibility', () => {
-    it('should show "Published" badge when event has atprotoUri', () => {
+  describe('AT Protocol link visibility', () => {
+    it('should show AT Protocol link when event has atprotoUri', () => {
       const wrapper = mountComponent(
         {
           event: createMockEvent({
@@ -281,9 +281,9 @@ describe('EventsItemComponent', () => {
         }
       )
 
-      const badge = wrapper.find('[data-cy="event-atproto-badge"]')
-      expect(badge.exists()).toBe(true)
-      expect(badge.text()).toContain('Published')
+      const link = wrapper.find('[data-cy="event-atproto-link"]')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('href')).toBe('https://pds.ls/at://did:plc:test/community.lexicon.calendar.event/123')
     })
   })
 })
