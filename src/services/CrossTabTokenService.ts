@@ -36,6 +36,7 @@ export class CrossTabTokenService {
   private refreshPromise: Promise<string> | null = null
   private isRefreshing = false
   private listeners: Map<string, Set<(data: TokenRefreshMessage) => void>> = new Map()
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null
 
   // Storage keys for fallback coordination
   private readonly STORAGE_KEY = 'openmeet_token_refresh_coordination'
@@ -110,8 +111,17 @@ export class CrossTabTokenService {
   }
 
   private cleanupStaleRefreshLocks (): void {
+    // Skip in non-browser environments (e.g., tests)
+    if (typeof localStorage === 'undefined') {
+      return
+    }
+
     // Check for stale locks on startup and periodically
     const checkAndCleanup = () => {
+      // Guard against localStorage being unavailable (e.g., after test teardown)
+      if (typeof localStorage === 'undefined') {
+        return
+      }
       const stored = localStorage.getItem(this.STORAGE_KEY)
       if (stored) {
         try {
@@ -133,7 +143,7 @@ export class CrossTabTokenService {
 
     // Check immediately and then periodically
     checkAndCleanup()
-    setInterval(checkAndCleanup, 5000) // Check every 5 seconds
+    this.cleanupIntervalId = setInterval(checkAndCleanup, 5000) // Check every 5 seconds
   }
 
   private handleBroadcastMessage (message: TokenRefreshMessage): void {
@@ -353,6 +363,12 @@ export class CrossTabTokenService {
    * Clean up resources
    */
   public destroy (): void {
+    // Clear the cleanup interval
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId)
+      this.cleanupIntervalId = null
+    }
+
     if (this.channel) {
       this.channel.close()
       this.channel = null
@@ -362,6 +378,16 @@ export class CrossTabTokenService {
     // Clear any locks held by this tab
     if (this.isRefreshing) {
       this.releaseRefreshLock(false)
+    }
+  }
+
+  /**
+   * Reset the singleton instance (useful for tests)
+   */
+  public static resetInstance (): void {
+    if (CrossTabTokenService.instance) {
+      CrossTabTokenService.instance.destroy()
+      CrossTabTokenService.instance = null
     }
   }
 }
