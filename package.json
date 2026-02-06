@@ -1,6 +1,6 @@
 {
   "name": "openmeet-platform",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "OpenMeet frontend platform for community event management and real-time chat",
   "productName": "OpenMeet",
   "author": "OpenMeet Team <openmeet@openmeet.net>",
