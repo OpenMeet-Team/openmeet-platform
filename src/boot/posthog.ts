@@ -38,7 +38,10 @@ async function initPostHog (key: string, router: Router) {
   posthog = module.default
   posthog.init(key, {
     api_host: 'https://us.i.posthog.com',
-    person_profiles: 'always'
+    person_profiles: 'always',
+    cookie_domain: window.APP_CONFIG?.APP_POSTHOG_COOKIE_DOMAIN || undefined,
+    cross_subdomain_cookie: !!window.APP_CONFIG?.APP_POSTHOG_COOKIE_DOMAIN,
+    opt_out_capturing_persistence_type: 'cookie'
   })
 
   router.afterEach((to) => {

@@ -7,6 +7,21 @@ import DashboardProfileForm from '../DashboardProfileForm.vue'
 import { AuthProvidersEnum } from '../../../types'
 import type { AtprotoIdentityDto } from '../../../types/atproto'
 
+// Mock analyticsService
+const mockAnalyticsService = vi.hoisted(() => ({
+  optOut: vi.fn(),
+  optIn: vi.fn(),
+  hasOptedOut: vi.fn().mockReturnValue(false),
+  syncWithPreference: vi.fn(),
+  identify: vi.fn(),
+  reset: vi.fn(),
+  trackEvent: vi.fn()
+}))
+
+vi.mock('../../../services/analyticsService', () => ({
+  default: mockAnalyticsService
+}))
+
 // Mock API modules
 vi.mock('../../../api/auth', () => ({
   authApi: {
@@ -250,6 +265,63 @@ describe('DashboardProfileForm', () => {
 
       // Verify linkIdentity was called to initiate OAuth
       expect(vi.mocked(atprotoApi).linkIdentity).toHaveBeenCalledWith('alice.opnmt.me', 'web')
+    })
+  })
+
+  describe('Privacy & Analytics section', () => {
+    it('should show Privacy & Analytics section', async () => {
+      const wrapper = await mountComponent()
+      const section = wrapper.find('[data-cy="profile-privacy-analytics"]')
+      expect(section.exists()).toBe(true)
+    })
+
+    it('should show analytics opt-out toggle', async () => {
+      const wrapper = await mountComponent()
+      const toggle = wrapper.find('[data-cy="analytics-optout-toggle"]')
+      expect(toggle.exists()).toBe(true)
+    })
+
+    it('should reflect current opt-out state from analyticsService', async () => {
+      mockAnalyticsService.hasOptedOut.mockReturnValue(true)
+      const wrapper = await mountComponent()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      expect(vm.analyticsOptOut).toBe(true)
+    })
+
+    it('should call analyticsService.optOut when toggle is turned on', async () => {
+      mockAnalyticsService.hasOptedOut.mockReturnValue(false)
+      const wrapper = await mountComponent()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      await vm.onAnalyticsOptOutChange(true)
+      await flushPromises()
+      expect(mockAnalyticsService.optOut).toHaveBeenCalled()
+    })
+
+    it('should call analyticsService.optIn when toggle is turned off', async () => {
+      mockAnalyticsService.hasOptedOut.mockReturnValue(true)
+      const wrapper = await mountComponent()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      await vm.onAnalyticsOptOutChange(false)
+      await flushPromises()
+      expect(mockAnalyticsService.optIn).toHaveBeenCalled()
+    })
+
+    it('should call authApi.updateMe with analytics preference when toggled', async () => {
+      const wrapper = await mountComponent()
+      const { authApi } = await import('../../../api/auth')
+      vi.mocked(authApi.updateMe).mockResolvedValue({ data: {} } as never)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      await vm.onAnalyticsOptOutChange(true)
+      await flushPromises()
+
+      expect(vi.mocked(authApi.updateMe)).toHaveBeenCalledWith({
+        preferences: { analytics: { optOut: true } }
+      })
     })
   })
 })

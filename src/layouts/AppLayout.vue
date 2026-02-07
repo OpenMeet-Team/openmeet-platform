@@ -3,6 +3,7 @@
     <AppHeaderComponent />
     <q-page-container>
       <VerifyEmailBanner />
+      <AnalyticsBanner />
       <router-view />
     </q-page-container>
     <AppFooterComponent />
@@ -13,6 +14,7 @@
 import AppHeaderComponent from '../components/header/AppHeaderComponent.vue'
 import AppFooterComponent from '../components/footer/AppFooterComponent.vue'
 import VerifyEmailBanner from '../components/auth/VerifyEmailBanner.vue'
+import AnalyticsBanner from '../components/common/AnalyticsBanner.vue'
 
 defineOptions({
   name: 'AppLayout'

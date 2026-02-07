@@ -54,9 +54,14 @@ export interface MatrixPreferences {
   hasDirectAccess?: boolean
 }
 
+export interface AnalyticsPreferences {
+  optOut?: boolean
+}
+
 export interface UserPreferences {
   bluesky?: BlueskyPreferences
   matrix?: MatrixPreferences
+  analytics?: AnalyticsPreferences
 }
 
 export interface Profile {

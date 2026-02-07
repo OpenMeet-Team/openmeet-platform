@@ -189,6 +189,7 @@ export const useAuthStore = defineStore('authStore', {
         name: this.user.name,
         ulid: this.user.ulid
       })
+      analyticsService.syncWithPreference(user.preferences?.analytics?.optOut)
       analyticsService.trackEvent('user_authorized', { user_id: this.user.id, email: this.user.email, name: this.user.name })
 
       // Auto-initialize Matrix client if tokens exist for this user
