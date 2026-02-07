@@ -6,7 +6,8 @@ import {
   ApiAuthRefreshTokenResponse,
   ApiAuthRestorePasswordRequest,
   ApiAuthUser,
-  SubCategoryEntity
+  SubCategoryEntity,
+  UserPreferences
 } from '../types'
 import getEnv from '../utils/env'
 const BASE_URL = '/api/v1/auth'
@@ -50,7 +51,8 @@ export const authApi = {
     email?: string,
     password?: string,
     oldPassword?: string,
-    interests?: SubCategoryEntity[]
+    interests?: SubCategoryEntity[],
+    preferences?: Partial<UserPreferences>
   }): Promise<AxiosResponse<ApiAuthUser>> =>
     api.patch(`${BASE_URL}/me`, data),
 
