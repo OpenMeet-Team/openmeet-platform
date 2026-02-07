@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 import analyticsService from '../../services/analyticsService'
 
@@ -51,18 +51,17 @@ const authStore = useAuthStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
-const shouldShowBanner = computed(() => {
-  const dismissed = localStorage.getItem(STORAGE_KEY) === 'true'
-  const optedOut = analyticsService.hasOptedOut()
-  return !dismissed && !optedOut
-})
+const dismissed = ref(localStorage.getItem(STORAGE_KEY) === 'true')
+const shouldShowBanner = computed(() => !dismissed.value && !analyticsService.hasOptedOut())
 
 const onDismiss = () => {
   localStorage.setItem(STORAGE_KEY, 'true')
+  dismissed.value = true
 }
 
 const onOptOut = () => {
   analyticsService.optOut()
   localStorage.setItem(STORAGE_KEY, 'true')
+  dismissed.value = true
 }
 </script>

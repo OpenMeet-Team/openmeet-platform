@@ -76,7 +76,9 @@ describe('AnalyticsBanner', () => {
     expect(gotItBtn.exists()).toBe(true)
 
     await gotItBtn.trigger('click')
+    await wrapper.vm.$nextTick()
     expect(localStorageMock.setItem).toHaveBeenCalledWith('analytics_banner_dismissed', 'true')
+    expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(false)
   })
 
   it('should call analyticsService.optOut and dismiss when "Opt out" is clicked', async () => {
@@ -85,8 +87,10 @@ describe('AnalyticsBanner', () => {
     expect(optOutBtn.exists()).toBe(true)
 
     await optOutBtn.trigger('click')
+    await wrapper.vm.$nextTick()
     expect(mockAnalyticsService.optOut).toHaveBeenCalled()
     expect(localStorageMock.setItem).toHaveBeenCalledWith('analytics_banner_dismissed', 'true')
+    expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(false)
   })
 
   it('should display informational text about analytics', () => {
