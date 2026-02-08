@@ -19,17 +19,7 @@ vi.mock('../../../services/analyticsService', () => ({
   default: mockAnalyticsService
 }))
 
-// Mock localStorage
-const localStorageMock = vi.hoisted(() => {
-  const store: Record<string, string> = {}
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value }),
-    removeItem: vi.fn((key: string) => { delete store[key] }),
-    clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]) }),
-    _store: store
-  }
-})
+const COOKIE_NAME = 'om_analytics_banner_dismissed'
 
 describe('AnalyticsBanner', () => {
   beforeEach(() => {
@@ -37,9 +27,11 @@ describe('AnalyticsBanner', () => {
     setActivePinia(createPinia())
     mockAnalyticsService.hasOptedOut.mockReturnValue(false)
 
-    // Reset localStorage mock
-    Object.keys(localStorageMock._store).forEach(k => delete localStorageMock._store[k])
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true })
+    // Clear the cookie
+    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`
+
+    // No cookie domain in test env (jsdom doesn't support cross-domain cookies)
+    window.APP_CONFIG = {} as typeof window.APP_CONFIG
   })
 
   const mountBanner = () => {
@@ -55,9 +47,8 @@ describe('AnalyticsBanner', () => {
     expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(true)
   })
 
-  it('should not show the banner when already dismissed', () => {
-    localStorageMock._store.analytics_banner_dismissed = 'true'
-    localStorageMock.getItem.mockImplementation((key: string) => localStorageMock._store[key] ?? null)
+  it('should not show the banner when already dismissed via cookie', () => {
+    document.cookie = `${COOKIE_NAME}=true; path=/`
 
     const wrapper = mountBanner()
     expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(false)
@@ -77,7 +68,7 @@ describe('AnalyticsBanner', () => {
 
     await gotItBtn.trigger('click')
     await wrapper.vm.$nextTick()
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('analytics_banner_dismissed', 'true')
+    expect(document.cookie).toContain(COOKIE_NAME)
     expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(false)
   })
 
@@ -89,7 +80,7 @@ describe('AnalyticsBanner', () => {
     await optOutBtn.trigger('click')
     await wrapper.vm.$nextTick()
     expect(mockAnalyticsService.optOut).toHaveBeenCalled()
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('analytics_banner_dismissed', 'true')
+    expect(document.cookie).toContain(COOKIE_NAME)
     expect(wrapper.find('[data-cy="analytics-banner"]').exists()).toBe(false)
   })
 

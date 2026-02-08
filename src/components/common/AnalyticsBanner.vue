@@ -45,23 +45,37 @@ import { ref, computed } from 'vue'
 import { useAuthStore } from '../../stores/auth-store'
 import analyticsService from '../../services/analyticsService'
 
-const STORAGE_KEY = 'analytics_banner_dismissed'
+const COOKIE_NAME = 'om_analytics_banner_dismissed'
 
 const authStore = useAuthStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
-const dismissed = ref(localStorage.getItem(STORAGE_KEY) === 'true')
+function getCookieDomain (): string {
+  return window.APP_CONFIG?.APP_POSTHOG_COOKIE_DOMAIN || ''
+}
+
+function isBannerDismissed (): boolean {
+  return document.cookie.split(';').some(c => c.trim().startsWith(COOKIE_NAME + '='))
+}
+
+function setBannerDismissed (): void {
+  const domain = getCookieDomain()
+  const domainPart = domain ? `; domain=${domain}` : ''
+  document.cookie = `${COOKIE_NAME}=true; path=/; max-age=31536000; SameSite=Lax${domainPart}`
+}
+
+const dismissed = ref(isBannerDismissed())
 const shouldShowBanner = computed(() => !dismissed.value && !analyticsService.hasOptedOut())
 
 const onDismiss = () => {
-  localStorage.setItem(STORAGE_KEY, 'true')
+  setBannerDismissed()
   dismissed.value = true
 }
 
 const onOptOut = () => {
   analyticsService.optOut()
-  localStorage.setItem(STORAGE_KEY, 'true')
+  setBannerDismissed()
   dismissed.value = true
 }
 </script>
