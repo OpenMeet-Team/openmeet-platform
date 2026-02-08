@@ -979,4 +979,70 @@ describe('AtprotoIdentityCard', () => {
       expect(button.exists()).toBe(false)
     })
   })
+
+  describe('Connect Different Account button for non-custodial with active session', () => {
+    it('should show "Connect Different Account" button for non-custodial identity with active session on our PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-different-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Connect Different Account')
+    })
+
+    it('should show "Connect Different Account" button for non-custodial identity with active session on external PDS', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: false,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-different-btn"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Connect Different Account')
+    })
+
+    it('should emit link event when "Connect Different Account" button is clicked', async () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: true
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-different-btn"]')
+      await button.trigger('click')
+
+      expect(wrapper.emitted('link')).toBeTruthy()
+    })
+
+    it('should NOT show "Connect Different Account" button for custodial identity', () => {
+      const identity = createMockIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        hasActiveSession: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-different-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+
+    it('should NOT show "Connect Different Account" button for non-custodial identity without active session', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: false
+      })
+      const wrapper = mountComponent({ identity })
+
+      const button = wrapper.find('[data-cy="connect-different-btn"]')
+      expect(button.exists()).toBe(false)
+    })
+  })
 })
