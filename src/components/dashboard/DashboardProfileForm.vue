@@ -257,6 +257,27 @@
       </q-card-section>
     </q-card>
 
+    <!-- Privacy & Analytics section -->
+    <q-card class="q-mb-md" data-cy="profile-privacy-analytics">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_analytics" class="q-mr-sm" />
+          Privacy & Analytics
+        </div>
+
+        <q-toggle
+          v-model="analyticsOptOut"
+          label="Opt out of analytics"
+          data-cy="analytics-optout-toggle"
+          @update:model-value="onAnalyticsOptOutChange"
+        />
+
+        <div class="text-caption text-grey-7 q-mt-sm">
+          When enabled, we will not collect analytics data about your usage. This helps us improve OpenMeet, but you can opt out at any time.
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Account deletion section -->
     <q-card class="q-mb-md">
       <q-card-section>
@@ -293,6 +314,7 @@ import CalendarConnectionsComponent from '../calendar/CalendarConnectionsCompone
 import AtprotoIdentityCard from '../atproto/AtprotoIdentityCard.vue'
 import { atprotoApi } from '../../api/atproto'
 import type { AtprotoIdentityDto, AtprotoRecoveryStatusDto } from '../../types/atproto'
+import analyticsService from '../../services/analyticsService'
 
 const router = useRouter()
 const { error, success } = useNotification()
@@ -341,6 +363,9 @@ const handleDomain = computed(() => atprotoIdentity.value?.validHandleDomains?.[
 
 // Link external account state
 const linking = ref(false)
+
+// Analytics opt-out state
+const analyticsOptOut = ref(analyticsService.hasOptedOut())
 
 const authStore = useAuthStore()
 
@@ -618,6 +643,31 @@ const onLinkIdentity = async () => {
     error(errorMessage)
   } finally {
     linking.value = false
+  }
+}
+
+// Handle analytics opt-out toggle change
+const onAnalyticsOptOutChange = async (value: boolean) => {
+  try {
+    if (value) {
+      analyticsService.optOut()
+    } else {
+      analyticsService.optIn()
+    }
+
+    await authApi.updateMe({
+      preferences: { analytics: { optOut: value } }
+    })
+  } catch (err) {
+    console.error('Failed to update analytics preference:', err)
+    // Revert toggle on error
+    analyticsOptOut.value = !value
+    if (value) {
+      analyticsService.optIn()
+    } else {
+      analyticsService.optOut()
+    }
+    error('Failed to update analytics preference')
   }
 }
 

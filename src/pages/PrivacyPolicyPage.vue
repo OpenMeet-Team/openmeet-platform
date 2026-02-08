@@ -5,7 +5,7 @@
         <q-card flat>
           <q-card-section>
             <h1 class="text-h4 q-mb-md">Privacy Policy</h1>
-            <p class="text-caption text-grey q-mb-lg">Last updated: September 15, 2024</p>
+            <p class="text-caption text-grey q-mb-lg">Last updated: February 7, 2026</p>
 
             <div class="privacy-content">
               <h2 class="text-h6 q-mt-lg q-mb-sm">1. Purpose</h2>
@@ -35,16 +35,25 @@
                 <li><strong>Targeted Promotions</strong>: We use interest-based data to suggest relevant groups or events. However, no data is shared with third parties. Participation in these marketing features is optional, and users can opt in or out at any time.</li>
               </ul>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">5. Data Sharing</h2>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">5. Analytics</h2>
+              <p>OpenMeet uses <a href="https://posthog.com" target="_blank" rel="noopener">PostHog</a>, a product analytics platform, to understand how our platform is used and to improve the experience for our users. PostHog collects usage data such as pages visited, features used, and general interaction patterns. This data is sent to PostHog's US-based cloud infrastructure.</p>
               <ul>
-                <li>OpenMeet does not sell or share your personal data with third parties.</li>
-                <li>We may share your data with trusted service providers who assist us in running the platform, but only under strict confidentiality agreements.</li>
+                <li><strong>What is collected</strong>: Pageviews, feature usage, session data, and device/browser information. We do not track keystrokes or form input contents.</li>
+                <li><strong>Identified users</strong>: If you are logged in, analytics events are associated with your account to help us understand user journeys.</li>
+                <li><strong>Opt-out</strong>: You can opt out of analytics at any time in your <router-link to="/dashboard/profile">profile settings</router-link> under "Privacy &amp; Analytics." Opting out sets a cookie that applies across all OpenMeet sites.</li>
+                <li><strong>No advertising</strong>: Analytics data is used solely to improve OpenMeet. We do not use it for advertising or share it with advertisers.</li>
               </ul>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">6. Data Control</h2>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">6. Data Sharing</h2>
+              <ul>
+                <li>OpenMeet does not sell or share your personal data with third parties for advertising purposes.</li>
+                <li>We share limited data with trusted service providers who assist us in running the platform (such as PostHog for analytics and AWS for hosting), under strict confidentiality agreements.</li>
+              </ul>
+
+              <h2 class="text-h6 q-mt-lg q-mb-sm">7. Data Control</h2>
               <p>You maintain control of your data and can access, update, or delete your data at any time through your account settings. OpenMeet complies with GDPR, CCPA, and other data privacy regulations, providing transparency and ensuring your rights are protected.</p>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">7. Data Security</h2>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">8. Data Security</h2>
               <p>OpenMeet takes the following steps to ensure the security of your data:</p>
               <ul>
                 <li><strong>Encryption</strong>: All data is encrypted both at rest and in transit.</li>
@@ -52,17 +61,18 @@
                 <li><strong>Regular Security Audits</strong>: We conduct regular security audits and updates to maintain the safety and integrity of the platform.</li>
               </ul>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">8. User Control and Transparency</h2>
-              <p>Users have full control over their data and can opt in or out of marketing features:</p>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">9. User Control and Transparency</h2>
+              <p>Users have full control over their data and can opt in or out of marketing and analytics features:</p>
               <ul>
+                <li><strong>Analytics Opt-out</strong>: You can disable analytics tracking at any time via the privacy banner or your <router-link to="/dashboard/profile">profile settings</router-link>.</li>
                 <li><strong>Opt-in Features</strong>: Users can choose to participate in promotional activities and adjust their settings at any time.</li>
                 <li><strong>Data Export and Deletion</strong>: Users can download their data or request its deletion via their account settings.</li>
               </ul>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">9. Updates to the Policy</h2>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">10. Updates to the Policy</h2>
               <p>OpenMeet may update this Privacy Policy from time to time to reflect changes in our platform or data practices. Significant updates will be communicated to users via email or in-app notifications.</p>
 
-              <h2 class="text-h6 q-mt-lg q-mb-sm">10. Contact Information</h2>
+              <h2 class="text-h6 q-mt-lg q-mb-sm">11. Contact Information</h2>
               <p>For questions or concerns about this Privacy Policy, please contact us at <a href="mailto:support@openmeet.net">support@openmeet.net</a>.</p>
             </div>
           </q-card-section>

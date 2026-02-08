@@ -38,8 +38,14 @@ async function initPostHog (key: string, router: Router) {
   posthog = module.default
   posthog.init(key, {
     api_host: 'https://us.i.posthog.com',
-    person_profiles: 'always'
-  })
+    person_profiles: 'always',
+    cross_subdomain_cookie: !!window.APP_CONFIG?.APP_POSTHOG_COOKIE_DOMAIN,
+    opt_out_capturing_persistence_type: 'cookie',
+    // cookie_domain is a valid PostHog option but missing from the TS types
+    ...(window.APP_CONFIG?.APP_POSTHOG_COOKIE_DOMAIN
+      ? { cookie_domain: window.APP_CONFIG.APP_POSTHOG_COOKIE_DOMAIN }
+      : {})
+  } as Parameters<typeof posthog.init>[1])
 
   router.afterEach((to) => {
     if (!to.path.includes('/auth/bluesky/callback')) {

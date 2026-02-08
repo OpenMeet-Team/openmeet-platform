@@ -20,6 +20,7 @@ interface AppConfig {
   APP_GITHUB_CLIENT_ID?: string
   APP_SUPPORT_URL?: string
   APP_POSTHOG_KEY?: string
+  APP_POSTHOG_COOKIE_DOMAIN?: string
   // SEO: set to false in prod to allow indexing (blocks by default)
   APP_NOINDEX?: boolean
   // Valid domains for deep links (OAuth callbacks in native apps)
