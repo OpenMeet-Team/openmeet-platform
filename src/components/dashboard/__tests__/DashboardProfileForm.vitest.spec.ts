@@ -268,6 +268,192 @@ describe('DashboardProfileForm', () => {
     })
   })
 
+  describe('Handle input dialog for account linking', () => {
+    it('should show the link dialog when onLinkIdentity is called without a handle', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: null
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Call onLinkIdentity without a handle - should show dialog
+      vm.onLinkIdentity()
+      await wrapper.vm.$nextTick()
+
+      expect(vm.showLinkDialog).toBe(true)
+    })
+
+    it('should NOT show the link dialog when onLinkIdentity is called with a handle', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: createMockAtprotoIdentity({
+          isCustodial: true,
+          isOurPds: true,
+          handle: 'alice.opnmt.me'
+        })
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const { atprotoApi } = await import('../../../api/atproto')
+      vi.mocked(atprotoApi).linkIdentity = vi.fn().mockResolvedValue({
+        data: { authUrl: 'https://pds.example.com/oauth/authorize' }
+      })
+
+      // Call onLinkIdentity with a handle - should skip dialog and link directly
+      await vm.onLinkIdentity('alice.opnmt.me')
+
+      expect(vm.showLinkDialog).toBe(false)
+      expect(vi.mocked(atprotoApi).linkIdentity).toHaveBeenCalledWith('alice.opnmt.me', 'web')
+    })
+
+    it('should call linkIdentity API with entered handle when dialog connect button calls submitLinkHandle', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: null
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const { atprotoApi } = await import('../../../api/atproto')
+      vi.mocked(atprotoApi).linkIdentity = vi.fn().mockResolvedValue({
+        data: { authUrl: 'https://pds.example.com/oauth/authorize' }
+      })
+
+      // Open the dialog
+      vm.onLinkIdentity()
+      await wrapper.vm.$nextTick()
+
+      // Set the handle
+      vm.linkHandle = 'bob.bsky.social'
+
+      // Submit
+      await vm.submitLinkHandle()
+
+      expect(vi.mocked(atprotoApi).linkIdentity).toHaveBeenCalledWith('bob.bsky.social', 'web')
+    })
+
+    it('should close dialog when cancelLinkDialog is called', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: null
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Open the dialog
+      vm.onLinkIdentity()
+      await wrapper.vm.$nextTick()
+      expect(vm.showLinkDialog).toBe(true)
+
+      // Cancel
+      vm.cancelLinkDialog()
+      await wrapper.vm.$nextTick()
+
+      expect(vm.showLinkDialog).toBe(false)
+      expect(vm.linkHandle).toBe('')
+      expect(vm.linkError).toBe('')
+    })
+
+    it('should show error state when API call fails in dialog', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: null
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const { atprotoApi } = await import('../../../api/atproto')
+      vi.mocked(atprotoApi).linkIdentity = vi.fn().mockRejectedValue({
+        response: { data: { message: 'Handle not found' } }
+      })
+
+      // Open the dialog
+      vm.onLinkIdentity()
+      await wrapper.vm.$nextTick()
+
+      // Set the handle and submit
+      vm.linkHandle = 'nonexistent.handle'
+      await vm.submitLinkHandle()
+      await flushPromises()
+
+      expect(vm.linkError).toBe('Handle not found')
+      expect(vm.showLinkDialog).toBe(true)
+    })
+
+    it('should have link dialog state variables initialized correctly', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: null
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      // Initially dialog should be closed
+      expect(vm.showLinkDialog).toBe(false)
+      expect(vm.linkHandle).toBe('')
+      expect(vm.linkError).toBe('')
+
+      // Open the dialog
+      vm.onLinkIdentity()
+      await wrapper.vm.$nextTick()
+
+      // Dialog state should be open
+      expect(vm.showLinkDialog).toBe(true)
+    })
+  })
+
+  describe('Take ownership auto-link uses handle directly', () => {
+    it('should pass identity handle to onLinkIdentity from onResetPdsPassword', async () => {
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.email,
+        atprotoIdentity: createMockAtprotoIdentity({
+          isCustodial: true,
+          isOurPds: true,
+          handle: 'alice.opnmt.me'
+        })
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+
+      const { atprotoApi } = await import('../../../api/atproto')
+      vi.mocked(atprotoApi).resetPdsPassword = vi.fn().mockResolvedValue({})
+      vi.mocked(atprotoApi).completeTakeOwnership = vi.fn().mockResolvedValue({})
+      vi.mocked(atprotoApi).getIdentity = vi.fn().mockResolvedValue({
+        data: createMockAtprotoIdentity({
+          isCustodial: false,
+          isOurPds: true,
+          handle: 'alice.opnmt.me',
+          hasActiveSession: false
+        })
+      })
+      vi.mocked(atprotoApi).linkIdentity = vi.fn().mockResolvedValue({
+        data: { authUrl: 'https://pds.example.com/oauth/authorize' }
+      })
+
+      vm.takeOwnershipPending = true
+      vm.atprotoIdentity = createMockAtprotoIdentity({
+        isCustodial: true,
+        isOurPds: true,
+        handle: 'alice.opnmt.me'
+      })
+
+      await vm.onResetPdsPassword({ token: 'ABC123', password: 'newpassword123' })
+
+      // Should have called linkIdentity directly with the handle (no dialog)
+      expect(vi.mocked(atprotoApi).linkIdentity).toHaveBeenCalledWith('alice.opnmt.me', 'web')
+      expect(vm.showLinkDialog).toBe(false)
+    })
+  })
+
   describe('Privacy & Analytics section', () => {
     it('should show Privacy & Analytics section', async () => {
       const wrapper = await mountComponent()

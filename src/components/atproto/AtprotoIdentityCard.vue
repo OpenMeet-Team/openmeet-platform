@@ -220,6 +220,24 @@
             </a>
           </div>
 
+          <!-- Options for connected non-custodial identity -->
+          <template v-if="!identity.isCustodial && identity.hasActiveSession">
+            <q-separator class="q-my-md" />
+            <div class="q-mt-md">
+              <div class="text-subtitle2 text-grey-7 q-mb-sm">Options</div>
+              <q-btn
+                data-cy="connect-different-btn"
+                color="secondary"
+                no-caps
+                outline
+                @click="$emit('link')"
+              >
+                <q-icon name="sym_r_swap_horiz" class="q-mr-sm" />
+                Connect Different Account
+              </q-btn>
+            </div>
+          </template>
+
           <!-- Options section for custodial identities on our PDS -->
           <template v-if="identity.isCustodial && identity.isOurPds">
             <q-separator class="q-my-md" />

@@ -295,6 +295,57 @@
       </q-card-section>
     </q-card>
 
+    <!-- Handle input dialog for AT Protocol account linking -->
+    <q-dialog v-model="showLinkDialog" data-cy="link-handle-dialog">
+      <q-card style="min-width: 400px">
+        <q-card-section>
+          <div class="text-h6">Connect AT Protocol Account</div>
+          <div class="text-body2 text-grey-7 q-mt-sm">
+            Enter the handle of the AT Protocol account you want to connect.
+          </div>
+        </q-card-section>
+
+        <q-card-section>
+          <q-banner v-if="linkError" class="bg-red-1 text-dark q-mb-md" rounded data-cy="link-handle-error">
+            <template v-slot:avatar>
+              <q-icon name="sym_r_error" color="negative" />
+            </template>
+            {{ linkError }}
+          </q-banner>
+
+          <q-input
+            data-cy="link-handle-input"
+            v-model="linkHandle"
+            label="AT Protocol Handle"
+            placeholder="e.g. alice.bsky.social"
+            filled
+            autofocus
+            @keyup.enter="submitLinkHandle"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            data-cy="link-handle-cancel"
+            flat
+            no-caps
+            label="Cancel"
+            color="grey-7"
+            @click="cancelLinkDialog"
+          />
+          <q-btn
+            data-cy="link-handle-connect"
+            no-caps
+            label="Connect"
+            color="primary"
+            :loading="linking"
+            :disable="!linkHandle.trim()"
+            @click="submitLinkHandle"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
   </div>
 </template>
 
@@ -363,6 +414,9 @@ const handleDomain = computed(() => atprotoIdentity.value?.validHandleDomains?.[
 
 // Link external account state
 const linking = ref(false)
+const showLinkDialog = ref(false)
+const linkHandle = ref('')
+const linkError = ref('')
 
 // Analytics opt-out state
 const analyticsOptOut = ref(analyticsService.hasOptedOut())
@@ -590,7 +644,11 @@ const onResetPdsPassword = async (payload: { token: string; password: string }) 
 
     // Auto-redirect to OAuth to complete the flow
     // This establishes the session so the user can publish
-    await onLinkIdentity()
+    // Pass the handle directly to skip the dialog
+    const identityHandle = atprotoIdentity.value?.handle
+    if (identityHandle) {
+      await onLinkIdentity(identityHandle)
+    }
   } catch (err) {
     console.error('Failed to reset PDS password:', err)
     // Extract error message from response if available
@@ -622,17 +680,19 @@ const onUpdateHandle = async (handle: string) => {
 }
 
 // Link external AT Protocol account
-const onLinkIdentity = async () => {
+// When called with a handle (e.g., from password reset auto-flow), links directly.
+// When called without a handle, shows the handle input dialog.
+const onLinkIdentity = async (handle?: string) => {
+  if (!handle) {
+    // Show dialog to prompt user for a handle
+    linkHandle.value = ''
+    linkError.value = ''
+    showLinkDialog.value = true
+    return
+  }
+
   try {
     linking.value = true
-
-    // Use the current identity's handle if available, otherwise prompt
-    const handle = atprotoIdentity.value?.handle
-    if (!handle) {
-      error('No handle available for linking')
-      return
-    }
-
     const response = await atprotoApi.linkIdentity(handle, 'web')
     // Redirect to OAuth authorization URL
     window.location.href = response.data.authUrl
@@ -644,6 +704,37 @@ const onLinkIdentity = async () => {
   } finally {
     linking.value = false
   }
+}
+
+// Submit handle from the link dialog
+const submitLinkHandle = async () => {
+  const handle = linkHandle.value.trim()
+  if (!handle) {
+    linkError.value = 'Please enter a handle'
+    return
+  }
+
+  try {
+    linking.value = true
+    linkError.value = ''
+    const response = await atprotoApi.linkIdentity(handle, 'web')
+    showLinkDialog.value = false
+    window.location.href = response.data.authUrl
+  } catch (err) {
+    console.error('Failed to initiate link:', err)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorMessage = (err as any)?.response?.data?.message || 'Failed to initiate account linking'
+    linkError.value = errorMessage
+  } finally {
+    linking.value = false
+  }
+}
+
+// Cancel the link dialog
+const cancelLinkDialog = () => {
+  showLinkDialog.value = false
+  linkHandle.value = ''
+  linkError.value = ''
 }
 
 // Handle analytics opt-out toggle change
