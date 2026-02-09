@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useAvatarUrl } from '../useAvatarUrl'
 import type { UserEntity } from '../../types'
 
@@ -73,7 +73,7 @@ describe('useAvatarUrl', () => {
       ulid: 'test-ulid',
       slug: 'test-user',
       email: 'test@example.com',
-      photo: { id: '1', path: '/uploads/photo.jpg' },
+      photo: { id: 1, path: '/uploads/photo.jpg' },
       preferences: {
         bluesky: {
           connected: true
@@ -97,7 +97,7 @@ describe('useAvatarUrl', () => {
   })
 
   it('should work with a computed ref user', () => {
-    const user = ref<UserEntity>({
+    const user = computed<UserEntity>(() => ({
       id: 1,
       ulid: 'test-ulid',
       slug: 'test-user',
@@ -107,7 +107,7 @@ describe('useAvatarUrl', () => {
           avatar: 'https://cdn.bsky.social/avatar.jpg'
         }
       }
-    })
+    }))
     const { avatarUrl } = useAvatarUrl(user)
     expect(avatarUrl.value).toBe('https://cdn.bsky.social/avatar.jpg')
   })
