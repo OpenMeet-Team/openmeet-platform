@@ -379,9 +379,6 @@ const form = ref<Profile>({
   lastName: null,
   preferences: {
     bluesky: {
-      connected: false,
-      disconnectedAt: null,
-      connectedAt: null,
       did: null,
       handle: null,
       avatar: null
@@ -779,9 +776,6 @@ onMounted(async () => {
       ...userData,
       preferences: {
         bluesky: {
-          connected: userData.preferences?.bluesky?.connected || false,
-          disconnectedAt: userData.preferences?.bluesky?.disconnectedAt || null,
-          connectedAt: userData.preferences?.bluesky?.connectedAt || null,
           did: userData.preferences?.bluesky?.did || null,
           handle: userData.preferences?.bluesky?.handle || null,
           avatar: userData.preferences?.bluesky?.avatar || null

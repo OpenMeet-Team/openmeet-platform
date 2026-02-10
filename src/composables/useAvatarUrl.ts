@@ -9,7 +9,7 @@ export function useAvatarUrl (user: UserEntity | ComputedRef<UserEntity> | null 
 
     // Try Bluesky avatar first
     const blueskyPrefs = userValue.preferences?.bluesky
-    if (blueskyPrefs?.connected && blueskyPrefs?.avatar) {
+    if (blueskyPrefs?.avatar) {
       const avatarUrl = unref(blueskyPrefs.avatar)
       if (typeof avatarUrl === 'string') return getImageSrc(avatarUrl)
     }

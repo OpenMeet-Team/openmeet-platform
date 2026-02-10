@@ -454,6 +454,47 @@ describe('DashboardProfileForm', () => {
     })
   })
 
+  describe('Form initialization - bluesky preferences', () => {
+    it('should NOT include connected, disconnectedAt, or connectedAt in form preferences', async () => {
+      // The API returns these deprecated fields, but the form should strip them
+      // to avoid the shallow merge bug where connected:false overwrites connected:true
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.bluesky,
+        atprotoIdentity: createMockAtprotoIdentity()
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      const blueskyPrefs = vm.form.preferences?.bluesky
+
+      // These should be present (display/reference fields)
+      expect(blueskyPrefs).toHaveProperty('did')
+      expect(blueskyPrefs).toHaveProperty('handle')
+      expect(blueskyPrefs).toHaveProperty('avatar')
+
+      // These should NOT be present (deprecated fields)
+      expect(blueskyPrefs).not.toHaveProperty('connected')
+      expect(blueskyPrefs).not.toHaveProperty('disconnectedAt')
+      expect(blueskyPrefs).not.toHaveProperty('connectedAt')
+    })
+
+    it('should preserve did, handle, and avatar values from API response', async () => {
+      // mountComponent mocks getMe with bluesky data for bluesky provider
+      const wrapper = await mountComponent({
+        provider: AuthProvidersEnum.bluesky,
+        atprotoIdentity: createMockAtprotoIdentity()
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      const blueskyPrefs = vm.form.preferences?.bluesky
+
+      // mountComponent uses these values for bluesky providers
+      expect(blueskyPrefs.did).toBe('did:plc:z72i7hdynmk6r22z27h6tvur')
+      expect(blueskyPrefs.handle).toBe('alice.bsky.social')
+    })
+  })
+
   describe('Privacy & Analytics section', () => {
     it('should show Privacy & Analytics section', async () => {
       const wrapper = await mountComponent()
