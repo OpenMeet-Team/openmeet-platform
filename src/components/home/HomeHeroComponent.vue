@@ -124,6 +124,7 @@ const onJoinNowClick = () => {
   z-index: 1;
   text-align: center;
   width: 100%;
+  padding: 0 220px;
 }
 
 :deep(.q-btn) {
@@ -156,24 +157,13 @@ const onJoinNowClick = () => {
   .hero-content {
     margin-top: 32px !important;
     margin-bottom: 24px !important;
+    padding: 0 96px !important;
   }
 }
 
 @media (max-width: 600px) {
-  .bubble-wrapper-left,
-  .bubble-wrapper-right,
-  .profile-left,
-  .profile-right {
-    width: 90px !important;
-    height: 90px !important;
-  }
-  .bubble-left {
-    left: 8px !important;
-    bottom: 8px !important;
-  }
-  .bubble-right {
-    right: 8px !important;
-    top: 8px !important;
+  .floating-profiles {
+    display: none !important;
   }
   .hero-container {
     padding: 16px !important;
@@ -182,6 +172,7 @@ const onJoinNowClick = () => {
   .hero-content {
     margin-top: 24px !important;
     margin-bottom: 16px !important;
+    padding: 0 16px !important;
   }
 }
 </style>
