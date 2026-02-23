@@ -158,6 +158,11 @@ const routes: RouteRecordRaw[] = [
         path: 'verify-email',
         component: () => import('pages/auth/VerifyEmailPage.vue'),
         name: 'VerifyEmailPage'
+      },
+      {
+        path: 'token-login',
+        component: () => import('pages/auth/TokenLoginPage.vue'),
+        name: 'TokenLoginPage'
       }
     ],
     meta: { requiresAuth: false }

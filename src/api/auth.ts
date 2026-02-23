@@ -115,5 +115,8 @@ export const authApi = {
   requestLoginCode: (data: {
     email: string
   }): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
-    api.post(`${BASE_URL}/request-login-code`, data)
+    api.post(`${BASE_URL}/request-login-code`, data),
+
+  exchangeLoginLink: (code: string): Promise<AxiosResponse<ApiAuthLoginResponse>> =>
+    api.post(`${BASE_URL}/exchange-login-link`, { code })
 }
