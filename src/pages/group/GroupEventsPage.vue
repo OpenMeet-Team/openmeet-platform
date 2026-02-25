@@ -29,72 +29,12 @@
                 :show-controls="true"
                 :group-events="events"
                 :external-events="externalEvents"
-                legend-type="group"
-                @date-select="onDateSelect"
                 @event-click="onEventClick"
                 @date-click="onDateClick"
               />
             </q-card-section>
           </q-card>
 
-          <!-- Events for selected date -->
-          <div v-if="selectedDateEvents.length" class="q-mt-md">
-            <q-card>
-              <q-card-section>
-                <div class="text-h6 q-mb-md">
-                  <q-icon name="sym_r_event" class="q-mr-sm" />
-                  Events for {{ formatSelectedDate }}
-                </div>
-                <div class="row q-gutter-md">
-                  <div v-for="event in selectedDateEvents" :key="event.id" class="col-12">
-                    <!-- Group Event -->
-                    <EventsItemComponent
-                      v-if="'startDate' in event"
-                      :event="event"
-                      layout="list"
-                    />
-                    <!-- External Event (from user's connected calendars) -->
-                    <q-card
-                      v-else
-                      flat
-                      class="external-event-card"
-                      :class="{ 'external-event--dimmed': true }"
-                    >
-                      <q-card-section class="q-pa-sm">
-                        <div class="row items-center">
-                          <q-icon name="sym_r_calendar_month" size="sm" class="q-mr-sm text-grey-6" />
-                          <div class="col">
-                            <div class="text-body2 text-grey-7">{{ event.summary }}</div>
-                            <div class="text-caption text-grey-5">
-                              {{ formatEventTime(event.startTime, event.endTime) }}
-                              <span v-if="event.location" class="q-ml-sm">• {{ event.location }}</span>
-                            </div>
-                          </div>
-                          <q-chip size="xs" color="grey-4" text-color="grey-7" dense>
-                            External
-                          </q-chip>
-                        </div>
-                      </q-card-section>
-                    </q-card>
-                  </div>
-                </div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <!-- Hint for calendar interaction -->
-          <div v-else-if="!selectedDate" class="q-mt-md">
-            <q-banner class="bg-blue-1 text-blue-8" rounded>
-              <template v-slot:avatar>
-                <q-icon name="sym_r_info" />
-              </template>
-              Click on a date in the calendar to see events for that day.
-              <div v-if="isLoadingExternalEvents" class="q-mt-sm text-caption">
-                <q-spinner size="xs" class="q-mr-xs" />
-                Loading your calendar events...
-              </div>
-            </q-banner>
-          </div>
         </div>
         <NoContentComponent v-else label="No events found" icon="sym_r_event_busy" />
       </div>
@@ -131,7 +71,6 @@ const externalEvents = ref<ExternalEvent[]>([])
 
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const timeFilter = ref<'upcoming' | 'past'>('upcoming')
-const selectedDate = ref<string>('')
 const group = computed(() => useGroupStore().group)
 
 const hasPermission = computed(() => {
@@ -207,38 +146,6 @@ const filteredEvents = computed(() => {
   })
 })
 
-const selectedDateEvents = computed(() => {
-  if (!selectedDate.value) return []
-
-  const selectedDateStr = selectedDate.value
-  const groupEvents = events.value?.filter(event => {
-    const eventDate = new Date(event.startDate).toISOString().split('T')[0]
-    return eventDate === selectedDateStr
-  }) || []
-
-  const externalEventsForDate = externalEvents.value.filter(event => {
-    const eventDate = new Date(event.startTime).toISOString().split('T')[0]
-    return eventDate === selectedDateStr
-  })
-
-  // Combine group events and external events
-  return [...groupEvents, ...externalEventsForDate]
-})
-
-const formatSelectedDate = computed(() => {
-  if (!selectedDate.value) return ''
-  return new Date(selectedDate.value).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-})
-
-function onDateSelect (date: string) {
-  selectedDate.value = date
-}
-
 function onEventClick (event: { slug?: string }) {
   // If the event has a slug, navigate to the event page
   if (event.slug) {
@@ -257,20 +164,6 @@ function onDateClick (date: string) {
     }
   })
 }
-
-function formatEventTime (startTime: string, endTime: string) {
-  const start = new Date(startTime)
-  const end = new Date(endTime)
-
-  const formatOptions: Intl.DateTimeFormatOptions = {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  }
-
-  return `${start.toLocaleTimeString('en-US', formatOptions)} - ${end.toLocaleTimeString('en-US', formatOptions)}`
-}
-
 </script>
 
 <style scoped lang="scss">
@@ -284,23 +177,5 @@ function formatEventTime (startTime: string, endTime: string) {
     }
   }
 
-  .q-banner {
-    border-radius: 8px;
-  }
-
-  .external-event-card {
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    background-color: rgba(0, 0, 0, 0.02);
-    border-radius: 8px;
-
-    &.external-event--dimmed {
-      opacity: 0.7;
-    }
-
-    &:hover {
-      opacity: 0.9;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-  }
 }
 </style>
