@@ -106,6 +106,69 @@ describe('DatetimeComponent', () => {
     expect(wrapper.vm.localDate).toBe(expectedDate)
   })
 
+  it('qTimeValue should convert 12h localTime to 24h HH:mm for QTime', async () => {
+    const wrapper = mount(DatetimeComponent, {
+      global: {
+        plugins: [Quasar],
+        stubs: { QInput, QIcon }
+      },
+      props: {
+        modelValue: '',
+        timeZone: 'UTC',
+        required: true
+      }
+    })
+    await nextTick()
+    // Default is 5:00 PM → 17:00
+    expect(wrapper.vm.qTimeValue).toBe('17:00')
+
+    // Set AM time
+    wrapper.vm.localTime = '9:30 AM'
+    await nextTick()
+    expect(wrapper.vm.qTimeValue).toBe('09:30')
+
+    // Midnight
+    wrapper.vm.localTime = '12:00 AM'
+    await nextTick()
+    expect(wrapper.vm.qTimeValue).toBe('00:00')
+
+    // Noon
+    wrapper.vm.localTime = '12:00 PM'
+    await nextTick()
+    expect(wrapper.vm.qTimeValue).toBe('12:00')
+  })
+
+  it('onQTimeChange should convert 24h QTime value back to 12h localTime', async () => {
+    const wrapper = mount(DatetimeComponent, {
+      global: {
+        plugins: [Quasar],
+        stubs: { QInput, QIcon }
+      },
+      props: {
+        modelValue: '',
+        timeZone: 'UTC',
+        required: true
+      }
+    })
+    await nextTick()
+
+    // AM time
+    wrapper.vm.onQTimeChange('09:00')
+    expect(wrapper.vm.localTime).toBe('9:00 AM')
+
+    // PM time
+    wrapper.vm.onQTimeChange('17:00')
+    expect(wrapper.vm.localTime).toBe('5:00 PM')
+
+    // Midnight
+    wrapper.vm.onQTimeChange('00:00')
+    expect(wrapper.vm.localTime).toBe('12:00 AM')
+
+    // Noon
+    wrapper.vm.onQTimeChange('12:00')
+    expect(wrapper.vm.localTime).toBe('12:00 PM')
+  })
+
   it('should populate end time date from start date plus one hour', async () => {
     // Simulate a start date/time
     const start = new Date()
