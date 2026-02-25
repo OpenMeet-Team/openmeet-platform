@@ -24,13 +24,18 @@
           <q-card class="q-mb-lg">
             <q-card-section class="q-pa-none">
               <UnifiedCalendarComponent
-                mode="month"
+                :mode="calendarMode"
                 height="500px"
                 :show-controls="true"
                 :group-events="events"
                 :external-events="externalEvents"
+                :initial-date="urlDate"
+                :initial-view="urlView"
+                :scroll-to-hour="urlHour"
                 @event-click="onEventClick"
                 @date-click="onDateClick"
+                @dates-set="onDatesSet"
+                @view-change="onViewChange"
               />
             </q-card-section>
           </q-card>
@@ -68,6 +73,35 @@ const isLoading = ref<boolean>(false)
 const isLoadingExternalEvents = ref<boolean>(false)
 const events = computed(() => useGroupStore().group?.events)
 const externalEvents = ref<ExternalEvent[]>([])
+
+const validViews = ['month', 'week', 'day'] as const
+type CalendarViewMode = typeof validViews[number]
+
+// Read URL query params for calendar deep linking
+const urlDate = computed(() => {
+  const d = route.query.date
+  return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined
+})
+
+const urlView = computed((): CalendarViewMode | undefined => {
+  const v = route.query.view
+  if (typeof v === 'string' && validViews.includes(v as CalendarViewMode)) {
+    return v as CalendarViewMode
+  }
+  return undefined
+})
+
+const urlHour = computed((): number | undefined => {
+  const h = route.query.hour
+  if (typeof h === 'string') {
+    const num = parseInt(h, 10)
+    if (!isNaN(num) && num >= 0 && num <= 23) return num
+  }
+  return undefined
+})
+
+// The calendar mode comes from the URL view param, defaulting to 'month'
+const calendarMode = computed((): CalendarViewMode => urlView.value || 'month')
 
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const timeFilter = ref<'upcoming' | 'past'>('upcoming')
@@ -163,6 +197,32 @@ function onDateClick (date: string) {
       groupSlug
     }
   })
+}
+
+function onDatesSet (info: { startStr: string; endStr: string; view: { type: string; currentStart: Date } }) {
+  // Extract the center date (currentStart) in YYYY-MM-DD format
+  const d = info.view.currentStart
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  router.replace({
+    query: {
+      ...route.query,
+      date: dateStr
+    }
+  })
+}
+
+function onViewChange (viewType: string) {
+  const query: Record<string, string> = { ...route.query as Record<string, string>, view: viewType }
+
+  if (viewType === 'week' || viewType === 'day') {
+    // Add current hour so copied URLs scroll to the right time
+    query.hour = String(new Date().getHours())
+  } else {
+    delete query.hour
+  }
+
+  router.replace({ query })
 }
 </script>
 

@@ -492,4 +492,235 @@ describe('UnifiedCalendarComponent', () => {
       expect(wrapper.find('[data-testid="fullcalendar"]').exists()).toBe(true)
     })
   })
+
+  describe('URL Deep Linking Props', () => {
+    it('passes initialDate to FullCalendar options', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialDate: '2025-08-20',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-08-20T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialDate).toBe('2025-08-20')
+    })
+
+    it('does not set initialDate when prop is not provided', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialDate).toBeUndefined()
+    })
+
+    it('maps initialView "month" to dayGridMonth', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'month',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialView).toBe('dayGridMonth')
+    })
+
+    it('maps initialView "week" to timeGridWeek', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'week',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialView).toBe('timeGridWeek')
+    })
+
+    it('maps initialView "day" to timeGridDay', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'day',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialView).toBe('timeGridDay')
+    })
+
+    it('uses mode prop as fallback when initialView is not provided', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          mode: 'week',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialView).toBe('timeGridWeek')
+    })
+
+    it('includes datesSet callback in calendar options', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.datesSet).toBeDefined()
+      expect(typeof options.datesSet).toBe('function')
+    })
+
+    it('emits datesSet when the datesSet callback is invoked', async () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+
+      // Simulate FullCalendar calling the datesSet callback
+      options.datesSet({
+        startStr: '2025-07-01',
+        endStr: '2025-07-31',
+        view: {
+          type: 'dayGridMonth',
+          currentStart: new Date('2025-07-01')
+        }
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const emitted = wrapper.emitted('datesSet')
+      expect(emitted).toBeDefined()
+      expect(emitted).toHaveLength(1)
+      expect(emitted![0][0]).toEqual(expect.objectContaining({
+        startStr: '2025-07-01',
+        endStr: '2025-07-31',
+        view: expect.objectContaining({ type: 'dayGridMonth' })
+      }))
+    })
+
+    it('emits viewChange when the view type changes in datesSet callback', async () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+
+      // Simulate user switching to week view
+      options.datesSet({
+        startStr: '2025-06-15',
+        endStr: '2025-06-21',
+        view: {
+          type: 'timeGridWeek',
+          currentStart: new Date('2025-06-15')
+        }
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const emitted = wrapper.emitted('viewChange')
+      expect(emitted).toBeDefined()
+      expect(emitted).toHaveLength(1)
+      expect(emitted![0][0]).toBe('week')
+    })
+
+    it('calls scrollToTime on mount when scrollToHour is provided and view is time grid', async () => {
+      const mockScrollToTime = vi.fn()
+      // Override the mock to track scrollToTime
+      const fcModule = vi.mocked(await import('@fullcalendar/vue3'))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(fcModule.default.methods as any).getApi = function () {
+        return {
+          changeView: vi.fn(),
+          gotoDate: vi.fn(),
+          today: vi.fn(),
+          prev: vi.fn(),
+          next: vi.fn(),
+          scrollToTime: mockScrollToTime,
+          view: { type: 'timeGridWeek' }
+        }
+      }
+
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'week',
+          scrollToHour: 14,
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
+      await wrapper.vm.$nextTick()
+
+      expect(mockScrollToTime).toHaveBeenCalledWith('14:00:00')
+    })
+
+    it('works without deep linking props (backward compatible)', () => {
+      // This mirrors HomeUserPage usage - no initialDate, initialView, or scrollToHour
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          mode: 'month',
+          compact: true,
+          height: '350px'
+        },
+        global: { plugins: [pinia] }
+      })
+
+      expect(wrapper.exists()).toBe(true)
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      expect(options.initialDate).toBeUndefined()
+    })
+  })
 })

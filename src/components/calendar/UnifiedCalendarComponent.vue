@@ -33,6 +33,9 @@ interface Props {
   groupEvents?: GroupEvent[]
   externalEvents?: ExternalEvent[]
   legendType?: 'personal' | 'group'
+  initialDate?: string
+  initialView?: 'month' | 'week' | 'day'
+  scrollToHour?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,11 +48,19 @@ const props = withDefaults(defineProps<Props>(), {
   legendType: 'personal'
 })
 
+interface DatesSetInfo {
+  startStr: string
+  endStr: string
+  view: { type: string; currentStart: Date }
+}
+
 const emit = defineEmits<{
   eventClick: [event: CalendarEvent]
   dateClick: [date: string]
   dateSelect: [date: string]
   externalEventsLoaded: [events: ExternalEvent[]]
+  datesSet: [info: DatesSetInfo]
+  viewChange: [viewType: string]
 }>()
 
 const authStore = useAuthStore()
@@ -63,6 +74,14 @@ const viewMap: Record<string, string> = {
   month: 'dayGridMonth',
   week: 'timeGridWeek',
   day: 'timeGridDay'
+}
+
+// Reverse map: FullCalendar view type -> user-friendly name
+const reverseViewMap: Record<string, string> = {
+  dayGridMonth: 'month',
+  timeGridWeek: 'week',
+  timeGridDay: 'day',
+  listWeek: 'week'
 }
 
 // Personal events loaded internally
@@ -93,7 +112,9 @@ const allEvents = computed<EventInput[]>(() => {
 // Responsive view switching
 function getResponsiveView (): string {
   if (typeof window !== 'undefined' && window.innerWidth < 768) return 'listWeek'
-  return viewMap[props.mode || 'month']
+  // initialView takes priority over mode
+  const viewKey = props.initialView || props.mode || 'month'
+  return viewMap[viewKey]
 }
 
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -147,51 +168,75 @@ function handleDateClick (info: DateClickArg) {
   emit('dateSelect', dateStr)
 }
 
+// Track last emitted view type to avoid duplicate viewChange emissions
+let lastEmittedViewType = ''
+
+function handleDatesSet (info: DatesSetInfo) {
+  emit('datesSet', info)
+
+  // Emit viewChange only when the view type actually changes
+  const friendlyView = reverseViewMap[info.view.type] || info.view.type
+  if (friendlyView !== lastEmittedViewType) {
+    lastEmittedViewType = friendlyView
+    emit('viewChange', friendlyView)
+  }
+}
+
 // Calendar options
-const calendarOptions = computed<CalendarOptions>(() => ({
-  plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxon3Plugin],
-  initialView: currentView.value,
-  // Month view: auto height so cells grow to fit events
-  // Week/day views: fixed height for scrollable time grid
-  height: currentView.value === 'dayGridMonth' ? 'auto' : (props.height || '500px'),
-  timeZone: 'local',
-  headerToolbar: props.showControls
-    ? isMobile.value
-      ? {
-          start: 'title',
-          center: '',
-          end: 'jumpToDate prev,next'
-        }
-      : {
-          start: 'prev,next today jumpToDate',
-          center: 'title',
-          end: 'dayGridMonth,timeGridWeek,timeGridDay'
-        }
-    : false,
-  customButtons: {
-    jumpToDate: {
-      text: '\uD83D\uDCC5',
-      hint: 'Jump to date',
-      click: openDatePicker
-    }
-  },
-  // Use text buttons — the fcicons font doesn't render reliably in dark themes
-  buttonIcons: false,
-  buttonText: {
-    prev: '\u25C0',
-    next: '\u25B6',
-    today: 'today'
-  },
-  // Show events as colored bars (not dots) in month view
-  eventDisplay: 'block',
-  events: allEvents.value,
-  eventClick: handleEventClick,
-  dateClick: handleDateClick,
-  editable: false,
-  selectable: false,
-  dayMaxEvents: 4,
-  nowIndicator: true
-}))
+const calendarOptions = computed<CalendarOptions>(() => {
+  const opts: CalendarOptions = {
+    plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxon3Plugin],
+    initialView: currentView.value,
+    // Month view: auto height so cells grow to fit events
+    // Week/day views: fixed height for scrollable time grid
+    height: currentView.value === 'dayGridMonth' ? 'auto' : (props.height || '500px'),
+    timeZone: 'local',
+    headerToolbar: props.showControls
+      ? isMobile.value
+        ? {
+            start: 'title',
+            center: '',
+            end: 'jumpToDate prev,next'
+          }
+        : {
+            start: 'prev,next today jumpToDate',
+            center: 'title',
+            end: 'dayGridMonth,timeGridWeek,timeGridDay'
+          }
+      : false,
+    customButtons: {
+      jumpToDate: {
+        text: '\uD83D\uDCC5',
+        hint: 'Jump to date',
+        click: openDatePicker
+      }
+    },
+    // Use text buttons — the fcicons font doesn't render reliably in dark themes
+    buttonIcons: false,
+    buttonText: {
+      prev: '\u25C0',
+      next: '\u25B6',
+      today: 'today'
+    },
+    // Show events as colored bars (not dots) in month view
+    eventDisplay: 'block',
+    events: allEvents.value,
+    eventClick: handleEventClick,
+    dateClick: handleDateClick,
+    datesSet: handleDatesSet,
+    editable: false,
+    selectable: false,
+    dayMaxEvents: 4,
+    nowIndicator: true
+  }
+
+  // Only set initialDate if provided (otherwise let FullCalendar default to today)
+  if (props.initialDate) {
+    opts.initialDate = props.initialDate
+  }
+
+  return opts
+})
 
 // Load personal events (only when no groupEvents provided)
 async function loadPersonalEvents () {
@@ -271,6 +316,18 @@ onMounted(() => {
     window.addEventListener('resize', handleResize)
   }
   loadPersonalEvents()
+
+  // Scroll to specific hour if requested and in a time grid view
+  if (props.scrollToHour != null) {
+    const api = calendarRef.value?.getApi()
+    if (api) {
+      const viewType = api.view?.type ?? currentView.value
+      if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
+        const hour = String(props.scrollToHour).padStart(2, '0')
+        api.scrollToTime(`${hour}:00:00`)
+      }
+    }
+  }
 })
 
 onUnmounted(() => {
