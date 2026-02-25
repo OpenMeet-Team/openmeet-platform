@@ -43,8 +43,8 @@
         <template v-slot:append>
           <q-icon data-cy="datetime-component-time" name="sym_r_access_time" class="cursor-pointer q-ml-sm">
             <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-              <q-time data-cy="datetime-component-time-picker" v-model="localTime" :format24h=false
-                @update:model-value="updateTime">
+              <q-time data-cy="datetime-component-time-picker" v-model="qTimeValue" :format24h=false
+                @update:model-value="onQTimeChange">
                 <div class="row items-center justify-end">
                   <q-btn v-close-popup label="Close" color="primary" flat />
                 </div>
@@ -170,6 +170,22 @@ const showTimezonePicker = ref(false)
 const timezoneOptions = ref(dateFormatting.getTimezones())
 const selectedTimezone = ref(props.timeZone || dateFormatting.getUserTimezone())
 const editableDate = ref('')
+
+// Bridge between localTime ("5:00 PM") and QTime's expected "HH:mm" format
+const qTimeValue = computed(() => {
+  if (!localTime.value) return ''
+  const parsed = parse(localTime.value.trim(), 'h:mm a', new Date())
+  return isValid(parsed) ? format(parsed, 'HH:mm') : ''
+})
+
+function onQTimeChange (val: string) {
+  if (!val) return
+  const parsed = parse(val, 'HH:mm', new Date())
+  if (isValid(parsed)) {
+    localTime.value = format(parsed, 'h:mm a').replace(/am/i, 'AM').replace(/pm/i, 'PM')
+    updateTime()
+  }
+}
 
 // Format timezone for display
 const formatTimeZone = computed(() => {
@@ -632,7 +648,9 @@ defineExpose({
   onTimeZoneUpdate,
   tempDate,
   tempTime,
-  updateTime // also expose updateTime for canonicalization test
+  updateTime, // also expose updateTime for canonicalization test
+  qTimeValue,
+  onQTimeChange
 })
 </script>
 
