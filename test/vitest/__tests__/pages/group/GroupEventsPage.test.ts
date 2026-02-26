@@ -297,6 +297,51 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     expect(replaceCall.query.hour).toBeDefined()
   })
 
+  it('does not leak stale query params when datesSet fires (race condition fix)', async () => {
+    // Simulate stale route.query containing params from a previous navigation
+    // that Vue Router hasn't fully processed yet — e.g., an hour param left over
+    // from a week view, or an unknown param from another source
+    mockRoute.query = { date: '2025-06-15', view: 'week', hour: '14', staleParam: 'should-not-leak' }
+
+    const wrapper = mount(GroupEventsPage, {
+      global: { plugins: [pinia] }
+    })
+
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
+
+    // Switch to month view — should NOT carry over staleParam or hour from route.query
+    calendar.vm.$emit('datesSet', {
+      startStr: '2025-07-01',
+      endStr: '2025-07-31',
+      view: {
+        type: 'dayGridMonth',
+        currentStart: new Date('2025-07-01T00:00:00Z')
+      }
+    })
+
+    await wrapper.vm.$nextTick()
+
+    expect(mockReplace).toHaveBeenCalled()
+    const replaceCall = mockReplace.mock.calls[0][0]
+
+    // Should only contain params we explicitly set
+    expect(replaceCall.query.date).toBe('2025-07-01')
+    expect(replaceCall.query.view).toBe('month')
+
+    // Must NOT contain stale params leaked from route.query spread
+    expect(replaceCall.query.staleParam).toBeUndefined()
+
+    // Month view should not have hour param (even though route.query had one)
+    expect(replaceCall.query.hour).toBeUndefined()
+
+    // Verify the query has ONLY the expected keys
+    const queryKeys = Object.keys(replaceCall.query)
+    expect(queryKeys).toEqual(['date', 'view'])
+  })
+
   it('handles invalid view query param gracefully', async () => {
     mockRoute.query = { view: 'invalid-view' }
 

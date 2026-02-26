@@ -215,16 +215,11 @@ function onDatesSet (info: { startStr: string; endStr: string; view: { type: str
   const dateStr = info.view.currentStart.toISOString().split('T')[0]
   const friendlyView = reverseViewMap[info.view.type] || info.view.type
 
-  const query: Record<string, string> = {
-    ...route.query as Record<string, string>,
-    date: dateStr,
-    view: friendlyView
-  }
-
+  // Build query from scratch — never spread route.query, which can contain stale
+  // values when FullCalendar fires datesSet rapidly during view switches
+  const query: Record<string, string> = { date: dateStr, view: friendlyView }
   if (friendlyView === 'week' || friendlyView === 'day') {
     query.hour = String(new Date().getHours())
-  } else {
-    delete query.hour
   }
 
   router.replace({ query })
