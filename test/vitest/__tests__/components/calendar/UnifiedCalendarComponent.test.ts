@@ -477,6 +477,43 @@ describe('UnifiedCalendarComponent', () => {
       expect(extEvent.title).toBe('Doctor Appointment')
       expect(extEvent.backgroundColor).toBe('#4caf50')
     })
+
+    it('reloads external events when datesSet callback fires with new range', async () => {
+      const { getExternalEvents } = await import('../../../../../src/api/calendar')
+      const mockGetExternalEvents = vi.mocked(getExternalEvents)
+      mockGetExternalEvents.mockClear()
+
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: { mode: 'month' },
+        global: { plugins: [pinia] }
+      })
+
+      await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
+      await wrapper.vm.$nextTick()
+
+      // Clear calls from initial mount
+      mockGetExternalEvents.mockClear()
+
+      // Simulate FullCalendar datesSet callback (user navigated to August)
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      options.datesSet({
+        startStr: '2025-08-01T00:00:00Z',
+        endStr: '2025-08-31T23:59:59Z',
+        view: { type: 'dayGridMonth', currentStart: new Date('2025-08-01T00:00:00Z') }
+      })
+
+      await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
+      await wrapper.vm.$nextTick()
+
+      // Should have called getExternalEvents with the new range
+      expect(mockGetExternalEvents).toHaveBeenCalled()
+      const callArgs = mockGetExternalEvents.mock.calls[0][0]
+      expect(callArgs.startTime).toContain('2025-08')
+      expect(callArgs.endTime).toContain('2025-08')
+    })
   })
 
   describe('Error Handling', () => {

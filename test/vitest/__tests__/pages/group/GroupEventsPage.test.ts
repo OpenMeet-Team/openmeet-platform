@@ -330,4 +330,34 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     expect(calendar.props('scrollToHour')).toBe(10)
     expect(calendar.props('mode')).toBe('day')
   })
+
+  it('reloads external events when datesSet fires with new date range', async () => {
+    const { getExternalEvents } = await import('../../../../../src/api/calendar')
+    const mockGetExternalEvents = vi.mocked(getExternalEvents)
+
+    const wrapper = mount(GroupEventsPage, {
+      global: { plugins: [pinia] }
+    })
+
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
+    await wrapper.vm.$nextTick()
+
+    // Clear any mount-time calls
+    mockGetExternalEvents.mockClear()
+
+    const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
+    calendar.vm.$emit('datesSet', {
+      startStr: '2025-08-01T00:00:00Z',
+      endStr: '2025-08-31T23:59:59Z',
+      view: { type: 'dayGridMonth', currentStart: new Date('2025-08-01T00:00:00Z') }
+    })
+
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    expect(mockGetExternalEvents).toHaveBeenCalled()
+    const callArgs = mockGetExternalEvents.mock.calls[0][0]
+    expect(callArgs.startTime).toContain('2025-08')
+  })
 })

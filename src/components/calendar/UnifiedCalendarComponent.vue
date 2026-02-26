@@ -84,8 +84,12 @@ const reverseViewMap: Record<string, string> = {
   listWeek: 'week'
 }
 
-// Personal events loaded internally
-const personalEvents = ref<EventInput[]>([])
+// Personal events split: core (attending/hosting) loaded once, external reloaded on navigation
+const personalCoreEvents = ref<EventInput[]>([])
+const personalExternalEvents = ref<EventInput[]>([])
+
+// Track visible date range for external event refetching
+const visibleRange = ref<{ start: string; end: string } | null>(null)
 
 // Map group events from props
 const groupCalendarEvents = computed<EventInput[]>(() => {
@@ -103,7 +107,8 @@ const externalCalendarEvents = computed<EventInput[]>(() => {
 const allEvents = computed<EventInput[]>(() => {
   const combined = [
     ...groupCalendarEvents.value,
-    ...personalEvents.value,
+    ...personalCoreEvents.value,
+    ...personalExternalEvents.value,
     ...externalCalendarEvents.value
   ]
   return deduplicateEvents(combined)
@@ -174,6 +179,9 @@ let lastEmittedViewType = ''
 function handleDatesSet (info: DatesSetInfo) {
   emit('datesSet', info)
 
+  // Track visible range — triggers external events reload via watcher
+  visibleRange.value = { start: info.startStr, end: info.endStr }
+
   // Emit viewChange only when the view type actually changes
   const friendlyView = reverseViewMap[info.view.type] || info.view.type
   if (friendlyView !== lastEmittedViewType) {
@@ -238,8 +246,8 @@ const calendarOptions = computed<CalendarOptions>(() => {
   return opts
 })
 
-// Load personal events (only when no groupEvents provided)
-async function loadPersonalEvents () {
+// Load core personal events (attending + hosting) — called once at mount
+async function loadPersonalCoreEvents () {
   if (props.groupEvents?.length) return
   if (!authStore.user) return
 
@@ -270,43 +278,52 @@ async function loadPersonalEvents () {
     for (const event of hostedEvents) {
       events.push(mapPersonalHostingEvent(event))
     }
-
-    // Load external calendar events via API
-    try {
-      const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      const startStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-${String(startOfMonth.getDate()).padStart(2, '0')}`
-      const endStr = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfMonth.getDate()).padStart(2, '0')}`
-
-      const externalResponse = await getExternalEvents({
-        startTime: `${startStr}T00:00:00Z`,
-        endTime: `${endStr}T23:59:59Z`
-      })
-
-      const externalEventsData = externalResponse.data.events || []
-      if (externalEventsData.length > 0) {
-        for (const ext of externalEventsData) {
-          events.push(mapExternalEvent(ext))
-        }
-        emit('externalEventsLoaded', externalEventsData)
-      }
-    } catch {
-      console.warn('Failed to load external calendar events')
-    }
   } catch {
     console.warn('Failed to load personal calendar events')
   }
 
-  personalEvents.value = events
+  personalCoreEvents.value = events
 }
+
+// Load external events for a date range — called on navigation
+async function loadExternalEventsForRange (startStr: string, endStr: string) {
+  if (props.groupEvents?.length) return
+  if (!authStore.user) return
+
+  try {
+    const externalResponse = await getExternalEvents({
+      startTime: startStr.includes('T') ? startStr : `${startStr}T00:00:00Z`,
+      endTime: endStr.includes('T') ? endStr : `${endStr}T23:59:59Z`
+    })
+
+    const externalEventsData = externalResponse.data.events || []
+    const mapped: EventInput[] = []
+    for (const ext of externalEventsData) {
+      mapped.push(mapExternalEvent(ext))
+    }
+    personalExternalEvents.value = mapped
+
+    if (externalEventsData.length > 0) {
+      emit('externalEventsLoaded', externalEventsData)
+    }
+  } catch {
+    console.warn('Failed to load external calendar events')
+  }
+}
+
+// Reload external events when visible date range changes
+watch(visibleRange, (range) => {
+  if (range) {
+    loadExternalEventsForRange(range.start, range.end)
+  }
+})
 
 // Watch for group events changes
 watch(
   () => props.groupEvents,
   () => {
     if (!props.groupEvents?.length) {
-      loadPersonalEvents()
+      loadPersonalCoreEvents()
     }
   }
 )
@@ -315,7 +332,7 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', handleResize)
   }
-  loadPersonalEvents()
+  loadPersonalCoreEvents()
 
   // Scroll to specific hour if requested and in a time grid view
   if (props.scrollToHour != null) {

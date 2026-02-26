@@ -111,27 +111,31 @@ const hasPermission = computed(() => {
     useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
 })
 
-const loadExternalEvents = async () => {
+const loadExternalEvents = async (startStr?: string, endStr?: string) => {
   if (!useAuthStore().isAuthenticated) return
 
   try {
     isLoadingExternalEvents.value = true
 
-    // Get events for the current month
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    let startTime: string
+    let endTime: string
 
-    const request: GetExternalEventsRequest = {
-      startTime: startOfMonth.toISOString(),
-      endTime: endOfMonth.toISOString()
+    if (startStr && endStr) {
+      startTime = startStr.includes('T') ? startStr : `${startStr}T00:00:00Z`
+      endTime = endStr.includes('T') ? endStr : `${endStr}T23:59:59Z`
+    } else {
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      startTime = startOfMonth.toISOString()
+      endTime = endOfMonth.toISOString()
     }
 
+    const request: GetExternalEventsRequest = { startTime, endTime }
     const response = await getExternalEvents(request)
     externalEvents.value = response.data.events
   } catch (error) {
     console.error('Failed to load external events:', error)
-    // Don't show error to user - external events are supplementary
   } finally {
     isLoadingExternalEvents.value = false
   }
@@ -224,6 +228,9 @@ function onDatesSet (info: { startStr: string; endStr: string; view: { type: str
   }
 
   router.replace({ query })
+
+  // Reload external events for the new visible range
+  loadExternalEvents(info.startStr, info.endStr)
 }
 </script>
 
