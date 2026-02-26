@@ -1591,11 +1591,11 @@ const handleDuplicateEvent = () => {
 
 const isOwnerOrAdmin = computed(() => {
   const authStore = useAuthStore()
-  const userId = authStore.getUserId
-  if (!userId) return false
+  const userSlug = authStore.getUserSlug
+  if (!userSlug) return false
 
-  const isEventOwner = event.value?.user?.id === userId
-  const isSeriesOwner = event.value?.series?.user?.id === userId
+  const isEventOwner = event.value?.user?.slug === userSlug
+  const isSeriesOwner = event.value?.series?.user?.slug === userSlug
   const isAdmin = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
 
   return isEventOwner || isSeriesOwner || isAdmin
