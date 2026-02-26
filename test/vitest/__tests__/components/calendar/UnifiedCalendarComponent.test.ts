@@ -708,9 +708,8 @@ describe('UnifiedCalendarComponent', () => {
       expect(emitted![0][0]).toBe('week')
     })
 
-    it('calls scrollToTime on mount when scrollToHour is provided and view is time grid', async () => {
+    it('scrolls to specified hour on first datesSet when scrollToHour prop is provided', async () => {
       const mockScrollToTime = vi.fn()
-      // Override the mock to track scrollToTime
       const fcModule = vi.mocked(await import('@fullcalendar/vue3'))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(fcModule.default.methods as any).getApi = function () {
@@ -740,7 +739,66 @@ describe('UnifiedCalendarComponent', () => {
       await vi.runAllTimersAsync()
       await wrapper.vm.$nextTick()
 
+      // Simulate FullCalendar's datesSet callback
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      options.datesSet({
+        startStr: '2025-06-15',
+        endStr: '2025-06-21',
+        view: { type: 'timeGridWeek', currentStart: new Date('2025-06-15T00:00:00Z') }
+      })
+
+      await wrapper.vm.$nextTick()
+
       expect(mockScrollToTime).toHaveBeenCalledWith('14:00:00')
+    })
+
+    it('scrolls to default hour on datesSet in time grid view without scrollToHour', async () => {
+      // Set system time to 3am — should default to 8am
+      vi.setSystemTime(new Date('2025-06-15T03:00:00.000Z'))
+
+      const mockScrollToTime = vi.fn()
+      const fcModule = vi.mocked(await import('@fullcalendar/vue3'))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(fcModule.default.methods as any).getApi = function () {
+        return {
+          changeView: vi.fn(),
+          gotoDate: vi.fn(),
+          today: vi.fn(),
+          prev: vi.fn(),
+          next: vi.fn(),
+          scrollToTime: mockScrollToTime,
+          view: { type: 'timeGridWeek' }
+        }
+      }
+
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'week',
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      await wrapper.vm.$nextTick()
+      await vi.runAllTimersAsync()
+      await wrapper.vm.$nextTick()
+
+      // Simulate FullCalendar's datesSet callback
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+      options.datesSet({
+        startStr: '2025-06-15',
+        endStr: '2025-06-21',
+        view: { type: 'timeGridWeek', currentStart: new Date('2025-06-15T00:00:00Z') }
+      })
+
+      await wrapper.vm.$nextTick()
+
+      // 3am is outside 8-20 range, should default to 8am
+      expect(mockScrollToTime).toHaveBeenCalledWith('08:00:00')
     })
 
     it('works without deep linking props (backward compatible)', () => {
