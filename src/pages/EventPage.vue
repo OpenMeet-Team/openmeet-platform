@@ -1589,19 +1589,16 @@ const handleDuplicateEvent = () => {
   }
 }
 
-// Update the isOwnerOrAdmin computed property
 const isOwnerOrAdmin = computed(() => {
-  if (!event.value?.series?.user) return false
-
   const authStore = useAuthStore()
+  const userId = authStore.getUserId
+  if (!userId) return false
 
-  // Check if user is owner
-  const isOwner = event.value.series.user.id === authStore.getUserId
-
-  // Check if user is admin (has manage events permission)
+  const isEventOwner = event.value?.user?.id === userId
+  const isSeriesOwner = event.value?.series?.user?.id === userId
   const isAdmin = useEventStore().getterGroupMemberHasPermission(GroupPermission.ManageEvents)
 
-  return isOwner || isAdmin
+  return isEventOwner || isSeriesOwner || isAdmin
 })
 
 </script>
