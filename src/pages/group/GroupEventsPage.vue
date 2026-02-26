@@ -24,77 +24,21 @@
           <q-card class="q-mb-lg">
             <q-card-section class="q-pa-none">
               <UnifiedCalendarComponent
-                mode="month"
+                :mode="calendarMode"
                 height="500px"
                 :show-controls="true"
                 :group-events="events"
                 :external-events="externalEvents"
-                legend-type="group"
-                @date-select="onDateSelect"
+                :initial-date="urlDate"
+                :initial-view="urlView"
+                :scroll-to-hour="urlHour"
                 @event-click="onEventClick"
                 @date-click="onDateClick"
+                @dates-set="onDatesSet"
               />
             </q-card-section>
           </q-card>
 
-          <!-- Events for selected date -->
-          <div v-if="selectedDateEvents.length" class="q-mt-md">
-            <q-card>
-              <q-card-section>
-                <div class="text-h6 q-mb-md">
-                  <q-icon name="sym_r_event" class="q-mr-sm" />
-                  Events for {{ formatSelectedDate }}
-                </div>
-                <div class="row q-gutter-md">
-                  <div v-for="event in selectedDateEvents" :key="event.id" class="col-12">
-                    <!-- Group Event -->
-                    <EventsItemComponent
-                      v-if="'startDate' in event"
-                      :event="event"
-                      layout="list"
-                    />
-                    <!-- External Event (from user's connected calendars) -->
-                    <q-card
-                      v-else
-                      flat
-                      class="external-event-card"
-                      :class="{ 'external-event--dimmed': true }"
-                    >
-                      <q-card-section class="q-pa-sm">
-                        <div class="row items-center">
-                          <q-icon name="sym_r_calendar_month" size="sm" class="q-mr-sm text-grey-6" />
-                          <div class="col">
-                            <div class="text-body2 text-grey-7">{{ event.summary }}</div>
-                            <div class="text-caption text-grey-5">
-                              {{ formatEventTime(event.startTime, event.endTime) }}
-                              <span v-if="event.location" class="q-ml-sm">• {{ event.location }}</span>
-                            </div>
-                          </div>
-                          <q-chip size="xs" color="grey-4" text-color="grey-7" dense>
-                            External
-                          </q-chip>
-                        </div>
-                      </q-card-section>
-                    </q-card>
-                  </div>
-                </div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <!-- Hint for calendar interaction -->
-          <div v-else-if="!selectedDate" class="q-mt-md">
-            <q-banner class="bg-blue-1 text-blue-8" rounded>
-              <template v-slot:avatar>
-                <q-icon name="sym_r_info" />
-              </template>
-              Click on a date in the calendar to see events for that day.
-              <div v-if="isLoadingExternalEvents" class="q-mt-sm text-caption">
-                <q-spinner size="xs" class="q-mr-xs" />
-                Loading your calendar events...
-              </div>
-            </q-banner>
-          </div>
         </div>
         <NoContentComponent v-else label="No events found" icon="sym_r_event_busy" />
       </div>
@@ -129,9 +73,37 @@ const isLoadingExternalEvents = ref<boolean>(false)
 const events = computed(() => useGroupStore().group?.events)
 const externalEvents = ref<ExternalEvent[]>([])
 
+const validViews = ['month', 'week', 'day'] as const
+type CalendarViewMode = typeof validViews[number]
+
+// Read URL query params for calendar deep linking
+const urlDate = computed(() => {
+  const d = route.query.date
+  return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined
+})
+
+const urlView = computed((): CalendarViewMode | undefined => {
+  const v = route.query.view
+  if (typeof v === 'string' && validViews.includes(v as CalendarViewMode)) {
+    return v as CalendarViewMode
+  }
+  return undefined
+})
+
+const urlHour = computed((): number | undefined => {
+  const h = route.query.hour
+  if (typeof h === 'string') {
+    const num = parseInt(h, 10)
+    if (!isNaN(num) && num >= 0 && num <= 23) return num
+  }
+  return undefined
+})
+
+// The calendar mode comes from the URL view param, defaulting to 'month'
+const calendarMode = computed((): CalendarViewMode => urlView.value || 'month')
+
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const timeFilter = ref<'upcoming' | 'past'>('upcoming')
-const selectedDate = ref<string>('')
 const group = computed(() => useGroupStore().group)
 
 const hasPermission = computed(() => {
@@ -139,27 +111,31 @@ const hasPermission = computed(() => {
     useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
 })
 
-const loadExternalEvents = async () => {
+const loadExternalEvents = async (startStr?: string, endStr?: string) => {
   if (!useAuthStore().isAuthenticated) return
 
   try {
     isLoadingExternalEvents.value = true
 
-    // Get events for the current month
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    let startTime: string
+    let endTime: string
 
-    const request: GetExternalEventsRequest = {
-      startTime: startOfMonth.toISOString(),
-      endTime: endOfMonth.toISOString()
+    if (startStr && endStr) {
+      startTime = startStr.includes('T') ? startStr : `${startStr}T00:00:00Z`
+      endTime = endStr.includes('T') ? endStr : `${endStr}T23:59:59Z`
+    } else {
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      startTime = startOfMonth.toISOString()
+      endTime = endOfMonth.toISOString()
     }
 
+    const request: GetExternalEventsRequest = { startTime, endTime }
     const response = await getExternalEvents(request)
     externalEvents.value = response.data.events
   } catch (error) {
     console.error('Failed to load external events:', error)
-    // Don't show error to user - external events are supplementary
   } finally {
     isLoadingExternalEvents.value = false
   }
@@ -207,38 +183,6 @@ const filteredEvents = computed(() => {
   })
 })
 
-const selectedDateEvents = computed(() => {
-  if (!selectedDate.value) return []
-
-  const selectedDateStr = selectedDate.value
-  const groupEvents = events.value?.filter(event => {
-    const eventDate = new Date(event.startDate).toISOString().split('T')[0]
-    return eventDate === selectedDateStr
-  }) || []
-
-  const externalEventsForDate = externalEvents.value.filter(event => {
-    const eventDate = new Date(event.startTime).toISOString().split('T')[0]
-    return eventDate === selectedDateStr
-  })
-
-  // Combine group events and external events
-  return [...groupEvents, ...externalEventsForDate]
-})
-
-const formatSelectedDate = computed(() => {
-  if (!selectedDate.value) return ''
-  return new Date(selectedDate.value).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-})
-
-function onDateSelect (date: string) {
-  selectedDate.value = date
-}
-
 function onEventClick (event: { slug?: string }) {
   // If the event has a slug, navigate to the event page
   if (event.slug) {
@@ -258,19 +202,31 @@ function onDateClick (date: string) {
   })
 }
 
-function formatEventTime (startTime: string, endTime: string) {
-  const start = new Date(startTime)
-  const end = new Date(endTime)
-
-  const formatOptions: Intl.DateTimeFormatOptions = {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  }
-
-  return `${start.toLocaleTimeString('en-US', formatOptions)} - ${end.toLocaleTimeString('en-US', formatOptions)}`
+// Reverse map: FullCalendar view type -> user-friendly name
+const reverseViewMap: Record<string, string> = {
+  dayGridMonth: 'month',
+  timeGridWeek: 'week',
+  timeGridDay: 'day',
+  listWeek: 'week'
 }
 
+function onDatesSet (info: { startStr: string; endStr: string; view: { type: string; currentStart: Date } }) {
+  // Use toISOString for UTC-safe date formatting (getDate() uses local timezone)
+  const dateStr = info.view.currentStart.toISOString().split('T')[0]
+  const friendlyView = reverseViewMap[info.view.type] || info.view.type
+
+  // Build query from scratch — never spread route.query, which can contain stale
+  // values when FullCalendar fires datesSet rapidly during view switches
+  const query: Record<string, string> = { date: dateStr, view: friendlyView }
+  if (friendlyView === 'week' || friendlyView === 'day') {
+    query.hour = String(new Date().getHours())
+  }
+
+  router.replace({ query })
+
+  // Reload external events for the new visible range
+  loadExternalEvents(info.startStr, info.endStr)
+}
 </script>
 
 <style scoped lang="scss">
@@ -284,23 +240,5 @@ function formatEventTime (startTime: string, endTime: string) {
     }
   }
 
-  .q-banner {
-    border-radius: 8px;
-  }
-
-  .external-event-card {
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    background-color: rgba(0, 0, 0, 0.02);
-    border-radius: 8px;
-
-    &.external-event--dimmed {
-      opacity: 0.7;
-    }
-
-    &:hover {
-      opacity: 0.9;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-  }
 }
 </style>
