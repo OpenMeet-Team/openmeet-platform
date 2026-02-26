@@ -391,6 +391,53 @@ onUnmounted(() => {
   }
 }
 
+// Light mode — use OpenMeet purple palette for controls
+.body--light .fc {
+  --fc-border-color: #e0e0e0;
+  --fc-today-bg-color: rgba(238, 237, 251, 0.5); // purple-100 at 50%
+  --fc-now-indicator-color: #7B71DA; // purple-400
+}
+
+.body--light .fc .fc-button {
+  background-color: #EEEDFB; // purple-100
+  border-color: #D2ACEE; // purple-200
+  color: #4238A6; // purple-500
+  font-weight: 500;
+
+  &:hover {
+    background-color: #D2ACEE; // purple-200
+    border-color: #AF9EE8; // purple-300
+    color: #1E1A43; // purple-600
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 0.2rem rgba(123, 113, 218, 0.25); // purple-400 glow
+  }
+
+  &.fc-button-active {
+    background-color: #7B71DA; // purple-400
+    border-color: #7B71DA;
+    color: #ffffff;
+  }
+}
+
+.body--light .fc .fc-toolbar-title {
+  color: #4238A6; // purple-500
+}
+
+.body--light .fc .fc-col-header-cell-cushion {
+  color: #4238A6; // purple-500
+}
+
+.body--light .fc .fc-daygrid-day-number {
+  color: #333333;
+}
+
+.body--light .fc .fc-day-today .fc-daygrid-day-number {
+  color: #7B71DA; // purple-400
+  font-weight: 700;
+}
+
 // Dark mode CSS variables for FullCalendar
 .body--dark .fc {
   --fc-border-color: rgba(255, 255, 255, 0.12);
