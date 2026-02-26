@@ -238,6 +238,17 @@ const calendarOptions = computed<CalendarOptions>(() => {
     nowIndicator: true
   }
 
+  // Scroll to specific hour after FullCalendar's view DOM is fully rendered
+  if (props.scrollToHour != null) {
+    opts.viewDidMount = (info: { view: { type: string; calendar: { scrollToTime: (time: string) => void } } }) => {
+      const viewType = info.view.type
+      if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
+        const hour = String(props.scrollToHour).padStart(2, '0')
+        info.view.calendar.scrollToTime(`${hour}:00:00`)
+      }
+    }
+  }
+
   // Only set initialDate if provided (otherwise let FullCalendar default to today)
   if (props.initialDate) {
     opts.initialDate = props.initialDate
@@ -333,18 +344,6 @@ onMounted(() => {
     window.addEventListener('resize', handleResize)
   }
   loadPersonalCoreEvents()
-
-  // Scroll to specific hour if requested and in a time grid view
-  if (props.scrollToHour != null) {
-    const api = calendarRef.value?.getApi()
-    if (api) {
-      const viewType = api.view?.type ?? currentView.value
-      if (viewType === 'timeGridWeek' || viewType === 'timeGridDay') {
-        const hour = String(props.scrollToHour).padStart(2, '0')
-        api.scrollToTime(`${hour}:00:00`)
-      }
-    }
-  }
 })
 
 onUnmounted(() => {

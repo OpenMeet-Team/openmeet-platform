@@ -708,21 +708,28 @@ describe('UnifiedCalendarComponent', () => {
       expect(emitted![0][0]).toBe('week')
     })
 
-    it('scrolls to specified hour on first datesSet when scrollToHour prop is provided', async () => {
+    it('includes viewDidMount callback in calendarOptions when scrollToHour is set', () => {
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'week',
+          scrollToHour: 14,
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+
+      // viewDidMount must be defined in calendarOptions (not relying on onMounted)
+      expect(options.viewDidMount).toBeDefined()
+      expect(typeof options.viewDidMount).toBe('function')
+    })
+
+    it('scrolls to specified hour via viewDidMount when scrollToHour prop is provided', () => {
       const mockScrollToTime = vi.fn()
-      const fcModule = vi.mocked(await import('@fullcalendar/vue3'))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(fcModule.default.methods as any).getApi = function () {
-        return {
-          changeView: vi.fn(),
-          gotoDate: vi.fn(),
-          today: vi.fn(),
-          prev: vi.fn(),
-          next: vi.fn(),
-          scrollToTime: mockScrollToTime,
-          view: { type: 'timeGridWeek' }
-        }
-      }
 
       const wrapper = mount(UnifiedCalendarComponent, {
         props: {
@@ -735,43 +742,49 @@ describe('UnifiedCalendarComponent', () => {
         global: { plugins: [pinia] }
       })
 
-      await wrapper.vm.$nextTick()
-      await vi.runAllTimersAsync()
-      await wrapper.vm.$nextTick()
-
-      // Simulate FullCalendar's datesSet callback
       const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
       const options = fcMock.props('options')
-      options.datesSet({
-        startStr: '2025-06-15',
-        endStr: '2025-06-21',
-        view: { type: 'timeGridWeek', currentStart: new Date('2025-06-15T00:00:00Z') }
-      })
 
-      await wrapper.vm.$nextTick()
+      // Simulate FullCalendar calling viewDidMount after the view DOM is ready
+      options.viewDidMount({
+        view: {
+          type: 'timeGridWeek',
+          calendar: { scrollToTime: mockScrollToTime }
+        }
+      })
 
       expect(mockScrollToTime).toHaveBeenCalledWith('14:00:00')
     })
 
-    it('scrolls to default hour on datesSet in time grid view without scrollToHour', async () => {
-      // Set system time to 3am — should default to 8am
-      vi.setSystemTime(new Date('2025-06-15T03:00:00.000Z'))
-
+    it('does not scroll via viewDidMount in month view even if scrollToHour is set', () => {
       const mockScrollToTime = vi.fn()
-      const fcModule = vi.mocked(await import('@fullcalendar/vue3'))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(fcModule.default.methods as any).getApi = function () {
-        return {
-          changeView: vi.fn(),
-          gotoDate: vi.fn(),
-          today: vi.fn(),
-          prev: vi.fn(),
-          next: vi.fn(),
-          scrollToTime: mockScrollToTime,
-          view: { type: 'timeGridWeek' }
-        }
-      }
 
+      const wrapper = mount(UnifiedCalendarComponent, {
+        props: {
+          initialView: 'month',
+          scrollToHour: 14,
+          groupEvents: [
+            { ulid: 'evt-001', slug: 'test', name: 'Test', startDate: '2025-06-15T14:00:00Z' }
+          ]
+        },
+        global: { plugins: [pinia] }
+      })
+
+      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcMock.props('options')
+
+      // Simulate viewDidMount in month view -- should NOT scroll
+      options.viewDidMount({
+        view: {
+          type: 'dayGridMonth',
+          calendar: { scrollToTime: mockScrollToTime }
+        }
+      })
+
+      expect(mockScrollToTime).not.toHaveBeenCalled()
+    })
+
+    it('does not include viewDidMount when scrollToHour is not set', () => {
       const wrapper = mount(UnifiedCalendarComponent, {
         props: {
           initialView: 'week',
@@ -782,23 +795,11 @@ describe('UnifiedCalendarComponent', () => {
         global: { plugins: [pinia] }
       })
 
-      await wrapper.vm.$nextTick()
-      await vi.runAllTimersAsync()
-      await wrapper.vm.$nextTick()
-
-      // Simulate FullCalendar's datesSet callback
       const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
       const options = fcMock.props('options')
-      options.datesSet({
-        startStr: '2025-06-15',
-        endStr: '2025-06-21',
-        view: { type: 'timeGridWeek', currentStart: new Date('2025-06-15T00:00:00Z') }
-      })
 
-      await wrapper.vm.$nextTick()
-
-      // 3am is outside 8-20 range, should default to 8am
-      expect(mockScrollToTime).toHaveBeenCalledWith('08:00:00')
+      // viewDidMount should not be set when scrollToHour is not provided
+      expect(options.viewDidMount).toBeUndefined()
     })
 
     it('works without deep linking props (backward compatible)', () => {
