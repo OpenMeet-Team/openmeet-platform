@@ -35,7 +35,6 @@
                 @event-click="onEventClick"
                 @date-click="onDateClick"
                 @dates-set="onDatesSet"
-                @view-change="onViewChange"
               />
             </q-card-section>
           </q-card>
@@ -199,24 +198,26 @@ function onDateClick (date: string) {
   })
 }
 
-function onDatesSet (info: { startStr: string; endStr: string; view: { type: string; currentStart: Date } }) {
-  // Extract the center date (currentStart) in YYYY-MM-DD format
-  const d = info.view.currentStart
-  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  router.replace({
-    query: {
-      ...route.query,
-      date: dateStr
-    }
-  })
+// Reverse map: FullCalendar view type -> user-friendly name
+const reverseViewMap: Record<string, string> = {
+  dayGridMonth: 'month',
+  timeGridWeek: 'week',
+  timeGridDay: 'day',
+  listWeek: 'week'
 }
 
-function onViewChange (viewType: string) {
-  const query: Record<string, string> = { ...route.query as Record<string, string>, view: viewType }
+function onDatesSet (info: { startStr: string; endStr: string; view: { type: string; currentStart: Date } }) {
+  // Use toISOString for UTC-safe date formatting (getDate() uses local timezone)
+  const dateStr = info.view.currentStart.toISOString().split('T')[0]
+  const friendlyView = reverseViewMap[info.view.type] || info.view.type
 
-  if (viewType === 'week' || viewType === 'day') {
-    // Add current hour so copied URLs scroll to the right time
+  const query: Record<string, string> = {
+    ...route.query as Record<string, string>,
+    date: dateStr,
+    view: friendlyView
+  }
+
+  if (friendlyView === 'week' || friendlyView === 'day') {
     query.hour = String(new Date().getHours())
   } else {
     delete query.hour

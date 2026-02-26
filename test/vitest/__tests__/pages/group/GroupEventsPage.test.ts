@@ -215,7 +215,7 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     expect(calendar.props('mode')).toBe('month')
   })
 
-  it('updates URL via router.replace when datesSet fires', async () => {
+  it('updates URL with both date and view when datesSet fires', async () => {
     const wrapper = mount(GroupEventsPage, {
       global: { plugins: [pinia] }
     })
@@ -225,13 +225,13 @@ describe('GroupEventsPage - URL Deep Linking', () => {
 
     const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
 
-    // Simulate datesSet event from the calendar
+    // Simulate datesSet event — this should update BOTH date and view in one router.replace call
     calendar.vm.$emit('datesSet', {
       startStr: '2025-07-01',
       endStr: '2025-07-31',
       view: {
         type: 'dayGridMonth',
-        currentStart: new Date('2025-07-01')
+        currentStart: new Date('2025-07-01T00:00:00Z')
       }
     })
 
@@ -240,9 +240,10 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     expect(mockReplace).toHaveBeenCalled()
     const replaceCall = mockReplace.mock.calls[0][0]
     expect(replaceCall.query.date).toBe('2025-07-01')
+    expect(replaceCall.query.view).toBe('month')
   })
 
-  it('updates URL via router.replace when viewChange fires', async () => {
+  it('formats date correctly for UTC dates (no off-by-one from timezone)', async () => {
     const wrapper = mount(GroupEventsPage, {
       global: { plugins: [pinia] }
     })
@@ -252,34 +253,48 @@ describe('GroupEventsPage - URL Deep Linking', () => {
 
     const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
 
-    // Simulate viewChange event from the calendar
-    calendar.vm.$emit('viewChange', 'week')
+    // July 1 at UTC midnight — getDate() in US timezones would return June 30
+    calendar.vm.$emit('datesSet', {
+      startStr: '2025-07-01',
+      endStr: '2025-07-31',
+      view: {
+        type: 'dayGridMonth',
+        currentStart: new Date('2025-07-01T00:00:00Z')
+      }
+    })
 
     await wrapper.vm.$nextTick()
 
-    expect(mockReplace).toHaveBeenCalled()
+    const replaceCall = mockReplace.mock.calls[0][0]
+    expect(replaceCall.query.date).toBe('2025-07-01')
+  })
+
+  it('adds hour param when datesSet fires with a time grid view', async () => {
+    vi.setSystemTime(new Date('2025-06-15T14:30:00.000Z'))
+
+    const wrapper = mount(GroupEventsPage, {
+      global: { plugins: [pinia] }
+    })
+
+    await wrapper.vm.$nextTick()
+    await vi.runAllTimersAsync()
+
+    const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
+
+    calendar.vm.$emit('datesSet', {
+      startStr: '2025-06-15',
+      endStr: '2025-06-21',
+      view: {
+        type: 'timeGridWeek',
+        currentStart: new Date('2025-06-15T00:00:00Z')
+      }
+    })
+
+    await wrapper.vm.$nextTick()
+
     const replaceCall = mockReplace.mock.calls[0][0]
     expect(replaceCall.query.view).toBe('week')
-  })
-
-  it('uses router.replace not router.push to avoid polluting history', async () => {
-    const wrapper = mount(GroupEventsPage, {
-      global: { plugins: [pinia] }
-    })
-
-    await wrapper.vm.$nextTick()
-    await vi.runAllTimersAsync()
-
-    const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
-    calendar.vm.$emit('viewChange', 'day')
-
-    await wrapper.vm.$nextTick()
-
-    // Should use replace, not push for calendar navigation
-    expect(mockReplace).toHaveBeenCalled()
-    // push should NOT have been called for calendar navigation
-    // (it may be called by other things like onDateClick, so we just check replace was used)
-    expect(mockReplace.mock.calls.length).toBeGreaterThan(0)
+    expect(replaceCall.query.hour).toBeDefined()
   })
 
   it('handles invalid view query param gracefully', async () => {
