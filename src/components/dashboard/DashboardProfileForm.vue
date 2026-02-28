@@ -351,7 +351,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Dialog, LoadingBar } from 'quasar'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth-store'
@@ -367,6 +367,7 @@ import { atprotoApi } from '../../api/atproto'
 import type { AtprotoIdentityDto, AtprotoRecoveryStatusDto } from '../../types/atproto'
 import analyticsService from '../../services/analyticsService'
 
+const route = useRoute()
 const router = useRouter()
 const { error, success } = useNotification()
 
@@ -797,6 +798,15 @@ onMounted(async () => {
     error('Failed to load profile data')
   } finally {
     LoadingBar.stop()
+  }
+
+  // Handle ATProto link callback query params from API redirect
+  if (route.query.linkSuccess === 'true') {
+    success('AT Protocol account linked successfully')
+    router.replace({ query: {} })
+  } else if (route.query.linkError) {
+    error(`Failed to link account: ${route.query.linkError}`)
+    router.replace({ query: {} })
   }
 })
 
