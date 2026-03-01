@@ -389,7 +389,7 @@
                   flat
                   padding="none"
                   target="_blank"
-                  :href="event.locationOnline"
+                  :href="ensureAbsoluteUrl(event.locationOnline)"
                   class="text-underline text-blue"
                   >Online link
                 </q-btn>
@@ -796,7 +796,7 @@
                     flat
                     padding="none"
                     target="_blank"
-                    :href="event.locationOnline"
+                    :href="ensureAbsoluteUrl(event.locationOnline)"
                     class="text-underline text-blue"
                     >Online link
                   </q-btn>
@@ -1025,6 +1025,7 @@ import {
   EventEntity
 } from '../types'
 import { pluralize } from '../utils/stringUtils'
+import { ensureAbsoluteUrl } from '../utils/urlUtils'
 import EventRSVPSection from '../components/event/EventRSVPSection.vue'
 import RecurrenceDisplayComponent from '../components/event/RecurrenceDisplayComponent.vue'
 import { useAuthStore } from '../stores/auth-store'

@@ -393,6 +393,7 @@ import { eventSeriesApi } from '../../api/event-series'
 import { toBackendRecurrenceRule } from '../../utils/recurrenceUtils'
 import { addHours } from 'date-fns'
 import { logger } from '../../utils/logger'
+import { ensureAbsoluteUrl } from '../../utils/urlUtils'
 import { fromZonedTime, toZonedTime } from 'date-fns-tz' // formatInTimeZone moved to RecurrenceComponent
 import type RecurrenceComponentType from './recurrence-component-shim'
 
@@ -808,6 +809,11 @@ const onSubmit = async () => {
   // Always remove recurrence fields from event data
   const event = {
     ...eventData.value
+  }
+
+  // Normalize online link URL to ensure it has a protocol
+  if (event.locationOnline) {
+    event.locationOnline = ensureAbsoluteUrl(event.locationOnline)
   }
 
   // Log event state before submission
