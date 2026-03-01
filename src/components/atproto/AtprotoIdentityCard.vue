@@ -110,7 +110,7 @@
               </q-btn>
               <!-- Inline edit button (only for users on our PDS) -->
               <q-btn
-                v-if="identity.isOurPds"
+                v-if="identity.isOurPds && (identity.isCustodial || identity.hasActiveSession)"
                 data-cy="inline-edit-handle-btn"
                 flat
                 round

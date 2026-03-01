@@ -911,6 +911,19 @@ describe('AtprotoIdentityCard', () => {
       expect(editIcon.exists()).toBe(true)
     })
 
+    it('should NOT show edit icon for non-custodial identity on our PDS without active session', () => {
+      const identity = createMockIdentity({
+        isCustodial: false,
+        isOurPds: true,
+        hasActiveSession: false,
+        handle: 'alice.opnmt.me'
+      })
+      const wrapper = mountComponent({ identity })
+
+      const editIcon = wrapper.find('[data-cy="inline-edit-handle-btn"]')
+      expect(editIcon.exists()).toBe(false)
+    })
+
     it('should NOT show edit icon for linked identity on external PDS', () => {
       const identity = createMockIdentity({
         isCustodial: false,
