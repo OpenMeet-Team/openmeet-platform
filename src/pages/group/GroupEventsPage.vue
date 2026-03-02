@@ -19,28 +19,23 @@
       </div>
 
       <div v-if="viewMode === 'calendar'">
-        <div v-if="events?.length">
-          <!-- Calendar View -->
-          <q-card class="q-mb-lg">
-            <q-card-section class="q-pa-none">
-              <UnifiedCalendarComponent
-                :mode="calendarMode"
-                height="500px"
-                :show-controls="true"
-                :group-events="events"
-                :external-events="externalEvents"
-                :initial-date="urlDate"
-                :initial-view="urlView"
-                :scroll-to-hour="urlHour"
-                @event-click="onEventClick"
-                @date-click="onDateClick"
-                @dates-set="onDatesSet"
-              />
-            </q-card-section>
-          </q-card>
-
-        </div>
-        <NoContentComponent v-else label="No events found" icon="sym_r_event_busy" />
+        <q-card class="q-mb-lg">
+          <q-card-section class="q-pa-none">
+            <UnifiedCalendarComponent
+              :mode="calendarMode"
+              height="500px"
+              :show-controls="true"
+              :group-slug="groupSlug"
+              :initial-date="urlDate"
+              :initial-view="urlView"
+              :scroll-to-hour="urlHour"
+              legend-type="group"
+              @event-click="onEventClick"
+              @date-click="onDateClick"
+              @dates-set="onDatesSet"
+            />
+          </q-card-section>
+        </q-card>
       </div>
 
       <div v-else>
@@ -64,14 +59,11 @@ import { useGroupStore } from '../../stores/group-store'
 import { GroupPermission } from '../../types'
 import { useAuthStore } from '../../stores/auth-store'
 import EventsItemComponent from '../../components/event/EventsItemComponent.vue'
-import { getExternalEvents, type ExternalEvent, type GetExternalEventsRequest } from '../../api/calendar'
-
 const route = useRoute()
 const router = useRouter()
 const isLoading = ref<boolean>(false)
-const isLoadingExternalEvents = ref<boolean>(false)
 const events = computed(() => useGroupStore().group?.events)
-const externalEvents = ref<ExternalEvent[]>([])
+const groupSlug = computed(() => route.params.slug as string)
 
 const validViews = ['month', 'week', 'day'] as const
 type CalendarViewMode = typeof validViews[number]
@@ -111,45 +103,11 @@ const hasPermission = computed(() => {
     useGroupStore().getterUserHasPermission(GroupPermission.SeeEvents))
 })
 
-const loadExternalEvents = async (startStr?: string, endStr?: string) => {
-  if (!useAuthStore().isAuthenticated) return
-
-  try {
-    isLoadingExternalEvents.value = true
-
-    let startTime: string
-    let endTime: string
-
-    if (startStr && endStr) {
-      startTime = startStr.includes('T') ? startStr : `${startStr}T00:00:00Z`
-      endTime = endStr.includes('T') ? endStr : `${endStr}T23:59:59Z`
-    } else {
-      const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      startTime = startOfMonth.toISOString()
-      endTime = endOfMonth.toISOString()
-    }
-
-    const request: GetExternalEventsRequest = { startTime, endTime }
-    const response = await getExternalEvents(request)
-    externalEvents.value = response.data.events
-  } catch (error) {
-    console.error('Failed to load external events:', error)
-  } finally {
-    isLoadingExternalEvents.value = false
-  }
-}
-
-const loadGroupEvents = async (groupSlug: string) => {
+const loadGroupEvents = async (slug: string) => {
   if (hasPermission.value) {
     isLoading.value = true
     try {
-      await useGroupStore().actionGetGroupEvents(groupSlug)
-      // Load external events in parallel if user is authenticated
-      if (useAuthStore().isAuthenticated) {
-        loadExternalEvents()
-      }
+      await useGroupStore().actionGetGroupEvents(slug)
     } finally {
       isLoading.value = false
     }
@@ -223,9 +181,6 @@ function onDatesSet (info: { startStr: string; endStr: string; view: { type: str
   }
 
   router.replace({ query })
-
-  // Reload external events for the new visible range
-  loadExternalEvents(info.startStr, info.endStr)
 }
 </script>
 

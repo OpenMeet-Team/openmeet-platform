@@ -91,6 +91,15 @@ vi.mock('../../../../../src/stores/auth-store', () => ({
   useAuthStore: () => mockAuthStore
 }))
 
+// Mock the calendar event sources composable (used inside UnifiedCalendarComponent)
+vi.mock('../../../../../src/composables/useCalendarEventSources', () => ({
+  useCalendarEventSources: vi.fn(() => ({
+    personalEventsSource: { id: 'personal', events: vi.fn() },
+    externalEventsSource: { id: 'external', events: vi.fn() },
+    groupEventsSource: { value: null }
+  }))
+}))
+
 vi.mock('../../../../../src/stores/home-store', () => ({
   useHomeStore: () => ({
     userUpcomingEvents: [],
@@ -376,10 +385,7 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     expect(calendar.props('mode')).toBe('day')
   })
 
-  it('reloads external events when datesSet fires with new date range', async () => {
-    const { getExternalEvents } = await import('../../../../../src/api/calendar')
-    const mockGetExternalEvents = vi.mocked(getExternalEvents)
-
+  it('updates URL query when datesSet fires with new date range', async () => {
     const wrapper = mount(GroupEventsPage, {
       global: { plugins: [pinia] }
     })
@@ -387,9 +393,6 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     await wrapper.vm.$nextTick()
     await vi.runAllTimersAsync()
     await wrapper.vm.$nextTick()
-
-    // Clear any mount-time calls
-    mockGetExternalEvents.mockClear()
 
     const calendar = wrapper.findComponent({ name: 'UnifiedCalendarComponent' })
     calendar.vm.$emit('datesSet', {
@@ -399,10 +402,8 @@ describe('GroupEventsPage - URL Deep Linking', () => {
     })
 
     await wrapper.vm.$nextTick()
-    await vi.runAllTimersAsync()
 
-    expect(mockGetExternalEvents).toHaveBeenCalled()
-    const callArgs = mockGetExternalEvents.mock.calls[0][0]
-    expect(callArgs.startTime).toContain('2025-08')
+    // The onDatesSet handler should update the router query
+    expect(mockReplace).toHaveBeenCalled()
   })
 })
