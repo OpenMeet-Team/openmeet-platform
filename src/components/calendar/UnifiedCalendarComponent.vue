@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, toRef, onMounted, onUnmounted } from 'vue'
+import { ref, computed, toRef, watch, onMounted, onUnmounted } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -194,14 +194,17 @@ const calendarOptions = computed<CalendarOptions>(() => {
     },
     // Show events as colored bars (not dots) in month view
     eventDisplay: 'block',
-    eventSources: eventSources.value,
+    // eventSources managed imperatively via calendar API (see onMounted/watch below)
+    // to preserve FullCalendar's lazyFetching cache across option recomputations
     eventClick: handleEventClick,
     dateClick: handleDateClick,
     datesSet: handleDatesSet,
     editable: false,
     selectable: false,
     dayMaxEvents: 4,
-    nowIndicator: true
+    nowIndicator: true,
+    // Render cached events immediately instead of waiting for all sources to resolve
+    progressiveEventRendering: true
   }
 
   // Scroll to specific hour after FullCalendar's view DOM is fully rendered
@@ -223,11 +226,29 @@ const calendarOptions = computed<CalendarOptions>(() => {
   return opts
 })
 
+// Sync event sources imperatively so FullCalendar's lazyFetching cache
+// survives calendarOptions recomputations (view changes, resize, etc.)
+function syncEventSources () {
+  const api = calendarRef.value?.getApi()
+  if (!api) return
+  for (const source of api.getEventSources()) {
+    source.remove()
+  }
+  for (const source of eventSources.value) {
+    api.addEventSource(source)
+  }
+}
+
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', handleResize)
   }
+  // Add event sources after FullCalendar has initialized
+  syncEventSources()
 })
+
+// Re-sync when sources change (auth state change, groupSlug change)
+watch(eventSources, () => syncEventSources())
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {

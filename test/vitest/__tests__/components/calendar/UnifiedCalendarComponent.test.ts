@@ -9,6 +9,11 @@ import UnifiedCalendarComponent from '../../../../../src/components/calendar/Uni
 // Install Quasar for testing
 installQuasarPlugin({ plugins: { Notify } })
 
+// Track event sources added via the imperative API
+const addedEventSources: unknown[] = []
+const mockAddEventSource = vi.fn((source: unknown) => { addedEventSources.push(source) })
+const mockGetEventSources = vi.fn(() => addedEventSources.map(() => ({ remove: vi.fn() })))
+
 // Mock FullCalendar Vue3 component
 vi.mock('@fullcalendar/vue3', () => ({
   default: {
@@ -22,7 +27,9 @@ vi.mock('@fullcalendar/vue3', () => ({
           gotoDate: vi.fn(),
           today: vi.fn(),
           prev: vi.fn(),
-          next: vi.fn()
+          next: vi.fn(),
+          addEventSource: mockAddEventSource,
+          getEventSources: mockGetEventSources
         }
       }
     }
@@ -72,11 +79,15 @@ describe('UnifiedCalendarComponent', () => {
     // Reset mocks
     mockAuthStore.user = { id: 'test-user', email: 'test@example.com' }
     mockGroupEventsSourceValue.value = null
+    addedEventSources.length = 0
+    mockAddEventSource.mockClear()
+    mockGetEventSources.mockClear()
   })
 
   afterEach(() => {
     vi.useRealTimers()
     vi.clearAllMocks()
+    addedEventSources.length = 0
   })
 
   describe('Component Mounting', () => {
@@ -133,72 +144,63 @@ describe('UnifiedCalendarComponent', () => {
   })
 
   describe('Event Sources Wiring', () => {
-    it('passes eventSources (not events) to FullCalendar options', () => {
-      const wrapper = mount(UnifiedCalendarComponent, {
+    it('does not include eventSources in options (managed imperatively)', () => {
+      mount(UnifiedCalendarComponent, {
         global: { plugins: [pinia] }
       })
 
-      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
-      const options = fcMock.props('options')
-
-      expect(options.eventSources).toBeDefined()
-      expect(options.events).toBeUndefined()
+      // Sources are added via addEventSource, not through options
+      expect(mockAddEventSource).toHaveBeenCalled()
     })
 
-    it('includes personal and external sources when user is authenticated', () => {
-      const wrapper = mount(UnifiedCalendarComponent, {
+    it('adds personal and external sources when user is authenticated', () => {
+      mount(UnifiedCalendarComponent, {
         global: { plugins: [pinia] }
       })
 
-      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
-      const options = fcMock.props('options')
-
-      expect(options.eventSources).toContain(mockPersonalEventsSource)
-      expect(options.eventSources).toContain(mockExternalEventsSource)
+      expect(mockAddEventSource).toHaveBeenCalledWith(mockPersonalEventsSource)
+      expect(mockAddEventSource).toHaveBeenCalledWith(mockExternalEventsSource)
     })
 
-    it('excludes personal and external sources when user is not authenticated', () => {
+    it('does not add sources when user is not authenticated', () => {
       mockAuthStore.user = null
 
-      const wrapper = mount(UnifiedCalendarComponent, {
+      mount(UnifiedCalendarComponent, {
         global: { plugins: [pinia] }
       })
 
-      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
-      const options = fcMock.props('options')
-
-      expect(options.eventSources).not.toContain(mockPersonalEventsSource)
-      expect(options.eventSources).not.toContain(mockExternalEventsSource)
+      expect(mockAddEventSource).not.toHaveBeenCalledWith(mockPersonalEventsSource)
+      expect(mockAddEventSource).not.toHaveBeenCalledWith(mockExternalEventsSource)
     })
 
-    it('includes group source when groupSlug is provided', () => {
+    it('adds group source when groupSlug is provided', () => {
       const mockGroupSource = { id: 'group', events: vi.fn() }
       mockGroupEventsSourceValue.value = mockGroupSource
 
-      const wrapper = mount(UnifiedCalendarComponent, {
+      mount(UnifiedCalendarComponent, {
         props: { groupSlug: 'my-group' },
         global: { plugins: [pinia] }
       })
 
-      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
-      const options = fcMock.props('options')
-
-      // 3 sources: personal + external + group
-      expect(options.eventSources).toHaveLength(3)
-      const groupSource = options.eventSources.find((s: { id: string }) => s.id === 'group')
-      expect(groupSource).toBeDefined()
+      // Should have added group source in addition to personal + external
+      const addedIds = mockAddEventSource.mock.calls.map(
+        (call: unknown[]) => (call[0] as { id?: string }).id
+      )
+      expect(addedIds).toContain('group')
     })
 
-    it('does not include group source when groupSlug is not provided', () => {
-      const wrapper = mount(UnifiedCalendarComponent, {
+    it('does not add group source when groupSlug is not provided', () => {
+      mount(UnifiedCalendarComponent, {
         global: { plugins: [pinia] }
       })
 
-      const fcMock = wrapper.findComponent({ name: 'FullCalendar' })
-      const options = fcMock.props('options')
-
-      // Only personal + external
-      expect(options.eventSources).toHaveLength(2)
+      // Should have personal + external but NOT group
+      const addedIds = mockAddEventSource.mock.calls.map(
+        (call: unknown[]) => (call[0] as { id?: string }).id
+      )
+      expect(addedIds).toContain('personal')
+      expect(addedIds).toContain('external')
+      expect(addedIds).not.toContain('group')
     })
   })
 

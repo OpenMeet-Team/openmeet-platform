@@ -22,6 +22,8 @@ vi.mock('@fullcalendar/vue3', () => ({
           prev: vi.fn(),
           next: vi.fn(),
           scrollToTime: vi.fn(),
+          addEventSource: vi.fn(),
+          getEventSources: vi.fn(() => []),
           view: { type: 'timeGridDay' }
         }
       }
