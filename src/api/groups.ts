@@ -18,7 +18,7 @@ export const groupsApi = {
     events: EventEntity[],
     groupMembers: GroupMemberEntity[]
   }>(`/api/groups/${slug}/about`, createGroupApiHeaders(slug)),
-  getEvents: (slug: string) => api.get<EventEntity[]>(`/api/groups/${slug}/events`, createGroupApiHeaders(slug)),
+  getEvents: (slug: string, params?: { startDate?: string; endDate?: string }) => api.get<EventEntity[]>(`/api/groups/${slug}/events`, { ...createGroupApiHeaders(slug), params }),
   create: (groupData: Partial<GroupEntity>) => api.post<GroupEntity>('/api/groups', groupData),
   update: (slug: string, groupData: Partial<GroupEntity>) => api.patch<GroupEntity>(`/api/groups/${slug}`, groupData, createGroupApiHeaders(slug)),
   delete: (slug: string) => api.delete(`/api/groups/${slug}`, createGroupApiHeaders(slug)),

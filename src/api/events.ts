@@ -2,6 +2,19 @@ import { AxiosResponse } from 'axios'
 import { api } from '../boot/axios'
 import { EventAttendeeEntity, EventAttendeePaginationEntity, EventEntity, EventPaginationEntity, ActivityFeedEntity, DashboardSummaryEntity } from '../types'
 import { RouteQueryAndHash } from 'vue-router'
+import type { EventAttendeeStatus, EventAttendeeRoleEntity } from '../types/event'
+
+export interface MyEventResponse extends EventEntity {
+  isOrganizer: boolean
+  attendeeStatus: EventAttendeeStatus | null
+  attendeeRole: EventAttendeeRoleEntity | null
+}
+
+export function getMyEvents (startDate: string, endDate: string): Promise<AxiosResponse<MyEventResponse[]>> {
+  return api.get<MyEventResponse[]>('/api/me/events', {
+    params: { startDate, endDate }
+  })
+}
 
 const createEventApiHeaders = (eventSlug: string) => ({
   headers: { 'x-event-slug': eventSlug }
