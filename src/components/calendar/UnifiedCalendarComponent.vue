@@ -228,14 +228,26 @@ const calendarOptions = computed<CalendarOptions>(() => {
 
 // Sync event sources imperatively so FullCalendar's lazyFetching cache
 // survives calendarOptions recomputations (view changes, resize, etc.)
+// Uses ID-based diffing to only add/remove changed sources, preserving cache.
 function syncEventSources () {
   const api = calendarRef.value?.getApi()
   if (!api) return
+
+  const newIds = new Set(eventSources.value.map(s => (s as { id?: string }).id))
+
+  // Remove sources no longer present
   for (const source of api.getEventSources()) {
-    source.remove()
+    if (!newIds.has(source.id)) {
+      source.remove()
+    }
   }
+
+  // Add sources that aren't already registered
+  const existingIds = new Set(api.getEventSources().map(s => s.id))
   for (const source of eventSources.value) {
-    api.addEventSource(source)
+    if (!existingIds.has((source as { id?: string }).id)) {
+      api.addEventSource(source)
+    }
   }
 }
 
