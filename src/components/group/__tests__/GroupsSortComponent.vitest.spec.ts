@@ -62,7 +62,7 @@ describe('GroupsSortComponent', () => {
     expect(sorts).toEqual([
       { label: 'Most Members', value: 'members' },
       { label: 'Newest', value: 'newest' },
-      { label: 'Name (A-Z)', value: 'name' },
+      { label: 'Name (A-Z)', value: 'name' }
     ])
   })
 

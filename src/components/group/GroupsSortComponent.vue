@@ -8,7 +8,7 @@ const router = useRouter()
 const sorts = ref([
   { label: 'Most Members', value: 'members' },
   { label: 'Newest', value: 'newest' },
-  { label: 'Name (A-Z)', value: 'name' },
+  { label: 'Name (A-Z)', value: 'name' }
 ])
 
 const selectedSort = ref<string>(route.query.sort as string || 'members')
@@ -24,8 +24,8 @@ const onSortChange = (sort: string) => {
     query: {
       ...route.query,
       sort: sort === 'members' ? undefined : sort,
-      page: 1,
-    },
+      page: 1
+    }
   })
 }
 </script>
