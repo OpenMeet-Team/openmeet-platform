@@ -1,27 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, toRef, watch, onMounted, onUnmounted } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
 import luxon3Plugin from '@fullcalendar/luxon3'
-import type { EventInput, EventClickArg, CalendarOptions } from '@fullcalendar/core'
+import type { EventClickArg, CalendarOptions } from '@fullcalendar/core'
 import type { DateClickArg } from '@fullcalendar/interaction'
-import { getExternalEvents, type ExternalEvent } from '../../api/calendar'
 import { useAuthStore } from '../../stores/auth-store'
-import { useHomeStore } from '../../stores/home-store'
-import { useDashboardStore } from '../../stores/dashboard-store'
-import { EventAttendeeStatus } from '../../types/event'
-import {
-  mapGroupEvent,
-  mapExternalEvent,
-  mapPersonalAttendingEvent,
-  mapPersonalHostingEvent,
-  deduplicateEvents,
-  type GroupEvent,
-  type CalendarEvent
-} from '../../composables/useCalendarEventMapping'
+import { useCalendarEventSources } from '../../composables/useCalendarEventSources'
+import { type CalendarEvent } from '../../composables/useCalendarEventMapping'
 
 interface Props {
   mode?: 'month' | 'week' | 'day'
@@ -30,8 +19,7 @@ interface Props {
   compact?: boolean
   startDate?: string
   endDate?: string
-  groupEvents?: GroupEvent[]
-  externalEvents?: ExternalEvent[]
+  groupSlug?: string
   legendType?: 'personal' | 'group'
   initialDate?: string
   initialView?: 'month' | 'week' | 'day'
@@ -43,8 +31,6 @@ const props = withDefaults(defineProps<Props>(), {
   height: '400px',
   showControls: true,
   compact: false,
-  groupEvents: () => [] as GroupEvent[],
-  externalEvents: () => [],
   legendType: 'personal'
 })
 
@@ -58,14 +44,27 @@ const emit = defineEmits<{
   eventClick: [event: CalendarEvent]
   dateClick: [date: string]
   dateSelect: [date: string]
-  externalEventsLoaded: [events: ExternalEvent[]]
   datesSet: [info: DatesSetInfo]
   viewChange: [viewType: string]
 }>()
 
 const authStore = useAuthStore()
-const homeStore = useHomeStore()
-const dashboardStore = useDashboardStore()
+
+// eventSources: FullCalendar calls these callbacks on every date navigation
+const { personalEventsSource, externalEventsSource, groupEventsSource } =
+  useCalendarEventSources(toRef(props, 'groupSlug'))
+
+const eventSources = computed(() => {
+  const sources = []
+  if (authStore.user) {
+    sources.push(personalEventsSource)
+    sources.push(externalEventsSource)
+  }
+  if (groupEventsSource.value) {
+    sources.push(groupEventsSource.value)
+  }
+  return sources
+})
 
 const calendarRef = ref<InstanceType<typeof FullCalendar>>()
 
@@ -83,36 +82,6 @@ const reverseViewMap: Record<string, string> = {
   timeGridDay: 'day',
   listWeek: 'week'
 }
-
-// Personal events split: core (attending/hosting) loaded once, external reloaded on navigation
-const personalCoreEvents = ref<EventInput[]>([])
-const personalExternalEvents = ref<EventInput[]>([])
-
-// Track visible date range for external event refetching
-const visibleRange = ref<{ start: string; end: string } | null>(null)
-
-// Map group events from props
-const groupCalendarEvents = computed<EventInput[]>(() => {
-  if (!props.groupEvents?.length) return []
-  return props.groupEvents.map(mapGroupEvent)
-})
-
-// Map external events from props
-const externalCalendarEvents = computed<EventInput[]>(() => {
-  if (!props.externalEvents?.length) return []
-  return props.externalEvents.map(mapExternalEvent)
-})
-
-// All events combined and deduplicated
-const allEvents = computed<EventInput[]>(() => {
-  const combined = [
-    ...groupCalendarEvents.value,
-    ...personalCoreEvents.value,
-    ...personalExternalEvents.value,
-    ...externalCalendarEvents.value
-  ]
-  return deduplicateEvents(combined)
-})
 
 // Responsive view switching
 function getResponsiveView (): string {
@@ -179,9 +148,6 @@ let lastEmittedViewType = ''
 function handleDatesSet (info: DatesSetInfo) {
   emit('datesSet', info)
 
-  // Track visible range — triggers external events reload via watcher
-  visibleRange.value = { start: info.startStr, end: info.endStr }
-
   // Emit viewChange only when the view type actually changes
   const friendlyView = reverseViewMap[info.view.type] || info.view.type
   if (friendlyView !== lastEmittedViewType) {
@@ -228,14 +194,17 @@ const calendarOptions = computed<CalendarOptions>(() => {
     },
     // Show events as colored bars (not dots) in month view
     eventDisplay: 'block',
-    events: allEvents.value,
+    // eventSources managed imperatively via calendar API (see onMounted/watch below)
+    // to preserve FullCalendar's lazyFetching cache across option recomputations
     eventClick: handleEventClick,
     dateClick: handleDateClick,
     datesSet: handleDatesSet,
     editable: false,
     selectable: false,
     dayMaxEvents: 4,
-    nowIndicator: true
+    nowIndicator: true,
+    // Render cached events immediately instead of waiting for all sources to resolve
+    progressiveEventRendering: true
   }
 
   // Scroll to specific hour after FullCalendar's view DOM is fully rendered
@@ -257,94 +226,41 @@ const calendarOptions = computed<CalendarOptions>(() => {
   return opts
 })
 
-// Load core personal events (attending + hosting) — called once at mount
-async function loadPersonalCoreEvents () {
-  if (props.groupEvents?.length) return
-  if (!authStore.user) return
+// Sync event sources imperatively so FullCalendar's lazyFetching cache
+// survives calendarOptions recomputations (view changes, resize, etc.)
+// Uses ID-based diffing to only add/remove changed sources, preserving cache.
+function syncEventSources () {
+  const api = calendarRef.value?.getApi()
+  if (!api) return
 
-  const events: EventInput[] = []
+  const newIds = new Set(eventSources.value.map(s => (s as { id?: string }).id))
 
-  try {
-    // Load attending events from home store
-    if (!homeStore.userUpcomingEvents?.length) {
-      await homeStore.actionGetUserHomeState()
+  // Remove sources no longer present
+  for (const source of api.getEventSources()) {
+    if (!newIds.has(source.id)) {
+      source.remove()
     }
-    const upcomingEvents = homeStore.userUpcomingEvents || []
-
-    // Filter out cancelled RSVPs
-    const filteredAttending = upcomingEvents.filter((event: { attendee?: { status: string } }) => {
-      return !event.attendee || event.attendee.status !== EventAttendeeStatus.Cancelled
-    })
-
-    for (const event of filteredAttending) {
-      events.push(mapPersonalAttendingEvent(event))
-    }
-
-    // Load hosting events from dashboard store
-    if (!dashboardStore.events) {
-      await dashboardStore.actionGetDashboardEvents()
-    }
-    const hostedEvents = dashboardStore.events || []
-
-    for (const event of hostedEvents) {
-      events.push(mapPersonalHostingEvent(event))
-    }
-  } catch {
-    console.warn('Failed to load personal calendar events')
   }
 
-  personalCoreEvents.value = events
-}
-
-// Load external events for a date range — called on navigation
-async function loadExternalEventsForRange (startStr: string, endStr: string) {
-  if (props.groupEvents?.length) return
-  if (!authStore.user) return
-
-  try {
-    const externalResponse = await getExternalEvents({
-      startTime: startStr.includes('T') ? startStr : `${startStr}T00:00:00Z`,
-      endTime: endStr.includes('T') ? endStr : `${endStr}T23:59:59Z`
-    })
-
-    const externalEventsData = externalResponse.data.events || []
-    const mapped: EventInput[] = []
-    for (const ext of externalEventsData) {
-      mapped.push(mapExternalEvent(ext))
+  // Add sources that aren't already registered
+  const existingIds = new Set(api.getEventSources().map(s => s.id))
+  for (const source of eventSources.value) {
+    if (!existingIds.has((source as { id?: string }).id)) {
+      api.addEventSource(source)
     }
-    personalExternalEvents.value = mapped
-
-    if (externalEventsData.length > 0) {
-      emit('externalEventsLoaded', externalEventsData)
-    }
-  } catch {
-    console.warn('Failed to load external calendar events')
   }
 }
-
-// Reload external events when visible date range changes
-watch(visibleRange, (range) => {
-  if (range) {
-    loadExternalEventsForRange(range.start, range.end)
-  }
-})
-
-// Watch for group events changes
-watch(
-  () => props.groupEvents,
-  () => {
-    if (!props.groupEvents?.length) {
-      loadPersonalCoreEvents()
-    }
-  }
-)
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', handleResize)
   }
-  loadPersonalCoreEvents()
+  // Add event sources after FullCalendar has initialized
+  syncEventSources()
 })
+
+// Re-sync when sources change (auth state change, groupSlug change)
+watch(eventSources, () => syncEventSources())
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
