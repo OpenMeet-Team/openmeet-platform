@@ -58,10 +58,15 @@ export interface AnalyticsPreferences {
   optOut?: boolean
 }
 
+export interface NotificationPreferences {
+  email?: boolean
+}
+
 export interface UserPreferences {
   bluesky?: BlueskyPreferences
   matrix?: MatrixPreferences
   analytics?: AnalyticsPreferences
+  notifications?: NotificationPreferences
 }
 
 export interface Profile {

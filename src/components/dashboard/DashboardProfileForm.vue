@@ -278,6 +278,28 @@
       </q-card-section>
     </q-card>
 
+    <!-- Notifications -->
+    <q-card flat bordered class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6">Notifications</div>
+        <div class="text-caption text-grey-7">
+          Control which emails you receive
+        </div>
+      </q-card-section>
+      <q-separator />
+      <q-card-section>
+        <q-toggle
+          v-model="emailNotifications"
+          label="Receive email notifications"
+          data-cy="email-notifications-toggle"
+          @update:model-value="onEmailNotificationsChange"
+        />
+        <div class="text-caption text-grey-7 q-ml-xl">
+          When disabled, you'll only receive essential emails like password resets and login codes.
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Account deletion section -->
     <q-card class="q-mb-md">
       <q-card-section>
@@ -420,6 +442,11 @@ const linkError = ref('')
 const analyticsOptOut = ref(analyticsService.hasOptedOut())
 
 const authStore = useAuthStore()
+
+// Email notifications state (default to true — only false when explicitly disabled)
+const emailNotifications = ref(
+  authStore.user?.preferences?.notifications?.email !== false
+)
 
 // Main profile form submission - handles basic profile data only (not passwords)
 const onSubmit = async () => {
@@ -757,6 +784,18 @@ const onAnalyticsOptOutChange = async (value: boolean) => {
       analyticsService.optOut()
     }
     error('Failed to update analytics preference')
+  }
+}
+
+// Handle email notifications toggle change
+const onEmailNotificationsChange = async (value: boolean) => {
+  try {
+    await authApi.updateMe({
+      preferences: { notifications: { email: value } }
+    })
+  } catch (err) {
+    emailNotifications.value = !value
+    error('Failed to update notification settings')
   }
 }
 

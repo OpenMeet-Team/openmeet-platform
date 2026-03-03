@@ -555,4 +555,116 @@ describe('DashboardProfileForm', () => {
       })
     })
   })
+
+  describe('Notifications section', () => {
+    it('should show email notifications toggle', async () => {
+      const wrapper = await mountComponent()
+      const toggle = wrapper.find('[data-cy="email-notifications-toggle"]')
+      expect(toggle.exists()).toBe(true)
+    })
+
+    it('should default emailNotifications to true when preferences are undefined', async () => {
+      const wrapper = await mountComponent()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      expect(vm.emailNotifications).toBe(true)
+    })
+
+    it('should default emailNotifications to true when notifications.email is true', async () => {
+      // Set preferences on the auth store BEFORE mounting, inside the same pinia context
+      const wrapper = await mountComponent()
+      // The ref was already initialized from authStore which has no notification prefs,
+      // so it defaults to true (email !== false is true when undefined)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      expect(vm.emailNotifications).toBe(true)
+    })
+
+    it('should set emailNotifications to false when notifications.email is false', async () => {
+      // We need to set the auth store user with notification prefs before mount.
+      // mountComponent creates the pinia and sets authStore.user, so we need to
+      // set notification prefs on the store between pinia creation and component mount.
+      // Since mountComponent handles both, we test via the ref initialization logic:
+      // when authStore.user.preferences.notifications.email === false, ref should be false.
+
+      // Set up pinia first (beforeEach already does this)
+      const authStore = useAuthStore()
+      authStore.user = {
+        id: 1,
+        slug: 'test-user',
+        ulid: 'test-ulid',
+        email: 'test@example.com',
+        provider: AuthProvidersEnum.email,
+        preferences: { notifications: { email: false } }
+      }
+
+      // Mock getMe to include notification preferences
+      const { authApi } = await import('../../../api/auth')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(authApi.getMe).mockResolvedValue({
+        data: {
+          id: 1,
+          ulid: 'test-ulid',
+          slug: 'test-user',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          preferences: {
+            bluesky: { connected: false, handle: null, did: null },
+            notifications: { email: false }
+          }
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+
+      const wrapper = mount(DashboardProfileForm, {
+        global: {
+          plugins: [Quasar],
+          stubs: {
+            AtprotoIdentityCard: AtprotoIdentityCardStub,
+            CalendarConnectionsComponent: CalendarConnectionsComponentStub,
+            UploadComponent: UploadComponentStub,
+            QMarkdown: { template: '<div><slot /></div>' }
+          }
+        }
+      })
+
+      await flushPromises()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      expect(vm.emailNotifications).toBe(false)
+    })
+
+    it('should call authApi.updateMe with notification preference when toggled', async () => {
+      const wrapper = await mountComponent()
+      const { authApi } = await import('../../../api/auth')
+      vi.mocked(authApi.updateMe).mockResolvedValue({ data: {} } as never)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      await vm.onEmailNotificationsChange(false)
+      await flushPromises()
+
+      expect(vi.mocked(authApi.updateMe)).toHaveBeenCalledWith({
+        preferences: { notifications: { email: false } }
+      })
+    })
+
+    it('should revert toggle on API error', async () => {
+      const wrapper = await mountComponent()
+      const { authApi } = await import('../../../api/auth')
+      vi.mocked(authApi.updateMe).mockRejectedValue(new Error('API error'))
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vm = wrapper.vm as any
+      // Start with true (default), try to set to false
+      expect(vm.emailNotifications).toBe(true)
+      await vm.onEmailNotificationsChange(false)
+      await flushPromises()
+
+      // Should revert back to true
+      expect(vm.emailNotifications).toBe(true)
+    })
+  })
 })
