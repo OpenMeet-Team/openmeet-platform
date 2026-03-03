@@ -55,6 +55,10 @@
       </div>
     </q-expansion-item>
 
+    <div class="row justify-end q-mb-sm">
+      <GroupsSortComponent />
+    </div>
+
     <GroupsListComponent
       :groups="groups?.data"
       :loading="useGroupsStore().isLoading"
@@ -79,6 +83,7 @@ import CategoriesFilterComponent from '../components/common/CategoriesFilterComp
 import RadiusFilterComponent from '../components/common/RadiusFilterComponent.vue'
 import { useGroupsStore } from '../stores/groups-store'
 import GroupsListComponent from '../components/group/GroupsListComponent.vue'
+import GroupsSortComponent from '../components/group/GroupsSortComponent.vue'
 import { useAuthSession } from '../boot/auth-session'
 
 const router = useRouter()
