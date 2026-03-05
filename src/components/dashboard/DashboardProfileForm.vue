@@ -257,6 +257,27 @@
       </q-card-section>
     </q-card>
 
+    <!-- Email Notifications -->
+    <q-card class="q-mb-md" data-cy="profile-notifications">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">
+          <q-icon name="sym_r_mail" class="q-mr-sm" />
+          Email Notifications
+        </div>
+
+        <q-toggle
+          v-model="emailNotifications"
+          label="Email notifications"
+          data-cy="email-notifications-toggle"
+          @update:model-value="onEmailNotificationsChange"
+        />
+
+        <div class="text-caption text-grey-7 q-mt-sm">
+          Receive emails about event announcements, group activity, and messages. Essential emails like password resets and login codes are always sent.
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Privacy & Analytics section -->
     <q-card class="q-mb-md" data-cy="profile-privacy-analytics">
       <q-card-section>
@@ -273,29 +294,7 @@
         />
 
         <div class="text-caption text-grey-7 q-mt-sm">
-          When enabled, we will not collect analytics data about your usage. This helps us improve OpenMeet, but you can opt out at any time.
-        </div>
-      </q-card-section>
-    </q-card>
-
-    <!-- Notifications -->
-    <q-card flat bordered class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Notifications</div>
-        <div class="text-caption text-grey-7">
-          Control which emails you receive
-        </div>
-      </q-card-section>
-      <q-separator />
-      <q-card-section>
-        <q-toggle
-          v-model="emailNotifications"
-          label="Receive email notifications"
-          data-cy="email-notifications-toggle"
-          @update:model-value="onEmailNotificationsChange"
-        />
-        <div class="text-caption text-grey-7 q-ml-xl">
-          When disabled, you'll only receive essential emails like password resets and login codes.
+          We collect anonymous usage data to improve OpenMeet. Toggle this on to stop analytics collection.
         </div>
       </q-card-section>
     </q-card>
