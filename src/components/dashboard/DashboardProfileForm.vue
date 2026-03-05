@@ -287,14 +287,14 @@
         </div>
 
         <q-toggle
-          v-model="analyticsOptOut"
-          label="Opt out of analytics"
+          v-model="analyticsEnabled"
+          label="Analytics"
           data-cy="analytics-optout-toggle"
-          @update:model-value="onAnalyticsOptOutChange"
+          @update:model-value="onAnalyticsToggleChange"
         />
 
         <div class="text-caption text-grey-7 q-mt-sm">
-          We collect anonymous usage data to improve OpenMeet. Toggle this on to stop analytics collection.
+          Help improve OpenMeet by sharing usage data. We may use this to diagnose problems with your account.
         </div>
       </q-card-section>
     </q-card>
@@ -437,8 +437,8 @@ const showLinkDialog = ref(false)
 const linkHandle = ref('')
 const linkError = ref('')
 
-// Analytics opt-out state
-const analyticsOptOut = ref(analyticsService.hasOptedOut())
+// Analytics enabled state (inverted from optOut — ON = analytics enabled)
+const analyticsEnabled = ref(!analyticsService.hasOptedOut())
 
 const authStore = useAuthStore()
 
@@ -761,26 +761,25 @@ const cancelLinkDialog = () => {
   linkError.value = ''
 }
 
-// Handle analytics opt-out toggle change
-const onAnalyticsOptOutChange = async (value: boolean) => {
+// Handle analytics toggle change (value=true means enabled, API stores optOut which is inverted)
+const onAnalyticsToggleChange = async (value: boolean) => {
   try {
     if (value) {
-      analyticsService.optOut()
-    } else {
       analyticsService.optIn()
+    } else {
+      analyticsService.optOut()
     }
 
     await authApi.updateMe({
-      preferences: { analytics: { optOut: value } }
+      preferences: { analytics: { optOut: !value } }
     })
   } catch (err) {
     console.error('Failed to update analytics preference:', err)
-    // Revert toggle on error
-    analyticsOptOut.value = !value
+    analyticsEnabled.value = !value
     if (value) {
-      analyticsService.optIn()
-    } else {
       analyticsService.optOut()
+    } else {
+      analyticsService.optIn()
     }
     error('Failed to update analytics preference')
   }
