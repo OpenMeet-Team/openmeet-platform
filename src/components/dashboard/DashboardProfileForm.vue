@@ -791,6 +791,13 @@ const onEmailNotificationsChange = async (value: boolean) => {
     await authApi.updateMe({
       preferences: { notifications: { email: value } }
     })
+    // Update store so re-renders/navigations reflect the new preference
+    if (authStore.user) {
+      authStore.user.preferences = {
+        ...authStore.user.preferences,
+        notifications: { email: value }
+      }
+    }
   } catch (err) {
     emailNotifications.value = !value
     error('Failed to update notification settings')
