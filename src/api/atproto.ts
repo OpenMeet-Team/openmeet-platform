@@ -70,5 +70,8 @@ export const atprotoApi = {
    * @returns OAuth authorization URL
    */
   linkIdentity: (handle: string, platform?: 'android' | 'ios' | 'web'): Promise<AxiosResponse<{ authUrl: string }>> =>
-    api.post('/api/v1/auth/bluesky/link', { handle, platform })
+    api.post('/api/v1/auth/bluesky/link', { handle, platform }),
+
+  disconnectSession: (): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    api.delete(`${BASE_URL}/identity/session`)
 }

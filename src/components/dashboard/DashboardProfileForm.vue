@@ -161,6 +161,7 @@
       @reset-password="onResetPdsPassword"
       @update-handle="onUpdateHandle"
       @link="onLinkIdentity"
+      @disconnect="onDisconnectAtprotoSession"
       data-cy="profile-atproto-identity"
       class="q-mb-md"
     />
@@ -572,6 +573,28 @@ const onCreateAtprotoIdentity = async () => {
   } catch (err) {
     console.error('Failed to create AT Protocol identity:', err)
     error('Failed to create AT Protocol identity')
+  } finally {
+    atprotoLoading.value = false
+  }
+}
+
+// Disconnect AT Protocol session
+const onDisconnectAtprotoSession = async () => {
+  try {
+    atprotoLoading.value = true
+    await atprotoApi.disconnectSession()
+    // Refresh identity to get updated hasActiveSession
+    const response = await atprotoApi.getIdentity()
+    atprotoIdentity.value = response.data
+    // Refresh user so banners react
+    const meResponse = await authApi.getMe()
+    if (meResponse.data) {
+      authStore.actionSetUser(meResponse.data)
+    }
+    success('AT Protocol session disconnected')
+  } catch (err) {
+    console.error('Failed to disconnect AT Protocol session:', err)
+    error('Failed to disconnect AT Protocol session')
   } finally {
     atprotoLoading.value = false
   }

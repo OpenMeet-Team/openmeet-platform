@@ -225,16 +225,28 @@
             <q-separator class="q-my-md" />
             <div class="q-mt-md">
               <div class="text-subtitle2 text-grey-7 q-mb-sm">Options</div>
-              <q-btn
-                data-cy="connect-different-btn"
-                color="secondary"
-                no-caps
-                outline
-                @click="$emit('link')"
-              >
-                <q-icon name="sym_r_swap_horiz" class="q-mr-sm" />
-                Connect Different Account
-              </q-btn>
+              <div class="q-gutter-sm">
+                <q-btn
+                  data-cy="connect-different-btn"
+                  color="secondary"
+                  no-caps
+                  outline
+                  @click="$emit('link')"
+                >
+                  <q-icon name="sym_r_swap_horiz" class="q-mr-sm" />
+                  Connect Different Account
+                </q-btn>
+                <q-btn
+                  data-cy="disconnect-atproto-btn"
+                  color="negative"
+                  no-caps
+                  outline
+                  @click="$emit('disconnect')"
+                >
+                  <q-icon name="sym_r_link_off" class="q-mr-sm" />
+                  Disconnect Account
+                </q-btn>
+              </div>
             </div>
           </template>
 
@@ -256,6 +268,17 @@
                 >
                   <q-icon name="sym_r_key" class="q-mr-sm" />
                   Take Ownership
+                </q-btn>
+
+                <q-btn
+                  data-cy="disconnect-atproto-btn"
+                  color="negative"
+                  no-caps
+                  outline
+                  @click="$emit('disconnect')"
+                >
+                  <q-icon name="sym_r_link_off" class="q-mr-sm" />
+                  Disconnect Session
                 </q-btn>
 
                 <q-btn
@@ -435,6 +458,7 @@ const emit = defineEmits<{
   (e: 'reset-password', payload: { token: string; password: string }): void
   (e: 'update-handle', handle: string): void
   (e: 'link'): void
+  (e: 'disconnect'): void
 }>()
 
 // Password reset form state

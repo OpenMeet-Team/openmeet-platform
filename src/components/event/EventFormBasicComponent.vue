@@ -397,7 +397,7 @@ import { ensureAbsoluteUrl } from '../../utils/urlUtils'
 import { fromZonedTime, toZonedTime } from 'date-fns-tz' // formatInTimeZone moved to RecurrenceComponent
 import type RecurrenceComponentType from './recurrence-component-shim'
 
-const { success, error, info } = useNotification()
+const { success, error } = useNotification()
 const onEventImageSelect = (file: FileEntity) => {
   eventData.value.image = file
 }
@@ -861,21 +861,6 @@ const onSubmit = async () => {
   }
 }
 
-// Extended response type that may include needsOAuthLink
-interface EventApiResponse extends EventEntity {
-  needsOAuthLink?: boolean
-}
-
-// Helper to check and show OAuth link prompt if needed
-const checkAndShowOAuthLinkPrompt = (response: EventApiResponse) => {
-  if (response.needsOAuthLink === true) {
-    info(
-      'Your event was saved but could not be published to AT Protocol. Link your Bluesky account in Settings to enable publishing.',
-      'AT Protocol Link Required'
-    )
-  }
-}
-
 // Function to handle creating or updating a single event
 const createOrUpdateSingleEvent = async (event: EventEntity) => {
   try {
@@ -900,8 +885,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
       emit('updated', createdEvent)
       success('Event updated successfully')
-      // Check if AT Protocol OAuth link is needed
-      checkAndShowOAuthLinkPrompt(createdEvent as EventApiResponse)
+
       analyticsService.trackEvent('event_updated', {
         event_id: createdEvent.id,
         name: createdEvent.name
@@ -921,8 +905,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
       logger.debug('Created event response:', createdEvent)
       emit('created', createdEvent)
       success('Event created successfully')
-      // Check if AT Protocol OAuth link is needed
-      checkAndShowOAuthLinkPrompt(createdEvent as EventApiResponse)
+
       analyticsService.trackEvent('event_created', {
         event_id: createdEvent.id,
         name: createdEvent.name,
@@ -971,8 +954,7 @@ const createEventSeries = async (event: EventEntity) => {
       const updateResponse = await eventsApi.update(event.slug, updatePayload)
       emit('updated', updateResponse.data)
       success('Event updated successfully')
-      // Check if AT Protocol OAuth link is needed
-      checkAndShowOAuthLinkPrompt(updateResponse.data as EventApiResponse)
+
       return
     }
 
@@ -988,15 +970,13 @@ const createEventSeries = async (event: EventEntity) => {
       }
       const updateResponse = await eventsApi.update(event.slug, updatePayload)
       templateEvent = updateResponse.data
-      // Check if AT Protocol OAuth link is needed for the template event
-      checkAndShowOAuthLinkPrompt(templateEvent as EventApiResponse)
+
       logger.debug('Updated existing event to use as template:', templateEvent)
     } else {
       // Create a new template event
       const eventResponse = await eventsApi.create(event)
       templateEvent = eventResponse.data
-      // Check if AT Protocol OAuth link is needed for the template event
-      checkAndShowOAuthLinkPrompt(templateEvent as EventApiResponse)
+
       logger.debug('Created template event:', templateEvent)
     }
 
