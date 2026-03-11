@@ -29,23 +29,21 @@ describe('AccountAlertsBanner', () => {
     }
   })
 
+  const patchAuth = (overrides: Record<string, unknown>) => {
+    authStore.$patch((state) => {
+      Object.assign(state, overrides)
+    })
+  }
+
   describe('no email alert', () => {
     it('should show banner when user has no email', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: null } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: null } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-email"]').exists()).toBe(true)
     })
 
     it('should not show no-email banner when user has email', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: 'test@example.com' } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: 'test@example.com' } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-email"]').exists()).toBe(false)
     })
@@ -53,21 +51,13 @@ describe('AccountAlertsBanner', () => {
 
   describe('no AT Protocol identity alert', () => {
     it('should show banner when atprotoIdentity is null', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: 'test@example.com', atprotoIdentity: null } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: 'test@example.com', atprotoIdentity: null } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-atproto"]').exists()).toBe(true)
     })
 
     it('should not show banner when atprotoIdentity exists with active session', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: true } } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: true } } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-atproto"]').exists()).toBe(false)
     })
@@ -75,21 +65,13 @@ describe('AccountAlertsBanner', () => {
 
   describe('inactive AT Protocol session alert', () => {
     it('should show banner when hasActiveSession is false', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: false } } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: false } } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-atproto-session"]').exists()).toBe(true)
     })
 
     it('should not show banner when hasActiveSession is true', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: true } } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: 'test@example.com', atprotoIdentity: { hasActiveSession: true } } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-atproto-session"]').exists()).toBe(false)
     })
@@ -97,11 +79,7 @@ describe('AccountAlertsBanner', () => {
 
   describe('not authenticated', () => {
     it('should not show any banners when user is not authenticated', () => {
-      authStore.$patch({
-        token: '',
-        isInitialized: true,
-        user: {} as any
-      })
+      patchAuth({ token: '', isInitialized: true, user: {} })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-email"]').exists()).toBe(false)
       expect(wrapper.find('[data-cy="alert-no-atproto"]').exists()).toBe(false)
@@ -109,11 +87,7 @@ describe('AccountAlertsBanner', () => {
     })
 
     it('should not show any banners while auth is still initializing', () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: false,
-        user: { id: 1, email: null, atprotoIdentity: null } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: false, user: { id: 1, email: null, atprotoIdentity: null } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-email"]').exists()).toBe(false)
       expect(wrapper.find('[data-cy="alert-no-atproto"]').exists()).toBe(false)
@@ -123,11 +97,7 @@ describe('AccountAlertsBanner', () => {
 
   describe('dismissal', () => {
     it('should hide a banner when dismissed', async () => {
-      authStore.$patch({
-        token: 'valid-token',
-        isInitialized: true,
-        user: { id: 1, email: null, atprotoIdentity: null } as any
-      })
+      patchAuth({ token: 'valid-token', isInitialized: true, user: { id: 1, email: null, atprotoIdentity: null } })
       const wrapper = mountBanner()
       expect(wrapper.find('[data-cy="alert-no-email"]').exists()).toBe(true)
 
