@@ -161,7 +161,7 @@
       @reset-password="onResetPdsPassword"
       @update-handle="onUpdateHandle"
       @link="onLinkIdentity"
-      @disconnect="onDisconnectAtprotoIdentity"
+      @disconnect="onDisconnectAtprotoSession"
       data-cy="profile-atproto-identity"
       class="q-mb-md"
     />

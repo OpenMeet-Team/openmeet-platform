@@ -678,7 +678,6 @@ describe('EventFormBasicComponent - End Date Validation Error Display', () => {
   })
 })
 
-
 // Bug fix: Save as Draft button should remain visible after validation failure
 describe('EventFormBasicComponent - Save as Draft Button Bug Fix', () => {
   beforeEach(() => {
