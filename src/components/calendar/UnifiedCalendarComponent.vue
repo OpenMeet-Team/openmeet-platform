@@ -51,11 +51,20 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 
 // eventSources: FullCalendar calls these callbacks on every date navigation
-const { personalEventsSource, externalEventsSource, groupEventsSource } =
+const { personalEventsSource, externalEventsSource, groupEventsSource, mergedGroupSource } =
   useCalendarEventSources(toRef(props, 'groupSlug'))
 
 const eventSources = computed(() => {
   const sources = []
+
+  // When viewing a group calendar, use a single merged source that handles
+  // dedup, RSVP enrichment, and context events in one pass
+  if (mergedGroupSource.value) {
+    sources.push(mergedGroupSource.value)
+    return sources
+  }
+
+  // Personal calendar: separate sources (no dedup needed)
   if (authStore.user) {
     sources.push(personalEventsSource)
     sources.push(externalEventsSource)
@@ -399,6 +408,12 @@ onUnmounted(() => {
   padding: 1px 3px;
   font-size: 0.8rem;
   cursor: pointer;
+}
+
+// Faded context events: personal non-group events shown on group calendar
+// for schedule awareness without competing with group events
+.fc .calendar-event-context {
+  opacity: 0.45;
 }
 
 </style>
