@@ -377,6 +377,7 @@ import { onMounted, ref, watch, nextTick, computed } from 'vue'
 import { CategoryEntity, EventEntity, EventStatus, EventType, EventVisibility, FileEntity, GroupEntity, RecurrenceRule } from '../../types'
 import LocationComponent from '../common/LocationComponent.vue'
 import { useNotification } from '../../composables/useNotification'
+import { useAtprotoPublishWarning } from '../../composables/useAtprotoPublishWarning'
 import UploadComponent from '../common/UploadComponent.vue'
 import { eventsApi } from '../../api/events'
 import DatetimeComponent from '../common/DatetimeComponent.vue'
@@ -604,6 +605,7 @@ const onUpdateLocation = (address: { lat: number, lon: number, location: string 
 }
 
 const authStore = useAuthStore()
+const { warnIfNeeded: warnAtprotoIfNeeded } = useAtprotoPublishWarning()
 
 onMounted(() => {
   const promises = [
@@ -885,6 +887,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
 
       emit('updated', createdEvent)
       success('Event updated successfully')
+      warnAtprotoIfNeeded()
 
       analyticsService.trackEvent('event_updated', {
         event_id: createdEvent.id,
@@ -905,6 +908,7 @@ const createOrUpdateSingleEvent = async (event: EventEntity) => {
       logger.debug('Created event response:', createdEvent)
       emit('created', createdEvent)
       success('Event created successfully')
+      warnAtprotoIfNeeded()
 
       analyticsService.trackEvent('event_created', {
         event_id: createdEvent.id,
@@ -954,6 +958,7 @@ const createEventSeries = async (event: EventEntity) => {
       const updateResponse = await eventsApi.update(event.slug, updatePayload)
       emit('updated', updateResponse.data)
       success('Event updated successfully')
+      warnAtprotoIfNeeded()
 
       return
     }
@@ -1012,6 +1017,7 @@ const createEventSeries = async (event: EventEntity) => {
 
         // Notify user
         success(`Event series "${createdSeries.name}" created successfully`)
+        warnAtprotoIfNeeded()
 
         // Track analytics
         analyticsService.trackEvent('event_series_created', {
@@ -1053,6 +1059,7 @@ const createEventSeries = async (event: EventEntity) => {
 
     // Notify user
     success(`Event series "${createdSeries.name}" created successfully`)
+    warnAtprotoIfNeeded()
 
     // Track analytics
     analyticsService.trackEvent('event_series_created', {
