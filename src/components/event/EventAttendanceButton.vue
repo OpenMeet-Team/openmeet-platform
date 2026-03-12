@@ -326,6 +326,7 @@ import {
 import { GroupPermission } from '../../types/group'
 import { EventAttendeePermission } from '../../types/event'
 import { useAuth } from '../../composables/useAuth'
+import { useAtprotoPublishWarning } from '../../composables/useAtprotoPublishWarning'
 import { useAuthSession } from '../../boot/auth-session'
 import { eventLoadingState } from '../../utils/eventLoadingState'
 import { logger } from '../../utils/logger'
@@ -336,6 +337,7 @@ const router = useRouter()
 const eventStore = useEventStore()
 const authStore = useAuthStore()
 const { goToLogin } = useAuth()
+const { warnIfNeeded: warnAtprotoIfNeeded } = useAtprotoPublishWarning()
 const authSession = useAuthSession()
 
 const props = defineProps<{
@@ -454,6 +456,7 @@ watch(() => authStore.isFullyAuthenticated, async (isAuth) => {
               message: 'RSVP confirmed!',
               position: 'top'
             })
+            warnAtprotoIfNeeded()
           } else {
             logger.debug('🎉 RSVP Intent: Intent expired or for different event, ignoring')
           }
@@ -591,6 +594,7 @@ const handleTemplateAttend = async () => {
         ? 'Event scheduled! Request sent for attendance approval.'
         : 'Event scheduled! You are now attending this event.'
     })
+    warnAtprotoIfNeeded()
 
     // Navigate to the materialized event using Vue Router
     await router.push({ name: 'EventPage', params: { slug: materializedEvent.slug } })
@@ -651,6 +655,7 @@ const handleAttend = async () => {
         ? 'Request sent! Waiting for approval.'
         : 'You are now attending this event!'
     })
+    warnAtprotoIfNeeded()
   } catch (error) {
     console.error('Error attending event:', error)
     $q.notify({
@@ -703,6 +708,7 @@ const handleChangeToGoing = async () => {
         ? 'Request sent! Waiting for approval.'
         : 'You are now attending this event!'
     })
+    warnAtprotoIfNeeded()
   } catch (error) {
     console.error('Error changing to going:', error)
     $q.notify({
