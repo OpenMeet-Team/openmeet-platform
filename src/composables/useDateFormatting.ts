@@ -3,6 +3,103 @@
  * Extracted from RecurrenceService to provide focused date formatting utilities
  */
 import { formatInTimeZone } from 'date-fns-tz'
+import { getTimeZones } from '@vvo/tzdb'
+
+// US state aliases for major timezone zones
+const stateAliases: Record<string, string[]> = {
+  'America/New_York': ['Connecticut', 'Delaware', 'Florida', 'Georgia', 'Maine', 'Maryland', 'Massachusetts', 'New Hampshire', 'New Jersey', 'New York', 'North Carolina', 'Ohio', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'Vermont', 'Virginia', 'West Virginia', 'Washington DC'],
+  'America/Chicago': ['Alabama', 'Arkansas', 'Illinois', 'Iowa', 'Kansas', 'Louisiana', 'Minnesota', 'Mississippi', 'Missouri', 'Nebraska', 'North Dakota', 'Oklahoma', 'South Dakota', 'Tennessee', 'Texas', 'Wisconsin'],
+  'America/Denver': ['Colorado', 'Montana', 'New Mexico', 'Utah', 'Wyoming'],
+  'America/Los_Angeles': ['California', 'Nevada', 'Oregon', 'Washington']
+}
+
+interface TimezoneAlias {
+  iana: string
+  searchableText: string
+}
+
+export interface TimezoneInfo {
+  label: string
+  alternativeName: string
+  mainCities: string[]
+}
+
+// Lazy-initialized alias index and metadata map
+let aliasIndex: TimezoneAlias[] | null = null
+let metaMap: Map<string, TimezoneInfo> | null = null
+
+function computeAbbreviation (iana: string): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: iana,
+      timeZoneName: 'short'
+    })
+    const parts = formatter.formatToParts(new Date())
+    return parts.find(part => part.type === 'timeZoneName')?.value || ''
+  } catch {
+    return ''
+  }
+}
+
+function buildAliasIndex (ianaZones: string[]): TimezoneAlias[] {
+  // Build a map from every IANA name in every @vvo/tzdb group to that group's metadata
+  const tzdbData = getTimeZones()
+  const ianaToMeta = new Map<string, typeof tzdbData[number]>()
+
+  for (const entry of tzdbData) {
+    for (const alias of entry.group) {
+      ianaToMeta.set(alias, entry)
+    }
+  }
+
+  // Build metadata map for display (includes cached label)
+  metaMap = new Map<string, TimezoneInfo>()
+
+  const result = ianaZones.map(iana => {
+    const meta = ianaToMeta.get(iana)
+    const parts: string[] = [iana]
+    const abbr = computeAbbreviation(iana)
+
+    if (meta) {
+      if (meta.abbreviation) parts.push(meta.abbreviation)
+      if (abbr && abbr !== meta.abbreviation) parts.push(abbr)
+      if (meta.alternativeName) parts.push(meta.alternativeName)
+      if (meta.mainCities) parts.push(...meta.mainCities)
+      if (meta.countryName) parts.push(meta.countryName)
+      metaMap!.set(iana, {
+        label: abbr ? `${iana} (${abbr})` : iana,
+        alternativeName: meta.alternativeName || '',
+        mainCities: meta.mainCities || []
+      })
+    } else {
+      metaMap!.set(iana, {
+        label: abbr ? `${iana} (${abbr})` : iana,
+        alternativeName: '',
+        mainCities: []
+      })
+    }
+
+    // Add US state aliases if applicable
+    const states = stateAliases[iana]
+    if (states) {
+      parts.push(...states)
+    }
+
+    return {
+      iana,
+      searchableText: parts.join(' ').toLowerCase()
+    }
+  })
+
+  return result
+}
+
+function getAliasIndex (ianaZones: string[]): TimezoneAlias[] {
+  if (!aliasIndex) {
+    aliasIndex = buildAliasIndex(ianaZones)
+  }
+  return aliasIndex
+}
 
 export function useDateFormatting () {
   /**
@@ -150,14 +247,63 @@ export function useDateFormatting () {
    * @returns Filtered array of timezone identifiers
    */
   const searchTimezones = (search: string): string[] => {
+    const zones = getTimezones()
     if (!search) {
-      return getTimezones()
+      return zones
     }
 
     const searchLower = search.toLowerCase()
-    return getTimezones().filter(
-      tz => tz.toLowerCase().includes(searchLower)
-    )
+    const index = getAliasIndex(zones)
+    return index
+      .filter(entry => entry.searchableText.includes(searchLower))
+      .map(entry => entry.iana)
+  }
+
+  /**
+   * Get a display label for a timezone: "America/Los_Angeles (PDT)"
+   * Uses cached abbreviation computed at index build time.
+   */
+  const getTimezoneLabel = (iana: string): string => {
+    getAliasIndex(getTimezones())
+    return metaMap?.get(iana)?.label || iana
+  }
+
+  /**
+   * Get display metadata for a timezone (alternative name + cities)
+   */
+  const getTimezoneInfo = (iana: string): TimezoneInfo | undefined => {
+    // Ensure the index (and metaMap) is built
+    getAliasIndex(getTimezones())
+    return metaMap?.get(iana)
+  }
+
+  /**
+   * Build a pre-computed option object for a timezone (for use in q-select)
+   */
+  const buildTimezoneOption = (iana: string): { value: string, label: string, caption: string } => {
+    const info = getTimezoneInfo(iana)
+    let caption = ''
+    if (info) {
+      const parts: string[] = []
+      if (info.alternativeName) parts.push(info.alternativeName)
+      if (info.mainCities.length) parts.push(info.mainCities.join(', '))
+      caption = parts.join(' \u00b7 ')
+    }
+    return { value: iana, label: info?.label || iana, caption }
+  }
+
+  /**
+   * Get all timezones as pre-computed option objects
+   */
+  const getTimezoneOptions = () => {
+    return getTimezones().map(buildTimezoneOption)
+  }
+
+  /**
+   * Search timezones and return pre-computed option objects
+   */
+  const searchTimezoneOptions = (search: string) => {
+    return searchTimezones(search).map(buildTimezoneOption)
   }
 
   return {
@@ -165,8 +311,12 @@ export function useDateFormatting () {
     formatWithPattern,
     getUserTimezone,
     getTimezoneDisplay,
+    getTimezoneLabel,
+    getTimezoneInfo,
     getTimezones,
-    searchTimezones
+    getTimezoneOptions,
+    searchTimezones,
+    searchTimezoneOptions
   }
 }
 

@@ -60,55 +60,41 @@
       <template v-if="$slots.hint">
         <slot name="hint"></slot>
       </template>
-      <div v-if="timeZone && showTimeZone" class="q-mt-sm timezone-wrapper">
-        <q-item clickable dense class="timezone-selector rounded-borders q-px-sm" @click="showTimezonePicker = true">
-          <q-item-section avatar>
-            <q-icon name="sym_r_schedule" size="xs" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label class="text-caption text-bold">
-              {{ formatTimeZone }}
-            </q-item-label>
-          </q-item-section>
-          <q-item-section avatar>
-            <q-icon name="sym_r_edit" size="xs" />
-          </q-item-section>
-        </q-item>
-      </div>
-      <!-- Timezone Selector Dialog -->
-      <q-dialog v-model="showTimezonePicker">
-        <q-card style="min-width: 350px">
-          <q-card-section class="q-pb-none">
-            <div class="text-h6">Select Timezone</div>
-          </q-card-section>
-          <q-card-section>
-            <q-select
-              v-model="selectedTimezone"
-              :options="timezoneOptions"
-              filled
-              label="Event timezone"
-              use-input
-              hide-selected
-              fill-input
-              input-debounce="300"
-              @filter="filterTimezones"
-              hint="Choose the timezone where this event takes place"
-            >
-              <template v-slot:no-option>
-                <q-item>
-                  <q-item-section class="text-grey">
-                    No results
-                  </q-item-section>
-                </q-item>
-              </template>
-            </q-select>
-          </q-card-section>
-          <q-card-actions align="right">
-            <q-btn flat label="Cancel" color="primary" v-close-popup />
-            <q-btn flat label="Apply" color="primary" @click="changeTimezone" v-close-popup />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
+      <q-select
+        v-if="timeZone && showTimeZone"
+        v-model="selectedTimezone"
+        :options="timezoneOptions"
+        option-value="value"
+        option-label="label"
+        emit-value
+        map-options
+        filled
+        label="Timezone"
+        use-input
+        hide-selected
+        fill-input
+        input-debounce="300"
+        :virtual-scroll-slice-size="30"
+        class="q-mb-md"
+        @filter="filterTimezones"
+        @update:model-value="onTimezoneSelected"
+      >
+        <template v-slot:option="scope">
+          <q-item v-bind="scope.itemProps">
+            <q-item-section>
+              <q-item-label>{{ scope.opt.label }}</q-item-label>
+              <q-item-label caption v-if="scope.opt.caption">{{ scope.opt.caption }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </template>
+        <template v-slot:no-option>
+          <q-item>
+            <q-item-section class="text-grey">
+              No results
+            </q-item-section>
+          </q-item>
+        </template>
+      </q-select>
     </div>
   </div>
 </template>
@@ -166,8 +152,7 @@ const emit = defineEmits(['update:model-value', 'update:timeZone', 'update:time-
 const localDate = ref('')
 const localTime = ref('')
 const isoDate = ref(props.modelValue || '')
-const showTimezonePicker = ref(false)
-const timezoneOptions = ref(dateFormatting.getTimezones())
+const timezoneOptions = ref(dateFormatting.getTimezoneOptions())
 const selectedTimezone = ref(props.timeZone || dateFormatting.getUserTimezone())
 const editableDate = ref('')
 
@@ -186,11 +171,6 @@ function onQTimeChange (val: string) {
     updateTime()
   }
 }
-
-// Format timezone for display
-const formatTimeZone = computed(() => {
-  return dateFormatting.getTimezoneDisplay(props.timeZone)
-})
 
 /**
  * Initialize local date and time from ISO string
@@ -419,17 +399,11 @@ function updateTime () {
 }
 
 /**
- * Change to a new timezone, preserving wall clock time
+ * Handle inline timezone selection, preserving wall clock time
  */
-function changeTimezone () {
-  if (selectedTimezone.value === props.timeZone) return
-
-  // Since we're preserving wall clock time, we don't need to
-  // adjust the local date and time inputs - just emit timezone
-  // change and update the ISO value
-  emit('update:timeZone', selectedTimezone.value)
-
-  // Now recalculate ISO date with new timezone
+function onTimezoneSelected (tz: string) {
+  if (tz === props.timeZone) return
+  emit('update:timeZone', tz)
   updateModelValue()
 }
 
@@ -494,8 +468,8 @@ function updateModelValue () {
 function filterTimezones (val, update) {
   update(() => {
     timezoneOptions.value = val
-      ? dateFormatting.searchTimezones(val)
-      : dateFormatting.getTimezones()
+      ? dateFormatting.searchTimezoneOptions(val)
+      : dateFormatting.getTimezoneOptions()
   })
 }
 
@@ -698,38 +672,6 @@ defineExpose({
 .datetime-hint-wrapper {
   margin-bottom: 0;
   padding-bottom: 0;
-}
-
-.timezone-wrapper {
-  margin-top: 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  padding-top: 4px;
-  margin-bottom: 4px; /* Reduced spacing */
-}
-
-.timezone-selector {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  max-width: fit-content;
-  margin-bottom: 0;
-}
-
-.timezone-selector:hover {
-  background: rgba(0, 0, 0, 0.03);
-  cursor: pointer;
-}
-
-.q-dark .timezone-wrapper {
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-.q-dark .timezone-selector {
-  border-color: rgba(255, 255, 255, 0.28);
-}
-
-.q-dark .timezone-selector:hover {
-  background: rgba(255, 255, 255, 0.07);
 }
 
 /* Time input styling */

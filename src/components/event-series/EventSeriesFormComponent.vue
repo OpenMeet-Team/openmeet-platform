@@ -56,15 +56,29 @@
             data-cy="series-timezone"
             v-model="seriesData.timeZone"
             :options="timezoneOptions"
+            option-value="value"
+            option-label="label"
+            emit-value
+            map-options
             filled
             label="Series Timezone"
             use-input
             hide-selected
             fill-input
             input-debounce="300"
+            :virtual-scroll-slice-size="30"
             @filter="filterTimezones"
             class="q-mb-md"
-          />
+          >
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                  <q-item-label caption v-if="scope.opt.caption">{{ scope.opt.caption }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
         </q-card-section>
       </q-card>
 
@@ -289,17 +303,12 @@ const groupsOptions = ref([
 ])
 
 // Timezone options
-const timezoneOptions = ref(dateFormatting.getTimezones())
+const timezoneOptions = ref(dateFormatting.getTimezoneOptions())
 const filterTimezones = (val: string, update: (callback: () => void) => void) => {
-  if (val === '') {
-    update(() => {
-      timezoneOptions.value = dateFormatting.getTimezones()
-    })
-    return
-  }
-
   update(() => {
-    timezoneOptions.value = dateFormatting.searchTimezones(val)
+    timezoneOptions.value = val
+      ? dateFormatting.searchTimezoneOptions(val)
+      : dateFormatting.getTimezoneOptions()
   })
 }
 
