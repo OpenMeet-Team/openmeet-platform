@@ -91,6 +91,29 @@
           </q-banner>
         </div>
 
+        <!-- Scope mismatch banner -->
+        <div v-if="identity.scopeMismatch" class="q-mb-md" data-cy="scope-mismatch-banner">
+          <q-banner class="bg-amber-1 text-dark" rounded>
+            <template v-slot:avatar>
+              <q-icon name="sym_r_sync_problem" color="warning" />
+            </template>
+            <div class="text-body2">
+              New permissions are available for your AT Protocol connection.
+              Reconnect to enable full functionality.
+            </div>
+            <template v-slot:action>
+              <q-btn
+                data-cy="reconnect-scopes-btn"
+                flat
+                no-caps
+                color="primary"
+                label="Reconnect Now"
+                @click="$emit('link')"
+              />
+            </template>
+          </q-banner>
+        </div>
+
         <div class="q-gutter-y-md">
           <!-- Handle -->
           <div v-if="identity.handle && !editingHandle" class="row items-center">

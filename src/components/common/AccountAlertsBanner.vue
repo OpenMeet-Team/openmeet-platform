@@ -41,6 +41,27 @@
     </div>
   </q-banner>
 
+  <!-- AT Protocol scope mismatch -->
+  <q-banner
+    v-if="showAtprotoScopeMismatch"
+    class="bg-amber-8 text-white q-pa-md"
+    data-cy="alert-atproto-scope-mismatch"
+  >
+    <template v-slot:avatar>
+      <q-icon name="sym_r_sync_problem" size="md" />
+    </template>
+    <div class="row items-center justify-between full-width">
+      <div class="col">
+        <div class="text-weight-bold q-mb-xs">New permissions available</div>
+        <div class="text-caption">Reconnect your AT Protocol account to enable new features</div>
+      </div>
+      <div class="col-auto q-ml-md q-gutter-x-sm">
+        <q-btn flat no-caps label="Dismiss" color="white" data-cy="dismiss-atproto-scope-mismatch" @click="dismissedAtprotoScopeMismatch = true" />
+        <q-btn flat no-caps label="Go to Settings" color="white" @click="goToProfile" />
+      </div>
+    </div>
+  </q-banner>
+
   <!-- AT Protocol session inactive -->
   <q-banner
     v-if="showAtprotoSession"
@@ -73,6 +94,7 @@ const router = useRouter()
 
 const dismissedNoEmail = ref(false)
 const dismissedNoAtproto = ref(false)
+const dismissedAtprotoScopeMismatch = ref(false)
 const dismissedAtprotoSession = ref(false)
 
 const isLoggedIn = computed(() => authStore.isFullyAuthenticated)
@@ -88,6 +110,14 @@ const showNoAtproto = computed(() =>
   isLoggedIn.value &&
   !dismissedNoAtproto.value &&
   !user.value.atprotoIdentity
+)
+
+const showAtprotoScopeMismatch = computed(() =>
+  isLoggedIn.value &&
+  !dismissedAtprotoScopeMismatch.value &&
+  !!user.value.atprotoIdentity &&
+  user.value.atprotoIdentity.hasActiveSession &&
+  user.value.atprotoIdentity.scopeMismatch
 )
 
 const showAtprotoSession = computed(() =>

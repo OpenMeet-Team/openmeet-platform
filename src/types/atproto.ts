@@ -15,6 +15,10 @@ export interface AtprotoIdentityDto {
   isOurPds: boolean
   /** Whether this identity has an active session for publishing */
   hasActiveSession: boolean
+  /** Whether the OAuth session has stale scopes that need re-authorization */
+  scopeMismatch: boolean
+  /** List of scopes missing from the current OAuth grant */
+  missingScopes: string[]
   /** Valid handle domains for this PDS (e.g., [".bsky.dev.openmeet.net"]) */
   validHandleDomains: string[]
   /** When the identity was created */

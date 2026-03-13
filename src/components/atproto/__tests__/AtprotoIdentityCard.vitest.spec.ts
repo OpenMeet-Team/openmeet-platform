@@ -33,6 +33,8 @@ describe('AtprotoIdentityCard', () => {
     isCustodial: true,
     isOurPds: true,
     hasActiveSession: false,
+    scopeMismatch: false,
+    missingScopes: [],
     validHandleDomains: ['.opnmt.me'],
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
