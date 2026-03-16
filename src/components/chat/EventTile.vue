@@ -387,7 +387,7 @@ const getSenderColor = (userId: string): string => {
 
 .own-message {
   margin-left: auto;
-  text-align: right;
+  text-align: left;
 }
 
 .own-message-body {
