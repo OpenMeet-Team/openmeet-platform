@@ -172,6 +172,13 @@ const routes: RouteRecordRaw[] = [
     name: 'AuthErrorPage',
     component: () => import('pages/auth/ErrorPage.vue')
   },
+  // AT URI resolution - redirects AT Protocol URIs to their OpenMeet pages
+  {
+    path: '/at/:did/:collection/:rkey',
+    name: 'AtUriResolvePage',
+    component: () => import('pages/AtUriResolvePage.vue'),
+    meta: { requiresAuth: false }
+  },
   // Always leave this as last one,
   // but you can also remove it
   {

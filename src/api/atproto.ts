@@ -73,5 +73,15 @@ export const atprotoApi = {
     api.post('/api/v1/auth/bluesky/link', { handle, platform }),
 
   disconnectSession: (): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
-    api.delete(`${BASE_URL}/identity/session`)
+    api.delete(`${BASE_URL}/identity/session`),
+
+  /**
+   * Resolve an AT URI to an OpenMeet resource URL
+   * @param did - The DID of the AT Protocol identity
+   * @param collection - The NSID collection (e.g., net.openmeet.app.event)
+   * @param rkey - The record key
+   * @returns The resolved resource with its slug
+   */
+  resolveAtUri: (did: string, collection: string, rkey: string): Promise<AxiosResponse<{ type: string; slug: string }>> =>
+    api.get(`${BASE_URL}/resolve/${did}/${collection}/${rkey}`)
 }
