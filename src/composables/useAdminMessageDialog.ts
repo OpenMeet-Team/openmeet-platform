@@ -8,14 +8,14 @@ export function useAdminMessageDialog () {
   const groupStore = useGroupStore()
 
   const openAdminMessageDialog = async (group: GroupEntity) => {
-    // Ensure we have the latest group members data
-    await groupStore.actionGetGroupMembers(group.slug)
+    // Fetch members directly — don't rely on groupStore.group being set
+    const members = await groupStore.actionGetGroupMembers(group.slug)
 
     return $q.dialog({
       component: AdminMessageDialogComponent,
       componentProps: {
         group,
-        members: groupStore.group?.groupMembers || []
+        members
       }
     })
   }

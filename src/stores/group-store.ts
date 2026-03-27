@@ -77,15 +77,18 @@ export const useGroupStore = defineStore('group', {
         this.errorMessage = 'Failed to fetch group data'
       }
     },
-    async actionGetGroupMembers (slug: string) {
+    async actionGetGroupMembers (slug: string): Promise<GroupMemberEntity[]> {
       try {
         const res = await groupsApi.getMembers(slug)
+        this.groupMembers = res.data
         if (this.group) {
           this.group.groupMembers = res.data
         }
+        return res.data
       } catch (err) {
         logger.debug('Group store error:', err)
         error('Failed to fetch group data')
+        return []
       }
     },
     async actionGetGroupEvents (slug: string) {
