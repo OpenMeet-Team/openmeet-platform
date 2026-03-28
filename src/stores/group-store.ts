@@ -12,8 +12,7 @@ export const useGroupStore = defineStore('group', {
     group: null as GroupEntity | null,
     isLoading: false,
     errorMessage: null as string | null,
-    errorCode: null as number | null,
-    groupMembers: null as GroupMemberEntity[] | null
+    errorCode: null as number | null
   }),
 
   getters: {
@@ -80,7 +79,6 @@ export const useGroupStore = defineStore('group', {
     async actionGetGroupMembers (slug: string): Promise<GroupMemberEntity[]> {
       try {
         const res = await groupsApi.getMembers(slug)
-        this.groupMembers = res.data
         if (this.group) {
           this.group.groupMembers = res.data
         }
