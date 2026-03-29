@@ -27,13 +27,19 @@ npm run dev
 
 The default config points to `http://localhost:3000` (local API) with tenant ID `testing`.
 
-**To use remote dev API instead**, edit `public/config.json`:
+**To use the production API with the test tenant** (recommended for UI work — no local backend needed), edit `public/config.json`:
 ```json
 {
-  "APP_API_URL": "https://api-dev.openmeet.net",
-  "APP_TENANT_ID": "testing"
+  "APP_API_URL": "https://api.openmeet.net",
+  "APP_TENANT_ID": "oiupsdknasfdf",
+  "APP_TENANT_NAME": "OpenMeet Test",
+  "APP_TENANT_DESCRIPTION": "Test tenant for UI development",
+  "APP_TENANT_IMAGE": "/openmeet/openmeet-logo.png",
+  "NODE_ENV": "development"
 }
 ```
+
+This connects to the real production API but uses an isolated test tenant — your data won't affect real users. You can register a new account, log in with Bluesky OAuth, create events, RSVP, and test the full UI.
 
 ## Quick Start (Docker Compose)
 
@@ -56,9 +62,9 @@ docker compose -f docker-compose-dev.yml up
 # Access via http://localhost:9005
 ```
 
-**To use remote dev API** (no local API needed):
+**To use production API with test tenant** (no local API needed):
 ```bash
-BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
+BACKEND_DOMAIN=https://api.openmeet.net docker compose -f docker-compose-dev.yml up
 ```
 
 > **Note:** You may see `Error: spawn xdg-open ENOENT` in the logs - this is harmless. The container is trying to open a browser, which isn't possible in Docker.
@@ -154,8 +160,8 @@ Override `BACKEND_DOMAIN` to route nginx to different API backends:
 # Default: Local API in Docker (requires openmeet-api running)
 docker compose -f docker-compose-dev.yml up
 
-# Remote dev API (no local API needed)
-BACKEND_DOMAIN=https://api-dev.openmeet.net docker compose -f docker-compose-dev.yml up
+# Production API with test tenant (no local API needed)
+BACKEND_DOMAIN=https://api.openmeet.net docker compose -f docker-compose-dev.yml up
 
 # Local API on host via npm (API running with `npm run start:dev`)
 BACKEND_DOMAIN=http://host.docker.internal:3000 docker compose -f docker-compose-dev.yml up
