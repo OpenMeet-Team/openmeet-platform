@@ -40,7 +40,7 @@ export function useEventDialog () {
     }
 
     router.push({
-      name: 'CreateEventPage',
+      name: 'DashboardEventCreatePage',
       query
     })
   }

@@ -24,7 +24,11 @@ const routes: RouteRecordRaw[] = [
         path: 'events',
         children: [
           { path: '', name: 'EventsPage', component: () => import('pages/EventsPage.vue') },
-          { path: 'create', name: 'CreateEventPage', component: () => import('pages/CreateEventPage.vue'), meta: { requiresAuth: true } },
+          {
+            path: 'create',
+            name: 'CreateEventPage',
+            redirect: to => ({ name: 'DashboardEventCreatePage', query: to.query })
+          },
           { path: ':slug', name: 'EventPage', component: () => import('pages/EventPage.vue') },
           {
             path: ':slug/attendees',
