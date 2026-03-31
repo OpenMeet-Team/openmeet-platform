@@ -245,7 +245,7 @@ const lastResult = ref<{
 } | null>(null)
 
 // Computed properties
-const availableMembers = computed(() => props.members || [])
+const availableMembers = computed(() => (props.members || []).filter(member => member.user))
 
 const selectedMembers = computed(() =>
   availableMembers.value.filter(member => selectedMemberSlugs.value.includes(member.user.slug))
