@@ -79,6 +79,7 @@
     >
       <template #empty>
         <NoContentComponent
+          v-if="hasLoadedEvents"
           label="No events found matching your criteria"
           icon="sym_r_search_off"
         />
@@ -88,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, onMounted } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import NoContentComponent from '../components/global/NoContentComponent.vue'
@@ -106,11 +107,12 @@ const eventsStore = useEventsStore()
 
 // Filters state
 const showFilters = ref(false)
+const hasLoadedEvents = ref(false)
 
 // Pagination
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 
-const events = computed(() => useEventsStore().events)
+const events = computed(() => eventsStore.events)
 
 // Filter state helpers
 const hasActiveFilters = computed(() => {
@@ -154,13 +156,18 @@ useMeta({
 const fetchEvents = async () => {
   try {
     LoadingBar.start()
-    await eventsStore.actionGetEvents(route.query)
+    await eventsStore.actionGetEventsState(route.query)
   } catch (error) {
     console.error('Error fetching events:', error)
   } finally {
+    hasLoadedEvents.value = true
     LoadingBar.stop()
   }
 }
+
+onMounted(async () => {
+  await fetchEvents()
+})
 
 // Refetch events when query parameters change
 watch(
@@ -169,11 +176,10 @@ watch(
     // Only fetch if the queries are actually different
     if (JSON.stringify(newQuery) !== JSON.stringify(oldQuery)) {
       currentPage.value = parseInt(newQuery.page as string) || 1
-      LoadingBar.start()
-      fetchEvents().finally(LoadingBar.stop)
+      await fetchEvents()
     }
   },
-  { immediate: true, deep: true }
+  { deep: true }
 )
 
 onBeforeUnmount(() => {

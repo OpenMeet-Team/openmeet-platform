@@ -1,7 +1,5 @@
 <template>
   <q-page padding style="max-width: 1024px" class="q-mx-auto" data-cy="groups-page">
-    <SpinnerComponent v-if="useGroupsStore().isLoading"/>
-
     <div class="row text-h4">
       <span class="text-bold q-ml-xs">Groups list</span>
     </div>
@@ -77,7 +75,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { LoadingBar, useMeta } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
-import SpinnerComponent from '../components/common/SpinnerComponent.vue'
 import LocationFilterComponent from '../components/common/LocationFilterComponent.vue'
 import CategoriesFilterComponent from '../components/common/CategoriesFilterComponent.vue'
 import RadiusFilterComponent from '../components/common/RadiusFilterComponent.vue'
