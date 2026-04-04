@@ -48,6 +48,7 @@ const routes: RouteRecordRaw[] = [
         path: 'groups',
         children: [
           { path: '', name: 'GroupsPage', component: () => import('pages/GroupsPage.vue') },
+          { path: 'create', name: 'CreateGroupPage', redirect: { name: 'DashboardGroupCreatePage' }, meta: { requiresAuth: true } },
           {
             path: ':slug',
             name: 'GroupPage',
