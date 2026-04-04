@@ -302,6 +302,14 @@ server {
         try_files $uri =404;
     }
 
+    # --- Favicon (crawlers/Edge probe /favicon.ico directly) ---
+    location = /favicon.ico {
+        alias /usr/share/nginx/html/openmeet/icons/favicon.ico;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Robots-Tag $robots_header;
+    }
+
     # --- SPA Fallback ---
     # All other routes: serve index.html for Vue Router
     location / {
