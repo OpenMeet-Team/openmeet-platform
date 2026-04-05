@@ -14,7 +14,11 @@ declare module 'vue' {
 }
 
 // Create api without baseURL initially
-const api = axios.create()
+// Axios 1.12+ defaults to bracket notation for arrays (categories[]=X).
+// NestJS expects repeated params (categories=X&categories=Y). Restore pre-1.12 behavior.
+const api = axios.create({
+  paramsSerializer: { indexes: null }
+})
 const { error } = useNotification()
 const { handlePotentialVersionError } = useVersionErrorHandling()
 
