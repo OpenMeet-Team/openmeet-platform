@@ -31,7 +31,7 @@
       <NoContentComponent
         v-if="!hasAnyEvents"
         @click="onAddNewEvent"
-        buttonLabel="Create your first event"
+        :buttonLabel="emptyEventButtonLabel"
         label="You don't have any upcoming events"
         icon="sym_r_event"
       />
@@ -197,6 +197,10 @@ const hasAnyEvents = computed(() => {
     summary.value.attendingSoon.length > 0
   )
 })
+
+const hasPastEvents = computed(() => Boolean(summary.value?.counts.past))
+
+const emptyEventButtonLabel = computed(() => hasPastEvents.value ? 'Create a new event' : 'Create your first event')
 
 const moreHostingCount = computed(() => {
   if (!summary.value) return 0
