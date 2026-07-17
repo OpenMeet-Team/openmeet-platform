@@ -4,25 +4,22 @@ on:
   workflow_call:
     inputs:
       service_name:
-        description: 'Service name (api, platform, biz, etc.)'
+        description: 'Service name (api, platform, biz, ...) — used for log/commit context'
         required: true
         type: string
       image_tag:
-        description: 'Docker image tag to deploy'
+        description: 'Image tag (git SHA) to deploy'
+        required: true
+        type: string
+      image_name:
+        description: 'Full GHCR image name to pin (matched against images[].newName), e.g. ghcr.io/openmeet-team/openmeet-api'
         required: true
         type: string
       environment:
-        description: 'Target environment (dev, prod, pr-123, etc.)'
-        required: true
+        description: 'Target overlay under k8s/environments/ (do-prod is the only live cluster post-migration)'
+        required: false
         type: string
-      ecr_registry:
-        description: 'ECR registry URL'
-        required: true
-        type: string
-      ecr_repository:
-        description: 'ECR repository name'
-        required: true
-        type: string
+        default: do-prod
       commit_message:
         description: 'Git commit message'
         required: false
@@ -30,7 +27,7 @@ on:
         default: 'Update image tag'
     secrets:
       GH_PAT:
-        description: 'GitHub PAT with repo access'
+        description: 'GitHub PAT with write access to the openmeet-infrastructure repo'
         required: true
 
 jobs:
@@ -44,68 +41,76 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           ref: main
 
-      - name: Update kustomization.yaml with new image tag
+      - name: Pin ${{ inputs.service_name }} image to ${{ inputs.image_tag }}
+        env:
+          IMAGE_NAME: ${{ inputs.image_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          KUSTOMIZATION_PATH="k8s/environments/${{ inputs.environment }}/kustomization.yaml"
-          IMAGE_FULL="${{ inputs.ecr_registry }}/${{ inputs.ecr_repository }}:${{ inputs.image_tag }}"
+          set -euo pipefail
+          KUSTOMIZATION_PATH="k8s/environments/${ENVIRONMENT}/kustomization.yaml"
+          echo "Pinning $IMAGE_NAME -> $IMAGE_TAG in $KUSTOMIZATION_PATH"
 
-          echo "Updating $KUSTOMIZATION_PATH"
-          echo "Service: ${{ inputs.service_name }}"
-          echo "New image: $IMAGE_FULL"
+          # Single source of truth: the overlay's `images:` transformer. Set newTag
+          # on EVERY entry whose newName is this service's GHCR image. Keying on
+          # newName (not the ECR lookup key) updates all references at once —
+          # e.g. survey has two entries (bare `survey` + the ECR name) that share
+          # one newName. yq (mikefarah) is preinstalled on ubuntu-latest runners.
+          yq -i '(.images[] | select(.newName == strenv(IMAGE_NAME))).newTag = strenv(IMAGE_TAG)' "$KUSTOMIZATION_PATH"
 
-          # Update the image tag in the kustomization file
-          # This uses sed to find the line with the service image and update it
-          sed -i "s|image: .*${{ inputs.ecr_repository }}:.*|image: $IMAGE_FULL|" "$KUSTOMIZATION_PATH"
+          # Guard: fail loudly if nothing matched (typo in image_name, or the
+          # overlay has no images[] entry for this service) — never push a no-op
+          # that silently fails to deploy.
+          matched="$(yq '[.images[] | select(.newName == strenv(IMAGE_NAME) and .newTag == strenv(IMAGE_TAG))] | length' "$KUSTOMIZATION_PATH")"
+          if [ "$matched" -eq 0 ]; then
+            echo "::error::No images[] entry with newName=$IMAGE_NAME in $KUSTOMIZATION_PATH — nothing to deploy."
+            exit 1
+          fi
+          echo "Updated $matched image reference(s)."
 
-          # Show the diff
           git diff "$KUSTOMIZATION_PATH"
 
       - name: Commit and push changes
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
+          set -euo pipefail
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions Bot"
 
-          KUSTOMIZATION_PATH="k8s/environments/${{ inputs.environment }}/kustomization.yaml"
-
+          KUSTOMIZATION_PATH="k8s/environments/${ENVIRONMENT}/kustomization.yaml"
           git add "$KUSTOMIZATION_PATH"
 
-          # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit - image tag may already be up to date"
+            echo "No changes to commit — image tag already up to date."
             exit 0
           fi
 
-          git commit -m "${{ inputs.commit_message }}"
+          git commit -m "$COMMIT_MESSAGE"
 
-          # Push with retry logic to handle concurrent updates
+          # Push with retry to handle concurrent gitops updates from sibling repos.
           MAX_RETRIES=5
           RETRY_COUNT=0
-
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             echo "Attempting to push (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
-
             if git push origin main; then
               echo "✅ Successfully pushed changes"
               exit 0
-            else
-              echo "⚠️  Push failed, pulling and retrying..."
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                # Pull with rebase to get latest changes
-                git pull --rebase origin main
-                sleep $((RETRY_COUNT * 2))  # Exponential backoff
-              fi
+            fi
+            echo "⚠️  Push failed, pulling and retrying..."
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              git pull --rebase origin main
+              sleep $((RETRY_COUNT * 2))
             fi
           done
 
           echo "❌ Failed to push after $MAX_RETRIES attempts"
           exit 1
 
-      - name: Trigger ArgoCD sync (optional)
-        if: inputs.environment == 'dev'
-        continue-on-error: true
+      - name: Deployment note
         run: |
-          echo "ArgoCD will auto-detect the change within 3 minutes"
-          echo "Or manually sync via UI: https://argocd-dev.openmeet.net"
-          # Future: Could add argocd CLI to trigger immediate sync
+          echo "Committed new tag to k8s/environments/${{ inputs.environment }}."
+          echo "ArgoCD (do-prod app, automated sync) will roll this out within ~3 minutes."
+          echo "Watch: kubectl -n prod rollout status deployment/${{ inputs.service_name }}"
