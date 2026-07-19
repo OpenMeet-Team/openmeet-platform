@@ -96,6 +96,27 @@ export default boot(async ({ app, router }) => {
           return Promise.reject(err)
         }
 
+        // Once-only guard: if we already refreshed the token and retried this
+        // exact request and it STILL returns 401, retrying again
+        // would just replay it forever (the ~5 req/s self-DoS loop). A freshly
+        // refreshed token being rejected means the session is broken (revoked /
+        // wrong-audience / backend-rejected) — NOT a per-resource permission
+        // issue (those now return 403 and never reach here). Stop, and for an
+        // authenticated request re-authenticate, matching the refresh-failure
+        // path below (this also prevents a refresh storm from sibling requests).
+        if (originalRequest._retry) {
+          console.log('🔴 401 persisted after token refresh — session invalid, clearing auth (no retry):', originalRequest.url)
+          if (originalRequest.headers?.Authorization) {
+            authStore.actionClearAuth()
+            error('Your session is no longer valid. Please log in again.')
+            router.push({
+              name: 'AuthLoginPage',
+              query: { redirect: router.currentRoute.value.fullPath }
+            })
+          }
+          return Promise.reject(err)
+        }
+
         // Handle token refresh with cross-tab coordination
         if (authStore.refreshToken) {
           // Check if another tab is already refreshing
@@ -110,6 +131,7 @@ export default boot(async ({ app, router }) => {
               const updatedToken = authStore.token
               if (updatedToken && updatedToken !== originalRequest.headers.Authorization?.replace('Bearer ', '')) {
                 console.log('✅ Using refreshed token from another tab')
+                originalRequest._retry = true
                 originalRequest.headers.Authorization = `Bearer ${updatedToken}`
                 return api(originalRequest)
               }
@@ -130,6 +152,7 @@ export default boot(async ({ app, router }) => {
             const refreshCompleted = await crossTabTokenService.waitForRefresh(10000)
 
             if (refreshCompleted && authStore.token) {
+              originalRequest._retry = true
               originalRequest.headers.Authorization = `Bearer ${authStore.token}`
               return api(originalRequest)
             } else {
@@ -162,6 +185,7 @@ export default boot(async ({ app, router }) => {
             processQueue(null, newToken)
 
             // Retry the original request
+            originalRequest._retry = true
             originalRequest.headers.Authorization = `Bearer ${newToken}`
             return api(originalRequest)
           } catch (refreshError) {
