@@ -260,7 +260,7 @@
                 <strong>This account is yours</strong>, hosted at <strong>{{ pdsHostname }}</strong>. You can
                 sign in to OpenMeet with it, and you don't need Google or your OpenMeet email password.
               </div>
-              <div class="text-body2 text-grey-8">
+              <div class="text-body2">
                 Your account works in other AT Protocol apps too.
                 <a
                   data-cy="atmo-link"
@@ -315,12 +315,12 @@
             <!-- Normal state: show options -->
             <div v-if="!takeOwnershipPending" class="q-mt-md">
               <div class="text-subtitle2 q-mb-xs">Your AT Protocol account</div>
-              <div class="text-body2 text-grey-8 q-mb-xs">
+              <div class="text-body2 q-mb-xs">
                 OpenMeet made this account for you and still holds its password. Set your own AT Protocol
                 password and the account becomes yours: you'll sign in to OpenMeet with it, and you can use
                 it in other AT Protocol apps too.
               </div>
-              <div class="text-caption text-grey-7 q-mb-sm">
+              <div class="text-caption q-mb-sm">
                 This is separate from your OpenMeet password.
               </div>
 
