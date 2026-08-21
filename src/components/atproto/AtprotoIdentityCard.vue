@@ -246,6 +246,41 @@
           <!-- Options for connected non-custodial identity -->
           <template v-if="!identity.isCustodial && identity.hasActiveSession">
             <q-separator class="q-my-md" />
+
+            <!-- What the user now holds, and where else it works -->
+            <div class="q-mt-md" data-cy="account-ownership-note">
+              <!-- Only accounts we created can be described as handed over -->
+              <div v-if="identity.isOurPds" class="text-body2 q-mb-sm">
+                <strong>You own this account now.</strong> OpenMeet no longer holds its password. From now
+                on, use <strong>Sign in with AT Protocol or Bluesky</strong><span v-if="identity.handle"> with
+                your handle <strong>@{{ identity.handle }}</strong></span>: you don't need Google or your
+                OpenMeet email password anymore.
+              </div>
+              <div v-else class="text-body2 q-mb-sm">
+                <strong>This account is yours</strong>, hosted at <strong>{{ pdsHostname }}</strong>. You can
+                sign in to OpenMeet with it, and you don't need Google or your OpenMeet email password.
+              </div>
+              <div class="text-body2 text-grey-8">
+                Your account works in other AT Protocol apps too.
+                <a
+                  data-cy="atmo-link"
+                  href="https://atmo.rsvp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-primary"
+                >atmo.rsvp</a>
+                is another event app: individual events, not groups.
+                <a
+                  data-cy="bsky-app-link"
+                  href="https://bsky.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-primary"
+                >bsky.app</a>
+                is Bluesky, the social app. Your events and RSVPs travel with your account.
+              </div>
+            </div>
+
             <div class="q-mt-md">
               <div class="text-subtitle2 text-grey-7 q-mb-sm">Options</div>
               <div class="q-gutter-sm">
@@ -279,7 +314,15 @@
 
             <!-- Normal state: show options -->
             <div v-if="!takeOwnershipPending" class="q-mt-md">
-              <div class="text-subtitle2 text-grey-7 q-mb-sm">Options</div>
+              <div class="text-subtitle2 q-mb-xs">Your AT Protocol account</div>
+              <div class="text-body2 text-grey-8 q-mb-xs">
+                OpenMeet made this account for you and still holds its password. Set your own AT Protocol
+                password and the account becomes yours: you'll sign in to OpenMeet with it, and you can use
+                it in other AT Protocol apps too.
+              </div>
+              <div class="text-caption text-grey-7 q-mb-sm">
+                This is separate from your OpenMeet password.
+              </div>
 
               <div class="row q-gutter-sm q-mb-md">
                 <q-btn
@@ -290,7 +333,7 @@
                   @click="$emit('initiate-take-ownership')"
                 >
                   <q-icon name="sym_r_key" class="q-mr-sm" />
-                  Take Ownership
+                  Make this AT Protocol account yours
                 </q-btn>
 
                 <q-btn
@@ -325,7 +368,10 @@
                 </template>
                 <div class="text-body2">
                   Check your email at <strong>{{ takeOwnershipEmail }}</strong> for a password reset code.
-                  Enter the code and your new password below.
+                  Enter the code and choose a password below.
+                  <div class="q-mt-sm">
+                    <strong>This is a new AT Protocol password</strong>, not your OpenMeet password.
+                  </div>
                 </div>
               </q-banner>
 
@@ -355,7 +401,7 @@
                 <q-input
                   data-cy="password-reset-password"
                   v-model="resetPassword"
-                  label="New Password"
+                  label="New AT Protocol Password"
                   hint="Must be at least 8 characters"
                   filled
                   :type="showPassword ? 'text' : 'password'"
@@ -374,7 +420,7 @@
                 <q-input
                   data-cy="password-reset-confirm"
                   v-model="resetPasswordConfirm"
-                  label="Confirm Password"
+                  label="Confirm AT Protocol Password"
                   filled
                   :type="showPassword ? 'text' : 'password'"
                   :error="!!validationErrors.confirm"
@@ -623,6 +669,16 @@ const statusColor = computed(() => {
   // Non-custodial: green if connected, warning if needs auth
   if (props.identity.hasActiveSession) return 'positive'
   return 'warning'
+})
+
+const pdsHostname = computed(() => {
+  if (!props.identity?.pdsUrl) return ''
+  try {
+    return new URL(props.identity.pdsUrl).hostname
+  } catch {
+    // pdsUrl is not guaranteed to parse; showing it raw beats showing nothing
+    return props.identity.pdsUrl
+  }
 })
 
 const blueskyProfileUrl = computed(() => {
