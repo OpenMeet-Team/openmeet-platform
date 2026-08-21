@@ -687,7 +687,7 @@ const onResetPdsPassword = async (payload: { token: string; password: string }) 
     atprotoIdentity.value = response.data
     takeOwnershipPending.value = false
     takeOwnershipEmail.value = ''
-    success('Password set! Connecting your account...')
+    success('This AT Protocol account is yours. Signing you in...')
 
     // Auto-redirect to OAuth to complete the flow
     // This establishes the session so the user can publish

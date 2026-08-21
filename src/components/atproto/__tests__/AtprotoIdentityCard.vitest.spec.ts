@@ -303,8 +303,57 @@ describe('AtprotoIdentityCard', () => {
     })
   })
 
+  describe('Account ownership note on the connected card', () => {
+    const connected = (overrides: Partial<AtprotoIdentityDto> = {}) => createMockIdentity({
+      isCustodial: false,
+      hasActiveSession: true,
+      ...overrides
+    })
+
+    it('tells a converted user on our PDS that OpenMeet no longer holds the password', () => {
+      const wrapper = mountComponent({ identity: connected({ isOurPds: true }) })
+
+      const note = wrapper.find('[data-cy="account-ownership-note"]')
+      expect(note.exists()).toBe(true)
+      expect(note.text()).toContain('You own this account now')
+      expect(note.text()).toContain('@alice.opnmt.me')
+    })
+
+    it('does NOT claim we handed over an account hosted on another PDS', () => {
+      const wrapper = mountComponent({
+        identity: connected({
+          isOurPds: false,
+          handle: 'alice.bsky.social',
+          pdsUrl: 'https://bsky.social'
+        })
+      })
+
+      const note = wrapper.find('[data-cy="account-ownership-note"]')
+      expect(note.text()).not.toContain('OpenMeet no longer holds')
+      expect(note.text()).toContain('This account is yours')
+      expect(note.text()).toContain('bsky.social')
+    })
+
+    it('offers both AT Protocol apps to either kind of connected user', () => {
+      for (const isOurPds of [true, false]) {
+        const wrapper = mountComponent({ identity: connected({ isOurPds }) })
+
+        expect(wrapper.find('[data-cy="atmo-link"]').attributes('href')).toBe('https://atmo.rsvp')
+        expect(wrapper.find('[data-cy="bsky-app-link"]').attributes('href')).toBe('https://bsky.app')
+      }
+    })
+
+    it('is not shown to a custodial user who has not converted yet', () => {
+      const wrapper = mountComponent({
+        identity: createMockIdentity({ isCustodial: true, isOurPds: true })
+      })
+
+      expect(wrapper.find('[data-cy="account-ownership-note"]').exists()).toBe(false)
+    })
+  })
+
   describe('Take ownership flow', () => {
-    it('should show "Take Ownership" button for custodial identity on our PDS', () => {
+    it('should show the take-ownership button for custodial identity on our PDS', () => {
       const identity = createMockIdentity({
         isCustodial: true,
         isOurPds: true
@@ -313,7 +362,7 @@ describe('AtprotoIdentityCard', () => {
 
       const button = wrapper.find('[data-cy="take-ownership-btn"]')
       expect(button.exists()).toBe(true)
-      expect(button.text()).toContain('Take Ownership')
+      expect(button.text()).toContain('Make this AT Protocol account yours')
     })
 
     it('should NOT show "Take Ownership" button for non-custodial identity', () => {
@@ -542,8 +591,8 @@ describe('AtprotoIdentityCard', () => {
       expect(passwordWrapper.exists()).toBe(true)
       expect(confirmWrapper.exists()).toBe(true)
       // Check labels are present
-      expect(wrapper.text()).toContain('New Password')
-      expect(wrapper.text()).toContain('Confirm Password')
+      expect(wrapper.text()).toContain('New AT Protocol Password')
+      expect(wrapper.text()).toContain('Confirm AT Protocol Password')
     })
 
     it('should show submit button for password reset', () => {
