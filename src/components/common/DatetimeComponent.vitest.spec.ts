@@ -1,8 +1,9 @@
 import { mount } from '@vue/test-utils'
 import DatetimeComponent from './DatetimeComponent.vue'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { nextTick } from 'vue'
-import { Quasar, QInput, QIcon } from 'quasar'
+import { Quasar, QInput, QIcon, QSelect } from 'quasar'
+import dateFormatting from '../../composables/useDateFormatting'
 
 describe('DatetimeComponent', () => {
   it('should emit a valid ISO date on mount when given empty modelValue', async () => {
@@ -198,5 +199,57 @@ describe('DatetimeComponent', () => {
     // Should show same date as start
     const expectedDate = `${yyyy}-${mm}-${dd}`
     expect(wrapper.vm.localDate).toBe(expectedDate)
+  })
+})
+
+// Chrome's resolvedOptions().timeZone is undefined when the OS time zone is one
+// ICU cannot canonicalize, so getUserTimezone() can hand back no zone at all.
+describe('DatetimeComponent when the browser reports no time zone', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const mountWithoutZone = (props: Record<string, unknown> = {}) => {
+    vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue(undefined as unknown as string)
+    return mount(DatetimeComponent, {
+      global: {
+        plugins: [Quasar],
+        stubs: { QInput, QIcon }
+      },
+      props: {
+        modelValue: '',
+        timeZone: '',
+        required: true,
+        ...props
+      }
+    })
+  }
+
+  it('still shows the time zone picker so one can be chosen', async () => {
+    const wrapper = mountWithoutZone()
+    await nextTick()
+    expect(wrapper.find('[data-cy="datetime-component-timezone"]').exists()).toBe(true)
+  })
+
+  it('requires a time zone to be chosen', async () => {
+    const wrapper = mountWithoutZone()
+    await nextTick()
+    const rules = wrapper.findComponent(QSelect).props('rules') as Array<(val: unknown) => true | string>
+    expect(rules.map(rule => rule(undefined))).toContain('Choose a time zone')
+    expect(rules.every(rule => rule('America/Vancouver') === true)).toBe(true)
+  })
+
+  it('emits the chosen time zone', async () => {
+    const wrapper = mountWithoutZone()
+    await nextTick()
+    wrapper.findComponent(QSelect).vm.$emit('update:model-value', 'America/Vancouver')
+    await nextTick()
+    expect(wrapper.emitted('update:timeZone')?.[0]).toEqual(['America/Vancouver'])
+  })
+
+  it('keeps the picker hidden when showTimeZone is false', async () => {
+    const wrapper = mountWithoutZone({ showTimeZone: false })
+    await nextTick()
+    expect(wrapper.find('[data-cy="datetime-component-timezone"]').exists()).toBe(false)
   })
 })

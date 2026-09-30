@@ -60,8 +60,10 @@
       <template v-if="$slots.hint">
         <slot name="hint"></slot>
       </template>
+      <!-- Shown even with no zone: some browsers report none, and the API requires one -->
       <q-select
-        v-if="timeZone && showTimeZone"
+        v-if="showTimeZone"
+        data-cy="datetime-component-timezone"
         v-model="selectedTimezone"
         :options="timezoneOptions"
         option-value="value"
@@ -75,6 +77,8 @@
         fill-input
         input-debounce="300"
         :virtual-scroll-slice-size="30"
+        :rules="[(val) => !!val || 'Choose a time zone']"
+        hide-bottom-space
         class="q-mb-md"
         @filter="filterTimezones"
         @update:model-value="onTimezoneSelected"
