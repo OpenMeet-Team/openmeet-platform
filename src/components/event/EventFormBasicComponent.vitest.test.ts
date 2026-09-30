@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { Quasar, QForm, QInput, QCheckbox, QSelect, QCard, QCardSection, QIcon, QBtn } from 'quasar' // Import specific Quasar components if not globally stubbed
 import EventFormBasicComponent from './EventFormBasicComponent.vue'
@@ -7,6 +7,8 @@ import { EventEntity, EventVisibility, EventType } from '../../types'
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 import { addHours } from 'date-fns'
 import { nextTick } from 'vue'
+import dateFormatting from '../../composables/useDateFormatting'
+import { eventsApi } from '../../api/events'
 
 // Mock services and APIs
 vi.mock('../../services/recurrenceService', () => {
@@ -66,6 +68,16 @@ vi.mock('../../services/analyticsService', () => ({
   default: {
     trackEvent: vi.fn()
   }
+}))
+
+vi.mock('../../composables/useNotification', () => ({
+  useNotification: () => ({
+    notify: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn()
+  })
 }))
 
 // Helper to create a promise that resolves on the next tick
@@ -417,5 +429,78 @@ describe('EventFormBasicComponent.vue - Initial Field Population and Date/Time E
     const potentiallyDecrementedDate = '2026-07-14'
     expect(startDateComponent.vm.localDate).not.toBe(potentiallyDecrementedDate)
     expect(startDateComponent.vm.editableDate).not.toContain('Jul 14, 2026')
+  })
+})
+
+describe('EventFormBasicComponent.vue - Publishing when the browser reports no time zone', () => {
+  let wrapper: VueWrapper<InstanceType<typeof EventFormBasicComponent>>
+  let userTimezoneSpy: MockInstance
+
+  const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0))
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    // eventData takes its default zone from the browser at setup, so mock before mounting
+    userTimezoneSpy = vi.spyOn(dateFormatting, 'getUserTimezone').mockReturnValue(undefined as unknown as string)
+    wrapper = mount(EventFormBasicComponent, {
+      global: {
+        plugins: [Quasar],
+        stubs: {
+          RecurrenceComponent: true,
+          UploadComponent: true,
+          LocationComponent: true,
+          SpinnerComponent: true,
+          'q-markdown': true,
+          'q-form': QForm,
+          'q-input': QInput,
+          'q-checkbox': QCheckbox,
+          'q-select': QSelect,
+          'q-card': QCard,
+          'q-card-section': QCardSection,
+          'q-icon': QIcon,
+          'q-btn': QBtn,
+          'q-tab': true,
+          'q-tabs': true,
+          'q-tab-panel': true,
+          'q-tab-panels': true,
+          'q-separator': true,
+          'q-img': true
+        }
+      },
+      attachTo: document.body
+    })
+    await nextTickPromise()
+    while ((wrapper.vm as unknown as { isLoading: boolean }).isLoading) {
+      await nextTickPromise()
+    }
+    const form = wrapper.vm as unknown as { eventData: EventEntity }
+    form.eventData.name = 'Tea and crumpets ride'
+    form.eventData.description = 'Meet at the cafe'
+    await nextTickPromise()
+  })
+
+  afterEach(() => {
+    userTimezoneSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('does not send the create until a time zone is chosen, then sends it', async () => {
+    vi.mocked(eventsApi.create).mockResolvedValue({ data: { slug: 'tea-and-crumpets-ride', status: 'published' } } as never)
+    const form = wrapper.vm as unknown as { onPublish: () => Promise<void> }
+
+    await form.onPublish()
+    await flush()
+    expect(eventsApi.create).not.toHaveBeenCalled()
+
+    const startDate = wrapper.findAllComponents(DatetimeComponent).at(0)
+    const zonePicker = startDate?.find('[data-cy="datetime-component-timezone"]')
+    expect(zonePicker?.exists()).toBe(true)
+    startDate?.findComponent(QSelect).vm.$emit('update:model-value', 'America/Vancouver')
+    await nextTickPromise()
+
+    await form.onPublish()
+    await flush()
+    expect(eventsApi.create).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(eventsApi.create).mock.calls[0][0]).toMatchObject({ timeZone: 'America/Vancouver' })
   })
 })
