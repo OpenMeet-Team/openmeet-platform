@@ -27,7 +27,9 @@ vi.mock('../../../../src/stores/auth-store', () => ({
 const { matrixClientManager } = await import('../../../../src/services/MatrixClientManager')
 
 // Type for accessing private methods and properties in tests
-type MatrixClientManagerPrivate = typeof matrixClientManager & {
+// (Not intersected with the class type: TypeScript reduces an intersection that
+// re-declares private members as public to `never`.)
+type MatrixClientManagerPrivate = {
   getDevicePool: (userSlug: string) => string[]
   addDeviceToPool: (userSlug: string, deviceId: string) => void
   claimDeviceFromPool: (userSlug: string) => Promise<string | null>
@@ -101,7 +103,7 @@ beforeEach(() => {
   activeLocks.clear()
 
   // Clear cached device ID in MatrixClientManager
-  const manager = matrixClientManager as MatrixClientManagerPrivate
+  const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
   manager.deviceLockAcquired = false
   manager.claimedDeviceId = null
 
@@ -140,14 +142,14 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
   describe('Device Pool Management', () => {
     it('should initialize empty device pool', () => {
       // Access private method for testing
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       const pool = manager.getDevicePool('test-user-slug')
 
       expect(pool).toEqual([])
     })
 
     it('should add device to pool', () => {
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       manager.addDeviceToPool('test-user-slug', 'DEVICE_001')
       manager.addDeviceToPool('test-user-slug', 'DEVICE_002')
@@ -157,7 +159,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
     })
 
     it('should not add duplicate devices to pool', () => {
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       manager.addDeviceToPool('test-user-slug', 'DEVICE_001')
       manager.addDeviceToPool('test-user-slug', 'DEVICE_001')
@@ -167,7 +169,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
     })
 
     it('should store device pool in localStorage', () => {
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       manager.addDeviceToPool('test-user-slug', 'DEVICE_001')
 
@@ -184,7 +186,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       sessionStorage.setItem('matrix_has_primary_lock', 'true')
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       const deviceIdPromise = manager.getStoredDeviceId()
 
       // Wait for lock verification
@@ -205,7 +207,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       sessionStorage.setItem('matrix_tab_device_id', 'DEVICE_POOL')
       localStorage.setItem('matrix_device_pool_test-user-slug', JSON.stringify(['DEVICE_POOL']))
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       const deviceIdPromise = manager.getStoredDeviceId()
 
       // Wait for lock verification
@@ -227,7 +229,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       // Setup: Primary device exists in localStorage
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       // First tab tries to get device ID
       const deviceIdPromise = manager.getStoredDeviceId()
@@ -244,7 +246,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
 
     it('should return null when no devices available (first login)', async () => {
       // No devices in storage at all
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       const deviceId = await manager.getStoredDeviceId()
 
       expect(deviceId).toBeNull()
@@ -260,7 +262,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       // Simulate first tab holding primary lock
       activeLocks.add('matrix_primary_device')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       // Second tab tries to get device ID
       const deviceIdPromise = manager.getStoredDeviceId()
@@ -281,7 +283,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       // Simulate first tab holding primary lock
       activeLocks.add('matrix_primary_device')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       // Second tab tries to get device ID
       const deviceIdPromise = manager.getStoredDeviceId()
@@ -302,7 +304,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       // Simulate DEVICE_002 being locked by another tab
       activeLocks.add('matrix_device_DEVICE_002')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       const deviceIdPromise = manager.getStoredDeviceId()
       await new Promise(resolve => setTimeout(resolve, 10))
@@ -313,9 +315,28 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
     })
   })
 
+  describe('getStoredDeviceId() - Concurrent Calls In One Tab', () => {
+    it('should give concurrent callers in the same tab the same claimed device', async () => {
+      // App startup and a chat component can both restore the session at once.
+      // Web Locks are not re-entrant, so a second independent claim would find this
+      // tab's own primary lock "taken" and fall through to the pool or a new device.
+      localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
+
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
+
+      const [first, second] = await Promise.all([
+        manager.getStoredDeviceId(),
+        manager.getStoredDeviceId()
+      ])
+
+      expect(first).toBe('DEVICE_PRIMARY')
+      expect(second).toBe('DEVICE_PRIMARY')
+    })
+  })
+
   describe('setStoredDeviceId() - Primary Device', () => {
     it('should store as primary device when none exists', async () => {
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       await manager.setStoredDeviceId('@test:matrix.org', 'DEVICE_NEW')
 
@@ -329,7 +350,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       sessionStorage.setItem('matrix_has_primary_lock', 'true')
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_OLD')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       await manager.setStoredDeviceId('@test:matrix.org', 'DEVICE_UPDATED')
 
@@ -343,7 +364,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       // Setup: Primary device exists but this tab doesn't have the lock
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       await manager.setStoredDeviceId('@test:matrix.org', 'DEVICE_SECONDARY')
 
@@ -366,7 +387,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
 
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       const deviceId = await manager.getStoredDeviceId()
 
       expect(deviceId).toBe('DEVICE_PRIMARY')
@@ -381,7 +402,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
       localStorage.setItem('matrix_primary_device_id_test-user-slug', 'DEVICE_PRIMARY')
       localStorage.setItem('matrix_device_pool_test-user-slug', JSON.stringify(['DEVICE_002', 'DEVICE_003']))
 
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
 
       // Tab 1: Claims primary device
       const tab1DevicePromise = manager.getStoredDeviceId()
@@ -411,7 +432,7 @@ describe('MatrixClientManager - Per-Tab Device ID Management', () => {
 
   describe('Edge Cases', () => {
     it('should handle corrupted device pool JSON', () => {
-      const manager = matrixClientManager as MatrixClientManagerPrivate
+      const manager = matrixClientManager as unknown as MatrixClientManagerPrivate
       localStorage.setItem('matrix_device_pool_test-user-slug', 'invalid-json')
 
       const pool = manager.getDevicePool('test-user-slug')

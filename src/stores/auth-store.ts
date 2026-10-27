@@ -13,6 +13,7 @@ import {
 } from '../types'
 import analyticsService from '../services/analyticsService'
 import { matrixClientManager } from '../services/MatrixClientManager'
+import { hasStoredMatrixTokens } from '../utils/matrixTokenUtils'
 import { logger } from '../utils/logger'
 
 export const useAuthStore = defineStore('authStore', {
@@ -207,7 +208,8 @@ export const useAuthStore = defineStore('authStore', {
 
       try {
         // Check if Matrix tokens exist for this user
-        const { hasStoredMatrixTokens } = await import('../utils/matrixTokenUtils')
+        // Synchronous (static import) so the restore has started before initializeAuth reports
+        // isInitialized. Chat components rely on waitForStartupRestore() seeing it.
         if (!hasStoredMatrixTokens(this.user.slug)) {
           logger.debug('📱 No stored Matrix tokens found for user after login')
           return

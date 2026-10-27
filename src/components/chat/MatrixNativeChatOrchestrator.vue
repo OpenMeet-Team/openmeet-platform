@@ -1408,24 +1408,38 @@ const showPassphraseDialog = async (isUnlock = false) => {
   })
 }
 
+let isUnmounted = false
+
+// Check for zombie state: stored tokens but no working client.
+// Only judge once any in-flight session restore has settled. On page load the restore runs
+// in the background, and chat can mount before it has created the client. Judging early
+// showed "Connect to Matrix" for a valid session and reset the restore halfway through.
+const checkForZombieState = async () => {
+  await matrixClientManager.waitForStartupRestore()
+
+  if (isUnmounted || !authStore.isInitialized || !authStore.user?.slug) {
+    return
+  }
+
+  const hasStoredTokens = hasStoredMatrixTokens(authStore.user.slug)
+  const hasWorkingClient = matrixClientManager.getClient() !== null
+
+  if (hasStoredTokens && !hasWorkingClient) {
+    logger.debug('🧟 Detected zombie state: stored tokens but no working client')
+    hasInvalidTokens.value = true
+    // Clear invalid tokens to ensure clean state
+    await matrixClientManager.clearClientAndCredentials()
+  }
+}
+
 // Initialize
 onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
   logger.debug('🔍 Props on mount:', { inlineRoomId: props.inlineRoomId, contextType: props.contextType, mode: props.mode })
   logger.debug('🔍 Debug state:', debugState.value)
 
-  // Check for zombie state: stored tokens but no working client
-  if (authStore.isInitialized && authStore.user?.slug) {
-    const hasStoredTokens = hasStoredMatrixTokens(authStore.user.slug)
-    const hasWorkingClient = matrixClientManager.getClient() !== null
-
-    if (hasStoredTokens && !hasWorkingClient) {
-      logger.debug('🧟 Detected zombie state: stored tokens but no working client')
-      hasInvalidTokens.value = true
-      // Clear invalid tokens to ensure clean state
-      await matrixClientManager.clearClientAndCredentials()
-    }
-  }
+  // Not awaited: the restore can take seconds, and the listeners below must be in place meanwhile
+  checkForZombieState()
 
   // Initialize encryption service if Matrix client is ready
   initializeEncryptionService()
@@ -1648,6 +1662,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  isUnmounted = true
+
   // Clean up event listeners
   if (encryptionResetListener) {
     window.removeEventListener('matrix-encryption-reset', encryptionResetListener as (event: Event) => void)
