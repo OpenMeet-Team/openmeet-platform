@@ -135,6 +135,17 @@
         <MatrixConnectionStatus :show-text="true" :show-tooltip="true" class="q-mb-md" />
         <q-spinner size="2rem" />
         <p class="text-body2 q-mt-sm">Loading chat room...</p>
+        <div v-if="restoreIsSlow" class="q-mt-md">
+          <p class="text-body2">Chat is taking longer than usual to connect.</p>
+          <q-btn
+            flat
+            no-caps
+            color="primary"
+            label="Reload page"
+            data-cy="matrix-slow-restore-reload"
+            @click="reloadPage"
+          />
+        </div>
       </div>
     </template>
 
@@ -1408,24 +1419,57 @@ const showPassphraseDialog = async (isUnlock = false) => {
   })
 }
 
+let isUnmounted = false
+
+// How long the startup restore may run before chat offers a reload instead of only a spinner
+const SLOW_RESTORE_MS = 15000
+const restoreIsSlow = ref(false)
+
+const reloadPage = () => {
+  window.location.reload()
+}
+
+// Check for zombie state: stored tokens but no working client.
+// Only judge once any in-flight session restore has settled. On page load the restore runs
+// in the background, and chat can mount before it has created the client. Judging early
+// showed "Connect to Matrix" for a valid session and reset the restore halfway through.
+const checkForZombieState = async () => {
+  // Some restore requests have no timeout, so a stuck one can keep the restore from settling.
+  // Offer a reload rather than spin forever, but clear nothing: the restore may still finish.
+  const slowRestoreTimer = setTimeout(() => {
+    if (!isUnmounted) {
+      restoreIsSlow.value = true
+    }
+  }, SLOW_RESTORE_MS)
+
+  await matrixClientManager.waitForStartupRestore()
+
+  clearTimeout(slowRestoreTimer)
+  restoreIsSlow.value = false
+
+  if (isUnmounted || !authStore.isInitialized || !authStore.user?.slug) {
+    return
+  }
+
+  const hasStoredTokens = hasStoredMatrixTokens(authStore.user.slug)
+  const hasWorkingClient = matrixClientManager.getClient() !== null
+
+  if (hasStoredTokens && !hasWorkingClient) {
+    logger.debug('🧟 Detected zombie state: stored tokens but no working client')
+    hasInvalidTokens.value = true
+    // Clear invalid tokens to ensure clean state
+    await matrixClientManager.clearClientAndCredentials()
+  }
+}
+
 // Initialize
 onMounted(async () => {
   logger.debug('🏗️ Simplified MatrixNativeChatOrchestrator mounted')
   logger.debug('🔍 Props on mount:', { inlineRoomId: props.inlineRoomId, contextType: props.contextType, mode: props.mode })
   logger.debug('🔍 Debug state:', debugState.value)
 
-  // Check for zombie state: stored tokens but no working client
-  if (authStore.isInitialized && authStore.user?.slug) {
-    const hasStoredTokens = hasStoredMatrixTokens(authStore.user.slug)
-    const hasWorkingClient = matrixClientManager.getClient() !== null
-
-    if (hasStoredTokens && !hasWorkingClient) {
-      logger.debug('🧟 Detected zombie state: stored tokens but no working client')
-      hasInvalidTokens.value = true
-      // Clear invalid tokens to ensure clean state
-      await matrixClientManager.clearClientAndCredentials()
-    }
-  }
+  // Not awaited: the restore can take seconds, and the listeners below must be in place meanwhile
+  checkForZombieState()
 
   // Initialize encryption service if Matrix client is ready
   initializeEncryptionService()
@@ -1648,6 +1692,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  isUnmounted = true
+
   // Clean up event listeners
   if (encryptionResetListener) {
     window.removeEventListener('matrix-encryption-reset', encryptionResetListener as (event: Event) => void)

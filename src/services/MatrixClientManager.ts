@@ -220,6 +220,9 @@ export class MatrixClientManager {
   private client: MatrixClient | null = null
   private isInitializing = false
   private initPromise: Promise<MatrixClient> | null = null
+  // App-startup session restore in flight (see initializeClientWhenReady / waitForStartupRestore)
+  private startupRestorePromise: Promise<MatrixClient | null> | null = null
+  private startupRestoreUserSlug: string | null = null
   private isStarted = false
   private isShuttingDown = false
   private eventListenersSetup = false
@@ -244,6 +247,8 @@ export class MatrixClientManager {
   // Per-tab device ID management
   private deviceLockAcquired = false
   private claimedDeviceId: string | null = null
+  // In-flight device claim, shared by concurrent callers in this tab (see getStoredDeviceId)
+  private deviceIdClaim: Promise<string | null> | null = null
 
   public static getInstance (): MatrixClientManager {
     if (!MatrixClientManager.instance) {
@@ -433,8 +438,51 @@ export class MatrixClientManager {
   /**
    * Initialize Matrix client automatically after auth store is ready
    * This should be called during app startup to restore sessions
+   * Concurrent calls share one restore; components wait on it via waitForStartupRestore()
    */
-  public async initializeClientWhenReady (): Promise<MatrixClient | null> {
+  public initializeClientWhenReady (): Promise<MatrixClient | null> {
+    // Only share a restore that belongs to the user signed in now
+    const userSlug = useAuthStore().getUserSlug || null
+    if (!this.startupRestorePromise || this.startupRestoreUserSlug !== userSlug) {
+      const restore: Promise<MatrixClient | null> = this.restoreSessionOnStartup().finally(() => {
+        // A restore that was abandoned or replaced must not clear the one that replaced it
+        if (this.startupRestorePromise === restore) {
+          this.abandonStartupRestore()
+        }
+      })
+      this.startupRestorePromise = restore
+      this.startupRestoreUserSlug = userSlug
+    }
+    return this.startupRestorePromise
+  }
+
+  /**
+   * Stop sharing the in-flight startup restore, so the next initializeClientWhenReady() starts
+   * a new one. Called on logout: logout stays in the app (no page reload), so a restore still
+   * running for the previous login would otherwise be handed to the next login.
+   * This does not cancel the restore itself.
+   */
+  public abandonStartupRestore (): void {
+    this.startupRestorePromise = null
+    this.startupRestoreUserSlug = null
+  }
+
+  /**
+   * Resolves once any in-flight session restore has settled, whether or not it succeeded.
+   * Components must wait on this before deciding stored tokens are unusable: on page load
+   * the restore runs in the background, so a chat that mounts first sees "tokens but no client"
+   * even though the client is moments away.
+   */
+  public async waitForStartupRestore (): Promise<void> {
+    if (this.startupRestorePromise) {
+      await this.startupRestorePromise.catch(() => {})
+    }
+    if (this.isInitializing && this.initPromise) {
+      await this.initPromise.catch(() => {})
+    }
+  }
+
+  private async restoreSessionOnStartup (): Promise<MatrixClient | null> {
     // Set initializing flag to prevent components from showing "Connect" too early
     this.isInitializing = true
     logger.debug('📱 Starting app startup Matrix client initialization...')
@@ -2023,8 +2071,21 @@ export class MatrixClientManager {
   /**
    * Get stored device ID for a user with per-tab device claiming
    * Device IDs should only come from Matrix server or previous storage, never generated client-side
+   *
+   * Concurrent callers in this tab share one claim. Web Locks are not re-entrant, so a second
+   * independent claim would find this tab's own primary/pool lock "taken" and fall through to
+   * the pool or a brand-new device, which forces a full Matrix sign-in for a session that was fine.
    */
-  private async getStoredDeviceId (): Promise<string | null> {
+  private getStoredDeviceId (): Promise<string | null> {
+    if (!this.deviceIdClaim) {
+      this.deviceIdClaim = this.claimStoredDeviceId().finally(() => {
+        this.deviceIdClaim = null
+      })
+    }
+    return this.deviceIdClaim
+  }
+
+  private async claimStoredDeviceId (): Promise<string | null> {
     try {
       // OPTIMIZATION: Return cached device ID if already claimed
       // This prevents repeated lock acquisition attempts when initializeClient() is called multiple times

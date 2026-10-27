@@ -13,6 +13,7 @@ import {
 } from '../types'
 import analyticsService from '../services/analyticsService'
 import { matrixClientManager } from '../services/MatrixClientManager'
+import { hasStoredMatrixTokens } from '../utils/matrixTokenUtils'
 import { logger } from '../utils/logger'
 
 export const useAuthStore = defineStore('authStore', {
@@ -150,6 +151,8 @@ export const useAuthStore = defineStore('authStore', {
         // This allows auto-reconnect on next login without re-consenting to MAS auth
         // Matrix tokens are only cleared when user explicitly clicks "Clear Matrix Sessions"
         try {
+          // Logout stays in the app, so the next login must not reuse a restore still running for this one
+          matrixClientManager.abandonStartupRestore()
           await matrixClientManager.clearClient()
         } catch (error) {
           logger.warn('Failed to stop Matrix client during logout:', error)
@@ -207,7 +210,8 @@ export const useAuthStore = defineStore('authStore', {
 
       try {
         // Check if Matrix tokens exist for this user
-        const { hasStoredMatrixTokens } = await import('../utils/matrixTokenUtils')
+        // Synchronous (static import) so the restore has started before initializeAuth reports
+        // isInitialized. Chat components rely on waitForStartupRestore() seeing it.
         if (!hasStoredMatrixTokens(this.user.slug)) {
           logger.debug('📱 No stored Matrix tokens found for user after login')
           return
