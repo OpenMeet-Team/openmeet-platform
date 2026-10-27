@@ -18,6 +18,15 @@ vi.mock('../../../../src/stores/auth-store', () => ({
 }))
 
 const { matrixClientManager } = await import('../../../../src/services/MatrixClientManager')
+const { useAuthStore } = await import('../../../../src/stores/auth-store')
+
+const signedInAs = (userSlug: string) => {
+  vi.mocked(useAuthStore).mockReturnValue({
+    getUserSlug: userSlug,
+    isInitialized: true,
+    waitForInitialization: async () => {}
+  } as unknown as ReturnType<typeof useAuthStore>)
+}
 
 function deferred<T> () {
   let resolve!: (value: T) => void
@@ -28,7 +37,10 @@ function deferred<T> () {
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 
 afterEach(() => {
+  // Drop any restore a test left pending so it can't leak into the next test
+  matrixClientManager.abandonStartupRestore()
   vi.restoreAllMocks()
+  signedInAs('test-user-slug')
 })
 
 describe('MatrixClientManager - startup session restore', () => {
@@ -74,5 +86,54 @@ describe('MatrixClientManager - startup session restore', () => {
     await Promise.all([first, second])
 
     expect(initializeClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts a new restore after logout instead of reusing the abandoned one', async () => {
+    // Logout stays in the app (no page reload), so a restore still running from the
+    // previous login must not be handed to the next login, even for the same user.
+    const abandoned = deferred<MatrixClient | null>()
+    const fresh = deferred<MatrixClient | null>()
+    const client = {} as MatrixClient
+    const initializeClient = vi.spyOn(matrixClientManager, 'initializeClient')
+      .mockReturnValueOnce(abandoned.promise)
+      .mockReturnValueOnce(fresh.promise)
+
+    const beforeLogout = matrixClientManager.initializeClientWhenReady()
+    matrixClientManager.abandonStartupRestore()
+    const afterLogin = matrixClientManager.initializeClientWhenReady()
+
+    expect(initializeClient).toHaveBeenCalledTimes(2)
+
+    // The abandoned restore finishing first must not end the wait for the new one
+    abandoned.resolve(null)
+    await beforeLogout
+    let settled = false
+    const waiting = matrixClientManager.waitForStartupRestore().then(() => { settled = true })
+    await tick()
+    expect(settled).toBe(false)
+
+    fresh.resolve(client)
+    await expect(afterLogin).resolves.toBe(client)
+    await waiting
+    expect(settled).toBe(true)
+  })
+
+  it('does not share a restore between different users', async () => {
+    const aliceRestore = deferred<MatrixClient | null>()
+    const bobRestore = deferred<MatrixClient | null>()
+    const initializeClient = vi.spyOn(matrixClientManager, 'initializeClient')
+      .mockReturnValueOnce(aliceRestore.promise)
+      .mockReturnValueOnce(bobRestore.promise)
+
+    signedInAs('alice')
+    const forAlice = matrixClientManager.initializeClientWhenReady()
+    signedInAs('bob')
+    const forBob = matrixClientManager.initializeClientWhenReady()
+
+    expect(initializeClient).toHaveBeenCalledTimes(2)
+
+    aliceRestore.resolve(null)
+    bobRestore.resolve(null)
+    await Promise.all([forAlice, forBob])
   })
 })

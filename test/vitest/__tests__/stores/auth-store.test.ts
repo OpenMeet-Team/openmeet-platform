@@ -200,6 +200,20 @@ describe('Auth Store', () => {
     })
   })
 
+  describe('actionLogout', () => {
+    it('drops any in-flight Matrix startup restore so the next login starts its own', async () => {
+      const { matrixClientManager } = await import('../../../../src/services/MatrixClientManager')
+      const abandon = vi.spyOn(matrixClientManager, 'abandonStartupRestore')
+      vi.spyOn(matrixClientManager, 'clearClient').mockResolvedValue()
+      vi.mocked(authApi.logout).mockResolvedValue({} as Awaited<ReturnType<typeof authApi.logout>>)
+
+      const store = useAuthStore()
+      await store.actionLogout()
+
+      expect(abandon).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('waitForInitialization', () => {
     it('should resolve immediately if already initialized', async () => {
       const store = useAuthStore()

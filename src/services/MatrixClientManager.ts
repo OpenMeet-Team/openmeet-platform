@@ -222,6 +222,7 @@ export class MatrixClientManager {
   private initPromise: Promise<MatrixClient> | null = null
   // App-startup session restore in flight (see initializeClientWhenReady / waitForStartupRestore)
   private startupRestorePromise: Promise<MatrixClient | null> | null = null
+  private startupRestoreUserSlug: string | null = null
   private isStarted = false
   private isShuttingDown = false
   private eventListenersSetup = false
@@ -440,12 +441,30 @@ export class MatrixClientManager {
    * Concurrent calls share one restore; components wait on it via waitForStartupRestore()
    */
   public initializeClientWhenReady (): Promise<MatrixClient | null> {
-    if (!this.startupRestorePromise) {
-      this.startupRestorePromise = this.restoreSessionOnStartup().finally(() => {
-        this.startupRestorePromise = null
+    // Only share a restore that belongs to the user signed in now
+    const userSlug = useAuthStore().getUserSlug || null
+    if (!this.startupRestorePromise || this.startupRestoreUserSlug !== userSlug) {
+      const restore: Promise<MatrixClient | null> = this.restoreSessionOnStartup().finally(() => {
+        // A restore that was abandoned or replaced must not clear the one that replaced it
+        if (this.startupRestorePromise === restore) {
+          this.abandonStartupRestore()
+        }
       })
+      this.startupRestorePromise = restore
+      this.startupRestoreUserSlug = userSlug
     }
     return this.startupRestorePromise
+  }
+
+  /**
+   * Stop sharing the in-flight startup restore, so the next initializeClientWhenReady() starts
+   * a new one. Called on logout: logout stays in the app (no page reload), so a restore still
+   * running for the previous login would otherwise be handed to the next login.
+   * This does not cancel the restore itself.
+   */
+  public abandonStartupRestore (): void {
+    this.startupRestorePromise = null
+    this.startupRestoreUserSlug = null
   }
 
   /**

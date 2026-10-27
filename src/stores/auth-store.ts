@@ -151,6 +151,8 @@ export const useAuthStore = defineStore('authStore', {
         // This allows auto-reconnect on next login without re-consenting to MAS auth
         // Matrix tokens are only cleared when user explicitly clicks "Clear Matrix Sessions"
         try {
+          // Logout stays in the app, so the next login must not reuse a restore still running for this one
+          matrixClientManager.abandonStartupRestore()
           await matrixClientManager.clearClient()
         } catch (error) {
           logger.warn('Failed to stop Matrix client during logout:', error)

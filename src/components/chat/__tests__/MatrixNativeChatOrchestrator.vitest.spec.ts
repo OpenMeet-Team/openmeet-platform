@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { Quasar } from 'quasar'
 import { ref } from 'vue'
 
@@ -73,16 +73,27 @@ vi.mock('../verification/DeviceVerificationDialog.vue', () => stub('DeviceVerifi
 
 const { default: MatrixNativeChatOrchestrator } = await import('../MatrixNativeChatOrchestrator.vue')
 
-const mountOrchestrator = () => mount(MatrixNativeChatOrchestrator, {
-  props: { contextType: 'event', contextId: 'weekly-discussion', mode: 'single-room' },
-  global: { plugins: [Quasar] }
-})
+const mounted: VueWrapper[] = []
+const mountOrchestrator = () => {
+  const wrapper = mount(MatrixNativeChatOrchestrator, {
+    props: { contextType: 'event', contextId: 'weekly-discussion', mode: 'single-room' },
+    global: { plugins: [Quasar] }
+  })
+  mounted.push(wrapper)
+  return wrapper
+}
 
 describe('MatrixNativeChatOrchestrator - stored session check on mount', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     startupRestore = deferred()
     mockMatrixClientManager.getClient.mockReturnValue(null)
+  })
+
+  afterEach(() => {
+    // Unmount so each test's window listeners are removed
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    vi.useRealTimers()
   })
 
   it('does not offer "Connect to Matrix" while the startup restore is still running', async () => {
@@ -114,5 +125,39 @@ describe('MatrixNativeChatOrchestrator - stored session check on mount', () => {
 
     expect(wrapper.text()).toContain('Connect to Matrix')
     expect(mockMatrixClientManager.clearClientAndCredentials).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not touch the shared client if it unmounts before the restore settles', async () => {
+    const wrapper = mountOrchestrator()
+    await flushPromises()
+
+    wrapper.unmount()
+    mounted.splice(mounted.indexOf(wrapper), 1)
+    startupRestore.resolve()
+    await flushPromises()
+
+    expect(mockMatrixClientManager.clearClientAndCredentials).not.toHaveBeenCalled()
+  })
+
+  it('offers a reload when the restore is taking a long time, without clearing anything', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountOrchestrator()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('taking longer than usual')
+
+    await vi.advanceTimersByTimeAsync(15000)
+
+    expect(wrapper.text()).toContain('taking longer than usual')
+    expect(wrapper.find('[data-cy="matrix-slow-restore-reload"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Connect to Matrix')
+    expect(mockMatrixClientManager.clearClientAndCredentials).not.toHaveBeenCalled()
+
+    // The restore finishing late still brings the chat up normally
+    mockMatrixClientManager.getClient.mockReturnValue(mockClient)
+    startupRestore.resolve()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('taking longer than usual')
+    expect(wrapper.text()).not.toContain('Connect to Matrix')
   })
 })
